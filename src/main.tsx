@@ -1021,16 +1021,19 @@ async function run(): Promise<CommanderCommand> {
       process.env.CLAUDE_CODE_SIMPLE = '1';
     }
 
-    // Ignore "code" as a prompt - treat it the same as no prompt
-    if (prompt === 'code') {
-      logEvent('tengu_code_prompt_ignored', {});
-      // biome-ignore lint/suspicious/noConsole:: intentional console output
-      console.warn(chalk.yellow('Tip: You can launch Fusion-Code with just `fusion-code`'));
-      prompt = undefined;
-    }
+    // biome-ignore lint/suspicious/noConsole:: intentional debug output
+         // Ignore "code" as a prompt - treat it the same as no prompt
+         if (prompt === 'code') {
+           logEvent('tengu_code_prompt_ignored', {});
+           // biome-ignore lint/suspicious/noConsole:: intentional console output
+           console.warn(chalk.yellow('Tip: You can launch Fusion-Code with just `fusion-code`'));
+           prompt = undefined;
+         }
 
-    // Log event for any single-word prompt
-    if (prompt && typeof prompt === 'string' && !/\s/.test(prompt) && prompt.length > 0) {
+         // biome-ignore lint/suspicious/noConsole:: intentional debug output
+
+         // Log event for any single-word prompt
+         if (prompt && typeof prompt === 'string' && !/\s/.test(prompt) && prompt.length > 0) {
       logEvent('tengu_single_word_prompt', {
         length: prompt.length
       });
@@ -1111,6 +1114,8 @@ async function run(): Promise<CommanderCommand> {
       includeHookEvents,
       includePartialMessages
     } = options;
+    // biome-ignore lint/suspicious/noConsole:: intentional debug
+    // biome-ignore lint/suspicious/noConsole:: intentional debug
     if (options.prefill) {
       seedEarlyInput(options.prefill);
     }
@@ -1128,9 +1133,12 @@ async function run(): Promise<CommanderCommand> {
     // executing code in untrusted directories before user consent.
 
     // Extract these separately so they can be modified if needed
+    // biome-ignore lint/suspicious/noConsole:: intentional debug
     let outputFormat = options.outputFormat;
     let inputFormat = options.inputFormat;
     let verbose = options.verbose ?? getGlobalConfig().verbose;
+    // biome-ignore lint/suspicious/noConsole:: intentional debug
+    // biome-ignore lint/suspicious/noConsole:: intentional debug
     let print = options.print;
     const init = options.init ?? false;
     const initOnly = options.initOnly ?? false;
@@ -1150,11 +1158,15 @@ async function run(): Promise<CommanderCommand> {
 
     // Extract worktree option
     // worktree can be true (flag without value) or a string (custom name or PR reference)
+    // biome-ignore lint/suspicious/noConsole:: intentional debug
     const worktreeOption = isWorktreeModeEnabled() ? (options as {
       worktree?: boolean | string;
     }).worktree : undefined;
+    // biome-ignore lint/suspicious/noConsole:: intentional debug
     let worktreeName = typeof worktreeOption === 'string' ? worktreeOption : undefined;
     const worktreeEnabled = worktreeOption !== undefined;
+
+    // biome-ignore lint/suspicious/noConsole:: intentional debug
 
     // Check if worktree name is a PR reference (#N or GitHub PR URL)
     let worktreePRNumber: number | undefined;
@@ -1167,9 +1179,11 @@ async function run(): Promise<CommanderCommand> {
     }
 
     // Extract tmux option (requires --worktree)
+    // biome-ignore lint/suspicious/noConsole:: intentional debug
     const tmuxEnabled = isWorktreeModeEnabled() && (options as {
       tmux?: boolean;
     }).tmux === true;
+    // biome-ignore lint/suspicious/noConsole:: intentional debug
 
     // Validate tmux option
     if (tmuxEnabled) {
@@ -1189,8 +1203,10 @@ async function run(): Promise<CommanderCommand> {
 
     // Extract teammate options (for tmux-spawned agents)
     // Declared outside the if block so it's accessible later for system prompt addendum
+    // biome-ignore lint/suspicious/noConsole:: intentional debug
     let storedTeammateOpts: TeammateOptions | undefined;
     if (isAgentSwarmsEnabled()) {
+      // biome-ignore lint/suspicious/noConsole:: intentional debug
       // Extract agent identity options (for tmux-spawned agents)
       // These replace the CLAUDE_CODE_* environment variables
       const teammateOpts = extractTeammateOptions(options);
@@ -1222,14 +1238,19 @@ async function run(): Promise<CommanderCommand> {
         getTeammateModeSnapshot().setCliTeammateModeOverride?.(teammateOpts.teammateMode);
       }
     }
+    // biome-ignore lint/suspicious/noConsole:: intentional debug
+    // biome-ignore lint/suspicious/noConsole:: intentional debug
 
     // Extract remote sdk options
     const sdkUrl = (options as {
       sdkUrl?: string;
     }).sdkUrl ?? undefined;
+    // biome-ignore lint/suspicious/noConsole:: intentional debug
+    // biome-ignore lint/suspicious/noConsole:: intentional debug
 
     // Allow env var to enable partial messages (used by sandbox gateway for baku)
     const effectiveIncludePartialMessages = includePartialMessages || isEnvTruthy(process.env.CLAUDE_CODE_INCLUDE_PARTIAL_MESSAGES);
+    // biome-ignore lint/suspicious/noConsole:: intentional debug
 
     // Enable all hook event types when explicitly requested via SDK option
     // or when running in CLAUDE_CODE_REMOTE mode (CCR needs them).
@@ -1237,6 +1258,7 @@ async function run(): Promise<CommanderCommand> {
     if (includeHookEvents || isEnvTruthy(process.env.CLAUDE_CODE_REMOTE)) {
       setAllHookEventsEnabled(true);
     }
+    // biome-ignore lint/suspicious/noConsole:: intentional debug
 
     // Auto-set input/output formats, verbose mode, and print mode when SDK URL is provided
     if (sdkUrl) {
@@ -1256,11 +1278,13 @@ async function run(): Promise<CommanderCommand> {
         print = true;
       }
     }
+    // biome-ignore lint/suspicious/noConsole:: intentional debug
 
     // Extract teleport option
     const teleport = (options as {
       teleport?: string | true;
     }).teleport ?? null;
+    // biome-ignore lint/suspicious/noConsole:: intentional debug
 
     // Extract remote option (can be true if no description provided, or a string)
     const remoteOption = (options as {
@@ -1292,6 +1316,7 @@ async function run(): Promise<CommanderCommand> {
       // When --sdk-url is provided (bridge/remote mode), the session ID is a
       // server-assigned tagged ID (e.g. "session_local_01...") rather than a
       // UUID. Skip UUID validation and local existence checks in that case.
+      // biome-ignore lint/suspicious/noConsole:: intentional debug
       if (!sdkUrl) {
         const validatedSessionId = validateUuid(sessionId);
         if (!validatedSessionId) {
@@ -1300,12 +1325,15 @@ async function run(): Promise<CommanderCommand> {
         }
 
         // Check if session ID already exists
+        // biome-ignore lint/suspicious/noConsole:: intentional debug
         if (sessionIdExists(validatedSessionId)) {
           process.stderr.write(chalk.red(`Error: Session ID ${validatedSessionId} is already in use.\n`));
           process.exit(1);
         }
       }
     }
+    // biome-ignore lint/suspicious/noConsole:: intentional debug
+    // biome-ignore lint/suspicious/noConsole:: intentional debug
 
     // Download file resources if specified via --file flag
     const fileSpecs = (options as {
@@ -1336,8 +1364,13 @@ async function run(): Promise<CommanderCommand> {
       }
     }
 
+    // biome-ignore lint/suspicious/noConsole:: intentional debug
+
     // Get isNonInteractiveSession from state (was set before init())
     const isNonInteractiveSession = getIsNonInteractiveSession();
+    // biome-ignore lint/suspicious/noConsole:: intentional debug
+    // biome-ignore lint/suspicious/noConsole:: intentional debug
+    // biome-ignore lint/suspicious/noConsole:: intentional debug
 
     // Validate that fallback model is different from main model
     if (fallbackModel && options.model && fallbackModel === options.model) {
@@ -1481,6 +1514,7 @@ async function run(): Promise<CommanderCommand> {
         if (nonSdkConfigNames.some(isClaudeInChromeMCPServer)) {
           reservedNameError = `Invalid MCP configuration: "${CLAUDE_IN_CHROME_MCP_SERVER_NAME}" is a reserved MCP name.`;
         } else if (feature('CHICAGO_MCP')) {
+          // biome-ignore lint/suspicious/noConsole:: intentional debug
           const {
             isComputerUseMCPServer,
             COMPUTER_USE_MCP_SERVER_NAME
@@ -1747,6 +1781,8 @@ async function run(): Promise<CommanderCommand> {
       }
     }
 
+    // biome-ignore lint/suspicious/noConsole:: intentional debug
+
     // This await replaces blocking existsSync/statSync calls that were already in
     // the startup path. Wall-clock time is unchanged; we just yield to the event
     // loop during the fs I/O instead of blocking it. See #19661.
@@ -1758,6 +1794,7 @@ async function run(): Promise<CommanderCommand> {
       allowDangerouslySkipPermissions,
       addDirs: addDir
     });
+    // biome-ignore lint/suspicious/noConsole:: intentional debug
     let toolPermissionContext = initResult.toolPermissionContext;
     const {
       warnings,
@@ -1937,7 +1974,9 @@ async function run(): Promise<CommanderCommand> {
     // ~28ms setupPromise await before Promise.all joins them below.
     commandsPromise?.catch(() => {});
     agentDefsPromise?.catch(() => {});
+    // biome-ignore lint/suspicious/noConsole:: intentional debug
     await setupPromise;
+    // biome-ignore lint/suspicious/noConsole:: intentional debug
     logForDebugging(`[STARTUP] setup() completed in ${Date.now() - setupStart}ms`);
     profileCheckpoint('action_after_setup');
 
@@ -2232,7 +2271,9 @@ async function run(): Promise<CommanderCommand> {
       const {
         createRoot
       } = await import('./ink.js');
+      // biome-ignore lint/suspicious/noConsole:: intentional debug
       root = await createRoot(ctx.renderOptions);
+      // biome-ignore lint/suspicious/noConsole:: intentional debug
 
       // Log startup time now, before any blocking dialog renders. Logging
       // from REPL's first render (the old location) included however long

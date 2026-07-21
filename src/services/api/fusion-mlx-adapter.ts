@@ -119,15 +119,21 @@ export async function getRecommendedCodeModel(): Promise<string | null> {
   const models = await getFusionMlxModels()
   if (models.length === 0) return null
 
+  // 排除图片/视频生成模型（不能用于聊天）
+  const excludeKeywords = ['flux', 'skyreels', 'image', 'video', 'ltx', 'a2v', 'v2v', 'r2v', 'klein', 'txt2vid', 'img2vid', 'tts', 'whisper', 'embed', 'bge']
+  const chatModels = models.filter(m => !excludeKeywords.some(k => m.id.toLowerCase().includes(k)))
+
+  if (chatModels.length === 0) return models[0].id
+
   // 优先选择代码专用模型
-  const codeModelKeywords = ['code', 'coder', 'deepseek', 'qwen', 'codestral']
+  const codeModelKeywords = ['code', 'coder', 'deepseek', 'qwen', 'codestral', 'llama', 'mistral', 'instruct', 'chat']
   for (const keyword of codeModelKeywords) {
-    const found = models.find(m => m.id.toLowerCase().includes(keyword))
+    const found = chatModels.find(m => m.id.toLowerCase().includes(keyword))
     if (found) return found.id
   }
 
-  // 回退到第一个可用模型
-  return models[0].id
+  // 回退到第一个可用的聊天模型
+  return chatModels[0].id
 }
 
 // ─── Message Format Conversion ────────────────────────────────
@@ -553,8 +559,12 @@ export function createFusionMlxFetch(model: string): typeof globalThis.fetch {
       const mlxMessages = convertAnthropicBodyToMLX(body)
 
       const resolvedModel = body.model || model
+      // 自动检测图片/视频模型 → 切换到推荐代码模型
+      const imageModelKeywords = ['flux', 'skyreels', 'image', 'video', 'ltx', 'a2v', 'v2v', 'r2v', 'klein', 'txt2vid', 'img2vid', 'tts', 'whisper']
+      const isImageModel = imageModelKeywords.some(k => resolvedModel.toLowerCase().includes(k))
+      const finalModel = isImageModel ? (await getRecommendedCodeModel()) || resolvedModel : resolvedModel
       const mlxBody: MLXChatCompletionRequest = {
-        model: resolvedModel,
+        model: finalModel,
         messages: mlxMessages,
         temperature: body.temperature ?? 0.3,
         stream: body.stream === true,
@@ -563,7 +573,7 @@ export function createFusionMlxFetch(model: string): typeof globalThis.fetch {
           : {}),
         ...convertToolChoice(body.tool_choice),
         // 禁用推理/思考过程，防止上下文被快速填满
-        ...(resolvedModel.toLowerCase().includes('qwen3.6')
+        ...(finalModel.toLowerCase().includes('qwen3.6')
           ? { enable_thinking: false }
           : {}),
         // 限制 max_tokens 防止上下文溢出（MLX 模型输出过长会快速填满窗口）

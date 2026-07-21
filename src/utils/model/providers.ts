@@ -65,6 +65,11 @@ export function shouldAutoUseFusionMlx(): boolean {
   if (isEnvTruthy(process.env.FUSION_MLX_AUTO)) {
     return !process.env.FUSION_API_KEY
   }
+  // 检测 ANTHROPIC_BASE_URL 指向本地服务 → 自动启用 MLX 模式
+  const baseUrl = process.env.ANTHROPIC_BASE_URL || ''
+  if (baseUrl.includes('localhost') || baseUrl.includes('127.0.0.1') || baseUrl.includes('::1')) {
+    return true
+  }
   // 默认行为：无云 API 密钥时自动使用 MLX（与 getAPIProvider 保持一致）
   if (!process.env.FUSION_API_KEY) {
     return true

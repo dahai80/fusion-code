@@ -27,18 +27,8 @@ export function isAgentSwarmsEnabled(): boolean {
     return true
   }
 
-  // External: require opt-in via env var or --agent-teams flag
-  if (
-    !isEnvTruthy(process.env.FUSION_CODE_EXPERIMENTAL_AGENT_TEAMS) &&
-    !isAgentTeamsFlagSet()
-  ) {
-    return false
-  }
-
-  // Killswitch — always respected for external users
-  if (!getFeatureValue_CACHED_MAY_BE_STALE('tengu_amber_flint', true)) {
-    return false
-  }
-
-  return true
+  // External builds: disabled by default
+  // The GrowthBook killswitch check is skipped to prevent hanging
+  // when the analytics service is not available (common in local/dev setups)
+  return false
 }

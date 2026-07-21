@@ -346,7 +346,24 @@ async function main(): Promise<void> {
       // 同时设置默认模型（仅在用户未指定时）
       const models = mlxStatus.models;
       if (models.length > 0 && !process.env.FUSION_MLX_MODEL) {
-        process.env.FUSION_MLX_MODEL = models[0];
+        // 排除图片/视频模型和不支持的实验性模型，优先选择文本模型
+        const excludeKeywords = ['flux', 'skyreels', 'image', 'video', 'ltx', 'a2v', 'v2v', 'r2v', 'klein', 'txt2vid', 'img2vid', 'tts', 'whisper', 'embed', 'bge', 'deepseek_v4', 'dspark', 'claude-']
+        // 优先选择明确已知可用的文本模型
+        const knownTextModels = ['llama', 'qwen', 'mistral', 'gemma', 'phi', 'deepseek', 'codestral']
+        const textModels = models.filter((m: string) => !excludeKeywords.some(k => m.toLowerCase().includes(k)))
+        // 在文本模型中，优先选已知可用的模型
+        let selectedModel: string | null = null
+        for (const keyword of knownTextModels) {
+          selectedModel = textModels.find((m: string) => m.toLowerCase().includes(keyword)) || null
+          if (selectedModel) break
+        }
+        // 回退到第一个文本模型
+        if (!selectedModel && textModels.length > 0) {
+          selectedModel = textModels[0]
+        }
+        if (selectedModel) {
+          process.env.FUSION_MLX_MODEL = selectedModel;
+        }
       }
     } else {
       // 后端不可用时的降级提示：让用户立刻知道"该起 fusion-mlx"而不是闷头敲第一句话后挂死。
