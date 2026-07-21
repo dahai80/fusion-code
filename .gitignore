@@ -1,0 +1,21 @@
+node_modules/
+dist/
+cli
+cli-dev
+openclaw/
+
+# Bun build artifacts
+.*.bun-build
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Logs
+*.log
