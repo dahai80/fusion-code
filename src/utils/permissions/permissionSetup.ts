@@ -896,6 +896,7 @@ export async function initializeToolPermissionContext({
   const parsedAllowedToolsCli = parseToolListFromCLI(allowedToolsCli).map(
     rule => permissionRuleValueToString(permissionRuleValueFromString(rule)),
   )
+  // biome-ignore lint/suspicious/noConsole:: intentional debug
   let parsedDisallowedToolsCli = parseToolListFromCLI(disallowedToolsCli)
 
   // If base tools are specified, automatically deny all tools NOT in the base set
@@ -949,7 +950,9 @@ export async function initializeToolPermissionContext({
     !settingsDisableBypassPermissionsMode
 
   // Load all permission rules from disk
+  // biome-ignore lint/suspicious/noConsole:: intentional debug
   const rulesFromDisk = loadAllPermissionRulesFromDisk()
+  // biome-ignore lint/suspicious/noConsole:: intentional debug
   // biome-ignore lint/suspicious/noConsole:: intentional debug
 
   // Ant-only: Detect overly broad shell allow rules for all modes.
@@ -996,6 +999,7 @@ export async function initializeToolPermissionContext({
     },
     rulesFromDisk,
   )
+  // biome-ignore lint/suspicious/noConsole:: intentional debug
   // biome-ignore lint/suspicious/noConsole:: intentional debug
 
   // Add directories from settings and --add-dir

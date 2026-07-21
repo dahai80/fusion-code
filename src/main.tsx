@@ -1022,8 +1022,9 @@ async function run(): Promise<CommanderCommand> {
     }
 
     // biome-ignore lint/suspicious/noConsole:: intentional debug output
-         // Ignore "code" as a prompt - treat it the same as no prompt
-         if (prompt === 'code') {
+    // biome-ignore lint/suspicious/noConsole:: intentional debug
+    // Ignore "code" as a prompt - treat it the same as no prompt
+    if (prompt === 'code') {
            logEvent('tengu_code_prompt_ignored', {});
            // biome-ignore lint/suspicious/noConsole:: intentional console output
            console.warn(chalk.yellow('Tip: You can launch Fusion-Code with just `fusion-code`'));
@@ -1119,6 +1120,7 @@ async function run(): Promise<CommanderCommand> {
     if (options.prefill) {
       seedEarlyInput(options.prefill);
     }
+    // biome-ignore lint/suspicious/noConsole:: intentional debug
 
     // Promise for file downloads - started early, awaited before REPL renders
     let fileDownloadPromise: Promise<DownloadResult[]> | undefined;
@@ -1127,6 +1129,7 @@ async function run(): Promise<CommanderCommand> {
     if (feature('BG_SESSIONS') && agentCli) {
       process.env.CLAUDE_CODE_AGENT = agentCli;
     }
+    // biome-ignore lint/suspicious/noConsole:: intentional debug
 
     // NOTE: LSP manager initialization is intentionally deferred until after
     // the trust dialog is accepted. This prevents plugin LSP servers from
@@ -1134,15 +1137,13 @@ async function run(): Promise<CommanderCommand> {
 
     // Extract these separately so they can be modified if needed
     // biome-ignore lint/suspicious/noConsole:: intentional debug
-    let outputFormat = options.outputFormat;
-    let inputFormat = options.inputFormat;
     let verbose = options.verbose ?? getGlobalConfig().verbose;
-    // biome-ignore lint/suspicious/noConsole:: intentional debug
-    // biome-ignore lint/suspicious/noConsole:: intentional debug
     let print = options.print;
     const init = options.init ?? false;
     const initOnly = options.initOnly ?? false;
     const maintenance = options.maintenance ?? false;
+    // biome-ignore lint/suspicious/noConsole:: intentional debug
+    // biome-ignore lint/suspicious/noConsole:: intentional debug
 
     // Extract disable slash commands flag
     const disableSlashCommands = options.disableSlashCommands || false;
@@ -1205,6 +1206,7 @@ async function run(): Promise<CommanderCommand> {
     // Declared outside the if block so it's accessible later for system prompt addendum
     // biome-ignore lint/suspicious/noConsole:: intentional debug
     let storedTeammateOpts: TeammateOptions | undefined;
+    // biome-ignore lint/suspicious/noConsole:: intentional debug
     if (isAgentSwarmsEnabled()) {
       // biome-ignore lint/suspicious/noConsole:: intentional debug
       // Extract agent identity options (for tmux-spawned agents)
@@ -1239,13 +1241,11 @@ async function run(): Promise<CommanderCommand> {
       }
     }
     // biome-ignore lint/suspicious/noConsole:: intentional debug
-    // biome-ignore lint/suspicious/noConsole:: intentional debug
 
     // Extract remote sdk options
     const sdkUrl = (options as {
       sdkUrl?: string;
     }).sdkUrl ?? undefined;
-    // biome-ignore lint/suspicious/noConsole:: intentional debug
     // biome-ignore lint/suspicious/noConsole:: intentional debug
 
     // Allow env var to enable partial messages (used by sandbox gateway for baku)
@@ -1783,6 +1783,8 @@ async function run(): Promise<CommanderCommand> {
 
     // biome-ignore lint/suspicious/noConsole:: intentional debug
 
+    // biome-ignore lint/suspicious/noConsole:: intentional debug
+
     // This await replaces blocking existsSync/statSync calls that were already in
     // the startup path. Wall-clock time is unchanged; we just yield to the event
     // loop during the fs I/O instead of blocking it. See #19661.
@@ -1909,6 +1911,7 @@ async function run(): Promise<CommanderCommand> {
     // The later REPL-path maybeActivateProactive() calls are idempotent.
     maybeActivateProactive(options);
     let tools = getTools(toolPermissionContext);
+    // biome-ignore lint/suspicious/noConsole:: intentional debug
 
     // Apply coordinator mode tool filtering for headless path
     // (mirrors useMergedTools.ts filtering for REPL/interactive path)
@@ -2274,7 +2277,6 @@ async function run(): Promise<CommanderCommand> {
       // biome-ignore lint/suspicious/noConsole:: intentional debug
       root = await createRoot(ctx.renderOptions);
       // biome-ignore lint/suspicious/noConsole:: intentional debug
-
       // Log startup time now, before any blocking dialog renders. Logging
       // from REPL's first render (the old location) included however long
       // the user sat on trust/OAuth/onboarding/resume-picker — p99 was ~70s
