@@ -6,9 +6,9 @@ import { isEnvDefinedFalsy } from '../utils/envUtils.js'
 import { getAPIProvider } from '../utils/model/providers.js'
 import { getWorkload } from '../utils/workloadContext.js'
 
-const DEFAULT_PREFIX = `You are Fusion-Code, Anthropic's official CLI for Claude.`
-const AGENT_SDK_FUSION_CODE_PRESET_PREFIX = `You are Fusion-Code, Anthropic's official CLI for Claude, running within the Claude Agent SDK.`
-const AGENT_SDK_PREFIX = `You are a Claude agent, built on Anthropic's Claude Agent SDK.`
+const DEFAULT_PREFIX = `You are Fusion-Code, a local AI coding agent powered by MLX inference.`
+const AGENT_SDK_FUSION_CODE_PRESET_PREFIX = `You are Fusion-Code, a local AI coding agent powered by MLX inference, running within an agent SDK context.`
+const AGENT_SDK_PREFIX = `You are an AI agent, built on a local MLX inference engine.`
 
 const CLI_SYSPROMPT_PREFIX_VALUES = [
   DEFAULT_PREFIX,

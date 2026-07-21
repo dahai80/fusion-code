@@ -100,7 +100,7 @@ import type { OutputStyleConfig } from './outputStyles.js'
 import { CYBER_RISK_INSTRUCTION } from './cyberRiskInstruction.js'
 
 export const FUSION_CODE_DOCS_MAP_URL =
-  'https://code.fusion-mlx.com/docs/en/claude_code_docs_map.md'
+  'https://code.fusion-mlx.com/docs/en/fusion_code_docs_map.md'
 
 /**
  * Boundary marker separating static (cross-org cacheable) content from dynamic content.
@@ -115,13 +115,13 @@ export const SYSTEM_PROMPT_DYNAMIC_BOUNDARY =
   '__SYSTEM_PROMPT_DYNAMIC_BOUNDARY__'
 
 // @[MODEL LAUNCH]: Update the latest frontier model.
-const FRONTIER_MODEL_NAME = 'Claude Opus 4.6'
+const FRONTIER_MODEL_NAME = 'Local MLX Model'
 
 // @[MODEL LAUNCH]: Update the model family IDs below to the latest in each tier.
-const CLAUDE_4_5_OR_4_6_MODEL_IDS = {
-  opus: 'claude-opus-4-6',
-  sonnet: 'claude-sonnet-4-6',
-  haiku: 'claude-haiku-4-5-20251001',
+const FUSION_MLX_MODEL_IDS = {
+  coder: 'mlx-community/Qwen2.5-Coder-7B-Instruct-4bit',
+  deepseek: 'mlx-community/DeepSeek-Coder-V2-Lite-Instruct-4bit',
+  general: 'mlx-community/Mistral-Small-24B-Instruct-4bit',
 }
 
 function getHooksSection(): string {
@@ -449,7 +449,7 @@ export async function getSystemPrompt(
 ): Promise<string[]> {
   if (isEnvTruthy(process.env.FUSION_CODE_SIMPLE)) {
     return [
-      `You are Fusion-Code, Anthropic's official CLI for Claude.\n\nCWD: ${getCwd()}\nDate: ${getSessionStartDate()}`,
+      `You are Fusion-Code, an AI coding agent powered by local MLX inference.\n\nCWD: ${getCwd()}\nDate: ${getSessionStartDate()}`,
     ]
   }
 
@@ -693,13 +693,13 @@ export async function computeSimpleEnvInfo(
     knowledgeCutoffMessage,
     process.env.USER_TYPE === 'ant' && isUndercover()
       ? null
-      : `The most recent Claude model family is Claude 4.5/4.6. Model IDs — Opus 4.6: '${CLAUDE_4_5_OR_4_6_MODEL_IDS.opus}', Sonnet 4.6: '${CLAUDE_4_5_OR_4_6_MODEL_IDS.sonnet}', Haiku 4.5: '${CLAUDE_4_5_OR_4_6_MODEL_IDS.haiku}'. When building AI applications, default to the latest and most capable Claude models.`,
+      : `The recommended local MLX models are: Coder — '${FUSION_MLX_MODEL_IDS.coder}', DeepSeek — '${FUSION_MLX_MODEL_IDS.deepseek}', General — '${FUSION_MLX_MODEL_IDS.general}'. When building AI applications, default to the latest and most capable models available locally.`,
     process.env.USER_TYPE === 'ant' && isUndercover()
       ? null
-      : `Fusion-Code is available as a CLI in the terminal, desktop app (Mac/Windows), web app (claude.ai/code), and IDE extensions (VS Code, JetBrains).`,
+      : `Fusion-Code is available as a CLI in the terminal, with local AI inference powered by MLX on Apple Silicon.`,
     process.env.USER_TYPE === 'ant' && isUndercover()
       ? null
-      : `Fast mode for Fusion-Code uses the same ${FRONTIER_MODEL_NAME} model with faster output. It does NOT switch to a different model. It can be toggled with /fast.`,
+      : `Fast mode for Fusion-Code uses the same loaded model with faster generation settings. It does NOT switch to a different model. It can be toggled with /fast.`,
   ].filter(item => item !== null)
 
   return [
@@ -712,19 +712,14 @@ export async function computeSimpleEnvInfo(
 // @[MODEL LAUNCH]: Add a knowledge cutoff date for the new model.
 function getKnowledgeCutoff(modelId: string): string | null {
   const canonical = getCanonicalName(modelId)
-  if (canonical.includes('claude-sonnet-4-6')) {
-    return 'August 2025'
-  } else if (canonical.includes('claude-opus-4-6')) {
-    return 'May 2025'
-  } else if (canonical.includes('claude-opus-4-5')) {
-    return 'May 2025'
-  } else if (canonical.includes('claude-haiku-4')) {
-    return 'February 2025'
-  } else if (
-    canonical.includes('claude-opus-4') ||
-    canonical.includes('claude-sonnet-4')
-  ) {
-    return 'January 2025'
+  if (canonical.includes('qwen') || canonical.includes('Qwen')) {
+    return 'April 2025'
+  } else if (canonical.includes('deepseek') || canonical.includes('DeepSeek')) {
+    return 'March 2025'
+  } else if (canonical.includes('mistral') || canonical.includes('Mistral')) {
+    return 'March 2025'
+  } else if (canonical.includes('llama') || canonical.includes('Llama')) {
+    return 'December 2024'
   }
   return null
 }
@@ -755,7 +750,7 @@ export function getUnameSR(): string {
   return `${osType()} ${osRelease()}`
 }
 
-export const DEFAULT_AGENT_PROMPT = `You are an agent for Fusion-Code, Anthropic's official CLI for Claude. Given the user's message, you should use the tools available to complete the task. Complete the task fully—don't gold-plate, but don't leave it half-done. When you complete the task, respond with a concise report covering what was done and any key findings — the caller will relay this to the user, so it only needs the essentials.`
+export const DEFAULT_AGENT_PROMPT = `You are an agent for Fusion-Code, a local AI coding agent powered by MLX inference. Given the user's message, you should use the tools available to complete the task. Complete the task fully—don't gold-plate, but don't leave it half-done. When you complete the task, respond with a concise report covering what was done and any key findings — the caller will relay this to the user, so it only needs the essentials.`
 
 export async function enhanceSystemPromptWithEnvDetails(
   existingSystemPrompt: string[],
