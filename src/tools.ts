@@ -137,6 +137,8 @@ import type { ToolPermissionContext } from './Tool.js'
 import { getDenyRuleForTool } from './utils/permissions/permissions.js'
 import { hasEmbeddedSearchTools } from './utils/embeddedTools.js'
 import { isEnvTruthy } from './utils/envUtils.js'
+import { isFusionMlxProvider, getAPIProvider } from './utils/model/providers.js'
+import { getMainLoopModel } from './utils/model/model.js'
 import { isPowerShellToolEnabled } from './utils/shell/shellToolUtils.js'
 import { isAgentSwarmsEnabled } from './utils/agentSwarmsEnabled.js'
 import { isWorktreeModeEnabled } from './utils/worktreeModeEnabled.js'
@@ -268,6 +270,35 @@ export function filterToolsByDenyRules<
   return tools.filter(tool => !getDenyRuleForTool(permissionContext, tool))
 }
 
+const CORE_TOOLS = new Set([
+  'Bash', 'Read', 'Write', 'Edit', 'Glob', 'Grep',
+])
+const MEDIUM_TOOLS = new Set([
+  ...CORE_TOOLS,
+  'AskUserQuestion', 'TodoWrite', 'WebFetch', 'WebSearch',
+])
+const FULL_TOOLS = new Set([
+  ...MEDIUM_TOOLS,
+  'Agent', 'TaskCreate', 'TaskGet', 'TaskUpdate', 'TaskList',
+  'NotebookEdit', 'Skill', 'EnterPlanMode', 'ExitPlanMode',
+])
+
+function getMlxToolFilter(): Set<string> | null {
+  if (!isFusionMlxProvider()) return null
+  try {
+    const modelId = (getMainLoopModel() ?? '').toLowerCase()
+    if (modelId.includes('0.5b') || modelId.includes('1b') || modelId.includes('2b')) {
+      return CORE_TOOLS
+    }
+    if (modelId.includes('3b') || modelId.includes('7b') || modelId.includes('8b') || modelId.includes('9b')) {
+      return MEDIUM_TOOLS
+    }
+    return FULL_TOOLS
+  } catch {
+    return MEDIUM_TOOLS
+  }
+}
+
 export const getTools = (permissionContext: ToolPermissionContext): Tools => {
   // Simple mode: only Bash, Read, and Edit tools
   if (isEnvTruthy(process.env.FUSION_CODE_SIMPLE)) {
@@ -295,6 +326,14 @@ export const getTools = (permissionContext: ToolPermissionContext): Tools => {
       simpleTools.push(AgentTool, TaskStopTool, getSendMessageTool())
     }
     return filterToolsByDenyRules(simpleTools, permissionContext)
+  }
+
+  // MLX local mode: filter tool set based on model size (opt-in via FUSION_MLX_TOOL_FILTER)
+  const mlxToolFilter = isEnvTruthy(process.env.FUSION_MLX_TOOL_FILTER) ? getMlxToolFilter() : null
+  if (mlxToolFilter) {
+    const baseTools = getAllBaseTools().filter(tool => !specialTools.has(tool.name))
+    const filtered = baseTools.filter(tool => mlxToolFilter.has(tool.name))
+    return filterToolsByDenyRules(filtered, permissionContext)
   }
 
   // Get all base tools and filter out special tools that get added conditionally
