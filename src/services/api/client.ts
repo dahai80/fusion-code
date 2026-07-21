@@ -1,4 +1,5 @@
 import Anthropic, { type ClientOptions } from '@anthropic-ai/sdk'
+
 import { randomUUID } from 'crypto'
 import {
   computeCch,
@@ -147,15 +148,7 @@ export async function getAnthropicClient({
     defaultHeaders['x-anthropic-additional-protection'] = 'true'
   }
 
-  logForDebugging('[API:auth] OAuth token check starting')
-  await checkAndRefreshOAuthTokenIfNeeded()
-  logForDebugging('[API:auth] OAuth token check complete')
-
-  if (!isClaudeAISubscriber()) {
-    await configureApiKeyHeaders(defaultHeaders, getIsNonInteractiveSession())
-  }
-
-  // ── Fusion-MLX (local) provider — 优先检查，避免加载 AWS SDK ──
+  // ── Fusion-MLX (local) provider — skip all cloud auth ──
   if (isFusionMlxProvider()) {
     const { checkFusionMlxHealth, getRecommendedCodeModel } = await import(
       './fusion-mlx-adapter.js'
@@ -163,17 +156,12 @@ export async function getAnthropicClient({
     const status = await checkFusionMlxHealth()
     if (!status.available) {
       throw new Error(
-        'Fusion-MLX 服务不可用。请确保 fusion-mlx 正在运行（默认: http://127.0.0.1:11434）\n' +
-          '设置 FUSION_MLX_DISABLED=1 可禁用。',
+        'Fusion-MLX service unavailable. Ensure fusion-mlx is running (default: http://127.0.0.1:11434)\n' +
+          'Set FUSION_MLX_DISABLED=1 to disable.',
       )
     }
 
-    logForDebugging(
-      `[Fusion-MLX] 服务可用: version=${status.version ?? 'unknown'} models=${status.models.join(', ')}`,
-    )
-
     const fusionMlxModel = process.env.FUSION_MLX_MODEL || (await getRecommendedCodeModel()) || 'default'
-    logForDebugging(`[Fusion-MLX] 使用模型: ${fusionMlxModel}`)
 
     const { createFusionMlxFetch } = await import('./fusion-mlx-adapter.js')
     const mlxFetch = createFusionMlxFetch(fusionMlxModel)
@@ -188,6 +176,15 @@ export async function getAnthropicClient({
       ...(isDebugToStdErr() && { logger: createStderrLogger() }),
     }
     return new Anthropic(clientConfig)
+  }
+
+  // ── 云端提供商：需要 OAuth / API Key 认证 ──
+  logForDebugging('[API:auth] OAuth token check starting')
+  await checkAndRefreshOAuthTokenIfNeeded()
+  logForDebugging('[API:auth] OAuth token check complete')
+
+  if (!isClaudeAISubscriber()) {
+    await configureApiKeyHeaders(defaultHeaders, getIsNonInteractiveSession())
   }
 
   const resolvedFetch = buildFetch(fetchOverride, source)

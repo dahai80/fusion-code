@@ -9,6 +9,7 @@
  */
 
 import { randomUUID } from 'crypto'
+
 import { cleanToolList, validateToolCall } from './fusion-mlx-tool-validator.js'
 import { logForDebugging } from '../../utils/debug.js'
 import { isEnvTruthy } from '../../utils/envUtils.js'
@@ -558,7 +559,8 @@ export function createFusionMlxFetch(model: string): typeof globalThis.fetch {
       // 将 Anthropic 格式转换为 MLX 格式
       const mlxMessages = convertAnthropicBodyToMLX(body)
 
-      const resolvedModel = body.model || model
+      // MLX 模式：始终用 adapter 模型覆盖，忽略 SDK 传的 model（可能是 claude-sonnet-* 等云端模型名）
+      const resolvedModel = model
       // 自动检测图片/视频模型 → 切换到推荐代码模型
       const imageModelKeywords = ['flux', 'skyreels', 'image', 'video', 'ltx', 'a2v', 'v2v', 'r2v', 'klein', 'txt2vid', 'img2vid', 'tts', 'whisper']
       const isImageModel = imageModelKeywords.some(k => resolvedModel.toLowerCase().includes(k))

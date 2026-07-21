@@ -25,12 +25,16 @@
 
 import { getOauthConfig } from '../constants/oauth.js'
 import { isEnvTruthy } from './envUtils.js'
+import { isFusionMlxProvider } from './model/providers.js'
 
 let fired = false
 
 export function preconnectAnthropicApi(): void {
   if (fired) return
   fired = true
+
+  // Skip for local MLX provider — no Anthropic API needed
+  if (isFusionMlxProvider()) return
 
   // Skip if using a cloud provider — different endpoint + auth
   if (

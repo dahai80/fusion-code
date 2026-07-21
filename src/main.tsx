@@ -155,6 +155,7 @@ import { createEmptyAttributionState } from 'src/utils/commitAttribution.js';
 import { countConcurrentSessions, registerSession, updateSessionName } from 'src/utils/concurrentSessions.js';
 import { getCwd } from 'src/utils/cwd.js';
 import { logForDebugging, setHasFormattedOutput } from 'src/utils/debug.js';
+
 import { errorMessage, getErrnoCode, isENOENT, TeleportOperationError, toError } from 'src/utils/errors.js';
 import { getFsImplementation, safeResolvePath } from 'src/utils/fsOperations.js';
 import { gracefulShutdown, gracefulShutdownSync } from 'src/utils/gracefulShutdown.js';
@@ -861,6 +862,14 @@ export async function main() {
   profileCheckpoint('main_after_run');
 }
 async function getInputPrompt(prompt: string, inputFormat: 'text' | 'stream-json'): Promise<string | AsyncIterable<string>> {
+  // Fusion-MLX local mode: skip stdin peeking entirely
+  // In compiled Bun binaries, process.exit(1) in validation blocks above
+  // causes dead-code elimination that breaks subsequent code flow.
+  // When using -p with MLX, we already have the prompt - no need to wait for stdin.
+  const isMlxLocal = !isEnvTruthy(process.env.FUSION_MLX_DISABLED) && !process.env.FUSION_API_KEY;
+  if (isMlxLocal && prompt) {
+    return prompt;
+  }
   if (!process.stdin.isTTY &&
   // Input hijacking breaks MCP.
   !process.argv.includes('mcp')) {
@@ -1263,11 +1272,11 @@ async function run(): Promise<CommanderCommand> {
     // Auto-set input/output formats, verbose mode, and print mode when SDK URL is provided
     if (sdkUrl) {
       // If SDK URL is provided, automatically use stream-json formats unless explicitly set
-      if (!inputFormat) {
-        inputFormat = 'stream-json';
+      if (!(options as any).inputFormat) {
+        (options as any).inputFormat = 'stream-json';
       }
-      if (!outputFormat) {
-        outputFormat = 'stream-json';
+      if (!(options as any).outputFormat) {
+        (options as any).outputFormat = 'stream-json';
       }
       // Auto-enable verbose mode unless explicitly disabled or already set
       if (options.verbose === undefined) {
@@ -1859,48 +1868,28 @@ async function run(): Promise<CommanderCommand> {
     });
 
     // NOTE: We do NOT call prefetchAllMcpResources here - that's deferred until after trust dialog
+    // Extract format options via options object (bare variable access hangs in Bun runtime)
+    let inputFormat = (options as any).inputFormat as string | undefined;
+    let outputFormat = (options as any).outputFormat as string | undefined;
 
+    // Inline validation
     if (inputFormat && inputFormat !== 'text' && inputFormat !== 'stream-json') {
-      // biome-ignore lint/suspicious/noConsole:: intentional console output
-      console.error(`Error: Invalid input format "${inputFormat}".`);
-      process.exit(1);
+      console.error(`Error: Invalid input format "${inputFormat}".`); process.exit(1);
     }
     if (inputFormat === 'stream-json' && outputFormat !== 'stream-json') {
-      // biome-ignore lint/suspicious/noConsole:: intentional console output
-      console.error(`Error: --input-format=stream-json requires output-format=stream-json.`);
-      process.exit(1);
+      console.error(`Error: --input-format=stream-json requires output-format=stream-json.`); process.exit(1);
     }
-
-    // Validate sdkUrl is only used with appropriate formats (formats are auto-set above)
-    if (sdkUrl) {
-      if (inputFormat !== 'stream-json' || outputFormat !== 'stream-json') {
-        // biome-ignore lint/suspicious/noConsole:: intentional console output
-        console.error(`Error: --sdk-url requires both --input-format=stream-json and --output-format=stream-json.`);
-        process.exit(1);
-      }
+    if (sdkUrl && (inputFormat !== 'stream-json' || outputFormat !== 'stream-json')) {
+      console.error(`Error: --sdk-url requires both --input-format=stream-json and --output-format=stream-json.`); process.exit(1);
     }
-
-    // Validate replayUserMessages is only used with stream-json formats
-    if (options.replayUserMessages) {
-      if (inputFormat !== 'stream-json' || outputFormat !== 'stream-json') {
-        // biome-ignore lint/suspicious/noConsole:: intentional console output
-        console.error(`Error: --replay-user-messages requires both --input-format=stream-json and --output-format=stream-json.`);
-        process.exit(1);
-      }
+    if (options.replayUserMessages && (inputFormat !== 'stream-json' || outputFormat !== 'stream-json')) {
+      console.error(`Error: --replay-user-messages requires both --input-format=stream-json and --output-format=stream-json.`); process.exit(1);
     }
-
-    // Validate includePartialMessages is only used with print mode and stream-json output
-    if (effectiveIncludePartialMessages) {
-      if (!isNonInteractiveSession || outputFormat !== 'stream-json') {
-        writeToStderr(`Error: --include-partial-messages requires --print and --output-format=stream-json.`);
-        process.exit(1);
-      }
+    if (effectiveIncludePartialMessages && (!isNonInteractiveSession || outputFormat !== 'stream-json')) {
+      writeToStderr(`Error: --include-partial-messages requires --print and --output-format=stream-json.`); process.exit(1);
     }
-
-    // Validate --no-session-persistence is only used with print mode
     if (options.sessionPersistence === false && !isNonInteractiveSession) {
-      writeToStderr(`Error: --no-session-persistence can only be used with --print mode.`);
-      process.exit(1);
+      writeToStderr(`Error: --no-session-persistence can only be used with --print mode.`); process.exit(1);
     }
     const effectivePrompt = prompt || '';
     let inputPrompt = await getInputPrompt(effectivePrompt, (inputFormat ?? 'text') as 'text' | 'stream-json');
