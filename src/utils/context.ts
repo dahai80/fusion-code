@@ -13,6 +13,35 @@ export const MODEL_CONTEXT_WINDOW_DEFAULT = 200_000
 export const MLX_CONTEXT_WINDOW = 32_768
 export const MLX_MAX_OUTPUT_TOKENS = 8_192
 
+// Cache for per-model MLX context windows (populated from API)
+let mlxModelContextCache: Map<string, number> = new Map()
+
+/**
+ * Get the context window for a specific MLX model.
+ * Uses API-reported max_input_tokens when available, falls back to MLX_CONTEXT_WINDOW.
+ */
+export async function getMlxContextWindowForModel(modelId: string): Promise<number> {
+  if (mlxModelContextCache.has(modelId)) {
+    return mlxModelContextCache.get(modelId)!
+  }
+  try {
+    const { getMlxModelCapabilities } = await import('../services/api/fusion-mlx-adapter.js')
+    const caps = await getMlxModelCapabilities(modelId)
+    const ctx = caps.maxContextTokens
+    mlxModelContextCache.set(modelId, ctx)
+    return ctx
+  } catch {
+    return MLX_CONTEXT_WINDOW
+  }
+}
+
+/**
+ * Clear the MLX model context cache (call on model switch).
+ */
+export function clearMlxModelContextCache(): void {
+  mlxModelContextCache.clear()
+}
+
 // Maximum output tokens for compact operations
 export const COMPACT_MAX_OUTPUT_TOKENS = 20_000
 
@@ -57,9 +86,10 @@ export function getContextWindowForModel(
   model: string,
   betas?: string[],
 ): number {
-  // Fusion-MLX 本地模型：固定上下文窗口
+  // Fusion-MLX 本地模型：优先用缓存的真实上下文长度
   if (isFusionMlxProvider() || model.startsWith('fusion-mlx') || model === 'default') {
-    return MLX_CONTEXT_WINDOW
+    const cached = mlxModelContextCache.get(model)
+    return cached ?? MLX_CONTEXT_WINDOW
   }
 
   // Allow override via environment variable (ant-only)

@@ -9,6 +9,20 @@ external-build defines and externals. Result:
 - 54 flags bundle cleanly in this snapshot
 - 34 flags still fail to bundle
 
+Update 2026-07-23: All 34 previously-failing flags now bundle cleanly
+(`bun run ./scripts/build.ts --dev --feature-set=dev-full --feature=<all 34>`
+-> exit 0, 4001 modules, flag-gated code confirmed in binary). Fix sources:
+12 HEAD-only entry files restored (buddy, fork, force-snip, SubscribePRTool,
+PushNotificationTool, OverflowTestTool, torch, CtxInspectTool, MonitorTool,
+TerminalCaptureTool, WebBrowserTool, workflows/index); 4 files already present
+(RUN_SKILL_GENERATOR at src/skills/bundled/runSkillGenerator.ts,
+REACTIVE_COMPACT implemented in phase 8, BUILDING_CLAUDE_APPS asset
+src/claude-api/csharp/claude-api.md, TRANSCRIPT_CLASSIFIER asset
+src/utils/permissions/yolo-classifier-prompts/auto_mode_system_prompt.txt);
+remaining gaps filled in phases 4-8. The Easy/Medium/Large sections below are
+preserved as historical reconstruction notes; they no longer reflect a failing
+build.
+
 Important: "bundle cleanly" does not always mean "runtime-safe". Some flags
 still depend on optional native modules, claude.ai OAuth, GrowthBook gates, or
 externalized `@ant/*` packages.
@@ -18,11 +32,11 @@ externalized `@ant/*` packages.
 - `bun run build`
   Builds the regular external binary at `./cli`.
 - `bun run compile`
-  Builds the regular external binary at `./dist/cli`.
+  Builds the regular external binary at `./dist/fusion-code`.
 - `bun run build:dev`
-  Builds `./cli-dev` with a dev-stamped version and experimental GrowthBook key.
+  Builds `./fusion-code-dev` with a dev-stamped version and experimental GrowthBook key.
 - `bun run build:dev:full`
-  Builds `./cli-dev` with the entire current "Working Experimental Features"
+  Builds `./fusion-code-dev` with the entire current "Working Experimental Features"
   bundle from this document, minus `CHICAGO_MCP`. That flag still compiles,
   but the external binary does not boot cleanly with it because startup
   reaches the missing `@ant/computer-use-mcp` runtime package.

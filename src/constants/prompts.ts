@@ -44,6 +44,8 @@ import {
   getScratchpadDir,
 } from '../utils/permissions/filesystem.js'
 import { isEnvTruthy } from '../utils/envUtils.js'
+import { getCompactProjectContext, getProjectContextSection } from '../utils/projectContext.js'
+import { buildMlxSystemPrompt } from './mlx-system-prompt.js'
 import { isReplModeEnabled } from '../tools/REPLTool/constants.js'
 import { feature } from 'bun:bundle'
 import { getFeatureValue_CACHED_MAY_BE_STALE } from 'src/services/analytics/growthbook.js'
@@ -54,7 +56,8 @@ import {
   DANGEROUS_uncachedSystemPromptSection,
   resolveSystemPromptSections,
 } from './systemPromptSections.js'
-import { SLEEP_TOOL_NAME } from '../tools/SleepTool/prompt.js'
+// Cloud-only tool stub (directory removed)
+const SLEEP_TOOL_NAME = 'Sleep'
 import { TICK_TAG } from './xml.js'
 import { logForDebugging } from '../utils/debug.js'
 import { loadMemoryPrompt } from '../memdir/memdir.js'
@@ -406,64 +409,7 @@ async function getMlxSystemPrompt(
   model: string,
   additionalWorkingDirectories?: string[],
 ): Promise<string[]> {
-  const paramCount = estimateModelParamCount(model)
-  const cwd = getCwd()
-  const [isGit, unameSR] = await Promise.all([getIsGit(), getUnameSR()])
-  const memoryPrompt = await loadMemoryPrompt()
-
-  const enabledTools = new Set(tools.map(_ => _.name))
-
-  // Core tools always shown
-  const toolHints = [
-    enabledTools.has(FILE_READ_TOOL_NAME) ? `Read files: ${FILE_READ_TOOL_NAME}` : null,
-    enabledTools.has(FILE_WRITE_TOOL_NAME) ? `Write files: ${FILE_WRITE_TOOL_NAME}` : null,
-    enabledTools.has(FILE_EDIT_TOOL_NAME) ? `Edit files: ${FILE_EDIT_TOOL_NAME}` : null,
-    enabledTools.has(GLOB_TOOL_NAME) ? `Find files: ${GLOB_TOOL_NAME}` : null,
-    enabledTools.has(GREP_TOOL_NAME) ? `Search content: ${GREP_TOOL_NAME}` : null,
-    enabledTools.has(BASH_TOOL_NAME) ? `Run commands: ${BASH_TOOL_NAME}` : null,
-  ].filter(Boolean).join(', ')
-
-  const envSection = `# Environment
- - Working directory: ${cwd}
- - Is a git repository: ${isGit ? 'Yes' : 'No'}
- - Platform: ${env.platform}
- - Shell: ${process.env.SHELL?.includes('zsh') ? 'zsh' : process.env.SHELL?.includes('bash') ? 'bash' : process.env.SHELL || 'unknown'}
- - OS Version: ${unameSR}
- - Model: ${model}`
-
-  const baseInstructions = `# Instructions
- - You are Fusion-Code, a local AI coding agent. Help users with software engineering tasks.
- - All text you output is shown to the user. Use GitHub-flavored markdown.
- - Use dedicated tools over ${BASH_TOOL_NAME} when available: ${toolHints}
- - Read files before modifying them. Prefer editing over creating new files.
- - Don't add features or refactor beyond what was asked.
- - Don't add comments unless the WHY is non-obvious.
- - Be concise. Lead with the answer or action.
- - For risky actions (deleting files, pushing code), check with the user first.
- - If an approach fails, diagnose before switching tactics.
- - Verify your work actually works before reporting completion.
- - You can call multiple independent tools in parallel.`
-
-  // Larger models get more context
-  const sections: (string | null)[] = [
-    envSection,
-    baseInstructions,
-    memoryPrompt,
-  ]
-
-  if (paramCount >= 14) {
-    sections.push(`# Code style
- - Don't add error handling for impossible scenarios. Only validate at system boundaries.
- - Don't create abstractions for one-time operations. Three similar lines > premature abstraction.
- - Avoid backwards-compatibility hacks. Delete unused code completely.
- - Report outcomes faithfully: if tests fail, say so. If unverified, say that.`)
-  }
-
-  if (paramCount >= 32) {
-    sections.push(getActionsSection())
-  }
-
-  return sections.filter((s): s is string => s !== null)
+  return buildMlxSystemPrompt(tools, model, additionalWorkingDirectories)
 }
 
 export async function getSystemPrompt(
@@ -526,6 +472,9 @@ export async function getSystemPrompt(
 
     systemPromptSection('env_info_simple', () =>
       computeSimpleEnvInfo(model, additionalWorkingDirectories),
+    ),
+    systemPromptSection('project_context', () =>
+      getProjectContextSection(getCwd()),
     ),
     systemPromptSection('language', () =>
       getLanguageSection(settings.language),

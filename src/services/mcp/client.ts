@@ -21,6 +21,7 @@ import {
 } from '@modelcontextprotocol/sdk/shared/transport.js'
 import {
   CallToolResultSchema,
+  CreateMessageRequestSchema,
   ElicitRequestSchema,
   type ElicitRequestURLParams,
   type ElicitResult,
@@ -41,6 +42,8 @@ import memoize from 'lodash-es/memoize.js'
 import zipObject from 'lodash-es/zipObject.js'
 import pMap from 'p-map'
 import { getOriginalCwd, getSessionId } from '../../bootstrap/state.js'
+import { getMainLoopModel } from '../../utils/model/model.js'
+import { sideQuery } from '../../utils/sideQuery.js'
 import type { Command } from '../../commands.js'
 import { getOauthConfig } from '../../constants/oauth.js'
 import { PRODUCT_URL } from '../../constants/product.js'
@@ -111,7 +114,10 @@ import {
 } from './elicitationHandler.js'
 import { buildMcpToolName } from './mcpStringUtils.js'
 import { normalizeNameForMCP } from './normalization.js'
-import { getLoggingSafeMcpBaseUrl } from './utils.js'
+import {
+  filterMcpToolsByConfig,
+  getLoggingSafeMcpBaseUrl,
+} from './utils.js'
 
 /* eslint-disable @typescript-eslint/no-require-imports */
 const fetchMcpSkillsForClient = feature('MCP_SKILLS')
@@ -206,9 +212,14 @@ export function isMcpSessionExpiredError(error: Error): boolean {
 }
 
 /**
- * Default timeout for MCP tool calls (effectively infinite - ~27.8 hours).
+ * Default timeout for MCP tool calls (5 minutes).
  */
-const DEFAULT_MCP_TOOL_TIMEOUT_MS = 100_000_000
+const DEFAULT_MCP_TOOL_TIMEOUT_MS = 300000
+
+/**
+ * Warning threshold for MCP tool timeouts (10 minutes).
+ */
+const MCP_TOOL_TIMEOUT_WARN_MS = 600000
 
 /**
  * Cap on MCP tool descriptions and server instructions sent to the model.
@@ -219,13 +230,20 @@ const MAX_MCP_DESCRIPTION_LENGTH = 2048
 
 /**
  * Gets the timeout for MCP tool calls in milliseconds.
- * Uses MCP_TOOL_TIMEOUT environment variable if set, otherwise defaults to ~27.8 hours.
+ * Uses MCP_TOOL_TIMEOUT environment variable if set, otherwise defaults to 5 minutes.
+ * Warns if timeout exceeds 10 minutes.
  */
 function getMcpToolTimeoutMs(): number {
-  return (
-    parseInt(process.env.MCP_TOOL_TIMEOUT || '', 10) ||
-    DEFAULT_MCP_TOOL_TIMEOUT_MS
-  )
+    const timeout =
+        parseInt(process.env.MCP_TOOL_TIMEOUT || '', 10) ||
+        DEFAULT_MCP_TOOL_TIMEOUT_MS
+    if (timeout > MCP_TOOL_TIMEOUT_WARN_MS) {
+        logForDebugging(
+            `MCP tool timeout is ${timeout}ms (${Math.round(timeout / 60000)} minutes) - consider lowering MCP_TOOL_TIMEOUT`,
+            { level: 'warn' },
+        )
+    }
+    return timeout
 }
 
 import { isClaudeInChromeMCPServer } from '../../utils/claudeInChrome/common.js'
@@ -995,6 +1013,10 @@ export const connectToServer = memoize(
         {
           capabilities: {
             roots: {},
+            // Declares sampling capability. Servers may call createMessage
+            // (sampling/createMessage) to request LLM generation. Routed to
+            // sideQuery with the current main-loop model.
+            sampling: {},
             // Empty object declares the capability. Sending {form:{},url:{}}
             // breaks Java MCP SDK servers (Spring AI) whose Elicitation class
             // has zero fields and fails on unknown properties.
@@ -1016,6 +1038,52 @@ export const connectToServer = memoize(
               uri: `file://${getOriginalCwd()}`,
             },
           ],
+        }
+      })
+
+      // sampling/createMessage: server requests LLM generation. Route to
+      // sideQuery using the current main-loop model so sampling works with
+      // whatever provider the user has configured (cloud or local).
+      client.setRequestHandler(CreateMessageRequestSchema, async request => {
+        const {
+          messages,
+          maxTokens,
+          systemPrompt,
+          temperature,
+          stopSequences,
+        } = request.params
+        logMCPDebug(
+          name,
+          `Received sampling/createMessage request: ${messages?.length ?? 0} message(s)`,
+        )
+        try {
+          const result = await sideQuery({
+            model: getMainLoopModel(),
+            system: systemPrompt,
+            messages: (messages ?? []) as unknown as MessageParam[],
+            max_tokens: maxTokens,
+            temperature,
+            stop_sequences: stopSequences,
+            querySource: 'session_search',
+          })
+          const textBlock = result.content.find(b => b.type === 'text')
+          logMCPDebug(
+            name,
+            `sampling/createMessage completed: stop=${result.stop_reason}`,
+          )
+          return {
+            role: 'assistant' as const,
+            content: {
+              type: 'text' as const,
+              text: textBlock?.text ?? '',
+            },
+            model: result.model,
+            stopReason:
+              result.stop_reason === 'max_tokens' ? 'maxTokens' : 'endTurn',
+          }
+        } catch (error) {
+          logMCPDebug(name, `sampling/createMessage failed: ${String(error)}`)
+          throw error
         }
       })
 
@@ -2194,7 +2262,7 @@ export async function reconnectMcpServerImpl(
 
     return {
       client,
-      tools: [...tools, ...resourceTools],
+      tools: [...filterMcpToolsByConfig(tools, config), ...resourceTools],
       commands,
       resources: resources.length > 0 ? resources : undefined,
     }
@@ -2367,7 +2435,7 @@ export async function getMcpToolsCommandsAndResources(
 
       onConnectionAttempt({
         client,
-        tools: [...tools, ...resourceTools],
+        tools: [...filterMcpToolsByConfig(tools, config), ...resourceTools],
         commands,
         resources: resources.length > 0 ? resources : undefined,
       })

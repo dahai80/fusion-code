@@ -5,7 +5,8 @@ import { MCPReconnect } from '../../components/mcp/MCPReconnect.js';
 import { useMcpToggleEnabled } from '../../services/mcp/MCPConnectionManager.js';
 import { useAppState } from '../../state/AppState.js';
 import type { LocalJSXCommandOnDone } from '../../types/command.js';
-import { PluginSettings } from '../plugin/PluginSettings.js';
+// PluginSettings removed - cloud-only. Stub for ant-only branch that never runs:
+const PluginSettings = (_props: any) => null as any;
 
 // TODO: This is a hack to get the context value from toggleMcpServer (useContext only works in a component)
 // Ideally, all MCP state and functions would be in global state.

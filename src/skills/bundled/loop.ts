@@ -1,9 +1,8 @@
-import {
-  CRON_CREATE_TOOL_NAME,
-  CRON_DELETE_TOOL_NAME,
-  DEFAULT_MAX_AGE_DAYS,
-  isKairosCronEnabled,
-} from '../../tools/ScheduleCronTool/prompt.js'
+// Cloud-only tool stubs (directory removed)
+const CRON_CREATE_TOOL_NAME = 'CronCreate'
+const CRON_DELETE_TOOL_NAME = 'CronDelete'
+const DEFAULT_MAX_AGE_DAYS = 7
+const isKairosCronEnabled = (): boolean => true
 import { registerBundledSkill } from '../bundledSkills.js'
 
 const DEFAULT_INTERVAL = '10m'

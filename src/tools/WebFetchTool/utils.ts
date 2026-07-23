@@ -1,4 +1,5 @@
 import axios, { type AxiosResponse } from 'axios'
+import dns from 'dns'
 import { LRUCache } from 'lru-cache'
 import {
   type AnalyticsMetadata_I_VERIFIED_THIS_IS_NOT_CODE_OR_FILEPATHS,
@@ -136,6 +137,43 @@ export function isPreapprovedUrl(url: string): boolean {
   }
 }
 
+const BLOCKED_PRIVATE_HOSTNAMES = new Set([
+    'localhost',
+    'localhost.localdomain',
+    'ip6-localhost',
+    'ip6-loopback',
+    'metadata.google.internal',
+    'metadata.azure.com',
+])
+
+const BLOCKED_IP_PATTERNS: RegExp[] = [
+    /^127\./,                           // IPv4 loopback
+    /^10\./,                             // RFC 1918 (10.0.0.0/8)
+    /^172\.(1[6-9]|2[0-9]|3[01])\./,    // RFC 1918 (172.16.0.0/12)
+    /^192\.168\./,                       // RFC 1918 (192.168.0.0/16)
+    /^169\.254\./,                       // Link-local (169.254.0.0/16)
+    /^0\./,                              // 0.0.0.0/8
+    /^100\.(6[4-9]|[7-9]\d|1[01]\d|12[0-7])\./, // RFC 6598 CGN (100.64.0.0/10)
+    /^198\.1[89]\./,                     // RFC 5737 benchmarking
+    /^::1$/,                             // IPv6 loopback
+    /^fe80:/i,                           // IPv6 link-local
+    /^fc00:/i,                           // IPv6 ULA
+    /^fd:/i,                             // IPv6 ULA (fd00::/8)
+    /^::$/,                              // IPv6 unspecified
+]
+
+function isPrivateOrReservedIP(hostname: string): boolean {
+    if (BLOCKED_PRIVATE_HOSTNAMES.has(hostname.toLowerCase())) {
+        return true
+    }
+    for (const pattern of BLOCKED_IP_PATTERNS) {
+        if (pattern.test(hostname)) {
+            return true
+        }
+    }
+    return false
+}
+
 export function validateURL(url: string): boolean {
   if (url.length > MAX_URL_LENGTH) {
     return false
@@ -157,9 +195,14 @@ export function validateURL(url: string): boolean {
     return false
   }
 
+  // Block private/reserved IP addresses and internal hostnames to prevent SSRF
+  const hostname = parsed.hostname
+  if (isPrivateOrReservedIP(hostname)) {
+    return false
+  }
+
   // Initial filter that this isn't a privileged, company-internal URL
   // by checking that the hostname is publicly resolvable
-  const hostname = parsed.hostname
   const parts = hostname.split('.')
   if (parts.length < 2) {
     return false
@@ -380,9 +423,16 @@ export async function getURLMarkdownContent(
 
     const hostname = parsedUrl.hostname
 
+    // SSRF protection: always enforce private IP blocking, even when skipWebFetchPreflight is on
+    if (isPrivateOrReservedIP(hostname)) {
+      throw new Error(`Blocked: hostname "${hostname}" is a private/reserved address (SSRF protection)`)
+    }
+
     // Check if the user has opted to skip the blocklist check
     // This is for enterprise customers with restrictive security policies
     // that prevent outbound connections to claude.ai
+    // Note: skipWebFetchPreflight only skips the external domain blocklist,
+    // NOT the local SSRF IP checks above.
     const settings = getSettings_DEPRECATED()
     if (!settings.skipWebFetchPreflight) {
       const checkResult = await checkDomainBlocklist(hostname)
@@ -412,6 +462,36 @@ export async function getURLMarkdownContent(
       throw e
     }
     logError(e)
+  }
+
+  // DNS rebinding protection: resolve hostname and verify the resolved IP
+  // is not a private/reserved address before making the actual HTTP request.
+  // This prevents attacks where a domain passes the blocklist check with a
+  // public IP but then resolves to an internal IP on the actual request.
+  try {
+    const resolvedIps = await dns.promises.resolve4(parsedUrl.hostname)
+    for (const ip of resolvedIps) {
+      if (isPrivateOrReservedIP(ip)) {
+        throw new Error(
+          `Blocked: hostname "${parsedUrl.hostname}" resolved to private/reserved IP ${ip} (DNS rebinding protection)`,
+        )
+      }
+    }
+    // Also check AAAA records
+    const resolvedIpv6s = await dns.promises.resolve6(parsedUrl.hostname).catch(() => [] as string[])
+    for (const ip of resolvedIpv6s) {
+      if (isPrivateOrReservedIP(ip)) {
+        throw new Error(
+          `Blocked: hostname "${parsedUrl.hostname}" resolved to private/reserved IP ${ip} (DNS rebinding protection)`,
+        )
+      }
+    }
+  } catch (e) {
+    if (e instanceof Error && e.message.includes('DNS rebinding protection')) {
+      throw e
+    }
+    // DNS resolution failure: let the actual request proceed —
+    // axios will handle the network error naturally
   }
 
   const response = await getWithPermittedRedirects(

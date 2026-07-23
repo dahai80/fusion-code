@@ -1,61 +1,35 @@
 <p align="center">
-  <img src="assets/screenshot.png" alt="free-code" width="720" />
+  <img src="assets/screenshot.png" alt="fusion-code" width="720" />
 </p>
 
-<h1 align="center">free-code</h1>
+<h1 align="center">fusion-code</h1>
 
 <p align="center">
-  <strong>The free build of Claude Code.</strong><br>
-  All telemetry stripped. All guardrails removed. All experimental features unlocked.<br>
+  <strong>A terminal-native AI coding agent with deep local MLX integration.</strong><br>
+  A buildable fork of Claude Code. Cloud telemetry stripped. Experimental features unlocked. Local-first.<br>
   One binary, zero callbacks home.
 </p>
 
 <p align="center">
-  <a href="#quick-install"><img src="https://img.shields.io/badge/install-one--liner-blue?style=flat-square" alt="Install" /></a>
-  <a href="https://github.com/paoloanzn/free-code/stargazers"><img src="https://img.shields.io/github/stars/paoloanzn/free-code?style=flat-square" alt="Stars" /></a>
-  <a href="https://github.com/paoloanzn/free-code/issues"><img src="https://img.shields.io/github/issues/paoloanzn/free-code?style=flat-square" alt="Issues" /></a>
-  <a href="https://github.com/paoloanzn/free-code/blob/main/FEATURES.md"><img src="https://img.shields.io/badge/features-88%20flags-orange?style=flat-square" alt="Feature Flags" /></a>
-  <a href="#ipfs-mirror"><img src="https://img.shields.io/badge/IPFS-mirrored-teal?style=flat-square" alt="IPFS" /></a>
+  <a href="#install"><img src="https://img.shields.io/badge/install-bun-blue?style=flat-square" alt="Install" /></a>
+  <a href="https://github.com/dahai80/fusion-code/stargazers"><img src="https://img.shields.io/github/stars/dahai80/fusion-code?style=flat-square" alt="Stars" /></a>
+  <a href="https://github.com/dahai80/fusion-code/issues"><img src="https://img.shields.io/github/issues/dahai80/fusion-code?style=flat-square" alt="Issues" /></a>
+  <a href="./FEATURES.md"><img src="https://img.shields.io/badge/features-88%20flags-green?style=flat-square" alt="Feature Flags" /></a>
 </p>
-
----
-
-## Quick Install
-
-```bash
-curl -fsSL https://raw.githubusercontent.com/paoloanzn/free-code/main/install.sh | bash
-```
-
-Checks your system, installs Bun if needed, clones the repo, builds with all experimental features enabled, and symlinks `free-code` on your PATH.
-
-Then run `free-code` and use the `/login` command to authenticate with your preferred model provider.
-
----
-
-## Table of Contents
-
-- [What is this](#what-is-this)
-- [Model Providers](#model-providers)
-- [Quick Install](#quick-install)
-- [Requirements](#requirements)
-- [Build](#build)
-- [Usage](#usage)
-- [Experimental Features](#experimental-features)
-- [Project Structure](#project-structure)
-- [Tech Stack](#tech-stack)
-- [IPFS Mirror](#ipfs-mirror)
-- [Contributing](#contributing)
-- [License](#license)
 
 ---
 
 ## What is this
 
-A clean, buildable fork of Anthropic's [Claude Code](https://docs.anthropic.com/en/docs/claude-code) CLI -- the terminal-native AI coding agent. The upstream source became publicly available on March 31, 2026 through a source map exposure in the npm distribution.
+fusion-code is a buildable fork of Anthropic's [Claude Code](https://docs.anthropic.com/en/docs/claude-code) CLI -- the terminal-native AI coding agent. The upstream source became publicly available on March 31, 2026 through a source map exposure in the npm distribution.
 
 This fork applies three categories of changes on top of that snapshot:
 
-### Telemetry removed
+### Local inference first
+
+Deeply integrated with [fusion-mlx](https://github.com/fusion-mlxs/fusion-mlx) local MLX inference at `127.0.0.1:11434`. When no cloud API key is set, a local model is auto-selected so data never leaves the machine. The streaming adapter suppresses `<tool_call>` markup leakage and supports prefix-cache reuse.
+
+### Cloud telemetry stripped
 
 The upstream binary phones home through OpenTelemetry/gRPC, GrowthBook analytics, Sentry error reporting, and custom event logging. In this build:
 
@@ -63,107 +37,85 @@ The upstream binary phones home through OpenTelemetry/gRPC, GrowthBook analytics
 - GrowthBook feature flag evaluation still works locally (needed for runtime feature gates) but does not report back
 - No crash reports, no usage analytics, no session fingerprinting
 
-### Security-prompt guardrails removed
-
-Anthropic injects system-level instructions into every conversation that constrain Claude's behavior beyond what the model itself enforces. These include hardcoded refusal patterns, injected "cyber risk" instruction blocks, and managed-settings security overlays pushed from Anthropic's servers.
-
-This build strips those injections. The model's own safety training still applies -- this just removes the extra layer of prompt-level restrictions that the CLI wraps around it.
-
 ### Experimental features unlocked
 
-Claude Code ships with 88 feature flags gated behind `bun:bundle` compile-time switches. Most are disabled in the public npm release. This build unlocks all 54 flags that compile cleanly. See [Experimental Features](#experimental-features) below, or refer to [FEATURES.md](FEATURES.md) for the full audit.
+Claude Code ships with 88 feature flags gated behind `bun:bundle` compile-time switches. This build unlocks all 54 flags that were already clean, plus the 34 flags that previously failed to bundle -- all 34 were fixed on 2026-07-23. See [FEATURES.md](FEATURES.md) for the full audit.
 
 ---
 
 ## Model Providers
 
-free-code supports **five API providers** out of the box. Set the corresponding environment variable to switch providers -- no code changes needed.
+fusion-code supports **six API providers** out of the box. The provider is selected by `getAPIProvider()` in `src/utils/model/providers.ts`:
 
-### Anthropic (Direct API) -- Default
+1. **fusionMlx (local, default)** -- `FUSION_MLX_ENABLED=1` or no cloud key set -> local MLX inference at `127.0.0.1:11434`
+2. **firstParty (Anthropic)** -- `FUSION_API_KEY` / `ANTHROPIC_API_KEY`
+3. **openai** -- `FUSION_CODE_USE_OPENAI=1`
+4. **foundry** -- `FUSION_CODE_USE_FOUNDRY=1`
+5. **bedrock** -- `CLAUDE_CODE_USE_BEDROCK=1`
+6. **vertex** -- `CLAUDE_CODE_USE_VERTEX=1`
 
-Use Anthropic's first-party API directly.
+Fusion-MLX auto-detection: `shouldAutoUseFusionMlx()` checks port 11434 availability and auto-selects a code-capable text model.
 
-| Model | ID |
+Model resolution priority: session override (`/model`) > `--model` flag > `FUSION_MODEL` / `FUSION_MLX_MODEL` env > saved settings.
+
+### FUSION_* env mapping
+
+`FUSION_*` env vars are mapped to `ANTHROPIC_*` at startup for SDK compatibility:
+
+| Fusion env | Anthropic equivalent |
 |---|---|
-| Claude Opus 4.6 | `claude-opus-4-6` |
-| Claude Sonnet 4.6 | `claude-sonnet-4-6` |
-| Claude Haiku 4.5 | `claude-haiku-4-5` |
+| `FUSION_API_KEY` | `ANTHROPIC_API_KEY` |
+| `FUSION_BASE_URL` | `ANTHROPIC_BASE_URL` |
+| `FUSION_AUTH_TOKEN` | `ANTHROPIC_AUTH_TOKEN` |
+| `FUSION_MODEL` | `ANTHROPIC_MODEL` |
+| `FUSION_BETAS` | `ANTHROPIC_BETAS` |
 
-### OpenAI Codex
-
-Use OpenAI's Codex models for code generation. Requires a Codex subscription.
-
-| Model | ID |
-|---|---|
-| GPT-5.3 Codex (recommended) | `gpt-5.3-codex` |
-| GPT-5.4 | `gpt-5.4` |
-| GPT-5.4 Mini | `gpt-5.4-mini` |
+### Cloud provider quick switch
 
 ```bash
-export CLAUDE_CODE_USE_OPENAI=1
-free-code
-```
+# OpenAI Codex
+export FUSION_CODE_USE_OPENAI=1
 
-### AWS Bedrock
-
-Route requests through your AWS account via Amazon Bedrock.
-
-```bash
+# AWS Bedrock
 export CLAUDE_CODE_USE_BEDROCK=1
-export AWS_REGION="us-east-1"   # or AWS_DEFAULT_REGION
-free-code
-```
+export AWS_REGION="us-east-1"
 
-Uses your standard AWS credentials (environment variables, `~/.aws/config`, or IAM role). Models are mapped to Bedrock ARN format automatically (e.g., `us.anthropic.claude-opus-4-6-v1`).
-
-| Variable | Purpose |
-|---|---|
-| `CLAUDE_CODE_USE_BEDROCK` | Enable Bedrock provider |
-| `AWS_REGION` / `AWS_DEFAULT_REGION` | AWS region (default: `us-east-1`) |
-| `ANTHROPIC_BEDROCK_BASE_URL` | Custom Bedrock endpoint |
-| `AWS_BEARER_TOKEN_BEDROCK` | Bearer token auth |
-| `CLAUDE_CODE_SKIP_BEDROCK_AUTH` | Skip auth (testing) |
-
-### Google Cloud Vertex AI
-
-Route requests through your GCP project via Vertex AI.
-
-```bash
+# Google Vertex AI
 export CLAUDE_CODE_USE_VERTEX=1
-free-code
-```
 
-Uses Google Cloud Application Default Credentials (`gcloud auth application-default login`). Models are mapped to Vertex format automatically (e.g., `claude-opus-4-6@latest`).
-
-### Anthropic Foundry
-
-Use Anthropic Foundry for dedicated deployments.
-
-```bash
-export CLAUDE_CODE_USE_FOUNDRY=1
+# Anthropic Foundry
+export FUSION_CODE_USE_FOUNDRY=1
 export ANTHROPIC_FOUNDRY_API_KEY="..."
-free-code
 ```
-
-Supports custom deployment IDs as model names.
-
-### Provider Selection Summary
 
 | Provider | Env Variable | Auth Method |
 |---|---|---|
-| Anthropic (default) | -- | `ANTHROPIC_API_KEY` or OAuth |
-| OpenAI Codex | `CLAUDE_CODE_USE_OPENAI=1` | OAuth via OpenAI |
+| fusionMlx (default) | `FUSION_MLX_ENABLED=1` or no key | Local (port 11434) |
+| Anthropic (default cloud) | -- | `FUSION_API_KEY` or OAuth |
+| OpenAI Codex | `FUSION_CODE_USE_OPENAI=1` | OAuth via OpenAI |
 | AWS Bedrock | `CLAUDE_CODE_USE_BEDROCK=1` | AWS credentials |
 | Google Vertex AI | `CLAUDE_CODE_USE_VERTEX=1` | `gcloud` ADC |
-| Anthropic Foundry | `CLAUDE_CODE_USE_FOUNDRY=1` | `ANTHROPIC_FOUNDRY_API_KEY` |
+| Anthropic Foundry | `FUSION_CODE_USE_FOUNDRY=1` | `ANTHROPIC_FOUNDRY_API_KEY` |
 
 ---
 
-## Requirements
+## Install
+
+```bash
+git clone https://github.com/dahai80/fusion-code.git
+cd fusion-code
+bun install
+bun run build
+./fusion-code
+```
+
+Set `FUSION_API_KEY` or `ANTHROPIC_API_KEY` for cloud providers, or use local MLX via `fusion service start mlx` (auto-detected on port 11434).
+
+### Requirements
 
 - **Runtime**: [Bun](https://bun.sh) >= 1.3.11
 - **OS**: macOS or Linux (Windows via WSL)
-- **Auth**: An API key or OAuth login for your chosen provider
+- **Auth**: An API key / OAuth login for cloud, or fusion-mlx running locally
 
 ```bash
 # Install Bun if you don't have it
@@ -175,20 +127,18 @@ curl -fsSL https://bun.sh/install | bash
 ## Build
 
 ```bash
-git clone https://github.com/paoloanzn/free-code.git
-cd free-code
-bun build
-./cli
+bun run build        # ./fusion-code (VOICE_MODE only)
+./fusion-code
 ```
 
 ### Build Variants
 
 | Command | Output | Features | Description |
 |---|---|---|---|
-| `bun run build` | `./cli` | `VOICE_MODE` only | Production-like binary |
-| `bun run build:dev` | `./cli-dev` | `VOICE_MODE` only | Dev version stamp |
-| `bun run build:dev:full` | `./cli-dev` | All 54 experimental flags | Full unlock build |
-| `bun run compile` | `./dist/cli` | `VOICE_MODE` only | Alternative output path |
+| `bun run build` | `./fusion-code` | `VOICE_MODE` only | Production-like binary |
+| `bun run build:dev` | `./fusion-code-dev` | `VOICE_MODE` only | Dev version stamp |
+| `bun run build:dev:full` | `./fusion-code-dev` | All experimental flags | Full unlock build |
+| `bun run compile` | `./dist/fusion-code` | `VOICE_MODE` only | Alternative output path |
 
 ### Custom Feature Flags
 
@@ -198,9 +148,11 @@ Enable specific flags without the full bundle:
 # Enable just ultraplan and ultrathink
 bun run ./scripts/build.ts --feature=ULTRAPLAN --feature=ULTRATHINK
 
-# Add a flag on top of the dev build
-bun run ./scripts/build.ts --dev --feature=BRIDGE_MODE
+# Add a flag on top of the dev-full build
+bun run ./scripts/build.ts --dev --feature-set=dev-full --feature=BRIDGE_MODE
 ```
+
+Build-time macros: `MACRO.VERSION`, `MACRO.BUILD_TIME`, `process.env.USER_TYPE` (set to `"external"`). Native modules excluded from bundle: `@ant/*`, `audio-capture-napi`, `image-processor-napi`, `modifiers-napi`, `url-handler-napi`.
 
 ---
 
@@ -208,40 +160,23 @@ bun run ./scripts/build.ts --dev --feature=BRIDGE_MODE
 
 ```bash
 # Interactive REPL (default)
-./cli
+./fusion-code
 
 # One-shot mode
-./cli -p "what files are in this directory?"
+./fusion-code -p "what files are in this directory?"
 
 # Specify a model
-./cli --model claude-opus-4-6
+./fusion-code --model claude-opus-4-6
 
 # Run from source (slower startup)
 bun run dev
-
-# OAuth login
-./cli /login
 ```
-
-### Environment Variables Reference
-
-| Variable | Purpose |
-|---|---|
-| `ANTHROPIC_API_KEY` | Anthropic API key |
-| `ANTHROPIC_AUTH_TOKEN` | Auth token (alternative) |
-| `ANTHROPIC_MODEL` | Override default model |
-| `ANTHROPIC_BASE_URL` | Custom API endpoint |
-| `ANTHROPIC_DEFAULT_OPUS_MODEL` | Custom Opus model ID |
-| `ANTHROPIC_DEFAULT_SONNET_MODEL` | Custom Sonnet model ID |
-| `ANTHROPIC_DEFAULT_HAIKU_MODEL` | Custom Haiku model ID |
-| `CLAUDE_CODE_OAUTH_TOKEN` | OAuth token via env |
-| `CLAUDE_CODE_API_KEY_HELPER_TTL_MS` | API key helper cache TTL |
 
 ---
 
 ## Experimental Features
 
-The `bun run build:dev:full` build enables all 54 working feature flags. Highlights:
+The `bun run build:dev:full` build enables all working feature flags. Highlights:
 
 ### Interaction & UI
 
@@ -254,7 +189,6 @@ The `bun run build:dev:full` build enables all 54 working feature flags. Highlig
 | `HISTORY_PICKER` | Interactive prompt history picker |
 | `MESSAGE_ACTIONS` | Message action entrypoints in the UI |
 | `QUICK_SEARCH` | Prompt quick-search |
-| `SHOT_STATS` | Shot-distribution stats |
 
 ### Agents, Memory & Planning
 
@@ -262,12 +196,9 @@ The `bun run build:dev:full` build enables all 54 working feature flags. Highlig
 |---|---|
 | `BUILTIN_EXPLORE_PLAN_AGENTS` | Built-in explore/plan agent presets |
 | `VERIFICATION_AGENT` | Verification agent for task validation |
-| `AGENT_TRIGGERS` | Local cron/trigger tools for background automation |
-| `AGENT_TRIGGERS_REMOTE` | Remote trigger tool path |
 | `EXTRACT_MEMORIES` | Post-query automatic memory extraction |
 | `COMPACTION_REMINDERS` | Smart reminders around context compaction |
 | `CACHED_MICROCOMPACT` | Cached microcompact state through query flows |
-| `TEAMMEM` | Team-memory files and watcher hooks |
 
 ### Tools & Infrastructure
 
@@ -276,8 +207,11 @@ The `bun run build:dev:full` build enables all 54 working feature flags. Highlig
 | `BRIDGE_MODE` | IDE remote-control bridge (VS Code, JetBrains) |
 | `BASH_CLASSIFIER` | Classifier-assisted bash permission decisions |
 | `PROMPT_CACHE_BREAK_DETECTION` | Cache-break detection in compaction/query flow |
+| `MONITOR_TOOL` | Background MCP task monitor |
+| `WORKFLOW_SCRIPTS` | Local workflow task scripting |
+| `WEB_BROWSER_TOOL` | Headless browser tool |
 
-See [FEATURES.md](FEATURES.md) for the complete audit of all 88 flags, including 34 broken flags with reconstruction notes.
+All 34 historically-broken flags were fixed on 2026-07-23 and now bundle cleanly. See [FEATURES.md](FEATURES.md) for the complete audit of all 88 flags.
 
 ---
 
@@ -285,28 +219,34 @@ See [FEATURES.md](FEATURES.md) for the complete audit of all 88 flags, including
 
 ```
 scripts/
-  build.ts                # Build script with feature flag system
+  build.ts                # Build script with feature flag DCE system
 
 src/
-  entrypoints/cli.tsx     # CLI entrypoint
-  commands.ts             # Command registry (slash commands)
-  tools.ts                # Tool registry (agent tools)
-  QueryEngine.ts          # LLM query engine
+  entrypoints/cli.tsx     # CLI entrypoint, FUSION_* env mapping, fast-path dispatch
+  main.js -> cliMain()    # Full REPL bootstrap
   screens/REPL.tsx        # Main interactive UI (Ink/React)
+  QueryEngine.ts          # LLM query engine, session state
+  commands.ts             # ~40+ slash command registry
+  tools.ts                # 30+ agent tool registry
 
   commands/               # /slash command implementations
   tools/                  # Agent tool implementations (Bash, Read, Edit, etc.)
   components/             # Ink/React terminal UI components
   hooks/                  # React hooks
-  services/               # API clients, MCP, OAuth, analytics
-    api/                  # API client + Codex fetch adapter
+  services/
+    api/                  # claude.ts + fusion-mlx adapter/stream + codex adapter
     oauth/                # OAuth flows (Anthropic + OpenAI)
+    mcp/                  # Model Context Protocol integration
+    lsp/                  # Language Server Protocol integration
+    compact/              # Context compaction (auto/reactive/micro + postCompactCleanup)
   state/                  # App state store
-  utils/                  # Utilities
-    model/                # Model configs, providers, validation
+  utils/
+    model/providers.ts    # Provider selection (getAPIProvider)
+    cwd.ts                # AsyncLocalStorage cwd override for concurrent agents
+    path.ts               # Path expansion + NFC normalization
   skills/                 # Skill system
   plugins/                # Plugin system
-  bridge/                 # IDE bridge
+  bridge/                 # IDE bridge (VS Code, JetBrains)
   voice/                  # Voice input
   tasks/                  # Background task management
 ```
@@ -324,32 +264,22 @@ src/
 | **Schema Validation** | Zod v4 |
 | **Code Search** | ripgrep (bundled) |
 | **Protocols** | MCP, LSP |
-| **APIs** | Anthropic Messages, OpenAI Codex, AWS Bedrock, Google Vertex AI |
-
----
-
-## IPFS Mirror
-
-A full copy of this repository is permanently pinned on IPFS via Filecoin:
-
-| | |
-|---|---|
-| **CID** | `bafybeiegvef3dt24n2znnnmzcud2vxat7y7rl5ikz7y7yoglxappim54bm` |
-| **Gateway** | https://w3s.link/ipfs/bafybeiegvef3dt24n2znnnmzcud2vxat7y7rl5ikz7y7yoglxappim54bm |
-
-If this repo gets taken down, the code lives on.
+| **Local Inference** | [fusion-mlx](https://github.com/fusion-mlxs/fusion-mlx) (MLX) |
+| **Cloud APIs** | Anthropic Messages, OpenAI Codex, AWS Bedrock, Google Vertex AI, Anthropic Foundry |
 
 ---
 
 ## Contributing
 
-Contributions are welcome. If you're working on restoring one of the 34 broken feature flags, check the reconstruction notes in [FEATURES.md](FEATURES.md) first -- many are close to compiling and just need a small wrapper or missing asset.
+Contributions are welcome.
 
 1. Fork the repository
 2. Create a feature branch (`git checkout -b feat/my-feature`)
 3. Commit your changes (`git commit -m 'feat: add something'`)
 4. Push to the branch (`git push origin feat/my-feature`)
 5. Open a Pull Request
+
+For upstream `fusion-mlx` issues: file an issue first, then a PR, following the upstream contribution flow. Do not modify fusion-mlx local code directly -- only via PRs.
 
 ---
 

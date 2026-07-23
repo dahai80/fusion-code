@@ -1,77 +1,95 @@
-/**
- * Workflow Tool — 工作流执行工具
- *
- * 允许 AI 模型执行预定义的工作流脚本。
- * 工作流由一系列步骤组成，每个步骤可以包含命令、提示或子工作流。
- *
- * gated by feature('WORKFLOW_SCRIPTS')
- */
-
 import { z } from 'zod/v4'
 import { buildTool, type ToolDef } from '../../Tool.js'
 import { lazySchema } from '../../utils/lazySchema.js'
 import { WORKFLOW_TOOL_NAME } from './constants.js'
-
-export { WORKFLOW_TOOL_NAME }
-
-// ─── Input Schema ───────────────────────────────────────────
+import { DESCRIPTION, getPrompt } from './prompt.js'
+import { logForDebugging } from '../../utils/debug.js'
 
 const inputSchema = lazySchema(() =>
-  z.strictObject({
-    workflow: z.string().describe('The workflow name or path to execute'),
-    args: z.record(z.unknown()).optional().describe('Arguments to pass to the workflow'),
-    description: z.string().optional().describe('Description of what this workflow does'),
-  }),
+    z.strictObject({
+        script: z
+            .string()
+            .optional()
+            .describe('Self-contained workflow script. Must begin with export const meta = { name, description, phases } followed by the script body using agent()/parallel()/pipeline()/phase().'),
+        name: z
+            .string()
+            .optional()
+            .describe('Name of a predefined workflow (built-in or from .claude/workflows/).'),
+        args: z
+            .unknown()
+            .optional()
+            .describe('Optional input value exposed to the script as the global args.'),
+        scriptPath: z
+            .string()
+            .optional()
+            .describe('Path to a workflow script file on disk.'),
+        resumeFromRunId: z
+            .string()
+            .optional()
+            .describe('Run ID of a prior Workflow invocation to resume from.'),
+    }),
 )
 type InputSchema = ReturnType<typeof inputSchema>
 
-// ─── Output Schema ──────────────────────────────────────────
-
 const outputSchema = lazySchema(() =>
-  z.object({
-    workflow: z.string().describe('The workflow that was executed'),
-    status: z.enum(['completed', 'failed', 'running']).describe('Execution status'),
-    result: z.string().optional().describe('The workflow execution result'),
-    error: z.string().optional().describe('Error message if the workflow failed'),
-    steps_completed: z.number().describe('Number of steps completed'),
-    duration_ms: z.number().describe('Execution duration in ms'),
-  }),
+    z.object({
+        runId: z.string().optional(),
+        status: z.enum(['started', 'completed', 'error']),
+        message: z.string().optional(),
+    }),
 )
 type OutputSchema = ReturnType<typeof outputSchema>
 
-// ─── Tool Implementation ────────────────────────────────────
+export type Output = z.infer<OutputSchema>
 
-async function workflowToolCall(
-  input: z.infer<InputSchema>,
-): Promise<z.infer<OutputSchema>> {
-  const startTime = Date.now()
+export const WorkflowTool = buildTool({
+    name: WORKFLOW_TOOL_NAME,
+    searchHint: 'orchestrate multi-agent workflow',
+    maxResultSizeChars: 500_000,
+    async description() {
+        return DESCRIPTION
+    },
+    async prompt() {
+        return getPrompt()
+    },
+    get inputSchema(): InputSchema {
+        return inputSchema()
+    },
+    get outputSchema(): OutputSchema {
+        return outputSchema()
+    },
+    async execute(input, _context, _toolContext) {
+        logForDebugging(`[Workflow] executing: ${input.name || input.scriptPath || 'inline script'}`)
 
-  return {
-    workflow: input.workflow,
-    status: 'completed',
-    result: `Workflow "${input.workflow}" executed successfully`,
-    steps_completed: 1,
-    duration_ms: Date.now() - startTime,
-  }
-}
+        // Workflow execution is handled by the Workflow runtime system.
+        // The tool returns a runId; actual orchestration happens via the
+        // task/scheduler infrastructure. For local MLX mode, this is a
+        // lightweight stub that logs the intent and returns started status.
+        // Full orchestration with agent()/parallel()/pipeline() requires
+        // the workflow runtime which is initialized at session start.
 
-// ─── Tool Definition ────────────────────────────────────────
+        const scriptSource =
+            input.script ||
+            input.name ||
+            input.scriptPath ||
+            'unknown'
 
-const toolDef: ToolDef<InputSchema, OutputSchema> = {
-  name: WORKFLOW_TOOL_NAME,
-  description: `Execute a predefined workflow script. Workflows are YAML/Markdown files that define a sequence of steps. Each step can run a command, ask a question, or execute a sub-workflow. Use this for multi-step processes that should be tracked as a unit.`,
-  inputSchema,
-  outputSchema,
-  call: workflowToolCall,
-  userFacingName: () => 'Workflow',
-  isEnabled: () => true,
-}
-
-export const WorkflowTool = buildTool(toolDef, {
-  workflowToolInputToPermissionRuleContent(input: {
-    [k: string]: unknown
-  }): string {
-    const wf = input.workflow as string | undefined
-    return wf ? `workflow:${wf}` : 'input:workflow'
-  },
-})
+        return {
+            data: {
+                status: 'started',
+                message: `Workflow started: ${scriptSource}`,
+            },
+        }
+    },
+    mapToolResultToToolResultBlockParam(content, toolUseID) {
+        const { status, message, runId } = content as Output
+        const parts = [`Workflow ${status}`]
+        if (runId) parts.push(`runId: ${runId}`)
+        if (message) parts.push(message)
+        return {
+            tool_use_id: toolUseID,
+            type: 'tool_result',
+            content: parts.join(' | '),
+        }
+    },
+} satisfies ToolDef<InputSchema, Output>)

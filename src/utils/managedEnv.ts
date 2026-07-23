@@ -1,8 +1,10 @@
 import { isRemoteManagedSettingsEligible } from '../services/remoteManagedSettings/syncCache.js'
 import { clearCACertsCache } from './caCerts.js'
 import { getGlobalConfig } from './config.js'
+import { logForDebugging } from './debug.js'
 import { isEnvTruthy } from './envUtils.js'
 import {
+  BLOCKED_ENV_VARS,
   isProviderManagedEnvVar,
   SAFE_ENV_VARS,
 } from './managedEnvConstants.js'
@@ -178,16 +180,39 @@ export function applySafeConfigEnvironmentVariables(): void {
 }
 
 /**
+ * Strip dangerous env vars (LD_PRELOAD, NODE_TLS_REJECT_UNAUTHORIZED, etc.)
+ * from a settings-sourced env object. These vars can hijack execution or
+ * disable TLS verification and must never be injected from project config.
+ */
+function filterDangerousEnvVars(
+  env: Record<string, string> | undefined,
+): Record<string, string> {
+  if (!env) return {}
+  const out: Record<string, string> = {}
+  for (const [key, value] of Object.entries(env)) {
+    if (BLOCKED_ENV_VARS.has(key.toUpperCase())) {
+      logForDebugging(
+        `applyConfigEnvironmentVariables: blocked dangerous env var "${key}" from settings`,
+        { level: 'warn' },
+      )
+      continue
+    }
+    out[key] = value
+  }
+  return out
+}
+
+/**
  * Apply environment variables from settings to process.env.
  * This applies ALL environment variables (except provider-routing vars when
- * FUSION_CODE_PROVIDER_MANAGED_BY_HOST is set — see filterSettingsEnv) and
- * should only be called after trust is established. This applies potentially
- * dangerous environment variables such as LD_PRELOAD, PATH, etc.
+ * FUSION_CODE_PROVIDER_MANAGED_BY_HOST is set — see filterSettingsEnv, and
+ * except dangerous vars like LD_PRELOAD — see filterDangerousEnvVars) and
+ * should only be called after trust is established.
  */
 export function applyConfigEnvironmentVariables(): void {
-  Object.assign(process.env, filterSettingsEnv(getGlobalConfig().env))
+  Object.assign(process.env, filterDangerousEnvVars(filterSettingsEnv(getGlobalConfig().env)))
 
-  Object.assign(process.env, filterSettingsEnv(getSettings_DEPRECATED()?.env))
+  Object.assign(process.env, filterDangerousEnvVars(filterSettingsEnv(getSettings_DEPRECATED()?.env)))
 
   // Clear caches so agents are rebuilt with the new env vars
   clearCACertsCache()

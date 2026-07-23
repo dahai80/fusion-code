@@ -11,7 +11,8 @@ import { getDesktopUpsellConfig } from '../../components/DesktopUpsell/DesktopUp
 import { color } from '../../components/design-system/color.js'
 import { shouldShowOverageCreditUpsell } from '../../components/LogoV2/OverageCreditUpsell.js'
 import { getShortcutDisplay } from '../../keybindings/shortcutFormat.js'
-import { isKairosCronEnabled } from '../../tools/ScheduleCronTool/prompt.js'
+// Cloud-only tool stub (directory removed)
+const isKairosCronEnabled = (): boolean => false
 import { is1PApiCustomer } from '../../utils/auth.js'
 import { countConcurrentSessions } from '../../utils/concurrentSessions.js'
 import { getGlobalConfig } from '../../utils/config.js'
@@ -322,19 +323,8 @@ const externalTips: Tip[] = [
       return runningIDEs.length > 0
     },
   },
-  {
-    id: 'install-github-app',
-    content: async () =>
-      'Run /install-github-app to tag @claude right from your Github issues and PRs',
-    cooldownSessions: 10,
-    isRelevant: async () => !getGlobalConfig().githubActionSetupCount,
-  },
-  {
-    id: 'install-slack-app',
-    content: async () => 'Run /install-slack-app to use Claude in Slack',
-    cooldownSessions: 10,
-    isRelevant: async () => !getGlobalConfig().slackAppInstallCount,
-  },
+  // install-github-app and install-slack-app tips removed: commands not available in fusion-code
+
   {
     id: 'permissions',
     content: async () =>
@@ -445,7 +435,7 @@ const externalTips: Tip[] = [
     id: 'desktop-shortcut',
     content: async ctx => {
       const blue = color('suggestion', ctx.theme)
-      return `Continue your session in Fusion-Code Desktop with ${blue('/desktop')}`
+      return `Continue your session in Fusion-Code Desktop`
     },
     cooldownSessions: 15,
     isRelevant: async () => {
@@ -614,7 +604,7 @@ const externalTips: Tip[] = [
       const amount = info ? formatGrantAmount(info) : null
       if (!amount) return ''
       // Copy from "OC & Bulk Overages copy" doc (#5 — CLI Rotating tip)
-      return `${claude(`${amount} in extra usage, on us`)} · third-party apps · ${claude('/extra-usage')}`
+      return `${claude(`${amount} in extra usage, on us`)} · third-party apps`
     },
     cooldownSessions: 3,
     isRelevant: async () => shouldShowOverageCreditUpsell(),

@@ -56,11 +56,15 @@ class FileReadCache {
       mtime: stats.mtimeMs,
     })
 
-    // Evict oldest entries if cache is too large
+    // Evict 10% of oldest entries when cache exceeds max size
+    // This amortizes eviction cost instead of evicting one entry per insert
     if (this.cache.size > this.maxCacheSize) {
-      const firstKey = this.cache.keys().next().value
-      if (firstKey) {
-        this.cache.delete(firstKey)
+      const evictCount = Math.max(1, Math.floor(this.maxCacheSize * 0.1))
+      let evicted = 0
+      for (const key of this.cache.keys()) {
+        if (evicted >= evictCount) break
+        this.cache.delete(key)
+        evicted++
       }
     }
 

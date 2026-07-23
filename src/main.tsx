@@ -452,6 +452,9 @@ function loadSettingsFromFlag(settingsFile: string): void {
       settingsPath = generateTempFilePath('claude-settings', '.json', {
         contentHash: trimmedSettings
       });
+      // sync IO: startup-only, before event loop is busy. The content-hash
+      // path ensures the same settings always produce the same file, avoiding
+      // prompt cache invalidation across process boundaries.
       writeFileSync_DEPRECATED(settingsPath, trimmedSettings, 'utf8');
     } else {
       // It's a file path - resolve and validate by attempting to read
@@ -3997,7 +4000,7 @@ async function run(): Promise<CommanderCommand> {
 
   // claude server
   if (feature('DIRECT_CONNECT')) {
-    program.command('server').description('Start a Fusion-Code session server').option('--port <number>', 'HTTP port', '0').option('--host <string>', 'Bind address', '0.0.0.0').option('--auth-token <token>', 'Bearer token for auth').option('--unix <path>', 'Listen on a unix domain socket').option('--workspace <dir>', 'Default working directory for sessions that do not specify cwd').option('--idle-timeout <ms>', 'Idle timeout for detached sessions in ms (0 = never expire)', '600000').option('--max-sessions <n>', 'Maximum concurrent sessions (0 = unlimited)', '32').action(async (opts: {
+    program.command('server').description('Start a Fusion-Code session server').option('--port <number>', 'HTTP port', '0').option('--host <string>', 'Bind address', '127.0.0.1').option('--auth-token <token>', 'Bearer token for auth').option('--unix <path>', 'Listen on a unix domain socket').option('--workspace <dir>', 'Default working directory for sessions that do not specify cwd').option('--idle-timeout <ms>', 'Idle timeout for detached sessions in ms (0 = never expire)', '600000').option('--max-sessions <n>', 'Maximum concurrent sessions (0 = unlimited)', '32').action(async (opts: {
       port: string;
       host: string;
       authToken?: string;

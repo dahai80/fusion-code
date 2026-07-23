@@ -731,7 +731,9 @@ export class FirstPartyEventLoggingExporter implements LogRecordExporter {
           event_name: eventName,
           client_timestamp: this.hrTimeToDate(log.hrTime),
           device_id: attributes.user_id as string | undefined,
-          email: userMetadata?.email,
+          email: userMetadata?.email
+            ? Buffer.from(userMetadata.email).toString('base64')
+            : undefined,
           auth: formatted.auth,
           ...formatted.core,
           env: formatted.env,

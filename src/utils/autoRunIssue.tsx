@@ -98,12 +98,9 @@ export function shouldAutoRunIssue(reason: AutoRunIssueReason): boolean {
  * Returns the appropriate command to auto-run based on the reason
  * ANT-ONLY: good-claude command only exists in ant builds
  */
-export function getAutoRunCommand(reason: AutoRunIssueReason): string {
-  // Only ant builds have the /good-claude command
-  if ("external" === 'ant' && reason === 'feedback_survey_good') {
-    return '/good-claude';
-  }
-  return '/issue';
+export function getAutoRunCommand(_reason: AutoRunIssueReason): string {
+  // /issue and /good-claude commands removed - cloud-only
+  return '';
 }
 
 /**

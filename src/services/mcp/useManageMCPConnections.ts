@@ -82,7 +82,11 @@ import {
 } from './claudeai.js'
 import { registerElicitationHandler } from './elicitationHandler.js'
 import { getMcpPrefix } from './mcpStringUtils.js'
-import { commandBelongsToServer, excludeStalePluginClients } from './utils.js'
+import {
+  commandBelongsToServer,
+  excludeStalePluginClients,
+  filterMcpToolsByConfig,
+} from './utils.js'
 
 // Constants for reconnection with exponential backoff
 const MAX_RECONNECT_ATTEMPTS = 5
@@ -252,10 +256,22 @@ export function useManageMCPConnections(
             ? [...mcp.clients, client]
             : mcp.clients.map(c => (c.name === client.name ? client : c))
 
-        const updatedTools =
+        // Per-server tool filter (allowedTools/disabledTools from .mcp.json).
+        const filteredTools =
           tools === undefined
+            ? tools
+            : filterMcpToolsByConfig(tools, client.config)
+        if (filteredTools && tools && filteredTools.length !== tools.length) {
+          logMCPDebug(
+            client.name,
+            `tool filter dropped ${tools.length - filteredTools.length}/${tools.length} tool(s)`,
+          )
+        }
+
+        const updatedTools =
+          filteredTools === undefined
             ? mcp.tools
-            : [...reject(mcp.tools, t => t.name?.startsWith(prefix)), ...tools]
+            : [...reject(mcp.tools, t => t.name?.startsWith(prefix)), ...filteredTools]
 
         const updatedCommands =
           commands === undefined

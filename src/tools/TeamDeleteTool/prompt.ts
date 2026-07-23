@@ -1,5 +1,5 @@
 export function getPrompt(): string {
-  return `
+    return `
 # TeamDelete
 
 Remove team and task directories when the swarm work is complete.

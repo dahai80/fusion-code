@@ -1,4 +1,11 @@
 /**
+ * Absolute maximum size for a single tool result in bytes (1MB).
+ * Any result exceeding this is truncated with a warning, regardless of
+ * per-tool or persistence thresholds. This is a hard safety cap.
+ */
+export const MAX_TOOL_RESULT_HARD_CAP_BYTES = 1_000_000
+
+/**
  * Utility for persisting large tool results to disk instead of truncating them.
  */
 
@@ -11,6 +18,8 @@ import {
   DEFAULT_MAX_RESULT_SIZE_CHARS,
   MAX_TOOL_RESULT_BYTES,
   MAX_TOOL_RESULTS_PER_MESSAGE_CHARS,
+  MLX_DEFAULT_MAX_RESULT_SIZE_CHARS,
+  MLX_MAX_TOOL_RESULTS_PER_MESSAGE_CHARS,
 } from '../constants/toolLimits.js'
 import { getFeatureValue_CACHED_MAY_BE_STALE } from '../services/analytics/growthbook.js'
 import { logEvent } from '../services/analytics/index.js'
@@ -74,7 +83,10 @@ export function getPersistenceThreshold(
   ) {
     return override
   }
-  return Math.min(declaredMaxResultSizeChars, DEFAULT_MAX_RESULT_SIZE_CHARS)
+  return Math.min(
+    declaredMaxResultSizeChars,
+    isFusionMlxProvider() ? MLX_DEFAULT_MAX_RESULT_SIZE_CHARS : DEFAULT_MAX_RESULT_SIZE_CHARS,
+  )
 }
 
 // Result of persisting a tool result to disk
@@ -219,7 +231,7 @@ export async function processToolResultBlock<T>(
     toolUseID,
   )
   return maybePersistLargeToolResult(
-    toolResultBlock,
+    enforceHardCap(toolResultBlock, tool.name),
     tool.name,
     getPersistenceThreshold(tool.name, tool.maxResultSizeChars),
   )
@@ -235,7 +247,7 @@ export async function processPreMappedToolResultBlock(
   maxResultSizeChars: number,
 ): Promise<ToolResultBlockParam> {
   return maybePersistLargeToolResult(
-    toolResultBlock,
+    enforceHardCap(toolResultBlock, toolName),
     toolName,
     getPersistenceThreshold(toolName, maxResultSizeChars),
   )
@@ -262,6 +274,85 @@ export function isToolResultContentEmpty(
       'text' in block &&
       (typeof block.text !== 'string' || block.text.trim() === ''),
   )
+}
+
+/**
+ * Enforce the 1MB hard cap on tool result content. If content exceeds the cap,
+ * truncate it and append a warning. This is a safety net independent of the
+ * persistence system — it catches unbounded output before it reaches the API.
+ */
+function enforceHardCap(
+  toolResultBlock: ToolResultBlockParam,
+  toolName: string,
+): ToolResultBlockParam {
+  const content = toolResultBlock.content
+  if (!content) return toolResultBlock
+
+  const size = contentSize(content)
+  if (size <= MAX_TOOL_RESULT_HARD_CAP_BYTES) return toolResultBlock
+
+  if (typeof content === 'string') {
+    logForDebugging(
+      `Tool result for ${toolName} exceeded 1MB hard cap (${formatFileSize(size)}), truncating`,
+      { level: 'warn' },
+    )
+    return {
+      ...toolResultBlock,
+      content:
+        content.slice(0, MAX_TOOL_RESULT_HARD_CAP_BYTES) +
+        `\n\n[Output truncated: exceeded 1MB limit (${formatFileSize(size)})]`,
+    }
+  }
+
+  if (Array.isArray(content)) {
+    const textBlocks = content.filter(
+      b => typeof b === 'object' && 'type' in b && b.type === 'text',
+    )
+    const totalTextLen = textBlocks.reduce(
+      (sum, b) => sum + ((b as { text: string }).text?.length ?? 0),
+      0,
+    )
+    if (totalTextLen <= MAX_TOOL_RESULT_HARD_CAP_BYTES) return toolResultBlock
+
+    logForDebugging(
+      `Tool result for ${toolName} exceeded 1MB hard cap (${formatFileSize(size)}), truncating`,
+      { level: 'warn' },
+    )
+    let remaining = MAX_TOOL_RESULT_HARD_CAP_BYTES
+    const truncated = content.map(block => {
+      if (
+        typeof block === 'object' &&
+        'type' in block &&
+        block.type === 'text' &&
+        'text' in block
+      ) {
+        const text = (block as { text: string }).text
+        if (remaining <= 0) {
+          return { type: 'text' as const, text: '' }
+        }
+        if (text.length <= remaining) {
+          remaining -= text.length
+          return block
+        }
+        const sliced = text.slice(0, remaining)
+        remaining = 0
+        return { type: 'text' as const, text: sliced }
+      }
+      return block
+    })
+    return {
+      ...toolResultBlock,
+      content: [
+        ...truncated,
+        {
+          type: 'text' as const,
+          text: `\n\n[Output truncated: exceeded 1MB limit (${formatFileSize(size)})]`,
+        },
+      ],
+    }
+  }
+
+  return toolResultBlock
 }
 
 /**
@@ -430,7 +521,7 @@ export function getPerMessageBudgetLimit(): number {
   ) {
     return override
   }
-  return MAX_TOOL_RESULTS_PER_MESSAGE_CHARS
+  return isFusionMlxProvider() ? MLX_MAX_TOOL_RESULTS_PER_MESSAGE_CHARS : MAX_TOOL_RESULTS_PER_MESSAGE_CHARS
 }
 
 /**

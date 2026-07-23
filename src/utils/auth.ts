@@ -557,8 +557,20 @@ async function _executeApiKeyHelper(
     }
   }
 
-  const result = await execa(apiKeyHelper, {
-    shell: true,
+  const SHELL_META_RE = /[|$`;]|&&|\|\||[><]/
+  if (SHELL_META_RE.test(apiKeyHelper)) {
+    logForDebugging(
+      `apiKeyHelper contains shell metacharacters — was it written for shell mode? helper="${apiKeyHelper}"`,
+      { level: 'warn' },
+    )
+  }
+
+  const spaceIdx = apiKeyHelper.indexOf(' ')
+  const file = spaceIdx === -1 ? apiKeyHelper : apiKeyHelper.slice(0, spaceIdx)
+  const args = spaceIdx === -1 ? [] : [apiKeyHelper.slice(spaceIdx + 1)]
+
+  const result = await execa(file, args, {
+    shell: false,
     timeout: 10 * 60 * 1000,
     reject: false,
   })
@@ -656,6 +668,10 @@ export function refreshAwsAuth(awsAuthRefresh: string): Promise<boolean> {
   authStatusManager.startAuthentication()
 
   return new Promise(resolve => {
+    logForDebugging(
+      'awsAuthRefresh runs via shell (intentional for SSO flows) — ensure command is from a trusted source',
+      { level: 'warn' },
+    )
     const refreshProc = exec(awsAuthRefresh, {
       timeout: AWS_AUTH_REFRESH_TIMEOUT_MS,
     })
@@ -1053,7 +1069,8 @@ export function prefetchAwsCredentialsAndBedRockInfoIfSafe(): void {
 export const getApiKeyFromConfigOrMacOSKeychain = memoize(
   (): { key: string; source: ApiKeySource } | null => {
     if (isBareMode()) return null
-    // TODO: migrate to SecureStorage
+
+    // 1. macOS: try keychain first
     if (process.platform === 'darwin') {
       // keychainPrefetch.ts fires this read at main.tsx top-level in parallel
       // with module imports. If it completed, use that instead of spawning a
@@ -1079,9 +1096,36 @@ export const getApiKeyFromConfigOrMacOSKeychain = memoize(
       }
     }
 
+    // 2. Try SecureStorage (used by non-macOS or as fallback)
+    try {
+      const secureStorage = getSecureStorage()
+      const storageData = secureStorage.read()
+      if (storageData?.primaryApiKey) {
+        return { key: storageData.primaryApiKey as string, source: '/login managed key' }
+      }
+    } catch (e) {
+      logError(e)
+    }
+
+    // 3. Fallback: read from global config (migration path for legacy data)
     const config = getGlobalConfig()
     if (!config.primaryApiKey) {
       return null
+    }
+
+    // Migrate from config to SecureStorage on read
+    try {
+      const secureStorage = getSecureStorage()
+      const storageData = secureStorage.read() || {}
+      storageData.primaryApiKey = config.primaryApiKey
+      secureStorage.update(storageData)
+      // Remove from config after successful migration
+      saveGlobalConfig((c) => {
+        const { primaryApiKey: _removed, ...rest } = c
+        return rest as typeof c
+      })
+    } catch {
+      // Migration failed, still return the key from config
     }
 
     return { key: config.primaryApiKey, source: '/login managed key' }
@@ -1131,21 +1175,40 @@ export async function saveApiKey(apiKey: string): Promise<void> {
           e,
         ) as AnalyticsMetadata_I_VERIFIED_THIS_IS_NOT_CODE_OR_FILEPATHS,
       })
-      logEvent('tengu_api_key_saved_to_config', {})
     }
-  } else {
-    logEvent('tengu_api_key_saved_to_config', {})
+  }
+
+  // On non-macOS (or if macOS keychain failed), use SecureStorage instead of plaintext config
+  if (!savedToKeychain) {
+    try {
+      const secureStorage = getSecureStorage()
+      const storageData = secureStorage.read() || {}
+      storageData.primaryApiKey = apiKey
+      const result = secureStorage.update(storageData)
+      if (result.success) {
+        savedToKeychain = true
+        logEvent('tengu_api_key_saved_to_secure_storage', {
+          backend: secureStorage.name as AnalyticsMetadata_I_VERIFIED_THIS_IS_NOT_CODE_OR_FILEPATHS,
+        })
+      } else {
+        logEvent('tengu_api_key_secure_storage_failed', {
+          backend: secureStorage.name as AnalyticsMetadata_I_VERIFIED_THIS_IS_NOT_CODE_OR_FILEPATHS,
+        })
+      }
+    } catch (e) {
+      logError(e)
+    }
   }
 
   const normalizedKey = normalizeApiKeyForConfig(apiKey)
 
-  // Save config with all updates
+  // Save config with custom key approval only (not the key itself)
   saveGlobalConfig(current => {
     const approved = current.customApiKeyResponses?.approved ?? []
     return {
       ...current,
-      // Only save to config if keychain save failed or not on darwin
-      primaryApiKey: savedToKeychain ? current.primaryApiKey : apiKey,
+      // Remove plaintext key from config if saved to secure storage
+      primaryApiKey: savedToKeychain ? undefined : apiKey,
       customApiKeyResponses: {
         ...current.customApiKeyResponses,
         approved: approved.includes(normalizedKey)
@@ -1260,11 +1323,16 @@ export const getClaudeAIOAuthTokens = memoize((): OAuthTokens | null => {
 
   // Check for force-set OAuth token from environment variable
   if (process.env.FUSION_CODE_OAUTH_TOKEN) {
-    // Return an inference-only token (unknown refresh and expiry)
+    // FUSION_CODE_OAUTH_TOKEN has no expiry — it persists indefinitely.
+    // Apply a 24-hour max lifetime so stale tokens are eventually refreshed.
+    const MAX_OAUTH_TOKEN_LIFETIME_MS = 24 * 60 * 60 * 1000
+    logForDebugging(
+      '[auth] FUSION_CODE_OAUTH_TOKEN set — no server-side expiry, applying 24h max lifetime',
+    )
     return {
       accessToken: process.env.FUSION_CODE_OAUTH_TOKEN,
       refreshToken: null,
-      expiresAt: null,
+      expiresAt: Date.now() + MAX_OAUTH_TOKEN_LIFETIME_MS,
       scopes: ['user:inference'],
       subscriptionType: null,
       rateLimitTier: null,
@@ -1319,48 +1387,94 @@ export function clearOAuthTokenCache(): void {
 // API, never to Anthropic's servers.
 
 /**
- * Saves the OpenAI Codex OAuth tokens to GlobalConfig.
+ * Saves the OpenAI Codex OAuth tokens to SecureStorage.
  * Does NOT overwrite or interfere with Anthropic's claudeAiOauth block.
  */
 export function saveCodexOAuthTokens(tokens: CodexTokens): void {
-  saveGlobalConfig((cfg) => ({
-    ...cfg,
-    codexOAuth: {
+  try {
+    const secureStorage = getSecureStorage()
+    const storageData = secureStorage.read() || {}
+    storageData.codexOAuth = {
       accessToken: tokens.accessToken,
       refreshToken: tokens.refreshToken,
       expiresAt: tokens.expiresAt,
       accountId: tokens.accountId,
-    },
-  }))
+    }
+    const updateStatus = secureStorage.update(storageData)
+    if (!updateStatus.success) {
+      console.error('[Fusion-Code] Failed to save Codex OAuth tokens to secure storage')
+    }
+    // Also remove from global config if previously stored there (migration)
+    const cfg = getGlobalConfig()
+    if (cfg.codexOAuth) {
+      saveGlobalConfig((c) => {
+        const { codexOAuth: _removed, ...rest } = c
+        return rest as typeof c
+      })
+    }
+  } catch (error) {
+    console.error('[Fusion-Code] Error saving Codex OAuth tokens:', error)
+  }
 }
 
 /**
- * Retrieves the stored Codex OAuth tokens from GlobalConfig.
+ * Retrieves the stored Codex OAuth tokens from SecureStorage.
+ * Falls back to GlobalConfig for migration from older versions.
  * Returns null if no Codex tokens are stored.
  */
 export function getCodexOAuthTokens(): CodexTokens | null {
+  // Primary: read from SecureStorage
+  try {
+    const secureStorage = getSecureStorage()
+    const storageData = secureStorage.read()
+    const stored = storageData?.codexOAuth
+    if (stored?.accessToken && stored.refreshToken && stored.expiresAt && stored.accountId) {
+      return {
+        accessToken: stored.accessToken,
+        refreshToken: stored.refreshToken,
+        expiresAt: stored.expiresAt,
+        accountId: stored.accountId,
+      }
+    }
+  } catch (error) {
+    console.error('[Fusion-Code] Error reading Codex OAuth tokens from secure storage:', error)
+  }
+
+  // Fallback: read from GlobalConfig (migration path)
   const cfg = getGlobalConfig()
-  const stored = cfg.codexOAuth
-  if (
-    !stored?.accessToken ||
-    !stored.refreshToken ||
-    !stored.expiresAt ||
-    !stored.accountId
-  ) {
-    return null
+  const legacy = cfg.codexOAuth
+  if (legacy?.accessToken && legacy.refreshToken && legacy.expiresAt && legacy.accountId) {
+    // Migrate to SecureStorage
+    saveCodexOAuthTokens({
+      accessToken: legacy.accessToken,
+      refreshToken: legacy.refreshToken,
+      expiresAt: legacy.expiresAt,
+      accountId: legacy.accountId,
+    })
+    return {
+      accessToken: legacy.accessToken,
+      refreshToken: legacy.refreshToken,
+      expiresAt: legacy.expiresAt,
+      accountId: legacy.accountId,
+    }
   }
-  return {
-    accessToken: stored.accessToken,
-    refreshToken: stored.refreshToken,
-    expiresAt: stored.expiresAt,
-    accountId: stored.accountId,
-  }
+
+  return null
 }
 
 /**
- * Removes Codex OAuth tokens from GlobalConfig (e.g., on logout).
+ * Removes Codex OAuth tokens from SecureStorage and GlobalConfig (e.g., on logout).
  */
 export function clearCodexOAuthTokens(): void {
+  try {
+    const secureStorage = getSecureStorage()
+    const storageData = secureStorage.read() || {}
+    delete storageData.codexOAuth
+    secureStorage.update(storageData)
+  } catch (error) {
+    console.error('[Fusion-Code] Error clearing Codex OAuth tokens from secure storage:', error)
+  }
+  // Also clear from GlobalConfig in case of legacy data
   saveGlobalConfig((cfg) => {
     const { codexOAuth: _removed, ...rest } = cfg
     return rest as typeof cfg

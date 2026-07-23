@@ -25,12 +25,23 @@ export const TransportSchema = lazySchema(() =>
 )
 export type Transport = z.infer<ReturnType<typeof TransportSchema>>
 
+// Per-server tool allow/deny list (matches Claude Code .mcp.json).
+// allowedTools: whitelist of tool names; only listed tools are exposed.
+// disabledTools: blacklist of tool names hidden from the agent.
+// Both support `*` suffix wildcard (e.g. "read_*"). Matched against the
+// server's raw tool name (without the mcp__server__ prefix).
+const mcpToolFilterFields = () => ({
+  allowedTools: z.array(z.string()).optional(),
+  disabledTools: z.array(z.string()).optional(),
+})
+
 export const McpStdioServerConfigSchema = lazySchema(() =>
   z.object({
     type: z.literal('stdio').optional(), // Optional for backwards compatibility
     command: z.string().min(1, 'Command cannot be empty'),
     args: z.array(z.string()).default([]),
     env: z.record(z.string(), z.string()).optional(),
+    ...mcpToolFilterFields(),
   }),
 )
 
@@ -62,6 +73,7 @@ export const McpSSEServerConfigSchema = lazySchema(() =>
     headers: z.record(z.string(), z.string()).optional(),
     headersHelper: z.string().optional(),
     oauth: McpOAuthConfigSchema().optional(),
+    ...mcpToolFilterFields(),
   }),
 )
 
@@ -72,6 +84,7 @@ export const McpSSEIDEServerConfigSchema = lazySchema(() =>
     url: z.string(),
     ideName: z.string(),
     ideRunningInWindows: z.boolean().optional(),
+    ...mcpToolFilterFields(),
   }),
 )
 
@@ -83,6 +96,7 @@ export const McpWebSocketIDEServerConfigSchema = lazySchema(() =>
     ideName: z.string(),
     authToken: z.string().optional(),
     ideRunningInWindows: z.boolean().optional(),
+    ...mcpToolFilterFields(),
   }),
 )
 
@@ -93,6 +107,7 @@ export const McpHTTPServerConfigSchema = lazySchema(() =>
     headers: z.record(z.string(), z.string()).optional(),
     headersHelper: z.string().optional(),
     oauth: McpOAuthConfigSchema().optional(),
+    ...mcpToolFilterFields(),
   }),
 )
 
@@ -102,6 +117,7 @@ export const McpWebSocketServerConfigSchema = lazySchema(() =>
     url: z.string(),
     headers: z.record(z.string(), z.string()).optional(),
     headersHelper: z.string().optional(),
+    ...mcpToolFilterFields(),
   }),
 )
 
@@ -109,6 +125,7 @@ export const McpSdkServerConfigSchema = lazySchema(() =>
   z.object({
     type: z.literal('sdk'),
     name: z.string(),
+    ...mcpToolFilterFields(),
   }),
 )
 
@@ -118,6 +135,7 @@ export const McpClaudeAIProxyServerConfigSchema = lazySchema(() =>
     type: z.literal('claudeai-proxy'),
     url: z.string(),
     id: z.string(),
+    ...mcpToolFilterFields(),
   }),
 )
 

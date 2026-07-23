@@ -36,7 +36,7 @@ import {
   getVertexRegionForModel,
   isEnvTruthy,
 } from '../../utils/envUtils.js'
-import { createCodexFetch } from './codex-fetch-adapter.js'
+// codex-fetch-adapter removed - cloud-only
 
 /**
  * Fusion-MLX 客户端接口。
@@ -231,20 +231,7 @@ export async function getAnthropicClient({
     // we have always been lying about the return type - this doesn't support batching or models
     return new AnthropicFoundry(foundryArgs) as unknown as Anthropic
   }
-  // ── Codex (OpenAI) provider via fetch adapter ─────────────────────
-  if (isCodexSubscriber()) {
-    const codexTokens = getCodexOAuthTokens()
-    if (codexTokens?.accessToken) {
-      const codexFetch = createCodexFetch(codexTokens.accessToken)
-      const clientConfig: ConstructorParameters<typeof Anthropic>[0] = {
-        apiKey: 'codex-placeholder', // SDK requires a key but the fetch adapter handles auth
-        ...ARGS,
-        fetch: codexFetch as unknown as typeof globalThis.fetch,
-        ...(isDebugToStdErr() && { logger: createStderrLogger() }),
-      }
-      return new Anthropic(clientConfig)
-    }
-  }
+  // Codex provider removed - cloud-only
 
   // Determine authentication method based on available tokens
   const clientConfig: ConstructorParameters<typeof Anthropic>[0] = {

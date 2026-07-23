@@ -8,9 +8,7 @@
  * 本适配器在内部做格式转换，外部保持与现有代码兼容。
  */
 
-import { randomUUID } from 'crypto'
-
-import { cleanToolList, validateToolCall } from './fusion-mlx-tool-validator.js'
+import { cleanToolList } from './fusion-mlx-tool-validator.js'
 import { logForDebugging } from '../../utils/debug.js'
 import { isEnvTruthy } from '../../utils/envUtils.js'
 import type {
@@ -34,18 +32,310 @@ import {
 // ─── Configuration ────────────────────────────────────────────
 
 const DEFAULT_MLX_BASE_URL = 'http://127.0.0.1:11434'
+const DEFAULT_WARMUP_TIMEOUT_MS = 60_000   // 60s for first inference (model loading)
+const DEFAULT_STREAM_TIMEOUT_MS = 300_000  // 5 min for streaming
+const DEFAULT_QUERY_TIMEOUT_MS = 120_000   // 2 min for non-streaming
+const MAX_RETRIES = 1                       // retry once on connection failure
+const MLX_MAX_TOKENS_ESCALATION_RETRIES = 1 // retry once when max_tokens hit
+const MLX_MAX_TOKENS_ESCALATION_FACTOR = 2  // double max_tokens on escalation
+
+// ─── Circuit Breaker ──────────────────────────────────────────
+
+type CircuitState = 'closed' | 'open' | 'half_open'
+
+interface CircuitBreakerConfig {
+    failureThreshold: number    // consecutive failures before opening
+    cooldownMs: number          // time before half-open probe
+    halfOpenMaxProbes: number   // successful probes to close circuit
+}
+
+const DEFAULT_CIRCUIT_CONFIG: CircuitBreakerConfig = {
+    failureThreshold: 5,
+    cooldownMs: 30_000,
+    halfOpenMaxProbes: 2,
+}
+
+class CircuitBreaker {
+    private state: CircuitState = 'closed'
+    private failureCount = 0
+    private successCount = 0
+    private lastFailureTime = 0
+    private readonly config: CircuitBreakerConfig
+
+    constructor(config: CircuitBreakerConfig = DEFAULT_CIRCUIT_CONFIG) {
+        this.config = config
+    }
+
+    getState(): CircuitState {
+        if (this.state === 'open') {
+            const elapsed = Date.now() - this.lastFailureTime
+            if (elapsed >= this.config.cooldownMs) {
+                this.state = 'half_open'
+                this.successCount = 0
+                logForDebugging('[Fusion-MLX] Circuit breaker: OPEN → HALF_OPEN (cooldown elapsed)')
+            }
+        }
+        return this.state
+    }
+
+    allowRequest(): boolean {
+        const state = this.getState()
+        if (state === 'closed') return true
+        if (state === 'half_open') return true
+        return false
+    }
+
+    recordSuccess(): void {
+        if (this.state === 'half_open') {
+            this.successCount++
+            if (this.successCount >= this.config.halfOpenMaxProbes) {
+                this.state = 'closed'
+                this.failureCount = 0
+                this.successCount = 0
+                logForDebugging('[Fusion-MLX] Circuit breaker: HALF_OPEN → CLOSED (probes passed)')
+            }
+        } else if (this.state === 'closed') {
+            this.failureCount = 0
+        }
+    }
+
+    recordFailure(): void {
+        this.failureCount++
+        this.lastFailureTime = Date.now()
+
+        if (this.state === 'half_open') {
+            this.state = 'open'
+            this.successCount = 0
+            logForDebugging('[Fusion-MLX] Circuit breaker: HALF_OPEN → OPEN (probe failed)')
+        } else if (this.state === 'closed' && this.failureCount >= this.config.failureThreshold) {
+            this.state = 'open'
+            logForDebugging(`[Fusion-MLX] Circuit breaker: CLOSED → OPEN (${this.failureCount} consecutive failures)`)
+        }
+    }
+}
+
+const mlxApiCircuit = new CircuitBreaker()
+
+// ─── Per-Model Inference Parameters ────────────────────────────
+
+export interface ModelInferenceParams {
+    temperature: number
+    top_p: number
+    top_k?: number
+    repetition_penalty?: number
+    frequency_penalty?: number
+    presence_penalty?: number
+    enable_thinking?: boolean
+}
+
+export function getModelInferenceParams(modelId: string): ModelInferenceParams {
+    const envTemp = process.env.FUSION_MLX_TEMPERATURE
+    const envTopP = process.env.FUSION_MLX_TOP_P
+    const envThinking = process.env.FUSION_MLX_ENABLE_THINKING
+    const envRepPenalty = process.env.FUSION_MLX_REPETITION_PENALTY
+
+    const id = modelId.toLowerCase()
+
+    // Resolve model-specific defaults first
+    let modelDefaults: ModelInferenceParams
+    if (id.includes('qwen3')) {
+        const isLargeModel = /\b(27b|32b|70b|72b)\b/.test(id)
+        modelDefaults = {
+            temperature: isLargeModel ? 0.2 : 0.3,
+            top_p: 0.9,
+            repetition_penalty: 1.05,
+            enable_thinking: isLargeModel,
+        }
+    } else if (id.includes('deepseek') || id.includes('coder')) {
+        modelDefaults = {
+            temperature: 0.1,
+            top_p: 0.95,
+            repetition_penalty: 1.05,
+        }
+    } else if (id.includes('llama-3') || id.includes('llama3')) {
+        modelDefaults = {
+            temperature: 0.2,
+            top_p: 0.9,
+            repetition_penalty: 1.1,
+        }
+    } else if (id.includes('gemma') || id.includes('phi')) {
+        modelDefaults = {
+            temperature: 0.2,
+            top_p: 0.9,
+            repetition_penalty: 1.1,
+        }
+    } else if (/\b(0\.5b|1b|1\.5b|2b|3b)\b/.test(id)) {
+        modelDefaults = {
+            temperature: 0.3,
+            top_p: 0.95,
+        }
+    } else {
+        modelDefaults = {
+            temperature: 0.3,
+            top_p: 0.95,
+        }
+    }
+
+    // Apply env var overrides on top of model defaults
+    const hasEnvOverride = envTemp || envTopP || envThinking !== undefined || envRepPenalty
+    if (!hasEnvOverride) return modelDefaults
+
+    return {
+        temperature: envTemp ? parseFloat(envTemp) : modelDefaults.temperature,
+        top_p: envTopP ? parseFloat(envTopP) : modelDefaults.top_p,
+        ...(modelDefaults.repetition_penalty || envRepPenalty
+            ? { repetition_penalty: envRepPenalty ? parseFloat(envRepPenalty) : modelDefaults.repetition_penalty }
+            : {}),
+        ...(modelDefaults.top_k ? { top_k: modelDefaults.top_k } : {}),
+        ...(modelDefaults.frequency_penalty ? { frequency_penalty: modelDefaults.frequency_penalty } : {}),
+        ...(modelDefaults.presence_penalty ? { presence_penalty: modelDefaults.presence_penalty } : {}),
+        enable_thinking: envThinking !== undefined
+            ? isEnvTruthy(envThinking)
+            : modelDefaults.enable_thinking,
+    }
+}
+
+const ALLOWED_MLX_HOSTNAMES = new Set([
+    'localhost',
+    '127.0.0.1',
+    '::1',
+    '0.0.0.0',
+])
+
+function isAllowedMlxHostname(hostname: string): boolean {
+    if (ALLOWED_MLX_HOSTNAMES.has(hostname)) return true
+    // Allow RFC 1918 private ranges
+    if (/^10\./.test(hostname)) return true
+    if (/^172\.(1[6-9]|2[0-9]|3[01])\./.test(hostname)) return true
+    if (/^192\.168\./.test(hostname)) return true
+    // Allow .local mDNS hostnames
+    if (hostname.endsWith('.local')) return true
+    return false
+}
 
 function getMlxBaseUrl(): string {
-  return (
-    process.env.FUSION_MLX_BASE_URL ||
-    process.env.MLX_BASE_URL ||
-    DEFAULT_MLX_BASE_URL
-  )
+    const url = process.env.FUSION_MLX_BASE_URL ||
+        process.env.MLX_BASE_URL ||
+        DEFAULT_MLX_BASE_URL
+    try {
+        const parsed = new URL(url)
+        if (!isAllowedMlxHostname(parsed.hostname)) {
+            console.error(
+                `[Fusion-MLX] SECURITY: Base URL hostname "${parsed.hostname}" is not a local address. ` +
+                `All conversation data would be sent to an external server. ` +
+                `Only localhost, 127.0.0.1, ::1, or RFC 1918 addresses are allowed. ` +
+                `Falling back to ${DEFAULT_MLX_BASE_URL}`
+            )
+            return DEFAULT_MLX_BASE_URL
+        }
+    } catch {
+        console.error(`[Fusion-MLX] Invalid MLX base URL: ${url}, falling back to default`)
+        return DEFAULT_MLX_BASE_URL
+    }
+    return url
 }
 
 function getMlxApiUrl(path: string): string {
   const base = getMlxBaseUrl().replace(/\/+$/, '')
   return `${base}${path}`
+}
+
+function getMlxTimeout(streaming: boolean): number {
+  if (streaming) {
+    return parseInt(process.env.FUSION_MLX_TIMEOUT_MS || String(DEFAULT_STREAM_TIMEOUT_MS), 10)
+  }
+  return parseInt(process.env.FUSION_MLX_TIMEOUT_MS || String(DEFAULT_QUERY_TIMEOUT_MS), 10)
+}
+
+/**
+ * Fetch with retry on connection failure.
+ * Local MLX may be still warming up (loading model weights) on first call.
+ */
+async function mlxFetchWithRetry(
+  url: string,
+  init: RequestInit,
+  retries: number = MAX_RETRIES,
+): Promise<Response> {
+  if (!mlxApiCircuit.allowRequest()) {
+    throw new Error('[Fusion-MLX] Circuit breaker is OPEN — MLX server unavailable, will retry after cooldown')
+  }
+
+  const warmupTimeout = parseInt(
+    process.env.FUSION_MLX_WARMUP_TIMEOUT_MS || String(DEFAULT_WARMUP_TIMEOUT_MS),
+    10,
+  )
+
+  try {
+    const response = await fetch(url, init)
+    if (response.ok) {
+      mlxApiCircuit.recordSuccess()
+    } else if (response.status >= 500) {
+      mlxApiCircuit.recordFailure()
+    }
+    return response
+  } catch (error) {
+    const err = error as Error
+    // 用户主动中断(ESC):不重试,立即抛出,让上层 withRetry 转为 APIUserAbortError
+    if (init.signal?.aborted) {
+      logForDebugging('[Fusion-MLX] Request aborted by user, not retrying')
+      throw error
+    }
+
+    const isConnectionError =
+      err.message?.includes('ECONNREFUSED') ||
+      err.message?.includes('ECONNRESET') ||
+      err.message?.includes('fetch failed') ||
+      err.message?.includes('socket hang up') ||
+      err.name === 'AbortError'
+
+    if (isConnectionError) {
+      mlxApiCircuit.recordFailure()
+    }
+
+    if (retries <= 0 || !isConnectionError) throw error
+
+    logForDebugging(
+      `[Fusion-MLX] Connection failed, retrying in 3s (retries left: ${retries}): ${err.message}`,
+    )
+
+    // 3s 延迟期间监听用户中断,ESC 立即生效而非等满 3s
+    await new Promise<void>((resolve, reject) => {
+      const timer = setTimeout(resolve, 3000)
+      init.signal?.addEventListener(
+        'abort',
+        () => {
+          clearTimeout(timer)
+          reject(error)
+        },
+        { once: true },
+      )
+    })
+
+    // 重试前再次检查用户是否已中断
+    if (init.signal?.aborted) throw error
+
+    // 组合原 signal(保留用户 abort 能力)+ timeout(防卡死)
+    const retryInit = {
+      ...init,
+      signal: init.signal
+        ? AbortSignal.any([init.signal, AbortSignal.timeout(warmupTimeout)])
+        : AbortSignal.timeout(warmupTimeout),
+    }
+
+    try {
+      const retryResponse = await fetch(url, retryInit)
+      if (retryResponse.ok) {
+        mlxApiCircuit.recordSuccess()
+      } else if (retryResponse.status >= 500) {
+        mlxApiCircuit.recordFailure()
+      }
+      return retryResponse
+    } catch (retryError) {
+      mlxApiCircuit.recordFailure()
+      if (retries - 1 <= 0) throw retryError
+      return mlxFetchWithRetry(url, init, retries - 1)
+    }
+  }
 }
 
 // ─── Health Check ─────────────────────────────────────────────
@@ -137,23 +427,129 @@ export async function getRecommendedCodeModel(): Promise<string | null> {
   return chatModels[0].id
 }
 
+// ─── Model Capabilities ────────────────────────────────────────────
+
+export interface MlxModelCapabilities {
+  supportsToolCalling: boolean
+  supportsStreaming: boolean
+  supportsVision: boolean
+  maxContextTokens: number
+  maxOutputTokens: number
+  isSmallModel: boolean   // ≤3B parameters
+  isMediumModel: boolean  // 7-9B parameters
+  supportsStructuredOutput: boolean  // json_schema response_format
+}
+
+let cachedCapabilities: Map<string, MlxModelCapabilities> = new Map()
+
+/**
+ * Detect capabilities of a specific MLX model.
+ * Uses model name heuristics + API-reported metadata.
+ */
+export async function getMlxModelCapabilities(modelId: string): Promise<MlxModelCapabilities> {
+  if (cachedCapabilities.has(modelId)) {
+    return cachedCapabilities.get(modelId)!
+  }
+
+  const id = modelId.toLowerCase()
+  const models = await getFusionMlxModels()
+  const modelInfo = models.find(m => m.id === modelId || m.id.includes(modelId))
+
+  // Size heuristics from model ID
+  const isSmallModel = /\b(0\.5b|1b|2b|3b)\b/.test(id)
+  const isMediumModel = /\b(7b|8b|9b)\b/.test(id)
+
+  // Tool calling: most instruct/chat models support it; base models don't
+  const baseModelKeywords = ['base', 'pt', 'pretrain']
+  const isBaseModel = baseModelKeywords.some(k => id.includes(k))
+  const supportsToolCalling = !isBaseModel && !isSmallModel
+
+  // Structured output (json_schema response_format): supported by models with grammar/constraint engines
+  const structuredKeywords = ['qwen3', 'qwen2.5', 'llama-3', 'llama3', 'mistral', 'gemma', 'phi-4', 'phi4']
+  const supportsStructuredOutput = !isBaseModel && !isSmallModel &&
+    structuredKeywords.some(k => id.includes(k))
+
+  // Vision: only models with image/vision keywords
+  const visionKeywords = ['vision', 'vl', 'llava', 'qwen2-vl', 'pixtral', 'minicpm-v', 'internvl']
+  const supportsVision = visionKeywords.some(k => id.includes(k))
+
+  // Context length from API or heuristics
+  const maxContextTokens = modelInfo?.max_input_tokens || (isSmallModel ? 16384 : 32768)
+  const maxOutputTokens = modelInfo?.max_output_tokens || (isSmallModel ? 2048 : 4096)
+
+  const caps: MlxModelCapabilities = {
+    supportsToolCalling,
+    supportsStreaming: true,
+    supportsVision,
+    maxContextTokens,
+    maxOutputTokens,
+    isSmallModel,
+    isMediumModel,
+    supportsStructuredOutput,
+  }
+
+  cachedCapabilities.set(modelId, caps)
+  logForDebugging(`[Fusion-MLX] Capabilities for ${modelId}: ${JSON.stringify(caps)}`)
+  return caps
+}
+
+/**
+ * Clear cached capabilities (call on model switch).
+ */
+export function clearMlxCapabilitiesCache(): void {
+  cachedCapabilities.clear()
+}
+
 // ─── Message Format Conversion ────────────────────────────────
 
 /**
- * 将 Anthropic Messages API 格式的消息转换为 OpenAI-compatible 格式。
+ * 将 Anthropic Messages API 格式转换为 OpenAI-compatible MLX 消息格式。
+ *
+ * System prompt 支持两种形式：
+ *   - 字符串（来自 queryFusionMlx/streamFusionMlx 的 options.system）
+ *   - Anthropic 数组格式（来自 createFusionMlxFetch 的 body.system）
+ *
+ * Tool calls 统一输出为 OpenAI tool_calls 格式（非 content 内嵌）。
  */
 function anthropicToMlxMessages(
   anthropicMessages: Array<{
     role: string
     content: string | Array<Record<string, unknown>>
   }>,
-  systemPrompt?: string,
+  systemPrompt?: string | Array<Record<string, unknown>>,
 ): MLXChatMessage[] {
   const messages: MLXChatMessage[] = []
 
-  // System prompt
+  // System prompt — split on DYNAMIC_BOUNDARY for KV cache prefix reuse
   if (systemPrompt) {
-    messages.push({ role: 'system', content: systemPrompt })
+    let systemText: string
+    if (typeof systemPrompt === 'string') {
+      systemText = systemPrompt
+    } else if (Array.isArray(systemPrompt)) {
+      systemText = systemPrompt
+        .map((b: Record<string, unknown>) => (b.type === 'text' ? b.text : ''))
+        .filter(Boolean)
+        .join('\n')
+    } else {
+      systemText = ''
+    }
+
+    if (systemText) {
+      const boundaryIdx = systemText.indexOf('SYSTEM_PROMPT_DYNAMIC_BOUNDARY')
+      if (boundaryIdx !== -1) {
+        const staticPrefix = systemText.slice(0, boundaryIdx).trim()
+        const dynamicSuffix = systemText.slice(boundaryIdx + 'SYSTEM_PROMPT_DYNAMIC_BOUNDARY'.length).trim()
+        // Log prefix boundary for KV cache optimization tracking
+        logForDebugging(
+          `[Fusion-MLX] System prompt split: static=${staticPrefix.length} chars, dynamic=${dynamicSuffix.length} chars`,
+        )
+        // Combine — MLX API uses single system message; prefix ordering still benefits KV cache
+        // when fusion-mlx server adds cache-aware API, we can send as separate cached/uncached blocks
+        messages.push({ role: 'system', content: staticPrefix + '\n' + dynamicSuffix })
+      } else {
+        messages.push({ role: 'system', content: systemText })
+      }
+    }
   }
 
   for (const msg of anthropicMessages) {
@@ -176,7 +572,7 @@ function anthropicToMlxMessages(
               })
             }
           } else if (block.type === 'tool_result') {
-            const toolResult = block as { tool_use_id: string; content: string | Array<Record<string, unknown>>; is_error?: boolean }
+            const toolResult = block as { tool_use_id: string; content: string | Array<Record<string, unknown>> }
             const content = typeof toolResult.content === 'string'
               ? toolResult.content
               : Array.isArray(toolResult.content)
@@ -212,20 +608,22 @@ function anthropicToMlxMessages(
           }
         }
 
-        const mlxMsg: MLXChatMessage = { role: 'assistant', content: textContent || '' }
         if (toolCalls.length > 0) {
-          // Tool calls go in the content as structured parts
-          mlxMsg.content = [
-            ...(textContent ? [{ type: 'text' as const, text: textContent }] : []),
-            ...toolCalls.map(tc => ({
-              type: 'tool_use' as const,
+          messages.push({
+            role: 'assistant',
+            content: textContent || '',
+            tool_calls: toolCalls.map(tc => ({
               id: tc.id,
-              name: tc.name,
-              input: tc.input,
+              type: 'function',
+              function: {
+                name: tc.name,
+                arguments: JSON.stringify(tc.input),
+              },
             })),
-          ]
+          } as MLXChatMessage)
+        } else {
+          messages.push({ role: 'assistant', content: textContent })
         }
-        messages.push(mlxMsg)
       }
     }
   }
@@ -239,7 +637,7 @@ function anthropicToMlxMessages(
  * OpenAI:   'auto' | 'any' | 'none' | {type: 'function', function: {name: string}}
  */
 /**
- * 将 Anthropic 工具定义转换为 OpenAI-compatible 格式。
+ * 将 Anthropic 工具定义转换为 OpenAI-compatible 格式，同时清洗 Schema。
  */
 function anthropicToMlxTools(
   tools: Array<{
@@ -248,7 +646,12 @@ function anthropicToMlxTools(
     input_schema: Record<string, unknown>
   }>,
 ): MLXToolDefinition[] {
-  return tools.map(tool => ({
+  const cleaned = cleanToolList(tools) as Array<{
+    name: string
+    description: string
+    input_schema: Record<string, unknown>
+  }>
+  return cleaned.map(tool => ({
     type: 'function',
     function: {
       name: tool.name,
@@ -286,11 +689,16 @@ export async function queryFusionMlx(
   const mlxMessages = anthropicToMlxMessages(options.messages, options.system)
   const mlxTools = options.tools ? anthropicToMlxTools(options.tools) : undefined
 
+  const inferenceParams = getModelInferenceParams(options.model)
+
   const requestBody: MLXChatCompletionRequest = {
     model: options.model,
     messages: mlxMessages,
     max_tokens: options.max_tokens || 8192,
-    temperature: options.temperature ?? 0.3,
+    temperature: options.temperature ?? inferenceParams.temperature,
+    top_p: inferenceParams.top_p,
+    ...(inferenceParams.repetition_penalty ? { repetition_penalty: inferenceParams.repetition_penalty } : {}),
+    ...(inferenceParams.enable_thinking !== undefined ? { enable_thinking: inferenceParams.enable_thinking } : {}),
     stream: false,
     ...(mlxTools && mlxTools.length > 0 ? { tools: mlxTools } : {}),
     ...(options.response_format ? { response_format: options.response_format } : {}),
@@ -301,15 +709,13 @@ export async function queryFusionMlx(
   )
 
   try {
-    const response = await fetch(getMlxApiUrl('/v1/chat/completions'), {
+    const response = await mlxFetchWithRetry(getMlxApiUrl('/v1/chat/completions'), {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify(requestBody),
-      signal: AbortSignal.timeout(
-        parseInt(process.env.FUSION_MLX_TIMEOUT_MS || '120000', 10),
-      ),
+      signal: AbortSignal.timeout(getMlxTimeout(false)),
     })
 
     if (!response.ok) {
@@ -339,11 +745,16 @@ export async function* streamFusionMlx(
   const mlxMessages = anthropicToMlxMessages(options.messages, options.system)
   const mlxTools = options.tools ? anthropicToMlxTools(options.tools) : undefined
 
+  const inferenceParams = getModelInferenceParams(options.model)
+
   const requestBody: MLXChatCompletionRequest = {
     model: options.model,
     messages: mlxMessages,
     max_tokens: options.max_tokens || 8192,
-    temperature: options.temperature ?? 0.3,
+    temperature: options.temperature ?? inferenceParams.temperature,
+    top_p: inferenceParams.top_p,
+    ...(inferenceParams.repetition_penalty ? { repetition_penalty: inferenceParams.repetition_penalty } : {}),
+    ...(inferenceParams.enable_thinking !== undefined ? { enable_thinking: inferenceParams.enable_thinking } : {}),
     stream: true,
     ...(mlxTools && mlxTools.length > 0 ? { tools: mlxTools } : {}),
     ...(options.response_format ? { response_format: options.response_format } : {}),
@@ -354,15 +765,13 @@ export async function* streamFusionMlx(
   )
 
   try {
-    const response = await fetch(getMlxApiUrl('/v1/chat/completions'), {
+    const response = await mlxFetchWithRetry(getMlxApiUrl('/v1/chat/completions'), {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify(requestBody),
-      signal: AbortSignal.timeout(
-        parseInt(process.env.FUSION_MLX_TIMEOUT_MS || '300000', 10),
-      ),
+      signal: AbortSignal.timeout(getMlxTimeout(true)),
     })
 
     if (!response.ok) {
@@ -552,12 +961,113 @@ export function createFusionMlxFetch(model: string): typeof globalThis.fetch {
     const url = input instanceof Request ? input.url : String(input)
     const baseUrl = getMlxBaseUrl()
 
+    // count_tokens 请求：转发到 fusion-mlx /v1/messages/count_tokens 精确计数（不生成）
+    // fusion-mlx 用 loaded engine tokenizer + 同 /v1/messages chat template 计数(F12),claude- 别名 pass through
+    if (url.includes('/v1/messages/count_tokens')) {
+      let countBody: Record<string, unknown> = {}
+      if (init?.body) {
+        try {
+          countBody = JSON.parse(init.body as string)
+        } catch (e) {
+          logForDebugging(`[Fusion-MLX] count_tokens body parse failed: ${(e as Error).message}`)
+          return new Response(JSON.stringify({ input_tokens: 0 }), {
+            status: 200,
+            headers: { 'content-type': 'application/json' },
+          })
+        }
+      }
+      try {
+        // 透传 Anthropic body：fusion-mlx count_tokens 端点用 Anthropic 格式 + loaded model tokenizer
+        const resp = await mlxFetchWithRetry(
+          `${baseUrl}/v1/messages/count_tokens`,
+          {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(countBody),
+            signal: init?.signal || AbortSignal.timeout(getMlxTimeout(false)),
+          },
+        )
+        if (resp.ok) {
+          const data = (await resp.json()) as { input_tokens?: number }
+          logForDebugging(`[Fusion-MLX] count_tokens: ${data.input_tokens ?? JSON.stringify(data)}`)
+          if (typeof data.input_tokens === 'number') {
+            return new Response(JSON.stringify({ input_tokens: data.input_tokens }), {
+              status: 200,
+              headers: { 'content-type': 'application/json' },
+            })
+          }
+        }
+        const errText = await resp.text().catch(() => '')
+        logForDebugging(`[Fusion-MLX] count_tokens endpoint failed (${resp.status}), trying chat completions`)
+      } catch (e) {
+        logForDebugging(`[Fusion-MLX] count_tokens endpoint error: ${(e as Error).message}`)
+      }
+      // fallback 1：/v1/chat/completions max_tokens=1 拿 usage.prompt_tokens(精确,有 prefill 开销)
+      try {
+        const mlxMessages = anthropicToMlxMessages(
+          (countBody.messages as Array<{ role: string; content: string | Array<Record<string, unknown>> }>) || [],
+          countBody.system as string | Array<Record<string, unknown>> | undefined,
+        )
+        const toolsForMlx = countBody.tools?.length > 0 ? anthropicToMlxTools(countBody.tools) : undefined
+        const chatResp = await mlxFetchWithRetry(
+          `${baseUrl}/v1/chat/completions`,
+          {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              model,
+              messages: mlxMessages,
+              max_tokens: 1,
+              stream: false,
+              ...(toolsForMlx ? { tools: toolsForMlx } : {}),
+            }),
+            signal: init?.signal || AbortSignal.timeout(getMlxTimeout(false)),
+          },
+        )
+        if (chatResp.ok) {
+          const chatData = (await chatResp.json()) as { usage?: { prompt_tokens?: number } }
+          const promptTokens = chatData.usage?.prompt_tokens
+          if (typeof promptTokens === 'number') {
+            logForDebugging(`[Fusion-MLX] count_tokens via chat completions: ${promptTokens}`)
+            return new Response(JSON.stringify({ input_tokens: promptTokens }), {
+              status: 200,
+              headers: { 'content-type': 'application/json' },
+            })
+          }
+        }
+        logForDebugging(`[Fusion-MLX] count_tokens chat completions failed (${chatResp.status})`)
+      } catch (e) {
+        logForDebugging(`[Fusion-MLX] count_tokens chat completions error: ${(e as Error).message}`)
+      }
+      // fallback 2：bytes/4 估算(最终兜底,保 token budget 跟踪可用)
+      const estInput = Math.ceil(JSON.stringify(countBody.messages ?? []).length / 4)
+      logForDebugging(`[Fusion-MLX] count_tokens fallback bytes/4: ${estInput}`)
+      return new Response(JSON.stringify({ input_tokens: estInput }), {
+        status: 200,
+        headers: { 'content-type': 'application/json' },
+      })
+    }
+
     // 拦截 /v1/messages 请求（Anthropic Messages API）
     if (url.includes('/v1/messages')) {
-      const body = init?.body ? JSON.parse(init.body as string) : {}
+      let body: Record<string, unknown> = {}
+      if (init?.body) {
+        try {
+          body = JSON.parse(init.body as string)
+        } catch (e) {
+          console.error('[Fusion-MLX] Failed to parse request body:', (e as Error).message)
+          return new Response(JSON.stringify({ error: 'Invalid request body' }), {
+            status: 400,
+            headers: { 'Content-Type': 'application/json' },
+          })
+        }
+      }
 
       // 将 Anthropic 格式转换为 MLX 格式
-      const mlxMessages = convertAnthropicBodyToMLX(body)
+      const mlxMessages = anthropicToMlxMessages(
+        (body.messages as Array<{ role: string; content: string | Array<Record<string, unknown>> }>) || [],
+        body.system as string | Array<Record<string, unknown>> | undefined,
+      )
 
       // MLX 模式：始终用 adapter 模型覆盖，忽略 SDK 传的 model（可能是 claude-sonnet-* 等云端模型名）
       const resolvedModel = model
@@ -565,29 +1075,43 @@ export function createFusionMlxFetch(model: string): typeof globalThis.fetch {
       const imageModelKeywords = ['flux', 'skyreels', 'image', 'video', 'ltx', 'a2v', 'v2v', 'r2v', 'klein', 'txt2vid', 'img2vid', 'tts', 'whisper']
       const isImageModel = imageModelKeywords.some(k => resolvedModel.toLowerCase().includes(k))
       const finalModel = isImageModel ? (await getRecommendedCodeModel()) || resolvedModel : resolvedModel
+      // Auto-inject structured output schema for models that support it
+      const caps = await getMlxModelCapabilities(finalModel)
+      const toolsForMlx = body.tools?.length > 0 ? anthropicToMlxTools(body.tools) : undefined
+      const autoResponseFormat = (caps.supportsStructuredOutput && toolsForMlx && toolsForMlx.length > 0 && !body.response_format)
+        ? buildToolResponseSchema(body.tools)
+        : undefined
+
+      const inferenceParams = getModelInferenceParams(finalModel)
+
       const mlxBody: MLXChatCompletionRequest = {
         model: finalModel,
         messages: mlxMessages,
-        temperature: body.temperature ?? 0.3,
+        temperature: body.temperature ?? inferenceParams.temperature,
+        top_p: inferenceParams.top_p,
+        ...(inferenceParams.repetition_penalty ? { repetition_penalty: inferenceParams.repetition_penalty } : {}),
         stream: body.stream === true,
-        ...(body.tools?.length > 0
-          ? { tools: anthropicToMlxTools(cleanToolList(body.tools)) }
-          : {}),
+        ...(toolsForMlx ? { tools: toolsForMlx } : {}),
         ...convertToolChoice(body.tool_choice),
-        // 禁用推理/思考过程，防止上下文被快速填满
-        ...(finalModel.toLowerCase().includes('qwen3.6')
-          ? { enable_thinking: false }
-          : {}),
-        // 限制 max_tokens 防止上下文溢出（MLX 模型输出过长会快速填满窗口）
-        max_tokens: Math.min(body.max_tokens || 2048, 4096),
-        // 透传 response_format 结构化输出约束
+        // Qwen3 思考模式：优先尊重请求 thinking 参数（/think 开关），否则按模型启发式（27B+ 自动启用）
+        ...((body.thinking as { type?: string } | undefined)?.type
+          ? { enable_thinking: (body.thinking as { type: string }).type === 'enabled' }
+          : inferenceParams.enable_thinking !== undefined
+            ? { enable_thinking: inferenceParams.enable_thinking }
+            : {}),
+        // max_tokens: use the value from the caller, default 8192
+        // No artificial cap — let the model and context window decide
+        max_tokens: body.max_tokens || 8192,
+        // Structured output: auto-injected or caller-provided
         ...(body.response_format
           ? { response_format: body.response_format }
-          : {}),
+          : autoResponseFormat
+            ? { response_format: autoResponseFormat }
+            : {}),
       }
 
-      // 调用 fusion-mlx
-      const mlxResponse = await fetch(
+      // 调用 fusion-mlx with retry support
+      const mlxResponse = await mlxFetchWithRetry(
         `${baseUrl}/v1/chat/completions`,
         {
           method: 'POST',
@@ -595,13 +1119,17 @@ export function createFusionMlxFetch(model: string): typeof globalThis.fetch {
             'Content-Type': 'application/json',
           },
           body: JSON.stringify(mlxBody),
-          signal: init?.signal,
+          signal: init?.signal || AbortSignal.timeout(getMlxTimeout(mlxBody.stream)),
         },
       )
 
       if (!mlxResponse.ok) {
         // 返回 Anthropic SDK 兼容的错误格式
         const errorBody = await mlxResponse.text()
+        // 转发 Retry-After 头,让上层 withRetry 精确退避(429 等限流场景)
+        const errorHeaders: Record<string, string> = { 'content-type': 'application/json' }
+        const retryAfter = mlxResponse.headers.get('retry-after')
+        if (retryAfter) errorHeaders['retry-after'] = retryAfter
         return new Response(
           JSON.stringify({
             type: 'error',
@@ -612,24 +1140,74 @@ export function createFusionMlxFetch(model: string): typeof globalThis.fetch {
           }),
           {
             status: mlxResponse.status,
-            headers: { 'content-type': 'application/json' },
+            headers: errorHeaders,
           },
         )
       }
 
       if (body.stream) {
         // 流式响应：将 MLX SSE 流转换为 Anthropic SSE 流
-        const anthropicStream = transformMLXStreamToAnthropic(mlxResponse, model)
+        // MLX 流式首块无 usage,用 bytes/4 估算 input_tokens 填 message_start(B task 后改进为精确计数)
+        const inputTokensEst = Math.ceil(JSON.stringify(mlxBody.messages).length / 4)
+        logForDebugging(
+          `[Fusion-MLX] Stream message_start input_tokens estimate: ${inputTokensEst}`,
+        )
+        const anthropicStream = transformMLXStreamToAnthropic(
+          mlxResponse,
+          model,
+          inputTokensEst,
+        )
         const { encodeStreamToAnthropicSSE } = await import(
           './fusion-mlx-stream.js'
         )
         return encodeStreamToAnthropicSSE(anthropicStream, mlxResponse)
       }
 
-      // 非流式响应
+      // 非流式响应 — max_tokens escalation on truncation
       const data = (await mlxResponse.json()) as MLXChatCompletionResponse
-      const anthropicResponse = transformMLXResponseToAnthropic(data)
+      const finishReason = data.choices?.[0]?.finish_reason
+      const currentMaxTokens = mlxBody.max_tokens
 
+      if (finishReason === 'length' && currentMaxTokens) {
+        const escalatedMaxTokens = Math.min(
+          currentMaxTokens * MLX_MAX_TOKENS_ESCALATION_FACTOR,
+          caps.maxOutputTokens,
+        )
+        if (escalatedMaxTokens > currentMaxTokens) {
+          logForDebugging(
+            `[Fusion-MLX] max_tokens hit (${currentMaxTokens}), escalating to ${escalatedMaxTokens}`,
+          )
+          const escalatedBody = { ...mlxBody, max_tokens: escalatedMaxTokens }
+          try {
+            const retryResp = await mlxFetchWithRetry(
+              `${baseUrl}/v1/chat/completions`,
+              {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(escalatedBody),
+                signal: init?.signal || AbortSignal.timeout(getMlxTimeout(false)),
+              },
+            )
+            if (retryResp.ok) {
+              const retryData = (await retryResp.json()) as MLXChatCompletionResponse
+              const retryAnthropic = transformMLXResponseToAnthropic(retryData)
+              return new Response(JSON.stringify(retryAnthropic), {
+                status: 200,
+                headers: { 'content-type': 'application/json' },
+              })
+            }
+            logForDebugging(
+              `[Fusion-MLX] Escalation retry failed (${retryResp.status}), returning original`,
+            )
+          } catch (retryErr) {
+            logForDebugging(
+              `[Fusion-MLX] Escalation retry error: ${(retryErr as Error).message}`,
+            )
+          }
+        }
+      }
+
+      const anthropicResponse = transformMLXResponseToAnthropic(data)
       return new Response(JSON.stringify(anthropicResponse), {
         status: 200,
         headers: { 'content-type': 'application/json' },
@@ -640,103 +1218,6 @@ export function createFusionMlxFetch(model: string): typeof globalThis.fetch {
     return fetch(input, init)
   }
   return fn as typeof globalThis.fetch
-}
-
-/**
- * 将 Anthropic Messages API 请求体转换为 MLX chat completions 消息格式。
- */
-function convertAnthropicBodyToMLX(body: Record<string, unknown>): MLXChatMessage[] {
-  const messages: MLXChatMessage[] = []
-
-  // 提取 system prompt
-  if (body.system) {
-    if (typeof body.system === 'string') {
-      messages.push({ role: 'system', content: body.system })
-    } else if (Array.isArray(body.system)) {
-      const text = body.system
-        .map((b: Record<string, unknown>) => (b.type === 'text' ? b.text : ''))
-        .filter(Boolean)
-        .join('\n')
-      if (text) {
-        messages.push({ role: 'system', content: text })
-      }
-    }
-  }
-
-  // 转换 messages
-  const anthropicMessages = body.messages as Array<{
-    role: string
-    content: string | Array<Record<string, unknown>>
-  }> | undefined
-
-  if (anthropicMessages) {
-    for (const msg of anthropicMessages) {
-      if (msg.role === 'user') {
-        if (typeof msg.content === 'string') {
-          messages.push({ role: 'user', content: msg.content })
-        } else if (Array.isArray(msg.content)) {
-          const parts: Array<{ type: string; text?: string } | { type: string; image_url: { url: string } }> = []
-          for (const block of msg.content) {
-            if (block.type === 'text') {
-              parts.push({ type: 'text', text: block.text as string })
-            } else if (block.type === 'image' && (block.source as Record<string, unknown>)?.type === 'base64') {
-              const src = block.source as { type: string; media_type: string; data: string }
-              parts.push({
-                type: 'image_url',
-                image_url: { url: `data:${src.media_type};base64,${src.data}` },
-              })
-            } else if (block.type === 'tool_result') {
-              const tr = block as { tool_use_id: string; content: string | Array<Record<string, unknown>> }
-              const content = typeof tr.content === 'string'
-                ? tr.content
-                : Array.isArray(tr.content)
-                  ? tr.content.map(c => (c as { text?: string }).text || '').join('\n')
-                  : ''
-              messages.push({ role: 'tool', content, tool_call_id: tr.tool_use_id })
-            }
-          }
-          if (parts.length > 0) {
-            messages.push({ role: 'user', content: parts as MLXChatMessage['content'] })
-          }
-        }
-      } else if (msg.role === 'assistant') {
-        if (typeof msg.content === 'string') {
-          messages.push({ role: 'assistant', content: msg.content })
-        } else if (Array.isArray(msg.content)) {
-          let textContent = ''
-          const toolCalls: Array<{ id: string; name: string; input: Record<string, unknown> }> = []
-
-          for (const block of msg.content) {
-            if (block.type === 'text') {
-              textContent += (block as { text: string }).text
-            } else if (block.type === 'tool_use') {
-              const tb = block as { id: string; name: string; input: Record<string, unknown> }
-              toolCalls.push({ id: tb.id, name: tb.name, input: tb.input })
-            }
-          }
-
-          if (toolCalls.length > 0) {
-            messages.push({
-              role: 'assistant',
-              content: textContent || '',
-              tool_calls: toolCalls.map(tc => ({
-                id: tc.id,
-                type: 'function',
-                function: {
-                  name: tc.name,
-                  arguments: JSON.stringify(tc.input),
-                },
-              })),
-            } as MLXChatMessage)
-          } else {
-            messages.push({ role: 'assistant', content: textContent })
-          }
-        }
-      }
-    }
-  }
-
-  return messages
 }
 
 /**

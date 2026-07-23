@@ -15,7 +15,8 @@ import stripAnsi from 'strip-ansi';
 import { companionReservedColumns } from '../../buddy/CompanionSprite.js';
 import { findBuddyTriggerPositions, useBuddyNotification } from '../../buddy/useBuddyNotification.js';
 import { FastModePicker } from '../../commands/fast/fast.js';
-import { isUltrareviewEnabled } from '../../commands/review/ultrareviewEnabled.js';
+// isUltrareviewEnabled removed - cloud-only. Always returns false:
+const isUltrareviewEnabled = () => false;
 import { getNativeCSIuTerminalDisplayName } from '../../commands/terminalSetup/terminalSetup.js';
 import { type Command, hasCommand } from '../../commands.js';
 import { useIsModalOverlayActive } from '../../context/overlayContext.js';
@@ -1788,7 +1789,7 @@ function PromptInput({
         case 'companion':
           if (feature('BUDDY')) {
             selectFooterItem(null);
-            void onSubmit('/buddy');
+            // /buddy command removed - cloud-only
           }
           break;
         case 'tasks':

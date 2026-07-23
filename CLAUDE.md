@@ -8,16 +8,16 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 # Install dependencies
 bun install
 
-# Standard build (./cli, only VOICE_MODE enabled)
+# Standard build (./fusion-code, only VOICE_MODE enabled)
 bun run build
 
-# Dev build (./cli-dev, only VOICE_MODE enabled)
+# Dev build (./fusion-code-dev, only VOICE_MODE enabled)
 bun run build:dev
 
-# Dev build with all experimental features (./cli-dev)
+# Dev build with all experimental features (./fusion-code-dev)
 bun run build:dev:full
 
-# Compiled build (./dist/cli)
+# Compiled build (./dist/fusion-code)
 bun run compile
 
 # Run from source without building
@@ -28,7 +28,7 @@ bun run ./scripts/build.ts --feature=ULTRAPLAN --feature=ULTRATHINK
 bun run ./scripts/build.ts --dev --feature=BRIDGE_MODE
 ```
 
-Run the built binary with `./cli` or `./cli-dev`. Set `FUSION_API_KEY` or `ANTHROPIC_API_KEY` for cloud providers, or use local MLX via `fusion service start mlx` (auto-detected on port 11434).
+Run the built binary with `./fusion-code` or `./fusion-code-dev`. Set `FUSION_API_KEY` or `ANTHROPIC_API_KEY` for cloud providers, or use local MLX via `fusion service start mlx` (auto-detected on port 11434).
 
 No test framework or linter is configured in this repo.
 

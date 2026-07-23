@@ -42,6 +42,36 @@ export function filterToolsByServer(tools: Tool[], serverName: string): Tool[] {
 }
 
 /**
+ * Filters tools by per-server allowedTools/disabledTools config (.mcp.json).
+ * allowedTools: whitelist (only listed tools pass). disabledTools: blacklist.
+ * Patterns support `*` suffix wildcard. Matched against the raw tool name
+ * (without the mcp__server__ prefix). No filter configured -> passthrough.
+ */
+export function filterMcpToolsByConfig(
+  tools: Tool[],
+  config: ScopedMcpServerConfig | undefined,
+): Tool[] {
+  const allowedTools = config?.allowedTools
+  const disabledTools = config?.disabledTools
+  if (!allowedTools?.length && !disabledTools?.length) return tools
+  const matchToolName = (toolName: string, pattern: string) =>
+    pattern.endsWith('*')
+      ? toolName.startsWith(pattern.slice(0, -1))
+      : toolName === pattern
+  return tools.filter(t => {
+    const info = mcpInfoFromString(t.name ?? '')
+    const toolName = info?.toolName ?? t.name ?? ''
+    if (disabledTools?.some(p => matchToolName(toolName, p))) return false
+    if (
+      allowedTools?.length &&
+      !allowedTools.some(p => matchToolName(toolName, p))
+    )
+      return false
+    return true
+  })
+}
+
+/**
  * True when a command belongs to the given MCP server.
  *
  * MCP **prompts** are named `mcp__<server>__<prompt>` (wire-format constraint);

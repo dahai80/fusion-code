@@ -11,12 +11,13 @@ import {
   mkdir,
   readdir,
   readFile,
+  rename,
   stat,
   unlink,
   writeFile,
 } from 'fs/promises'
 import memoize from 'lodash-es/memoize.js'
-import { basename, dirname, join } from 'path'
+import { basename, dirname, join, sep } from 'path'
 import {
   type AnalyticsMetadata_I_VERIFIED_THIS_IS_NOT_CODE_OR_FILEPATHS,
   logEvent,
@@ -193,6 +194,22 @@ const EPHEMERAL_PROGRESS_TYPES = new Set([
 ])
 export function isEphemeralToolProgress(dataType: unknown): boolean {
   return typeof dataType === 'string' && EPHEMERAL_PROGRESS_TYPES.has(dataType)
+}
+
+async function atomicWriteFile(
+    filePath: string,
+    data: string,
+    options?: { encoding?: string; mode?: number },
+): Promise<void> {
+    const dir = dirname(filePath)
+    const tmpName = join(dir, `.tmp-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`)
+    try {
+        await writeFile(tmpName, data, { mode: options?.mode ?? 0o600 })
+        await rename(tmpName, filePath)
+    } catch (error) {
+        try { await unlink(tmpName) } catch { /* ignore cleanup failure */ }
+        throw error
+    }
 }
 
 export function getProjectsDir(): string {
@@ -941,7 +958,7 @@ class Project {
             return true // Keep malformed lines
           }
         })
-        await writeFile(this.sessionFile, lines.join('\n'), {
+        await atomicWriteFile(this.sessionFile, lines.join('\n'), {
           encoding: 'utf8',
         })
       } catch {
@@ -1605,7 +1622,7 @@ export async function hydrateRemoteSession(
     // Replace local logs with remote logs. writeFile truncates, so no
     // unlink is needed; an empty remoteLogs array produces an empty file.
     const content = remoteLogs.map(e => jsonStringify(e) + '\n').join('')
-    await writeFile(sessionFile, content, { encoding: 'utf8', mode: 0o600 })
+    await atomicWriteFile(sessionFile, content, { mode: 0o600 })
 
     logForDebugging(`Hydrated ${remoteLogs.length} entries from remote`)
     return remoteLogs.length > 0
@@ -1657,7 +1674,7 @@ export async function hydrateFromCCRv2InternalEvents(
     // Write foreground transcript
     const sessionFile = getTranscriptPathForSession(sessionId)
     const fgContent = events.map(e => jsonStringify(e.payload) + '\n').join('')
-    await writeFile(sessionFile, fgContent, { encoding: 'utf8', mode: 0o600 })
+    await atomicWriteFile(sessionFile, fgContent, { mode: 0o600 })
 
     logForDebugging(
       `Hydrated ${events.length} foreground entries from CCR v2 internal events`,
@@ -1690,8 +1707,7 @@ export async function hydrateFromCCRv2InternalEvents(
           const agentContent = entries
             .map(p => jsonStringify(p) + '\n')
             .join('')
-          await writeFile(agentFile, agentContent, {
-            encoding: 'utf8',
+          await atomicWriteFile(agentFile, agentContent, {
             mode: 0o600,
           })
         }
@@ -3839,8 +3855,13 @@ async function loadSessionFile(sessionId: UUID): Promise<{
  * Gets message UUIDs for a specific session without loading all sessions.
  * Memoized to avoid re-reading the same session file multiple times.
  */
+const SESSION_MESSAGES_CACHE_MAX = 100;
 const getSessionMessages = memoize(
   async (sessionId: UUID): Promise<Set<UUID>> => {
+    // Prune memoize cache when it exceeds the max size
+    if (getSessionMessages.cache && typeof getSessionMessages.cache.size === 'number' && getSessionMessages.cache.size > SESSION_MESSAGES_CACHE_MAX) {
+      getSessionMessages.cache.clear?.()
+    }
     const { messages } = await loadSessionFile(sessionId)
     return new Set(messages.keys())
   },

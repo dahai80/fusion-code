@@ -59,6 +59,8 @@ export function useReplBridge(messages: Message[], setMessages: (action: React.S
   // Tracks UUIDs already flushed as initial messages. Persists across
   // bridge reconnections so Bridge #2+ only sends new messages — sending
   // duplicate UUIDs causes the server to kill the WebSocket.
+  // Pruned when exceeding FLUSHED_UUIDS_MAX to prevent unbounded growth.
+  const FLUSHED_UUIDS_MAX = 10000;
   const flushedUUIDsRef = useRef(new Set<string>());
   const failureTimeoutRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   // Persists across effect re-runs (unlike the effect's local state). Reset
@@ -475,7 +477,13 @@ export function useReplBridge(messages: Message[], setMessages: (action: React.S
             onStateChange: handleStateChange,
             initialMessages: messages.length > 0 ? messages : undefined,
             getMessages: () => messagesRef.current,
-            previouslyFlushedUUIDs: flushedUUIDsRef.current,
+            previouslyFlushedUUIDs: (() => {
+              // Prune unbounded Set: old flushed UUIDs are irrelevant for dedup
+              if (flushedUUIDsRef.current.size > FLUSHED_UUIDS_MAX) {
+                flushedUUIDsRef.current.clear();
+              }
+              return flushedUUIDsRef.current;
+            })(),
             initialName: replBridgeInitialName,
             perpetual
           });

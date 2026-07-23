@@ -559,9 +559,14 @@ export function getAssistantMessageFromError(
 
   // Handle prompt too long errors (Vertex returns 413, direct API returns 400)
   // Use case-insensitive check since Vertex returns "Prompt is too long" (capitalized)
+  // MLX(fusion-mlx)上下文/prefill 内存超限经 adapter 包装为 "Fusion-MLX error: ... - {body}",
+  // body 含 "Prefill would require" / "Reduce context length" 等,同样需触发 reactiveCompact。
   if (
     error instanceof Error &&
-    error.message.toLowerCase().includes('prompt is too long')
+    (error.message.toLowerCase().includes('prompt is too long') ||
+      /prefill would require|reduce context length|process memory limit exceeded/i.test(
+        error.message,
+      ))
   ) {
     // Content stays generic (UI matches on exact string). The raw error with
     // token counts goes into errorDetails — reactive compact's retry loop

@@ -1,7 +1,6 @@
 import { isPDFSupported } from '../../utils/pdfUtils.js'
 import { BASH_TOOL_NAME } from '../BashTool/toolName.js'
 
-// Use a string constant for tool names to avoid circular dependencies
 export const FILE_READ_TOOL_NAME = 'Read'
 
 export const FILE_UNCHANGED_STUB =
@@ -20,10 +19,6 @@ export const OFFSET_INSTRUCTION_DEFAULT =
 export const OFFSET_INSTRUCTION_TARGETED =
   '- When you already know which part of the file you need, only read that part. This can be important for larger files.'
 
-/**
- * Renders the Read tool prompt template.  The caller (FileReadTool) supplies
- * the runtime-computed parts.
- */
 export function renderPromptTemplate(
   lineFormat: string,
   maxSizeInstruction: string,
@@ -45,5 +40,11 @@ ${lineFormat}
 - This tool can read Jupyter notebooks (.ipynb files) and returns all cells with their outputs, combining code, text, and visualizations.
 - This tool can only read files, not directories. To read a directory, use an ls command via the ${BASH_TOOL_NAME} tool.
 - You will regularly be asked to read screenshots. If the user provides a path to a screenshot, ALWAYS use this tool to view the file at the path. This tool will work with all temporary file paths.
-- If you read a file that exists but has empty contents you will receive a system reminder warning in place of file contents.`
+- If you read a file that exists but has empty contents you will receive a system reminder warning in place of file contents.
+
+Tips:
+- Read files BEFORE editing them. The Edit tool requires you to have read the file first.
+- For large files, use offset/limit to read only the relevant section rather than the entire file.
+- If you need to check multiple files, make parallel Read calls for independent files.
+- If a file doesn't exist, you'll get an error — use Glob to find the correct path first.`
 }

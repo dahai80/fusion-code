@@ -123,6 +123,9 @@ export function useRemoteSession({
   // Track whether we've already updated the session title (for no-initial-prompt sessions)
   const hasUpdatedTitleRef = useRef(false)
 
+  // AbortController for generateSessionTitle — stored so it can be aborted on cleanup
+  const titleAbortRef = useRef<AbortController | null>(null)
+
   // UUIDs of user messages we POSTed locally — the WS echoes them back and
   // we must filter them out when convertUserTextMessages is on, or the viewer
   // sees every typed message twice (once from local createUserMessage, once
@@ -517,11 +520,15 @@ export function useRemoteSession({
             ? content
             : extractTextContent(content, ' ')
         if (description) {
+          // Abort any previous title generation request
+          titleAbortRef.current?.abort()
+          const titleAbort = new AbortController()
+          titleAbortRef.current = titleAbort
           // generateSessionTitle never rejects (wraps body in try/catch,
           // returns null on failure), so no .catch needed on this chain.
           void generateSessionTitle(
             description,
-            new AbortController().signal,
+            titleAbort.signal,
           ).then(title => {
             void updateSessionTitle(
               sessionId,

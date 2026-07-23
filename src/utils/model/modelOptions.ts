@@ -297,7 +297,62 @@ function getOpusPlanOption(): ModelOption {
 
 // @[MODEL LAUNCH]: Update the model picker lists below to include/reorder options for the new model.
 // Each user tier (ant, Max/Team Premium, Pro/Team Standard/Enterprise, PAYG 1P, PAYG 3P) has its own list.
+async function getLocalModelOptions(): Promise<ModelOption[]> {
+  const { getFusionMlxModels, getRecommendedCodeModel } = await import('../../services/api/fusion-mlx-adapter.js')
+  const excludeKeywords = ['flux', 'skyreels', 'image', 'video', 'ltx', 'a2v', 'v2v', 'r2v', 'klein', 'txt2vid', 'img2vid', 'tts', 'whisper', 'embed', 'bge']
+  const codeKeywords = ['code', 'coder', 'deepseek', 'qwen', 'codestral', 'instruct', 'chat']
+  let models: Array<{ id: string; max_input_tokens?: number; max_output_tokens?: number }> = []
+  try {
+    models = await getFusionMlxModels()
+  } catch {
+    // fallback below
+  }
+  const chatModels = models.filter(m => !excludeKeywords.some(k => m.id.toLowerCase().includes(k)))
+  if (chatModels.length === 0) {
+    const defaultId = process.env.FUSION_MLX_MODEL || 'default'
+    return [
+      { value: defaultId, label: 'Local MLX (default)', description: `fusion-mlx default model (${defaultId})` },
+    ]
+  }
+  const recommendedId = await getRecommendedCodeModel()
+  return chatModels.map(m => {
+    const isCode = codeKeywords.some(k => m.id.toLowerCase().includes(k))
+    const isRecommended = m.id === recommendedId
+    const sizeHint = m.max_input_tokens ? `${Math.round(m.max_input_tokens / 1024)}K ctx` : ''
+    let desc = isRecommended ? '⭐ Recommended' : (isCode ? 'Code model' : 'Chat model')
+    if (sizeHint) desc += ` · ${sizeHint}`
+    return {
+      value: m.id,
+      label: m.id,
+      description: desc,
+    }
+  })
+}
+
+let cachedLocalModelOptions: ModelOption[] | null = null
+
+function getLocalModelOptionsSync(): ModelOption[] {
+  if (cachedLocalModelOptions) return cachedLocalModelOptions
+  const defaultId = process.env.FUSION_MLX_MODEL || 'default'
+  return [
+    { value: defaultId, label: 'Local MLX (default)', description: `fusion-mlx default model (${defaultId})` },
+  ]
+}
+
+export async function prefetchLocalModelOptions(): Promise<void> {
+  if (cachedLocalModelOptions) return
+  try {
+    cachedLocalModelOptions = await getLocalModelOptions()
+  } catch {
+    // keep sync fallback
+  }
+}
+
 function getModelOptionsBase(fastMode = false): ModelOption[] {
+  if (getAPIProvider() === 'fusionMlx') {
+    return getLocalModelOptionsSync()
+  }
+
   if (process.env.USER_TYPE === 'ant') {
     // Build options from antModels config
     const antModelOptions: ModelOption[] = getAntModels().map(m => ({

@@ -12,24 +12,13 @@ const dev = args.includes('--dev')
 
 const fullExperimentalFeatures = [
   'AGENT_MEMORY_SNAPSHOT',
-  'AGENT_TRIGGERS',
-  'AGENT_TRIGGERS_REMOTE',
-  'AWAY_SUMMARY',
   'BASH_CLASSIFIER',
-  'BRIDGE_MODE',
   'BUILTIN_EXPLORE_PLAN_AGENTS',
   'CACHED_MICROCOMPACT',
-  'CCR_AUTO_CONNECT',
-  'CCR_MIRROR',
-  'CCR_REMOTE_SETUP',
   'COMPACTION_REMINDERS',
-  'CONNECTOR_TEXT',
   'EXTRACT_MEMORIES',
   'HISTORY_PICKER',
   'HOOK_PROMPTS',
-  'KAIROS_BRIEF',
-  'KAIROS_CHANNELS',
-  'LODESTONE',
   'MCP_RICH_OUTPUT',
   'MESSAGE_ACTIONS',
   'NATIVE_CLIPBOARD_IMAGE',
@@ -37,8 +26,6 @@ const fullExperimentalFeatures = [
   'POWERSHELL_AUTO_MODE',
   'PROMPT_CACHE_BREAK_DETECTION',
   'QUICK_SEARCH',
-  'SHOT_STATS',
-  'TEAMMEM',
   'TOKEN_BUDGET',
   'TREE_SITTER_BASH',
   'TREE_SITTER_BASH_SHADOW',
@@ -111,11 +98,11 @@ const features = [...featureSet]
 
 const outfile = compile
   ? dev
-    ? './dist/cli-dev'
-    : './dist/cli'
+    ? './dist/fusion-code-dev'
+    : './dist/fusion-code'
   : dev
-    ? './cli-dev'
-    : './cli'
+    ? './fusion-code-dev'
+    : './fusion-code'
 const buildTime = new Date().toISOString()
 const version = dev ? getDevVersion(pkg.version) : pkg.version
 
@@ -144,7 +131,6 @@ const defines = {
       }
     : {}),
   'process.env.CLAUDE_CODE_VERIFY_PLAN': JSON.stringify('false'),
-  'process.env.CCR_FORCE_BUNDLE': JSON.stringify('true'),
   'MACRO.VERSION': JSON.stringify(version),
   'MACRO.BUILD_TIME': JSON.stringify(buildTime),
   'MACRO.PACKAGE_URL': JSON.stringify(pkg.name),

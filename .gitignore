@@ -1,7 +1,9 @@
 node_modules/
 dist/
-cli
-cli-dev
+/fusion-code
+/fusion-code-dev
+/cli
+/cli-dev
 openclaw/
 
 # Bun build artifacts
@@ -19,3 +21,12 @@ Thumbs.db
 
 # Logs
 *.log
+
+# Secrets and credentials
+.env
+.env.*
+.credentials.json
+*.pem
+*.key
+*.p12
+*.pfx

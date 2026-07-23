@@ -19,11 +19,12 @@ import {
   getURLMarkdownContent,
   isPreapprovedUrl,
   MAX_MARKDOWN_LENGTH,
+  validateURL,
 } from './utils.js'
 
 const inputSchema = lazySchema(() =>
   z.strictObject({
-    url: z.string().url().describe('The URL to fetch content from'),
+    url: z.string().url().refine(validateURL, 'URL is not allowed or invalid').describe('The URL to fetch content from'),
     prompt: z.string().describe('The prompt to run on the fetched content'),
   }),
 )

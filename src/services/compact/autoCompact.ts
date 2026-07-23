@@ -11,6 +11,7 @@ import { isEnvTruthy } from '../../utils/envUtils.js'
 import { hasExactErrorMessage } from '../../utils/errors.js'
 import type { CacheSafeParams } from '../../utils/forkedAgent.js'
 import { logError } from '../../utils/log.js'
+import { isFusionMlxProvider } from '../../utils/model/providers.js'
 import { tokenCountWithEstimation } from '../../utils/tokens.js'
 import { getFeatureValue_CACHED_MAY_BE_STALE } from '../analytics/growthbook.js'
 import { getMaxOutputTokensForModel } from '../api/claude.js'
@@ -18,10 +19,13 @@ import { notifyCompaction } from '../api/promptCacheBreakDetection.js'
 import { setLastSummarizedMessageId } from '../SessionMemory/sessionMemoryUtils.js'
 import {
   type CompactionResult,
+  buildPostCompactMessages,
   compactConversation,
   ERROR_MESSAGE_USER_ABORT,
   type RecompactionInfo,
 } from './compact.js'
+import { extractReadFilesFromMessages } from '../../utils/queryHelpers.js'
+import { getCwd } from '../../utils/cwd.js'
 import { runPostCompactCleanup } from './postCompactCleanup.js'
 import { trySessionMemoryCompaction } from './sessionMemoryCompact.js'
 
@@ -64,13 +68,29 @@ export const WARNING_THRESHOLD_BUFFER_TOKENS = 20_000
 export const ERROR_THRESHOLD_BUFFER_TOKENS = 20_000
 export const MANUAL_COMPACT_BUFFER_TOKENS = 3_000
 
+// Scaled-down buffers for MLX local models (32K context window)
+export const MLX_WARNING_THRESHOLD_BUFFER_TOKENS = 3_000
+export const MLX_ERROR_THRESHOLD_BUFFER_TOKENS = 2_000
+export const MLX_MANUAL_COMPACT_BUFFER_TOKENS = 500
+
 // Stop trying autocompact after this many consecutive failures.
 // BQ 2026-03-10: 1,279 sessions had 50+ consecutive failures (up to 3,272)
 // in a single session, wasting ~250K API calls/day globally.
 const MAX_CONSECUTIVE_AUTOCOMPACT_FAILURES = 3
 
+// MLX local models have much smaller context windows (32K vs 200K).
+// Compact at 60% instead of ~93% to preserve headroom for tool calls.
+const MLX_AUTOCOMPACT_PCT = 60
+
 export function getAutoCompactThreshold(model: string): number {
   const effectiveContextWindow = getEffectiveContextWindowSize(model)
+
+  // MLX: use percentage-based threshold for aggressive early compaction
+  if (isFusionMlxProvider()) {
+    const mlxThreshold = Math.floor(effectiveContextWindow * (MLX_AUTOCOMPACT_PCT / 100))
+    logForDebugging(`autocompact-mlx: threshold=${mlxThreshold} (60% of ${effectiveContextWindow})`)
+    return mlxThreshold
+  }
 
   const autocompactThreshold =
     effectiveContextWindow - AUTOCOMPACT_BUFFER_TOKENS
@@ -110,8 +130,12 @@ export function calculateTokenWarningState(
     Math.round(((threshold - tokenUsage) / threshold) * 100),
   )
 
-  const warningThreshold = threshold - WARNING_THRESHOLD_BUFFER_TOKENS
-  const errorThreshold = threshold - ERROR_THRESHOLD_BUFFER_TOKENS
+  const isMlx = isFusionMlxProvider()
+  const warningBuffer = isMlx ? MLX_WARNING_THRESHOLD_BUFFER_TOKENS : WARNING_THRESHOLD_BUFFER_TOKENS
+  const errorBuffer = isMlx ? MLX_ERROR_THRESHOLD_BUFFER_TOKENS : ERROR_THRESHOLD_BUFFER_TOKENS
+
+  const warningThreshold = threshold - warningBuffer
+  const errorThreshold = threshold - errorBuffer
 
   const isAboveWarningThreshold = tokenUsage >= warningThreshold
   const isAboveErrorThreshold = tokenUsage >= errorThreshold
@@ -120,8 +144,9 @@ export function calculateTokenWarningState(
     isAutoCompactEnabled() && tokenUsage >= autoCompactThreshold
 
   const actualContextWindow = getEffectiveContextWindowSize(model)
+  const manualBuffer = isMlx ? MLX_MANUAL_COMPACT_BUFFER_TOKENS : MANUAL_COMPACT_BUFFER_TOKENS
   const defaultBlockingLimit =
-    actualContextWindow - MANUAL_COMPACT_BUFFER_TOKENS
+    actualContextWindow - manualBuffer
 
   // Allow override for testing
   const blockingLimitOverride = process.env.FUSION_CODE_BLOCKING_LIMIT_OVERRIDE
@@ -294,7 +319,13 @@ export async function autoCompactIfNeeded(
     // Reset lastSummarizedMessageId since session memory compaction prunes messages
     // and the old message UUID will no longer exist after the REPL replaces messages
     setLastSummarizedMessageId(undefined)
-    runPostCompactCleanup(querySource)
+    const activeFilePaths = new Set(
+      extractReadFilesFromMessages(
+        buildPostCompactMessages(sessionMemoryResult),
+        getCwd(),
+      ).keys(),
+    )
+    runPostCompactCleanup(querySource, activeFilePaths)
     // Reset cache read baseline so the post-compact drop isn't flagged as a
     // break. compactConversation does this internally; SM-compact doesn't.
     // BQ 2026-03-01: missing this made 20% of tengu_prompt_cache_break events
@@ -323,7 +354,13 @@ export async function autoCompactIfNeeded(
     // Reset lastSummarizedMessageId since legacy compaction replaces all messages
     // and the old message UUID will no longer exist in the new messages array
     setLastSummarizedMessageId(undefined)
-    runPostCompactCleanup(querySource)
+    const activeFilePaths = new Set(
+      extractReadFilesFromMessages(
+        buildPostCompactMessages(compactionResult),
+        getCwd(),
+      ).keys(),
+    )
+    runPostCompactCleanup(querySource, activeFilePaths)
 
     return {
       wasCompacted: true,

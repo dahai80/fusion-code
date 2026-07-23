@@ -41,13 +41,7 @@ export async function validateModel(
     return { valid: true }
   }
 
-  // Check if it's a known Codex/OpenAI model (skip Anthropic API validation)
-  const { isCodexSubscriber } = await import('../auth.js')
-  const { isCodexModel } = await import('../../services/api/codex-fetch-adapter.js')
-  if (isCodexSubscriber() && isCodexModel(normalizedModel)) {
-    validModelCache.set(normalizedModel, true)
-    return { valid: true }
-  }
+  // Codex model check removed - cloud-only
 
   // Check if it matches FUSION_CUSTOM_MODEL_OPTION (pre-validated by the user)
   if (normalizedModel === process.env.FUSION_CUSTOM_MODEL_OPTION) {
@@ -59,6 +53,21 @@ export async function validateModel(
     return { valid: true }
   }
 
+  // For fusionMlx provider, check model availability locally
+  if (getAPIProvider() === 'fusionMlx') {
+    try {
+      const { getFusionMlxModels } = await import('../../services/api/fusion-mlx-adapter.js')
+      const models = await getFusionMlxModels()
+      const found = models.some(m => m.id === normalizedModel || normalizedModel.includes(m.id) || m.id.includes(normalizedModel))
+      if (found) {
+        validModelCache.set(normalizedModel, true)
+        return { valid: true }
+      }
+      return { valid: false, error: `Model '${normalizedModel}' not found on fusion-mlx. Use /model to see available models.` }
+    } catch {
+      return { valid: true }
+    }
+  }
 
   // Try to make an actual API call with minimal parameters
   try {

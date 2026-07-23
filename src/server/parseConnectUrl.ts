@@ -7,6 +7,42 @@
  * gated by feature('DIRECT_CONNECT')
  */
 
+const BLOCKED_PRIVATE_HOSTNAMES = new Set([
+    'localhost.localdomain',
+    'ip6-localhost',
+    'ip6-loopback',
+    'metadata.google.internal',
+    'metadata.azure.com',
+])
+
+const BLOCKED_IP_PATTERNS: RegExp[] = [
+    /^127\./,
+    /^10\./,
+    /^172\.(1[6-9]|2[0-9]|3[01])\./,
+    /^192\.168\./,
+    /^169\.254\./,
+    /^0\./,
+    /^100\.(6[4-9]|[7-9]\d|1[01]\d|12[0-7])\./,
+    /^198\.1[89]\./,
+    /^::1$/,
+    /^fe80:/i,
+    /^fc00:/i,
+    /^fd:/i,
+    /^::$/,
+]
+
+function isPrivateOrReservedIP(hostname: string): boolean {
+    if (BLOCKED_PRIVATE_HOSTNAMES.has(hostname.toLowerCase())) {
+        return true
+    }
+    for (const pattern of BLOCKED_IP_PATTERNS) {
+        if (pattern.test(hostname)) {
+            return true
+        }
+    }
+    return false
+}
+
 export interface ParsedConnectUrl {
   /** Connection type */
   type: 'tcp' | 'unix'
@@ -48,9 +84,16 @@ function parseTcpUrl(url: string): ParsedConnectUrl {
   const port = portStr ? parseInt(portStr, 10) : undefined
   const params = new URLSearchParams(query || '')
 
+  const resolvedHost = host || 'localhost'
+  if (isPrivateOrReservedIP(resolvedHost)) {
+    throw new Error(
+      `Connect URL hostname "${resolvedHost}" is a private/reserved address (SSRF protection)`,
+    )
+  }
+
   return {
     type: 'tcp',
-    host: host || 'localhost',
+    host: resolvedHost,
     port: port || 8080,
     authToken: params.get('token') || undefined,
     sessionId: params.get('session') || undefined,

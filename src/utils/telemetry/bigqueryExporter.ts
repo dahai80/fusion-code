@@ -13,6 +13,7 @@ import { getIsNonInteractiveSession } from '../../bootstrap/state.js'
 import { getSubscriptionType, isClaudeAISubscriber } from '../auth.js'
 import { checkHasTrustDialogAccepted } from '../config.js'
 import { logForDebugging } from '../debug.js'
+import { getPrivacyLevel } from '../privacyLevel.js'
 import { errorMessage, toError } from '../errors.js'
 import { getAuthHeaders } from '../http.js'
 import { logError } from '../log.js'
@@ -96,6 +97,16 @@ export class BigQueryMetricsExporter implements PushMetricExporter {
       if (!hasTrust) {
         logForDebugging(
           'BigQuery metrics export: trust not established, skipping',
+        )
+        resultCallback({ code: ExportResultCode.SUCCESS })
+        return
+      }
+
+      // Respect local telemetry consent (DISABLE_TELEMETRY / FUSION_CODE_DISABLE_NONESSENTIAL_TRAFFIC)
+      const privacyLevel = getPrivacyLevel()
+      if (privacyLevel !== 'default') {
+        logForDebugging(
+          `BigQuery metrics export: privacy level is ${privacyLevel}, skipping`,
         )
         resultCallback({ code: ExportResultCode.SUCCESS })
         return

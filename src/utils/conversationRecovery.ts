@@ -64,11 +64,8 @@ const LEGACY_BRIEF_TOOL_NAME: string | null =
         require('../tools/BriefTool/prompt.js') as typeof import('../tools/BriefTool/prompt.js')
       ).LEGACY_BRIEF_TOOL_NAME
     : null
-const SEND_USER_FILE_TOOL_NAME: string | null = feature('KAIROS')
-  ? (
-      require('../tools/SendUserFileTool/prompt.js') as typeof import('../tools/SendUserFileTool/prompt.js')
-    ).SEND_USER_FILE_TOOL_NAME
-  : null
+// Cloud-only tool stub (directory removed)
+const SEND_USER_FILE_TOOL_NAME: string | null = feature('KAIROS') ? 'SendUserFile' : null
 /* eslint-enable @typescript-eslint/no-require-imports */
 
 /**

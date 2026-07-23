@@ -1,0 +1,32 @@
+{
+  "timestamp": "2026-07-23T15:29:54.245Z",
+  "version": "0.2.0 (Fusion-Code)",
+  "binaryPath": "/Users/dahai/fusion/fusion-code/benchmarks/../fusion-code",
+  "startupTime": {
+    "avg": 38.02179160000001,
+    "min": 36.90629100000001,
+    "max": 38.72825,
+    "runs": [
+      38.54091699999999,
+      38.72825,
+      38.098792,
+      37.834708000000006,
+      36.90629100000001
+    ]
+  },
+  "buildTime": {
+    "ms": 1907.414625,
+    "success": true
+  },
+  "binarySize": {
+    "bytes": 151867874,
+    "mb": "144.8 MB"
+  },
+  "mlxInference": {
+    "available": false,
+    "model": null,
+    "firstTokenMs": null,
+    "totalMs": null,
+    "error": "port 11434 not listening"
+  }
+}

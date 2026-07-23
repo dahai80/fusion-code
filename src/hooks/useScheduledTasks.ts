@@ -5,7 +5,8 @@ import {
   findTeammateTaskByAgentId,
   injectUserMessageToTeammate,
 } from '../tasks/InProcessTeammateTask/InProcessTeammateTask.js'
-import { isKairosCronEnabled } from '../tools/ScheduleCronTool/prompt.js'
+// Cloud-only tool stub (directory removed)
+const isKairosCronEnabled = (): boolean => false
 import type { Message } from '../types/message.js'
 import { getCronJitterConfig } from '../utils/cronJitterConfig.js'
 import { createCronScheduler } from '../utils/cronScheduler.js'

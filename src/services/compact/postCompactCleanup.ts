@@ -8,6 +8,7 @@ import { resetGetMemoryFilesCache } from '../../utils/claudemd.js'
 import { clearSessionMessagesCache } from '../../utils/sessionStorage.js'
 import { clearBetaTracingState } from '../../utils/telemetry/betaSessionTracing.js'
 import { resetMicrocompactState } from './microCompact.js'
+import { getLspServerManager } from '../lsp/manager.js'
 
 /**
  * Run cleanup of caches and tracking state after compaction.
@@ -28,7 +29,10 @@ import { resetMicrocompactState } from './microCompact.js'
  * pass querySource — undefined is only safe for callers that are
  * genuinely main-thread-only (/compact, /clear).
  */
-export function runPostCompactCleanup(querySource?: QuerySource): void {
+export function runPostCompactCleanup(
+  querySource?: QuerySource,
+  activeFilePaths?: Set<string>,
+): void {
   // Subagents (agent:*) run in the same process and share module-level
   // state with the main thread. Only reset main-thread module-level state
   // (context-collapse, memory file cache) for main-thread compacts.
@@ -74,4 +78,9 @@ export function runPostCompactCleanup(querySource?: QuerySource): void {
     )
   }
   clearSessionMessagesCache()
+  // Notify LSP servers to release files no longer in context after
+  // compaction. Fire-and-forget; closeFilesNotIn swallows per-file errors.
+  if (activeFilePaths && activeFilePaths.size > 0) {
+    void getLspServerManager()?.closeFilesNotIn(activeFilePaths)
+  }
 }

@@ -88,6 +88,18 @@ import { shouldUseSandbox } from './shouldUseSandbox.js'
 const bashCommandIsSafeAsync = bashCommandIsSafeAsync_DEPRECATED
 const splitCommand = splitCommand_DEPRECATED
 
+// Capture the spawn-time value of FUSION_CODE_DISABLE_COMMAND_INJECTION_CHECK
+// before any project-scoped settings can inject it. This env var controls a
+// security boundary and must only be set by the user's global environment or
+// trusted settings, never from project .claude/settings.local.json.
+const _spawnDisableInjectionCheck = isEnvTruthy(
+    process.env.FUSION_CODE_DISABLE_COMMAND_INJECTION_CHECK,
+)
+
+function isInjectionCheckDisabledFromTrustedSource(): boolean {
+    return _spawnDisableInjectionCheck
+}
+
 // Env-var assignment prefix (VAR=value). Shared across three while-loops that
 // skip safe env vars before extracting the command name.
 const ENV_VAR_ASSIGN_RE = /^[A-Za-z_]\w*=/
@@ -1216,7 +1228,7 @@ export async function checkCommandAndSuggestRules(
   // validators (backslash-escaped operators, etc.) would only add FPs.
   if (
     !astParseSucceeded &&
-    !isEnvTruthy(process.env.FUSION_CODE_DISABLE_COMMAND_INJECTION_CHECK)
+    !isInjectionCheckDisabledFromTrustedSource()
   ) {
     const safetyResult = await bashCommandIsSafeAsync(input.command)
 
@@ -1675,9 +1687,7 @@ export async function bashToolHasPermission(
   //
   // When tree-sitter WASM is unavailable OR the injection check is disabled
   // via env var, we fall back to the old path (legacy gate at ~1370 runs).
-  const injectionCheckDisabled = isEnvTruthy(
-    process.env.FUSION_CODE_DISABLE_COMMAND_INJECTION_CHECK,
-  )
+  const injectionCheckDisabled = isInjectionCheckDisabledFromTrustedSource()
   // GrowthBook killswitch for shadow mode — when off, skip the native parse
   // entirely. Computed once; feature() must stay inline in the ternary below.
   const shadowEnabled = feature('TREE_SITTER_BASH_SHADOW')
@@ -2084,7 +2094,7 @@ export async function bashToolHasPermission(
   // same question: "can splitCommand be trusted on this input?"
   if (
     astSubcommands === null &&
-    !isEnvTruthy(process.env.FUSION_CODE_DISABLE_COMMAND_INJECTION_CHECK)
+    !isInjectionCheckDisabledFromTrustedSource()
   ) {
     const originalCommandSafetyResult = await bashCommandIsSafeAsync(
       input.command,
@@ -2343,7 +2353,7 @@ export async function bashToolHasPermission(
   let hasPossibleCommandInjection = false
   if (
     astSubcommands === null &&
-    !isEnvTruthy(process.env.FUSION_CODE_DISABLE_COMMAND_INJECTION_CHECK)
+    !isInjectionCheckDisabledFromTrustedSource()
   ) {
     // CC-643: Batch divergence telemetry into a single logEvent. The per-sub
     // logEvent was the hot-path syscall driver (each call → /proc/self/stat

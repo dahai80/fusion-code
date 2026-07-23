@@ -12,11 +12,8 @@ const BRIEF_TOOL_NAME: string | null =
         require('../BriefTool/prompt.js') as typeof import('../BriefTool/prompt.js')
       ).BRIEF_TOOL_NAME
     : null
-const SEND_USER_FILE_TOOL_NAME: string | null = feature('KAIROS')
-  ? (
-      require('../SendUserFileTool/prompt.js') as typeof import('../SendUserFileTool/prompt.js')
-    ).SEND_USER_FILE_TOOL_NAME
-  : null
+// Cloud-only tool stub (directory removed)
+const SEND_USER_FILE_TOOL_NAME: string | null = feature('KAIROS') ? 'SendUserFile' : null
 
 /* eslint-enable @typescript-eslint/no-require-imports */
 

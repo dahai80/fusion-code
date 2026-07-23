@@ -70,18 +70,9 @@ export async function launchAssistantSessionChooser(root: Root, props: {
  * success, null on cancel. Rejects on install failure so the caller can
  * distinguish errors from user cancellation.
  */
-export async function launchAssistantInstallWizard(root: Root): Promise<string | null> {
-  const {
-    NewInstallWizard,
-    computeDefaultInstallDir
-  } = await import('./commands/assistant/assistant.js');
-  const defaultDir = await computeDefaultInstallDir();
-  let rejectWithError: (reason: Error) => void;
-  const errorPromise = new Promise<never>((_, reject) => {
-    rejectWithError = reject;
-  });
-  const resultPromise = showSetupDialog<string | null>(root, done => <NewInstallWizard defaultDir={defaultDir} onInstalled={dir => done(dir)} onCancel={() => done(null)} onError={message => rejectWithError(new Error(`Installation failed: ${message}`))} />);
-  return Promise.race([resultPromise, errorPromise]);
+export async function launchAssistantInstallWizard(_root: Root): Promise<string | null> {
+  // assistant command removed - cloud-only feature
+  return null;
 }
 
 /**

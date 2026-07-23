@@ -278,7 +278,7 @@ function getOverageDisabledMessage(reason: string | null): string {
       return 'Fast mode disabled · extra usage not available for your plan'
     case 'overage_not_provisioned':
     case 'no_limits_configured':
-      return 'Fast mode requires extra usage billing · /extra-usage to enable'
+      return 'Fast mode requires extra usage billing to enable'
     default:
       return 'Fast mode disabled · extra usage not available'
   }

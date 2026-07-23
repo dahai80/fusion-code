@@ -225,6 +225,22 @@ export const LSPTool = buildTool({
     const absolutePath = expandPath(input.filePath)
     const cwd = getCwd()
 
+    // SECURITY: Validate file path is within project root to prevent path traversal
+    const resolvedAbs = path.resolve(absolutePath)
+    const resolvedCwd = path.resolve(cwd)
+    if (!resolvedAbs.startsWith(resolvedCwd + path.sep) && resolvedAbs !== resolvedCwd) {
+      logForDebugging(
+        `LSP tool path traversal blocked: ${resolvedAbs} is outside project root ${resolvedCwd}`,
+        { level: 'warn' },
+      )
+      const output: Output = {
+        operation: input.operation,
+        result: `Path is outside project root: ${input.filePath}`,
+        filePath: input.filePath,
+      }
+      return { data: output }
+    }
+
     // Wait for initialization if it's still pending
     // This prevents returning "no server available" before init completes
     const status = getInitializationStatus()

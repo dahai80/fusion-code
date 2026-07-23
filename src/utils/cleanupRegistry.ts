@@ -3,6 +3,8 @@
  * This module is separate from gracefulShutdown.ts to avoid circular dependencies.
  */
 
+import { logForDebugging } from './debug.js'
+
 // Global registry for cleanup functions
 const cleanupFunctions = new Set<() => Promise<void>>()
 
@@ -21,5 +23,15 @@ export function registerCleanup(cleanupFn: () => Promise<void>): () => void {
  * Used internally by gracefulShutdown.
  */
 export async function runCleanupFunctions(): Promise<void> {
-  await Promise.all(Array.from(cleanupFunctions).map(fn => fn()))
+  const results = await Promise.allSettled(
+    Array.from(cleanupFunctions).map(fn => fn()),
+  )
+  for (const result of results) {
+    if (result.status === 'rejected') {
+      logForDebugging(
+        `runCleanupFunctions: cleanup function rejected: ${result.reason}`,
+        { level: 'warn' },
+      )
+    }
+  }
 }

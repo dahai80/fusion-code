@@ -49,6 +49,13 @@ export const MAX_TOOL_RESULT_BYTES = MAX_TOOL_RESULT_TOKENS * BYTES_PER_TOKEN
 export const MAX_TOOL_RESULTS_PER_MESSAGE_CHARS = 200_000
 
 /**
+ * MLX local models have 32K context — persist tool results earlier to save tokens.
+ * ~6K tokens per persisted result keeps context available for reasoning.
+ */
+export const MLX_DEFAULT_MAX_RESULT_SIZE_CHARS = 15_000
+export const MLX_MAX_TOOL_RESULTS_PER_MESSAGE_CHARS = 60_000
+
+/**
  * Maximum character length for tool summary strings in compact views.
  * Used by getToolUseSummary() implementations to truncate long inputs
  * for display in grouped agent rendering.

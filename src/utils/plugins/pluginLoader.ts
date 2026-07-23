@@ -340,8 +340,11 @@ export async function copyDir(src: string, dest: string): Promise<void> {
         const relativeLinkPath = relative(dirname(destPath), destTargetPath)
         await symlink(relativeLinkPath, destPath)
       } else {
-        // Target is outside source tree - use absolute resolved path
-        await symlink(resolvedTarget, destPath)
+        // Target is outside source tree - skip to prevent symlink escape
+        logForDebugging(
+          `Skipping symlink with target outside source tree: ${srcPath} -> ${resolvedTarget} (source: ${resolvedSrc})`,
+          { level: 'warn' },
+        )
       }
     }
   }
@@ -470,10 +473,10 @@ export async function copyPluginToVersionedCache(
 function validateGitUrl(url: string): string {
   try {
     const parsed = new URL(url)
-    if (!['https:', 'http:', 'file:'].includes(parsed.protocol)) {
+    if (!['https:', 'file:'].includes(parsed.protocol)) {
       if (!/^git@[a-zA-Z0-9.-]+:/.test(url)) {
         throw new Error(
-          `Invalid git URL protocol: ${parsed.protocol}. Only HTTPS, HTTP, file:// and SSH (git@) URLs are supported.`,
+          `Invalid git URL protocol: ${parsed.protocol}. Only HTTPS, file:// and SSH (git@) URLs are supported. HTTP is insecure and not allowed.`,
         )
       }
     }
@@ -506,8 +509,14 @@ export async function installFromNpm(
 
   if (needsInstall) {
     logForDebugging(`Installing npm package ${packageSpec} to cache`)
-    const args = ['install', packageSpec, '--prefix', npmCachePath]
+    const args = ['install', packageSpec, '--prefix', npmCachePath, '--ignore-scripts']
     if (options.registry) {
+      if (options.registry.startsWith('http://')) {
+        logForDebugging(
+          `Warning: npm registry uses insecure HTTP URL: ${options.registry}`,
+          { level: 'warn' },
+        )
+      }
       args.push('--registry', options.registry)
     }
     const result = await execFileNoThrow('npm', args, { useCwd: false })

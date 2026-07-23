@@ -285,17 +285,29 @@ export async function refreshOAuthToken(
         : undefined,
     }
   } catch (error) {
-    const responseBody =
-      axios.isAxiosError(error) && error.response?.data
-        ? JSON.stringify(error.response.data)
-        : undefined
+    const sanitizedInfo: Record<string, string | number> = {}
+    if (axios.isAxiosError(error) && error.response) {
+      sanitizedInfo.httpStatus = error.response.status
+      // Strip sensitive fields from response body before logging
+      const data = error.response.data
+      if (data && typeof data === 'object') {
+        const safe = { ...data }
+        delete safe.access_token
+        delete safe.refresh_token
+        delete safe.token
+        delete safe.id_token
+        const safeStr = JSON.stringify(safe)
+        if (safeStr.length < 500) {
+            sanitizedInfo.responseBody = safeStr
+        } else {
+            sanitizedInfo.responseBody = safeStr.slice(0, 500) + '...[truncated]'
+        }
+      }
+    }
     logEvent('tengu_oauth_token_refresh_failure', {
       error: (error as Error)
         .message as AnalyticsMetadata_I_VERIFIED_THIS_IS_NOT_CODE_OR_FILEPATHS,
-      ...(responseBody && {
-        responseBody:
-          responseBody as AnalyticsMetadata_I_VERIFIED_THIS_IS_NOT_CODE_OR_FILEPATHS,
-      }),
+      ...sanitizedInfo,
     })
     throw error
   }

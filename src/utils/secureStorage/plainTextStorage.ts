@@ -61,7 +61,7 @@ export const plainTextStorage = {
       chmodSync(storagePath, 0o600)
       return {
         success: true,
-        warning: 'Warning: Storing credentials in plaintext.',
+        warning: 'Warning: Storing credentials in plaintext. Install libsecret (Linux) or use macOS keychain for encrypted storage.',
       }
     } catch {
       return { success: false }

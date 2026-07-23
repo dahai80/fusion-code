@@ -611,6 +611,31 @@ async function checkPermissionsAndCallTool(
     progress: ToolProgress<ToolProgressData> | ProgressMessage<HookProgress>,
   ) => void,
 ): Promise<MessageUpdateLazy[]> {
+  // MLX: if tool call JSON could not be parsed at all, give retry guidance
+  if (input && typeof input === 'object' && '_parse_error' in input) {
+    const parseError = (input as Record<string, unknown>)._parse_error as string
+    const rawArgs = (input as Record<string, unknown>)._raw as string
+    logForDebugging(
+      `${tool.name} MLX tool call parse failure: ${parseError}`,
+    )
+    return [
+      {
+        message: createUserMessage({
+          content: [
+            {
+              type: 'tool_result',
+              content: `<tool_use_error>JSON parse error: ${parseError}. Your tool call arguments were malformed JSON. Please retry using valid JSON syntax. Raw output: ${(rawArgs || '').slice(0, 500)}</tool_use_error>`,
+              is_error: true,
+              tool_use_id: toolUseID,
+            },
+          ],
+          toolUseResult: `MLX parse error: ${parseError}`,
+          sourceToolAssistantUUID: assistantMessage.uuid,
+        }),
+      },
+    ]
+  }
+
   // Validate input types with zod (surprisingly, the model is not great at generating valid input)
   const parsedInput = tool.inputSchema.safeParse(input)
   if (!parsedInput.success) {

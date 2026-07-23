@@ -13,6 +13,16 @@ import {
 } from './macOsKeychainHelpers.js'
 import type { SecureStorage, SecureStorageData } from './types.js'
 
+const KEYCHAIN_ID_RE = /^[a-zA-Z0-9._-]+$/
+
+function validateKeychainIdentifier(name: string, label: string): void {
+    if (!KEYCHAIN_ID_RE.test(name)) {
+        throw new Error(
+            `Security: ${label} contains invalid characters (only alphanumeric, dash, underscore, dot allowed): "${name}"`,
+        )
+    }
+}
+
 // `security -i` reads stdin with a 4096-byte fgets() buffer (BUFSIZ on darwin).
 // A command line longer than this is truncated mid-argument: the first 4096
 // bytes are consumed as one command (unterminated quote → fails), the overflow
@@ -36,6 +46,8 @@ export const macOsKeychainStorage = {
         CREDENTIALS_SERVICE_SUFFIX,
       )
       const username = getUsername()
+      validateKeychainIdentifier(username, 'keychain username')
+      validateKeychainIdentifier(storageServiceName, 'keychain service name')
       const result = execSyncWithDefaults_DEPRECATED(
         `security find-generic-password -a "${username}" -w -s "${storageServiceName}"`,
       )
@@ -103,6 +115,8 @@ export const macOsKeychainStorage = {
         CREDENTIALS_SERVICE_SUFFIX,
       )
       const username = getUsername()
+      validateKeychainIdentifier(username, 'keychain username')
+      validateKeychainIdentifier(storageServiceName, 'keychain service name')
       const jsonString = jsonStringify(data)
 
       // Convert to hexadecimal to avoid any escaping issues
@@ -165,6 +179,8 @@ export const macOsKeychainStorage = {
         CREDENTIALS_SERVICE_SUFFIX,
       )
       const username = getUsername()
+      validateKeychainIdentifier(username, 'keychain username')
+      validateKeychainIdentifier(storageServiceName, 'keychain service name')
       execSyncWithDefaults_DEPRECATED(
         `security delete-generic-password -a "${username}" -s "${storageServiceName}"`,
       )

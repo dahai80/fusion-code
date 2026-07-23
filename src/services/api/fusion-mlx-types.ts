@@ -52,11 +52,15 @@ export interface MLXChatCompletionRequest {
   max_tokens?: number
   temperature?: number
   top_p?: number
+  top_k?: number
+  repetition_penalty?: number
+  frequency_penalty?: number
+  presence_penalty?: number
   stream?: boolean
   tools?: MLXToolDefinition[]
   tool_choice?: 'auto' | 'any' | 'none' | { type: 'function'; function: { name: string } }
   stop?: string | string[]
-  /** 禁用推理/思考过程（Qwen3.6 等模型支持） */
+  /** 启用推理/思考过程（Qwen3 等模型支持），27B+ 模型自动启用 */
   enable_thinking?: boolean
   /**
    * 结构化输出约束（JSON Schema）
@@ -132,6 +136,7 @@ export interface MLXStreamChunkChoice {
 export interface MLXStreamDelta {
   role?: 'assistant'
   content?: string
+  reasoning_content?: string
   tool_calls?: Array<{
     index: number
     id: string

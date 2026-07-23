@@ -38,6 +38,7 @@ import type {
   TombstoneMessage,
 } from './types/message.js'
 import { logError } from './utils/log.js'
+import { isEnvTruthy } from './utils/envUtils.js'
 import {
   PROMPT_TOO_LONG_ERROR_MESSAGE,
   isPromptTooLongMessage,
@@ -88,7 +89,8 @@ import {
 } from './utils/tokens.js'
 import { ESCALATED_MAX_TOKENS } from './utils/context.js'
 import { getFeatureValue_CACHED_MAY_BE_STALE } from './services/analytics/growthbook.js'
-import { SLEEP_TOOL_NAME } from './tools/SleepTool/prompt.js'
+// Cloud-only tool stub (directory removed)
+const SLEEP_TOOL_NAME = 'Sleep'
 import { executePostSamplingHooks } from './utils/hooks/postSamplingHooks.js'
 import { executeStopFailureHooks } from './utils/hooks.js'
 import type { QuerySource } from './constants/querySource.js'
@@ -1192,12 +1194,16 @@ async function* queryLoop(
         // override check), then falls through to multi-turn recovery if
         // 64k also hits the cap.
         // 3P default: false (not validated on Bedrock/Vertex)
+        // MLX: always allow escalation — local models need it most
         const capEnabled = getFeatureValue_CACHED_MAY_BE_STALE(
           'tengu_otk_slot_v1',
           false,
         )
+        const isMlxProvider = !process.env.FUSION_API_KEY ||
+          isEnvTruthy(process.env.FUSION_MLX_ENABLED) ||
+          isEnvTruthy(process.env.FUSION_MLX_AUTO)
         if (
-          capEnabled &&
+          (capEnabled || isMlxProvider) &&
           maxOutputTokensOverride === undefined &&
           !process.env.FUSION_CODE_MAX_OUTPUT_TOKENS
         ) {

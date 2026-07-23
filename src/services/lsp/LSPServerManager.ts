@@ -1,5 +1,5 @@
 import * as path from 'path'
-import { pathToFileURL } from 'url'
+import { fileURLToPath, pathToFileURL } from 'url'
 import { logForDebugging } from '../../utils/debug.js'
 import { errorMessage } from '../../utils/errors.js'
 import { logError } from '../../utils/log.js'
@@ -38,6 +38,8 @@ export type LSPServerManager = {
   saveFile(filePath: string): Promise<void>
   /** Synchronize file close to LSP server (sends didClose notification) */
   closeFile(filePath: string): Promise<void>
+  /** Close all opened files whose path is NOT in activeFilePaths (compact cleanup) */
+  closeFilesNotIn(activeFilePaths: Set<string>): Promise<void>
   /** Check if a file is already open on a compatible LSP server */
   isFileOpen(filePath: string): boolean
 }
@@ -404,6 +406,39 @@ export function createLSPServerManager(): LSPServerManager {
     return openedFiles.has(fileUri)
   }
 
+  // Close every opened file whose path is not in activeFilePaths. Called
+  // after compaction so LSP servers release files no longer in context.
+  async function closeFilesNotIn(
+    activeFilePaths: Set<string>,
+  ): Promise<void> {
+    const stale: string[] = []
+    for (const fileUri of openedFiles.keys()) {
+      let filePath: string
+      try {
+        filePath = fileURLToPath(fileUri)
+      } catch {
+        continue
+      }
+      if (!activeFilePaths.has(filePath)) {
+        stale.push(filePath)
+      }
+    }
+    for (const filePath of stale) {
+      try {
+        await closeFile(filePath)
+      } catch (error) {
+        logForDebugging(
+          `LSP: closeFilesNotIn failed for ${filePath}: ${errorMessage(error)}`,
+        )
+      }
+    }
+    if (stale.length > 0) {
+      logForDebugging(
+        `LSP: closeFilesNotIn closed ${stale.length} stale file(s)`,
+      )
+    }
+  }
+
   return {
     initialize,
     shutdown,
@@ -415,6 +450,7 @@ export function createLSPServerManager(): LSPServerManager {
     changeFile,
     saveFile,
     closeFile,
+    closeFilesNotIn,
     isFileOpen,
   }
 }

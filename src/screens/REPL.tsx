@@ -104,8 +104,8 @@ const VoiceKeybindingHandler: typeof import('../hooks/useVoiceIntegration.js').V
 // Frustration detection is ant-only (dogfooding). Conditional require so external
 // builds eliminate the module entirely (including its two O(n) useMemos that run
 // on every messages change, plus the GrowthBook fetch).
-const useFrustrationDetection: typeof import('../components/FeedbackSurvey/useFrustrationDetection.js').useFrustrationDetection = "external" === 'ant' ? require('../components/FeedbackSurvey/useFrustrationDetection.js').useFrustrationDetection : () => ({
-  state: 'closed',
+const useFrustrationDetection = () => ({
+  state: 'closed' as const,
   handleTranscriptSelect: () => {}
 });
 // Ant-only org warning. Conditional require so the org UUID list is
@@ -125,7 +125,8 @@ import { buildPermissionUpdates } from '../components/permissions/ExitPlanModePe
 import { stripDangerousPermissionsForAutoMode } from '../utils/permissions/permissionSetup.js';
 import { getScratchpadDir, isScratchpadEnabled } from '../utils/permissions/filesystem.js';
 import { WEB_FETCH_TOOL_NAME } from '../tools/WebFetchTool/prompt.js';
-import { SLEEP_TOOL_NAME } from '../tools/SleepTool/prompt.js';
+// Cloud-only tool stub (directory removed)
+const SLEEP_TOOL_NAME = 'Sleep';
 import { clearSpeculativeChecks } from '../tools/BashTool/bashPermissions.js';
 import type { AutoUpdaterResult } from '../utils/autoUpdater.js';
 import { getGlobalConfig, saveGlobalConfig, getGlobalConfigWriteCount } from '../utils/config.js';
@@ -175,6 +176,7 @@ import { copyPlanForFork, copyPlanForResume, getPlanSlug, setPlanSlug } from '..
 import { clearSessionMetadata, resetSessionFilePointer, adoptResumedSessionFile, removeTranscriptMessage, restoreSessionMetadata, getCurrentSessionTitle, isEphemeralToolProgress, isLoggableMessage, saveWorktreeState, getAgentTranscript } from '../utils/sessionStorage.js';
 import { deserializeMessages } from '../utils/conversationRecovery.js';
 import { extractReadFilesFromMessages, extractBashToolsFromMessages } from '../utils/queryHelpers.js';
+import { getCwd } from '../utils/cwd.js';
 import { resetMicrocompactState } from '../services/compact/microCompact.js';
 import { runPostCompactCleanup } from '../services/compact/postCompactCleanup.js';
 import { provisionContentReplacementState, reconstructContentReplacementState, type ContentReplacementRecord } from '../utils/toolResultStorage.js';
@@ -187,7 +189,8 @@ import { recordAttributionSnapshot } from '../utils/sessionStorage.js';
 import { computeStandaloneAgentContext, restoreAgentFromSession, restoreSessionStateFromLog, restoreWorktreeForResume, exitRestoredWorktree } from '../utils/sessionRestore.js';
 import { isBgSession, updateSessionName, updateSessionActivity } from '../utils/concurrentSessions.js';
 import { isInProcessTeammateTask, type InProcessTeammateTaskState } from '../tasks/InProcessTeammateTask/types.js';
-import { restoreRemoteAgentTasks } from '../tasks/RemoteAgentTask/RemoteAgentTask.js';
+// RemoteAgentTask removed - cloud-only
+const restoreRemoteAgentTasks = async () => {}
 import { useInboxPoller } from '../hooks/useInboxPoller.js';
 // Dead code elimination: conditional import for loop mode
 /* eslint-disable @typescript-eslint/no-require-imports */
@@ -225,10 +228,11 @@ const UndercoverAutoCallout = "external" === 'ant' ? require('../components/Unde
 import { activityManager } from '../utils/activityManager.js';
 import { createAbortController } from '../utils/abortController.js';
 import { MCPConnectionManager } from 'src/services/mcp/MCPConnectionManager.js';
-import { useFeedbackSurvey } from 'src/components/FeedbackSurvey/useFeedbackSurvey.js';
-import { useMemorySurvey } from 'src/components/FeedbackSurvey/useMemorySurvey.js';
-import { usePostCompactSurvey } from 'src/components/FeedbackSurvey/usePostCompactSurvey.js';
-import { FeedbackSurvey } from 'src/components/FeedbackSurvey/FeedbackSurvey.js';
+// FeedbackSurvey removed - cloud-only feature. Stubs below.
+const useFeedbackSurvey = () => ({ state: 'closed' as const, lastResponse: null as null, handleSelect: () => false });
+const useMemorySurvey = () => ({ state: 'closed' as const, lastResponse: null as null, handleSelect: () => {}, handleTranscriptSelect: () => {} });
+const usePostCompactSurvey = () => ({ state: 'closed' as const, lastResponse: null as null, handleSelect: () => {} });
+function FeedbackSurvey() { return null; }
 import { useInstallMessages } from 'src/hooks/notifs/useInstallMessages.js';
 import { useAwaySummary } from 'src/hooks/useAwaySummary.js';
 import { useChromeExtensionNotification } from 'src/hooks/useChromeExtensionNotification.js';
@@ -267,20 +271,17 @@ import { useTeammateLifecycleNotification } from 'src/hooks/notifs/useTeammateSh
 import { useFastModeNotification } from 'src/hooks/notifs/useFastModeNotification.js';
 import { AutoRunIssueNotification, shouldAutoRunIssue, getAutoRunIssueReasonText, getAutoRunCommand, type AutoRunIssueReason } from '../utils/autoRunIssue.js';
 import type { HookProgress } from '../types/hooks.js';
-import { TungstenLiveMonitor } from '../tools/TungstenTool/TungstenLiveMonitor.js';
-/* eslint-disable @typescript-eslint/no-require-imports */
-const WebBrowserPanelModule = feature('WEB_BROWSER_TOOL') ? require('../tools/WebBrowserTool/WebBrowserPanel.js') as typeof import('../tools/WebBrowserTool/WebBrowserPanel.js') : null;
-const UltraplanLaunchDialog: typeof import('../components/UltraplanLaunchDialog.js').UltraplanLaunchDialog = feature('ULTRAPLAN') ? require('../components/UltraplanLaunchDialog.js').UltraplanLaunchDialog : () => null;
-const UltraplanChoiceDialog: typeof import('../components/UltraplanChoiceDialog.js').UltraplanChoiceDialog = feature('ULTRAPLAN') ? require('../components/UltraplanChoiceDialog.js').UltraplanChoiceDialog : () => null;
-const launchUltraplan: typeof import('../commands/ultraplan.js').launchUltraplan = feature('ULTRAPLAN') ? require('../commands/ultraplan.js').launchUltraplan : () => Promise.resolve('');
-/* eslint-enable @typescript-eslint/no-require-imports */
+// Cloud-only tool stub (directory removed)
+const TungstenLiveMonitor = () => null;
+// Cloud-only tool stub (directory removed)
+const WebBrowserPanelModule = feature('WEB_BROWSER_TOOL') ? null : null;
 import { IssueFlagBanner } from '../components/PromptInput/IssueFlagBanner.js';
 import { useIssueFlagBanner } from '../hooks/useIssueFlagBanner.js';
 import { CompanionSprite, CompanionFloatingBubble, MIN_COLS_FOR_FULL_SPRITE } from '../buddy/CompanionSprite.js';
 import { DevBar } from '../components/DevBar.js';
 // Session manager removed - using AppState now
 import type { RemoteSessionConfig } from '../remote/RemoteSessionManager.js';
-import { REMOTE_SAFE_COMMANDS } from '../commands.js';
+import { filterCommandsForRemoteMode } from '../commands.js';
 import type { RemoteMessageContent } from '../utils/teleport/api.js';
 import { FullscreenLayout, useUnseenDivider, computeUnseenDivider } from '../components/FullscreenLayout.js';
 import { isFullscreenEnvEnabled, maybeGetTmuxMouseHint, isMouseTrackingEnabled } from '../utils/fullscreen.js';
@@ -1197,7 +1198,11 @@ export function REPL({
   // already-updated ref.  This is the Zustand pattern: ref is source of
   // truth, React state is the render projection.  Without this, paths
   // that queue functional updaters then synchronously read the ref
-  // (e.g. handleSpeculationAccept → onQuery) see stale data.
+  // (e.g. handleSpeculationAccept -> onQuery) see stale data.
+  //
+  // NOTE: messagesRef.current is intentionally updated BEFORE rawSetMessages.
+  // This ensures synchronous readers (within the same microtask) always see
+  // the latest value. rawSetMessages is only for triggering a React re-render.
   const setMessages = useCallback((action: React.SetStateAction<MessageType[]>) => {
     const prev = messagesRef.current;
     const next = typeof action === 'function' ? action(messagesRef.current) : action;
@@ -1382,8 +1387,10 @@ export function REPL({
   // Callback to filter commands based on CCR's available slash commands
   const handleRemoteInit = useCallback((remoteSlashCommands: string[]) => {
     const remoteCommandSet = new Set(remoteSlashCommands);
-    // Keep commands that CCR lists OR that are in the local-safe set
-    setLocalCommands(prev => prev.filter(cmd => remoteCommandSet.has(cmd.name) || REMOTE_SAFE_COMMANDS.has(cmd)));
+    // Keep commands that CCR lists OR that are safe for remote mode
+    setLocalCommands(prev => filterCommandsForRemoteMode(prev).length > 0
+      ? prev.filter(cmd => remoteCommandSet.has(cmd.name) || filterCommandsForRemoteMode([cmd]).length > 0)
+      : prev.filter(cmd => remoteCommandSet.has(cmd.name)));
   }, [setLocalCommands]);
   const [inProgressToolUseIDs, setInProgressToolUseIDs] = useState<Set<string>>(new Set());
   const hasInterruptibleToolInProgressRef = useRef(false);
@@ -3580,9 +3587,9 @@ export function REPL({
     helpers.clearBuffer();
   }, [setAppState, setInputValue, getToolUseContext, canUseTool, mainLoopModel, addNotification]);
 
-  // Handlers for auto-run /issue or /good-claude (defined after onSubmit)
+  // Handlers for auto-run /issue or /good-claude (defined after onSubmit) — commands removed, cloud-only
   const handleAutoRunIssue = useCallback(() => {
-    const command = autoRunIssueReason ? getAutoRunCommand(autoRunIssueReason) : '/issue';
+    const command = autoRunIssueReason ? getAutoRunCommand(autoRunIssueReason) : '';
     setAutoRunIssueReason(null); // Clear the state
     onSubmit(command, {
       setCursorOffset: () => {},
@@ -3596,9 +3603,9 @@ export function REPL({
     setAutoRunIssueReason(null);
   }, []);
 
-  // Handler for when user presses 1 on survey thanks screen to share details
+  // Handler for when user presses 1 on survey thanks screen to share details — commands removed, cloud-only
   const handleSurveyRequestFeedback = useCallback(() => {
-    const command = "external" === 'ant' ? '/issue' : '/feedback';
+    return; // /issue and /feedback commands removed - cloud-only
     onSubmit(command, {
       setCursorOffset: () => {},
       clearBuffer: () => {},
@@ -3616,11 +3623,7 @@ export function REPL({
   const onSubmitRef = useRef(onSubmit);
   onSubmitRef.current = onSubmit;
   const handleOpenRateLimitOptions = useCallback(() => {
-    void onSubmitRef.current('/rate-limit-options', {
-      setCursorOffset: () => {},
-      clearBuffer: () => {},
-      resetHistory: () => {}
-    });
+    // /rate-limit-options command removed - cloud-only
   }, []);
   const handleExit = useCallback(async () => {
     setIsExiting(true);
@@ -4114,8 +4117,8 @@ export function REPL({
     return () => {
       void diagnosticTracker.shutdown();
     };
-    // TODO: fix this
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    // Intentionally empty deps: onInit must run once on mount only.
+    // onInit captures its dependencies via refs and app state, not closure values.
   }, []);
 
   // Listen for suspend/resume events
@@ -4850,47 +4853,9 @@ export function REPL({
 
                 {focusedInputDialog === 'desktop-upsell' && <DesktopUpsellStartup onDone={() => setShowDesktopUpsellStartup(false)} />}
 
-                {feature('ULTRAPLAN') ? focusedInputDialog === 'ultraplan-choice' && ultraplanPendingChoice && <UltraplanChoiceDialog plan={ultraplanPendingChoice.plan} sessionId={ultraplanPendingChoice.sessionId} taskId={ultraplanPendingChoice.taskId} setMessages={setMessages} readFileState={readFileState.current} getAppState={() => store.getState()} setConversationId={setConversationId} /> : null}
+                {/* Ultraplan removed - cloud-only feature */}
 
-                {feature('ULTRAPLAN') ? focusedInputDialog === 'ultraplan-launch' && ultraplanLaunchPending && <UltraplanLaunchDialog onChoice={(choice, opts) => {
-            const blurb = ultraplanLaunchPending.blurb;
-            setAppState(prev => prev.ultraplanLaunchPending ? {
-              ...prev,
-              ultraplanLaunchPending: undefined
-            } : prev);
-            if (choice === 'cancel') return;
-            // Command's onDone used display:'skip', so add the
-            // echo here — gives immediate feedback before the
-            // ~5s teleportToRemote resolves.
-            setMessages(prev => [...prev, createCommandInputMessage(formatCommandInputTags('ultraplan', blurb))]);
-            const appendStdout = (msg: string) => setMessages(prev => [...prev, createCommandInputMessage(`<${LOCAL_COMMAND_STDOUT_TAG}>${escapeXml(msg)}</${LOCAL_COMMAND_STDOUT_TAG}>`)]);
-            // Defer the second message if a query is mid-turn
-            // so it lands after the assistant reply, not
-            // between the user's prompt and the reply.
-            const appendWhenIdle = (msg: string) => {
-              if (!queryGuard.isActive) {
-                appendStdout(msg);
-                return;
-              }
-              const unsub = queryGuard.subscribe(() => {
-                if (queryGuard.isActive) return;
-                unsub();
-                // Skip if the user stopped ultraplan while we
-                // were waiting — avoids a stale "Monitoring
-                // <url>" message for a session that's gone.
-                if (!store.getState().ultraplanSessionUrl) return;
-                appendStdout(msg);
-              });
-            };
-            void launchUltraplan({
-              blurb,
-              getAppState: () => store.getState(),
-              setAppState,
-              signal: createAbortController().signal,
-              disconnectedBridge: opts?.disconnectedBridge,
-              onSessionReady: appendWhenIdle
-            }).then(appendStdout).catch(logError);
-          }} /> : null}
+                {/* Ultraplan removed - cloud-only feature */}
 
                 {mrRender()}
 
@@ -4972,7 +4937,10 @@ export function REPL({
               proactiveModule?.setContextBlocked(false);
             }
             setConversationId(randomUUID());
-            runPostCompactCleanup(context.options.querySource);
+            const activeFilePaths = new Set(
+              extractReadFilesFromMessages(postCompact, getCwd()).keys(),
+            )
+            runPostCompactCleanup(context.options.querySource, activeFilePaths);
             if (direction === 'from') {
               const r = textForResubmit(message);
               if (r) {

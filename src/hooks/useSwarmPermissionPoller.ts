@@ -73,7 +73,13 @@ export type PermissionResponseCallback = {
 type PendingCallbackRegistry = Map<string, PermissionResponseCallback>
 
 // Module-level registry that persists across renders
+// TTL: auto-delete entries after 5 minutes to prevent unbounded growth
+const PENDING_CALLBACKS_TTL_MS = 5 * 60 * 1000
+const PENDING_CALLBACKS_MAX = 100
 const pendingCallbacks: PendingCallbackRegistry = new Map()
+
+// Track TTL timers for cleanup
+const pendingCallbackTimers = new Map<string, ReturnType<typeof setTimeout>>()
 
 /**
  * Register a callback for a pending permission request
@@ -82,7 +88,26 @@ const pendingCallbacks: PendingCallbackRegistry = new Map()
 export function registerPermissionCallback(
   callback: PermissionResponseCallback,
 ): void {
+  // Enforce max size: delete oldest entry
+  if (pendingCallbacks.size >= PENDING_CALLBACKS_MAX) {
+    const oldestKey = pendingCallbacks.keys().next().value
+    if (oldestKey) {
+      const timer = pendingCallbackTimers.get(oldestKey)
+      if (timer) clearTimeout(timer)
+      pendingCallbackTimers.delete(oldestKey)
+      pendingCallbacks.delete(oldestKey)
+    }
+  }
   pendingCallbacks.set(callback.requestId, callback)
+  // Auto-delete after TTL
+  const timer = setTimeout(() => {
+    pendingCallbacks.delete(callback.requestId)
+    pendingCallbackTimers.delete(callback.requestId)
+    logForDebugging(
+      `[SwarmPermissionPoller] TTL expired for request ${callback.requestId}`,
+    )
+  }, PENDING_CALLBACKS_TTL_MS)
+  pendingCallbackTimers.set(callback.requestId, timer)
   logForDebugging(
     `[SwarmPermissionPoller] Registered callback for request ${callback.requestId}`,
   )
@@ -93,6 +118,11 @@ export function registerPermissionCallback(
  */
 export function unregisterPermissionCallback(requestId: string): void {
   pendingCallbacks.delete(requestId)
+  const timer = pendingCallbackTimers.get(requestId)
+  if (timer) {
+    clearTimeout(timer)
+    pendingCallbackTimers.delete(requestId)
+  }
   logForDebugging(
     `[SwarmPermissionPoller] Unregistered callback for request ${requestId}`,
   )
@@ -111,6 +141,10 @@ export function hasPermissionCallback(requestId: string): boolean {
  * and also used in tests for isolation.
  */
 export function clearAllPendingCallbacks(): void {
+  for (const timer of pendingCallbackTimers.values()) {
+    clearTimeout(timer)
+  }
+  pendingCallbackTimers.clear()
   pendingCallbacks.clear()
   pendingSandboxCallbacks.clear()
 }

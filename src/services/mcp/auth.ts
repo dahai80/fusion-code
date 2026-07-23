@@ -2131,7 +2131,10 @@ export class ClaudeAuthProvider implements OAuthClientProvider {
     if (!release) {
       logMCPDebug(
         this.serverName,
-        `Could not acquire refresh lock after ${MAX_LOCK_RETRIES} retries, proceeding without lock`,
+        `Could not acquire refresh lock after ${MAX_LOCK_RETRIES} retries, throwing error`,
+      )
+      throw new Error(
+        `Failed to acquire refresh lock for ${this.serverName} after ${MAX_LOCK_RETRIES} retries`,
       )
     }
 

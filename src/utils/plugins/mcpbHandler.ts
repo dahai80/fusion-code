@@ -81,10 +81,10 @@ export function isMcpbSource(source: string): boolean {
 }
 
 /**
- * Check if a source is a URL
+ * Check if a source is a URL (HTTPS only for security)
  */
 function isUrl(source: string): boolean {
-  return source.startsWith('http://') || source.startsWith('https://')
+    return source.startsWith('https://')
 }
 
 /**
@@ -706,6 +706,16 @@ export async function loadMcpbFile(
   const fs = getFsImplementation()
   const cacheDir = getMcpbCacheDir(pluginPath)
   await fs.mkdir(cacheDir)
+
+  if (source.startsWith('http://')) {
+    logForDebugging(
+      `Rejecting insecure HTTP URL for MCPB download: ${source}`,
+      { level: 'warn' },
+    )
+    throw new Error(
+      `Insecure HTTP URL not allowed for MCPB download: ${source}. Use HTTPS instead.`,
+    )
+  }
 
   logForDebugging(`Loading MCPB from source: ${source}`)
 
