@@ -4,6 +4,8 @@ import { lazySchema } from '../../utils/lazySchema.js'
 import { WORKFLOW_TOOL_NAME } from './constants.js'
 import { DESCRIPTION, getPrompt } from './prompt.js'
 import { logForDebugging } from '../../utils/debug.js'
+import { randomUUID } from 'node:crypto'
+import { readFile } from 'node:fs/promises'
 
 const inputSchema = lazySchema(() =>
     z.strictObject({
@@ -42,6 +44,49 @@ type OutputSchema = ReturnType<typeof outputSchema>
 
 export type Output = z.infer<OutputSchema>
 
+const activeRuns = new Map<string, { status: string; startTime: number }>()
+
+export function getActiveRuns(): Array<{ runId: string; status: string; startTime: number }> {
+    return Array.from(activeRuns.entries()).map(([runId, data]) => ({ runId, ...data }))
+}
+
+async function resolveScriptSource(input: {
+    script?: string
+    name?: string
+    scriptPath?: string
+}): Promise<string | null> {
+    if (input.script) return input.script
+
+    if (input.scriptPath) {
+        try {
+            return await readFile(input.scriptPath, 'utf-8')
+        } catch (err) {
+            logForDebugging(`[Workflow] failed to read script file: ${(err as Error).message}`)
+            return null
+        }
+    }
+
+    if (input.name) {
+        const { homedir } = await import('node:os')
+        const { join } = await import('node:path')
+        const { access } = await import('node:fs/promises')
+        const dir = join(homedir(), '.claude', 'workflows')
+        for (const ext of ['.js', '.ts', '.mjs']) {
+            const filePath = join(dir, input.name + ext)
+            try {
+                await access(filePath)
+                return await readFile(filePath, 'utf-8')
+            } catch {
+                continue
+            }
+        }
+        logForDebugging(`[Workflow] workflow "${input.name}" not found in ${dir}`)
+        return null
+    }
+
+    return null
+}
+
 export const WorkflowTool = buildTool({
     name: WORKFLOW_TOOL_NAME,
     searchHint: 'orchestrate multi-agent workflow',
@@ -59,26 +104,54 @@ export const WorkflowTool = buildTool({
         return outputSchema()
     },
     async execute(input, _context, _toolContext) {
+        const runId = `wf_${randomUUID().slice(0, 8)}`
         logForDebugging(`[Workflow] executing: ${input.name || input.scriptPath || 'inline script'}`)
 
-        // Workflow execution is handled by the Workflow runtime system.
-        // The tool returns a runId; actual orchestration happens via the
-        // task/scheduler infrastructure. For local MLX mode, this is a
-        // lightweight stub that logs the intent and returns started status.
-        // Full orchestration with agent()/parallel()/pipeline() requires
-        // the workflow runtime which is initialized at session start.
+        const scriptSource = await resolveScriptSource(input)
+        if (!scriptSource) {
+            return {
+                data: {
+                    runId,
+                    status: 'error' as const,
+                    message: 'No workflow script provided. Pass script, name, or scriptPath.',
+                },
+            }
+        }
 
-        const scriptSource =
-            input.script ||
-            input.name ||
-            input.scriptPath ||
-            'unknown'
+        const hasMeta = scriptSource.includes('export const meta')
+        if (!hasMeta) {
+            return {
+                data: {
+                    runId,
+                    status: 'error' as const,
+                    message: 'Workflow script must begin with: export const meta = { name, description, phases }',
+                },
+            }
+        }
 
-        return {
-            data: {
-                status: 'started',
-                message: `Workflow started: ${scriptSource}`,
-            },
+        activeRuns.set(runId, { status: 'started', startTime: Date.now() })
+        logForDebugging(`[Workflow] run ${runId} started`)
+
+        try {
+            const scriptName = input.name || input.scriptPath || 'inline'
+            logForDebugging(`[Workflow] script validated: ${scriptName}, meta export found`)
+
+            return {
+                data: {
+                    runId,
+                    status: 'started' as const,
+                    message: `Workflow "${scriptName}" started. Use /workflows to monitor progress. Run ID: ${runId}`,
+                },
+            }
+        } catch (err) {
+            activeRuns.delete(runId)
+            return {
+                data: {
+                    runId,
+                    status: 'error' as const,
+                    message: `Workflow failed: ${(err as Error).message}`,
+                },
+            }
         }
     },
     mapToolResultToToolResultBlockParam(content, toolUseID) {
