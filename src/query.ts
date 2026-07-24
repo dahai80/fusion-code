@@ -112,6 +112,9 @@ import {
 } from './bootstrap/state.js'
 import { createBudgetTracker, checkTokenBudget } from './query/tokenBudget.js'
 import { count } from './utils/array.js'
+import { preflightMlxQueryCheck } from './utils/model/mlxPreflight.js'
+import { ERROR_MESSAGE_MLX_MEMORY_LIMIT } from './services/compact/compact.js'
+import { isFusionMlxProvider } from './utils/model/providers.js'
 
 /* eslint-disable @typescript-eslint/no-require-imports */
 const snipModule = feature('HISTORY_SNIP')
@@ -213,6 +216,7 @@ type State = {
   pendingToolUseSummary: Promise<ToolUseSummaryMessage | null> | undefined
   stopHookActive: boolean | undefined
   turnCount: number
+  mlxModelOomCount: number
   // Why the previous iteration continued. Undefined on first iteration.
   // Lets tests assert recovery paths fired without inspecting message contents.
   transition: Continue | undefined
@@ -278,6 +282,7 @@ async function* queryLoop(
     turnCount: 1,
     pendingToolUseSummary: undefined,
     transition: undefined,
+    mlxModelOomCount: 0,
   }
   const budgetTracker = feature('TOKEN_BUDGET') ? createBudgetTracker() : null
 
@@ -321,6 +326,7 @@ async function* queryLoop(
       stopHookActive,
       turnCount,
     } = state
+    let { mlxModelOomCount } = state
 
     // Skill discovery prefetch — per-iteration (uses findWritePivot guard
     // that returns early on non-write iterations). Discovery runs while the
@@ -646,6 +652,52 @@ async function* queryLoop(
           error: 'invalid_request',
         })
         return { reason: 'blocking_limit' }
+      }
+    }
+
+    // MLX pre-flight: check total request size before calling model.
+    // Prevents OOM spiral where compact succeeds but the subsequent model
+    // call still exceeds local model memory, causing infinite retry loop.
+    if (isFusionMlxProvider()) {
+      const preflight = preflightMlxQueryCheck(
+        fullSystemPrompt,
+        toolUseContext.options.tools,
+        messagesForQuery,
+      )
+      if (!preflight.fits) {
+        if (mlxModelOomCount >= 3) {
+          logForDebugging(
+            `[MLX-Preflight] ${mlxModelOomCount} consecutive OOMs, aborting`,
+            { level: 'warn' },
+          )
+          yield createAssistantAPIErrorMessage({
+            content: ERROR_MESSAGE_MLX_MEMORY_LIMIT,
+            error: 'invalid_request',
+          })
+          return { reason: 'mlx_memory_limit' }
+        }
+        logForDebugging(
+          `[MLX-Preflight] request over budget (${preflight.estimatedTokens} > ${preflight.safeBudget}), OOM count ${mlxModelOomCount}`,
+          { level: 'warn' },
+        )
+        mlxModelOomCount++
+      } else {
+        if (mlxModelOomCount > 0) {
+          logForDebugging(`[MLX-Preflight] recovered from OOM streak`)
+        }
+        mlxModelOomCount = 0
+        if (preflight.reducedTools) {
+          logForDebugging(
+            `[MLX-Preflight] using reduced tool set: ${toolUseContext.options.tools.length} -> ${preflight.reducedTools.length}`,
+          )
+          toolUseContext = {
+            ...toolUseContext,
+            options: {
+              ...toolUseContext.options,
+              tools: preflight.reducedTools,
+            },
+          }
+        }
       }
     }
 
@@ -1108,6 +1160,7 @@ async function* queryLoop(
               pendingToolUseSummary: undefined,
               stopHookActive: undefined,
               turnCount,
+              mlxModelOomCount,
               transition: {
                 reason: 'collapse_drain_retry',
                 committed: drained.committed,
@@ -1161,6 +1214,7 @@ async function* queryLoop(
             pendingToolUseSummary: undefined,
             stopHookActive: undefined,
             turnCount,
+            mlxModelOomCount: mlxModelOomCount + 1,
             transition: { reason: 'reactive_compact_retry' },
           }
           state = next
@@ -1220,6 +1274,7 @@ async function* queryLoop(
             pendingToolUseSummary: undefined,
             stopHookActive: undefined,
             turnCount,
+            mlxModelOomCount,
             transition: { reason: 'max_output_tokens_escalate' },
           }
           state = next
@@ -1248,6 +1303,7 @@ async function* queryLoop(
             pendingToolUseSummary: undefined,
             stopHookActive: undefined,
             turnCount,
+            mlxModelOomCount,
             transition: {
               reason: 'max_output_tokens_recovery',
               attempt: maxOutputTokensRecoveryCount + 1,
@@ -1305,6 +1361,7 @@ async function* queryLoop(
           pendingToolUseSummary: undefined,
           stopHookActive: true,
           turnCount,
+          mlxModelOomCount,
           transition: { reason: 'stop_hook_blocking' },
         }
         state = next
@@ -1341,6 +1398,7 @@ async function* queryLoop(
             pendingToolUseSummary: undefined,
             stopHookActive: undefined,
             turnCount,
+            mlxModelOomCount,
             transition: { reason: 'token_budget_continuation' },
           }
           continue
@@ -1728,6 +1786,7 @@ async function* queryLoop(
       pendingToolUseSummary: nextPendingToolUseSummary,
       maxOutputTokensOverride: undefined,
       stopHookActive,
+      mlxModelOomCount: 0,
       transition: { reason: 'next_turn' },
     }
     state = next
