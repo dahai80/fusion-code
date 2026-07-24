@@ -24,17 +24,18 @@ import { getDeploymentProtocol, getConfigChangeProtocol, getCodeMigrationProtoco
 import { getGitConflictProtocol, getCIDebuggingProtocol, getDockerDebuggingProtocol, getPackageManagerProtocol, getBuildSystemProtocol, getLintFormatProtocol, getMonitoringProtocol } from './toolchain-protocols.js'
 import { getCompactDecisionProtocol, getAgentDispatchProtocol, getReReadDecisionProtocol, getVerificationCheckpointProtocol, getEscalationProtocol, getTokenBudgetProtocol, getApproachSwitchProtocol, getConfidenceAssessmentProtocol } from './self-reflection-protocols.js'
 
-export type PromptTier = 'mini' | 'standard' | 'extended' | 'full'
+export type PromptTier = 'mini' | 'compact' | 'standard' | 'extended' | 'full'
 
 export function getPromptTier(paramCount: number, contextWindow?: number): PromptTier {
     if (paramCount <= 3) return 'mini'
     if (paramCount <= 9) return 'standard'
     if (paramCount <= 14) return 'extended'
-    // 32B+ models on small context windows (≤32K) use 'standard' to avoid
-    // consuming the entire context with system prompt sections. The 'full'
-    // tier adds ~36 extra sections (~8K tokens) which leaves insufficient
-    // room for conversation in 32K windows.
-    if (contextWindow && contextWindow <= 32768) return 'standard'
+    // 32B+ models on tight context windows (≤32K) use 'compact' tier.
+    // 'compact' keeps only the 5 essential sections (~3K tokens) so
+    // system prompt + 5 core tools (~5K) = ~8K, leaving 24K for conversation.
+    // 'standard' tier has 18+ sections (~8K tokens) which combined with
+    // even 5 core tools leaves insufficient room in 32K windows.
+    if (contextWindow && contextWindow <= 32768) return 'compact'
     return 'full'
 }
 
@@ -548,7 +549,16 @@ export async function buildMlxSystemPrompt(
     sections.push(getOutputStyleSection())
     sections.push(getThinkFirstProtocol(tier))
 
-    // === TIER: STANDARD+ (7B+) ===
+    // === TIER: COMPACT+ (32B on ≤32K context) ===
+    // compact keeps system prompt minimal (~3K tokens) to leave room
+    // for core tools (~5K) and conversation in tight 32K windows.
+    // Only adds coding standards and error recovery on top of mini.
+    if (tier === 'compact' || tier === 'standard' || tier === 'extended' || tier === 'full') {
+        sections.push(getCodingStandardsSection())
+        sections.push(getErrorRecoveryProtocol())
+    }
+
+    // === TIER: STANDARD+ (7B+ with sufficient context) ===
     if (tier === 'standard' || tier === 'extended' || tier === 'full') {
         sections.push(getToolExamplesSection(enabledTools))
         sections.push(getCodingStandardsSection())
@@ -648,7 +658,15 @@ export async function buildMlxSystemPrompt(
     // Boundary marker for KV cache: content above this line can be reused
     // across turns when the MLX server supports prefix caching.
     sections.push('SYSTEM_PROMPT_DYNAMIC_BOUNDARY')
-    sections.push(memoryPrompt)
+    // For compact tier (32B on ≤32K context), truncate memory prompt
+    // to keep total system prompt within budget. Memory can be very large
+    // (4K+ tokens) and is the primary variable cost.
+    if (tier === 'compact' && memoryPrompt && memoryPrompt.length > 3000) {
+        const truncated = memoryPrompt.substring(0, 3000) + '\n... (truncated for context window)'
+        sections.push(truncated)
+    } else {
+        sections.push(memoryPrompt)
+    }
     sections.push(projectContext)
     if (tier === 'full') {
         sections.push(getProjectContextSection(cwd))
@@ -658,14 +676,15 @@ export async function buildMlxSystemPrompt(
 }
 
 function estimateModelParamCount(modelId: string): number {
-    const id = modelId.toLowerCase()
-    if (id.includes('0.5b') || id.includes('1b')) return 1
-    if (id.includes('1.5b') || id.includes('2b')) return 2
-    if (id.includes('3b')) return 3
-    if (id.includes('7b')) return 7
-    if (id.includes('9b') || id.includes('8b')) return 9
-    if (id.includes('14b') || id.includes('13b')) return 14
-    if (id.includes('27b') || id.includes('32b')) return 32
+    const id = modelId.toLowerCase().replace(/-\d+bit$/, '').replace(/-mxfp\d+$/, '').replace(/-mixed_\d+_\d+$/, '').replace(/-bf16$/, '').replace(/-q\d+$/, '')
+    // Check largest first to avoid substring matches (e.g. '27b' contains '7b')
     if (id.includes('70b') || id.includes('72b')) return 70
+    if (id.includes('27b') || id.includes('32b')) return 32
+    if (id.includes('14b') || id.includes('13b')) return 14
+    if (id.includes('9b') || id.includes('8b')) return 9
+    if (id.includes('7b')) return 7
+    if (id.includes('3b')) return 3
+    if (id.includes('1.5b') || id.includes('2b')) return 2
+    if (id.includes('0.5b') || id.includes('1b')) return 1
     return 7
 }

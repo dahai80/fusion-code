@@ -13,9 +13,17 @@ import type { Tool } from '../../Tool.js'
 
 const MLX_QUERY_TOKEN_SAFETY_FACTOR = 0.7
 
-const MLX_ESSENTIAL_TOOL_NAMES = new Set([
-    'Read', 'Write', 'Edit', 'Bash',
-    'Grep', 'Glob', 'LS',
+const MLX_CORE_TOOL_NAMES = new Set([
+    'Read', 'Edit', 'Bash', 'Glob', 'Grep',
+])
+
+const MLX_STANDARD_TOOL_NAMES = new Set([
+    ...MLX_CORE_TOOL_NAMES,
+    'Write', 'LS',
+])
+
+const MLX_EXTENDED_TOOL_NAMES = new Set([
+    ...MLX_STANDARD_TOOL_NAMES,
     'TodoRead', 'TodoWrite',
     'TaskCreate', 'TaskGet', 'TaskUpdate', 'TaskList',
     'WebSearch', 'WebFetch',
@@ -44,19 +52,49 @@ export function estimateToolsTokens(tools: Tool[]): number {
             const schema = JSON.stringify(tool.inputSchema)
             total += roughTokenCountEstimation(schema)
         } catch {
-            // estimate ~200 tokens per tool schema if serialization fails
             total += 200
         }
     }
     return total
 }
 
-export function getMlxReducedTools(tools: Tool[]): Tool[] {
+export type MlxToolTier = 'core' | 'standard' | 'extended'
+
+export function getMlxToolTier(contextWindow: number): MlxToolTier {
+    if (contextWindow <= 32768) return 'core'
+    if (contextWindow <= 65536) return 'standard'
+    return 'extended'
+}
+
+export function getMlxReducedTools(tools: Tool[], contextWindow?: number): Tool[] {
+    const model = getMainLoopModel()
+    const cw = contextWindow || (model ? getContextWindowForModel(model) : 32768)
+    const tier = getMlxToolTier(cw)
+    const toolSet = tier === 'core' ? MLX_CORE_TOOL_NAMES
+        : tier === 'standard' ? MLX_STANDARD_TOOL_NAMES
+        : MLX_EXTENDED_TOOL_NAMES
+
+    logForDebugging(
+        `[MLX-Preflight] tool tier=${tier} (contextWindow=${cw}), toolSet size=${toolSet.size}`,
+    )
+
     return tools.filter(t => {
-        if (MLX_ESSENTIAL_TOOL_NAMES.has(t.name)) return true
+        if (toolSet.has(t.name)) return true
         if (isMcpTool(t)) return true
         return false
     })
+}
+
+export function getMlxToolTokenBudget(contextWindow: number): number {
+    const outputReserve = Math.min(COMPACT_MAX_OUTPUT_TOKENS, contextWindow * 0.25)
+    const effectiveWindow = contextWindow - outputReserve
+    const safeTotal = Math.floor(effectiveWindow * MLX_QUERY_TOKEN_SAFETY_FACTOR)
+    const systemReserve = Math.floor(safeTotal * 0.55)
+    const toolBudget = safeTotal - systemReserve
+    logForDebugging(
+        `[MLX-Preflight] tool budget: window=${contextWindow} outputReserve=${outputReserve} safeTotal=${safeTotal} systemReserve=${systemReserve} toolBudget=${toolBudget}`,
+    )
+    return toolBudget
 }
 
 export function preflightMlxQueryCheck(
@@ -102,7 +140,7 @@ export function preflightMlxQueryCheck(
         { level: 'warn' },
     )
 
-    const reducedTools = getMlxReducedTools(tools)
+    const reducedTools = getMlxReducedTools(tools, contextWindow)
     const reducedToolsTokens = estimateToolsTokens(reducedTools)
     const reducedTotal = systemTokens + reducedToolsTokens + messagesTokens
 
@@ -115,6 +153,25 @@ export function preflightMlxQueryCheck(
             estimatedTokens: reducedTotal,
             safeBudget,
             reducedTools,
+        }
+    }
+
+    const toolBudget = getMlxToolTokenBudget(contextWindow)
+    if (reducedToolsTokens > toolBudget) {
+        const coreOnly = tools.filter(t => MLX_CORE_TOOL_NAMES.has(t.name) || isMcpTool(t))
+        const coreTokens = estimateToolsTokens(coreOnly)
+        const coreTotal = systemTokens + coreTokens + messagesTokens
+        logForDebugging(
+            `[MLX-Preflight] reduced tools still over budget (${reducedToolsTokens} > ${toolBudget}), falling back to core=${coreOnly.length} tools (${coreTokens} tokens)`,
+            { level: 'warn' },
+        )
+        if (coreTotal <= safeBudget) {
+            return {
+                fits: true,
+                estimatedTokens: coreTotal,
+                safeBudget,
+                reducedTools: coreOnly,
+            }
         }
     }
 

@@ -141,15 +141,22 @@ export FUSION_MLX_API_KEY="..."
 
 ### MLX Prompt Tier System
 
-Local models have limited context windows (32K vs 200K for cloud). The system prompt is automatically scaled by model size and context window to avoid consuming the entire context:
+Local models have limited context windows (32K vs 200K for cloud). The system prompt and tool set are automatically scaled by model size and context window to avoid consuming the entire context:
 
-| Tier | Model Size | Context Window | ~Input Tokens | Sections |
-|---|---|---|---|---|
-| `mini` | ≤3B | any | ~8K | 5 (env, identity, tools, style, reasoning) |
-| `standard` | 7B-9B | any | ~16K | 23 (mini + protocols, examples, coding standards) |
-| `standard` | 32B+ | ≤32K | ~16K | 23 (downgraded from `full` to fit small windows) |
-| `extended` | 14B | any | ~20K | 50 (standard + security, testing, workflows) |
-| `full` | 32B+ | >32K | ~24K | 89 (all sections including language-specific guides) |
+| Tier | Model Size | Context Window | ~System Tokens | Tools | Sections |
+|---|---|---|---|---|---|
+| `mini` | ≤3B | any | ~2K | 5 core | 5 (env, identity, tools, style, reasoning) |
+| `compact` | 32B+ | ≤32K | ~3K | 5 core | 7 (mini + coding standards, error recovery) |
+| `standard` | 7B-9B | any | ~8K | 9 std | 23 (mini + protocols, examples, coding standards) |
+| `extended` | 14B | any | ~12K | 15 ext | 50 (standard + security, testing, workflows) |
+| `full` | 32B+ | >32K | ~24K | all | 89 (all sections including language-specific guides) |
+
+**Compact tier** is designed for large models on tight 32K windows. It keeps system prompt to ~3K tokens and restricts tools to the 5 core tools (Read, Edit, Bash, Glob, Grep), leaving ~24K tokens for conversation. Memory prompts are truncated to 3K chars in this tier.
+
+Tool tiers for MLX:
+- **core** (≤32K window): Read, Edit, Bash, Glob, Grep + MCP tools
+- **standard** (≤64K window): core + Write, LS
+- **extended** (>64K window): standard + TodoRead/Write, TaskCreate/Get/Update/List, WebSearch/Fetch
 
 AutoCompact triggers at 60% of the effective context window for MLX, with a minimum floor of `effectiveWindow - 4000` tokens to prevent firing before any conversation tokens are added.
 
