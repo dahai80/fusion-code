@@ -4,7 +4,7 @@
 
 <p align="center">
   <strong>终端原生 AI 编码助手 — 集成 fusion-mlx 本地推理，零云端依赖可选。</strong><br>
-  基于 Claude Code 源码 fork，剥离云端遥测残留，集成 Apple Silicon 本地 MLX 推理引擎，34 个实验特性标志全修复。
+  本地优先的终端 AI 编码助手，剥离云端遥测残留，集成 Apple Silicon 本地 MLX 推理引擎，34 个实验特性标志全修复。
 </p>
 
 <p align="center">
@@ -35,7 +35,7 @@
 
 ## 项目介绍
 
-fusion-code 是一个终端原生 AI 编码 CLI 工具，基于 Anthropic Claude Code 的公开源码快照 fork 而来。在原版基础上做了以下改造：
+fusion-code 是一个终端原生 AI 编码 CLI 工具，面向本地优先开发，集成 fusion-mlx 本地推理，支持六种云端后端可选。主要特性：
 
 ### 集成 fusion-mlx 本地推理
 
@@ -51,7 +51,7 @@ fusion-code 是一个终端原生 AI 编码 CLI 工具，基于 Anthropic Claude
 
 ### 34 个实验特性标志全修复
 
-Claude Code 原版有 88 个 `feature('FLAG')` 编译时标志，其中 34 个在公开快照中无法编译。fusion-code 通过恢复 12 个缺失入口文件、补齐 4 个已存在文件、以及 Phase 4-8 的逐步修复，使全部 34 个标志均能通过编译。详见 [FEATURES.md](FEATURES.md)。
+代码库原版有 88 个 `feature('FLAG')` 编译时标志，其中 34 个在公开快照中无法编译。fusion-code 通过恢复 12 个缺失入口文件、补齐 4 个已存在文件、以及 Phase 4-8 的逐步修复，使全部 34 个标志均能通过编译。详见 [FEATURES.md](FEATURES.md)。
 
 ---
 
@@ -158,7 +158,7 @@ fusion-mlx 专用环境变量：
 | `FUSION_MLX_MODEL` | 指定本地 MLX 模型 |
 | `FUSION_MLX_AUTO` | 自动检测模式 |
 
-配置目录默认为 `~/.fusion-code`，避免与 Claude Code 冲突。
+配置目录默认为 `~/.fusion-code`，独立隔离，互不干扰。
 
 ---
 
@@ -237,7 +237,7 @@ bun run ./scripts/build.ts --dev --feature=BRIDGE_MODE
 ./fusion-code -p "当前目录有哪些文件？"
 
 # 指定模型
-./fusion-code --model claude-opus-4-6
+./fusion-code --model <model-id>
 
 # 从源码运行
 bun run dev
@@ -379,4 +379,4 @@ bun run benchmarks/benchmark.ts
 
 ## 许可
 
-原始 Claude Code 源码版权归 Anthropic 所有。本 fork 基于其公开分发的源码快照构建，使用风险自负。
+使用风险自负。具体条款见项目许可声明。

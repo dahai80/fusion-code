@@ -1,12 +1,8 @@
-<p align="center">
-  <img src="assets/screenshot.png" alt="fusion-code" width="720" />
-</p>
-
 <h1 align="center">fusion-code</h1>
 
 <p align="center">
   <strong>A terminal-native AI coding agent with deep local MLX integration.</strong><br>
-  A buildable fork of Claude Code. Cloud telemetry stripped. Experimental features unlocked. Local-first.<br>
+  Cloud telemetry stripped. Experimental features unlocked. Local-first.<br>
   One binary, zero callbacks home.
 </p>
 
@@ -21,25 +17,21 @@
 
 ## What is this
 
-fusion-code is a buildable fork of Anthropic's [Claude Code](https://docs.anthropic.com/en/docs/claude-code) CLI -- the terminal-native AI coding agent. The upstream source became publicly available on March 31, 2026 through a source map exposure in the npm distribution.
+fusion-code is a terminal-native AI coding agent built for local-first development. It ships as a single binary with deep local MLX integration, and supports six cloud providers as optional backends.
 
-This fork applies three categories of changes on top of that snapshot:
+Three things set it apart:
 
 ### Local inference first
 
 Deeply integrated with [fusion-mlx](https://github.com/fusion-mlxs/fusion-mlx) local MLX inference at `127.0.0.1:11434`. When no cloud API key is set, a local model is auto-selected so data never leaves the machine. The streaming adapter suppresses `<tool_call>` markup leakage and supports prefix-cache reuse.
 
-### Cloud telemetry stripped
+### No cloud telemetry
 
-The upstream binary phones home through OpenTelemetry/gRPC, GrowthBook analytics, Sentry error reporting, and custom event logging. In this build:
-
-- All outbound telemetry endpoints are dead-code-eliminated or stubbed
-- GrowthBook feature flag evaluation still works locally (needed for runtime feature gates) but does not report back
-- No crash reports, no usage analytics, no session fingerprinting
+No outbound telemetry, analytics, or crash reporting. Feature flag evaluation runs locally for runtime gates but never reports back -- no usage tracking, no session fingerprinting, no error reporting.
 
 ### Experimental features unlocked
 
-Claude Code ships with 88 feature flags gated behind `bun:bundle` compile-time switches. This build unlocks all 54 flags that were already clean, plus the 34 flags that previously failed to bundle -- all 34 were fixed on 2026-07-23. See [FEATURES.md](FEATURES.md) for the full audit.
+88 feature flags gated behind `bun:bundle` compile-time switches. This build unlocks all 54 flags that were already clean, plus the 34 flags that previously failed to bundle -- all 34 were fixed on 2026-07-23. See [FEATURES.md](FEATURES.md) for the full audit.
 
 ---
 
@@ -166,7 +158,7 @@ Build-time macros: `MACRO.VERSION`, `MACRO.BUILD_TIME`, `process.env.USER_TYPE` 
 ./fusion-code -p "what files are in this directory?"
 
 # Specify a model
-./fusion-code --model claude-opus-4-6
+./fusion-code --model <model-id>
 
 # Run from source (slower startup)
 bun run dev
@@ -182,7 +174,7 @@ The `bun run build:dev:full` build enables all working feature flags. Highlights
 
 | Flag | Description |
 |---|---|
-| `ULTRAPLAN` | Remote multi-agent planning on Claude Code web (Opus-class) |
+| `ULTRAPLAN` | Remote multi-agent planning (Opus-class) |
 | `ULTRATHINK` | Deep thinking mode -- type "ultrathink" to boost reasoning effort |
 | `VOICE_MODE` | Push-to-talk voice input and dictation |
 | `TOKEN_BUDGET` | Token budget tracking and usage warnings |
@@ -285,4 +277,4 @@ For upstream `fusion-mlx` issues: file an issue first, then a PR, following the 
 
 ## License
 
-The original Claude Code source is the property of Anthropic. This fork exists because the source was publicly exposed through their npm distribution. Use at your own discretion.
+Use at your own discretion. See the project license terms for details.
