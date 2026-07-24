@@ -5,8 +5,8 @@ import { homedir } from 'os';
 // 设置 Fusion-Code 配置目录为 ~/.fusion-code，避免与 Claude Code 冲突
 process.env.FUSION_CODE_CONFIG_DIR = join(homedir(), '.fusion-code');
 
-// 强制设置 FORCE_COLOR=1，确保 chalk 库在终端中正确初始化
-process.env.FORCE_COLOR = '1';
+// 仅在未设置 NO_COLOR 时强制 FORCE_COLOR=1（尊重 NO_COLOR 通用标准，避免与 FORCE_COLOR 冲突触发 Bun 警告）
+if (!process.env.NO_COLOR) process.env.FORCE_COLOR = '1';
 
 // 确保 stdout 为 TTY 模式，使 Ink 库能正确渲染
 // 注意：模式检测已改为同时检查 stdin.isTTY，不会误判管道模式
@@ -335,8 +335,8 @@ async function main(): Promise<void> {
 
   // ── Fusion-MLX 启动检测 ─────────────────────────────────
   // 当没有设置云 API 密钥时，自动检测本地 fusion-mlx 服务
-  // 同时设置 FORCE_COLOR=1 确保 chalk 库在终端中正确初始化
-  process.env.FORCE_COLOR = '1';
+  // 仅在未设置 NO_COLOR 时强制 FORCE_COLOR=1（尊重 NO_COLOR，避免 Bun 冲突警告）
+  if (!process.env.NO_COLOR) process.env.FORCE_COLOR = '1';
   const { shouldAutoUseFusionMlx } = await import('../utils/model/providers.js');
   if (shouldAutoUseFusionMlx()) {
     const { checkFusionMlxHealth } = await import('../services/api/fusion-mlx-adapter.js');
