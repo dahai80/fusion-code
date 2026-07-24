@@ -66,6 +66,7 @@ import {
   isCompactBoundaryMessage,
   normalizeMessagesForAPI,
 } from '../../utils/messages.js'
+import { isFusionMlxProvider } from '../../utils/model/providers.js'
 import { expandPath } from '../../utils/path.js'
 import { getPlan, getPlanFilePath } from '../../utils/plans.js'
 import {
@@ -293,6 +294,8 @@ export function truncateHeadForPTLRetry(
 export const ERROR_MESSAGE_PROMPT_TOO_LONG =
   'Conversation too long. Press esc twice to go up a few messages and try again.'
 export const ERROR_MESSAGE_USER_ABORT = 'API Error: Request was aborted.'
+export const ERROR_MESSAGE_MLX_MEMORY_LIMIT =
+  'Conversation too large for the local MLX model memory limit. Try /clear, switch to a smaller model, or remove some context before compacting.'
 export const ERROR_MESSAGE_INCOMPLETE_RESPONSE =
   'Compaction interrupted · This may be due to network issues — please try again.'
 
@@ -457,7 +460,20 @@ export async function compactConversation(
         cacheSafeParams: retryCacheSafeParams,
       })
       summary = getAssistantMessageText(summaryResponse)
-      if (!summary?.startsWith(PROMPT_TOO_LONG_ERROR_MESSAGE)) break
+      // fusion-mlx 内存撞顶时返回 200 + 空内容流(prefill 阶段 abort,无 error 事件),
+      // summary 为空且无错误文本 -> 上层抛 "no valid text content"。MLX 空响应几乎必为
+      // 内存撞顶,复用 prompt-too-long 截断重试:逐轮丢弃最旧 API 轮次直到 prefill 落入
+      // 内存上限,让 /compact 在超大对话上也能成功;无法再截断则抛明确内存上限错误。
+      const isEmptyMlxOom = !summary && isFusionMlxProvider()
+      const needsTruncateRetry =
+        summary?.startsWith(PROMPT_TOO_LONG_ERROR_MESSAGE) || isEmptyMlxOom
+      if (isEmptyMlxOom) {
+        logForDebugging(
+          `[Compact] 空响应(疑似 fusion-mlx 内存撞顶),触发截断重试`,
+          { level: 'warn' },
+        )
+      }
+      if (!needsTruncateRetry) break
 
       // CC-1180: compact request itself hit prompt-too-long. Truncate the
       // oldest API-round groups and retry rather than leaving the user stuck.
@@ -474,7 +490,11 @@ export async function compactConversation(
           promptCacheSharingEnabled,
           ptlAttempts,
         })
-        throw new Error(ERROR_MESSAGE_PROMPT_TOO_LONG)
+        throw new Error(
+          isEmptyMlxOom
+            ? ERROR_MESSAGE_MLX_MEMORY_LIMIT
+            : ERROR_MESSAGE_PROMPT_TOO_LONG,
+        )
       }
       logEvent('tengu_compact_ptl_retry', {
         attempt: ptlAttempts,
@@ -869,7 +889,17 @@ export async function partialCompactConversation(
         cacheSafeParams: retryCacheSafeParams,
       })
       summary = getAssistantMessageText(summaryResponse)
-      if (!summary?.startsWith(PROMPT_TOO_LONG_ERROR_MESSAGE)) break
+      // MLX 内存撞顶返回空响应(见 compactConversation 同名处理),复用截断重试。
+      const isEmptyMlxOom = !summary && isFusionMlxProvider()
+      const needsTruncateRetry =
+        summary?.startsWith(PROMPT_TOO_LONG_ERROR_MESSAGE) || isEmptyMlxOom
+      if (isEmptyMlxOom) {
+        logForDebugging(
+          `[Partial Compact] 空响应(疑似 fusion-mlx 内存撞顶),触发截断重试`,
+          { level: 'warn' },
+        )
+      }
+      if (!needsTruncateRetry) break
 
       ptlAttempts++
       const truncated =
@@ -883,7 +913,11 @@ export async function partialCompactConversation(
           ...failureMetadata,
           ptlAttempts,
         })
-        throw new Error(ERROR_MESSAGE_PROMPT_TOO_LONG)
+        throw new Error(
+          isEmptyMlxOom
+            ? ERROR_MESSAGE_MLX_MEMORY_LIMIT
+            : ERROR_MESSAGE_PROMPT_TOO_LONG,
+        )
       }
       logEvent('tengu_compact_ptl_retry', {
         attempt: ptlAttempts,

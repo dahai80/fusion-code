@@ -78,6 +78,13 @@ export const MLX_MANUAL_COMPACT_BUFFER_TOKENS = 500
 // in a single session, wasting ~250K API calls/day globally.
 const MAX_CONSECUTIVE_AUTOCOMPACT_FAILURES = 3
 
+// fusion-mlx memory_guard 撞顶是确定性 OOM(同上下文重试必再炸)。
+// 用于 autoCompact catch 立即熔断,避免 SDK/circuit breaker 空转重试耗满 30+ 分钟。
+function isMlxMemoryLimitError(error: unknown): boolean {
+  const msg = error instanceof Error ? error.message : String(error ?? '')
+  return msg.includes('memory limit exceeded') || msg.includes('Reduce context size')
+}
+
 // MLX local models have much smaller context windows (32K vs 200K).
 // Compact at 60% instead of ~93% to preserve headroom for tool calls.
 const MLX_AUTOCOMPACT_PCT = 60
@@ -376,10 +383,13 @@ export async function autoCompactIfNeeded(
     // The caller threads this through autoCompactTracking so the
     // next query loop iteration can skip futile retry attempts.
     const prevFailures = tracking?.consecutiveFailures ?? 0
-    const nextFailures = prevFailures + 1
-    if (nextFailures >= MAX_CONSECUTIVE_AUTOCOMPACT_FAILURES) {
+    // fusion-mlx memory_guard 撞顶是确定性失败:同上下文重试必再次 OOM。
+    // 直接拉满失败计数立即熔断,而不是等 3 次空转(每次 prefill ~4min -> 33min 挂起)。
+    const isMemoryLimit = isMlxMemoryLimitError(error)
+    const nextFailures = isMemoryLimit ? MAX_CONSECUTIVE_AUTOCOMPACT_FAILURES : prevFailures + 1
+    if (isMemoryLimit || nextFailures >= MAX_CONSECUTIVE_AUTOCOMPACT_FAILURES) {
       logForDebugging(
-        `autocompact: circuit breaker tripped after ${nextFailures} consecutive failures — skipping future attempts this session`,
+        `autocompact: circuit breaker tripped${isMemoryLimit ? ' (fusion-mlx memory_guard OOM, immediate)' : ` after ${nextFailures} consecutive failures`} - skipping future attempts this session`,
         { level: 'warn' },
       )
     }
