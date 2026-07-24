@@ -88,6 +88,11 @@ function isMlxMemoryLimitError(error: unknown): boolean {
 // MLX local models have much smaller context windows (32K vs 200K).
 // Compact at 60% instead of ~93% to preserve headroom for tool calls.
 const MLX_AUTOCOMPACT_PCT = 60
+// MLX system prompt baseline (~16K tokens for 'standard' tier on 32K windows).
+// The threshold must always leave room for at least this many conversation
+// tokens above the system prompt baseline, otherwise autoCompact fires on
+// turn 1 before any user messages are added.
+const MLX_MIN_CONVERSATION_HEADROOM = 4_000
 
 export function getAutoCompactThreshold(model: string): number {
   const effectiveContextWindow = getEffectiveContextWindowSize(model)
@@ -95,8 +100,14 @@ export function getAutoCompactThreshold(model: string): number {
   // MLX: use percentage-based threshold for aggressive early compaction
   if (isFusionMlxProvider()) {
     const mlxThreshold = Math.floor(effectiveContextWindow * (MLX_AUTOCOMPACT_PCT / 100))
-    logForDebugging(`autocompact-mlx: threshold=${mlxThreshold} (60% of ${effectiveContextWindow})`)
-    return mlxThreshold
+    // Ensure the threshold leaves headroom for at least the system prompt
+    // baseline + a minimal conversation buffer. Without this, the 60% threshold
+    // on a 24K effective window (14,745) is below the system prompt baseline
+    // (~16K), triggering autoCompact on turn 1 with zero conversation tokens.
+    const absoluteMin = effectiveContextWindow - MLX_MIN_CONVERSATION_HEADROOM
+    const adjusted = Math.max(mlxThreshold, absoluteMin)
+    logForDebugging(`autocompact-mlx: threshold=${adjusted} (max(${mlxThreshold}=${MLX_AUTOCOMPACT_PCT}%, ${absoluteMin}=window-${MLX_MIN_CONVERSATION_HEADROOM}) of ${effectiveContextWindow})`)
+    return adjusted
   }
 
   const autocompactThreshold =
