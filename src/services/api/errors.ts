@@ -828,9 +828,12 @@ export function getAssistantMessageFromError(
     }
 
     // Check if the API key is from an external source
+    // NOTE: 直接检查 env var，与 auth.ts isAnthropicAuthEnabled() 保持一致
+    // 原因：getAnthropicApiKeyWithSource() 对未 approved 的 key 返回 source='none'
+    // 导致 FUSION_API_KEY 设置时仍显示 "Not logged in" 而非 "Invalid API key"
     const { source } = getAnthropicApiKeyWithSource()
     const isExternalSource =
-      source === 'FUSION_API_KEY' || source === 'apiKeyHelper'
+      !!process.env.FUSION_API_KEY || source === 'apiKeyHelper'
 
     return createAssistantAPIErrorMessage({
       error: 'authentication_failed',

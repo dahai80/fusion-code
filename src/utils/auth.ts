@@ -303,12 +303,13 @@ export function getAnthropicApiKeyWithSource(
     }
   }
   // Check for FUSION_API_KEY before checking the apiKeyHelper or /login-managed key
-  if (
-    apiKeyEnv &&
-    getGlobalConfig().customApiKeyResponses?.approved?.includes(
-      normalizeApiKeyForConfig(apiKeyEnv),
-    )
-  ) {
+  // NOTE: 当 FUSION_BASE_URL 指向非 Anthropic 域名时（第三方代理如 litellm），
+  // 直接接受 FUSION_API_KEY，无需交互式批准。
+  // 原因：第三方代理的 key 不是 Anthropic API key，无法通过 approved 列表验证，
+  // 且不批准会导致 SDK 拿不到 key → 401 → "Not logged in"
+  const baseUrl = process.env.ANTHROPIC_BASE_URL || process.env.FUSION_BASE_URL || ''
+  const isThirdPartyProxy = baseUrl && !baseUrl.includes('api.anthropic.com')
+  if (apiKeyEnv && (isThirdPartyProxy || getGlobalConfig().customApiKeyResponses?.approved?.includes(normalizeApiKeyForConfig(apiKeyEnv)))) {
     return {
       key: apiKeyEnv,
       source: 'FUSION_API_KEY',
