@@ -311,15 +311,27 @@ export function truncateHeadForPTLRetry(
 export function preflightMlxTokenTruncate(
     messages: Message[],
 ): Message[] | null {
-    if (!isFusionMlxProvider()) return null
+    if (!isFusionMlxProvider()) {
+        logForDebugging(`[Compact] MLX pre-flight skip: not MLX provider`)
+        return null
+    }
 
     const model = getMainLoopModel()
-    if (!model) return null
+    if (!model) {
+        logForDebugging(`[Compact] MLX pre-flight skip: no model`, { level: 'warn' })
+        return null
+    }
 
     const contextWindow = getContextWindowForModel(model)
-    if (!contextWindow || contextWindow <= 0) return null
+    if (!contextWindow || contextWindow <= 0) {
+        logForDebugging(`[Compact] MLX pre-flight skip: no context window for ${model}`, { level: 'warn' })
+        return null
+    }
 
-    const safeBudget = Math.floor(contextWindow * MLX_COMPACT_TOKEN_SAFETY_FACTOR)
+    // 输出 token 也占用 context window, 必须从输入预算中扣除
+    const safeBudget = Math.floor(
+        (contextWindow - COMPACT_MAX_OUTPUT_TOKENS) * MLX_COMPACT_TOKEN_SAFETY_FACTOR,
+    )
     const estimated = tokenCountWithEstimation(messages)
 
     if (estimated <= safeBudget) {
@@ -535,7 +547,11 @@ export async function compactConversation(
         })
         messagesToSummarize = preflightTruncated
     }
-    let retryCacheSafeParams = cacheSafeParams
+    // 如果 preflight 截断了消息, forkContextMessages 必须同步更新,
+    // 否则 fork-agent 路径发送未截断原始消息到 MLX 导致 OOM
+    let retryCacheSafeParams = preflightTruncated
+        ? { ...cacheSafeParams, forkContextMessages: preflightTruncated }
+        : cacheSafeParams
     let summaryResponse: AssistantMessage
     let summary: string | null
     let ptlAttempts = 0
@@ -558,8 +574,6 @@ export async function compactConversation(
       // MLX adapter 将其转为 "Fusion-MLX API error: 500 ..." 或 mid-stream error,
       // compact 流式路径将其作为 API Error summary 返回。检测此类错误也触发截断重试。
       const isMlxServerError = isFusionMlxProvider() && summary && (
-        summary.includes('AttributeError') ||
-        summary.includes('RuntimeError') ||
         summary.includes('process memory limit exceeded') ||
         summary.includes('Fusion-MLX API error: 5')
       )
@@ -595,7 +609,7 @@ export async function compactConversation(
           ptlAttempts,
         })
         throw new Error(
-          isEmptyMlxOom
+          isEmptyMlxOom || isMlxServerError
             ? ERROR_MESSAGE_MLX_MEMORY_LIMIT
             : ERROR_MESSAGE_PROMPT_TOO_LONG,
         )
@@ -976,10 +990,23 @@ export async function partialCompactConversation(
     // 'up_to' prefix hits cache directly; 'from' sends all (tail wouldn't cache).
     // PTL retry breaks the cache prefix but unblocks the user (CC-1180).
     let apiMessages = direction === 'up_to' ? messagesToSummarize : allMessages
+    // Pre-flight: 本地 MLX 模型 partial compact 也需要 token 预算检查
+    const partialPreflight = preflightMlxTokenTruncate(apiMessages)
+    if (partialPreflight) {
+        logEvent('tengu_compact_mlx_preflight_truncate', {
+            originalMessageCount: apiMessages.length,
+            truncatedMessageCount: partialPreflight.length,
+            preCompactTokenCount,
+            path: 'partial' as AnalyticsMetadata_I_VERIFIED_THIS_IS_NOT_CODE_OR_FILEPATHS,
+        })
+        apiMessages = partialPreflight
+    }
     let retryCacheSafeParams =
       direction === 'up_to'
-        ? { ...cacheSafeParams, forkContextMessages: messagesToSummarize }
-        : cacheSafeParams
+        ? { ...cacheSafeParams, forkContextMessages: partialPreflight ?? messagesToSummarize }
+        : partialPreflight
+            ? { ...cacheSafeParams, forkContextMessages: partialPreflight }
+            : cacheSafeParams
     let summaryResponse: AssistantMessage
     let summary: string | null
     let ptlAttempts = 0
@@ -995,10 +1022,9 @@ export async function partialCompactConversation(
       summary = getAssistantMessageText(summaryResponse)
       // MLX 内存撞顶返回空响应(见 compactConversation 同名处理),复用截断重试。
       const isEmptyMlxOom = !summary && isFusionMlxProvider()
-      // MLX 服务端错误(AttributeError/RuntimeError/OOM)也触发截断重试
+      // MLX 服务端错误(OOM/500)也触发截断重试;不再匹配通用 Python 异常名
+      // (AttributeError/RuntimeError),避免合法 Python 调试摘要触发误判
       const isMlxServerError = isFusionMlxProvider() && summary && (
-        summary.includes('AttributeError') ||
-        summary.includes('RuntimeError') ||
         summary.includes('process memory limit exceeded') ||
         summary.includes('Fusion-MLX API error: 5')
       )
@@ -1031,7 +1057,7 @@ export async function partialCompactConversation(
           ptlAttempts,
         })
         throw new Error(
-          isEmptyMlxOom
+          isEmptyMlxOom || isMlxServerError
             ? ERROR_MESSAGE_MLX_MEMORY_LIMIT
             : ERROR_MESSAGE_PROMPT_TOO_LONG,
         )
