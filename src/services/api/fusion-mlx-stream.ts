@@ -104,6 +104,7 @@ interface StreamState {
   textBuffer: string
   emittedTextLen: number
   holdMode: boolean
+  holdTrigger: 'wrapper' | 'bareJson' | null
   toolCalls: MLXResponseToolCall[]
   usage: MLXUsage
   finishReason: string | null
@@ -120,6 +121,7 @@ function createInitialState(model: string): StreamState {
     textBuffer: '',
     emittedTextLen: 0,
     holdMode: false,
+    holdTrigger: null,
     toolCalls: [],
     usage: { prompt_tokens: 0, completion_tokens: 0, total_tokens: 0 },
     finishReason: null,
@@ -127,31 +129,42 @@ function createInitialState(model: string): StreamState {
 }
 
 // ─── Tool-call marker detection (smart buffering) ────────────
-// Local models often emit tool calls as text markup (<tool_call>, <function=...>).
-// Plain text is emitted immediately for responsiveness; once a marker is detected
-// we switch to hold mode and stop emitting so the markup never reaches the UI.
-// The buffered markup is parsed into tool_use blocks at stream end.
-const TOOL_CALL_MARKERS = ['<tool_call>', '<tools>', '<function=']
+// Local models often emit tool calls as text markup (<tool_call>, <function=...>)
+// or as bare JSON ({"name":"Bash","arguments":{...}}). Plain text is emitted
+// immediately for responsiveness; once a marker is detected we switch to hold
+// mode and stop emitting so the markup never reaches the UI. The buffered
+// markup is parsed into tool_use blocks at stream end.
+// - wrapper: explicit tool-call markup -> dropped if extraction fails (malformed)
+// - bareJson: bare JSON tool calls -> flushed if extraction fails, because a
+//   {"name": ...} object with no "arguments" may be legitimate JSON (e.g. a
+//   package.json) that must not be silently dropped.
+const TOOL_CALL_MARKERS: { text: string; kind: 'wrapper' | 'bareJson' }[] = [
+  { text: '<tool_call>', kind: 'wrapper' },
+  { text: '<tools>', kind: 'wrapper' },
+  { text: '<function=', kind: 'wrapper' },
+  { text: '{"name"', kind: 'bareJson' },
+  { text: '{"function"', kind: 'bareJson' },
+]
 
-function findToolCallMarker(str: string): { index: number; marker: string } | null {
-  let earliest = -1
-  let foundMarker: string | null = null
+function findToolCallMarker(
+  str: string,
+): { index: number; marker: string; kind: 'wrapper' | 'bareJson' } | null {
+  let best: { index: number; marker: string; kind: 'wrapper' | 'bareJson' } | null = null
   for (const m of TOOL_CALL_MARKERS) {
-    const idx = str.indexOf(m)
-    if (idx >= 0 && (earliest < 0 || idx < earliest)) {
-      earliest = idx
-      foundMarker = m
+    const idx = str.indexOf(m.text)
+    if (idx >= 0 && (!best || idx < best.index)) {
+      best = { index: idx, marker: m.text, kind: m.kind }
     }
   }
-  return earliest >= 0 && foundMarker ? { index: earliest, marker: foundMarker } : null
+  return best
 }
 
 function matchingMarkerPrefixLen(str: string): number {
   let max = 0
   for (const m of TOOL_CALL_MARKERS) {
-    const limit = Math.min(str.length, m.length)
+    const limit = Math.min(str.length, m.text.length)
     for (let k = limit; k >= 1; k--) {
-      if (str.endsWith(m.slice(0, k))) {
+      if (str.endsWith(m.text.slice(0, k))) {
         if (k > max) max = k
         break
       }
@@ -405,8 +418,11 @@ export async function* transformMLXStreamToAnthropic(
       }
     } else {
       // No tool calls extracted.
-      if (!state.holdMode) {
+      if (!state.holdMode || state.holdTrigger === 'bareJson') {
         // Flow mode: flush a partial marker prefix held back as a false alarm.
+        // Also flush bare-JSON holds whose extraction failed: a {"name": ...}
+        // object without "arguments" may be legitimate JSON (e.g. package.json)
+        // and must not be silently dropped.
         const held = state.textBuffer.slice(state.emittedTextLen)
         if (held) {
           if (!state.textBlockOpen) {
@@ -425,8 +441,8 @@ export async function* transformMLXStreamToAnthropic(
           state.emittedTextLen = state.textBuffer.length
         }
       }
-      // holdMode + extraction failed (e.g. unknown tool name): drop the buffered
-      // markup rather than leaking it to the UI as plain text.
+      // wrapper holdMode + extraction failed (e.g. unknown tool name): drop the
+      // buffered markup rather than leaking it to the UI as plain text.
       if (state.textBlockOpen) {
         yield {
           type: 'content_block_stop',
@@ -529,8 +545,9 @@ function processChunk(
             state.emittedTextLen += marker.index
           }
           state.holdMode = true
+          state.holdTrigger = marker.kind
           logForDebugging(
-            `[Fusion-MLX Stream] Hold mode on (suppressing markup): ${marker.marker}`,
+            `[Fusion-MLX Stream] Hold mode on (suppressing ${marker.kind} markup): ${marker.marker}`,
           )
         } else {
           const plen = matchingMarkerPrefixLen(pending)

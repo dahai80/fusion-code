@@ -116,7 +116,10 @@ describe('checkFusionMlxHealth', () => {
   })
 
   it('should use FUSION_MLX_BASE_URL when set', async () => {
-    process.env.FUSION_MLX_BASE_URL = 'http://custom:11434'
+    // isAllowedMlxHostname now WARNs (but allows) non-local hosts instead of
+    // falling back. Use localhost (allowed, yet distinct from the default) so
+    // this asserts the env var is actually honored without triggering the warn.
+    process.env.FUSION_MLX_BASE_URL = 'http://localhost:11434'
     let calledUrl = ''
     const mockFetch = spyOn(globalThis, 'fetch').mockImplementation(async (url) => {
       calledUrl = String(url)
@@ -128,7 +131,7 @@ describe('checkFusionMlxHealth', () => {
 
     try {
       await checkFusionMlxHealth()
-      expect(calledUrl).toContain('custom:11434')
+      expect(calledUrl).toContain('localhost:11434')
       expect(calledUrl).toContain('/v1/models')
     } finally {
       mockFetch.mockRestore()

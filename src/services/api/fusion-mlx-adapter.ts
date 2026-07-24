@@ -220,13 +220,15 @@ function getMlxBaseUrl(): string {
     try {
         const parsed = new URL(url)
         if (!isAllowedMlxHostname(parsed.hostname)) {
-            console.error(
+            // 用户显式配置远程/公网 fusion-mlx(出差、远程连接、公网大模型回退)时,尊重该配置:
+            // 不再强制回退 localhost,仅记录醒目安全告警。云路径 ANTHROPIC_BASE_URL 本就无此
+            // 限制且已可指向公网,此处保持一致;MLX 优化特性仍按 provider 维度生效,不为公网单独优化。
+            const msg =
                 `[Fusion-MLX] SECURITY: Base URL hostname "${parsed.hostname}" is not a local address. ` +
-                `All conversation data would be sent to an external server. ` +
-                `Only localhost, 127.0.0.1, ::1, or RFC 1918 addresses are allowed. ` +
-                `Falling back to ${DEFAULT_MLX_BASE_URL}`
-            )
-            return DEFAULT_MLX_BASE_URL
+                `All conversation data will be sent to this external server. ` +
+                `Proceeding with user-configured FUSION_MLX_BASE_URL (no fallback).`
+            console.error(msg)
+            logForDebugging(msg, { level: 'warn' })
         }
     } catch {
         console.error(`[Fusion-MLX] Invalid MLX base URL: ${url}, falling back to default`)
@@ -410,21 +412,43 @@ export async function getRecommendedCodeModel(): Promise<string | null> {
   const models = await getFusionMlxModels()
   if (models.length === 0) return null
 
-  // 排除图片/视频生成模型（不能用于聊天）
-  const excludeKeywords = ['flux', 'skyreels', 'image', 'video', 'ltx', 'a2v', 'v2v', 'r2v', 'klein', 'txt2vid', 'img2vid', 'tts', 'whisper', 'embed', 'bge']
+  // 排除非聊天模型：图片/视频生成、编码器/transformer/vae 等基础组件、base 预训练
+  const excludeKeywords = [
+    'flux', 'skyreels', 'image', 'video', 'ltx', 'a2v', 'v2v', 'r2v', 'klein',
+    'txt2vid', 'img2vid', 'tts', 'whisper', 'embed', 'bge',
+    'encoder', 'transformer', 'vae', 'base', 'pretrain',
+  ]
   const chatModels = models.filter(m => !excludeKeywords.some(k => m.id.toLowerCase().includes(k)))
-
   if (chatModels.length === 0) return models[0].id
 
-  // 优先选择代码专用模型
-  const codeModelKeywords = ['code', 'coder', 'deepseek', 'qwen', 'codestral', 'llama', 'mistral', 'instruct', 'chat']
-  for (const keyword of codeModelKeywords) {
-    const found = chatModels.find(m => m.id.toLowerCase().includes(keyword))
-    if (found) return found.id
+  // 按 token 切分匹配，避免 'code' 子串误命中 'encoder'（e-n-code-r）
+  const tokensOf = (id: string): string[] => id.toLowerCase().split(/[^a-z0-9]+/).filter(Boolean)
+  // 从 id 估算参数量（十亿），如 32b/1b/0.6b/27b；无法判断返回 0
+  const sizeOf = (id: string): number => {
+    const m = id.toLowerCase().match(/(\d+(?:\.\d+)?)\s*b\b/)
+    return m ? parseFloat(m[1]) : 0
   }
 
-  // 回退到第一个可用的聊天模型
-  return chatModels[0].id
+  // 排除过小模型（≤3B）：无法可靠工具调用，/init 等会输出工具定义而非调用
+  const capable = chatModels.filter(m => {
+    const size = sizeOf(m.id)
+    return size === 0 || size > 3
+  })
+  const pool = capable.length > 0 ? capable : chatModels
+
+  // 优先代码专用模型（coder/code/codestral），按参数量降序取最大
+  const codeTokens = ['coder', 'code', 'codestral']
+  const codeModels = pool.filter(m => tokensOf(m.id).some(t => codeTokens.includes(t)))
+  if (codeModels.length > 0) {
+    codeModels.sort((a, b) => sizeOf(b.id) - sizeOf(a.id))
+    logForDebugging(`[Fusion-MLX] Recommended code model: ${codeModels[0].id} (${codeModels.length} code candidates)`)
+    return codeModels[0].id
+  }
+
+  // 回退：按参数量降序取最大指令/聊天模型
+  pool.sort((a, b) => sizeOf(b.id) - sizeOf(a.id))
+  logForDebugging(`[Fusion-MLX] Recommended code model (fallback by size): ${pool[0].id}`)
+  return pool[0].id
 }
 
 // ─── Model Capabilities ────────────────────────────────────────────
@@ -1130,6 +1154,16 @@ export function createFusionMlxFetch(model: string): typeof globalThis.fetch {
         const errorHeaders: Record<string, string> = { 'content-type': 'application/json' }
         const retryAfter = mlxResponse.headers.get('retry-after')
         if (retryAfter) errorHeaders['retry-after'] = retryAfter
+        // fusion-mlx memory_guard 撞顶是确定性失败(同上下文重试必再次 OOM):
+        // 标记 x-should-retry:false,让 Anthropic SDK 与 withRetry 都立即放弃重试,
+        // 避免空转重试耗满 30+ 分钟(3 次失败 × 每次 prefill ~4min)。
+        if (errorBody.includes('memory limit exceeded') || errorBody.includes('Reduce context size')) {
+          errorHeaders['x-should-retry'] = 'false'
+          logForDebugging(
+            `[Fusion-MLX] memory_guard 撞顶(status ${mlxResponse.status}),标记 x-should-retry:false 阻止重试`,
+            { level: 'warn' },
+          )
+        }
         return new Response(
           JSON.stringify({
             type: 'error',
