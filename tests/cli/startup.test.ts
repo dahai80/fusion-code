@@ -13,6 +13,9 @@ import { describe, it, expect, beforeEach, afterEach, mock } from 'bun:test'
 import { join } from 'path'
 import { homedir } from 'os'
 
+// 清理继承自 shell 的 NO_COLOR，避免测试设置 FORCE_COLOR=1 时触发 Bun 颜色冲突警告
+delete process.env.NO_COLOR
+
 // ─── 环境变量 ──────────────────────────────────────────────
 
 describe('CLI 启动环境变量', () => {
@@ -80,9 +83,9 @@ describe('Provider 检测', () => {
     delete process.env.FUSION_MLX_ENABLED
     delete process.env.FUSION_MLX_DISABLED
     delete process.env.ANTHROPIC_API_KEY
-    delete process.env.CLAUDE_CODE_USE_VERTEX
-    delete process.env.CLAUDE_CODE_USE_FOUNDRY
-    delete process.env.CLAUDE_CODE_USE_OPENAI
+    delete process.env.FUSION_CODE_USE_VERTEX
+    delete process.env.FUSION_CODE_USE_FOUNDRY
+    delete process.env.FUSION_CODE_USE_OPENAI
     process.env.FORCE_COLOR = '1'
   })
 

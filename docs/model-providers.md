@@ -22,8 +22,8 @@ export type APIProvider =
 | `firstParty` | 云端 | Anthropic API（`FUSION_API_KEY` / `ANTHROPIC_API_KEY`） |
 | `openai` | 云端 | OpenAI（`FUSION_CODE_USE_OPENAI=1`） |
 | `foundry` | 云端 | Azure Foundry（`FUSION_CODE_USE_FOUNDRY=1`） |
-| `bedrock` | 云端 | AWS Bedrock（`CLAUDE_CODE_USE_BEDROCK=1`） |
-| `vertex` | 云端 | GCP Vertex（`CLAUDE_CODE_USE_VERTEX=1`） |
+| `bedrock` | 云端 | AWS Bedrock（`FUSION_CODE_USE_BEDROCK=1`） |
+| `vertex` | 云端 | GCP Vertex（`FUSION_CODE_USE_VERTEX=1`） |
 
 `fusionMlx` 是 fusion-code 的默认本地 provider，无需任何 API key，零配置即可使用（前提是 fusion-mlx 服务在 11434 端口运行）。
 
@@ -159,7 +159,7 @@ AZURE_FOUNDRY_API_KEY=xxx \
 ### bedrock（AWS）
 
 ```bash
-CLAUDE_CODE_USE_BEDROCK=1 \
+FUSION_CODE_USE_BEDROCK=1 \
 AWS_REGION=us-east-1 \
 AWS_ACCESS_KEY_ID=xxx \
 AWS_SECRET_ACCESS_KEY=xxx \
@@ -171,7 +171,7 @@ AWS_SECRET_ACCESS_KEY=xxx \
 ### vertex（GCP）
 
 ```bash
-CLAUDE_CODE_USE_VERTEX=1 \
+FUSION_CODE_USE_VERTEX=1 \
 CLOUD_ML_REGION=us-east5 \
 ANTHROPIC_VERTEX_PROJECT_ID=xxx \
 ./fusion-code

@@ -64,8 +64,8 @@ fusion-code 支持 6 种 API provider，通过环境变量切换，无需修改�
 | 1 | `fusionMlx` | `FUSION_MLX_ENABLED=1` 或未设置云 API key | 无需认证（本地推理） |
 | 2 | `openai` | `FUSION_CODE_USE_OPENAI=1` | OpenAI OAuth |
 | 3 | `foundry` | `FUSION_CODE_USE_FOUNDRY=1` | `ANTHROPIC_FOUNDRY_API_KEY` |
-| 4 | `bedrock` | `CLAUDE_CODE_USE_BEDROCK=1` | AWS 凭证 |
-| 5 | `vertex` | `CLAUDE_CODE_USE_VERTEX=1` | `gcloud` ADC |
+| 4 | `bedrock` | `FUSION_CODE_USE_BEDROCK=1` | AWS 凭证 |
+| 5 | `vertex` | `FUSION_CODE_USE_VERTEX=1` | `gcloud` ADC |
 | 6 | `firstParty` | 默认（有云 API key 时） | `FUSION_API_KEY` / OAuth |
 
 ### fusion-mlx 本地推理（默认）
@@ -112,7 +112,7 @@ export FUSION_CODE_USE_OPENAI=1
 ### AWS Bedrock
 
 ```bash
-export CLAUDE_CODE_USE_BEDROCK=1
+export FUSION_CODE_USE_BEDROCK=1
 export AWS_REGION="us-east-1"
 ./fusion-code
 ```
@@ -120,7 +120,7 @@ export AWS_REGION="us-east-1"
 ### Google Vertex AI
 
 ```bash
-export CLAUDE_CODE_USE_VERTEX=1
+export FUSION_CODE_USE_VERTEX=1
 ./fusion-code
 ```
 

@@ -62,8 +62,8 @@ The provider is selected by `getAPIProvider()` in `src/utils/model/providers.ts`
 1. If `FUSION_MLX_ENABLED=1` or no cloud API key is set → `fusionMlx` (local inference at 127.0.0.1:11434)
 2. If `FUSION_CODE_USE_OPENAI=1` → `openai`
 3. If `FUSION_CODE_USE_FOUNDRY=1` → `foundry`
-4. If `CLAUDE_CODE_USE_BEDROCK=1` → `bedrock`
-5. If `CLAUDE_CODE_USE_VERTEX=1` → `vertex`
+4. If `FUSION_CODE_USE_BEDROCK=1` → `bedrock`
+5. If `FUSION_CODE_USE_VERTEX=1` → `vertex`
 6. Otherwise → `firstParty` (Anthropic API with `FUSION_API_KEY` / `ANTHROPIC_API_KEY`)
 
 Fusion-MLX auto-detection: `shouldAutoUseFusionMlx()` checks port 11434 availability and auto-selects a code-capable text model.

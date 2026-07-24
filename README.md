@@ -43,8 +43,8 @@ fusion-code supports **six API providers** out of the box. The provider is selec
 2. **firstParty (Anthropic)** -- `FUSION_API_KEY` / `ANTHROPIC_API_KEY`
 3. **openai** -- `FUSION_CODE_USE_OPENAI=1`
 4. **foundry** -- `FUSION_CODE_USE_FOUNDRY=1`
-5. **bedrock** -- `CLAUDE_CODE_USE_BEDROCK=1`
-6. **vertex** -- `CLAUDE_CODE_USE_VERTEX=1`
+5. **bedrock** -- `FUSION_CODE_USE_BEDROCK=1`
+6. **vertex** -- `FUSION_CODE_USE_VERTEX=1`
 
 Fusion-MLX auto-detection: `shouldAutoUseFusionMlx()` checks port 11434 availability and auto-selects a code-capable text model.
 
@@ -69,11 +69,11 @@ Model resolution priority: session override (`/model`) > `--model` flag > `FUSIO
 export FUSION_CODE_USE_OPENAI=1
 
 # AWS Bedrock
-export CLAUDE_CODE_USE_BEDROCK=1
+export FUSION_CODE_USE_BEDROCK=1
 export AWS_REGION="us-east-1"
 
 # Google Vertex AI
-export CLAUDE_CODE_USE_VERTEX=1
+export FUSION_CODE_USE_VERTEX=1
 
 # Anthropic Foundry
 export FUSION_CODE_USE_FOUNDRY=1
@@ -85,8 +85,8 @@ export ANTHROPIC_FOUNDRY_API_KEY="..."
 | fusionMlx (default) | `FUSION_MLX_ENABLED=1` or no key | Local (port 11434) |
 | Anthropic (default cloud) | -- | `FUSION_API_KEY` or OAuth |
 | OpenAI Codex | `FUSION_CODE_USE_OPENAI=1` | OAuth via OpenAI |
-| AWS Bedrock | `CLAUDE_CODE_USE_BEDROCK=1` | AWS credentials |
-| Google Vertex AI | `CLAUDE_CODE_USE_VERTEX=1` | `gcloud` ADC |
+| AWS Bedrock | `FUSION_CODE_USE_BEDROCK=1` | AWS credentials |
+| Google Vertex AI | `FUSION_CODE_USE_VERTEX=1` | `gcloud` ADC |
 | Anthropic Foundry | `FUSION_CODE_USE_FOUNDRY=1` | `ANTHROPIC_FOUNDRY_API_KEY` |
 
 ---

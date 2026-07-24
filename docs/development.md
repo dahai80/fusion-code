@@ -89,8 +89,8 @@ provider 选择相关 env：
 | `FUSION_MLX_DISABLED=1` | 强制跳过本地 MLX，走云端 |
 | `FUSION_CODE_USE_OPENAI=1` | 使用 OpenAI provider |
 | `FUSION_CODE_USE_FOUNDRY=1` | 使用 Azure Foundry provider |
-| `CLAUDE_CODE_USE_BEDROCK=1` | 使用 AWS Bedrock provider |
-| `CLAUDE_CODE_USE_VERTEX=1` | 使用 GCP Vertex provider |
+| `FUSION_CODE_USE_BEDROCK=1` | 使用 AWS Bedrock provider |
+| `FUSION_CODE_USE_VERTEX=1` | 使用 GCP Vertex provider |
 | `FUSION_MLX_MODEL` | 本地 MLX 模型 ID |
 
 ## 本地 MLX 调试

@@ -132,8 +132,8 @@ Anthropic 与 OpenAI 的 OAuth 流程。
 | `firstParty` | Anthropic API（`FUSION_API_KEY` / `ANTHROPIC_API_KEY`） |
 | `openai` | OpenAI（`FUSION_CODE_USE_OPENAI=1`） |
 | `foundry` | Azure Foundry（`FUSION_CODE_USE_FOUNDRY=1`） |
-| `bedrock` | AWS Bedrock（`CLAUDE_CODE_USE_BEDROCK=1`） |
-| `vertex` | GCP Vertex（`CLAUDE_CODE_USE_VERTEX=1`） |
+| `bedrock` | AWS Bedrock（`FUSION_CODE_USE_BEDROCK=1`） |
+| `vertex` | GCP Vertex（`FUSION_CODE_USE_VERTEX=1`） |
 
 ### getAPIProvider() 选择优先级
 
