@@ -544,7 +544,13 @@ export async function verifyApiKey(
 
   try {
     // WARNING: if you change this to use a non-Haiku model, this request will fail in 1P unless it uses getCLISyspromptPrefix.
-    const model = getSmallFastModel()
+    // NOTE: 第三方代理（FUSION_BASE_URL 指向非 Anthropic 域名）不支持 Haiku 模型，
+    // key 验证应使用用户配置的模型，否则 404 → "model not exist"
+    const baseUrl = process.env.ANTHROPIC_BASE_URL || process.env.FUSION_BASE_URL || ''
+    const isThirdPartyProxy = baseUrl && !baseUrl.includes('api.anthropic.com')
+    const model = isThirdPartyProxy
+      ? (process.env.FUSION_MODEL || process.env.ANTHROPIC_MODEL || getSmallFastModel())
+      : getSmallFastModel()
     const betas = getModelBetas(model)
     return await returnValue(
       withRetry(
