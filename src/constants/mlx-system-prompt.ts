@@ -26,10 +26,15 @@ import { getCompactDecisionProtocol, getAgentDispatchProtocol, getReReadDecision
 
 export type PromptTier = 'mini' | 'standard' | 'extended' | 'full'
 
-export function getPromptTier(paramCount: number): PromptTier {
+export function getPromptTier(paramCount: number, contextWindow?: number): PromptTier {
     if (paramCount <= 3) return 'mini'
     if (paramCount <= 9) return 'standard'
     if (paramCount <= 14) return 'extended'
+    // 32B+ models on small context windows (≤32K) use 'standard' to avoid
+    // consuming the entire context with system prompt sections. The 'full'
+    // tier adds ~36 extra sections (~8K tokens) which leaves insufficient
+    // room for conversation in 32K windows.
+    if (contextWindow && contextWindow <= 32768) return 'standard'
     return 'full'
 }
 
@@ -521,9 +526,10 @@ export async function buildMlxSystemPrompt(
     tools: Tools,
     model: string,
     additionalWorkingDirectories?: string[],
+    contextWindow?: number,
 ): Promise<string[]> {
     const paramCount = estimateModelParamCount(model)
-    const tier = getPromptTier(paramCount)
+    const tier = getPromptTier(paramCount, contextWindow)
     const cwd = getCwd()
     const [isGit, unameSR] = await Promise.all([getIsGit(), getUnameSR()])
     const memoryPrompt = await loadMemoryPrompt()

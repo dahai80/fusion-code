@@ -46,6 +46,7 @@ import {
 import { isEnvTruthy } from '../utils/envUtils.js'
 import { getCompactProjectContext, getProjectContextSection } from '../utils/projectContext.js'
 import { buildMlxSystemPrompt } from './mlx-system-prompt.js'
+import { getContextWindowForModel } from '../utils/context.js'
 import { isReplModeEnabled } from '../tools/REPLTool/constants.js'
 import { feature } from 'bun:bundle'
 import { getFeatureValue_CACHED_MAY_BE_STALE } from 'src/services/analytics/growthbook.js'
@@ -409,7 +410,8 @@ async function getMlxSystemPrompt(
   model: string,
   additionalWorkingDirectories?: string[],
 ): Promise<string[]> {
-  return buildMlxSystemPrompt(tools, model, additionalWorkingDirectories)
+  const contextWindow = getContextWindowForModel(model)
+  return buildMlxSystemPrompt(tools, model, additionalWorkingDirectories, contextWindow)
 }
 
 export async function getSystemPrompt(
