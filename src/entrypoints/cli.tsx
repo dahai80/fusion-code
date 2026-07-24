@@ -17,7 +17,8 @@ try { (process.stdout as any).isTTY = true; } catch {};
 if (process.env.FUSION_API_KEY && !process.env.ANTHROPIC_API_KEY) {
   process.env.ANTHROPIC_API_KEY = process.env.FUSION_API_KEY
 }
-if (process.env.FUSION_BASE_URL && !process.env.ANTHROPIC_BASE_URL) {
+// FUSION_BASE_URL 始终覆盖 ANTHROPIC_BASE_URL（用户显式设置优先于旧残留值）
+if (process.env.FUSION_BASE_URL) {
   process.env.ANTHROPIC_BASE_URL = process.env.FUSION_BASE_URL
 }
 if (process.env.FUSION_AUTH_TOKEN && !process.env.ANTHROPIC_AUTH_TOKEN) {
