@@ -242,6 +242,15 @@ function getMlxApiUrl(path: string): string {
   return `${base}${path}`
 }
 
+// fusion-mlx 支持可选 API key 鉴权(见 fusion_mlx/middleware/auth.py:
+// _verify_api_key_values 在配置了 api_key 后校验 Authorization: Bearer / x-api-key,
+// 未配置时 anonymous allowed)。配置后不带凭据的请求会被 401 拒绝。
+function getMlxAuthHeaders(): Record<string, string> {
+  const apiKey = process.env.FUSION_MLX_API_KEY || process.env.MLX_API_KEY
+  if (!apiKey) return {}
+  return { Authorization: `Bearer ${apiKey}` }
+}
+
 function getMlxTimeout(streaming: boolean): number {
   if (streaming) {
     return parseInt(process.env.FUSION_MLX_TIMEOUT_MS || String(DEFAULT_STREAM_TIMEOUT_MS), 10)
@@ -258,6 +267,14 @@ async function mlxFetchWithRetry(
   init: RequestInit,
   retries: number = MAX_RETRIES,
 ): Promise<Response> {
+  const authHeaders = getMlxAuthHeaders()
+  if (Object.keys(authHeaders).length > 0) {
+    init = {
+      ...init,
+      headers: { ...(init.headers as Record<string, string>), ...authHeaders },
+    }
+    logForDebugging('[Fusion-MLX] Attaching Authorization header (FUSION_MLX_API_KEY set)')
+  }
   if (!mlxApiCircuit.allowRequest()) {
     throw new Error('[Fusion-MLX] Circuit breaker is OPEN — MLX server unavailable, will retry after cooldown')
   }
@@ -357,6 +374,7 @@ export async function checkFusionMlxHealth(): Promise<FusionMlxStatus> {
   try {
     const response = await fetch(getMlxApiUrl('/v1/models'), {
       method: 'GET',
+      headers: { ...getMlxAuthHeaders() },
       signal: AbortSignal.timeout(3000),
     })
 
@@ -387,6 +405,7 @@ export async function getFusionMlxModels(): Promise<MLXModelInfo[]> {
   try {
     const response = await fetch(getMlxApiUrl('/v1/models'), {
       method: 'GET',
+      headers: { ...getMlxAuthHeaders() },
       signal: AbortSignal.timeout(5000),
     })
 
@@ -834,6 +853,7 @@ export async function getFusionMlxEmbeddings(
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
+        ...getMlxAuthHeaders(),
       },
       body: JSON.stringify(requestBody),
       signal: AbortSignal.timeout(30000),
