@@ -59,6 +59,7 @@ import { LSPTool } from './tools/LSPTool/LSPTool.js'
 import { CronCreateTool } from './tools/CronCreateTool/CronCreateTool.js'
 import { CronDeleteTool } from './tools/CronDeleteTool/CronDeleteTool.js'
 import { CronListTool } from './tools/CronListTool/CronListTool.js'
+import { CtxInspectTool } from './tools/CtxInspectTool/CtxInspectTool.js'
 import { ReportFindingsTool } from './tools/ReportFindingsTool/ReportFindingsTool.js'
 import { WorkflowTool } from './tools/WorkflowTool/WorkflowTool.js'
 import { DesignSyncTool } from './tools/DesignSyncTool/DesignSyncTool.js'
@@ -182,6 +183,7 @@ export function getAllBaseTools(): Tools {
     CronCreateTool,
     CronDeleteTool,
     CronListTool,
+    CtxInspectTool,
     ReportFindingsTool,
     WorkflowTool,
     DesignSyncTool,
@@ -231,7 +233,7 @@ const FULL_TOOLS = new Set([
   ...MEDIUM_TOOLS,
   'Agent', 'TaskCreate', 'TaskGet', 'TaskUpdate', 'TaskList',
   'NotebookEdit', 'Skill', 'EnterPlanMode', 'ExitPlanMode',
-  'Sleep', 'TeamCreate', 'TeamDelete',
+  'Sleep', 'TeamCreate', 'TeamDelete', 'CtxInspect',
 ])
 
 function getMlxToolFilter(): Set<string> | null {

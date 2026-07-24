@@ -41,15 +41,12 @@ import agents from './commands/agents/index.js'
 import reloadPlugins from './commands/reload-plugins/index.js'
 import rewind from './commands/rewind/index.js'
 import heapDump from './commands/heapdump/index.js'
-import mockLimits from './commands/mock-limits/index.js'
 import version from './commands/version.js'
 import summary from './commands/summary/index.js'
 import {
     resetLimits,
     resetLimitsNonInteractive,
 } from './commands/reset-limits/index.js'
-import antTrace from './commands/ant-trace/index.js'
-import perfIssue from './commands/perf-issue/index.js'
 import sandboxToggle from './commands/sandbox-toggle/index.js'
 import advisor from './commands/advisor.js'
 import { logError } from './utils/log.js'
@@ -103,8 +100,6 @@ const usageReport: Command = {
         return real.getPromptForCommand(args, context)
     },
 }
-import oauthRefresh from './commands/oauth-refresh/index.js'
-import debugToolCall from './commands/debug-tool-call/index.js'
 import { getSettingSourceName } from './utils/settings/constants.js'
 import {
     type Command,
@@ -126,20 +121,11 @@ export { getCommandName, isCommandEnabled } from './types/command.js'
 
 // Commands that get eliminated from the external build
 export const INTERNAL_ONLY_COMMANDS = [
-    breakCache,
     commit,
-    ctx_viz,
     initVerifiers,
-    mockLimits,
     version,
     resetLimits,
     resetLimitsNonInteractive,
-    summary,
-    antTrace,
-    perfIssue,
-    env,
-    oauthRefresh,
-    debugToolCall,
 ].filter(Boolean)
 
 // Declared as a function so that we don't run this until getCommands is called,
@@ -149,6 +135,7 @@ const COMMANDS = memoize((): Command[] => [
     advisor,
     agents,
     branch,
+    breakCache,
     clear,
     color,
     compact,
@@ -158,9 +145,11 @@ const COMMANDS = memoize((): Command[] => [
     context,
     contextNonInteractive,
     cost,
+    ctx_viz,
     diff,
     doctor,
     effort,
+    env,
     exit,
     fast,
     feedback,
@@ -183,6 +172,7 @@ const COMMANDS = memoize((): Command[] => [
     skills,
     stats,
     status,
+    summary,
     statusline,
     tag,
     theme,
