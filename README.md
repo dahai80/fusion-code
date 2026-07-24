@@ -17,7 +17,7 @@
 
 ## What is this
 
-fusion-code is a terminal-native AI coding agent built for local-first development. It ships as a single binary with deep local MLX integration, and supports six cloud providers as optional backends.
+fusion-code is a terminal-native AI coding agent built for local-first development. It ships as a single binary with deep local MLX integration, and supports cloud providers (Anthropic direct or via proxy/LiteLLM, OpenAI, Foundry) as optional backends.
 
 Three things set it apart:
 
@@ -37,14 +37,14 @@ No outbound telemetry, analytics, or crash reporting. Feature flag evaluation ru
 
 ## Model Providers
 
-fusion-code supports **six API providers** out of the box. The provider is selected by `getAPIProvider()` in `src/utils/model/providers.ts`:
+fusion-code supports **four active API providers**. The provider is selected by `getAPIProvider()` in `src/utils/model/providers.ts`:
 
 1. **fusionMlx (local, default)** -- `FUSION_MLX_ENABLED=1` or no cloud key set -> local MLX inference at `127.0.0.1:11434`
-2. **firstParty (Anthropic)** -- `FUSION_API_KEY` / `ANTHROPIC_API_KEY`
+2. **firstParty (Anthropic)** -- `FUSION_API_KEY` / `ANTHROPIC_API_KEY` (direct API, or via a proxy/LiteLLM with `FUSION_BASE_URL`)
 3. **openai** -- `FUSION_CODE_USE_OPENAI=1`
 4. **foundry** -- `FUSION_CODE_USE_FOUNDRY=1`
-5. **bedrock** -- `FUSION_CODE_USE_BEDROCK=1`
-6. **vertex** -- `FUSION_CODE_USE_VERTEX=1`
+
+> **Note:** AWS Bedrock and Google Vertex AI providers are disabled in this build (the detection branches are permanently short-circuited in `providers.ts`). They are intentionally not selectable; use the Anthropic firstParty path with a proxy if you need a managed Anthropic endpoint.
 
 Fusion-MLX auto-detection: `shouldAutoUseFusionMlx()` checks port 11434 availability and auto-selects a code-capable text model.
 
@@ -62,32 +62,82 @@ Model resolution priority: session override (`/model`) > `--model` flag > `FUSIO
 | `FUSION_MODEL` | `ANTHROPIC_MODEL` |
 | `FUSION_BETAS` | `ANTHROPIC_BETAS` |
 
-### Cloud provider quick switch
+### Cloud LLM Configuration
+
+When local MLX is unavailable (traveling, remote fusion-mlx host, or you just want a cloud model), fusion-code can route to a cloud provider. Set the relevant env vars before launching `./fusion-code`. The first cloud provider whose flag is set wins; otherwise local MLX is auto-detected on port 11434.
+
+#### 1. Anthropic direct (firstParty)
+
+The simplest cloud path. Set an API key:
 
 ```bash
-# OpenAI Codex
-export FUSION_CODE_USE_OPENAI=1
-
-# AWS Bedrock
-export FUSION_CODE_USE_BEDROCK=1
-export AWS_REGION="us-east-1"
-
-# Google Vertex AI
-export FUSION_CODE_USE_VERTEX=1
-
-# Anthropic Foundry
-export FUSION_CODE_USE_FOUNDRY=1
-export ANTHROPIC_FOUNDRY_API_KEY="..."
+export FUSION_API_KEY="sk-ant-..."
+# Optional: pin a model
+export FUSION_MODEL="claude-sonnet-5"
+./fusion-code
 ```
 
-| Provider | Env Variable | Auth Method |
-|---|---|---|
-| fusionMlx (default) | `FUSION_MLX_ENABLED=1` or no key | Local (port 11434) |
-| Anthropic (default cloud) | -- | `FUSION_API_KEY` or OAuth |
-| OpenAI Codex | `FUSION_CODE_USE_OPENAI=1` | OAuth via OpenAI |
-| AWS Bedrock | `FUSION_CODE_USE_BEDROCK=1` | AWS credentials |
-| Google Vertex AI | `FUSION_CODE_USE_VERTEX=1` | `gcloud` ADC |
-| Anthropic Foundry | `FUSION_CODE_USE_FOUNDRY=1` | `ANTHROPIC_FOUNDRY_API_KEY` |
+OAuth login (no key) also works via the in-app login flow.
+
+#### 2. Anthropic via proxy / LiteLLM (firstParty + custom base URL)
+
+Route Anthropic API calls through a gateway (LiteLLM, OpenRouter, an internal proxy). This is the recommended way to reach cloud models from a host that also runs local fusion-mlx:
+
+```bash
+export FUSION_BASE_URL="http://your-proxy:4000/litellm"
+export FUSION_API_KEY="sk-..."          # key accepted by the proxy
+# Optional, if the proxy expects a bearer token instead of x-api-key:
+export FUSION_AUTH_TOKEN="sk-..."
+# Optional, extra headers (e.g. gateway routing):
+export FUSION_CUSTOM_HEADERS='{"X-Routing-Key":"abc"}'
+./fusion-code
+```
+
+`FUSION_*` env vars are mapped to `ANTHROPIC_*` at startup (see table above), so the underlying SDK sends them as standard Anthropic request fields. With `FUSION_BASE_URL` set, `getAPIProvider()` still returns `firstParty` and all Anthropic-compatible endpoints are used unchanged.
+
+#### 3. OpenAI (Codex)
+
+```bash
+export FUSION_CODE_USE_OPENAI=1
+./fusion-code   # then complete the OpenAI OAuth login in-app
+```
+
+Auth is OAuth-based; an API key is not required for the Codex adapter.
+
+#### 4. Foundry (Azure AI Foundry / Anthropic on Foundry)
+
+```bash
+export FUSION_CODE_USE_FOUNDRY=1
+export FUSION_FOUNDRY_RESOURCE="my-foundry"   # or FUSION_FOUNDRY_BASE_URL
+export FUSION_FOUNDRY_API_KEY="..."           # key auth (note: FUSION_, not ANTHROPIC_)
+./fusion-code
+```
+
+Alternatives: Azure AD `DefaultAzureCredential` is used if no key is set; set `FUSION_CODE_SKIP_FOUNDRY_AUTH=1` for an unauthenticated test endpoint.
+
+#### 5. Remote fusion-mlx (local provider, remote host)
+
+Run fusion-mlx on another machine and point fusion-code at it. This keeps the local-MLX provider (no cloud key, local latency optimizations) while the model runs elsewhere:
+
+```bash
+export FUSION_MLX_BASE_URL="http://192.168.1.10:11434"
+# Optional, if the remote fusion-mlx requires a key:
+export FUSION_MLX_API_KEY="..."
+./fusion-code
+```
+
+#### Provider summary
+
+| Provider | Selector | Required env | Auth |
+|---|---|---|---|
+| fusionMlx (local, default) | none / `FUSION_MLX_ENABLED=1` | (port 11434) | local |
+| Anthropic direct | `FUSION_API_KEY` | `FUSION_API_KEY` | API key / OAuth |
+| Anthropic via proxy | `FUSION_BASE_URL`+`FUSION_API_KEY` | `FUSION_BASE_URL`, `FUSION_API_KEY` | API key or `FUSION_AUTH_TOKEN` |
+| OpenAI Codex | `FUSION_CODE_USE_OPENAI=1` | -- | OAuth |
+| Foundry | `FUSION_CODE_USE_FOUNDRY=1` | `FUSION_FOUNDRY_RESOURCE`/`_BASE_URL` | `FUSION_FOUNDRY_API_KEY` / Azure AD |
+| Remote fusion-mlx | `FUSION_MLX_BASE_URL` | `FUSION_MLX_BASE_URL` | local (optional `FUSION_MLX_API_KEY`) |
+
+> **Model selection priority:** session override (`/model`) > `--model` flag > `FUSION_MODEL` / `FUSION_MLX_MODEL` env > saved settings.
 
 ---
 
@@ -106,8 +156,8 @@ Set `FUSION_API_KEY` or `ANTHROPIC_API_KEY` for cloud providers, or use local ML
 ### Requirements
 
 - **Runtime**: [Bun](https://bun.sh) >= 1.3.11
-- **OS**: macOS or Linux (Windows via WSL)
-- **Auth**: An API key / OAuth login for cloud, or fusion-mlx running locally
+- **OS**: macOS, Linux, or Windows (native). Local MLX inference is macOS-only; on Linux/Windows run fusion-mlx on a Mac and connect over the network with `FUSION_MLX_BASE_URL`, or use a cloud provider instead.
+- **Auth**: An API key / OAuth login for cloud, or fusion-mlx running locally (or remotely via `FUSION_MLX_BASE_URL`)
 
 ```bash
 # Install Bun if you don't have it
@@ -257,7 +307,7 @@ src/
 | **Code Search** | ripgrep (bundled) |
 | **Protocols** | MCP, LSP |
 | **Local Inference** | [fusion-mlx](https://github.com/fusion-mlxs/fusion-mlx) (MLX) |
-| **Cloud APIs** | Anthropic Messages, OpenAI Codex, AWS Bedrock, Google Vertex AI, Anthropic Foundry |
+| **Cloud APIs** | Anthropic Messages (direct or via proxy/LiteLLM), OpenAI Codex, Anthropic Foundry |
 
 ---
 
