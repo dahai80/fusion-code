@@ -104,7 +104,7 @@ interface StreamState {
   textBuffer: string
   emittedTextLen: number
   holdMode: boolean
-  holdTrigger: 'wrapper' | 'bareJson' | null
+  holdTrigger: 'wrapper' | 'bareJson' | 'echo' | null
   toolCalls: MLXResponseToolCall[]
   usage: MLXUsage
   finishReason: string | null
@@ -172,6 +172,26 @@ function matchingMarkerPrefixLen(str: string): number {
   }
   return max
 }
+
+// ─── Tool-definition echo detection ───────────────────────────
+// Local models under memory pressure sometimes echo the OpenAI tool-spec
+// objects we sent ({"type":"function","function":{"name":...,"parameters":...}})
+// back as plain text instead of responding. That signature never appears in
+// legitimate assistant output, so a response opening with '{' is held
+// tentatively; once the signature is seen the whole echo is suppressed and
+// replaced with a diagnostic at stream end.
+const ECHO_PROBE_CHAR_LIMIT = 160
+const TOOL_DEFINITION_ECHO_RE = /"\s*type"\s*:\s*"function"\s*,\s*"function"\s*:\s*\{/
+
+function isToolDefinitionEcho(text: string): boolean {
+  return TOOL_DEFINITION_ECHO_RE.test(text)
+}
+
+const MLX_ECHO_DIAGNOSTIC =
+  '⚠️ The local model echoed the tool definitions / system prompt instead of ' +
+  'producing a response (no valid output). This can happen with local models ' +
+  'under memory pressure or with very large contexts. Try /compact, reduce the ' +
+  'context, free memory, or switch to a cloud model (FUSION_BASE_URL / FUSION_API_KEY).'
 
 function pushTextDelta(
   state: StreamState,
@@ -418,7 +438,24 @@ export async function* transformMLXStreamToAnthropic(
       }
     } else {
       // No tool calls extracted.
-      if (!state.holdMode || state.holdTrigger === 'bareJson') {
+      if (state.holdTrigger === 'echo') {
+        // Model echoed tool definitions instead of responding; emit a short
+        // diagnostic so the user sees a clear message, not the raw echo.
+        if (!state.textBlockOpen) {
+          yield {
+            type: 'content_block_start',
+            index: state.contentIndex++,
+            content_block: { type: 'text', text: '' },
+          }
+          state.textBlockOpen = true
+        }
+        yield {
+          type: 'content_block_delta',
+          index: state.contentIndex - 1,
+          delta: { type: 'text_delta', text: MLX_ECHO_DIAGNOSTIC },
+        }
+        state.emittedTextLen = state.textBuffer.length
+      } else if (!state.holdMode || state.holdTrigger === 'bareJson') {
         // Flow mode: flush a partial marker prefix held back as a false alarm.
         // Also flush bare-JSON holds whose extraction failed: a {"name": ...}
         // object without "arguments" may be legitimate JSON (e.g. package.json)
@@ -538,23 +575,38 @@ function processChunk(
         // Markup detected earlier; keep buffering silently until stream end.
       } else {
         const pending = state.textBuffer.slice(state.emittedTextLen)
-        const marker = findToolCallMarker(pending)
-        if (marker) {
-          if (marker.index > 0) {
-            pushTextDelta(state, events, pending.slice(0, marker.index))
-            state.emittedTextLen += marker.index
-          }
+        // Echo probe: a response opening with '{' may be the model echoing
+        // the OpenAI tool-spec objects. Hold tentatively so the echo never
+        // reaches the UI; classify once enough text has arrived.
+        const echoProbe = state.emittedTextLen === 0 && pending.startsWith('{')
+        if (echoProbe && isToolDefinitionEcho(state.textBuffer)) {
           state.holdMode = true
-          state.holdTrigger = marker.kind
+          state.holdTrigger = 'echo'
           logForDebugging(
-            `[Fusion-MLX Stream] Hold mode on (suppressing ${marker.kind} markup): ${marker.marker}`,
+            `[Fusion-MLX Stream] Hold mode on (tool-definition echo), suppressing`,
+            { level: 'warn' },
           )
         } else {
-          const plen = matchingMarkerPrefixLen(pending)
-          const safeLen = pending.length - plen
-          if (safeLen > 0) {
-            pushTextDelta(state, events, pending.slice(0, safeLen))
-            state.emittedTextLen += safeLen
+          const marker = findToolCallMarker(pending)
+          if (marker) {
+            if (marker.index > 0) {
+              pushTextDelta(state, events, pending.slice(0, marker.index))
+              state.emittedTextLen += marker.index
+            }
+            state.holdMode = true
+            state.holdTrigger = marker.kind
+            logForDebugging(
+              `[Fusion-MLX Stream] Hold mode on (suppressing ${marker.kind} markup): ${marker.marker}`,
+            )
+          } else if (echoProbe && state.textBuffer.length < ECHO_PROBE_CHAR_LIMIT) {
+            // Hold the opening '{' tentatively; decide once more text arrives.
+          } else {
+            const plen = matchingMarkerPrefixLen(pending)
+            const safeLen = pending.length - plen
+            if (safeLen > 0) {
+              pushTextDelta(state, events, pending.slice(0, safeLen))
+              state.emittedTextLen += safeLen
+            }
           }
         }
       }

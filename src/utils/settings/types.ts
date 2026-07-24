@@ -387,7 +387,7 @@ export const SettingsSchema = lazySchema(() =>
         .optional()
         .describe(
           'Override mapping from Anthropic model ID (e.g. "claude-opus-4-6") to provider-specific ' +
-            'model ID (e.g. a Bedrock inference profile ARN). Typically set in managed settings by ' +
+            'model ID (e.g. a Foundry deployment name). Typically set in managed settings by ' +
             'enterprise administrators.',
         ),
       // Whether to automatically approve all MCP servers in the project

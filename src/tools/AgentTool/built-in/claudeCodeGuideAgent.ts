@@ -65,7 +65,7 @@ function getClaudeCodeGuideBasePrompt(): string {
   - Vision, PDF support, and citations
   - Extended thinking and structured outputs
   - MCP connector for remote MCP servers
-  - Cloud provider integrations (Bedrock, Vertex AI, Foundry)
+  - Cloud provider integrations (Foundry)
 
 **Approach:**
 1. Determine which domain the user's question falls into
@@ -87,7 +87,7 @@ Complete the user's request by providing accurate, documentation-based guidance.
 }
 
 function getFeedbackGuideline(): string {
-  // For 3P services (Bedrock/Vertex/Foundry), /feedback command is disabled
+  // For 3P services (Foundry), /feedback command is disabled
   // Direct users to the appropriate feedback channel instead
   if (isUsing3PServices()) {
     return `- When you cannot find an answer or the feature doesn't exist, direct the user to ${MACRO.ISSUES_EXPLAINER}`
