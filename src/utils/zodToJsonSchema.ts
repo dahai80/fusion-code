@@ -3,6 +3,7 @@
  */
 
 import { toJSONSchema, type ZodTypeAny } from 'zod/v4'
+import { logForDebugging } from './debug.js'
 
 export type JsonSchema7Type = Record<string, unknown>
 
@@ -11,13 +12,23 @@ export type JsonSchema7Type = Record<string, unknown>
 // same ZodTypeAny reference per session, so we can cache by identity.
 const cache = new WeakMap<ZodTypeAny, JsonSchema7Type>()
 
-/**
- * Converts a Zod v4 schema to JSON Schema format.
- */
 export function zodToJsonSchema(schema: ZodTypeAny): JsonSchema7Type {
-  const hit = cache.get(schema)
-  if (hit) return hit
-  const result = toJSONSchema(schema) as JsonSchema7Type
-  cache.set(schema, result)
-  return result
+    if (typeof schema === 'function') {
+        logForDebugging('[zodToJsonSchema] received function instead of schema, calling it')
+        try {
+            schema = (schema as () => ZodTypeAny)()
+        } catch {
+            logForDebugging('[zodToJsonSchema] failed to call lazy schema factory')
+            return {}
+        }
+    }
+    if (!schema || typeof schema !== 'object' || !('_zod' in schema)) {
+        logForDebugging('[zodToJsonSchema] invalid schema object, returning empty')
+        return {}
+    }
+    const hit = cache.get(schema)
+    if (hit) return hit
+    const result = toJSONSchema(schema) as JsonSchema7Type
+    cache.set(schema, result)
+    return result
 }

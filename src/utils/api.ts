@@ -166,14 +166,20 @@ export async function toolToAPISchema(
       input_schema = filterSwarmFieldsFromSchema(tool.name, input_schema)
     }
 
+    if (typeof tool.prompt !== 'function') {
+      logForDebugging(`[toolToAPISchema] tool "${tool.name}" missing .prompt method (type=${typeof tool.prompt}), skipping description`)
+    }
+    const description = typeof tool.prompt === 'function'
+      ? await tool.prompt({
+          getToolPermissionContext: options.getToolPermissionContext,
+          tools: options.tools,
+          agents: options.agents,
+          allowedAgentTypes: options.allowedAgentTypes,
+        })
+      : `${tool.name} tool`
     base = {
       name: tool.name,
-      description: await tool.prompt({
-        getToolPermissionContext: options.getToolPermissionContext,
-        tools: options.tools,
-        agents: options.agents,
-        allowedAgentTypes: options.allowedAgentTypes,
-      }),
+      description,
       input_schema,
     }
 
