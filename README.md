@@ -293,6 +293,20 @@ src/
   tasks/                  # Background task management
 ```
 
+### Notable Slash Commands
+
+| Command | Description |
+|---|---|
+| `/break-cache` | Reset prompt cache break detection state |
+| `/ctx_viz` | Visualize context window usage with progress bar |
+| `/env` | Display provider, model, and key environment variables |
+| `/summary` | Generate a summary of the current conversation session |
+| `/workflows` | List and run workflow scripts from `~/.claude/workflows/` |
+| `/compact` | Compact conversation context to free space |
+| `/cost` | Show token usage and cost for the session |
+| `/doctor` | Diagnose common setup issues |
+| `/model` | Switch or inspect the active model |
+
 ---
 
 ## Tech Stack
