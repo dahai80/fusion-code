@@ -3478,7 +3478,7 @@ async function run(): Promise<CommanderCommand> {
           // Original behavior: print session info and exit
           process.stdout.write(`Created remote session: ${createdSession.title}\n`);
           process.stdout.write(`View: ${getRemoteSessionUrl(createdSession.id)}?m=0\n`);
-          process.stdout.write(`Resume with: claude --teleport ${createdSession.id}\n`);
+          process.stdout.write(`Resume with: fusion-code --teleport ${createdSession.id}\n`);
           await gracefulShutdown(0);
           process.exit(0);
         }
@@ -3590,7 +3590,7 @@ async function run(): Promise<CommanderCommand> {
                   }
                 } else {
                   // No known paths - show original error
-                  throw new TeleportOperationError(`You must run claude --teleport ${teleport} from a checkout of ${sessionRepo}.`, chalk.red(`You must run claude --teleport ${teleport} from a checkout of ${chalk.bold(sessionRepo)}.\n`));
+                  throw new TeleportOperationError(`You must run fusion-code --teleport ${teleport} from a checkout of ${sessionRepo}.`, chalk.red(`You must run fusion-code --teleport ${teleport} from a checkout of ${chalk.bold(sessionRepo)}.\n`));
                 }
               }
             } else if (repoValidation.status === 'error') {
