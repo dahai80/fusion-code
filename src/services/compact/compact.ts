@@ -39,7 +39,10 @@ import {
   getMcpInstructionsDeltaAttachment,
 } from '../../utils/attachments.js'
 import { getMemoryPath } from '../../utils/config.js'
-import { COMPACT_MAX_OUTPUT_TOKENS } from '../../utils/context.js'
+import {
+    COMPACT_MAX_OUTPUT_TOKENS,
+    getContextWindowForModel,
+} from '../../utils/context.js'
 import {
   analyzeContext,
   tokenStatsToStatsigMetrics,
@@ -67,6 +70,7 @@ import {
   normalizeMessagesForAPI,
 } from '../../utils/messages.js'
 import { isFusionMlxProvider } from '../../utils/model/providers.js'
+import { getMainLoopModel } from '../../utils/model/model.js'
 import { expandPath } from '../../utils/path.js'
 import { getPlan, getPlanFilePath } from '../../utils/plans.js'
 import {
@@ -227,6 +231,9 @@ export const ERROR_MESSAGE_NOT_ENOUGH_MESSAGES =
   'Not enough messages to compact.'
 const MAX_PTL_RETRIES = 3
 const PTL_RETRY_MARKER = '[earlier conversation truncated for compaction retry]'
+// 本地模型 compact 安全系数:只用上下文窗口的 70%作为 compact 输入上限,
+// 留 30%给 KV cache 开销(32B 模型长上下文 KV cache 可占 30%+内存)
+const MLX_COMPACT_TOKEN_SAFETY_FACTOR = 0.7
 
 /**
  * Drops the oldest API-round groups from messages until tokenGap is covered.
@@ -289,6 +296,78 @@ export function truncateHeadForPTLRetry(
     ]
   }
   return sliced
+}
+
+/**
+ * Pre-flight token budget check for local MLX models.
+ * Compact sends the ENTIRE conversation to the model for summarization.
+ * With large models (32B+) and long conversations, the KV cache can push
+ * fusion-mlx past its memory ceiling, causing OOM or process crash.
+ * This function proactively truncates messages to fit within a safe
+ * token budget BEFORE sending to the model, preventing the cascade:
+ *   OOM → empty response → retry loop → more OOM → system crash
+ * Returns truncated messages, or null if no truncation needed.
+ */
+export function preflightMlxTokenTruncate(
+    messages: Message[],
+): Message[] | null {
+    if (!isFusionMlxProvider()) return null
+
+    const model = getMainLoopModel()
+    if (!model) return null
+
+    const contextWindow = getContextWindowForModel(model)
+    if (!contextWindow || contextWindow <= 0) return null
+
+    const safeBudget = Math.floor(contextWindow * MLX_COMPACT_TOKEN_SAFETY_FACTOR)
+    const estimated = tokenCountWithEstimation(messages)
+
+    if (estimated <= safeBudget) {
+        logForDebugging(
+            `[Compact] MLX pre-flight OK: ${estimated} tokens <= safe budget ${safeBudget} (window ${contextWindow} × ${MLX_COMPACT_TOKEN_SAFETY_FACTOR})`,
+        )
+        return null
+    }
+
+    logForDebugging(
+        `[Compact] MLX pre-flight OVER: ${estimated} tokens > safe budget ${safeBudget}, truncating`,
+        { level: 'warn' },
+    )
+
+    // 按API轮次从旧到新丢弃,直到落入安全预算
+    const groups = groupMessagesByApiRound(messages)
+    if (groups.length < 2) {
+        logForDebugging(
+            `[Compact] MLX pre-flight: only 1 group, cannot truncate safely`,
+            { level: 'warn' },
+        )
+        return null
+    }
+
+    let dropCount = 0
+    let remaining = estimated
+    for (const g of groups) {
+        remaining -= roughTokenCountEstimationForMessages(g)
+        dropCount++
+        if (remaining <= safeBudget) break
+    }
+
+    // 至少保留1个组
+    dropCount = Math.min(dropCount, groups.length - 1)
+    if (dropCount < 1) return null
+
+    const sliced = groups.slice(dropCount).flat()
+    if (sliced[0]?.type === 'assistant') {
+        return [
+            createUserMessage({ content: PTL_RETRY_MARKER, isMeta: true }),
+            ...sliced,
+        ]
+    }
+
+    logForDebugging(
+        `[Compact] MLX pre-flight: dropped ${dropCount} groups, ${sliced.length} messages remaining`,
+    )
+    return sliced
 }
 
 export const ERROR_MESSAGE_PROMPT_TOO_LONG =
@@ -446,6 +525,16 @@ export async function compactConversation(
     })
 
     let messagesToSummarize = messages
+    // Pre-flight: 本地模型 compact 前先检查 token 预算,避免发送超大请求导致 OOM 崩溃
+    const preflightTruncated = preflightMlxTokenTruncate(messages)
+    if (preflightTruncated) {
+        logEvent('tengu_compact_mlx_preflight_truncate', {
+            originalMessageCount: messages.length,
+            truncatedMessageCount: preflightTruncated.length,
+            preCompactTokenCount,
+        })
+        messagesToSummarize = preflightTruncated
+    }
     let retryCacheSafeParams = cacheSafeParams
     let summaryResponse: AssistantMessage
     let summary: string | null
@@ -465,11 +554,26 @@ export async function compactConversation(
       // 内存撞顶,复用 prompt-too-long 截断重试:逐轮丢弃最旧 API 轮次直到 prefill 落入
       // 内存上限,让 /compact 在超大对话上也能成功;无法再截断则抛明确内存上限错误。
       const isEmptyMlxOom = !summary && isFusionMlxProvider()
+      // fusion-mlx 引擎路由 bug(AttributeError)或 OOM(RuntimeError)会返回 500 错误,
+      // MLX adapter 将其转为 "Fusion-MLX API error: 500 ..." 或 mid-stream error,
+      // compact 流式路径将其作为 API Error summary 返回。检测此类错误也触发截断重试。
+      const isMlxServerError = isFusionMlxProvider() && summary && (
+        summary.includes('AttributeError') ||
+        summary.includes('RuntimeError') ||
+        summary.includes('process memory limit exceeded') ||
+        summary.includes('Fusion-MLX API error: 5')
+      )
       const needsTruncateRetry =
-        summary?.startsWith(PROMPT_TOO_LONG_ERROR_MESSAGE) || isEmptyMlxOom
+        summary?.startsWith(PROMPT_TOO_LONG_ERROR_MESSAGE) || isEmptyMlxOom || isMlxServerError
       if (isEmptyMlxOom) {
         logForDebugging(
           `[Compact] 空响应(疑似 fusion-mlx 内存撞顶),触发截断重试`,
+          { level: 'warn' },
+        )
+      }
+      if (isMlxServerError) {
+        logForDebugging(
+          `[Compact] MLX 服务端错误,触发截断重试: ${summary?.slice(0, 200)}`,
           { level: 'warn' },
         )
       }
@@ -891,11 +995,24 @@ export async function partialCompactConversation(
       summary = getAssistantMessageText(summaryResponse)
       // MLX 内存撞顶返回空响应(见 compactConversation 同名处理),复用截断重试。
       const isEmptyMlxOom = !summary && isFusionMlxProvider()
+      // MLX 服务端错误(AttributeError/RuntimeError/OOM)也触发截断重试
+      const isMlxServerError = isFusionMlxProvider() && summary && (
+        summary.includes('AttributeError') ||
+        summary.includes('RuntimeError') ||
+        summary.includes('process memory limit exceeded') ||
+        summary.includes('Fusion-MLX API error: 5')
+      )
       const needsTruncateRetry =
-        summary?.startsWith(PROMPT_TOO_LONG_ERROR_MESSAGE) || isEmptyMlxOom
+        summary?.startsWith(PROMPT_TOO_LONG_ERROR_MESSAGE) || isEmptyMlxOom || isMlxServerError
       if (isEmptyMlxOom) {
         logForDebugging(
           `[Partial Compact] 空响应(疑似 fusion-mlx 内存撞顶),触发截断重试`,
+          { level: 'warn' },
+        )
+      }
+      if (isMlxServerError) {
+        logForDebugging(
+          `[Partial Compact] MLX 服务端错误,触发截断重试: ${summary?.slice(0, 200)}`,
           { level: 'warn' },
         )
       }
