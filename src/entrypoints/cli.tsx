@@ -338,7 +338,10 @@ async function main(): Promise<void> {
   // 仅在未设置 NO_COLOR 时强制 FORCE_COLOR=1（尊重 NO_COLOR，避免 Bun 冲突警告）
   if (!process.env.NO_COLOR) process.env.FORCE_COLOR = '1';
   const { shouldAutoUseFusionMlx } = await import('../utils/model/providers.js');
-  if (shouldAutoUseFusionMlx()) {
+  // 防御性检查：已配置云 API 时不应触发 MLX 检测
+  // 即使 shouldAutoUseFusionMlx() 误返回 true，有 FUSION_API_KEY 就不需要 MLX
+  const hasCloudProvider = !!process.env.FUSION_API_KEY || !!process.env.FUSION_AUTH_TOKEN
+  if (shouldAutoUseFusionMlx() && !hasCloudProvider) {
     const { checkFusionMlxHealth } = await import('../services/api/fusion-mlx-adapter.js');
     const mlxStatus = await checkFusionMlxHealth();
     if (mlxStatus.available) {

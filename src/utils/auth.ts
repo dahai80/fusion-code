@@ -124,11 +124,16 @@ export function isAnthropicAuthEnabled(): boolean {
     process.env.FUSION_CODE_API_KEY_FILE_DESCRIPTOR
 
   // Check if API key is from an external source (not managed by /login)
-  const { source: apiKeySource } = getAnthropicApiKeyWithSource({
+  // NOTE: 直接检查 env var，不依赖 getAnthropicApiKeyWithSource() 的 approved 列表
+  // 原因：第三方 API 代理（如 litellm）通过 env var 配置，无需交互式批准，
+  // 但 getAnthropicApiKeyWithSource() 对未批准的 key 返回 source='none'，
+  // 导致 hasExternalApiKey=false → auth 不被禁用 → UI 显示 "Not logged in"
+  const { source: _apiKeySource } = getAnthropicApiKeyWithSource({
     skipRetrievingKeyFromApiKeyHelper: true,
   })
   const hasExternalApiKey =
-    apiKeySource === 'FUSION_API_KEY' || apiKeySource === 'apiKeyHelper'
+    !!process.env.FUSION_API_KEY ||
+    _apiKeySource === 'apiKeyHelper'
 
   // Disable Anthropic auth if:
   // 1. Using 3rd party services (Bedrock/Vertex/Foundry)
