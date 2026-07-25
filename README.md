@@ -162,12 +162,34 @@ AutoCompact triggers at 60% of the effective context window for MLX, with a mini
 
 ### MLX Memory Safety
 
-On 32K context windows, the system prompt (~3K) + tool definitions (~5K) consume ~8K tokens before any conversation. The MLX preflight check (`preflightMlxQueryCheck`) accounts for this overhead and forces compact when total tokens exceed the safe budget. Three safety layers prevent memory leaks:
+On 32K context windows, the system prompt (~3K) + tool definitions (~5K) consume ~8K tokens before any conversation. The MLX preflight check (`preflightMlxQueryCheck`) accounts for this overhead and forces compact when total tokens exceed the safe budget. Four safety layers prevent memory leaks:
 
-1. **Catastrophic abort**: If estimated tokens exceed 10x the safe budget, compact is skipped and the query aborts immediately with a clear error. This prevents 25M+ token arrays that consume 100GB+ RSS.
-2. **No recursive compact**: Compact's forked agent (`querySource === 'compact'`) is blocked from triggering forced compact. Without this guard, compact → forked agent → forced compact → infinite loop.
-3. **Compact tool stripping**: MLX compact agents cannot use tools (`canUseTool` denies everything), but tool definitions were still sent (~5K tokens wasted). Now stripped to `tools: []` for MLX compact calls.
-4. **One-shot forced compact**: `mlxForcedCompactDone` flag persists across loop iterations (reset on new user turn), ensuring forced compact is attempted at most once per query. After the attempt, a 20% tolerance allows the model call to proceed even if still slightly over budget.
+1. **Hard compact**: When the MLX provider is active, compact uses deterministic tool-output truncation instead of LLM summarization. Old `tool_result` blocks are truncated to head 200 + tail 100 chars; long assistant texts are shortened. Recent 3 API rounds are preserved intact. Zero token cost — no LLM call needed.
+2. **Catastrophic abort**: If estimated tokens exceed 10x the safe budget, compact is skipped and the query aborts immediately with a clear error. This prevents 25M+ token arrays that consume 100GB+ RSS.
+3. **No recursive compact**: Compact's forked agent (`querySource === 'compact'`) is blocked from triggering forced compact. Without this guard, compact → forked agent → forced compact → infinite loop.
+4. **Compact tool stripping**: MLX compact agents cannot use tools (`canUseTool` denies everything), but tool definitions were still sent (~5K tokens wasted). Now stripped to `tools: []` for MLX compact calls.
+5. **One-shot forced compact**: `mlxForcedCompactDone` flag persists across loop iterations (reset on new user turn), ensuring forced compact is attempted at most once per query. After the attempt, a 20% tolerance allows the model call to proceed even if still slightly over budget.
+6. **Post-compact GC**: After compact (both hard and LLM paths), the MLX backend is asked to release stale KV cache via `POST /api/v1/gc`. This prevents memory spikes when new Prefill overlaps with old cache.
+
+### Reliability Improvements (Audit Remediation)
+
+Based on a full codebase audit (2026-07-25), the following fixes were applied:
+
+| Priority | Fix | Impact |
+|---|---|---|
+| P0 | Create missing `src/query/transitions.ts` | Resolved compilation blocker — `Terminal` and `Continue` union types |
+| P0 | `stdout.isTTY` via `Object.defineProperty` | Reliable TTY override; preserves original value for restoration |
+| P0 | `asyncMemoize` for all memoized async functions | Rejected promises no longer permanently cached; 9 call sites fixed |
+| P0 | Startup error capture instead of silent `.catch(() => {})` | Pre-setup command/agent errors are now logged for diagnosis |
+| P1 | `FUSION_BASE_URL` guard consistency | Now respects existing `ANTHROPIC_BASE_URL` like all other env vars |
+| P1 | MLX health check non-blocking | Fire-and-forget with await before first API call; faster startup |
+| P1 | `mutableMessages` mutex lock | Prevents concurrent `submitMessage` race conditions |
+| P1 | `init()` async memoize | Initialization failure no longer permanently blocks retries |
+| P2 | `gracefulShutdownSync` replaces `process.exit` | Cleanup registry (LSP, tmux, terminal mode) now runs on exit |
+| P1 | Tree-Sitter AST index (`/ast`) | Real-time incremental symbol index with regex fallback |
+| P2 | Prefix cache preservation | System prompt kept stable across compaction for MLX KV reuse |
+| P3 | Deterministic fast-path engine (`/fastpath`) | Rule engine intercepts simple queries before model invocation |
+| P4 | BM25 local search (`/search`) | Classic BM25 scoring for local code search without vector DB |
 
 ---
 
@@ -310,7 +332,7 @@ src/
     oauth/                # OAuth flows (Anthropic + OpenAI)
     mcp/                  # Model Context Protocol integration
     lsp/                  # Language Server Protocol integration
-    compact/              # Context compaction (auto/reactive/micro + postCompactCleanup)
+    compact/              # Context compaction (auto/reactive/micro + hardCompact + postCompactCleanup)
   state/                  # App state store
   utils/
     model/providers.ts    # Provider selection (getAPIProvider)
