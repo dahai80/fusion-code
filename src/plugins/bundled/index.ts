@@ -18,7 +18,6 @@
 // API: initBuiltinPlugins() registers 3 builtin plugins
 // User instruction: "测试一下git，ecc, UI-UX Pro Max三个skill能否默认打包在fusion-code中"
 import { registerEccPlugin } from './ecc.js'
-import { registerFrontendDesignPlugin } from './frontendDesign.js'
 import { registerGithubPlugin } from './github.js'
 
 /**
@@ -26,6 +25,5 @@ import { registerGithubPlugin } from './github.js'
  */
 export function initBuiltinPlugins(): void {
     registerGithubPlugin()
-    registerFrontendDesignPlugin()
     registerEccPlugin()
 }

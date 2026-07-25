@@ -478,18 +478,6 @@ const externalTips: Tip[] = [
     },
   },
   {
-    id: 'frontend-design-plugin',
-    content: async ctx => {
-      const blue = color('suggestion', ctx.theme)
-      return `Working with HTML/CSS? Install the frontend-design plugin:\n${blue(`/plugin install frontend-design@${OFFICIAL_MARKETPLACE_NAME}`)}`
-    },
-    cooldownSessions: 3,
-    isRelevant: async context =>
-      isMarketplacePluginRelevant('frontend-design', context, {
-        filePath: /\.(html|css|htm)$/i,
-      }),
-  },
-  {
     id: 'vercel-plugin',
     content: async ctx => {
       const blue = color('suggestion', ctx.theme)
