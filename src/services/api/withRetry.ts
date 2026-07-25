@@ -13,8 +13,6 @@ import { createSystemAPIErrorMessage } from 'src/utils/messages.js'
 import { getAPIProviderForStatsig } from 'src/utils/model/providers.js'
 import {
   clearApiKeyHelperCache,
-  clearAwsCredentialsCache,
-  clearGcpCredentialsCache,
   getClaudeAIOAuthTokens,
   handleOAuth401Error,
   isClaudeAISubscriber,
@@ -635,11 +633,7 @@ function isBedrockAuthError(_error: unknown): boolean {
  * Clear AWS auth caches if appropriate.
  * @returns true if action was taken.
  */
-function handleAwsCredentialError(error: unknown): boolean {
-  if (isBedrockAuthError(error)) {
-    clearAwsCredentialsCache()
-    return true
-  }
+function handleAwsCredentialError(_error: unknown): boolean {
   return false
 }
 
@@ -655,17 +649,13 @@ function isGoogleAuthLibraryCredentialError(error: unknown): boolean {
   )
 }
 
-function isVertexAuthError(error: unknown): boolean {
-  if (false) {
-    // SDK-level: google-auth-library fails in prepareOptions() before the HTTP call
-    if (isGoogleAuthLibraryCredentialError(error)) {
-      return true
-    }
-    // Server-side: Vertex returns 401 for expired/invalid tokens
-    if (error instanceof APIError && error.status === 401) {
-      return true
-    }
-  }
+function isVertexAuthError(_error: unknown): boolean {
+  return false
+}
+
+// google-auth-library throws plain Error (no typed name like AWS's
+// CredentialsProviderError). Match common SDK-level credential-failure messages.
+function isGoogleAuthLibraryCredentialError(_error: unknown): boolean {
   return false
 }
 
@@ -673,11 +663,7 @@ function isVertexAuthError(error: unknown): boolean {
  * Clear GCP auth caches if appropriate.
  * @returns true if action was taken.
  */
-function handleGcpCredentialError(error: unknown): boolean {
-  if (isVertexAuthError(error)) {
-    clearGcpCredentialsCache()
-    return true
-  }
+function handleGcpCredentialError(_error: unknown): boolean {
   return false
 }
 

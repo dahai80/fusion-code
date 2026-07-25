@@ -139,10 +139,6 @@ export async function countMessagesTokensWithAPI(
       const betas = getModelBetas(model)
       const containsThinking = hasThinkingBlocks(messages)
 
-      if (false) {
-        return null
-      }
-
       const anthropic = await getAnthropicClient({
         maxRetries: 1,
         model,
