@@ -1962,10 +1962,13 @@ async function run(): Promise<CommanderCommand> {
     const setupPromise = setup(preSetupCwd, permissionMode, allowDangerouslySkipPermissions, worktreeEnabled, worktreeName, tmuxEnabled, sessionId ? validateUuid(sessionId) : undefined, worktreePRNumber, messagingSocketPath);
     const commandsPromise = worktreeEnabled ? null : getCommands(preSetupCwd);
     const agentDefsPromise = worktreeEnabled ? null : getAgentDefinitionsWithOverrides(preSetupCwd);
-    // Suppress transient unhandledRejection if these reject during the
-    // ~28ms setupPromise await before Promise.all joins them below.
-    commandsPromise?.catch(() => {});
-    agentDefsPromise?.catch(() => {});
+    // Capture rejection reason for logging instead of silently swallowing.
+    // The Promise.all at line ~2066 handles these promises; the .catch here
+    // only prevents transient unhandledRejection during the ~28ms setup await.
+    let commandsError: unknown = null;
+    let agentDefsError: unknown = null;
+    commandsPromise?.catch(e => { commandsError = e; });
+    agentDefsPromise?.catch(e => { agentDefsError = e; });
     // biome-ignore lint/suspicious/noConsole:: intentional debug
     await setupPromise;
     // biome-ignore lint/suspicious/noConsole:: intentional debug
@@ -2064,6 +2067,8 @@ async function run(): Promise<CommanderCommand> {
     // Join the promises kicked before setup() (or start fresh if
     // worktreeEnabled gated the early kick). Both memoized by cwd.
     const [commands, agentDefinitionsResult] = await Promise.all([commandsPromise ?? getCommands(currentCwd), agentDefsPromise ?? getAgentDefinitionsWithOverrides(currentCwd)]);
+    if (commandsError) logForDebugging(`[STARTUP] Pre-setup getCommands error (retried): ${commandsError}`);
+    if (agentDefsError) logForDebugging(`[STARTUP] Pre-setup getAgentDefinitions error (retried): ${agentDefsError}`);
     logForDebugging(`[STARTUP] Commands and agents loaded in ${Date.now() - commandsStart}ms`);
     profileCheckpoint('action_commands_loaded');
 
