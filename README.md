@@ -1,13 +1,12 @@
 <h1 align="center">fusion-code</h1>
 
 <p align="center">
-  <strong>A terminal-native AI coding agent with deep local MLX integration.</strong><br>
-  Cloud telemetry stripped. Experimental features unlocked. Local-first.<br>
-  One binary, zero callbacks home.
+  <strong>A terminal-native AI coding agent — local-first, zero telemetry, one binary.</strong><br>
+  Deep local MLX integration. Cloud backends optional. No callbacks home.
 </p>
 
 <p align="center">
-  <a href="#install"><img src="https://img.shields.io/badge/install-bun-blue?style=flat-square" alt="Install" /></a>
+  <a href="#quick-start"><img src="https://img.shields.io/badge/quick-start-blue?style=flat-square" alt="Quick Start" /></a>
   <a href="https://github.com/dahai80/fusion-code/stargazers"><img src="https://img.shields.io/github/stars/dahai80/fusion-code?style=flat-square" alt="Stars" /></a>
   <a href="https://github.com/dahai80/fusion-code/issues"><img src="https://img.shields.io/github/issues/dahai80/fusion-code?style=flat-square" alt="Issues" /></a>
   <a href="./FEATURES.md"><img src="https://img.shields.io/badge/features-88%20flags-green?style=flat-square" alt="Feature Flags" /></a>
@@ -15,283 +14,342 @@
 
 ---
 
-## What is this
+## Features at a Glance
 
-fusion-code is a terminal-native AI coding agent built for local-first development. It ships as a single binary with deep local MLX integration, and supports cloud providers (Anthropic direct or via proxy/LiteLLM, OpenAI, Foundry) as optional backends.
-
-Three things set it apart:
-
-### Local inference first
-
-Deeply integrated with [fusion-mlx](https://github.com/fusion-mlxs/fusion-mlx) local MLX inference at `127.0.0.1:11434`. When no cloud API key is set, a local model is auto-selected so data never leaves the machine. The streaming adapter suppresses `<tool_call>` markup leakage and supports prefix-cache reuse.
-
-### No cloud telemetry
-
-No outbound telemetry, analytics, or crash reporting. Feature flag evaluation runs locally for runtime gates but never reports back -- no usage tracking, no session fingerprinting, no error reporting.
-
-### Experimental features unlocked
-
-88 feature flags gated behind `bun:bundle` compile-time switches. This build unlocks all 54 flags that were already clean, plus the 34 flags that previously failed to bundle -- all 34 were fixed on 2026-07-23. See [FEATURES.md](FEATURES.md) for the full audit.
-
----
-
-## Model Providers
-
-fusion-code supports **four active API providers**. The provider is selected by `getAPIProvider()` in `src/utils/model/providers.ts`:
-
-1. **fusionMlx (local, default)** -- `FUSION_MLX_ENABLED=1` or no cloud key set -> local MLX inference at `127.0.0.1:11434`
-2. **firstParty (Anthropic)** -- `FUSION_API_KEY` / `ANTHROPIC_API_KEY` (direct API, or via a proxy/LiteLLM with `FUSION_BASE_URL`)
-3. **openai** -- `FUSION_CODE_USE_OPENAI=1`
-4. **foundry** -- `FUSION_CODE_USE_FOUNDRY=1`
-
-> **Note:** AWS Bedrock and Google Vertex AI providers are disabled in this build (the detection branches are permanently short-circuited in `providers.ts`). They are intentionally not selectable; use the Anthropic firstParty path with a proxy if you need a managed Anthropic endpoint.
-
-Fusion-MLX auto-detection: `shouldAutoUseFusionMlx()` checks port 11434 availability and auto-selects a code-capable text model.
-
-Model resolution priority: session override (`/model`) > `--model` flag > `FUSION_MODEL` / `FUSION_MLX_MODEL` env > saved settings.
-
-### FUSION_* env mapping
-
-`FUSION_*` env vars are mapped to `ANTHROPIC_*` at startup for SDK compatibility:
-
-| Fusion env | Anthropic equivalent |
+| | |
 |---|---|
-| `FUSION_API_KEY` | `ANTHROPIC_API_KEY` |
-| `FUSION_BASE_URL` | `ANTHROPIC_BASE_URL` |
-| `FUSION_AUTH_TOKEN` | `ANTHROPIC_AUTH_TOKEN` |
-| `FUSION_MODEL` | `ANTHROPIC_MODEL` |
-| `FUSION_BETAS` | `ANTHROPIC_BETAS` |
-
-### Cloud LLM Configuration
-
-When local MLX is unavailable (traveling, remote fusion-mlx host, or you just want a cloud model), fusion-code can route to a cloud provider. Set the relevant env vars before launching `./fusion-code`. The first cloud provider whose flag is set wins; otherwise local MLX is auto-detected on port 11434.
-
-#### 1. Anthropic direct (firstParty)
-
-The simplest cloud path. Set an API key:
-
-```bash
-export FUSION_API_KEY="sk-ant-..."
-# Optional: pin a model
-export FUSION_MODEL="claude-sonnet-5"
-./fusion-code
-```
-
-OAuth login (no key) also works via the in-app login flow.
-
-#### 2. Anthropic via proxy / LiteLLM (firstParty + custom base URL)
-
-Route Anthropic API calls through a gateway (LiteLLM, OpenRouter, an internal proxy). This is the recommended way to reach cloud models from a host that also runs local fusion-mlx:
-
-```bash
-export FUSION_BASE_URL="http://your-proxy:4000/litellm"
-export FUSION_API_KEY="sk-..."          # key accepted by the proxy
-# Optional, if the proxy expects a bearer token instead of x-api-key:
-export FUSION_AUTH_TOKEN="sk-..."
-# Optional, extra headers (e.g. gateway routing):
-export FUSION_CUSTOM_HEADERS='{"X-Routing-Key":"abc"}'
-./fusion-code
-```
-
-`FUSION_*` env vars are mapped to `ANTHROPIC_*` at startup (see table above), so the underlying SDK sends them as standard Anthropic request fields. With `FUSION_BASE_URL` set, `getAPIProvider()` still returns `firstParty` and all Anthropic-compatible endpoints are used unchanged.
-
-#### 3. OpenAI (Codex)
-
-```bash
-export FUSION_CODE_USE_OPENAI=1
-./fusion-code   # then complete the OpenAI OAuth login in-app
-```
-
-Auth is OAuth-based; an API key is not required for the Codex adapter.
-
-#### 4. Foundry (Azure AI Foundry / Anthropic on Foundry)
-
-```bash
-export FUSION_CODE_USE_FOUNDRY=1
-export FUSION_FOUNDRY_RESOURCE="my-foundry"   # or FUSION_FOUNDRY_BASE_URL
-export FUSION_FOUNDRY_API_KEY="..."           # key auth (note: FUSION_, not ANTHROPIC_)
-./fusion-code
-```
-
-Alternatives: Azure AD `DefaultAzureCredential` is used if no key is set; set `FUSION_CODE_SKIP_FOUNDRY_AUTH=1` for an unauthenticated test endpoint.
-
-#### 5. Remote fusion-mlx (local provider, remote host)
-
-Run fusion-mlx on another machine and point fusion-code at it. This keeps the local-MLX provider (no cloud key, local latency optimizations) while the model runs elsewhere:
-
-```bash
-export FUSION_MLX_BASE_URL="http://192.168.1.10:11434"
-# Optional, if the remote fusion-mlx requires a key:
-export FUSION_MLX_API_KEY="..."
-./fusion-code
-```
-
-#### Provider summary
-
-| Provider | Selector | Required env | Auth |
-|---|---|---|---|
-| fusionMlx (local, default) | none / `FUSION_MLX_ENABLED=1` | (port 11434) | local |
-| Anthropic direct | `FUSION_API_KEY` | `FUSION_API_KEY` | API key / OAuth |
-| Anthropic via proxy | `FUSION_BASE_URL`+`FUSION_API_KEY` | `FUSION_BASE_URL`, `FUSION_API_KEY` | API key or `FUSION_AUTH_TOKEN` |
-| OpenAI Codex | `FUSION_CODE_USE_OPENAI=1` | -- | OAuth |
-| Foundry | `FUSION_CODE_USE_FOUNDRY=1` | `FUSION_FOUNDRY_RESOURCE`/`_BASE_URL` | `FUSION_FOUNDRY_API_KEY` / Azure AD |
-| Remote fusion-mlx | `FUSION_MLX_BASE_URL` | `FUSION_MLX_BASE_URL` | local (optional `FUSION_MLX_API_KEY`) |
-
-> **Model selection priority:** session override (`/model`) > `--model` flag > `FUSION_MODEL` / `FUSION_MLX_MODEL` env > saved settings.
-
-### MLX Prompt Tier System
-
-Local models have limited context windows (32K vs 200K for cloud). The system prompt and tool set are automatically scaled by model size and context window to avoid consuming the entire context:
-
-| Tier | Model Size | Context Window | ~System Tokens | Tools | Sections |
-|---|---|---|---|---|---|
-| `mini` | ≤3B | any | ~2K | 5 core | 5 (env, identity, tools, style, reasoning) |
-| `compact` | 32B+ | ≤32K | ~3K | 5 core | 7 (mini + coding standards, error recovery) |
-| `standard` | 7B-9B | any | ~8K | 9 std | 23 (mini + protocols, examples, coding standards) |
-| `extended` | 14B | any | ~12K | 15 ext | 50 (standard + security, testing, workflows) |
-| `full` | 32B+ | >32K | ~24K | all | 89 (all sections including language-specific guides) |
-
-**Compact tier** is designed for large models on tight 32K windows. It keeps system prompt to ~3K tokens and restricts tools to the 5 core tools (Read, Edit, Bash, Glob, Grep), leaving ~24K tokens for conversation. Memory prompts are truncated to 3K chars in this tier.
-
-Tool tiers for MLX:
-- **core** (≤32K window): Read, Edit, Bash, Glob, Grep + MCP tools
-- **standard** (≤64K window): core + Write, LS
-- **extended** (>64K window): standard + TodoRead/Write, TaskCreate/Get/Update/List, WebSearch/Fetch
-
-AutoCompact triggers at 60% of the effective context window for MLX, with a minimum floor of `effectiveWindow - 4000` tokens to prevent firing before any conversation tokens are added.
-
-### MLX Memory Safety
-
-On 32K context windows, the system prompt (~3K) + tool definitions (~5K) consume ~8K tokens before any conversation. The MLX preflight check (`preflightMlxQueryCheck`) accounts for this overhead and forces compact when total tokens exceed the safe budget. Four safety layers prevent memory leaks:
-
-1. **Hard compact**: When the MLX provider is active, compact uses deterministic tool-output truncation instead of LLM summarization. Old `tool_result` blocks are truncated to head 200 + tail 100 chars; long assistant texts are shortened. Recent 3 API rounds are preserved intact. Zero token cost — no LLM call needed.
-2. **Catastrophic abort**: If estimated tokens exceed 10x the safe budget, compact is skipped and the query aborts immediately with a clear error. This prevents 25M+ token arrays that consume 100GB+ RSS.
-3. **No recursive compact**: Compact's forked agent (`querySource === 'compact'`) is blocked from triggering forced compact. Without this guard, compact → forked agent → forced compact → infinite loop.
-4. **Compact tool stripping**: MLX compact agents cannot use tools (`canUseTool` denies everything), but tool definitions were still sent (~5K tokens wasted). Now stripped to `tools: []` for MLX compact calls.
-5. **One-shot forced compact**: `mlxForcedCompactDone` flag persists across loop iterations (reset on new user turn), ensuring forced compact is attempted at most once per query. After the attempt, a 20% tolerance allows the model call to proceed even if still slightly over budget.
-6. **Post-compact GC**: After compact (both hard and LLM paths), the MLX backend is asked to release stale KV cache via `POST /api/v1/gc`. This prevents memory spikes when new Prefill overlaps with old cache.
-
-### Reliability Improvements (Audit Remediation)
-
-Based on a full codebase audit (2026-07-25), the following fixes were applied:
-
-| Priority | Fix | Impact |
-|---|---|---|
-| P0 | Create missing `src/query/transitions.ts` | Resolved compilation blocker — `Terminal` and `Continue` union types |
-| P0 | `stdout.isTTY` via `Object.defineProperty` | Reliable TTY override; preserves original value for restoration |
-| P0 | `asyncMemoize` for all memoized async functions | Rejected promises no longer permanently cached; 9 call sites fixed |
-| P0 | Startup error capture instead of silent `.catch(() => {})` | Pre-setup command/agent errors are now logged for diagnosis |
-| P1 | `FUSION_BASE_URL` guard consistency | Now respects existing `ANTHROPIC_BASE_URL` like all other env vars |
-| P1 | MLX health check non-blocking | Fire-and-forget with await before first API call; faster startup |
-| P1 | `mutableMessages` mutex lock | Prevents concurrent `submitMessage` race conditions |
-| P1 | `init()` async memoize | Initialization failure no longer permanently blocks retries |
-| P2 | `gracefulShutdownSync` replaces `process.exit` | Cleanup registry (LSP, tmux, terminal mode) now runs on exit |
-| P1 | Tree-Sitter AST index (`/ast`) | Real-time incremental symbol index with regex fallback |
-| P2 | Prefix cache preservation | System prompt kept stable across compaction for MLX KV reuse |
-| P3 | Deterministic fast-path engine (`/fastpath`) | Rule engine intercepts simple queries before model invocation |
-| P4 | BM25 local search (`/search`) | Classic BM25 scoring for local code search without vector DB |
+| 🖥️ **Local MLX Inference** | Deep [fusion-mlx](https://github.com/fusion-mlxs/fusion-mlx) integration at `127.0.0.1:11434`. Auto-detects local models, zero cloud dependency. |
+| ☁️ **Cloud LLM Backends** | Anthropic (direct or proxy/LiteLLM), OpenAI Codex, Azure Foundry — plug in an API key and go. |
+| 🔒 **Zero Telemetry** | No outbound analytics, crash reporting, or usage tracking. Everything stays on your machine. |
+| 🧩 **Builtin Plugins** | GitHub integration, UI/UX Pro Max design assistant, Chrome DevTools — all bundled, user-toggleable. |
+| ⚡ **88 Feature Flags** | ULTRAPLAN multi-agent, ULTRATHINK deep reasoning, voice input, IDE bridge, and 80+ more. |
+| 🛡️ **Smart Permissions** | Auto mode auto-approves safe ops, prompts only for dangerous commands. No LLM classifier needed. |
+| 🧠 **Context Management** | Auto-compact, hard compact (deterministic, zero token cost), MLX memory safety — handles 32K windows. |
 
 ---
 
-## Install
+## Quick Start
+
+### Prerequisites
+
+- **Bun** >= 1.3.11 — install with `curl -fsSL https://bun.sh/install | bash`
+- **macOS with Apple Silicon** (M1/M2/M3/M4) for local MLX inference; Linux/Windows can use cloud providers or remote MLX
+
+### Install & Run
 
 ```bash
 git clone https://github.com/dahai80/fusion-code.git
 cd fusion-code
 bun install
 bun run build
+```
+
+Now choose your model provider:
+
+#### Option A: Local MLX (no cloud key needed)
+
+```bash
+# 1. Install and start fusion-mlx (separate project)
+#    See: https://github.com/fusion-mlxs/fusion-mlx
+pip install fusion-mlx
+fusion-mlx start
+
+# 2. Download a model (use hf-mirror.com in China)
+#    Recommended models:
+#      - Qwen2.5-Coder-7B-Instruct  (7B, good balance)
+#      - Qwen2.5-Coder-14B-Instruct (14B, stronger reasoning)
+#      - Qwen2.5-Coder-32B-Instruct (32B, best quality, needs 32GB+ RAM)
+#    Example:
+export HF_ENDPOINT=https://hf-mirror.com
+fusion-mlx pull qwen2.5-coder-7b-instruct
+
+# 3. Launch fusion-code — auto-detects MLX on port 11434
 ./fusion-code
 ```
 
-Set `FUSION_API_KEY` or `ANTHROPIC_API_KEY` for cloud providers, or use local MLX via `fusion service start mlx` (auto-detected on port 11434).
-
-### Requirements
-
-- **Runtime**: [Bun](https://bun.sh) >= 1.3.11
-- **OS**: macOS, Linux, or Windows (native). Local MLX inference is macOS-only; on Linux/Windows run fusion-mlx on a Mac and connect over the network with `FUSION_MLX_BASE_URL`, or use a cloud provider instead.
-- **Auth**: An API key / OAuth login for cloud, or fusion-mlx running locally (or remotely via `FUSION_MLX_BASE_URL`)
+#### Option B: Anthropic Cloud (direct API)
 
 ```bash
-# Install Bun if you don't have it
-curl -fsSL https://bun.sh/install | bash
+# Set your API key (persist in ~/.zshrc or ~/.bashrc)
+export FUSION_API_KEY="sk-ant-..."
+
+# Optional: pin a specific model
+export FUSION_MODEL="claude-sonnet-5"
+
+./fusion-code
 ```
+
+#### Option C: Anthropic via Proxy / LiteLLM
+
+For regions where `api.anthropic.com` is unreachable, or to share a key through a gateway:
+
+```bash
+# Point to your proxy (include the path, e.g. /v1 for OpenAI-compatible proxies)
+export FUSION_BASE_URL="http://your-proxy:4000/v1"
+export FUSION_API_KEY="sk-..."                    # key accepted by the proxy
+
+# Optional: bearer token instead of x-api-key
+export FUSION_AUTH_TOKEN="sk-..."
+
+# Optional: extra headers for gateway routing
+export FUSION_CUSTOM_HEADERS='{"X-Routing-Key":"abc"}'
+
+./fusion-code
+```
+
+> **Tip:** Persist env vars by adding `export` lines to `~/.zshrc` or `~/.bashrc`, then `source ~/.zshrc`.
+
+### Update
+
+```bash
+cd fusion-code
+git pull
+bun install
+bun run build
+```
+
+---
+
+## Model Providers
+
+fusion-code supports multiple API backends. The provider is selected automatically by this priority order:
+
+1. **fusionMlx (local)** — if `FUSION_MLX_ENABLED=1` or no cloud key is set → local MLX at `127.0.0.1:11434`
+2. **openai** — if `FUSION_CODE_USE_OPENAI=1` → OpenAI Codex (OAuth)
+3. **foundry** — if `FUSION_CODE_USE_FOUNDRY=1` → Azure AI Foundry
+4. **firstParty (Anthropic)** — if `FUSION_API_KEY` is set → Anthropic API (direct or via proxy)
+
+> The first matching provider wins. If none match, local MLX is auto-detected on port 11434.
+
+### Provider Configuration Summary
+
+| Provider | Required Env | Auth Method | Notes |
+|---|---|---|---|
+| **fusionMlx (local)** | none (auto on port 11434) | local | Apple Silicon only; use `FUSION_MLX_MODEL` to pin a model |
+| **fusionMlx (remote)** | `FUSION_MLX_BASE_URL` | local or `FUSION_MLX_API_KEY` | Run MLX on another Mac, connect over network |
+| **Anthropic direct** | `FUSION_API_KEY` | API key / OAuth | Set `FUSION_MODEL` to pin a model |
+| **Anthropic via proxy** | `FUSION_BASE_URL` + `FUSION_API_KEY` | API key or `FUSION_AUTH_TOKEN` | LiteLLM, OpenRouter, internal gateway |
+| **OpenAI Codex** | `FUSION_CODE_USE_OPENAI=1` | OAuth | In-app login flow on first launch |
+| **Foundry** | `FUSION_CODE_USE_FOUNDRY=1` + `FUSION_FOUNDRY_RESOURCE` | API key / Azure AD | `FUSION_FOUNDRY_API_KEY` or Azure DefaultAzureCredential |
+
+### Model Selection Priority
+
+Session override (`/model`) > `--model` CLI flag > `FUSION_MODEL` / `FUSION_MLX_MODEL` env > saved settings.
+
+### FUSION_* Environment Variables
+
+`FUSION_*` vars are mapped to `ANTHROPIC_*` at startup for SDK compatibility:
+
+| Fusion Variable | Anthropic Equivalent | Example |
+|---|---|---|
+| `FUSION_API_KEY` | `ANTHROPIC_API_KEY` | `sk-ant-api03-...` |
+| `FUSION_BASE_URL` | `ANTHROPIC_BASE_URL` | `http://proxy:4000/v1` |
+| `FUSION_AUTH_TOKEN` | `ANTHROPIC_AUTH_TOKEN` | `sk-...` (bearer token) |
+| `FUSION_MODEL` | `ANTHROPIC_MODEL` | `claude-sonnet-5` |
+| `FUSION_MLX_MODEL` | — | `qwen2.5-coder-7b-instruct` |
+| `FUSION_MLX_BASE_URL` | — | `http://192.168.1.10:11434` |
+| `FUSION_CUSTOM_HEADERS` | — | `{"X-Key":"val"}` |
+| `FUSION_BETAS` | `ANTHROPIC_BETAS` | `max-tokens-3-5-sonnet-2024-07-15` |
+
+### Cloud Configuration Details
+
+#### Anthropic Direct
+
+```bash
+export FUSION_API_KEY="sk-ant-..."
+# Optional: choose a specific model
+export FUSION_MODEL="claude-sonnet-5"
+./fusion-code
+```
+
+OAuth login (no API key) is also available — launch `./fusion-code` and follow the in-app browser login prompt.
+
+#### Anthropic via Proxy / LiteLLM
+
+Route API calls through a gateway. Useful when:
+- `api.anthropic.com` is blocked in your region
+- You share a key through a corporate proxy
+- You run LiteLLM to unify multiple providers
+
+```bash
+export FUSION_BASE_URL="http://your-proxy:4000/v1"
+export FUSION_API_KEY="sk-..."
+./fusion-code
+```
+
+> **URL format:** `FUSION_BASE_URL` should point to the base endpoint. The SDK appends `/messages` automatically. For LiteLLM, use `http://host:4000` (no `/v1` suffix). For OpenAI-compatible proxies, include `/v1`.
+
+#### OpenAI Codex
+
+```bash
+export FUSION_CODE_USE_OPENAI=1
+./fusion-code   # OAuth login will start automatically
+```
+
+#### Azure AI Foundry
+
+```bash
+export FUSION_CODE_USE_FOUNDRY=1
+export FUSION_FOUNDRY_RESOURCE="my-foundry"   # or FUSION_FOUNDRY_BASE_URL
+export FUSION_FOUNDRY_API_KEY="..."
+./fusion-code
+```
+
+Azure AD `DefaultAzureCredential` is used if no key is set. Set `FUSION_CODE_SKIP_FOUNDRY_AUTH=1` for unauthenticated test endpoints.
+
+#### Remote fusion-mlx
+
+Run fusion-mlx on another Mac and connect over the network:
+
+```bash
+export FUSION_MLX_BASE_URL="http://192.168.1.10:11434"
+# Optional: if the remote requires auth
+export FUSION_MLX_API_KEY="..."
+./fusion-code
+```
+
+---
+
+## Local MLX
+
+### Setup
+
+1. **Install fusion-mlx**: `pip install fusion-mlx` (see [fusion-mlx repo](https://github.com/fusion-mlxs/fusion-mlx))
+2. **Start the server**: `fusion-mlx start` — listens on `127.0.0.1:11434`
+3. **Download a model** (use HuggingFace mirror in China):
+
+```bash
+# In China, set the mirror first
+export HF_ENDPOINT=https://hf-mirror.com
+
+# Download a recommended model
+fusion-mlx pull qwen2.5-coder-7b-instruct
+```
+
+4. **Pin a specific model** (optional):
+
+```bash
+export FUSION_MLX_MODEL="qwen2.5-coder-14b-instruct"
+./fusion-code
+```
+
+### Recommended Models
+
+| Model | Size | RAM Needed | Best For |
+|---|---|---|---|
+| `qwen2.5-coder-7b-instruct` | 7B | 8 GB | Fast responses, code completion |
+| `qwen2.5-coder-14b-instruct` | 14B | 16 GB | Stronger reasoning, balanced |
+| `qwen2.5-coder-32b-instruct` | 32B | 32 GB+ | Best quality, complex tasks |
+
+> Port 11434 is Ollama-compatible. If you already run Ollama with a code model, fusion-code can use it directly.
+
+### MLX Prompt Tier System
+
+Local models have limited context windows. The system prompt and tool set are automatically scaled by model size:
+
+| Tier | Model Size | Context | ~System Tokens | Tools |
+|---|---|---|---|---|
+| `mini` | ≤3B | any | ~2K | 5 core |
+| `compact` | 32B+ | ≤32K | ~3K | 5 core |
+| `standard` | 7B-9B | any | ~8K | 9 standard |
+| `extended` | 14B | any | ~12K | 15 extended |
+| `full` | 32B+ | >32K | ~24K | all |
+
+**Compact tier** keeps system prompt to ~3K tokens, restricts tools to 5 core (Read, Edit, Bash, Glob, Grep), leaving ~24K tokens for conversation.
+
+Tool tiers:
+- **core** (≤32K window): Read, Edit, Bash, Glob, Grep + MCP tools
+- **standard** (≤64K window): core + Write, LS
+- **extended** (>64K window): standard + TodoRead/Write, TaskCreate/Get/Update/List, WebSearch/Fetch
+
+AutoCompact triggers at 60% of the effective context window. On 32K windows, hard compact uses deterministic truncation (zero LLM call, zero token cost) instead of summarization.
 
 ---
 
 ## Build
 
 ```bash
-bun run build        # ./fusion-code (VOICE_MODE only)
-./fusion-code
+bun run build              # ./fusion-code (production, VOICE_MODE only)
+bun run build:dev          # ./fusion-code-dev (dev stamp, VOICE_MODE only)
+bun run build:dev:full     # ./fusion-code-dev (all experimental flags)
+bun run compile            # ./dist/fusion-code (alternative output)
 ```
-
-### Build Variants
-
-| Command | Output | Features | Description |
-|---|---|---|---|
-| `bun run build` | `./fusion-code` | `VOICE_MODE` only | Production-like binary |
-| `bun run build:dev` | `./fusion-code-dev` | `VOICE_MODE` only | Dev version stamp |
-| `bun run build:dev:full` | `./fusion-code-dev` | All experimental flags | Full unlock build |
-| `bun run compile` | `./dist/fusion-code` | `VOICE_MODE` only | Alternative output path |
 
 ### Custom Feature Flags
 
-Enable specific flags without the full bundle:
-
 ```bash
-# Enable just ultraplan and ultrathink
+# Enable specific flags
 bun run ./scripts/build.ts --feature=ULTRAPLAN --feature=ULTRATHINK
 
-# Add a flag on top of the dev-full build
+# Dev build with all flags + extras
 bun run ./scripts/build.ts --dev --feature-set=dev-full --feature=BRIDGE_MODE
 ```
-
-Build-time macros: `MACRO.VERSION`, `MACRO.BUILD_TIME`, `process.env.USER_TYPE` (set to `"external"`). Native modules excluded from bundle: `@ant/*`, `audio-capture-napi`, `image-processor-napi`, `modifiers-napi`, `url-handler-napi`.
 
 ---
 
 ## Usage
 
 ```bash
-# Interactive REPL (default)
-./fusion-code
-
-# One-shot mode
-./fusion-code -p "what files are in this directory?"
-
-# Specify a model
-./fusion-code --model <model-id>
-
-# Run from source (slower startup)
-bun run dev
+./fusion-code                          # Interactive REPL
+./fusion-code -p "explain this code"   # One-shot mode
+./fusion-code --model <model-id>       # Override model
+bun run dev                            # Run from source
 ```
 
 ### Permission Modes
 
-Press **Shift+Tab** to cycle through permission modes:
+Press **Shift+Tab** to cycle modes:
 
-| Mode | Behavior |
+| Mode | Behavior | Best For |
+|---|---|---|
+| **Default** | Ask for every tool use | First-time users, cautious workflows |
+| **Auto** ✅ | Auto-approve safe ops; prompt for dangerous ones | Daily coding (recommended) |
+| **Accept Edits** | Auto-approve file edits; ask for bash | Refactoring, code generation |
+| **Plan** | Read-only — no file/command execution | Code review, exploration |
+
+**Auto mode** uses deterministic rules (no LLM classifier). Safe commands (`ls`, `cat`, `git status`, `npm install`, `make`, etc.) are auto-approved. Dangerous commands (`rm -rf`, `sudo`, `git push`, `docker rm`, `python`, `node -e`) still require confirmation.
+
+### Notable Slash Commands
+
+| Command | Description |
 |---|---|
-| **Default** | Ask for every tool use |
-| **Auto** | Auto-approve safe operations; only prompt for dangerous commands (rm -rf, git push, sudo, etc.) |
-| **Accept Edits** | Auto-approve file edits; ask for bash commands |
-| **Plan** | Read-only mode — no file or command execution |
+| `/model` | Switch or inspect the active model |
+| `/compact` | Compact conversation context to free space |
+| `/cost` | Show token usage and cost for the session |
+| `/doctor` | Diagnose common setup issues |
+| `/env` | Display provider, model, and key environment variables |
+| `/ctx_viz` | Visualize context window usage |
+| `/summary` | Generate a summary of the current conversation |
+| `/workflows` | List and run workflow scripts |
+| `/break-cache` | Reset prompt cache break detection |
 
-Auto mode uses deterministic rules (no LLM classifier needed). Safe commands like `ls`, `cat`, `git status`, `npm install`, `make`, etc. are auto-approved. Dangerous commands like `rm -rf`, `sudo`, `git push`, `docker rm`, and script interpreters (`python`, `node -e`) still require confirmation.
+### Builtin Plugins
+
+| Plugin | Description | Default |
+|---|---|---|
+| **GitHub** | Issue/PR integration, gh CLI wrapper | Enabled |
+| **UI/UX Pro Max** | Design system assistant (auto-installs from uipro-cli) | Enabled |
+| **Chrome DevTools** | Browser inspection, screenshots, performance | Enabled |
+
+Toggle with `/plugin` inside the REPL.
+
+### Project Instructions (CLAUDE.md)
+
+Place a `CLAUDE.md` file in your project root to give fusion-code project-specific instructions — coding standards, architecture notes, preferred libraries. It is automatically loaded on startup and committed to version control so your whole team shares the same AI behavior.
 
 ---
 
 ## Experimental Features
 
-The `bun run build:dev:full` build enables all working feature flags. Highlights:
+The `bun run build:dev:full` build enables all working feature flags. The default `bun run build` includes only `VOICE_MODE`.
 
 ### Interaction & UI
 
 | Flag | Description |
 |---|---|
 | `ULTRAPLAN` | Remote multi-agent planning (Opus-class) |
-| `ULTRATHINK` | Deep thinking mode -- type "ultrathink" to boost reasoning effort |
-| `VOICE_MODE` | Push-to-talk voice input and dictation |
+| `ULTRATHINK` | Deep thinking mode — type "ultrathink" to boost reasoning effort |
+| `VOICE_MODE` | Push-to-talk voice input and dictation ✅ (default) |
 | `TOKEN_BUDGET` | Token budget tracking and usage warnings |
 | `HISTORY_PICKER` | Interactive prompt history picker |
 | `MESSAGE_ACTIONS` | Message action entrypoints in the UI |
@@ -318,7 +376,7 @@ The `bun run build:dev:full` build enables all working feature flags. Highlights
 | `WORKFLOW_SCRIPTS` | Local workflow task scripting |
 | `WEB_BROWSER_TOOL` | Headless browser tool |
 
-All 34 historically-broken flags were fixed on 2026-07-23 and now bundle cleanly. See [FEATURES.md](FEATURES.md) for the complete audit of all 88 flags.
+All 34 historically-broken flags were fixed on 2026-07-23. See [FEATURES.md](FEATURES.md) for the full audit of all 88 flags.
 
 ---
 
@@ -345,32 +403,16 @@ src/
     oauth/                # OAuth flows (Anthropic + OpenAI)
     mcp/                  # Model Context Protocol integration
     lsp/                  # Language Server Protocol integration
-    compact/              # Context compaction (auto/reactive/micro + hardCompact + postCompactCleanup)
+    compact/              # Context compaction (auto/reactive/micro + hardCompact)
   state/                  # App state store
   utils/
     model/providers.ts    # Provider selection (getAPIProvider)
-    cwd.ts                # AsyncLocalStorage cwd override for concurrent agents
-    path.ts               # Path expansion + NFC normalization
   skills/                 # Skill system
-  plugins/                # Plugin system
+  plugins/                # Plugin system (builtin: GitHub, UI/UX Pro Max, Chrome DevTools)
   bridge/                 # IDE bridge (VS Code, JetBrains)
   voice/                  # Voice input
   tasks/                  # Background task management
 ```
-
-### Notable Slash Commands
-
-| Command | Description |
-|---|---|
-| `/break-cache` | Reset prompt cache break detection state |
-| `/ctx_viz` | Visualize context window usage with progress bar |
-| `/env` | Display provider, model, and key environment variables |
-| `/summary` | Generate a summary of the current conversation session |
-| `/workflows` | List and run workflow scripts from `~/.claude/workflows/` |
-| `/compact` | Compact conversation context to free space |
-| `/cost` | Show token usage and cost for the session |
-| `/doctor` | Diagnose common setup issues |
-| `/model` | Switch or inspect the active model |
 
 ---
 
@@ -386,13 +428,11 @@ src/
 | **Code Search** | ripgrep (bundled) |
 | **Protocols** | MCP, LSP |
 | **Local Inference** | [fusion-mlx](https://github.com/fusion-mlxs/fusion-mlx) (MLX) |
-| **Cloud APIs** | Anthropic Messages (direct or via proxy/LiteLLM), OpenAI Codex, Anthropic Foundry |
+| **Cloud APIs** | Anthropic Messages, OpenAI Codex, Azure Foundry |
 
 ---
 
 ## Contributing
-
-Contributions are welcome.
 
 1. Fork the repository
 2. Create a feature branch (`git checkout -b feat/my-feature`)
@@ -400,7 +440,7 @@ Contributions are welcome.
 4. Push to the branch (`git push origin feat/my-feature`)
 5. Open a Pull Request
 
-For upstream `fusion-mlx` issues: file an issue first, then a PR, following the upstream contribution flow. Do not modify fusion-mlx local code directly -- only via PRs.
+For upstream `fusion-mlx` issues: file an issue first, then a PR, following the upstream contribution flow.
 
 ---
 
