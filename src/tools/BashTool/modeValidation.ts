@@ -2,8 +2,7 @@ import type { z } from 'zod/v4'
 import type { ToolPermissionContext } from '../../Tool.js'
 import { splitCommand } from '../../utils/bash/commands.js'
 import {
-    isAutoModeDangerousCommand,
-    isAutoModeSafeCommand,
+    classifyAllShell,
 } from '../../utils/permissions/autoModeDangerList.js'
 import type { PermissionResult } from '../../utils/permissions/PermissionResult.js'
 import type { BashTool } from './BashTool.js'
@@ -53,29 +52,42 @@ function validateCommandForMode(
         }
     }
 
-    // In Auto mode, use deterministic danger/safe command lists
+    // In Auto mode, use classifyAllShell for comprehensive classification
     if (toolPermissionContext.mode === 'auto') {
-        if (isAutoModeDangerousCommand(trimmedCmd)) {
+        const classification = classifyAllShell(trimmedCmd)
+
+        if (classification === 'hard_deny') {
             return {
-                behavior: 'ask',
-                message: `Destructive command requires confirmation in auto mode: ${trimmedCmd}`,
+                behavior: 'deny',
+                message: `Command blocked in auto mode (irreversible): ${trimmedCmd}`,
                 decisionReason: {
                     type: 'safetyCheck',
-                    reason: `Command '${trimmedCmd}' is classified as dangerous in auto mode`,
+                    reason: `Command '${trimmedCmd}' is hard-denied in auto mode — too destructive for auto-approval`,
                     classifierApprovable: false,
                 },
             }
         }
 
-        if (isAutoModeSafeCommand(trimmedCmd)) {
+        if (classification === 'ask') {
             return {
-                behavior: 'allow',
-                updatedInput: { command: cmd },
+                behavior: 'ask',
+                message: `Command requires confirmation in auto mode: ${trimmedCmd}`,
                 decisionReason: {
-                    type: 'mode',
-                    mode: 'auto',
+                    type: 'safetyCheck',
+                    reason: `Command '${trimmedCmd}' requires confirmation in auto mode`,
+                    classifierApprovable: false,
                 },
             }
+        }
+
+        // classification === 'safe'
+        return {
+            behavior: 'allow',
+            updatedInput: { command: cmd },
+            decisionReason: {
+                type: 'mode',
+                mode: 'auto',
+            },
         }
     }
 
@@ -114,19 +126,6 @@ export function checkPermissionMode(
         // If any command triggers mode-specific behavior, return that result
         if (result.behavior !== 'passthrough') {
             return result
-        }
-    }
-
-    // In auto mode, if no subcommand was dangerous and none was explicitly safe,
-    // auto-allow the command (auto mode approves by default unless dangerous)
-    if (toolPermissionContext.mode === 'auto') {
-        return {
-            behavior: 'allow',
-            updatedInput: { command: input.command },
-            decisionReason: {
-                type: 'mode',
-                mode: 'auto',
-            },
         }
     }
 

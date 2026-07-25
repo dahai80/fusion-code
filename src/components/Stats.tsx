@@ -19,6 +19,7 @@ import { generateHeatmap } from '../utils/heatmap.js';
 import { renderModelName } from '../utils/model/model.js';
 import { copyAnsiToClipboard } from '../utils/screenshotClipboard.js';
 import { aggregateClaudeCodeStatsForRange, type ClaudeCodeStats, type DailyModelTokens, type StatsDateRange } from '../utils/stats.js';
+import { getTotalCost, formatCost as formatCostUSD, getTotalDuration, getTotalAPIDuration, getTotalLinesAdded, getTotalLinesRemoved, getModelUsage, hasUnknownModelCost } from '../cost-tracker.js';
 import { resolveThemeSetting } from '../utils/systemTheme.js';
 import { getTheme, themeColorToAnsi } from '../utils/theme.js';
 import { Pane } from './design-system/Pane.js';
@@ -455,6 +456,22 @@ function OverviewTab({
         </Box>
       </Box>
 
+      {/* Section 1b: Current session cost */}
+      <Box flexDirection="row" gap={4}>
+        <Box flexDirection="column" width={28}>
+          <Text wrap="truncate">
+            Session cost:{' '}
+            <Text color="claude">{formatCostUSD(getTotalCost())}{hasUnknownModelCost() ? ' *' : ''}</Text>
+          </Text>
+        </Box>
+        <Box flexDirection="column" width={28}>
+          <Text wrap="truncate">
+            Lines changed:{' '}
+            <Text color="claude">{getTotalLinesAdded()}+ / {getTotalLinesRemoved()}-</Text>
+          </Text>
+        </Box>
+      </Box>
+
       {/* Section 2: Activity - Row 1: Sessions | Longest session */}
       <Box flexDirection="row" gap={4}>
         <Box flexDirection="column" width={28}>
@@ -838,6 +855,7 @@ type ModelEntryProps = {
     inputTokens: number;
     outputTokens: number;
     cacheReadInputTokens: number;
+    costUSD?: number;
   };
   totalTokens: number;
 };
@@ -910,7 +928,7 @@ function ModelEntry(t0) {
   }
   let t9;
   if ($[15] !== t7 || $[16] !== t8) {
-    t9 = <Text color="subtle">{"  "}In: {t7} · Out:{" "}{t8}</Text>;
+    t9 = <Text color="subtle">{"  "}In: {t7} · Out:{" "}{t8}{usage.costUSD ? ` · ${formatCostUSD(usage.costUSD)}` : ''}</Text>;
     $[15] = t7;
     $[16] = t8;
     $[17] = t9;

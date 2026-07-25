@@ -52,6 +52,18 @@ const AUTO_MODE_INTERPRETER_PREFIXES = [
     'fish -c',
 ]
 
+const AUTO_MODE_HARD_DENY_PATTERNS: RegExp[] = [
+    /\bgit\s+push\b[^;&|\n]*[ \t](--force|--force-with-lease|-f)\b/,
+    /\bgit\s+reset\s+--hard\b/,
+    /\bgit\s+clean\b(?![^;&|\n]*(?:-[a-zA-Z]*n|--dry-run))[^;&|\n]*-[a-zA-Z]*f/,
+    /\bgit\s+stash[ \t]+(drop|clear)\b/,
+    /\bgit\s+branch\s+(-D[ \t]|--delete\s+--force|--force\s+--delete)\b/,
+    /\bkubectl\s+delete\b/,
+    /\bterraform\s+destroy\b/,
+    /\b(DROP|TRUNCATE)\s+(TABLE|DATABASE|SCHEMA)\b/i,
+    /\bDELETE\s+FROM\s+\w+[ \t]*(;|"|'|\n|$)/i,
+]
+
 const AUTO_MODE_ALLOW_PREFIXES = [
     'ls',
     'cat',
@@ -156,10 +168,38 @@ const AUTO_MODE_ALLOW_PREFIXES = [
     'swift test',
 ]
 
+const READ_ONLY_BASE_COMMANDS = new Set([
+    'ls', 'cat', 'head', 'tail', 'find', 'grep', 'egrep', 'fgrep',
+    'rg', 'ag', 'wc', 'sort', 'uniq', 'diff', 'which', 'echo',
+    'printf', 'pwd', 'env', 'printenv', 'file', 'stat', 'du', 'df',
+    'free', 'top', 'ps', 'whoami', 'id', 'uname', 'hostname', 'date',
+    'cal', 'uptime', 'test', 'true', 'false', 'sleep',
+])
+
+const WRITE_CAPABLE_SUFFIXES = [
+    ' > ', ' >> ', '>|', '&>', '>&', '2>',
+]
+
+const PIPE_TO_DESTRUCTIVE = [
+    '| sh', '| bash', '| zsh', '| fish', '| python', '| python3', '| perl', '| ruby',
+]
+
 function matchesPrefix(command: string, prefixes: readonly string[]): boolean {
     const trimmed = command.trim()
     for (const prefix of prefixes) {
         if (trimmed === prefix || trimmed.startsWith(prefix + ' ')) {
+            return true
+        }
+    }
+    return false
+}
+
+export function isAutoModeHardDeny(command: string): boolean {
+    const trimmed = command.trim()
+    if (!trimmed) return false
+    for (const pattern of AUTO_MODE_HARD_DENY_PATTERNS) {
+        if (pattern.test(trimmed)) {
+            logForDebugging(`[auto-mode] hard deny (pattern): ${trimmed}`)
             return true
         }
     }
@@ -206,17 +246,57 @@ export function isAutoModeSafeCommand(command: string): boolean {
     }
 
     const base = trimmed.split(/\s+/)[0]
-    const readOnlyCommands = new Set([
-        'ls', 'cat', 'head', 'tail', 'find', 'grep', 'egrep', 'fgrep',
-        'rg', 'ag', 'wc', 'sort', 'uniq', 'diff', 'which', 'echo',
-        'printf', 'pwd', 'env', 'printenv', 'file', 'stat', 'du', 'df',
-        'free', 'top', 'ps', 'whoami', 'id', 'uname', 'hostname', 'date',
-        'cal', 'uptime', 'test', 'true', 'false', 'sleep',
-    ])
-    if (readOnlyCommands.has(base)) {
+    if (READ_ONLY_BASE_COMMANDS.has(base)) {
         logForDebugging(`[auto-mode] safe (read-only base): ${base}`)
         return true
     }
 
     return false
+}
+
+export type ShellClassification = 'safe' | 'ask' | 'hard_deny'
+
+export function classifyAllShell(command: string): ShellClassification {
+    const trimmed = command.trim()
+    if (!trimmed) return 'safe'
+
+    if (isAutoModeHardDeny(trimmed)) return 'hard_deny'
+    if (isAutoModeDangerousCommand(trimmed)) return 'ask'
+    if (isAutoModeSafeCommand(trimmed)) return 'safe'
+
+    for (const suffix of WRITE_CAPABLE_SUFFIXES) {
+        if (trimmed.includes(suffix)) {
+            logForDebugging(`[auto-mode] classify ask (write redirect): ${trimmed}`)
+            return 'ask'
+        }
+    }
+
+    for (const pipe of PIPE_TO_DESTRUCTIVE) {
+        if (trimmed.includes(pipe)) {
+            logForDebugging(`[auto-mode] classify ask (pipe to interpreter): ${trimmed}`)
+            return 'ask'
+        }
+    }
+
+    if (trimmed.includes('|') || trimmed.includes('&&') || trimmed.includes('||')) {
+        logForDebugging(`[auto-mode] classify ask (compound command): ${trimmed}`)
+        return 'ask'
+    }
+
+    const base = trimmed.split(/\s+/)[0]
+    const likelyWriteCommands = new Set([
+        'rm', 'rmdir', 'dd', 'mkfs', 'format', 'fdisk', 'parted',
+        'curl', 'wget',
+        'npm', 'npx', 'yarn', 'pnpm', 'bun',
+        'pip', 'pip3', 'conda', 'brew', 'apt', 'yum', 'dnf', 'pacman',
+        'docker', 'kubectl', 'helm', 'terraform', 'ansible',
+        'systemctl', 'service', 'launchctl',
+    ])
+    if (likelyWriteCommands.has(base)) {
+        logForDebugging(`[auto-mode] classify ask (write-capable base): ${base}`)
+        return 'ask'
+    }
+
+    logForDebugging(`[auto-mode] classify ask (unclassified, default deny): ${trimmed}`)
+    return 'ask'
 }

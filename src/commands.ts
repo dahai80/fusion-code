@@ -1,5 +1,6 @@
 // biome-ignore-all assist/source/organizeImports: imports must match registration order
 import addDir from './commands/add-dir/index.js'
+import cd from './commands/cd/index.js'
 import clear from './commands/clear/index.js'
 import color from './commands/color/index.js'
 import commit from './commands/commit.js'
@@ -7,7 +8,7 @@ import copy from './commands/copy/index.js'
 import compact from './commands/compact/index.js'
 import config from './commands/config/index.js'
 import { context, contextNonInteractive } from './commands/context/index.js'
-import cost from './commands/cost/index.js'
+// cost is now an alias of usage (stats command)
 import diff from './commands/diff/index.js'
 import ctx_viz from './commands/ctx_viz/index.js'
 import doctor from './commands/doctor/index.js'
@@ -43,6 +44,7 @@ import files from './commands/files/index.js'
 import branch from './commands/branch/index.js'
 import agents from './commands/agents/index.js'
 import reloadPlugins from './commands/reload-plugins/index.js'
+import reloadSkills from './commands/reload-skills/index.js'
 import rewind from './commands/rewind/index.js'
 import heapDump from './commands/heapdump/index.js'
 import version from './commands/version.js'
@@ -137,6 +139,7 @@ export const INTERNAL_ONLY_COMMANDS = [
 // since underlying functions read from config, which can't be read at module initialization time
 const COMMANDS = memoize((): Command[] => [
     addDir,
+    cd,
     advisor,
     agents,
     branch,
@@ -149,7 +152,6 @@ const COMMANDS = memoize((): Command[] => [
     copy,
     context,
     contextNonInteractive,
-    cost,
     ctx_viz,
     diff,
     doctor,
@@ -174,6 +176,7 @@ const COMMANDS = memoize((): Command[] => [
     outputStyle,
     remoteEnv,
     reloadPlugins,
+    reloadSkills,
     rename,
     review,
     resume,
@@ -434,7 +437,7 @@ export function isBridgeSafeCommand(cmd: Command): boolean {
  */
 export function filterCommandsForRemoteMode(commands: Command[]): Command[] {
     return commands.filter(cmd =>
-        [session, exit, clear, help, theme, color, vim, cost, copy, plan, keybindings, statusline].some(safe => safe === cmd)
+        [session, exit, clear, help, theme, color, vim, copy, plan, keybindings, statusline, stats].some(safe => safe === cmd)
     )
 }
 
