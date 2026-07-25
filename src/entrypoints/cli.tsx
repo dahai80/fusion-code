@@ -29,8 +29,9 @@ try {
 if (process.env.FUSION_API_KEY && !process.env.ANTHROPIC_API_KEY) {
   process.env.ANTHROPIC_API_KEY = process.env.FUSION_API_KEY
 }
-// FUSION_BASE_URL 始终覆盖 ANTHROPIC_BASE_URL（用户显式设置优先于旧残留值）
-if (process.env.FUSION_BASE_URL) {
+// FUSION_BASE_URL 仅在 ANTHROPIC_BASE_URL 未设置时映射（与其他变量一致）
+// 如需强制覆盖，请直接设置 ANTHROPIC_BASE_URL
+if (process.env.FUSION_BASE_URL && !process.env.ANTHROPIC_BASE_URL) {
   process.env.ANTHROPIC_BASE_URL = process.env.FUSION_BASE_URL
 }
 if (process.env.FUSION_AUTH_TOKEN && !process.env.ANTHROPIC_AUTH_TOKEN) {
