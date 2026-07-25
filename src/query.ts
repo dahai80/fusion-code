@@ -99,6 +99,7 @@ import { StreamingToolExecutor } from './services/tools/StreamingToolExecutor.js
 import { queryCheckpoint } from './utils/queryProfiler.js'
 import { runTools } from './services/tools/toolOrchestration.js'
 import { applyToolResultBudget } from './utils/toolResultStorage.js'
+import { injectArtifactsIntoMessages } from './utils/artifactInjection.js'
 import { recordContentReplacement } from './utils/sessionStorage.js'
 import { handleStopHooks } from './query/stopHooks.js'
 import { buildQueryConfig } from './query/config.js'
@@ -402,6 +403,22 @@ async function* queryLoop(
           .map(t => t.name),
       ),
     )
+
+    // Inject artifact content: replace [Artifact: ... | ID: art_xxx | ...] reference
+    // tags with full content from the artifacts engine before sending to the model.
+    // This runs after tool result budget so that persisted results are already handled.
+    try {
+      const injectionResult = await injectArtifactsIntoMessages(messagesForQuery)
+      messagesForQuery = injectionResult.messages
+      if (injectionResult.injectedCount > 0) {
+        logEvent('tengu_artifact_injection', {
+          injectedCount: injectionResult.injectedCount,
+          totalTokensInjected: injectionResult.totalTokensInjected,
+        })
+      }
+    } catch (err) {
+      logError(new Error(`Artifact injection failed, continuing without injection: ${err}`))
+    }
 
     // Apply snip before microcompact (both may run — they are not mutually exclusive).
     // snipTokensFreed is plumbed to autocompact so its threshold check reflects
