@@ -19,11 +19,13 @@
 // User instruction: "测试一下git，ecc, UI-UX Pro Max三个skill能否默认打包在fusion-code中"
 import { registerEccPlugin } from './ecc.js'
 import { registerGithubPlugin } from './github.js'
+import { registerUiproPlugin } from './uipro.js'
 
 /**
  * Initialize built-in plugins. Called during CLI startup.
  */
 export function initBuiltinPlugins(): void {
     registerGithubPlugin()
+    registerUiproPlugin()
     registerEccPlugin()
 }
