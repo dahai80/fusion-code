@@ -266,6 +266,19 @@ Build-time macros: `MACRO.VERSION`, `MACRO.BUILD_TIME`, `process.env.USER_TYPE` 
 bun run dev
 ```
 
+### Permission Modes
+
+Press **Shift+Tab** to cycle through permission modes:
+
+| Mode | Behavior |
+|---|---|
+| **Default** | Ask for every tool use |
+| **Auto** | Auto-approve safe operations; only prompt for dangerous commands (rm -rf, git push, sudo, etc.) |
+| **Accept Edits** | Auto-approve file edits; ask for bash commands |
+| **Plan** | Read-only mode — no file or command execution |
+
+Auto mode uses deterministic rules (no LLM classifier needed). Safe commands like `ls`, `cat`, `git status`, `npm install`, `make`, etc. are auto-approved. Dangerous commands like `rm -rf`, `sudo`, `git push`, `docker rm`, and script interpreters (`python`, `node -e`) still require confirmation.
+
 ---
 
 ## Experimental Features
