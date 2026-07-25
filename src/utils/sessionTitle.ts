@@ -26,6 +26,19 @@ import { asSystemPrompt } from './systemPromptType.js'
 const MAX_CONVERSATION_TEXT = 1000
 
 /**
+ * Deterministic fallback title from first user message.
+ * Extracts the first line, trims to 60 chars, strips common prefixes.
+ * Used when Haiku is unavailable (local MLX without cloud API).
+ */
+export function extractFallbackTitle(text: string): string {
+    const firstLine = text.split('\n')[0]?.trim() || ''
+    const stripped = firstLine
+        .replace(/^(please |can you |help me |i need |i want to |let's )/i, '')
+        .replace(/[.!?]+$/, '')
+    return stripped.length > 60 ? stripped.slice(0, 57) + '...' : stripped
+}
+
+/**
  * Flatten a message array into a single text string for Haiku title input.
  * Skips meta/non-human messages. Tail-slices to the last 1000 chars so
  * recent context wins when the conversation is long.

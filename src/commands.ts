@@ -92,6 +92,9 @@ import review from './commands/review/index.js'
 import commitPushPr from './commands/commit-push-pr/index.js'
 import securityReview from './commands/security-review/index.js'
 import rename from './commands/rename/index.js'
+import goal from './commands/goal/index.js'
+import focus from './commands/focus/index.js'
+import tui from './commands/tui/index.js'
 import feedback from './commands/feedback/index.jsx'
 import skills from './commands/skills/index.jsx'
 // insights.ts is 113KB (3200 lines, includes diffLines/html rendering). Lazy
@@ -162,6 +165,8 @@ const COMMANDS = memoize((): Command[] => [
     exit,
     fast,
     feedback,
+    focus,
+    goal,
     files,
     fork,
     heapDump,
@@ -194,6 +199,7 @@ const COMMANDS = memoize((): Command[] => [
     theme,
     rewind,
     terminalSetup,
+    tui,
     upgrade,
     vim,
     permissions,

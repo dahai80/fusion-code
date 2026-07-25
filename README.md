@@ -157,6 +157,7 @@ Session override (`/model`) > `--model` CLI flag > `FUSION_MODEL` / `FUSION_MLX_
 | `FUSION_CODE_USE_BEDROCK` | — | `1` to use AWS Bedrock as provider |
 | `FUSION_CODE_USE_VERTEX` | — | `1` to use Google Vertex AI as provider |
 | `FUSION_SAFE_MODE` | — | `1` for read-only + no shell + no network |
+| `FUSION_CODE_FOCUS_VIEW` | — | `1` to hide verbose tool output (focus mode) |
 
 ### Tuning Environment Variables
 
@@ -380,6 +381,10 @@ Press **Shift+Tab** to cycle modes:
 | `/subtask` | Spawn an inline sub-agent to handle a specific task |
 | `/fork` | Create a sub-agent fork in the current conversation context |
 | `/break-cache` | Reset prompt cache break detection |
+| `/goal` | Set or view the session goal (`/goal <text>`, `/goal clear`) |
+| `/focus` | Toggle focus view — hide verbose tool output (`/focus on\|off`) |
+| `/tui` | Toggle flicker-free fullscreen rendering (`/tui on\|off`) |
+| `/dataviz` | Generate terminal data visualizations (bar charts, sparklines, tables) |
 
 ### Builtin Plugins
 

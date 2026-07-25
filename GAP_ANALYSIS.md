@@ -286,17 +286,17 @@
 6. **`claude mcp login/logout`** — CLI MCP 认证 ✅
 7. **MCP 并行启动** — 并行连接 ✅ (已有实现)
 
-### Phase 4: 体验精细化 (持续)
+### Phase 4: 体验精细化 ✅ COMPLETED
 
-1. **主题系统** — ANSI 颜色主题
-2. **Effort 滑块** — 交互式调节
-3. **Screen Reader** — 无障碍支持
-4. **Live elapsed-time** — 工具计时器
-5. **Bash 路径补全** — Tab 补全
-6. **Readable session names** — 有意义的标题
-7. **`/goal`** — 会话目标
-8. **`/dataviz`** — 数据可视化
-9. **`/focus` + `/tui`** — 精简输出模式
+1. **主题系统** — ANSI 颜色主题 ✅ (已有实现)
+2. **Effort 滑块** — 交互式调节 ✅ (已有实现)
+3. **Screen Reader** — 无障碍支持 ✅ (已有实现)
+4. **Live elapsed-time** — 工具计时器 ✅ (已有实现)
+5. **Bash 路径补全** — Tab 补全 (待实现)
+6. **Readable session names** — 有意义的标题 ✅ (extractFallbackTitle + Haiku)
+7. **`/goal`** — 会话目标 ✅
+8. **`/dataviz`** — 数据可视化 ✅ (bundled skill)
+9. **`/focus` + `/tui`** — 精简输出模式 ✅
 
 ---
 

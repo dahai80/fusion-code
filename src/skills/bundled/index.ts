@@ -2,6 +2,7 @@ import { feature } from 'bun:bundle'
 import { shouldAutoEnableClaudeInChrome } from 'src/utils/claudeInChrome/setup.js'
 import { registerBatchSkill } from './batch.js'
 import { registerClaudeInChromeSkill } from './claudeInChrome.js'
+import { registerDatavizSkill } from './dataviz.js'
 import { registerDebugSkill } from './debug.js'
 import { registerKeybindingsSkill } from './keybindings.js'
 import { registerLoremIpsumSkill } from './loremIpsum.js'
@@ -31,6 +32,7 @@ export function initBundledSkills(): void {
   registerRememberSkill()
   registerSimplifySkill()
   registerBatchSkill()
+  registerDatavizSkill()
   registerStuckSkill()
   if (feature('KAIROS') || feature('KAIROS_DREAM')) {
     /* eslint-disable @typescript-eslint/no-require-imports */
