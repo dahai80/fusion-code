@@ -163,6 +163,14 @@ async function compactViaReactive(
       ),
       getCacheSharingParams(context, messages),
     ])
+    if (hookResult.blocked) {
+      context.onCompactProgress?.({ type: 'compact_end' })
+      return {
+        type: 'tool_result',
+        toolUseID: '',
+        result: `Compaction blocked by PreCompact hook: ${hookResult.stopReason || 'no reason provided'}`,
+      }
+    }
     const mergedInstructions = mergeHookInstructions(
       customInstructions,
       hookResult.newCustomInstructions,

@@ -347,7 +347,7 @@ export interface HookResult {
   additionalContext?: string
   initialUserMessage?: string
   updatedInput?: Record<string, unknown>
-  updatedMCPToolOutput?: unknown
+  updatedToolOutput?: unknown
   permissionRequestResult?: PermissionRequestResult
   elicitationResponse?: ElicitationResponse
   watchPaths?: string[]
@@ -367,7 +367,7 @@ export type AggregatedHookResult = {
   additionalContexts?: string[]
   initialUserMessage?: string
   updatedInput?: Record<string, unknown>
-  updatedMCPToolOutput?: unknown
+  updatedToolOutput?: unknown
   permissionRequestResult?: PermissionRequestResult
   watchPaths?: string[]
   elicitationResponse?: ElicitationResponse
@@ -642,10 +642,10 @@ function processHookJSONOutput({
         break
       case 'PostToolUse':
         result.additionalContext = json.hookSpecificOutput.additionalContext
-        // Extract updatedMCPToolOutput if provided
-        if (json.hookSpecificOutput.updatedMCPToolOutput) {
-          result.updatedMCPToolOutput =
-            json.hookSpecificOutput.updatedMCPToolOutput
+        // Extract updatedToolOutput if provided
+        if (json.hookSpecificOutput.updatedToolOutput) {
+          result.updatedToolOutput =
+            json.hookSpecificOutput.updatedToolOutput
         }
         break
       case 'PostToolUseFailure':
@@ -2807,13 +2807,13 @@ async function* executeHooks({
       }
     }
 
-    // Yield updatedMCPToolOutput if provided (from PostToolUse hooks)
-    if (result.updatedMCPToolOutput) {
+    // Yield updatedToolOutput if provided (from PostToolUse hooks)
+    if (result.updatedToolOutput) {
       logForDebugging(
-        `Hook ${hookEvent} (${getHookDisplayText(result.hook)}) replaced MCP tool output`,
+        `Hook ${hookEvent} (${getHookDisplayText(result.hook)}) replaced tool output`,
       )
       yield {
-        updatedMCPToolOutput: result.updatedMCPToolOutput,
+        updatedToolOutput: result.updatedToolOutput,
       }
     }
 
@@ -3325,12 +3325,12 @@ async function executeHooksOutsideREPL({
           )
         }
 
-        // Blocked if exit code 2 or JSON decision: 'block'
+        // Blocked if exit code 2 or JSON decision: 'block' or JSON continue: false
         const jsonBlocked =
           json &&
           !isAsyncHookJSONOutput(json) &&
           isSyncHookJSONOutput(json) &&
-          json.decision === 'block'
+          (json.decision === 'block' || json.continue === false)
         const blocked = result.status === 2 || !!jsonBlocked
 
         // For successful hooks (exit code 0), use stdout; for failed hooks, use stderr
@@ -3968,6 +3968,8 @@ export async function executePreCompactHooks(
 ): Promise<{
   newCustomInstructions?: string
   userDisplayMessage?: string
+  blocked?: boolean
+  stopReason?: string
 }> {
   const hookInput: PreCompactHookInput = {
     ...createBaseHookInput(undefined),
@@ -3985,6 +3987,20 @@ export async function executePreCompactHooks(
 
   if (results.length === 0) {
     return {}
+  }
+
+  // Check if any hook blocked the compaction (exit code 2, decision: 'block', or continue: false)
+  const blockingResults = results.filter(r => r.blocked)
+  if (blockingResults.length > 0) {
+    const stopReason = blockingResults
+      .map(r => r.output.trim() || `Hook ${r.command} blocked compaction`)
+      .join('; ')
+    logForDebugging(`PreCompact hook blocked compaction: ${stopReason}`)
+    return {
+      blocked: true,
+      stopReason,
+      userDisplayMessage: `Compaction blocked by PreCompact hook: ${stopReason}`,
+    }
   }
 
   // Extract custom instructions from successful hooks with non-empty output

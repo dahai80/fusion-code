@@ -72,3 +72,31 @@ export function isFirstPartyAnthropicBaseUrl(): boolean {
         return false
     }
 }
+
+const FALLBACK_CHAIN: Record<string, string> = {
+    'claude-opus-4-8': 'claude-sonnet-5',
+    'claude-opus-4-7': 'claude-sonnet-5',
+    'claude-opus-4-6': 'claude-sonnet-5',
+    'claude-sonnet-5': 'claude-haiku-4-5-20251001',
+    'claude-sonnet-4-7': 'claude-haiku-4-5-20251001',
+    'claude-sonnet-4-6': 'claude-haiku-4-5-20251001',
+    'claude-sonnet-4-5': 'claude-haiku-4-5-20251001',
+}
+
+export function getDefaultFallbackModel(model: string): string | undefined {
+    const lower = model.toLowerCase()
+    for (const [prefix, fallback] of Object.entries(FALLBACK_CHAIN)) {
+        if (lower.includes(prefix)) {
+            return fallback
+        }
+    }
+    return undefined
+}
+
+export function resolveFallbackModel(mainModel: string): string | undefined {
+    const envFallback = process.env.FUSION_FALLBACK_MODEL
+    if (envFallback && envFallback !== mainModel) {
+        return envFallback
+    }
+    return getDefaultFallbackModel(mainModel)
+}

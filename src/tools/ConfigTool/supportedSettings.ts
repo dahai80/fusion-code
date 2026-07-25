@@ -104,6 +104,23 @@ export const SUPPORTED_SETTINGS: Record<string, SettingConfig> = {
     validateOnWrite: v => validateModel(String(v)),
     formatOnRead: v => (v === null ? 'default' : v),
   },
+  fallbackModel: {
+    source: 'settings',
+    type: 'string',
+    description: 'Fallback model when primary is overloaded or rate-limited (auto-derived if not set)',
+    appStateKey: 'fallbackModel',
+    getOptions: () => {
+      try {
+        return getModelOptions()
+          .filter(o => o.value !== null)
+          .map(o => o.value as string)
+      } catch {
+        return ['sonnet', 'opus', 'haiku']
+      }
+    },
+    validateOnWrite: v => validateModel(String(v)),
+    formatOnRead: v => (v === null ? 'auto' : v),
+  },
   alwaysThinkingEnabled: {
     source: 'settings',
     type: 'boolean',

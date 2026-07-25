@@ -673,6 +673,13 @@ export type Attachment =
       type: 'context_efficiency'
     }
   | {
+      type: 'preserved_instructions'
+      instructions: Array<{
+        source: string
+        content: string
+      }>
+    }
+  | {
       type: 'date_change'
       newDate: string
     }

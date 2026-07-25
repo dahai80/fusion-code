@@ -544,6 +544,17 @@ export async function compactConversation(
       },
       context.abortController.signal,
     )
+    if (hookResult.blocked) {
+      logForDebugging(`Compaction blocked by PreCompact hook: ${hookResult.stopReason}`)
+      context.onCompactProgress?.({ type: 'compact_end' })
+      return {
+        messages: [...messages],
+        summary: '',
+        tokenCount: 0,
+        hookResults: [],
+        userDisplayMessage: hookResult.userDisplayMessage,
+      }
+    }
     customInstructions = mergeHookInstructions(
       customInstructions,
       hookResult.newCustomInstructions,
@@ -783,6 +794,16 @@ export async function compactConversation(
     const skillAttachment = createSkillAttachmentIfNeeded(context.agentId)
     if (skillAttachment) {
       postCompactFileAttachments.push(skillAttachment)
+    }
+
+    // Preserve sensitive instructions (customInstructions, appendSystemPrompt)
+    // that would otherwise be lost after compaction
+    const preservedAttachment = createPreservedInstructionsAttachment(
+      customInstructions,
+      context.options.appendSystemPrompt,
+    )
+    if (preservedAttachment) {
+      postCompactFileAttachments.push(preservedAttachment)
     }
 
     // Compaction ate prior delta attachments. Re-announce from the current
@@ -1056,6 +1077,17 @@ export async function partialCompactConversation(
       },
       context.abortController.signal,
     )
+    if (hookResult.blocked) {
+      logForDebugging(`Partial compaction blocked by PreCompact hook: ${hookResult.stopReason}`)
+      context.onCompactProgress?.({ type: 'compact_end' })
+      return {
+        messages: [...allMessages],
+        summary: '',
+        tokenCount: 0,
+        hookResults: [],
+        userDisplayMessage: hookResult.userDisplayMessage,
+      }
+    }
 
     // Merge hook instructions with user feedback
     let customInstructions: string | undefined
@@ -1223,6 +1255,15 @@ export async function partialCompactConversation(
     const skillAttachment = createSkillAttachmentIfNeeded(context.agentId)
     if (skillAttachment) {
       postCompactFileAttachments.push(skillAttachment)
+    }
+
+    // Preserve sensitive instructions for partial compact too
+    const preservedAttachment = createPreservedInstructionsAttachment(
+      customInstructions,
+      context.options.appendSystemPrompt,
+    )
+    if (preservedAttachment) {
+      postCompactFileAttachments.push(preservedAttachment)
     }
 
     // Re-announce only what was in the summarized portion — messagesToKeep
@@ -1820,6 +1861,69 @@ export function createSkillAttachmentIfNeeded(
     type: 'invoked_skills',
     skills,
   })
+}
+
+const PRESERVED_INSTRUCTIONS_TOKEN_BUDGET = 4000
+
+export function createPreservedInstructionsAttachment(
+    customInstructions?: string,
+    appendSystemPrompt?: string,
+): AttachmentMessage | null {
+    const instructions: Array<{ source: string; content: string }> = []
+    let usedTokens = 0
+
+    if (customInstructions?.trim()) {
+        const tokens = roughTokenCountEstimation(customInstructions)
+        if (usedTokens + tokens <= PRESERVED_INSTRUCTIONS_TOKEN_BUDGET) {
+            instructions.push({
+                source: 'custom_instructions',
+                content: customInstructions,
+            })
+            usedTokens += tokens
+        } else {
+            const truncated = truncateToTokens(
+                customInstructions,
+                PRESERVED_INSTRUCTIONS_TOKEN_BUDGET - usedTokens,
+            )
+            instructions.push({
+                source: 'custom_instructions',
+                content: truncated,
+            })
+            usedTokens += roughTokenCountEstimation(truncated)
+        }
+    }
+
+    if (appendSystemPrompt?.trim()) {
+        const tokens = roughTokenCountEstimation(appendSystemPrompt)
+        if (usedTokens + tokens <= PRESERVED_INSTRUCTIONS_TOKEN_BUDGET) {
+            instructions.push({
+                source: 'append_system_prompt',
+                content: appendSystemPrompt,
+            })
+        } else {
+            const truncated = truncateToTokens(
+                appendSystemPrompt,
+                PRESERVED_INSTRUCTIONS_TOKEN_BUDGET - usedTokens,
+            )
+            instructions.push({
+                source: 'append_system_prompt',
+                content: truncated,
+            })
+        }
+    }
+
+    if (instructions.length === 0) {
+        return null
+    }
+
+    logForDebugging(
+        `[Compact] Preserved instructions: ${instructions.map(i => `${i.source}(${roughTokenCountEstimation(i.content)}t)`).join(', ')}`,
+    )
+
+    return createAttachmentMessage({
+        type: 'preserved_instructions',
+        instructions,
+    })
 }
 
 /**

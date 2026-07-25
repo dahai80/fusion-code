@@ -253,6 +253,14 @@ export function AttachmentMessage({
         const skillNames = attachment.skills.map(s_0 => s_0.name).join(', ');
         return <Line>Skills restored ({skillNames})</Line>;
       }
+    case 'preserved_instructions':
+      {
+        if (attachment.instructions.length === 0) {
+          return null;
+        }
+        const sources = attachment.instructions.map(i => i.source).join(', ');
+        return <Line>Preserved instructions ({sources})</Line>;
+      }
     case 'diagnostics':
       return <DiagnosticsDisplay attachment={attachment} verbose={verbose} />;
     case 'mcp_resource':

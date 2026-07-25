@@ -47,6 +47,7 @@ if (process.env.FUSION_LOG && !process.env.ANTHROPIC_LOG) {
 if (process.env.FUSION_MODEL && !process.env.ANTHROPIC_MODEL) {
   process.env.ANTHROPIC_MODEL = process.env.FUSION_MODEL
 }
+// FUSION_FALLBACK_MODEL is resolved in main.tsx via resolveFallbackModel()
 
 // Define MACRO global for development (normally injected by bun build --define)
 if (typeof MACRO === 'undefined') {

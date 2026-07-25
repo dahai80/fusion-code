@@ -1516,10 +1516,8 @@ async function checkPermissionsAndCallTool(
       mcpServerType,
       mcpServerBaseUrl,
     )) {
-      if ('updatedMCPToolOutput' in hookResult) {
-        if (isMcpTool(tool)) {
-          toolOutput = hookResult.updatedMCPToolOutput
-        }
+      if ('updatedToolOutput' in hookResult) {
+        toolOutput = hookResult.updatedToolOutput
       } else if (isMcpTool(tool)) {
         hookResults.push(hookResult)
         if (hookResult.message.type === 'attachment') {

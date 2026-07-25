@@ -286,6 +286,10 @@ export async function reactiveCompactOnPromptTooLong(
         },
         ctx.abortController.signal,
     )
+    if (hookResult.blocked) {
+        logForDebugging(`[ReactiveCompact] Compaction blocked by PreCompact hook: ${hookResult.stopReason}`)
+        return { ok: false, reason: 'blocked_by_hook' }
+    }
     const mergedInstructions = mergeHookInstructions(
         options.customInstructions,
         hookResult.newCustomInstructions,
