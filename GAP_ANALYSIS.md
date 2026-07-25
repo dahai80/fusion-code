@@ -276,15 +276,15 @@
 7. **Compaction 保留敏感指令** — 增强压缩逻辑 ✅
 8. **Fallback Model** — 模型降级链 ✅
 
-### Phase 3: 安全与企业 (2-3 周)
+### Phase 3: 安全与企业 (2-3 周) ✅ COMPLETED
 
-1. **文件系统沙箱** — 限制文件访问范围
-2. **凭证沙箱** — 防止凭证泄露
-3. **SSRF 防护** — HTTP hooks 安全
-4. **`--safe-mode`** — 安全启动模式
-5. **Bedrock/Vertex 恢复** — 重新启用 provider
-6. **`claude mcp login/logout`** — CLI MCP 认证
-7. **MCP 并行启动** — 并行连接
+1. **文件系统沙箱** — 限制文件访问范围 ✅ (已有实现)
+2. **凭证沙箱** — 防止凭证泄露 ✅ (credentialSandbox.ts + FUSION_CREDENTIAL_SANDBOX)
+3. **SSRF 防护** — HTTP hooks 安全 ✅ (已有实现)
+4. **`--safe-mode`** — 安全启动模式 ✅
+5. **Bedrock/Vertex 恢复** — 重新启用 provider ✅
+6. **`claude mcp login/logout`** — CLI MCP 认证 ✅
+7. **MCP 并行启动** — 并行连接 ✅ (已有实现)
 
 ### Phase 4: 体验精细化 (持续)
 

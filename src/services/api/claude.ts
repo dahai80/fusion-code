@@ -198,7 +198,8 @@ import { count } from '../../utils/array.js'
 import { insertBlockAfterToolResults } from '../../utils/contentArray.js'
 import { validateBoundedIntEnvVar } from '../../utils/envValidation.js'
 import { safeParseJSON } from '../../utils/json.js'
-// import { getInferenceProfileBackingModel } from '../../utils/model/bedrock.js'
+import { getBedrockConfig, isBedrockProvider } from '../../utils/model/bedrock.js'
+import { getVertexConfig, isVertexProvider } from '../../utils/model/vertex.js'
 import {
   normalizeModelStringForAPI,
   parseUserSpecifiedModel,

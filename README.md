@@ -153,6 +153,10 @@ Session override (`/model`) > `--model` CLI flag > `FUSION_MODEL` / `FUSION_MLX_
 | `FUSION_CUSTOM_HEADERS` | — | `{"X-Key":"val"}` |
 | `FUSION_BETAS` | `ANTHROPIC_BETAS` | `max-tokens-3-5-sonnet-2024-07-15` |
 | `FUSION_FALLBACK_MODEL` | — | `claude-sonnet-5` (auto-derived if unset) |
+| `FUSION_CREDENTIAL_SANDBOX` | — | `1` to redact secrets from tool output |
+| `FUSION_CODE_USE_BEDROCK` | — | `1` to use AWS Bedrock as provider |
+| `FUSION_CODE_USE_VERTEX` | — | `1` to use Google Vertex AI as provider |
+| `FUSION_SAFE_MODE` | — | `1` for read-only + no shell + no network |
 
 ### Tuning Environment Variables
 
@@ -206,6 +210,45 @@ export FUSION_FOUNDRY_API_KEY="..."
 ```
 
 Azure AD `DefaultAzureCredential` is used if no key is set. Set `FUSION_CODE_SKIP_FOUNDRY_AUTH=1` for unauthenticated test endpoints.
+
+#### AWS Bedrock
+
+```bash
+export FUSION_CODE_USE_BEDROCK=1
+export AWS_REGION="us-east-1"
+# AWS credentials via environment, profile, or IAM role
+./fusion-code
+```
+
+Requires `@anthropic-ai/bedrock-sdk` (`bun add @anthropic-ai/bedrock-sdk`). Set `AWS_PROFILE` for named profiles, `AWS_BEDROCK_MODEL` for model ID.
+
+#### Google Vertex AI
+
+```bash
+export FUSION_CODE_USE_VERTEX=1
+export GOOGLE_CLOUD_PROJECT="my-project"
+export CLOUD_ML_REGION="us-east5"
+# ADC or service account credentials
+./fusion-code
+```
+
+Requires `@anthropic-ai/vertex-sdk` (`bun add @anthropic-ai/vertex-sdk`). Set `VERTEX_MODEL` for model ID.
+
+#### Safe Mode
+
+```bash
+./fusion-code --safe-mode
+# Equivalent to: FUSION_SAFE_MODE=1 FUSION_CREDENTIAL_SANDBOX=1
+```
+
+Read-only mode: Write, Edit, Bash, WebFetch, and network tools are disabled. Credential sandbox auto-enabled.
+
+#### MCP Authentication
+
+```bash
+fusion-code mcp login <server-name>   # Start OAuth flow for an MCP server
+fusion-code mcp logout <server-name>  # Clear stored authentication
+```
 
 #### Remote fusion-mlx
 

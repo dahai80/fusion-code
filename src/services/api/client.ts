@@ -25,6 +25,8 @@ import {
   isFirstPartyAnthropicBaseUrl,
   isFusionMlxProvider,
 } from 'src/utils/model/providers.js'
+import { getBedrockConfig, isBedrockProvider } from '../../utils/model/bedrock.js'
+import { getVertexConfig, isVertexProvider } from '../../utils/model/vertex.js'
 import { getProxyFetchOptions } from 'src/utils/proxy.js'
 import {
   getIsNonInteractiveSession,
@@ -234,6 +236,53 @@ export async function getAnthropicClient({
     }
     // we have always been lying about the return type - this doesn't support batching or models
     return new AnthropicFoundry(foundryArgs) as unknown as Anthropic
+  }
+
+  // ── Bedrock provider ──
+  if (isBedrockProvider()) {
+    const bedrockConfig = getBedrockConfig()
+    if (!bedrockConfig) {
+      throw new Error('Bedrock provider selected but configuration is missing. Set AWS_REGION and ensure AWS credentials are available.')
+    }
+    try {
+      const { AnthropicBedrock } = await import('@anthropic-ai/bedrock-sdk')
+      const bedrockArgs: ConstructorParameters<typeof AnthropicBedrock>[0] = {
+        ...ARGS,
+        ...(bedrockConfig.profile && { awsProfile: bedrockConfig.profile }),
+        ...(isDebugToStdErr() && { logger: createStderrLogger() }),
+      }
+      logForDebugging(`[API:bedrock] Creating Bedrock client: region=${bedrockConfig.region}, model=${bedrockConfig.modelId}`)
+      return new AnthropicBedrock(bedrockArgs) as unknown as Anthropic
+    } catch (importError) {
+      throw new Error(
+        'Bedrock SDK not installed. Run: bun add @anthropic-ai/bedrock-sdk\n' +
+        'Or set FUSION_CODE_USE_BEDROCK=0 to disable.',
+      )
+    }
+  }
+
+  // ── Vertex provider ──
+  if (isVertexProvider()) {
+    const vertexConfig = getVertexConfig()
+    if (!vertexConfig || !vertexConfig.projectId) {
+      throw new Error('Vertex provider selected but project ID is missing. Set GOOGLE_CLOUD_PROJECT.')
+    }
+    try {
+      const { AnthropicVertex } = await import('@anthropic-ai/vertex-sdk')
+      const vertexArgs: ConstructorParameters<typeof AnthropicVertex>[0] = {
+        ...ARGS,
+        projectId: vertexConfig.projectId,
+        region: vertexConfig.region,
+        ...(isDebugToStdErr() && { logger: createStderrLogger() }),
+      }
+      logForDebugging(`[API:vertex] Creating Vertex client: project=${vertexConfig.projectId}, region=${vertexConfig.region}`)
+      return new AnthropicVertex(vertexArgs) as unknown as Anthropic
+    } catch (importError) {
+      throw new Error(
+        'Vertex SDK not installed. Run: bun add @anthropic-ai/vertex-sdk\n' +
+        'Or set FUSION_CODE_USE_VERTEX=0 to disable.',
+      )
+    }
   }
   // Codex provider removed - cloud-only
 
