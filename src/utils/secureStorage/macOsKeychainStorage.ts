@@ -1,7 +1,7 @@
 import { execaSync } from 'execa'
 import { logForDebugging } from '../debug.js'
 import { execFileNoThrow } from '../execFileNoThrow.js'
-import { execSyncWithDefaults_DEPRECATED } from '../execFileNoThrowPortable.js'
+import { execSyncWithDefaults } from '../execFileNoThrowPortable.js'
 import { jsonParse, jsonStringify } from '../slowOperations.js'
 import {
   CREDENTIALS_SERVICE_SUFFIX,
@@ -48,7 +48,7 @@ export const macOsKeychainStorage = {
       const username = getUsername()
       validateKeychainIdentifier(username, 'keychain username')
       validateKeychainIdentifier(storageServiceName, 'keychain service name')
-      const result = execSyncWithDefaults_DEPRECATED(
+      const result = execSyncWithDefaults(
         `security find-generic-password -a "${username}" -w -s "${storageServiceName}"`,
       )
       if (result) {
@@ -181,7 +181,7 @@ export const macOsKeychainStorage = {
       const username = getUsername()
       validateKeychainIdentifier(username, 'keychain username')
       validateKeychainIdentifier(storageServiceName, 'keychain service name')
-      execSyncWithDefaults_DEPRECATED(
+      execSyncWithDefaults(
         `security delete-generic-password -a "${username}" -s "${storageServiceName}"`,
       )
       return true

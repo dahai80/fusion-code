@@ -19,7 +19,7 @@ import { getClaudeConfigHomeDir, isEnvTruthy } from './envUtils.js'
 import {
   execFileNoThrow,
   execFileNoThrowWithCwd,
-  execSyncWithDefaults_DEPRECATED,
+  execSyncWithDefaults,
 } from './execFileNoThrow.js'
 import { getFsImplementation } from './fsOperations.js'
 import { getAncestorPidsAsync } from './genericProcessUtils.js'
@@ -966,7 +966,7 @@ function getVSCodeIDECommandByParentProcess(): string | null {
 
       // Get the command for this PID
       // this function already returned if not running on macos
-      const command = execSyncWithDefaults_DEPRECATED(
+      const command = execSyncWithDefaults(
         // eslint-disable-next-line custom-rules/no-direct-ps-commands
         `ps -o command= -p ${pid}`,
       )?.trim()
@@ -999,7 +999,7 @@ function getVSCodeIDECommandByParentProcess(): string | null {
 
       // Get parent PID
       // this function already returned if not running on macos
-      const ppidStr = execSyncWithDefaults_DEPRECATED(
+      const ppidStr = execSyncWithDefaults(
         // eslint-disable-next-line custom-rules/no-direct-ps-commands
         `ps -o ppid= -p ${pid}`,
       )?.trim()

@@ -16,12 +16,12 @@ type ExecSyncOptions = {
  * @deprecated Use `execa` directly with `{ shell: true, reject: false }` for non-blocking execution.
  * Sync exec calls block the event loop and cause performance issues.
  */
-export function execSyncWithDefaults_DEPRECATED(command: string): string | null
+export function execSyncWithDefaults(command: string): string | null
 /**
  * @deprecated Use `execa` directly with `{ shell: true, reject: false }` for non-blocking execution.
  * Sync exec calls block the event loop and cause performance issues.
  */
-export function execSyncWithDefaults_DEPRECATED(
+export function execSyncWithDefaults(
   command: string,
   options: ExecSyncOptions,
 ): string | null
@@ -29,7 +29,7 @@ export function execSyncWithDefaults_DEPRECATED(
  * @deprecated Use `execa` directly with `{ shell: true, reject: false }` for non-blocking execution.
  * Sync exec calls block the event loop and cause performance issues.
  */
-export function execSyncWithDefaults_DEPRECATED(
+export function execSyncWithDefaults(
   command: string,
   abortSignal: AbortSignal,
   timeout?: number,
@@ -38,7 +38,7 @@ export function execSyncWithDefaults_DEPRECATED(
  * @deprecated Use `execa` directly with `{ shell: true, reject: false }` for non-blocking execution.
  * Sync exec calls block the event loop and cause performance issues.
  */
-export function execSyncWithDefaults_DEPRECATED(
+export function execSyncWithDefaults(
   command: string,
   optionsOrAbortSignal?: ExecSyncOptions | AbortSignal,
   timeout = 10 * SECONDS_IN_MINUTE * MS_IN_SECOND,

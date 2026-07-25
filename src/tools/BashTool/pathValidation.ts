@@ -5,7 +5,7 @@ import type { ToolPermissionContext } from '../../Tool.js'
 import type { Redirect, SimpleCommand } from '../../utils/bash/ast.js'
 import {
   extractOutputRedirections,
-  splitCommand_DEPRECATED,
+  splitCommand,
 } from '../../utils/bash/commands.js'
 import { tryParseShellCommand } from '../../utils/bash/shellQuote.js'
 import { getDirectoryForPath } from '../../utils/path.js'
@@ -1070,7 +1070,7 @@ export function checkPathConstraints(
   }
 
   // SECURITY: When AST-derived commands are available, iterate them with
-  // pre-parsed argv instead of re-parsing via splitCommand_DEPRECATED + shell-quote.
+  // pre-parsed argv instead of re-parsing via splitCommand + shell-quote.
   // shell-quote has a single-quote backslash bug that causes
   // parseCommandArguments to silently return [] and skip path validation
   // (isDangerousRemovalPath etc). The AST already resolved argv correctly.
@@ -1087,7 +1087,7 @@ export function checkPathConstraints(
       }
     }
   } else {
-    const commands = splitCommand_DEPRECATED(input.command)
+    const commands = splitCommand(input.command)
     for (const cmd of commands) {
       const result = validateSinglePathCommand(
         cmd,

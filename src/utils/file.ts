@@ -94,7 +94,7 @@ export function writeTextContent(
     toWrite = content.replaceAll('\r\n', '\n').split('\n').join('\r\n')
   }
 
-  writeFileSyncAndFlush_DEPRECATED(filePath, toWrite, { encoding })
+  writeFileSyncAndFlush(filePath, toWrite, { encoding })
 }
 
 export function detectFileEncoding(filePath: string): BufferEncoding {
@@ -356,10 +356,10 @@ export function readFileSyncCached(filePath: string): string {
  * @param filePath The path to the file to write to
  * @param content The content to write to the file
  * @param options Options for writing the file, including encoding and mode
- * @deprecated Use `fs.promises.writeFile` with flush option instead for non-blocking writes.
+ * NOTE: Sync file writes block the event loop. Prefer async where possible.
  * Sync file writes block the event loop and cause performance issues.
  */
-export function writeFileSyncAndFlush_DEPRECATED(
+export function writeFileSyncAndFlush(
   filePath: string,
   content: string,
   options: { encoding: BufferEncoding; mode?: number } = { encoding: 'utf-8' },

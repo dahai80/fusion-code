@@ -6,7 +6,7 @@ import {
 } from 'src/services/analytics/index.js'
 import { sanitizeToolNameForAnalytics } from 'src/services/analytics/metadata.js'
 import { BashTool } from 'src/tools/BashTool/BashTool.js'
-import { splitCommand_DEPRECATED } from 'src/utils/bash/commands.js'
+import { splitCommand } from 'src/utils/bash/commands.js'
 import type {
   PermissionDecisionReason,
   PermissionResult,
@@ -176,7 +176,7 @@ export function usePermissionRequestLogging(
         // Note: All metadata fields in this event contain code/filepaths
         let split = [parsedInput.data.command]
         try {
-          split = splitCommand_DEPRECATED(parsedInput.data.command)
+          split = splitCommand(parsedInput.data.command)
         } catch {
           // Ignore parse errors here - just log the full command
         }

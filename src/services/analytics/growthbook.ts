@@ -713,10 +713,10 @@ async function getFeatureValueInternal<T>(
 }
 
 /**
- * @deprecated Use getFeatureValue_CACHED_MAY_BE_STALE instead, which is non-blocking.
+ * NOTE: This function blocks on GrowthBook initialization which can slow down startup. Prefer getFeatureValue_CACHED_MAY_BE_STALE.
  * This function blocks on GrowthBook initialization which can slow down startup.
  */
-export async function getFeatureValue_DEPRECATED<T>(
+export async function getFeatureValueBlocking<T>(
   feature: string,
   defaultValue: T,
 ): Promise<T> {
@@ -1137,7 +1137,7 @@ export async function getDynamicConfig_BLOCKS_ON_INIT<T>(
   configName: string,
   defaultValue: T,
 ): Promise<T> {
-  return getFeatureValue_DEPRECATED(configName, defaultValue)
+  return getFeatureValueBlocking(configName, defaultValue)
 }
 
 /**

@@ -6,10 +6,10 @@ import {
 import instances from '../ink/instances.js'
 import type { PastedContent } from './config.js'
 import { classifyGuiEditor, getExternalEditor } from './editor.js'
-import { execSync_DEPRECATED } from './execSyncWrapper.js'
+import { execSyncWrapped } from './execSyncWrapper.js'
 import { getFsImplementation } from './fsOperations.js'
 import { toIDEDisplayName } from './ide.js'
-import { writeFileSync_DEPRECATED } from './slowOperations.js'
+import { writeFileSyncSlow } from './slowOperations.js'
 import { generateTempFilePath } from './tempfile.js'
 
 // Map of editor command overrides (e.g., to add wait flags)
@@ -66,7 +66,7 @@ export function editFileInEditor(filePath: string): EditorResult {
   try {
     // Use override command if available, otherwise use the editor as-is
     const editorCommand = EDITOR_OVERRIDES[editor] ?? editor
-    execSync_DEPRECATED(`${editorCommand} "${filePath}"`, {
+    execSyncWrapped(`${editorCommand} "${filePath}"`, {
       stdio: 'inherit',
     })
 
@@ -149,7 +149,7 @@ export function editPromptInEditor(
       : currentPrompt
 
     // Write expanded prompt to temp file
-    writeFileSync_DEPRECATED(tempFile, expandedPrompt, {
+    writeFileSyncSlow(tempFile, expandedPrompt, {
       encoding: 'utf-8',
       flush: true,
     })

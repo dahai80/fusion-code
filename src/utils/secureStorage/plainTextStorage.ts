@@ -6,7 +6,7 @@ import { getFsImplementation } from '../fsOperations.js'
 import {
   jsonParse,
   jsonStringify,
-  writeFileSync_DEPRECATED,
+  writeFileSyncSlow,
 } from '../slowOperations.js'
 import type { SecureStorage, SecureStorageData } from './types.js'
 
@@ -54,7 +54,7 @@ export const plainTextStorage = {
         }
       }
 
-      writeFileSync_DEPRECATED(storagePath, jsonStringify(data), {
+      writeFileSyncSlow(storagePath, jsonStringify(data), {
         encoding: 'utf8',
         flush: false,
       })

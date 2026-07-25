@@ -16,7 +16,7 @@ import { backgroundExistingForegroundTask, markTaskNotified, registerForeground,
 import type { AgentId } from '../../types/ids.js';
 import type { AssistantMessage } from '../../types/message.js';
 import { parseForSecurity } from '../../utils/bash/ast.js';
-import { splitCommand_DEPRECATED, splitCommandWithOperators } from '../../utils/bash/commands.js';
+import { splitCommand, splitCommandWithOperators } from '../../utils/bash/commands.js';
 import { extractClaudeCodeHints } from '../../utils/claudeCodeHints.js';
 import { detectCodeIndexingFromCommand } from '../../utils/codeIndexing.js';
 import { isEnvTruthy } from '../../utils/envUtils.js';
@@ -265,7 +265,7 @@ type InputSchema = ReturnType<typeof inputSchema>;
 export type BashToolInput = z.infer<ReturnType<typeof fullInputSchema>>;
 const COMMON_BACKGROUND_COMMANDS = ['npm', 'yarn', 'pnpm', 'node', 'python', 'python3', 'go', 'cargo', 'make', 'docker', 'terraform', 'webpack', 'vite', 'jest', 'pytest', 'curl', 'wget', 'build', 'test', 'serve', 'watch', 'dev'] as const;
 function getCommandTypeForLogging(command: string): AnalyticsMetadata_I_VERIFIED_THIS_IS_NOT_CODE_OR_FILEPATHS {
-  const parts = splitCommand_DEPRECATED(command);
+  const parts = splitCommand(command);
   if (parts.length === 0) return 'other' as AnalyticsMetadata_I_VERIFIED_THIS_IS_NOT_CODE_OR_FILEPATHS;
 
   // Check each part of the command to see if any match common background commands
@@ -306,7 +306,7 @@ import type { BashProgress } from '../../types/tools.js';
  * @returns false for commands that should not be auto-backgrounded (like sleep)
  */
 function isAutobackgroundingAllowed(command: string): boolean {
-  const parts = splitCommand_DEPRECATED(command);
+  const parts = splitCommand(command);
   if (parts.length === 0) return true;
 
   // Get the first part which should be the base command
@@ -321,7 +321,7 @@ function isAutobackgroundingAllowed(command: string): boolean {
  * not sleep inside pipelines, subshells, or scripts (those are fine).
  */
 export function detectBlockedSleepPattern(command: string): string | null {
-  const parts = splitCommand_DEPRECATED(command);
+  const parts = splitCommand(command);
   if (parts.length === 0) return null;
   const first = parts[0]?.trim() ?? '';
   // Bare `sleep N` or `sleep N.N` as the first subcommand.
@@ -496,7 +496,7 @@ export const BashTool = buildTool({
         });
       }
     }
-    // Env var FIRST: shouldUseSandbox → splitCommand_DEPRECATED → shell-quote's
+    // Env var FIRST: shouldUseSandbox → splitCommand → shell-quote's
     // `new RegExp` per call. userFacingName runs per-render for every bash
     // message in history; with ~50 msgs + one slow-to-tokenize command, this
     // exceeds the shimmer tick → transition abort → infinite retry (#21605).

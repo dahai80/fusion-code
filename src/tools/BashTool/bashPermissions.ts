@@ -21,7 +21,7 @@ import {
   type CommandPrefixResult,
   extractOutputRedirections,
   getCommandSubcommandPrefix,
-  splitCommand_DEPRECATED,
+  splitCommand,
 } from '../../utils/bash/commands.js'
 import { parseCommandRaw } from '../../utils/bash/parser.js'
 import { tryParseShellCommand } from '../../utils/bash/shellQuote.js'
@@ -70,7 +70,7 @@ import { windowsPathToPosixPath } from '../../utils/windowsPaths.js'
 import { BashTool } from './BashTool.js'
 import { checkCommandOperatorPermissions } from './bashCommandHelpers.js'
 import {
-  bashCommandIsSafeAsync_DEPRECATED,
+  bashCommandIsSafeAsync,
   stripSafeHeredocSubstitutions,
 } from './bashSecurity.js'
 import { checkPermissionMode } from './modeValidation.js'
@@ -85,8 +85,8 @@ import { shouldUseSandbox } from './shouldUseSandbox.js'
 // constant and silently evaluates the ternaries to `false`, dropping every
 // pendingClassifierCheck spread. Keep aliases as top-level const rebindings
 // instead. (See also the comment on checkSemanticsDeny below.)
-const bashCommandIsSafeAsync = bashCommandIsSafeAsync_DEPRECATED
-const splitCommand = splitCommand_DEPRECATED
+const bashCommandIsSafeAsync = bashCommandIsSafeAsync
+const splitCommand = splitCommand
 
 // Capture the spawn-time value of FUSION_CODE_DISABLE_COMMAND_INJECTION_CHECK
 // before any project-scoped settings can inject it. This env var controls a
@@ -104,7 +104,7 @@ function isInjectionCheckDisabledFromTrustedSource(): boolean {
 // skip safe env vars before extracting the command name.
 const ENV_VAR_ASSIGN_RE = /^[A-Za-z_]\w*=/
 
-// CC-643: On complex compound commands, splitCommand_DEPRECATED can produce a
+// CC-643: On complex compound commands, splitCommand can produce a
 // very large subcommands array (possible exponential growth; #21405's ReDoS fix
 // may have been incomplete). Each subcommand then runs tree-sitter parse +
 // ~20 validators + logEvent (bashSecurity.ts), and with memoized metadata the

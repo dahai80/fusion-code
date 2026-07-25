@@ -3,7 +3,7 @@ import { logForDebugging } from 'src/utils/debug.js'
 import { fileHistoryEnabled } from 'src/utils/fileHistory.js'
 import {
   getInitialSettings,
-  getSettings_DEPRECATED,
+  getInitialSettings,
   getSettingsForSource,
 } from 'src/utils/settings/settings.js'
 import { shouldOfferTerminalSetup } from '../../commands/terminalSetup/terminalSetup.js'
@@ -127,7 +127,7 @@ const externalTips: Tip[] = [
     isRelevant: async () => {
       try {
         const config = getGlobalConfig()
-        const settings = getSettings_DEPRECATED()
+        const settings = getInitialSettings()
         // Show if they've used plan mode but haven't set a default
         const hasUsedPlanMode = Boolean(config.lastPlanModeUse)
         const hasDefaultMode = Boolean(settings?.permissions?.defaultMode)
@@ -251,7 +251,7 @@ const externalTips: Tip[] = [
     content: async () =>
       'Use /statusline to set up a custom status line that will display beneath the input box',
     cooldownSessions: 25,
-    isRelevant: async () => getSettings_DEPRECATED().statusLine === undefined,
+    isRelevant: async () => getInitialSettings().statusLine === undefined,
   },
   {
     id: 'prompt-queue',

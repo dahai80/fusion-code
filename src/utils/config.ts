@@ -19,7 +19,7 @@ import { logForDiagnosticsNoPII } from './diagLogs.js'
 import { getGlobalClaudeFile } from './env.js'
 import { getClaudeConfigHomeDir, isEnvTruthy } from './envUtils.js'
 import { ConfigParseError, getErrnoCode } from './errors.js'
-import { writeFileSyncAndFlush_DEPRECATED } from './file.js'
+import { writeFileSyncAndFlush } from './file.js'
 import { getFsImplementation } from './fsOperations.js'
 import { findCanonicalGitRoot } from './git.js'
 import { safeParseJSON } from './json.js'
@@ -1151,7 +1151,7 @@ function saveConfig<A extends object>(
       jsonStringify(value) !== jsonStringify(defaultConfig[key as keyof A]),
   )
   // Write config file with secure permissions - mode only applies to new files
-  writeFileSyncAndFlush_DEPRECATED(
+  writeFileSyncAndFlush(
     file,
     jsonStringify(filteredConfig, null, 2),
     {
@@ -1329,7 +1329,7 @@ function saveConfigWithLock<A extends object>(
     }
 
     // Write config file with secure permissions - mode only applies to new files
-    writeFileSyncAndFlush_DEPRECATED(
+    writeFileSyncAndFlush(
       file,
       jsonStringify(filteredConfig, null, 2),
       {

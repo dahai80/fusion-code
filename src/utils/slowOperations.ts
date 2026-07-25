@@ -242,10 +242,10 @@ export function cloneDeep<T>(value: T): T {
  * @param filePath The path to the file to write to
  * @param data The data to write (string or Buffer)
  * @param options Optional write options (encoding, mode, flag, flush)
- * @deprecated Use `fs.promises.writeFile` instead for non-blocking writes.
+ * NOTE: Sync file writes block the event loop. Prefer async where possible.
  * Sync file writes block the event loop and cause performance issues.
  */
-export function writeFileSync_DEPRECATED(
+export function writeFileSyncSlow(
   filePath: string,
   data: string | NodeJS.ArrayBufferView,
   options?: WriteFileOptionsWithFlush,

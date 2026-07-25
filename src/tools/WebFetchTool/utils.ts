@@ -13,7 +13,7 @@ import {
   isBinaryContentType,
   persistBinaryContent,
 } from '../../utils/mcpOutputStorage.js'
-import { getSettings_DEPRECATED } from '../../utils/settings/settings.js'
+import { getInitialSettings } from '../../utils/settings/settings.js'
 import { asSystemPrompt } from '../../utils/systemPromptType.js'
 import { isPreapprovedHost } from './preapproved.js'
 import { makeSecondaryModelPrompt } from './prompt.js'
@@ -433,7 +433,7 @@ export async function getURLMarkdownContent(
     // that prevent outbound connections to claude.ai
     // Note: skipWebFetchPreflight only skips the external domain blocklist,
     // NOT the local SSRF IP checks above.
-    const settings = getSettings_DEPRECATED()
+    const settings = getInitialSettings()
     if (!settings.skipWebFetchPreflight) {
       const checkResult = await checkDomainBlocklist(hostname)
       switch (checkResult.status) {

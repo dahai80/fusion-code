@@ -6,7 +6,7 @@ import type { LocalJSXCommandOnDone } from '../../types/command.js';
 import type { Message } from '../../types/message.js';
 import { getCwd } from '../../utils/cwd.js';
 import { renderMessagesToPlainText } from '../../utils/exportRenderer.js';
-import { writeFileSync_DEPRECATED } from '../../utils/slowOperations.js';
+import { writeFileSyncSlow } from '../../utils/slowOperations.js';
 function formatTimestamp(date: Date): string {
   const year = date.getFullYear();
   const month = String(date.getMonth() + 1).padStart(2, '0');
@@ -60,7 +60,7 @@ export async function call(onDone: LocalJSXCommandOnDone, context: ToolUseContex
     const finalFilename = filename.endsWith('.txt') ? filename : filename.replace(/\.[^.]+$/, '') + '.txt';
     const filepath = join(getCwd(), finalFilename);
     try {
-      writeFileSync_DEPRECATED(filepath, content, {
+      writeFileSyncSlow(filepath, content, {
         encoding: 'utf-8',
         flush: true
       });

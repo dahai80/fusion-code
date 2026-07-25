@@ -507,7 +507,7 @@ function isSafeHeredoc(command: string): boolean {
   // main validator that checks allowlist-safe character patterns.
   // No recursion risk: `remaining` has no `$(... <<` pattern, so the recursive
   // call's validateSafeCommandSubstitution returns passthrough immediately.
-  if (bashCommandIsSafe_DEPRECATED(remaining).behavior !== 'passthrough')
+  if (bashCommandIsSafe(remaining).behavior !== 'passthrough')
     return false
 
   return true
@@ -2251,10 +2251,10 @@ function validateZshDangerousCommands(
 const CONTROL_CHAR_RE = /[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/
 
 /**
- * @deprecated Legacy regex/shell-quote path. Only used when tree-sitter is
+ * Legacy regex/shell-quote path. Only used when tree-sitter is
  * unavailable. The primary gate is parseForSecurity (ast.ts).
  */
-export function bashCommandIsSafe_DEPRECATED(
+export function bashCommandIsSafe(
   command: string,
 ): PermissionResult {
   // SECURITY: Block control characters before any other processing. Null bytes
@@ -2413,7 +2413,7 @@ export function bashCommandIsSafe_DEPRECATED(
 }
 
 /**
- * @deprecated Legacy regex/shell-quote path. Only used when tree-sitter is
+ * Legacy regex/shell-quote path. Only used when tree-sitter is
  * unavailable. The primary gate is parseForSecurity (ast.ts).
  *
  * Async version of bashCommandIsSafe that uses tree-sitter when available
@@ -2423,7 +2423,7 @@ export function bashCommandIsSafe_DEPRECATED(
  * This should be used by async callers (bashPermissions.ts, bashCommandHelpers.ts).
  * Sync callers (readOnlyValidation.ts) should continue using bashCommandIsSafe().
  */
-export async function bashCommandIsSafeAsync_DEPRECATED(
+export async function bashCommandIsSafeAsync(
   command: string,
   onDivergence?: () => void,
 ): Promise<PermissionResult> {
@@ -2433,7 +2433,7 @@ export async function bashCommandIsSafeAsync_DEPRECATED(
 
   // If no tree-sitter, fall back to sync version
   if (!tsAnalysis) {
-    return bashCommandIsSafe_DEPRECATED(command)
+    return bashCommandIsSafe(command)
   }
 
   // Run the same security checks but with tree-sitter enriched context.

@@ -5,7 +5,7 @@ import { KeybindingSetup } from '../keybindings/KeybindingProviderSetup.js';
 import { AppStateProvider } from '../state/AppState.js';
 import type { ConfigParseError } from '../utils/errors.js';
 import { getBaseRenderOptions } from '../utils/renderOptions.js';
-import { jsonStringify, writeFileSync_DEPRECATED } from '../utils/slowOperations.js';
+import { jsonStringify, writeFileSyncSlow } from '../utils/slowOperations.js';
 import type { ThemeName } from '../utils/theme.js';
 import { Select } from './CustomSelect/index.js';
 import { Dialog } from './design-system/Dialog.js';
@@ -141,7 +141,7 @@ export async function showInvalidConfigDialog({
           void resolve();
           process.exit(1);
         }} onReset={() => {
-          writeFileSync_DEPRECATED(error.filePath, jsonStringify(error.defaultConfig, null, 2), {
+          writeFileSyncSlow(error.filePath, jsonStringify(error.defaultConfig, null, 2), {
             flush: false,
             encoding: 'utf8'
           });

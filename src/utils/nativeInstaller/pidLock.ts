@@ -20,7 +20,7 @@ import { logError } from '../log.js'
 import {
   jsonParse,
   jsonStringify,
-  writeFileSync_DEPRECATED,
+  writeFileSyncSlow,
 } from '../slowOperations.js'
 
 /**
@@ -215,7 +215,7 @@ function writeLockFile(
   const tempPath = `${lockFilePath}.tmp.${process.pid}.${Date.now()}`
 
   try {
-    writeFileSync_DEPRECATED(tempPath, jsonStringify(content, null, 2), {
+    writeFileSyncSlow(tempPath, jsonStringify(content, null, 2), {
       encoding: 'utf8',
       flush: true,
     })

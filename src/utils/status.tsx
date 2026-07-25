@@ -252,7 +252,7 @@ export function buildAPIProviderProperties(): Property[] {
     });
   }
   if (apiProvider === 'firstParty') {
-    const anthropicBaseUrl = process.env.ANTHROPIC_BASE_URL;
+    const anthropicBaseUrl = process.env.FUSION_BASE_URL || process.env.ANTHROPIC_BASE_URL;
     if (anthropicBaseUrl) {
       properties.push({
         label: 'Anthropic base URL',

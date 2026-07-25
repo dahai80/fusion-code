@@ -1,5 +1,5 @@
 import type { ToolPermissionContext } from '../../Tool.js'
-import { splitCommand_DEPRECATED } from '../../utils/bash/commands.js'
+import { splitCommand } from '../../utils/bash/commands.js'
 import { tryParseShellCommand } from '../../utils/bash/shellQuote.js'
 import type { PermissionResult } from '../../utils/permissions/PermissionResult.js'
 
@@ -645,7 +645,7 @@ export function checkSedConstraints(
   input: { command: string },
   toolPermissionContext: ToolPermissionContext,
 ): PermissionResult {
-  const commands = splitCommand_DEPRECATED(input.command)
+  const commands = splitCommand(input.command)
 
   for (const cmd of commands) {
     // Skip non-sed commands

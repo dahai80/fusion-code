@@ -19,7 +19,7 @@ import { execFileNoThrowWithCwd } from '../execFileNoThrow.js'
 import { getFsImplementation } from '../fsOperations.js'
 import { logError } from '../log.js'
 import { sleep } from '../sleep.js'
-import { jsonStringify, writeFileSync_DEPRECATED } from '../slowOperations.js'
+import { jsonStringify, writeFileSyncSlow } from '../slowOperations.js'
 import { getBinaryName, getPlatform } from './installer.js'
 
 const GCS_BUCKET_URL =
@@ -235,13 +235,13 @@ export async function downloadVersionFromArtifactory(
     },
   }
 
-  writeFileSync_DEPRECATED(
+  writeFileSyncSlow(
     join(stagingPath, 'package.json'),
     jsonStringify(packageJson, null, 2),
     { encoding: 'utf8', flush: true },
   )
 
-  writeFileSync_DEPRECATED(
+  writeFileSyncSlow(
     join(stagingPath, 'package-lock.json'),
     jsonStringify(packageLock, null, 2),
     { encoding: 'utf8', flush: true },

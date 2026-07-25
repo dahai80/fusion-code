@@ -7,29 +7,29 @@ import {
 import { slowLogging } from './slowOperations.js'
 
 /**
- * @deprecated Use async alternatives when possible. Sync exec calls block the event loop.
+ * NOTE: Sync exec calls block the event loop. Prefer async alternatives.
  *
  * Wrapped execSync with slow operation logging.
  * Use this instead of child_process execSync directly to detect performance issues.
  *
  * @example
- * import { execSync_DEPRECATED } from './execSyncWrapper.js'
- * const result = execSync_DEPRECATED('git status', { encoding: 'utf8' })
+ * import { execSyncWrapped } from './execSyncWrapper.js'
+ * const result = execSyncWrapped('git status', { encoding: 'utf8' })
  */
-export function execSync_DEPRECATED(command: string): Buffer
-export function execSync_DEPRECATED(
+export function execSyncWrapped(command: string): Buffer
+export function execSyncWrapped(
   command: string,
   options: ExecSyncOptionsWithStringEncoding,
 ): string
-export function execSync_DEPRECATED(
+export function execSyncWrapped(
   command: string,
   options: ExecSyncOptionsWithBufferEncoding,
 ): Buffer
-export function execSync_DEPRECATED(
+export function execSyncWrapped(
   command: string,
   options?: ExecSyncOptions,
 ): Buffer | string
-export function execSync_DEPRECATED(
+export function execSyncWrapped(
   command: string,
   options?: ExecSyncOptions,
 ): Buffer | string {

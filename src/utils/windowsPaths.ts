@@ -3,7 +3,7 @@ import * as path from 'path'
 import * as pathWin32 from 'path/win32'
 import { getCwd } from './cwd.js'
 import { logForDebugging } from './debug.js'
-import { execSync_DEPRECATED } from './execSyncWrapper.js'
+import { execSyncWrapped } from './execSyncWrapper.js'
 import { memoizeWithLRU } from './memoize.js'
 import { getPlatform } from './platform.js'
 
@@ -14,7 +14,7 @@ import { getPlatform } from './platform.js'
  */
 function checkPathExists(path: string): boolean {
   try {
-    execSync_DEPRECATED(`dir "${path}"`, { stdio: 'pipe' })
+    execSyncWrapped(`dir "${path}"`, { stdio: 'pipe' })
     return true
   } catch {
     return false
@@ -46,7 +46,7 @@ function findExecutable(executable: string): string | null {
 
   // Fall back to where.exe
   try {
-    const result = execSync_DEPRECATED(`where.exe ${executable}`, {
+    const result = execSyncWrapped(`where.exe ${executable}`, {
       stdio: 'pipe',
       encoding: 'utf8',
     }).trim()

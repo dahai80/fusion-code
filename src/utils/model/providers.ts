@@ -38,7 +38,7 @@ export function shouldAutoUseFusionMlx(): boolean {
     if (isEnvTruthy(process.env.FUSION_MLX_AUTO)) {
         return !process.env.FUSION_API_KEY
     }
-    const baseUrl = process.env.ANTHROPIC_BASE_URL || ''
+    const baseUrl = process.env.FUSION_BASE_URL || process.env.ANTHROPIC_BASE_URL || ''
     if (baseUrl.includes('localhost') || baseUrl.includes('127.0.0.1') || baseUrl.includes('::1')) {
         return true
     }
