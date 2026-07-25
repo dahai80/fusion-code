@@ -55,6 +55,8 @@ const getSendMessageTool = () =>
     .SendMessageTool as typeof import('./tools/SendMessageTool/SendMessageTool.js').SendMessageTool
 /* eslint-enable @typescript-eslint/no-require-imports */
 import { AskUserQuestionTool } from './tools/AskUserQuestionTool/AskUserQuestionTool.js'
+import { ArtifactCreateTool } from './tools/ArtifactCreateTool/ArtifactCreateTool.js'
+import { ArtifactUpdateTool } from './tools/ArtifactUpdateTool/ArtifactUpdateTool.js'
 import { LSPTool } from './tools/LSPTool/LSPTool.js'
 import { CronCreateTool } from './tools/CronCreateTool/CronCreateTool.js'
 import { CronDeleteTool } from './tools/CronDeleteTool/CronDeleteTool.js'
@@ -195,6 +197,8 @@ export function getAllBaseTools(): Tools {
     ...(ListPeersTool ? [ListPeersTool] : []),
     ...(process.env.USER_TYPE === 'ant' && REPLTool ? [REPLTool] : []),
     BriefTool,
+    ArtifactCreateTool,
+    ArtifactUpdateTool,
     ...(getPowerShellTool() ? [getPowerShellTool()] : []),
     ...(SnipTool ? [SnipTool] : []),
     ...(process.env.NODE_ENV === 'test' ? [TestingPermissionTool] : []),
@@ -234,6 +238,7 @@ const FULL_TOOLS = new Set([
   'Agent', 'TaskCreate', 'TaskGet', 'TaskUpdate', 'TaskList',
   'NotebookEdit', 'Skill', 'EnterPlanMode', 'ExitPlanMode',
   'Sleep', 'TeamCreate', 'TeamDelete', 'CtxInspect',
+  'CreateArtifact', 'UpdateArtifact',
 ])
 
 function getMlxToolFilter(): Set<string> | null {
