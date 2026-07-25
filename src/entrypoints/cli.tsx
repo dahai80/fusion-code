@@ -1,6 +1,7 @@
 import { feature } from 'bun:bundle';
 import { join } from 'path';
 import { homedir } from 'os';
+import { gracefulShutdownSync } from '../utils/gracefulShutdown.js';
 
 // 设置 Fusion-Code 配置目录为 ~/.fusion-code，避免与 Claude Code 冲突
 process.env.FUSION_CODE_CONFIG_DIR = join(homedir(), '.fusion-code');
@@ -272,10 +273,10 @@ async function main(): Promise<void> {
       templatesMain
     } = await import('../cli/handlers/templateJobs.js');
     await templatesMain(args);
-    // process.exit (not return) — mountFleetView's Ink TUI can leave event
-    // loop handles that prevent natural exit.
-    // eslint-disable-next-line custom-rules/no-process-exit
-    process.exit(0);
+    // gracefulShutdownSync (not process.exit) — mountFleetView's Ink TUI can leave event
+    // loop handles that prevent natural exit. gracefulShutdownSync runs cleanup
+    // registry (LSP, tmux, terminal mode) before exiting.
+    gracefulShutdownSync(0);
   }
 
   // Fast-path for `claude environment-runner`: headless BYOC runner.

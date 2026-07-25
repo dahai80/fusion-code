@@ -8,6 +8,7 @@ import {
 } from 'src/services/analytics/index.js'
 import { getCwd } from 'src/utils/cwd.js'
 import { checkForReleaseNotes } from 'src/utils/releaseNotes.js'
+import { gracefulShutdownSync } from 'src/utils/gracefulShutdown.js'
 import { setCwd } from 'src/utils/Shell.js'
 import { initSinks } from 'src/utils/sinks.js'
 import {
@@ -75,7 +76,7 @@ export async function setup(
         'Error: Fusion-Code requires Node.js version 18 or higher.',
       ),
     )
-    process.exit(1)
+    gracefulShutdownSync(1)
   }
 
   // Set custom session ID if provided
@@ -185,7 +186,7 @@ export async function setup(
             `Configure a WorktreeCreate hook in settings.json to use --worktree with other VCS systems.\n`,
         ),
       )
-      process.exit(1)
+      gracefulShutdownSync(1)
     }
 
     const slug = worktreePRNumber
@@ -207,7 +208,7 @@ export async function setup(
             `Error: Could not determine the main git repository root.\n`,
           ),
         )
-        process.exit(1)
+        gracefulShutdownSync(1)
       }
 
       // If we're inside a worktree, switch to the main repo for worktree creation
@@ -240,7 +241,7 @@ export async function setup(
       process.stderr.write(
         chalk.red(`Error creating worktree: ${errorMessage(error)}\n`),
       )
-      process.exit(1)
+      gracefulShutdownSync(1)
     }
 
     logEvent('tengu_worktree_created', { tmux_enabled: tmuxEnabled })
@@ -410,7 +411,7 @@ export async function setup(
       console.error(
         `--dangerously-skip-permissions cannot be used with root/sudo privileges for security reasons`,
       )
-      process.exit(1)
+      gracefulShutdownSync(1)
     }
 
     if (
@@ -436,7 +437,7 @@ export async function setup(
         console.error(
           `--dangerously-skip-permissions can only be used in Docker/sandbox containers with no internet access but got Docker: ${isDocker}, Bubblewrap: ${isBubblewrap}, IS_SANDBOX: ${isSandbox}, hasInternet: ${hasInternet}`,
         )
-        process.exit(1)
+        gracefulShutdownSync(1)
       }
     }
   }
