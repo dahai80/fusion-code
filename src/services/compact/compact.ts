@@ -71,6 +71,7 @@ import {
 } from '../../utils/messages.js'
 import { isFusionMlxProvider } from '../../utils/model/providers.js'
 import { getMainLoopModel } from '../../utils/model/model.js'
+import { getMlxReducedTools } from '../../utils/model/mlxPreflight.js'
 import { expandPath } from '../../utils/path.js'
 import { getPlan, getPlanFilePath } from '../../utils/plans.js'
 import {
@@ -85,7 +86,7 @@ import {
 import { sleep } from '../../utils/sleep.js'
 import { jsonStringify } from '../../utils/slowOperations.js'
 /* eslint-enable @typescript-eslint/no-require-imports */
-import { asSystemPrompt } from '../../utils/systemPromptType.js'
+import { asSystemPrompt, type SystemPrompt } from '../../utils/systemPromptType.js'
 import { getTaskOutputPath } from '../../utils/task/diskOutput.js'
 import {
   getTokenUsage,
@@ -310,6 +311,8 @@ export function truncateHeadForPTLRetry(
  */
 export function preflightMlxTokenTruncate(
     messages: Message[],
+    systemPrompt?: SystemPrompt,
+    toolUseContext?: ToolUseContext,
 ): Message[] | null {
     if (!isFusionMlxProvider()) {
         logForDebugging(`[Compact] MLX pre-flight skip: not MLX provider`)
@@ -332,17 +335,40 @@ export function preflightMlxTokenTruncate(
     const safeBudget = Math.floor(
         (contextWindow - COMPACT_MAX_OUTPUT_TOKENS) * MLX_COMPACT_TOKEN_SAFETY_FACTOR,
     )
+    // Compact sends system_prompt + tool_defs + messages to the model.
+    // safeBudget is for the TOTAL input, so the message-only budget must
+    // subtract system prompt and tool definition tokens. Without this,
+    // truncating messages to safeBudget leaves no room for system+tools,
+    // and the compact call itself OOMs on 32K windows.
+    const systemStr = systemPrompt ? systemPrompt.join('\n') : ''
+    const estimatedSystemTokens = Math.floor(systemStr.length / 3.5)
+    const toolDefs = toolUseContext?.options?.tools
+    const estimatedToolTokens = toolDefs ? Math.floor(
+        JSON.stringify(toolDefs.map(t => ({
+            name: t.name,
+            description: (t as any).description ?? '',
+        }))).length / 3.5,
+    ) : 0
+    const messageBudget = safeBudget - estimatedSystemTokens - estimatedToolTokens
     const estimated = tokenCountWithEstimation(messages)
 
-    if (estimated <= safeBudget) {
+    if (messageBudget <= 0) {
         logForDebugging(
-            `[Compact] MLX pre-flight OK: ${estimated} tokens <= safe budget ${safeBudget} (window ${contextWindow} × ${MLX_COMPACT_TOKEN_SAFETY_FACTOR})`,
+            `[Compact] MLX pre-flight: message budget <= 0 (safe=${safeBudget} sys=${estimatedSystemTokens} tools=${estimatedToolTokens}), cannot compact safely`,
+            { level: 'warn' },
+        )
+        return null
+    }
+
+    if (estimated <= messageBudget) {
+        logForDebugging(
+            `[Compact] MLX pre-flight OK: ${estimated} tokens <= message budget ${messageBudget} (safe=${safeBudget} sys=${estimatedSystemTokens} tools=${estimatedToolTokens})`,
         )
         return null
     }
 
     logForDebugging(
-        `[Compact] MLX pre-flight OVER: ${estimated} tokens > safe budget ${safeBudget}, truncating`,
+        `[Compact] MLX pre-flight OVER: ${estimated} tokens > message budget ${messageBudget} (safe=${safeBudget} sys=${estimatedSystemTokens} tools=${estimatedToolTokens}), truncating`,
         { level: 'warn' },
     )
 
@@ -361,7 +387,7 @@ export function preflightMlxTokenTruncate(
     for (const g of groups) {
         remaining -= roughTokenCountEstimationForMessages(g)
         dropCount++
-        if (remaining <= safeBudget) break
+        if (remaining <= messageBudget) break
     }
 
     // 至少保留1个组
@@ -538,7 +564,7 @@ export async function compactConversation(
 
     let messagesToSummarize = messages
     // Pre-flight: 本地模型 compact 前先检查 token 预算,避免发送超大请求导致 OOM 崩溃
-    const preflightTruncated = preflightMlxTokenTruncate(messages)
+    const preflightTruncated = preflightMlxTokenTruncate(messages, cacheSafeParams.systemPrompt, context)
     if (preflightTruncated) {
         logEvent('tengu_compact_mlx_preflight_truncate', {
             originalMessageCount: messages.length,
@@ -991,7 +1017,7 @@ export async function partialCompactConversation(
     // PTL retry breaks the cache prefix but unblocks the user (CC-1180).
     let apiMessages = direction === 'up_to' ? messagesToSummarize : allMessages
     // Pre-flight: 本地 MLX 模型 partial compact 也需要 token 预算检查
-    const partialPreflight = preflightMlxTokenTruncate(apiMessages)
+    const partialPreflight = preflightMlxTokenTruncate(apiMessages, cacheSafeParams.systemPrompt, context)
     if (partialPreflight) {
         logEvent('tengu_compact_mlx_preflight_truncate', {
             originalMessageCount: apiMessages.length,
@@ -1362,9 +1388,25 @@ async function streamCompactSummary({
         // creating a thinking config mismatch that invalidates the cache.
         // The streaming fallback path (below) can safely set maxOutputTokensOverride
         // since it doesn't share cache with the main thread.
+        // MLX: compact agent cannot use tools (canUseTool denies everything),
+        // but the full tool definitions are still sent in the API request,
+        // consuming ~5K tokens on 32K windows. Strip tools for MLX to save
+        // context — compact only needs to produce a text summary.
+        const compactCacheSafeParams = isFusionMlxProvider()
+          ? {
+              ...cacheSafeParams,
+              toolUseContext: {
+                ...cacheSafeParams.toolUseContext,
+                options: {
+                  ...cacheSafeParams.toolUseContext.options,
+                  tools: [],
+                },
+              },
+            }
+          : cacheSafeParams
         const result = await runForkedAgent({
           promptMessages: [summaryRequest],
-          cacheSafeParams,
+          cacheSafeParams: compactCacheSafeParams,
           canUseTool: createCompactCanUseTool(),
           querySource: 'compact',
           forkLabel: 'compact',

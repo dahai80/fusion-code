@@ -10,7 +10,7 @@ import {
   isAutoCompactEnabled,
   type AutoCompactTrackingState,
 } from './services/compact/autoCompact.js'
-import { buildPostCompactMessages } from './services/compact/compact.js'
+import { buildPostCompactMessages, compactConversation } from './services/compact/compact.js'
 /* eslint-disable @typescript-eslint/no-require-imports */
 const reactiveCompact = feature('REACTIVE_COMPACT')
   ? (require('./services/compact/reactiveCompact.js') as typeof import('./services/compact/reactiveCompact.js'))
@@ -217,6 +217,7 @@ type State = {
   stopHookActive: boolean | undefined
   turnCount: number
   mlxModelOomCount: number
+  mlxForcedCompactDone: boolean
   // Why the previous iteration continued. Undefined on first iteration.
   // Lets tests assert recovery paths fired without inspecting message contents.
   transition: Continue | undefined
@@ -283,6 +284,7 @@ async function* queryLoop(
     pendingToolUseSummary: undefined,
     transition: undefined,
     mlxModelOomCount: 0,
+    mlxForcedCompactDone: false,
   }
   const budgetTracker = feature('TOKEN_BUDGET') ? createBudgetTracker() : null
 
@@ -326,7 +328,7 @@ async function* queryLoop(
       stopHookActive,
       turnCount,
     } = state
-    let { mlxModelOomCount } = state
+    let { mlxModelOomCount, mlxForcedCompactDone } = state
 
     // Skill discovery prefetch — per-iteration (uses findWritePivot guard
     // that returns early on non-write iterations). Discovery runs while the
@@ -659,12 +661,101 @@ async function* queryLoop(
     // Prevents OOM spiral where compact succeeds but the subsequent model
     // call still exceeds local model memory, causing infinite retry loop.
     if (isFusionMlxProvider()) {
-      const preflight = preflightMlxQueryCheck(
+      let preflight = preflightMlxQueryCheck(
         fullSystemPrompt,
         toolUseContext.options.tools,
         messagesForQuery,
       )
-      if (!preflight.fits) {
+
+      // If messages are 10x over budget, compact cannot fix this — the
+      // compact summary itself would be too large. Abort immediately to
+      // prevent memory explosion (25M+ token arrays → 100GB+ RSS).
+      if (!preflight.fits && preflight.estimatedTokens > preflight.safeBudget * 10) {
+        logForDebugging(
+          `[MLX-Preflight] catastrophically over budget (${preflight.estimatedTokens} >> ${preflight.safeBudget}), aborting without compact attempt`,
+          { level: 'warn' },
+        )
+        yield createAssistantAPIErrorMessage({
+          content: ERROR_MESSAGE_MLX_MEMORY_LIMIT,
+          error: 'invalid_request',
+        })
+        return { reason: 'mlx_memory_limit' }
+      }
+
+      // If over budget, try autoCompact to shrink messages before giving up.
+      // Only for non-compact queries — compact's own forked agent must NOT
+      // trigger another forced compact (recursive compact → infinite loop).
+      // The standard autocompact at line 462 only checks message tokens vs
+      // threshold — it doesn't account for system prompt + tool definitions.
+      // On 32K MLX models, system (~3K) + tools (~5K) already consume ~8K,
+      // so a conversation that looks "fine" to autocompact's message-only
+      // check can still blow the total budget.
+      let didForcedCompact = false
+      if (!preflight.fits && isAutoCompactEnabled() && !state.mlxForcedCompactDone && querySource !== 'compact') {
+        logForDebugging(
+          `[MLX-Preflight] over budget, triggering forced compact to shrink messages`,
+          { level: 'warn' },
+        )
+        try {
+          const compactionResult = await compactConversation(
+            messagesForQuery,
+            toolUseContext,
+            {
+              systemPrompt,
+              userContext,
+              systemContext,
+              toolUseContext,
+              forkContextMessages: messagesForQuery,
+            },
+            true, // suppressFollowUpQuestions
+            undefined, // customInstructions
+            true, // isAutoCompact
+          )
+          if (compactionResult) {
+            messagesForQuery = buildPostCompactMessages(compactionResult)
+            const compactedMsgTokens = tokenCountWithEstimation(messagesForQuery)
+            logForDebugging(
+              `[MLX-Preflight] post-compact messages: ${compactedMsgTokens} tokens (was ${preflight.estimatedTokens} total)`,
+            )
+            // Re-check preflight with compacted messages + reduced tools.
+            if (preflight.reducedTools) {
+              toolUseContext = {
+                ...toolUseContext,
+                options: {
+                  ...toolUseContext.options,
+                  tools: preflight.reducedTools,
+                },
+              }
+              logForDebugging(
+                `[MLX-Preflight] applying reduced tools pre-compact: ${preflight.reducedTools.length} tools`,
+              )
+            }
+            preflight = preflightMlxQueryCheck(
+              fullSystemPrompt,
+              toolUseContext.options.tools,
+              messagesForQuery,
+            )
+          }
+          didForcedCompact = true
+          state.mlxForcedCompactDone = true
+        } catch (compactError) {
+          logForDebugging(
+            `[MLX-Preflight] forced compact failed: ${compactError instanceof Error ? compactError.message : String(compactError)}`,
+            { level: 'warn' },
+          )
+          didForcedCompact = true
+          state.mlxForcedCompactDone = true
+        }
+      }
+
+      // After forced compact, allow a 20% overshoot — the summary is
+      // already minimal and re-compacting would only lose context.
+      // MLX KV cache has some elasticity; a 10-20% overshoot rarely OOMs.
+      const maxAllowed = didForcedCompact
+        ? Math.floor(preflight.safeBudget * 1.2)
+        : preflight.safeBudget
+
+      if (preflight.estimatedTokens > maxAllowed) {
         if (mlxModelOomCount >= 3) {
           logForDebugging(
             `[MLX-Preflight] ${mlxModelOomCount} consecutive OOMs, aborting`,
@@ -677,7 +768,7 @@ async function* queryLoop(
           return { reason: 'mlx_memory_limit' }
         }
         logForDebugging(
-          `[MLX-Preflight] request over budget (${preflight.estimatedTokens} > ${preflight.safeBudget}), OOM count ${mlxModelOomCount}`,
+          `[MLX-Preflight] request over budget (${preflight.estimatedTokens} > ${maxAllowed}${didForcedCompact ? ' (10% tolerance)' : ''}), OOM count ${mlxModelOomCount}`,
           { level: 'warn' },
         )
         mlxModelOomCount++
@@ -1161,6 +1252,7 @@ async function* queryLoop(
               stopHookActive: undefined,
               turnCount,
               mlxModelOomCount,
+              mlxForcedCompactDone,
               transition: {
                 reason: 'collapse_drain_retry',
                 committed: drained.committed,
@@ -1787,6 +1879,7 @@ async function* queryLoop(
       maxOutputTokensOverride: undefined,
       stopHookActive,
       mlxModelOomCount: 0,
+      mlxForcedCompactDone: false,
       transition: { reason: 'next_turn' },
     }
     state = next
