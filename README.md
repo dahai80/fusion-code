@@ -151,6 +151,13 @@ Session override (`/model`) > `--model` CLI flag > `FUSION_MODEL` / `FUSION_MLX_
 | `FUSION_CUSTOM_HEADERS` | — | `{"X-Key":"val"}` |
 | `FUSION_BETAS` | `ANTHROPIC_BETAS` | `max-tokens-3-5-sonnet-2024-07-15` |
 
+### Tuning Environment Variables
+
+| Variable | Default | Description |
+|---|---|---|
+| `CLAUDE_DISABLE_STREAM_WATCHDOG` | unset | Set to `1` to disable the stream idle watchdog (auto-aborts hung connections) |
+| `CLAUDE_STREAM_IDLE_TIMEOUT_MS` | `300000` (5 min) | Milliseconds before the watchdog aborts an idle stream |
+
 ### Cloud Configuration Details
 
 #### Anthropic Direct
@@ -302,20 +309,23 @@ Press **Shift+Tab** to cycle modes:
 
 | Mode | Behavior | Best For |
 |---|---|---|
-| **Default** | Ask for every tool use | First-time users, cautious workflows |
-| **Auto** ✅ | Auto-approve safe ops; prompt for dangerous ones | Daily coding (recommended) |
+| **Manual** | Ask for every tool use | First-time users, cautious workflows |
+| **Auto** ✅ | Auto-approve safe ops; prompt for dangerous ones; block irreversible ops | Daily coding (recommended) |
 | **Accept Edits** | Auto-approve file edits; ask for bash | Refactoring, code generation |
 | **Plan** | Read-only — no file/command execution | Code review, exploration |
 
-**Auto mode** uses deterministic rules (no LLM classifier). Safe commands (`ls`, `cat`, `git status`, `npm install`, `make`, etc.) are auto-approved. Dangerous commands (`rm -rf`, `sudo`, `git push`, `docker rm`, `python`, `node -e`) still require confirmation.
+**Auto mode** uses `classifyAllShell` — a deterministic classifier for every shell command. Safe commands (`ls`, `cat`, `git status`, `npm install`, `make`, etc.) are auto-approved. Dangerous commands (`rm -rf`, `sudo`, `git push`, `docker rm`, `python`, `node -e`) require confirmation. Irreversible commands (`git push --force`, `terraform destroy`, `kubectl delete`, `DROP TABLE`) are hard-denied even in auto mode. Unknown commands default to requiring confirmation.
 
 ### Notable Slash Commands
 
 | Command | Description |
 |---|---|
-| `/model` | Switch or inspect the active model |
+| `/model` | Switch or inspect the active model (persists across sessions) |
 | `/compact` | Compact conversation context to free space |
-| `/cost` | Show token usage and cost for the session |
+| `/usage` | Show token usage, cost, and activity statistics (aliases: `/stats`, `/cost`) |
+| `/cd` | Change working directory within the REPL |
+| `/code-review` | Review code with optional `--fix` for auto-fix mode (alias: `/review`) |
+| `/reload-skills` | Hot-reload commands, plugins, and skills without restart |
 | `/doctor` | Diagnose common setup issues |
 | `/env` | Display provider, model, and key environment variables |
 | `/ctx_viz` | Visualize context window usage |
