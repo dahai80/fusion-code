@@ -184,6 +184,8 @@ export type QueryEngineConfig = {
 export class QueryEngine {
   private config: QueryEngineConfig
   private mutableMessages: Message[]
+  // 简单互斥锁：防止并发 submitMessage 对 mutableMessages 的竞态修改
+  private _messageLock: Promise<void> = Promise.resolve()
   private abortController: AbortController
   private permissionDenials: SDKPermissionDenial[]
   private totalUsage: NonNullableUsage
@@ -210,6 +212,14 @@ export class QueryEngine {
     prompt: string | ContentBlockParam[],
     options?: { uuid?: string; isMeta?: boolean },
   ): AsyncGenerator<SDKMessage, void, unknown> {
+    // 获取互斥锁：防止并发 submitMessage 竞态修改 mutableMessages
+    let releaseLock: () => void
+    this._messageLock = this._messageLock.then(
+      () => new Promise<void>(resolve => { releaseLock = resolve }),
+    )
+    await this._messageLock
+
+    try {
     const {
       cwd,
       commands,
@@ -1169,6 +1179,9 @@ export class QueryEngine {
         initialAppState.fastMode,
       ),
       uuid: randomUUID(),
+    }
+    } finally {
+      releaseLock!()
     }
   }
 
