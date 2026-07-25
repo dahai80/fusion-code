@@ -6,6 +6,7 @@
  */
 
 import memoize from 'lodash-es/memoize.js'
+import { asyncMemoize } from '../asyncMemoize.js'
 import { which } from '../which.js'
 
 /**
@@ -39,7 +40,7 @@ async function isCommandAvailable(command: string): Promise<boolean> {
  *
  * @returns True if git is installed and executable
  */
-export const checkGitAvailable = memoize(async (): Promise<boolean> => {
+export const checkGitAvailable = asyncMemoize(async (): Promise<boolean> => {
   return isCommandAvailable('git')
 })
 

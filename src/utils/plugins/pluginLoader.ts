@@ -45,6 +45,7 @@ import {
   symlink,
 } from 'fs/promises'
 import memoize from 'lodash-es/memoize.js'
+import { asyncMemoize } from '../asyncMemoize.js'
 import { basename, dirname, join, relative, resolve, sep } from 'path'
 import { getInlinePlugins } from '../../bootstrap/state.js'
 import {
@@ -3102,7 +3103,7 @@ export function mergePluginSources(sources: {
  *   - disabled: Array of disabled LoadedPlugin objects
  *   - errors: Array of loading errors with source information
  */
-export const loadAllPlugins = memoize(async (): Promise<PluginLoadResult> => {
+export const loadAllPlugins = asyncMemoize(async (): Promise<PluginLoadResult> => {
   const result = await assemblePluginLoadResult(() =>
     loadPluginsFromMarketplaces({ cacheOnly: false }),
   )

@@ -1,4 +1,5 @@
 import memoize from 'lodash-es/memoize.js'
+import { asyncMemoize } from '../asyncMemoize.js'
 import { basename, dirname, join } from 'path'
 import { getInlinePlugins, getSessionId } from '../../bootstrap/state.js'
 import type { Command } from '../../types/command.js'
@@ -411,7 +412,7 @@ function createPluginCommand(
   }
 }
 
-export const getPluginCommands = memoize(async (): Promise<Command[]> => {
+export const getPluginCommands = asyncMemoize(async (): Promise<Command[]> => {
   // --bare: skip marketplace plugin auto-load. Explicit --plugin-dir still
   // works — getInlinePlugins() is set by main.tsx from --plugin-dir.
   // loadAllPluginsCacheOnly already short-circuits to inline-only when
@@ -837,7 +838,7 @@ async function loadSkillsFromDirectory(
   return skills
 }
 
-export const getPluginSkills = memoize(async (): Promise<Command[]> => {
+export const getPluginSkills = asyncMemoize(async (): Promise<Command[]> => {
   // --bare: same gate as getPluginCommands above — honor explicit
   // --plugin-dir, skip marketplace auto-load.
   if (isBareMode() && getInlinePlugins().length === 0) {

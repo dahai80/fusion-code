@@ -1,5 +1,6 @@
 import { feature } from 'bun:bundle'
 import memoize from 'lodash-es/memoize.js'
+import { asyncMemoize } from './utils/asyncMemoize.js'
 import {
   getAdditionalDirectoriesForClaudeMd,
   setCachedClaudeMdContent,
@@ -33,7 +34,7 @@ export function setSystemPromptInjection(value: string | null): void {
   getSystemContext.cache.clear?.()
 }
 
-export const getGitStatus = memoize(async (): Promise<string | null> => {
+export const getGitStatus = asyncMemoize(async (): Promise<string | null> => {
   if (process.env.NODE_ENV === 'test') {
     // Avoid cycles in tests
     return null

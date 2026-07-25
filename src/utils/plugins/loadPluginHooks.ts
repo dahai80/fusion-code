@@ -1,4 +1,5 @@
 import memoize from 'lodash-es/memoize.js'
+import { asyncMemoize } from '../asyncMemoize.js'
 import type { HookEvent } from 'src/entrypoints/agentSdkTypes.js'
 import {
   clearRegisteredPluginHooks,
@@ -88,7 +89,7 @@ function convertPluginHooksToMatchers(
 /**
  * Load and register hooks from all enabled plugins
  */
-export const loadPluginHooks = memoize(async (): Promise<void> => {
+export const loadPluginHooks = asyncMemoize(async (): Promise<void> => {
   const { enabled } = await loadAllPluginsCacheOnly()
   const allPluginHooks: Record<HookEvent, PluginHookMatcher[]> = {
     PreToolUse: [],

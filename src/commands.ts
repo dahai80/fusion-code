@@ -70,6 +70,7 @@ import {
     clearPluginSkillsCache,
 } from './utils/plugins/loadPluginCommands.js'
 import memoize from 'lodash-es/memoize.js'
+import { asyncMemoize } from './utils/asyncMemoize.js'
 import { isUsing3PServices, isClaudeAISubscriber } from './utils/auth.js'
 import { isFirstPartyAnthropicBaseUrl } from './utils/model/providers.js'
 import env from './commands/env/index.js'
@@ -285,7 +286,7 @@ export function meetsAvailabilityRequirement(cmd: Command): boolean {
 /**
  * Loads all command sources (skills, plugins). Memoized by cwd.
  */
-const loadAllCommands = memoize(async (cwd: string): Promise<Command[]> => {
+const loadAllCommands = asyncMemoize(async (cwd: string): Promise<Command[]> => {
     const [
         { skillDirCommands, pluginSkills, bundledSkills, builtinPluginSkills },
         pluginCommands,
