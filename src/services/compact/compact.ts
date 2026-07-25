@@ -120,6 +120,13 @@ import {
 } from '../tokenEstimation.js'
 import { groupMessagesByApiRound } from './grouping.js'
 import {
+    hardCompactMessages,
+    shouldUseHardCompact,
+    getHardCompactTokenBudget,
+    type HardCompactResult,
+} from './hardCompact.js'
+import { requestMlxGC } from '../api/fusion-mlx-adapter.js'
+import {
   getCompactPrompt,
   getCompactUserSummaryMessage,
   getPartialCompactPrompt,
@@ -557,6 +564,60 @@ export async function compactConversation(
       true,
     )
 
+    // Hard compact: MLX 优先走确定性截断路径,不调用 LLM
+    // suggest1.md 核心洞察: "让 LLM 去生成摘要在本地架构下是逻辑悖论"
+    // compact 触发时已接近上下文上限,再发全量消息做摘要只会 OOM
+    if (shouldUseHardCompact()) {
+        const hardResult = hardCompactMessages(messages)
+        const hardBudget = getHardCompactTokenBudget()
+        logEvent('tengu_compact_hard', {
+            originalMessageCount: messages.length,
+            hardCompactMessageCount: hardResult.messages.length,
+            truncatedToolResults: hardResult.truncatedToolResults,
+            truncatedAssistantTexts: hardResult.truncatedAssistantTexts,
+            roundsKeptIntact: hardResult.roundsKeptIntact,
+            roundsProcessed: hardResult.roundsProcessed,
+            preCompactTokens: hardResult.preCompactTokens,
+            postCompactTokens: hardResult.postCompactTokens,
+            withinBudget: hardResult.postCompactTokens <= hardBudget,
+        })
+        if (hardResult.postCompactTokens <= hardBudget) {
+            logForDebugging(
+                `[Compact] Hard compact succeeded: ${hardResult.preCompactTokens} → ${hardResult.postCompactTokens} tokens, `
+                + `truncated ${hardResult.truncatedToolResults} tool_results, ${hardResult.truncatedAssistantTexts} assistant texts`,
+            )
+            // Post-hard-compact GC: release stale KV cache in fusion-mlx backend
+            requestMlxGC().then(gcResult => {
+                if (gcResult.success) {
+                    logForDebugging(`[Compact] Post-hard-compact GC freed ${gcResult.freed ?? 'unknown'} bytes`)
+                }
+            }).catch(() => { /* non-blocking */ })
+            const boundaryMarker = createCompactBoundaryMessage(
+                isAutoCompact ? 'auto' : 'manual',
+                preCompactTokenCount ?? 0,
+                messages.at(-1)?.uuid,
+            )
+            return {
+                boundaryMarker,
+                summaryMessages: [
+                    createUserMessage({
+                        content: `[Hard compact: ${hardResult.roundsProcessed} rounds truncated, ${hardResult.truncatedToolResults} tool results shortened, ${hardResult.truncatedAssistantTexts} assistant texts shortened. Recent ${hardResult.roundsKeptIntact} rounds preserved intact.]`,
+                    }),
+                ],
+                attachments: [],
+                hookResults: [],
+                messagesToKeep: hardResult.messages,
+                userDisplayMessage: `Hard compact: ${hardResult.truncatedToolResults} tool outputs shortened, recent ${hardResult.roundsKeptIntact} rounds kept intact`,
+                preCompactTokenCount: hardResult.preCompactTokens,
+                postCompactTokenCount: hardResult.postCompactTokens,
+                truePostCompactTokenCount: hardResult.postCompactTokens,
+            }
+        }
+        logForDebugging(
+            `[Compact] Hard compact result ${hardResult.postCompactTokens} still over budget ${hardBudget}, falling back to LLM summarization`,
+        )
+    }
+
     const compactPrompt = getCompactPrompt(customInstructions)
     const summaryRequest = createUserMessage({
       content: compactPrompt,
@@ -866,6 +927,15 @@ export async function compactConversation(
       )
     }
     markPostCompaction()
+
+    // Post-compact GC: release stale KV cache in fusion-mlx backend (fire-and-forget)
+    if (isFusionMlxProvider()) {
+        requestMlxGC().then(gcResult => {
+            if (gcResult.success) {
+                logForDebugging(`[Compact] Post-compact GC freed ${gcResult.freed ?? 'unknown'} bytes`)
+            }
+        }).catch(() => { /* non-blocking */ })
+    }
 
     // Re-append session metadata (custom title, tag) so it stays within
     // the 16KB tail window that readLiteMetadata reads for --resume display.

@@ -398,6 +398,58 @@ export async function checkFusionMlxHealth(): Promise<FusionMlxStatus> {
   }
 }
 
+// Post-compact GC for MLX: request fusion-mlx backend to release KV cache
+// Importers: compact.ts (after compactConversation), hardCompact.ts (after hard compact)
+// User instruction: "深度研读 suggest1.md和suggest2.md 制定方案和计划，修复问题，提升fusion-code竞争力"
+// suggest1.md: "mx.metal.clear_cache() after compact" to prevent memory spike
+// API: POST /api/v1/gc → { mem_before, mem_after, freed }
+export interface MlxGCResult {
+    success: boolean
+    memBefore?: number
+    memAfter?: number
+    freed?: number
+    error?: string
+}
+
+export async function requestMlxGC(): Promise<MlxGCResult> {
+    try {
+        const controller = new AbortController()
+        const timer = setTimeout(() => controller.abort(), 5000)
+        const response = await fetch(getMlxApiUrl('/api/v1/gc'), {
+            method: 'POST',
+            headers: { ...getMlxAuthHeaders(), 'Content-Type': 'application/json' },
+            signal: controller.signal,
+        })
+        clearTimeout(timer)
+
+        if (!response.ok) {
+            logForDebugging(`[Fusion-MLX] GC request failed: ${response.status}`, { level: 'warn' })
+            return { success: false, error: `HTTP ${response.status}` }
+        }
+
+        const data = await response.json() as {
+            mem_before?: number
+            mem_after?: number
+            freed?: number
+        }
+        logForDebugging(
+            `[Fusion-MLX] GC completed: freed ${data.freed ?? 'unknown'} bytes`,
+        )
+        return {
+            success: true,
+            memBefore: data.mem_before,
+            memAfter: data.mem_after,
+            freed: data.freed,
+        }
+    } catch (error) {
+        logForDebugging(
+            `[Fusion-MLX] GC request error: ${(error as Error).message}`,
+            { level: 'warn' },
+        )
+        return { success: false, error: (error as Error).message }
+    }
+}
+
 /**
  * 获取 fusion-mlx 上可用的模型列表。
  */
