@@ -265,16 +265,16 @@
 7. **`/model` 持久化** — 保存选择为默认
 8. **"Manual" 模式重命名** — "Default" → "Manual"
 
-### Phase 2: Agent 能力升级 (2-3 周)
+### Phase 2: Agent 能力升级 (2-3 周) ✅ COMPLETED
 
-1. **动态 Workflows YAML** — 定义+执行
-2. **后台 Agent + 通知** — agent 异步执行
-3. **`/fork` + `/subtask`** — 会话分叉
-4. **Agent View** — agent 活动面板
-5. **PreCompact Hook** — 可阻止压缩
-6. **PostToolUse Hook 输出替换** — 工具输出拦截
-7. **Compaction 保留敏感指令** — 增强压缩逻辑
-8. **Fallback Model** — 模型降级链
+1. **动态 Workflows YAML** — 定义+执行 (Phase 1 已完成)
+2. **后台 Agent + 通知** — agent 异步执行 ✅ (已有实现)
+3. **`/fork` + `/subtask`** — 会话分叉 ✅
+4. **Agent View** — agent 活动面板 ✅ (已有实现)
+5. **PreCompact Hook** — 可阻止压缩 ✅
+6. **PostToolUse Hook 输出替换** — 工具输出拦截 ✅
+7. **Compaction 保留敏感指令** — 增强压缩逻辑 ✅
+8. **Fallback Model** — 模型降级链 ✅
 
 ### Phase 3: 安全与企业 (2-3 周)
 
