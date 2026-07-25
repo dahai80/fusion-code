@@ -41,8 +41,10 @@ import passes from './commands/passes/index.js'
 import privacySettings from './commands/privacy-settings/index.js'
 import hooks from './commands/hooks/index.js'
 import files from './commands/files/index.js'
+import fork from './commands/fork/index.js'
 import branch from './commands/branch/index.js'
 import agents from './commands/agents/index.js'
+import subtask from './commands/subtask/index.js'
 import reloadPlugins from './commands/reload-plugins/index.js'
 import reloadSkills from './commands/reload-skills/index.js'
 import rewind from './commands/rewind/index.js'
@@ -161,6 +163,7 @@ const COMMANDS = memoize((): Command[] => [
     fast,
     feedback,
     files,
+    fork,
     heapDump,
     help,
     ide,
@@ -184,6 +187,7 @@ const COMMANDS = memoize((): Command[] => [
     skills,
     stats,
     status,
+    subtask,
     summary,
     statusline,
     tag,
