@@ -2,6 +2,7 @@ import { profileCheckpoint } from '../utils/startupProfiler.js'
 import '../bootstrap/state.js'
 import '../utils/config.js'
 import memoize from 'lodash-es/memoize.js'
+import { asyncMemoize } from '../utils/asyncMemoize.js'
 import { getIsNonInteractiveSession } from 'src/bootstrap/state.js'
 import { shutdownLspServerManager } from '../services/lsp/manager.js'
 import { populateOAuthAccountInfoIfNeeded } from '../services/oauth/client.js'
@@ -39,7 +40,7 @@ import {
 import { configureGlobalAgents } from '../utils/proxy.js'
 import { setShellIfWindows } from '../utils/windowsPaths.js'
 
-export const init = memoize(async (): Promise<void> => {
+export const init = asyncMemoize(async (): Promise<void> => {
   const initStartTime = Date.now()
   logForDiagnosticsNoPII('info', 'init_started')
   profileCheckpoint('init_function_start')
