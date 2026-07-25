@@ -160,6 +160,15 @@ Tool tiers for MLX:
 
 AutoCompact triggers at 60% of the effective context window for MLX, with a minimum floor of `effectiveWindow - 4000` tokens to prevent firing before any conversation tokens are added.
 
+### MLX Memory Safety
+
+On 32K context windows, the system prompt (~3K) + tool definitions (~5K) consume ~8K tokens before any conversation. The MLX preflight check (`preflightMlxQueryCheck`) accounts for this overhead and forces compact when total tokens exceed the safe budget. Three safety layers prevent memory leaks:
+
+1. **Catastrophic abort**: If estimated tokens exceed 10x the safe budget, compact is skipped and the query aborts immediately with a clear error. This prevents 25M+ token arrays that consume 100GB+ RSS.
+2. **No recursive compact**: Compact's forked agent (`querySource === 'compact'`) is blocked from triggering forced compact. Without this guard, compact → forked agent → forced compact → infinite loop.
+3. **Compact tool stripping**: MLX compact agents cannot use tools (`canUseTool` denies everything), but tool definitions were still sent (~5K tokens wasted). Now stripped to `tools: []` for MLX compact calls.
+4. **One-shot forced compact**: `mlxForcedCompactDone` flag persists across loop iterations (reset on new user turn), ensuring forced compact is attempted at most once per query. After the attempt, a 20% tolerance allows the model call to proceed even if still slightly over budget.
+
 ---
 
 ## Install
