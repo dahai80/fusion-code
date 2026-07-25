@@ -1,7 +1,7 @@
 import type { Message } from '../types/message.js'
 import { logError } from './log.js'
 
-const ARTIFACT_ENGINE_URL = process.env.ARTIFACT_ENGINE_URL || 'http://127.0.0.1:8892'
+import { getArtifactEngineURL } from './artifactConfig.js'
 
 const REF_PATTERN = /\[Artifact:\s*[^\]]*?\|\s*ID:\s*(art_\w+)\s*\|[^\]]*\]/g
 
@@ -13,7 +13,7 @@ interface InjectionResult {
 
 async function artifactsRPC(method: string, params: Record<string, unknown> = {}): Promise<Record<string, unknown>> {
     const body = JSON.stringify({ jsonrpc: '2.0', id: Date.now(), method, params })
-    const resp = await fetch(ARTIFACT_ENGINE_URL, {
+    const resp = await fetch(getArtifactEngineURL(), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body,

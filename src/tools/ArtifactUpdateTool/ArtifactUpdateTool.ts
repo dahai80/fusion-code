@@ -4,7 +4,7 @@ import { lazySchema } from '../../utils/lazySchema.js'
 
 export const ARTIFACT_UPDATE_TOOL_NAME = 'UpdateArtifact'
 
-const ARTIFACT_ENGINE_URL = process.env.ARTIFACT_ENGINE_URL || 'http://127.0.0.1:8892'
+import { getArtifactEngineURL } from '../../utils/artifactConfig.js'
 
 const inputSchema = lazySchema(() =>
     z.strictObject({
@@ -27,7 +27,7 @@ type OutputSchema = ReturnType<typeof outputSchema>
 
 async function artifactsRPC(method: string, params: Record<string, unknown> = {}): Promise<Record<string, unknown>> {
     const body = JSON.stringify({ jsonrpc: '2.0', id: Date.now(), method, params })
-    const resp = await fetch(ARTIFACT_ENGINE_URL, {
+    const resp = await fetch(getArtifactEngineURL(), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body,

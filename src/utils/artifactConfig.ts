@@ -1,8 +1,3 @@
-// Importers/callers: ArtifactCreateTool.ts, ArtifactUpdateTool.ts, artifactInjection.ts import getArtifactEngineURL
-// Affected API: getArtifactEngineURL() replaces 3 separate hardcoded ARTIFACT_ENGINE_URL constants
-// Data schemas: reads ~/.fusion/artifacts/config.yaml (same format as artifacts-engine default_config.yaml)
-// User instruction: "所有的项目要有一个配置文件，配置类的卸载配置文件里面，不能写死在代码里面"
-
 import { readFileSync, existsSync } from 'fs'
 import { homedir } from 'os'
 import { join } from 'path'
