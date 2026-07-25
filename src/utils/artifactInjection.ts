@@ -1,7 +1,7 @@
 import type { Message } from '../types/message.js'
 import { logError } from './log.js'
 
-const ARTIFACT_ENGINE_URL = process.env.ARTIFACT_ENGINE_URL || 'http://127.0.0.1:8900'
+const ARTIFACT_ENGINE_URL = process.env.ARTIFACT_ENGINE_URL || 'http://127.0.0.1:8892'
 
 const REF_PATTERN = /\[Artifact:\s*[^\]]*?\|\s*ID:\s*(art_\w+)\s*\|[^\]]*\]/g
 

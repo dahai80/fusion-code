@@ -5,7 +5,7 @@ import { lazySchema } from '../../utils/lazySchema.js'
 
 export const ARTIFACT_CREATE_TOOL_NAME = 'CreateArtifact'
 
-const ARTIFACT_ENGINE_URL = process.env.ARTIFACT_ENGINE_URL || 'http://127.0.0.1:8900'
+const ARTIFACT_ENGINE_URL = process.env.ARTIFACT_ENGINE_URL || 'http://127.0.0.1:8892'
 
 const inputSchema = lazySchema(() =>
     z.strictObject({
