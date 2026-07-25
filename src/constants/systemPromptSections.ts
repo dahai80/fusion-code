@@ -4,6 +4,10 @@ import {
   getSystemPromptSectionCache,
   setSystemPromptSectionCacheEntry,
 } from '../bootstrap/state.js'
+import { logEvent } from '../services/analytics/index.js'
+import { isFusionMlxProvider } from '../utils/model/providers.js'
+
+const LOG_PREFIX = '[prefix-cache]'
 
 type ComputeFn = () => string | null | Promise<string | null>
 
@@ -58,11 +62,55 @@ export async function resolveSystemPromptSections(
 }
 
 /**
- * Clear all system prompt section state. Called on /clear and /compact.
+ * Clear all system prompt section state. Called on /clear.
  * Also resets beta header latches so a fresh conversation gets fresh
  * evaluation of AFK/fast-mode/cache-editing headers.
  */
 export function clearSystemPromptSections(): void {
   clearSystemPromptSectionState()
   clearBetaHeaderLatches()
+}
+
+/**
+ * Preserve cached system prompt sections across compaction for MLX KV reuse.
+ * Only clears null-valued entries; stable sections remain cached so the
+ * system prompt prefix stays identical post-compact, allowing MLX to reuse
+ * the KV cache for the unchanged prefix.
+ *
+ * Returns the number of preserved sections for telemetry.
+ */
+export function preserveCachedSections(): number {
+    const cache = getSystemPromptSectionCache()
+    const isMlx = isFusionMlxProvider()
+
+    if (!isMlx) {
+        clearSystemPromptSectionState()
+        clearBetaHeaderLatches()
+        return 0
+    }
+
+    const nullNames: string[] = []
+    let stableCount = 0
+
+    for (const [name, value] of cache) {
+        if (value === null) {
+            nullNames.push(name)
+            cache.delete(name)
+        } else {
+            stableCount++
+        }
+    }
+
+    clearBetaHeaderLatches()
+
+    console.log(
+        `${LOG_PREFIX} preserved ${stableCount} cached sections for MLX KV reuse (cleared ${nullNames.length} null)`,
+    )
+
+    logEvent('prefix_cache_preserved', {
+        preserved_sections: stableCount,
+        cleared_null: nullNames.length,
+    })
+
+    return stableCount
 }
