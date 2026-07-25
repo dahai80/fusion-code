@@ -29,9 +29,7 @@ import { applyPermissionRulesToPermissionContext } from './permissions.js'
 import { loadAllPermissionRulesFromDisk } from './permissionsLoader.js'
 
 /* eslint-disable @typescript-eslint/no-require-imports */
-const autoModeStateModule = feature('TRANSCRIPT_CLASSIFIER')
-  ? (require('./autoModeState.js') as typeof import('./autoModeState.js'))
-  : null
+const autoModeStateModule = require('./autoModeState.js') as typeof import('./autoModeState.js')
 
 import { resolve } from 'path'
 import {
@@ -609,32 +607,25 @@ export function transitionPermissionMode(
     setHasExitedPlanMode(true)
   }
 
-  if (feature('TRANSCRIPT_CLASSIFIER')) {
-    if (toMode === 'plan' && fromMode !== 'plan') {
-      return prepareContextForPlanMode(context)
-    }
+  if (toMode === 'plan' && fromMode !== 'plan') {
+    return prepareContextForPlanMode(context)
+  }
 
-    // Plan with auto active counts as using the classifier (for the leaving side).
-    // isAutoModeActive() is the authoritative signal — prePlanMode/strippedDangerousRules
-    // are unreliable proxies because auto can be deactivated mid-plan (non-opt-in
-    // entry, transitionPlanAutoMode) while those fields remain set/unset.
-    const fromUsesClassifier =
-      fromMode === 'auto' ||
-      (fromMode === 'plan' &&
-        (autoModeStateModule?.isAutoModeActive() ?? false))
-    const toUsesClassifier = toMode === 'auto' // plan entry handled above
+  // Auto mode transitions: deterministic rules for external builds,
+  // classifier-based for TRANSCRIPT_CLASSIFIER builds
+  const fromUsesAuto =
+    fromMode === 'auto' ||
+    (fromMode === 'plan' &&
+      (autoModeStateModule?.isAutoModeActive() ?? false))
+  const toUsesAuto = toMode === 'auto'
 
-    if (toUsesClassifier && !fromUsesClassifier) {
-      if (!isAutoModeGateEnabled()) {
-        throw new Error('Cannot transition to auto mode: gate is not enabled')
-      }
-      autoModeStateModule?.setAutoModeActive(true)
-      context = stripDangerousPermissionsForAutoMode(context)
-    } else if (fromUsesClassifier && !toUsesClassifier) {
-      autoModeStateModule?.setAutoModeActive(false)
-      setNeedsAutoModeExitAttachment(true)
-      context = restoreDangerousPermissions(context)
-    }
+  if (toUsesAuto && !fromUsesAuto) {
+    autoModeStateModule?.setAutoModeActive(true)
+    context = stripDangerousPermissionsForAutoMode(context)
+  } else if (fromUsesAuto && !toUsesAuto) {
+    autoModeStateModule?.setAutoModeActive(false)
+    setNeedsAutoModeExitAttachment(true)
+    context = restoreDangerousPermissions(context)
   }
 
   // Only spread if there's something to clear (preserves ref equality)
@@ -727,8 +718,8 @@ export function initialPermissionModeFromCLI({
   }
   if (permissionModeCli) {
     const parsedMode = permissionModeFromString(permissionModeCli)
-    if (feature('TRANSCRIPT_CLASSIFIER') && parsedMode === 'auto') {
-      if (autoModeCircuitBrokenSync) {
+    if (parsedMode === 'auto') {
+      if (feature('TRANSCRIPT_CLASSIFIER') && autoModeCircuitBrokenSync) {
         logForDebugging(
           'auto mode circuit breaker active (cached) — falling back to default',
           { level: 'warn' },
@@ -758,8 +749,8 @@ export function initialPermissionModeFromCLI({
       })
     }
     // auto from settings requires the same gate check as from CLI
-    else if (feature('TRANSCRIPT_CLASSIFIER') && settingsMode === 'auto') {
-      if (autoModeCircuitBrokenSync) {
+    else if (settingsMode === 'auto') {
+      if (feature('TRANSCRIPT_CLASSIFIER') && autoModeCircuitBrokenSync) {
         logForDebugging(
           'auto mode circuit breaker active (cached) — falling back to default',
           { level: 'warn' },
@@ -803,7 +794,7 @@ export function initialPermissionModeFromCLI({
     result = { mode: 'default', notification }
   }
 
-  if (feature('TRANSCRIPT_CLASSIFIER') && result.mode === 'auto') {
+  if (result.mode === 'auto') {
     autoModeStateModule?.setAutoModeActive(true)
   }
 
@@ -978,7 +969,7 @@ export async function initializeToolPermissionContext({
   // Dangerous permissions (like Bash(*), Bash(python:*), PowerShell(iex:*)) would auto-allow
   // before the classifier can evaluate them, defeating the purpose of safer YOLO mode
   let dangerousPermissions: DangerousPermissionInfo[] = []
-  if (feature('TRANSCRIPT_CLASSIFIER') && permissionMode === 'auto') {
+  if (permissionMode === 'auto') {
     dangerousPermissions = findDangerousClassifierPermissions(
       rulesFromDisk,
       parsedAllowedToolsCli,
@@ -993,9 +984,7 @@ export async function initializeToolPermissionContext({
       alwaysDenyRules: { cliArg: parsedDisallowedToolsCli },
       alwaysAskRules: {},
       isBypassPermissionsModeAvailable,
-      ...(feature('TRANSCRIPT_CLASSIFIER')
-        ? { isAutoModeAvailable: isAutoModeGateEnabled() }
-        : {}),
+      isAutoModeAvailable: isAutoModeGateEnabled(),
     },
     rulesFromDisk,
   )
@@ -1323,7 +1312,10 @@ export function getAutoModeUnavailableReason(): AutoModeUnavailableReason | null
  */
 export type AutoModeEnabledState = 'enabled' | 'disabled' | 'opt-in'
 
-const AUTO_MODE_ENABLED_DEFAULT: AutoModeEnabledState = 'disabled'
+// For TRANSCRIPT_CLASSIFIER builds, GrowthBook controls this; for external
+// deterministic-auto builds, auto mode is always available by default.
+const AUTO_MODE_ENABLED_DEFAULT: AutoModeEnabledState =
+  feature('TRANSCRIPT_CLASSIFIER') ? 'disabled' : 'enabled'
 
 function parseAutoModeEnabledState(value: unknown): AutoModeEnabledState {
   if (value === 'enabled' || value === 'disabled' || value === 'opt-in') {
@@ -1444,11 +1436,8 @@ export async function checkAndDisableBypassPermissions(
 }
 
 export function isDefaultPermissionModeAuto(): boolean {
-  if (feature('TRANSCRIPT_CLASSIFIER')) {
-    const settings = getInitialSettings() || {}
-    return settings.permissions?.defaultMode === 'auto'
-  }
-  return false
+  const settings = getInitialSettings() || {}
+  return settings.permissions?.defaultMode === 'auto'
 }
 
 /**
@@ -1457,14 +1446,11 @@ export function isDefaultPermissionModeAuto(): boolean {
  * Evaluated at permission-check time so it's reactive to config changes.
  */
 export function shouldPlanUseAutoMode(): boolean {
-  if (feature('TRANSCRIPT_CLASSIFIER')) {
-    return (
-      hasAutoModeOptIn() &&
-      isAutoModeGateEnabled() &&
-      getUseAutoModeDuringPlan()
-    )
-  }
-  return false
+  return (
+    hasAutoModeOptIn() &&
+    isAutoModeGateEnabled() &&
+    getUseAutoModeDuringPlan()
+  )
 }
 
 /**
@@ -1477,7 +1463,7 @@ export function prepareContextForPlanMode(
 ): ToolPermissionContext {
   const currentMode = context.mode
   if (currentMode === 'plan') return context
-  if (feature('TRANSCRIPT_CLASSIFIER')) {
+  {
     const planAutoMode = shouldPlanUseAutoMode()
     if (currentMode === 'auto') {
       if (planAutoMode) {
@@ -1515,7 +1501,7 @@ export function prepareContextForPlanMode(
 export function transitionPlanAutoMode(
   context: ToolPermissionContext,
 ): ToolPermissionContext {
-  if (!feature('TRANSCRIPT_CLASSIFIER')) return context
+  if (context.mode !== 'plan') return context
   if (context.mode !== 'plan') return context
   // Mirror prepareContextForPlanMode's entry-time exclusion — never activate
   // auto mid-plan when the user entered from a dangerous mode.

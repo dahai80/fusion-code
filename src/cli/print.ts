@@ -1062,7 +1062,7 @@ function runHeadlessStreaming(
       newMode === 'acceptEdits' ||
       newMode === 'bypassPermissions' ||
       newMode === 'plan' ||
-      newMode === (feature('TRANSCRIPT_CLASSIFIER') && 'auto') ||
+      newMode === 'auto' ||
       newMode === 'dontAsk'
     ) {
       output.enqueue({

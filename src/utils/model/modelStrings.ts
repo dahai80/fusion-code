@@ -3,6 +3,7 @@ import {
     setModelStrings as setModelStringsState,
 } from 'src/bootstrap/state.js'
 import { logError } from '../log.js'
+import { getInitialSettings } from '../settings/settings.js'
 import {
     ALL_MODEL_CONFIGS,
     CANONICAL_ID_TO_KEY,

@@ -29,7 +29,7 @@ export function useAutoModeUnavailableNotification(): void {
     const prevMode = prevModeRef.current
     prevModeRef.current = mode
 
-    if (!feature('TRANSCRIPT_CLASSIFIER')) return
+    // No early return — auto mode is available for all builds now
     if (getIsRemoteMode()) return
     if (shownRef.current) return
 

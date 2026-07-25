@@ -23,29 +23,28 @@ import {
  * 'enabled'), but the guard makes it safe regardless.
  */
 export function resetAutoModeOptInForDefaultOffer(): void {
-  if (feature('TRANSCRIPT_CLASSIFIER')) {
-    const config = getGlobalConfig()
-    if (config.hasResetAutoModeOptInForDefaultOffer) return
-    if (getAutoModeEnabledState() !== 'enabled') return
+  const config = getGlobalConfig()
+  if (config.hasResetAutoModeOptInForDefaultOffer) return
+  // Only run when GrowthBook config says 'enabled' (ant-specific migration)
+  if (feature('TRANSCRIPT_CLASSIFIER') && getAutoModeEnabledState() !== 'enabled') return
 
-    try {
-      const user = getSettingsForSource('userSettings')
-      if (
-        user?.skipAutoPermissionPrompt &&
-        user?.permissions?.defaultMode !== 'auto'
-      ) {
-        updateSettingsForSource('userSettings', {
-          skipAutoPermissionPrompt: undefined,
-        })
-        logEvent('tengu_migrate_reset_auto_opt_in_for_default_offer', {})
-      }
-
-      saveGlobalConfig(c => {
-        if (c.hasResetAutoModeOptInForDefaultOffer) return c
-        return { ...c, hasResetAutoModeOptInForDefaultOffer: true }
+  try {
+    const user = getSettingsForSource('userSettings')
+    if (
+      user?.skipAutoPermissionPrompt &&
+      user?.permissions?.defaultMode !== 'auto'
+    ) {
+      updateSettingsForSource('userSettings', {
+        skipAutoPermissionPrompt: undefined,
       })
-    } catch (error) {
-      logError(new Error(`Failed to reset auto mode opt-in: ${error}`))
+      logEvent('tengu_migrate_reset_auto_opt_in_for_default_offer', {})
     }
+
+    saveGlobalConfig(c => {
+      if (c.hasResetAutoModeOptInForDefaultOffer) return c
+      return { ...c, hasResetAutoModeOptInForDefaultOffer: true }
+    })
+  } catch (error) {
+    logError(new Error(`Failed to reset auto mode opt-in: ${error}`))
   }
 }

@@ -180,7 +180,9 @@ export function modelSupportsAutoMode(model: string): boolean {
     // External allowlist (firstParty already checked above).
     return /^claude-(opus|sonnet)-4-6/.test(m)
   }
-  return false
+  // External builds without classifier: auto mode uses deterministic rules,
+  // so it's available for all models/providers (no PI probe needed)
+  return true
 }
 
 /**

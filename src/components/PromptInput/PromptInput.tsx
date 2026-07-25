@@ -1455,42 +1455,37 @@ function PromptInput({
     // hasAutoModeOptInAnySource so that --enable-auto-mode users still see
     // the warning dialog once — the CLI flag should grant carousel access,
     // not bypass the safety text.
-    let isEnteringAutoModeFirstTime = false;
-    if (feature('TRANSCRIPT_CLASSIFIER')) {
-      isEnteringAutoModeFirstTime = nextMode === 'auto' && toolPermissionContext.mode !== 'auto' && !hasAutoModeOptIn() && !viewingAgentTaskId; // Only show for primary agent, not subagents
-    }
-    if (feature('TRANSCRIPT_CLASSIFIER')) {
-      if (isEnteringAutoModeFirstTime) {
-        // Store previous mode so we can revert if user declines
-        setPreviousModeBeforeAuto(toolPermissionContext.mode);
+    const isEnteringAutoModeFirstTime = nextMode === 'auto' && toolPermissionContext.mode !== 'auto' && !hasAutoModeOptIn() && !viewingAgentTaskId; // Only show for primary agent, not subagents
+    if (isEnteringAutoModeFirstTime) {
+      // Store previous mode so we can revert if user declines
+      setPreviousModeBeforeAuto(toolPermissionContext.mode);
 
-        // Only update the UI mode label — do NOT call transitionPermissionMode
-        // or cyclePermissionMode yet; we haven't confirmed with the user.
-        setAppState(prev => ({
-          ...prev,
-          toolPermissionContext: {
-            ...prev.toolPermissionContext,
-            mode: 'auto'
-          }
-        }));
-        setToolPermissionContext({
-          ...toolPermissionContext,
+      // Only update the UI mode label — do NOT call transitionPermissionMode
+      // or cyclePermissionMode yet; we haven't confirmed with the user.
+      setAppState(prev => ({
+        ...prev,
+        toolPermissionContext: {
+          ...prev.toolPermissionContext,
           mode: 'auto'
-        });
+        }
+      }));
+      setToolPermissionContext({
+        ...toolPermissionContext,
+        mode: 'auto'
+      });
 
-        // Show opt-in dialog after 400ms debounce
-        if (autoModeOptInTimeoutRef.current) {
-          clearTimeout(autoModeOptInTimeoutRef.current);
-        }
-        autoModeOptInTimeoutRef.current = setTimeout((setShowAutoModeOptIn, autoModeOptInTimeoutRef) => {
-          setShowAutoModeOptIn(true);
-          autoModeOptInTimeoutRef.current = null;
-        }, 400, setShowAutoModeOptIn, autoModeOptInTimeoutRef);
-        if (helpOpen) {
-          setHelpOpen(false);
-        }
-        return;
+      // Show opt-in dialog after 400ms debounce
+      if (autoModeOptInTimeoutRef.current) {
+        clearTimeout(autoModeOptInTimeoutRef.current);
       }
+      autoModeOptInTimeoutRef.current = setTimeout((setShowAutoModeOptIn, autoModeOptInTimeoutRef) => {
+        setShowAutoModeOptIn(true);
+        autoModeOptInTimeoutRef.current = null;
+      }, 400, setShowAutoModeOptIn, autoModeOptInTimeoutRef);
+      if (helpOpen) {
+        setHelpOpen(false);
+      }
+      return;
     }
 
     // Dismiss auto mode opt-in dialog if showing or pending (user is cycling away).
@@ -1498,19 +1493,17 @@ function PromptInput({
     // carousel", not "decline". Reverting causes a ping-pong loop: auto reverts to
     // the prior mode, whose next mode is auto again, forever.
     // The dialog's own decline button (handleAutoModeOptInDecline) handles revert.
-    if (feature('TRANSCRIPT_CLASSIFIER')) {
-      if (showAutoModeOptIn || autoModeOptInTimeoutRef.current) {
-        if (showAutoModeOptIn) {
-          logEvent('tengu_auto_mode_opt_in_dialog_decline', {});
-        }
-        setShowAutoModeOptIn(false);
-        if (autoModeOptInTimeoutRef.current) {
-          clearTimeout(autoModeOptInTimeoutRef.current);
-          autoModeOptInTimeoutRef.current = null;
-        }
-        setPreviousModeBeforeAuto(null);
-        // Fall through — mode is 'auto', cyclePermissionMode below goes to 'default'.
+    if (showAutoModeOptIn || autoModeOptInTimeoutRef.current) {
+      if (showAutoModeOptIn) {
+        logEvent('tengu_auto_mode_opt_in_dialog_decline', {});
       }
+      setShowAutoModeOptIn(false);
+      if (autoModeOptInTimeoutRef.current) {
+        clearTimeout(autoModeOptInTimeoutRef.current);
+        autoModeOptInTimeoutRef.current = null;
+      }
+      setPreviousModeBeforeAuto(null);
+      // Fall through — mode is 'auto', cyclePermissionMode below goes to 'default'.
     }
 
     // Now that we know this is NOT the first-time auto mode path,
@@ -1558,14 +1551,12 @@ function PromptInput({
 
   // Handler for auto mode opt-in dialog acceptance
   const handleAutoModeOptInAccept = useCallback(() => {
-    if (feature('TRANSCRIPT_CLASSIFIER')) {
-      setShowAutoModeOptIn(false);
-      setPreviousModeBeforeAuto(null);
+    setShowAutoModeOptIn(false);
+    setPreviousModeBeforeAuto(null);
 
-      // Now that the user accepted, apply the full transition: activate the
-      // auto mode backend (classifier, beta headers) and strip dangerous
-      // permissions (e.g. Bash(*) always-allow rules).
-      const strippedContext = transitionPermissionMode(previousModeBeforeAuto ?? toolPermissionContext.mode, 'auto', toolPermissionContext);
+    // Now that the user accepted, apply the full transition: activate the
+    // auto mode backend and strip dangerous permissions
+    const strippedContext = transitionPermissionMode(previousModeBeforeAuto ?? toolPermissionContext.mode, 'auto', toolPermissionContext);
       setAppState(prev => ({
         ...prev,
         toolPermissionContext: {
@@ -1582,38 +1573,35 @@ function PromptInput({
       if (helpOpen) {
         setHelpOpen(false);
       }
-    }
   }, [helpOpen, setHelpOpen, previousModeBeforeAuto, toolPermissionContext, setAppState, setToolPermissionContext]);
 
   // Handler for auto mode opt-in dialog decline
   const handleAutoModeOptInDecline = useCallback(() => {
-    if (feature('TRANSCRIPT_CLASSIFIER')) {
-      logForDebugging(`[auto-mode] handleAutoModeOptInDecline: reverting to ${previousModeBeforeAuto}, setting isAutoModeAvailable=false`);
-      setShowAutoModeOptIn(false);
-      if (autoModeOptInTimeoutRef.current) {
-        clearTimeout(autoModeOptInTimeoutRef.current);
-        autoModeOptInTimeoutRef.current = null;
-      }
+    logForDebugging(`[auto-mode] handleAutoModeOptInDecline: reverting to ${previousModeBeforeAuto}, setting isAutoModeAvailable=false`);
+    setShowAutoModeOptIn(false);
+    if (autoModeOptInTimeoutRef.current) {
+      clearTimeout(autoModeOptInTimeoutRef.current);
+      autoModeOptInTimeoutRef.current = null;
+    }
 
-      // Revert to previous mode and remove auto from the carousel
-      // for the rest of this session
-      if (previousModeBeforeAuto) {
-        setAutoModeActive(false);
-        setAppState(prev => ({
-          ...prev,
-          toolPermissionContext: {
-            ...prev.toolPermissionContext,
-            mode: previousModeBeforeAuto,
-            isAutoModeAvailable: false
-          }
-        }));
-        setToolPermissionContext({
-          ...toolPermissionContext,
+    // Revert to previous mode and remove auto from the carousel
+    // for the rest of this session
+    if (previousModeBeforeAuto) {
+      setAutoModeActive(false);
+      setAppState(prev => ({
+        ...prev,
+        toolPermissionContext: {
+          ...prev.toolPermissionContext,
           mode: previousModeBeforeAuto,
           isAutoModeAvailable: false
-        });
-        setPreviousModeBeforeAuto(null);
-      }
+        }
+      }));
+      setToolPermissionContext({
+        ...toolPermissionContext,
+        mode: previousModeBeforeAuto,
+        isAutoModeAvailable: false
+      });
+      setPreviousModeBeforeAuto(null);
     }
   }, [previousModeBeforeAuto, toolPermissionContext, setAppState, setToolPermissionContext]);
 
@@ -2120,7 +2108,7 @@ function PromptInput({
   // slot's overflowY:hidden clip (same pattern as SuggestionsOverlay).
   // Must be called before early returns below to satisfy rules-of-hooks.
   // Memoized so the portal useEffect doesn't churn on every PromptInput render.
-  const autoModeOptInDialog = useMemo(() => feature('TRANSCRIPT_CLASSIFIER') && showAutoModeOptIn ? <AutoModeOptInDialog onAccept={handleAutoModeOptInAccept} onDecline={handleAutoModeOptInDecline} /> : null, [showAutoModeOptIn, handleAutoModeOptInAccept, handleAutoModeOptInDecline]);
+  const autoModeOptInDialog = useMemo(() => showAutoModeOptIn ? <AutoModeOptInDialog onAccept={handleAutoModeOptInAccept} onDecline={handleAutoModeOptInDecline} /> : null, [showAutoModeOptIn, handleAutoModeOptInAccept, handleAutoModeOptInDecline]);
   useSetPromptOverlayDialog(isFullscreenEnvEnabled() ? autoModeOptInDialog : null);
   if (showBashesDialog) {
     return <BackgroundTasksDialog onDone={() => setShowBashesDialog(false)} toolUseContext={getToolUseContext(messages, [], new AbortController(), mainLoopModel)} initialDetailTaskId={typeof showBashesDialog === 'string' ? showBashesDialog : undefined} />;

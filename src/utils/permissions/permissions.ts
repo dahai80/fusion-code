@@ -59,9 +59,7 @@ import {
 const classifierDecisionModule = feature('TRANSCRIPT_CLASSIFIER')
   ? (require('./classifierDecision.js') as typeof import('./classifierDecision.js'))
   : null
-const autoModeStateModule = feature('TRANSCRIPT_CLASSIFIER')
-  ? (require('./autoModeState.js') as typeof import('./autoModeState.js'))
-  : null
+const autoModeStateModule = require('./autoModeState.js') as typeof import('./autoModeState.js')
 
 import {
   addToTurnClassifierDuration,
@@ -515,6 +513,82 @@ export const hasPermissionsToUseTool: CanUseToolFn = async (
         message: DONT_ASK_REJECT_MESSAGE(tool.name),
       }
     }
+    // Deterministic auto mode: auto-approve safe operations without LLM classifier
+    // This runs for ALL users when mode is 'auto' and TRANSCRIPT_CLASSIFIER is not active.
+    // When TRANSCRIPT_CLASSIFIER IS active, the classifier path below handles it instead.
+    if (
+      !feature('TRANSCRIPT_CLASSIFIER') &&
+      appState.toolPermissionContext.mode === 'auto'
+    ) {
+      // Safety check decisions that are NOT classifier-approvable must still prompt
+      if (
+        result.decisionReason?.type === 'safetyCheck' &&
+        !result.decisionReason.classifierApprovable
+      ) {
+        if (appState.toolPermissionContext.shouldAvoidPermissionPrompts) {
+          return {
+            behavior: 'deny',
+            message: result.message,
+            decisionReason: {
+              type: 'asyncAgent',
+              reason: 'Safety check requires interactive approval and permission prompts are not available in this context',
+            },
+          }
+        }
+        return result
+      }
+
+      // Tools that require user interaction still need prompts even in auto mode
+      if (tool.requiresUserInteraction?.() && result.behavior === 'ask') {
+        return result
+      }
+
+      // File tools: auto-allow in auto mode (Write, Edit, Read, Glob, Grep, NotebookEdit)
+      const autoAllowTools = new Set([
+        'Read', 'Write', 'Edit', 'Glob', 'Grep',
+        'NotebookEdit', 'WebSearch', 'WebFetch',
+        'TodoRead', 'TodoWrite', 'TaskRead',
+      ])
+      if (autoAllowTools.has(tool.name)) {
+        logForDebugging(`[auto-mode] auto-allowing ${tool.name} (safe tool in auto mode)`)
+        return {
+          behavior: 'allow',
+          updatedInput: input,
+          decisionReason: {
+            type: 'mode',
+            mode: 'auto',
+          },
+        }
+      }
+
+      // Bash tool: handled by modeValidation.ts checkPermissionMode() in the tool's
+      // own checkPermissions(). If it returned 'ask', respect that (dangerous command).
+      // If it returned 'allow', that was already handled earlier.
+      // If we reach here with Bash, the command wasn't explicitly allowed or denied
+      // by the danger list — fall through to prompt the user.
+      if (tool.name === BASH_TOOL_NAME) {
+        logForDebugging(`[auto-mode] bash command needs prompt: not in safe list`)
+        return result
+      }
+
+      // Agent tool: always ask (sub-agents need oversight in auto mode)
+      if (tool.name === AGENT_TOOL_NAME) {
+        logForDebugging(`[auto-mode] agent tool requires confirmation in auto mode`)
+        return result
+      }
+
+      // All other tools: auto-allow in auto mode
+      logForDebugging(`[auto-mode] auto-allowing ${tool.name} (default auto mode behavior)`)
+      return {
+        behavior: 'allow',
+        updatedInput: input,
+        decisionReason: {
+          type: 'mode',
+          mode: 'auto',
+        },
+      }
+    }
+
     // Apply auto mode: use AI classifier instead of prompting user
     // Check this BEFORE shouldAvoidPermissionPrompts so classifiers work in headless mode
     if (

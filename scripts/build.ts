@@ -155,7 +155,7 @@ const cmd = [
   'esm',
   '--outfile',
   outfile,
-  '--minify',
+  "--minify",
   '--bytecode',
   '--packages',
   'bundle',
