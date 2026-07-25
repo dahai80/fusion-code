@@ -9,8 +9,20 @@ process.env.FUSION_CODE_CONFIG_DIR = join(homedir(), '.fusion-code');
 if (!process.env.NO_COLOR) process.env.FORCE_COLOR = '1';
 
 // 确保 stdout 为 TTY 模式，使 Ink 库能正确渲染
-// 注意：模式检测已改为同时检查 stdin.isTTY，不会误判管道模式
-try { (process.stdout as any).isTTY = true; } catch {};
+// 使用 Object.defineProperty 替代直接赋值，避免在 strict mode 下静默失败
+// 同时保留原始 isTTY 值，以便需要时恢复
+try {
+    const originalIsTTY = (process.stdout as any).isTTY;
+    Object.defineProperty(process.stdout, 'isTTY', {
+        value: true,
+        writable: true,
+        configurable: true,
+        enumerable: true,
+    });
+    (process.stdout as any)._originalIsTTY = originalIsTTY;
+} catch (e) {
+    // 非关键：某些环境下 stdout 不可修改（如 worker thread），Ink 会降级处理
+}
 
 // 将 FUSION_* 环境变量映射到 ANTHROPIC_*（SDK 兼容性）
 // @anthropic-ai/sdk 内部读取 ANTHROPIC_API_KEY 等环境变量
