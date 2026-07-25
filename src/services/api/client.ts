@@ -150,6 +150,10 @@ export async function getAnthropicClient({
 
   // ── Fusion-MLX (local) provider — skip all cloud auth ──
   if (isFusionMlxProvider()) {
+    // 等待启动时的 fire-and-forget MLX 检测完成
+    const mlxReady = (globalThis as any).__fusionMlxReady as Promise<boolean> | undefined
+    if (mlxReady) await mlxReady
+
     const { checkFusionMlxHealth, getRecommendedCodeModel } = await import(
       './fusion-mlx-adapter.js'
     )
