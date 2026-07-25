@@ -58,10 +58,6 @@ export function getAgentModel(
     resolvedModel: string,
     originalSpec: string,
   ): string => {
-    if (parentRegionPrefix && getAPIProvider() === 'bedrock') {
-      if (getBedrockRegionPrefix(originalSpec)) return resolvedModel
-      return applyBedrockRegionPrefix(resolvedModel, parentRegionPrefix)
-    }
     return resolvedModel
   }
 

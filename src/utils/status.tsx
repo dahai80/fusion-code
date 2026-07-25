@@ -242,9 +242,9 @@ export function buildAPIProviderProperties(): Property[] {
   const properties: Property[] = [];
   if (apiProvider !== 'firstParty') {
     const providerLabel = {
-      bedrock: 'AWS Bedrock',
-      vertex: 'Google Vertex AI',
-      foundry: 'Microsoft Foundry'
+      foundry: 'Microsoft Foundry',
+      openai: 'OpenAI',
+      fusionMlx: 'Fusion-MLX (Local)',
     }[apiProvider];
     properties.push({
       label: 'API provider',
@@ -257,47 +257,6 @@ export function buildAPIProviderProperties(): Property[] {
       properties.push({
         label: 'Anthropic base URL',
         value: anthropicBaseUrl
-      });
-    }
-  } else if (apiProvider === 'bedrock') {
-    const bedrockBaseUrl = process.env.BEDROCK_BASE_URL;
-    if (bedrockBaseUrl) {
-      properties.push({
-        label: 'Bedrock base URL',
-        value: bedrockBaseUrl
-      });
-    }
-    properties.push({
-      label: 'AWS region',
-      value: getAWSRegion()
-    });
-    if (isEnvTruthy(process.env.CLAUDE_CODE_SKIP_BEDROCK_AUTH)) {
-      properties.push({
-        value: 'AWS auth skipped'
-      });
-    }
-  } else if (apiProvider === 'vertex') {
-    const vertexBaseUrl = process.env.VERTEX_BASE_URL;
-    if (vertexBaseUrl) {
-      properties.push({
-        label: 'Vertex base URL',
-        value: vertexBaseUrl
-      });
-    }
-    const gcpProject = process.env.ANTHROPIC_VERTEX_PROJECT_ID;
-    if (gcpProject) {
-      properties.push({
-        label: 'GCP project',
-        value: gcpProject
-      });
-    }
-    properties.push({
-      label: 'Default region',
-      value: getDefaultVertexRegion()
-    });
-    if (isEnvTruthy(process.env.CLAUDE_CODE_SKIP_VERTEX_AUTH)) {
-      properties.push({
-        value: 'GCP auth skipped'
       });
     }
   } else if (apiProvider === 'foundry') {

@@ -1140,15 +1140,6 @@ export function classifyAPIError(error: unknown): string {
     return 'auth_error'
   }
 
-  // Bedrock-specific errors
-  if (
-    false &&
-    error instanceof Error &&
-    error.message.toLowerCase().includes('model id')
-  ) {
-    return 'bedrock_model_access'
-  }
-
   // Status code based fallbacks
   if (error instanceof APIError) {
     const status = error.status

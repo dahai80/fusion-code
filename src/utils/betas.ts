@@ -111,17 +111,6 @@ export function modelSupportsISP(model: string): boolean {
   )
 }
 
-function vertexModelSupportsWebSearch(model: string): boolean {
-  const canonical = getCanonicalName(model)
-  // Web search only supported on Claude 4.0+ models on Vertex
-  return (
-    canonical.includes('claude-opus-4') ||
-    canonical.includes('claude-sonnet-4') ||
-    canonical.includes('claude-haiku-4')
-  )
-}
-
-// Context management is supported on Claude 4+ models
 export function modelSupportsContextManagement(model: string): boolean {
   const canonical = getCanonicalName(model)
   const provider = getAPIProvider()
@@ -200,10 +189,6 @@ export function modelSupportsAutoMode(model: string): boolean {
  * - Vertex AI / Bedrock: tool-search-tool-2025-10-19
  */
 export function getToolSearchBetaHeader(): string {
-  const provider = getAPIProvider()
-  if (provider === 'vertex' || provider === 'bedrock') {
-    return TOOL_SEARCH_BETA_HEADER_3P
-  }
   return TOOL_SEARCH_BETA_HEADER_1P
 }
 
@@ -342,10 +327,6 @@ export const getAllModelBetas = memoize((model: string): string[] => {
     betaHeaders.push(TOKEN_EFFICIENT_TOOLS_BETA_HEADER)
   }
 
-  // Add web search beta for Vertex Claude 4.0+ models only
-  if (provider === 'vertex' && vertexModelSupportsWebSearch(model)) {
-    betaHeaders.push(WEB_SEARCH_BETA_HEADER)
-  }
   // Foundry only ships models that already support Web Search
   if (provider === 'foundry') {
     betaHeaders.push(WEB_SEARCH_BETA_HEADER)
@@ -369,19 +350,8 @@ export const getAllModelBetas = memoize((model: string): string[] => {
 })
 
 export const getModelBetas = memoize((model: string): string[] => {
-  const modelBetas = getAllModelBetas(model)
-  if (false) {
-    return modelBetas
-  }
-  return modelBetas
+  return getAllModelBetas(model)
 })
-
-export const getBedrockExtraBodyParamsBetas = memoize(
-  (model: string): string[] => {
-    const modelBetas = getAllModelBetas(model)
-    return modelBetas.filter(b => BEDROCK_EXTRA_PARAMS_HEADERS.has(b))
-  },
-)
 
 /**
  * Merge SDK-provided betas with auto-detected model betas.
@@ -430,5 +400,4 @@ export function getMergedBetas(
 export function clearBetasCaches(): void {
   getAllModelBetas.cache?.clear?.()
   getModelBetas.cache?.clear?.()
-  getBedrockExtraBodyParamsBetas.cache?.clear?.()
 }

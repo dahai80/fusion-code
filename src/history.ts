@@ -286,6 +286,7 @@ let lastAddedEntry: LogEntry | null = null
 // Timestamps of entries already flushed to disk that should be skipped when
 // reading. Used by removeLastFromHistory when the entry has raced past the
 // pending buffer. Session-scoped (module state resets on process restart).
+const MAX_SKIPPED_TIMESTAMPS = 1000
 const skippedTimestamps = new Set<number>()
 
 // Core flush logic - writes pending entries to disk
@@ -460,5 +461,9 @@ export function removeLastFromHistory(): void {
     pendingEntries.splice(idx, 1)
   } else {
     skippedTimestamps.add(entry.timestamp)
+    if (skippedTimestamps.size > MAX_SKIPPED_TIMESTAMPS) {
+        const iter = skippedTimestamps.values()
+        skippedTimestamps.delete(iter.next().value)
+    }
   }
 }

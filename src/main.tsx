@@ -224,8 +224,8 @@ function logManagedSettings(): void {
         keys: allKeys.join(',') as unknown as AnalyticsMetadata_I_VERIFIED_THIS_IS_NOT_CODE_OR_FILEPATHS
       });
     }
-  } catch {
-    // Silently ignore errors - this is just for analytics
+  } catch (e) {
+    logForDebugging('analytics event failed: ' + (e instanceof Error ? e.message : String(e)))
   }
 }
 
@@ -347,8 +347,8 @@ function runMigrations(): void {
     });
   }
   // Async migration - fire and forget since it's non-blocking
-  migrateChangelogFromConfig().catch(() => {
-    // Silently ignore migration errors - will retry on next startup
+  migrateChangelogFromConfig().catch((e) => {
+    logForDebugging('changelog migration failed: ' + (e instanceof Error ? e.message : String(e)))
   });
 }
 

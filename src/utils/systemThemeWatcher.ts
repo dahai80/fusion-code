@@ -16,6 +16,7 @@ const OSC_11_RESPONSE_PREFIX = '\x1b]11;'
 // Single listener shared across polls to avoid listener accumulation
 let _registeredDataListener: ((chunk: Buffer) => void) | null = null
 let _responseTimeout: ReturnType<typeof setTimeout> | undefined
+let _oneshotActive = false
 
 /**
  * Shared data handler for OSC 11 responses.
@@ -128,6 +129,12 @@ export function queryThemeOnce(): Promise<'dark' | 'light' | undefined> {
       return
     }
 
+    if (_oneshotActive) {
+      resolve(undefined)
+      return
+    }
+
+    _oneshotActive = true
     let resolved = false
     let responseTimeout: ReturnType<typeof setTimeout> | undefined
 
@@ -147,6 +154,7 @@ export function queryThemeOnce(): Promise<'dark' | 'light' | undefined> {
     }
 
     const cleanup = () => {
+      _oneshotActive = false
       if (responseTimeout !== undefined) {
         clearTimeout(responseTimeout)
       }
