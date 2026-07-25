@@ -43,11 +43,7 @@ export function isBuiltinPluginId(pluginId: string): boolean {
  * Useful for the /plugin UI to show the skills/hooks/MCP list without
  * a marketplace lookup.
  */
-export function getBuiltinPluginDefinition(
-  name: string,
-): BuiltinPluginDefinition | undefined {
-  return BUILTIN_PLUGINS.get(name)
-}
+// getBuiltinPluginDefinition removed — was unused (dead export)
 
 /**
  * Get all registered built-in plugins as LoadedPlugin objects, split into
@@ -120,12 +116,7 @@ export function getBuiltinPluginSkillCommands(): Command[] {
   return commands
 }
 
-/**
- * Clear built-in plugins registry (for testing).
- */
-export function clearBuiltinPlugins(): void {
-  BUILTIN_PLUGINS.clear()
-}
+// clearBuiltinPlugins removed — was unused (dead export)
 
 // --
 
