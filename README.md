@@ -121,6 +121,8 @@ fusion-code supports multiple API backends. The provider is selected automatical
 
 > The first matching provider wins. If none match, local MLX is auto-detected on port 11434.
 
+**Fallback model**: When the primary model is overloaded (529) or rate-limited (429), fusion-code automatically falls back to a smaller model. The default chain is opus→sonnet→haiku. Override with `FUSION_FALLBACK_MODEL` or the `/config fallbackModel` setting.
+
 ### Provider Configuration Summary
 
 | Provider | Required Env | Auth Method | Notes |
@@ -150,6 +152,7 @@ Session override (`/model`) > `--model` CLI flag > `FUSION_MODEL` / `FUSION_MLX_
 | `FUSION_MLX_BASE_URL` | — | `http://192.168.1.10:11434` |
 | `FUSION_CUSTOM_HEADERS` | — | `{"X-Key":"val"}` |
 | `FUSION_BETAS` | `ANTHROPIC_BETAS` | `max-tokens-3-5-sonnet-2024-07-15` |
+| `FUSION_FALLBACK_MODEL` | — | `claude-sonnet-5` (auto-derived if unset) |
 
 ### Tuning Environment Variables
 
@@ -331,6 +334,8 @@ Press **Shift+Tab** to cycle modes:
 | `/ctx_viz` | Visualize context window usage |
 | `/summary` | Generate a summary of the current conversation |
 | `/workflows` | List and run workflow scripts |
+| `/subtask` | Spawn an inline sub-agent to handle a specific task |
+| `/fork` | Create a sub-agent fork in the current conversation context |
 | `/break-cache` | Reset prompt cache break detection |
 
 ### Builtin Plugins
