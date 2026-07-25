@@ -85,6 +85,8 @@ export const DEFAULT_BINDINGS: KeybindingBlock[] = [
       'ctrl+s': 'chat:stash',
       // Image paste shortcut (platform-specific key defined above)
       [IMAGE_PASTE_KEY]: 'chat:imagePaste',
+      'ctrl+shift+up': 'chat:effortUp',
+      'ctrl+shift+down': 'chat:effortDown',
       ...(feature('MESSAGE_ACTIONS')
         ? { 'shift+up': 'chat:messageActions' as const }
         : {}),

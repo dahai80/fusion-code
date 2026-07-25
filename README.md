@@ -165,6 +165,16 @@ Session override (`/model`) > `--model` CLI flag > `FUSION_MODEL` / `FUSION_MLX_
 |---|---|---|
 | `CLAUDE_DISABLE_STREAM_WATCHDOG` | unset | Set to `1` to disable the stream idle watchdog (auto-aborts hung connections) |
 | `CLAUDE_STREAM_IDLE_TIMEOUT_MS` | `300000` (5 min) | Milliseconds before the watchdog aborts an idle stream |
+| `FUSION_CODE_FOCUS_VIEW` | unset | Set to `1` to collapse verbose tool output (focus mode) |
+
+### Keyboard Shortcuts
+
+| Shortcut | Action |
+|---|---|
+| `Ctrl+Shift+↑` | Increase effort level |
+| `Ctrl+Shift+↓` | Decrease effort level |
+| `/effort <level>` | Set effort level (low/medium/high/max) |
+| `/focus on\|off` | Toggle focus view (collapse verbose output) |
 
 ### Cloud Configuration Details
 

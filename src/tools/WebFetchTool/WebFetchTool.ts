@@ -6,6 +6,7 @@ import { lazySchema } from '../../utils/lazySchema.js'
 import type { PermissionDecision } from '../../utils/permissions/PermissionResult.js'
 import { getRuleByContentsForTool } from '../../utils/permissions/permissions.js'
 import { isPreapprovedHost } from './preapproved.js'
+import { isDeniedDomain } from '../networkDomainCheck.js'
 import { DESCRIPTION, WEB_FETCH_TOOL_NAME } from './prompt.js'
 import {
   getToolUseSummary,
@@ -115,6 +116,17 @@ export const WebFetchTool = buildTool({
           behavior: 'allow',
           updatedInput: input,
           decisionReason: { type: 'other', reason: 'Preapproved host' },
+        }
+      }
+      if (isDeniedDomain(parsedUrl.hostname)) {
+        return {
+          behavior: 'deny',
+          message: `Access to ${parsedUrl.hostname} is blocked by network deniedDomains policy.`,
+          decisionReason: {
+            type: 'safetyCheck',
+            reason: `Domain '${parsedUrl.hostname}' is in the denied domains list`,
+            classifierApprovable: false,
+          },
         }
       }
     } catch {

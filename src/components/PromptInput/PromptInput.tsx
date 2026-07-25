@@ -60,7 +60,7 @@ import { Cursor } from '../../utils/Cursor.js';
 import { getGlobalConfig, type PastedContent, saveGlobalConfig } from '../../utils/config.js';
 import { logForDebugging } from '../../utils/debug.js';
 import { parseDirectMemberMessage, sendDirectMemberMessage } from '../../utils/directMemberMessage.js';
-import type { EffortLevel } from '../../utils/effort.js';
+import { EFFORT_LEVELS, type EffortLevel, convertEffortValueToLevel, getDisplayedEffortLevel, modelSupportsEffort, toPersistableEffort } from '../../utils/effort.js';
 import { env } from '../../utils/env.js';
 import { errorMessage } from '../../utils/errors.js';
 import { isBilledAsExtraUsage } from '../../utils/extraUsage.js';
@@ -80,6 +80,7 @@ import { getPlatform } from '../../utils/platform.js';
 import type { ProcessUserInputContext } from '../../utils/processUserInput/processUserInput.js';
 import { editPromptInEditor } from '../../utils/promptEditor.js';
 import { hasAutoModeOptIn } from '../../utils/settings/settings.js';
+import { applySettingsChange } from '../../utils/settings/applySettingsChange.js';
 import { findBtwTriggerPositions } from '../../utils/sideQuestion.js';
 import { findSlashCommandPositions } from '../../utils/suggestions/commandSuggestions.js';
 import { findSlackChannelPositions, getKnownChannelsVersion, hasSlackMcpServer, subscribeKnownChannels } from '../../utils/suggestions/slackChannelSuggestions.js';
@@ -1407,6 +1408,38 @@ function PromptInput({
     }
   }, [helpOpen]);
 
+  // Handler for chat:effortUp — increase effort level
+  const handleEffortUp = useCallback(() => {
+    if (!modelSupportsEffort(mainLoopModel)) return
+    const currentLevel = getDisplayedEffortLevel(mainLoopModel, effortValue)
+    const idx = EFFORT_LEVELS.indexOf(currentLevel)
+    const nextIdx = Math.min(idx + 1, EFFORT_LEVELS.length - 1)
+    const nextLevel = EFFORT_LEVELS[nextIdx]
+    if (nextLevel === currentLevel) return
+    const persistable = toPersistableEffort(nextLevel)
+    setAppState(prev => ({ ...prev, effortValue: nextLevel }))
+    if (persistable) {
+      void applySettingsChange({ effortLevel: persistable })
+    }
+    logForDebugging(`[effort] up: ${currentLevel} → ${nextLevel}`)
+  }, [mainLoopModel, effortValue])
+
+  // Handler for chat:effortDown — decrease effort level
+  const handleEffortDown = useCallback(() => {
+    if (!modelSupportsEffort(mainLoopModel)) return
+    const currentLevel = getDisplayedEffortLevel(mainLoopModel, effortValue)
+    const idx = EFFORT_LEVELS.indexOf(currentLevel)
+    const nextIdx = Math.max(idx - 1, 0)
+    const nextLevel = EFFORT_LEVELS[nextIdx]
+    if (nextLevel === currentLevel) return
+    const persistable = toPersistableEffort(nextLevel)
+    setAppState(prev => ({ ...prev, effortValue: nextLevel }))
+    if (persistable) {
+      void applySettingsChange({ effortLevel: persistable })
+    }
+    logForDebugging(`[effort] down: ${currentLevel} → ${nextLevel}`)
+  }, [mainLoopModel, effortValue])
+
   // Handler for chat:cycleMode - cycle through permission modes
   const handleCycleMode = useCallback(() => {
     // When viewing a teammate, cycle their mode instead of the leader's
@@ -1654,8 +1687,10 @@ function PromptInput({
     'chat:modelPicker': handleModelPicker,
     'chat:thinkingToggle': handleThinkingToggle,
     'chat:cycleMode': handleCycleMode,
+    'chat:effortUp': handleEffortUp,
+    'chat:effortDown': handleEffortDown,
     'chat:imagePaste': handleImagePaste
-  }), [handleUndo, handleNewline, handleExternalEditor, handleStash, handleModelPicker, handleThinkingToggle, handleCycleMode, handleImagePaste]);
+  }), [handleUndo, handleNewline, handleExternalEditor, handleStash, handleModelPicker, handleThinkingToggle, handleCycleMode, handleEffortUp, handleEffortDown, handleImagePaste]);
   useKeybindings(chatHandlers, {
     context: 'Chat',
     isActive: !isModalOverlayActive
