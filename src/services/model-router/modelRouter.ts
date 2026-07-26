@@ -41,24 +41,30 @@ const COMPLEXITY_KEYWORDS: Record<TaskComplexity, string[]> = {
     ],
 }
 
+function wordMatch(input: string, keyword: string): boolean {
+    if (keyword.includes(' ')) return input.includes(keyword)
+    const re = new RegExp(`\\b${keyword}\\b`)
+    return re.test(input)
+}
+
 export function classifyTask(input: string): TaskComplexity {
     const lower = input.toLowerCase()
 
     // Check safety-critical first (highest priority)
     for (const keyword of COMPLEXITY_KEYWORDS['safety-critical']) {
-        if (lower.includes(keyword)) return 'safety-critical'
+        if (wordMatch(lower, keyword)) return 'safety-critical'
     }
 
     // Check complex
     let complexScore = 0
     for (const keyword of COMPLEXITY_KEYWORDS.complex) {
-        if (lower.includes(keyword)) complexScore++
+        if (wordMatch(lower, keyword)) complexScore++
     }
 
     // Check trivial
     let trivialScore = 0
     for (const keyword of COMPLEXITY_KEYWORDS.trivial) {
-        if (lower.includes(keyword)) trivialScore++
+        if (wordMatch(lower, keyword)) trivialScore++
     }
 
     // Length heuristic: long queries tend to be complex
