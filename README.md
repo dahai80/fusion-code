@@ -337,6 +337,19 @@ Tool tiers:
 
 AutoCompact triggers at 60% of the effective context window. On 32K windows, hard compact uses deterministic truncation (zero LLM call, zero token cost) instead of summarization.
 
+### MLX User Experience
+
+When using fusion-mlx as the provider, claude.ai-dependent features are automatically hidden or adapted:
+
+- **`/login` and `/logout`** — hidden (MLX doesn't require claude.ai authentication)
+- **Voice mode** — hidden (requires claude.ai audio streaming)
+- **Channels** — hidden (requires claude.ai infrastructure)
+- **Teleport / remote-env** — hidden (requires claude.ai sessions)
+- **Remote agent scheduling** — hidden (requires claude.ai infrastructure)
+- **Auth error messages** — show "fusion-mlx not available · Run `fusion service start mlx` or set FUSION_API_KEY" instead of "Not logged in · Run /login"
+
+This ensures MLX users never encounter confusing claude.ai login prompts.
+
 ---
 
 ## Build
