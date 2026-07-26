@@ -23,10 +23,13 @@ import ast from './commands/ast/index.js'
 import fastpath from './commands/fastpath/index.js'
 import search from './commands/search/index.js'
 import loopTest from './commands/loop-test/index.js'
+import loopStatus from './commands/loop-status/index.js'
 import logout from './commands/logout/index.js'
+import resumeSession from './commands/resume-session/index.js'
 import breakCache from './commands/break-cache/index.js'
 import mcp from './commands/mcp/index.js'
 import resume from './commands/resume/index.js'
+import saveSession from './commands/save-session/index.js'
 import session from './commands/session/index.js'
 import status from './commands/status/index.js'
 import tasks from './commands/tasks/index.js'
@@ -183,6 +186,7 @@ const COMMANDS = memoize((): Command[] => [
     fastpath,
     search,
     loopTest,
+    loopStatus,
     mcp,
     memory,
     model,
@@ -193,6 +197,8 @@ const COMMANDS = memoize((): Command[] => [
     rename,
     review,
     resume,
+    resumeSession,
+    saveSession,
     session,
     skills,
     screenReader,

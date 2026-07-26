@@ -61,6 +61,7 @@ import { LSPTool } from './tools/LSPTool/LSPTool.js'
 import { CronCreateTool } from './tools/CronCreateTool/CronCreateTool.js'
 import { CronDeleteTool } from './tools/CronDeleteTool/CronDeleteTool.js'
 import { CronListTool } from './tools/CronListTool/CronListTool.js'
+import { ScheduleWakeupTool } from './tools/ScheduleWakeupTool/ScheduleWakeupTool.js'
 import { CtxInspectTool } from './tools/CtxInspectTool/CtxInspectTool.js'
 import { ReportFindingsTool } from './tools/ReportFindingsTool/ReportFindingsTool.js'
 import { WorkflowTool } from './tools/WorkflowTool/WorkflowTool.js'
@@ -185,6 +186,7 @@ export function getAllBaseTools(): Tools {
     CronCreateTool,
     CronDeleteTool,
     CronListTool,
+    ScheduleWakeupTool,
     CtxInspectTool,
     ReportFindingsTool,
     WorkflowTool,
