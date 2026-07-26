@@ -155,6 +155,8 @@ export const CREDIT_BALANCE_TOO_LOW_ERROR_MESSAGE = 'Credit balance is too low'
 export const INVALID_API_KEY_ERROR_MESSAGE = 'Not logged in · Please run /login'
 export const INVALID_API_KEY_ERROR_MESSAGE_EXTERNAL =
   'Invalid API key · Fix external API key'
+export const MLX_UNAVAILABLE_ERROR_MESSAGE =
+  'fusion-mlx not available · Run `fusion service start mlx` or set FUSION_API_KEY'
 export const ORG_DISABLED_ERROR_MESSAGE_ENV_KEY_WITH_OAUTH =
   'Your FUSION_API_KEY belongs to a disabled organization · Unset the environment variable to use your subscription instead'
 export const ORG_DISABLED_ERROR_MESSAGE_ENV_KEY =
@@ -834,12 +836,20 @@ export function getAssistantMessageFromError(
     const { source } = getAnthropicApiKeyWithSource()
     const isExternalSource =
       !!process.env.FUSION_API_KEY || source === 'apiKeyHelper'
+    const isMlxProvider = getAPIProvider() === 'fusionMlx'
+
+    let authErrorContent: string
+    if (isMlxProvider && !isExternalSource) {
+      authErrorContent = MLX_UNAVAILABLE_ERROR_MESSAGE
+    } else if (isExternalSource) {
+      authErrorContent = INVALID_API_KEY_ERROR_MESSAGE_EXTERNAL
+    } else {
+      authErrorContent = INVALID_API_KEY_ERROR_MESSAGE
+    }
 
     return createAssistantAPIErrorMessage({
       error: 'authentication_failed',
-      content: isExternalSource
-        ? INVALID_API_KEY_ERROR_MESSAGE_EXTERNAL
-        : INVALID_API_KEY_ERROR_MESSAGE,
+      content: authErrorContent,
     })
   }
 

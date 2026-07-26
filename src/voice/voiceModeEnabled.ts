@@ -4,6 +4,7 @@ import {
   getClaudeAIOAuthTokens,
   isAnthropicAuthEnabled,
 } from '../utils/auth.js'
+import { isFusionMlxProvider } from '../utils/model/providers.js'
 
 /**
  * Kill-switch check for voice mode. Returns true unless the
@@ -14,6 +15,8 @@ import {
  * should be *visible* (e.g., command registration, config UI).
  */
 export function isVoiceGrowthBookEnabled(): boolean {
+  // Fusion-MLX does not support voice mode (requires claude.ai voice_stream)
+  if (isFusionMlxProvider()) return false
   // Positive ternary pattern — see docs/feature-gating.md.
   // Negative pattern (if (!feature(...)) return) does not eliminate
   // inline string literals from external builds.

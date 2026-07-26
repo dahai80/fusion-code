@@ -6,6 +6,7 @@ import { ASK_USER_QUESTION_TOOL_NAME } from '../../tools/AskUserQuestionTool/pro
 // Cloud-only tool stub (directory removed)
 const REMOTE_TRIGGER_TOOL_NAME = 'RemoteTrigger'
 import { getClaudeAIOAuthTokens } from '../../utils/auth.js'
+import { isFusionMlxProvider } from '../../utils/model/providers.js'
 import { checkRepoForRemoteAccess } from '../../utils/background/remote/preconditions.js'
 import { logForDebugging } from '../../utils/debug.js'
 import {
@@ -332,7 +333,8 @@ export function registerScheduleRemoteAgentsSkill(): void {
     userInvocable: true,
     isEnabled: () =>
       getFeatureValue_CACHED_MAY_BE_STALE('tengu_surreal_dali', false) &&
-      isPolicyAllowed('allow_remote_sessions'),
+      isPolicyAllowed('allow_remote_sessions') &&
+      !isFusionMlxProvider(),
     allowedTools: [REMOTE_TRIGGER_TOOL_NAME, ASK_USER_QUESTION_TOOL_NAME],
     async getPromptForCommand(args: string, context: ToolUseContext) {
       if (!getClaudeAIOAuthTokens()?.accessToken) {

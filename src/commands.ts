@@ -79,6 +79,7 @@ import {
 import memoize from 'lodash-es/memoize.js'
 import { asyncMemoize } from './utils/asyncMemoize.js'
 import { isUsing3PServices, isClaudeAISubscriber } from './utils/auth.js'
+import { isFusionMlxProvider } from './utils/model/providers.js'
 import { isFirstPartyAnthropicBaseUrl } from './utils/model/providers.js'
 import env from './commands/env/index.js'
 import exit from './commands/exit/index.js'
@@ -217,7 +218,7 @@ const COMMANDS = memoize((): Command[] => [
     exportCommand,
     sandboxToggle,
     securityReview,
-    ...(!isUsing3PServices() ? [logout, login()] : []),
+    ...(!isUsing3PServices() && !isFusionMlxProvider() ? [logout, login()] : []),
     passes,
     tasks,
     usageReport,

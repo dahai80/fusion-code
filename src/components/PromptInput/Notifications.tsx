@@ -16,7 +16,8 @@ import { useClaudeAiLimits } from '../../services/claudeAiLimitsHook.js';
 import { calculateTokenWarningState } from '../../services/compact/autoCompact.js';
 import type { MCPServerConnection } from '../../services/mcp/types.js';
 import type { Message } from '../../types/message.js';
-import { getApiKeyHelperElapsedMs, getConfiguredApiKeyHelper, getSubscriptionType } from '../../utils/auth.js';
+import { getApiKeyHelperElapsedMs, getConfiguredApiKeyHelper, getSubscriptionType, isAnthropicAuthEnabled } from '../../utils/auth.js';
+import { isFusionMlxProvider, getAPIProvider } from '../../utils/model/providers.js';
 import type { AutoUpdaterResult } from '../../utils/autoUpdater.js';
 import { getExternalEditor } from '../../utils/editor.js';
 import { isEnvTruthy } from '../../utils/envUtils.js';
@@ -305,7 +306,7 @@ function NotificationContent({
         </Box>}
       {(apiKeyStatus === 'invalid' || apiKeyStatus === 'missing') && <Box>
           <Text color="error" wrap="truncate">
-            {isEnvTruthy(process.env.CLAUDE_CODE_REMOTE) ? 'Authentication error · Try again' : 'Not logged in · Run /login'}
+            {isEnvTruthy(process.env.CLAUDE_CODE_REMOTE) ? 'Authentication error · Try again' : isFusionMlxProvider() ? 'fusion-mlx not available · Run `fusion service start mlx` or set FUSION_API_KEY' : !isAnthropicAuthEnabled() ? 'API key missing · Set FUSION_API_KEY or configure a provider' : 'Not logged in · Run /login'}
           </Text>
         </Box>}
       {debug && <Box>
