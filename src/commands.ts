@@ -1,5 +1,7 @@
 // biome-ignore-all assist/source/organizeImports: imports must match registration order
 import addDir from './commands/add-dir/index.js'
+import act from './commands/act/index.js'
+import agentsMd from './commands/agents-md/index.js'
 import aside from './commands/aside/index.js'
 import cd from './commands/cd/index.js'
 import checkpoint from './commands/checkpoint/index.js'
@@ -62,7 +64,23 @@ import version from './commands/version.js'
 import summary from './commands/summary/index.js'
 import recap from './commands/recap/index.js'
 import plugins from './commands/plugins/index.js'
+import remind from './commands/remind/index.js'
+import style from './commands/style/index.js'
 import lessPermissionPrompts from './commands/less-permission-prompts/index.js'
+import memorySearch from './commands/memory-search/index.js'
+import historySearch from './commands/history-search/index.js'
+import suggest from './commands/suggest/index.js'
+import progress from './commands/progress/index.js'
+import deploy from './commands/deploy/index.js'
+import preview from './commands/preview/index.js'
+import scaffold from './commands/scaffold/index.js'
+import research from './commands/research/index.js'
+import run from './commands/run/index.js'
+import tour from './commands/tour/index.js'
+import integrations from './commands/integrations/index.js'
+import diagram from './commands/diagram/index.js'
+import toolDiscovery from './commands/tool-discovery/index.js'
+import agentOrchestrator from './commands/agent-orchestrator/index.js'
 import {
     resetLimits,
     resetLimitsNonInteractive,
@@ -158,6 +176,8 @@ export const INTERNAL_ONLY_COMMANDS = [
 // since underlying functions read from config, which can't be read at module initialization time
 const COMMANDS = memoize((): Command[] => [
     addDir,
+    act,
+    agentsMd,
     aside,
     cd,
     checkpoint,
@@ -220,7 +240,23 @@ const COMMANDS = memoize((): Command[] => [
     summary,
     recap,
     plugins,
+    remind,
+    style,
     lessPermissionPrompts,
+    memorySearch,
+    historySearch,
+    suggest,
+    progress,
+    deploy,
+    preview,
+    scaffold,
+    research,
+    run,
+    tour,
+    integrations,
+    diagram,
+    toolDiscovery,
+    agentOrchestrator,
     statusline,
     tag,
     theme,

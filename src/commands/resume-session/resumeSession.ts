@@ -2,14 +2,7 @@ import { readFile } from 'fs/promises'
 import { join } from 'path'
 import type { LocalCommandCall, LocalCommandResult } from '../../types/command.js'
 import { getClaudeConfigHomeDir } from '../../utils/envUtils.js'
-
-interface SessionBookmark {
-    name: string
-    sessionId: string
-    projectPath: string
-    description: string
-    savedAt: string
-}
+import type { SessionBookmark } from '../../types/sessionBookmark.js'
 
 async function loadBookmarks(): Promise<SessionBookmark[]> {
     const path = join(getClaudeConfigHomeDir(), 'session-bookmarks.json')

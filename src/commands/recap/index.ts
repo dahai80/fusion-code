@@ -1,5 +1,6 @@
 import type { Command, LocalCommandCall } from '../../types/command.js'
 import { logForDebugging } from '../../utils/debug.js'
+import { generateAwaySummary } from '../../services/awaySummary.js'
 
 const call: LocalCommandCall = async (args, context) => {
     try {
@@ -8,9 +9,6 @@ const call: LocalCommandCall = async (args, context) => {
             return { type: 'text', value: 'No conversation history to recap.' }
         }
 
-        const { generateAwaySummary } = await import(
-            '../../services/awaySummary.js'
-        )
         const summary = await generateAwaySummary(
             mutableMessages,
             context.options.abortController?.signal,

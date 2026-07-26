@@ -37,7 +37,8 @@ async function handleCreate(name: string, cwd: string): Promise<LocalCommandResu
         // not in a git repo, that's fine
     }
 
-    const entry = `${timestamp} | ${name} | ${gitRef}\n`
+    const safeName = name.replace(/\|/g, '_')
+    const entry = `${timestamp} | ${safeName} | ${gitRef}\n`
 
     await mkdir(dirname(logPath), { recursive: true })
     await appendFile(logPath, entry, 'utf-8')

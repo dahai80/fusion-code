@@ -1,17 +1,11 @@
-import { readFile, writeFile, mkdir } from 'fs/promises'
+import { readFile, writeFile, mkdir, rename } from 'fs/promises'
 import { join, dirname } from 'path'
 import type { LocalCommandCall, LocalCommandResult } from '../../types/command.js'
 import { getClaudeConfigHomeDir } from '../../utils/envUtils.js'
+import { logForDebugging } from '../../utils/debug.js'
+import type { SessionBookmark } from '../../types/sessionBookmark.js'
 
 const BOOKMARKS_FILE = 'session-bookmarks.json'
-
-interface SessionBookmark {
-    name: string
-    sessionId: string
-    projectPath: string
-    description: string
-    savedAt: string
-}
 
 async function getBookmarksPath(): Promise<string> {
     const configDir = getClaudeConfigHomeDir()
@@ -31,7 +25,10 @@ async function loadBookmarks(): Promise<SessionBookmark[]> {
 async function saveBookmarks(bookmarks: SessionBookmark[]): Promise<void> {
     const path = await getBookmarksPath()
     await mkdir(dirname(path), { recursive: true })
-    await writeFile(path, JSON.stringify(bookmarks, null, 2), 'utf-8')
+    const tmpPath = path + '.tmp'
+    await writeFile(tmpPath, JSON.stringify(bookmarks, null, 2), 'utf-8')
+    await rename(tmpPath, path)
+    logForDebugging(`[save-session] bookmarks saved atomically to ${path}`)
 }
 
 export const call: LocalCommandCall = async (args, context) => {

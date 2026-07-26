@@ -446,6 +446,20 @@ JS workflows use `agent()`, `phase()`, `pipeline()`, and `parallel()` directly (
 | `/plugins` | List installed plugins with scope, version, and install date |
 | `/less-permission-prompts` | Suggest allow rules for read-only tools; `--apply` to persist |
 | `/screen-reader` (`/ax`) | Toggle screen reader mode (disable animations, plain text status) |
+| `/memory-search` | Search saved memories and project context files |
+| `/history-search` | Search conversation transcripts with privacy sanitization |
+| `/suggest` | Get next-action suggestions based on recent tool usage |
+| `/deploy` | Detect project deployment platform and show deploy commands |
+| `/preview` | Detect dev server config and show connection info |
+| `/scaffold` | Generate framework-specific project scaffolding instructions |
+| `/progress` | Show event stream history (checkpoints, actions, plans) |
+| `/research` | Deep research mode with multi-step search and synthesis |
+| `/run` | Execute code snippets via Bash tool |
+| `/tour` | Interactive feature walkthrough and project onboarding |
+| `/integrations` | Integration marketplace — list, search, add MCP integrations |
+| `/diagram` | Generate diagrams (flowchart, sequence, architecture) from descriptions |
+| `/tool-discovery` | Show tool tier classification, deferred tools, and usage metrics |
+| `/agent-orchestrator` | Multi-agent orchestrator: spawn, list, merge, and manage agents |
 
 ### Builtin Plugins
 
@@ -531,7 +545,18 @@ src/
     oauth/                # OAuth flows (Anthropic + OpenAI)
     mcp/                  # Model Context Protocol integration
     lsp/                  # Language Server Protocol integration
-    compact/              # Context compaction (auto/reactive/micro + hardCompact)
+    compact/              # Context compaction (auto/reactive/micro + hardCompact + smartCompactV2)
+    privacy/              # Privacy sanitizer (password/secret/token redaction)
+    model-router/         # Multi-tier model routing (trivial/standard/complex/safety)
+    search-first/         # Search policy engine (when to search the web)
+    suggestions/          # Context-aware next-action suggestion engine
+    events/               # Event stream (action/progress/checkpoint/plan)
+    deploy/               # Deploy platform detection (Netlify/Vercel/CF/GitHub)
+    dev-server/           # Dev server detection (Vite/Next/Nuxt/SvelteKit etc.)
+    research/             # Deep research engine (plan + multi-step search + synthesize)
+    license-check/        # License detection and copyright awareness
+    visualizer/           # Diagram generation (Mermaid + ASCII prompts)
+    onboarding/           # Project profile detection and feature suggestions
   state/                  # App state store
   utils/
     model/providers.ts    # Provider selection (getAPIProvider)

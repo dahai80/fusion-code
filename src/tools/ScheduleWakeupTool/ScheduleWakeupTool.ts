@@ -84,11 +84,7 @@ export const ScheduleWakeupTool = buildTool({
         }
 
         if (!delaySeconds || !prompt) {
-            return {
-                data: {
-                    error: 'delaySeconds and prompt are required when not stopping the loop.',
-                },
-            }
+            throw new Error('delaySeconds and prompt are required when not stopping the loop.')
         }
 
         const cron = delayToCron(delaySeconds)
@@ -110,13 +106,6 @@ export const ScheduleWakeupTool = buildTool({
                 tool_use_id: toolUseID,
                 type: 'tool_result',
                 content: 'Dynamic loop stopped. No further wakeups scheduled.',
-            }
-        }
-        if ('error' in result && result.error) {
-            return {
-                tool_use_id: toolUseID,
-                type: 'tool_result',
-                content: `Error: ${result.error}`,
             }
         }
         return {
