@@ -4,7 +4,7 @@ import { eventStream } from '../../services/events/index.js'
 export const call: LocalCommandCall = async (args, _context) => {
     const arg = args.trim().toLowerCase()
     const typeFilter = arg || undefined
-    const events = eventStream.getHistory(typeFilter as any)
+    const events = eventStream.getHistory(typeFilter as 'message' | 'action' | 'plan' | 'progress' | 'checkpoint')
     const recent = events.slice(-20)
 
     if (recent.length === 0) {

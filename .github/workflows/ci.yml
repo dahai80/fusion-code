@@ -1,0 +1,71 @@
+name: CI
+
+on:
+    push:
+        branches: [main]
+    pull_request:
+        branches: [main]
+
+concurrency:
+    group: ci-${{ github.ref }}
+    cancel-in-progress: true
+
+jobs:
+    build-and-lint:
+        runs-on: ubuntu-latest
+        steps:
+            - uses: actions/checkout@v4
+
+            - uses: oven-sh/setup-bun@v2
+              with:
+                  bun-version: 1.3.14
+
+            - name: Install dependencies
+              run: bun install --frozen-lockfile
+
+            - name: Lint (new files)
+              run: |
+                  bunx biome lint \
+                    src/commands/act/ \
+                    src/commands/agent-orchestrator/ \
+                    src/commands/agents-md/ \
+                    src/commands/checkpoint/ \
+                    src/commands/deploy/ \
+                    src/commands/diagram/ \
+                    src/commands/history-search/ \
+                    src/commands/integrations/ \
+                    src/commands/memory-search/ \
+                    src/commands/preview/ \
+                    src/commands/progress/ \
+                    src/commands/recap/ \
+                    src/commands/remind/ \
+                    src/commands/research/ \
+                    src/commands/run/ \
+                    src/commands/scaffold/ \
+                    src/commands/save-session/ \
+                    src/commands/style/ \
+                    src/commands/suggest/ \
+                    src/commands/tool-discovery/ \
+                    src/commands/tour/ \
+                    src/services/agents/ \
+                    src/services/deploy/ \
+                    src/services/dev-server/ \
+                    src/services/events/ \
+                    src/services/license-check/ \
+                    src/services/model-router/ \
+                    src/services/onboarding/ \
+                    src/services/privacy/ \
+                    src/services/reminders/ \
+                    src/services/research/ \
+                    src/services/search-first/ \
+                    src/services/suggestions/ \
+                    src/services/tool-discovery/ \
+                    src/services/visualizer/ \
+                    src/types/sessionBookmark.ts \
+                    src/tools/ScheduleWakeupTool/
+
+            - name: Build
+              run: bun run build
+
+            - name: Verify binary
+              run: ./fusion-code --version

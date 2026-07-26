@@ -2,7 +2,7 @@ import type { Command, LocalCommandCall } from '../../types/command.js'
 import { logForDebugging } from '../../utils/debug.js'
 import { generateAwaySummary } from '../../services/awaySummary.js'
 
-const call: LocalCommandCall = async (args, context) => {
+const call: LocalCommandCall = async (_args, context) => {
     try {
         const mutableMessages = context.options.mutableMessages
         if (!mutableMessages || mutableMessages.length === 0) {

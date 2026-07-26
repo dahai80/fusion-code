@@ -1,6 +1,4 @@
-import * as React from 'react'
 import type { LocalJSXCommandContext } from '../../commands.js'
-import { Box, Text } from '../../ink.js'
 import type { LocalJSXCommandOnDone } from '../../types/command.js'
 
 const STYLE_MAP: Record<string, { label: string; description: string }> = {

@@ -1,4 +1,4 @@
-import { isFusionMlxProvider, getAPIProvider } from '../../utils/model/providers.js'
+import { getAPIProvider } from '../../utils/model/providers.js'
 import { logForDebugging } from '../../utils/debug.js'
 
 export type TaskComplexity = 'trivial' | 'standard' | 'complex' | 'safety-critical'
@@ -51,13 +51,13 @@ export function classifyTask(input: string): TaskComplexity {
 
     // Check complex
     let complexScore = 0
-    for (const keyword of COMPLEXITY_KEYWORDS['complex']) {
+    for (const keyword of COMPLEXITY_KEYWORDS.complex) {
         if (lower.includes(keyword)) complexScore++
     }
 
     // Check trivial
     let trivialScore = 0
-    for (const keyword of COMPLEXITY_KEYWORDS['trivial']) {
+    for (const keyword of COMPLEXITY_KEYWORDS.trivial) {
         if (lower.includes(keyword)) trivialScore++
     }
 

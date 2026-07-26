@@ -1,7 +1,5 @@
-import * as React from 'react'
 import { handlePlanModeTransition } from '../../bootstrap/state.js'
 import type { LocalJSXCommandContext } from '../../commands.js'
-import { Box, Text } from '../../ink.js'
 import type { LocalJSXCommandOnDone } from '../../types/command.js'
 import { applyPermissionUpdate } from '../../utils/permissions/PermissionUpdate.js'
 import { prepareContextForPlanMode } from '../../utils/permissions/permissionSetup.js'

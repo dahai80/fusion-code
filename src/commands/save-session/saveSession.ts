@@ -25,7 +25,7 @@ async function loadBookmarks(): Promise<SessionBookmark[]> {
 async function saveBookmarks(bookmarks: SessionBookmark[]): Promise<void> {
     const path = await getBookmarksPath()
     await mkdir(dirname(path), { recursive: true })
-    const tmpPath = path + '.tmp'
+    const tmpPath = `${path}.tmp`
     await writeFile(tmpPath, JSON.stringify(bookmarks, null, 2), 'utf-8')
     await rename(tmpPath, path)
     logForDebugging(`[save-session] bookmarks saved atomically to ${path}`)
