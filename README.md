@@ -19,12 +19,12 @@
 | | |
 |---|---|
 | 🖥️ **Local MLX Inference** | Deep [fusion-mlx](https://github.com/fusion-mlxs/fusion-mlx) integration at `127.0.0.1:11434`. Auto-detects local models, zero cloud dependency. |
-| ☁️ **Cloud LLM Backends** | Anthropic (direct or proxy/LiteLLM), OpenAI Codex, Azure Foundry — plug in an API key and go. |
+| ☁️ **Cloud LLM Backends** | Anthropic (direct or proxy/LiteLLM), OpenAI Codex, Azure Foundry — plug in an API key and go. Fallback model chain on 429/529 errors. |
 | 🔒 **Zero Telemetry** | No outbound analytics, crash reporting, or usage tracking. Everything stays on your machine. |
 | 🧩 **Builtin Plugins** | GitHub integration, UI/UX Pro Max design assistant, Chrome DevTools — all bundled, user-toggleable. |
 | ⚡ **88 Feature Flags** | ULTRAPLAN multi-agent, ULTRATHINK deep reasoning, voice input, IDE bridge, and 80+ more. |
-| 🛡️ **Smart Permissions** | Auto mode auto-approves safe ops, prompts only for dangerous commands. No LLM classifier needed. |
-| 🧠 **Context Management** | Auto-compact, hard compact (deterministic, zero token cost), MLX memory safety — handles 32K windows. |
+| 🛡️ **Smart Permissions** | Auto mode auto-approves safe ops, prompts only for dangerous commands. Skill-level `disallowed-tools` for fine-grained control. No LLM classifier needed. |
+| 🧠 **Context Management** | Auto-compact, hard compact (deterministic, zero token cost), MLX memory safety — handles 32K windows. Compaction preserves sensitive instructions. |
 
 ---
 
@@ -254,6 +254,15 @@ Requires `@anthropic-ai/vertex-sdk` (`bun add @anthropic-ai/vertex-sdk`). Set `V
 
 Read-only mode: Write, Edit, Bash, WebFetch, and network tools are disabled. Credential sandbox auto-enabled.
 
+#### Screen Reader Mode
+
+```bash
+./fusion-code --ax-screen-reader
+# Equivalent to: FUSION_SCREEN_READER=1
+```
+
+Disables animations and spinner effects for screen reader compatibility. Toggle at runtime with `/screen-reader` (alias: `/ax`).
+
 #### MCP Authentication
 
 ```bash
@@ -373,6 +382,31 @@ Press **Shift+Tab** to cycle modes:
 
 **Auto mode** uses `classifyAllShell` — a deterministic classifier for every shell command. Safe commands (`ls`, `cat`, `git status`, `npm install`, `make`, etc.) are auto-approved. Dangerous commands (`rm -rf`, `sudo`, `git push`, `docker rm`, `python`, `node -e`) require confirmation. Irreversible commands (`git push --force`, `terraform destroy`, `kubectl delete`, `DROP TABLE`) are hard-denied even in auto mode. Unknown commands default to requiring confirmation.
 
+### Dynamic Workflows (YAML + JS)
+
+Workflows can be defined in YAML or JavaScript. YAML workflows are auto-converted to JS scripts at runtime:
+
+```yaml
+# .claude/workflows/review.yaml
+name: review-changes
+description: Review changed files across dimensions
+phases:
+  - title: Review
+  - title: Verify
+steps:
+  - agent: Review code for bugs and security issues
+    phase: Review
+    label: review-bugs
+  - agent: Review code for performance problems
+    phase: Review
+    label: review-perf
+  - agent: Verify findings with adversarial checks
+    phase: Verify
+    label: verify
+```
+
+JS workflows use `agent()`, `phase()`, `pipeline()`, and `parallel()` directly (see [Workflow docs](src/tools/WorkflowTool/)).
+
 ### Notable Slash Commands
 
 | Command | Description |
@@ -387,7 +421,7 @@ Press **Shift+Tab** to cycle modes:
 | `/env` | Display provider, model, and key environment variables |
 | `/ctx_viz` | Visualize context window usage |
 | `/summary` | Generate a summary of the current conversation |
-| `/workflows` | List and run workflow scripts |
+| `/workflows` | List and run workflow scripts (supports YAML and JS) |
 | `/subtask` | Spawn an inline sub-agent to handle a specific task |
 | `/fork` | Create a sub-agent fork in the current conversation context |
 | `/break-cache` | Reset prompt cache break detection |
@@ -395,6 +429,10 @@ Press **Shift+Tab** to cycle modes:
 | `/focus` | Toggle focus view — hide verbose tool output (`/focus on\|off`) |
 | `/tui` | Toggle flicker-free fullscreen rendering (`/tui on\|off`) |
 | `/dataviz` | Generate terminal data visualizations (bar charts, sparklines, tables) |
+| `/recap` | Show a recap of the current session (useful when returning after a break) |
+| `/plugins` | List installed plugins with scope, version, and install date |
+| `/less-permission-prompts` | Suggest allow rules for read-only tools; `--apply` to persist |
+| `/screen-reader` (`/ax`) | Toggle screen reader mode (disable animations, plain text status) |
 
 ### Builtin Plugins
 
@@ -409,6 +447,10 @@ Toggle with `/plugin` inside the REPL.
 ### Project Instructions (CLAUDE.md)
 
 Place a `CLAUDE.md` file in your project root to give fusion-code project-specific instructions — coding standards, architecture notes, preferred libraries. It is automatically loaded on startup and committed to version control so your whole team shares the same AI behavior.
+
+### Multilingual Session Titles
+
+Session titles are auto-generated in the same language as your first message. Chinese input → Chinese title, English → English, etc.
 
 ---
 

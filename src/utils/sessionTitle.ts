@@ -66,15 +66,16 @@ export function extractConversationText(messages: Message[]): string {
     : text
 }
 
-const SESSION_TITLE_PROMPT = `Generate a concise, sentence-case title (3-7 words) that captures the main topic or goal of this coding session. The title should be clear enough that the user recognizes the session in a list. Use sentence case: capitalize only the first word and proper nouns.
+const SESSION_TITLE_PROMPT = `Generate a concise title (3-7 words) that captures the main topic or goal of this coding session. The title should be clear enough that the user recognizes the session in a list. Use the same language as the user's first message — if the user writes in Chinese, respond in Chinese; if in English, respond in English; etc. Use sentence case: capitalize only the first word and proper nouns.
 
 Return JSON with a single "title" field.
 
 Good examples:
 {"title": "Fix login button on mobile"}
 {"title": "Add OAuth authentication"}
+{"title": "修复移动端登录按钮"}
+{"title": "添加OAuth认证"}
 {"title": "Debug failing CI tests"}
-{"title": "Refactor API client error handling"}
 
 Bad (too vague): {"title": "Code changes"}
 Bad (too long): {"title": "Investigate and fix the issue where the login button does not respond on mobile devices"}

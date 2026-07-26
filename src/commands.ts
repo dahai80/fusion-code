@@ -51,6 +51,9 @@ import rewind from './commands/rewind/index.js'
 import heapDump from './commands/heapdump/index.js'
 import version from './commands/version.js'
 import summary from './commands/summary/index.js'
+import recap from './commands/recap/index.js'
+import plugins from './commands/plugins/index.js'
+import lessPermissionPrompts from './commands/less-permission-prompts/index.js'
 import {
     resetLimits,
     resetLimitsNonInteractive,
@@ -97,6 +100,7 @@ import focus from './commands/focus/index.js'
 import tui from './commands/tui/index.js'
 import feedback from './commands/feedback/index.jsx'
 import skills from './commands/skills/index.jsx'
+import screenReader from './commands/screen-reader/index.js'
 // insights.ts is 113KB (3200 lines, includes diffLines/html rendering). Lazy
 // shim defers the heavy module until /insights is actually invoked.
 const usageReport: Command = {
@@ -190,10 +194,14 @@ const COMMANDS = memoize((): Command[] => [
     resume,
     session,
     skills,
+    screenReader,
     stats,
     status,
     subtask,
     summary,
+    recap,
+    plugins,
+    lessPermissionPrompts,
     statusline,
     tag,
     theme,

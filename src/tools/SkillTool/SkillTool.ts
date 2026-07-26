@@ -648,6 +648,7 @@ export const SkillTool: Tool<InputSchema, Output, Progress> = buildTool({
 
     // Extract metadata from the command
     const allowedTools = processedCommand.allowedTools || []
+    const disallowedTools = processedCommand.disallowedTools || []
     const model = processedCommand.model
     const effort = command?.type === 'prompt' ? command.effort : undefined
 
@@ -796,6 +797,16 @@ export const SkillTool: Tool<InputSchema, Output, Progress> = buildTool({
                         ...(appState.toolPermissionContext.alwaysAllowRules
                           .command || []),
                         ...allowedTools,
+                      ]),
+                    ],
+                  },
+                  alwaysDenyRules: {
+                    ...appState.toolPermissionContext.alwaysDenyRules,
+                    command: [
+                      ...new Set([
+                        ...(appState.toolPermissionContext.alwaysDenyRules
+                          .command || []),
+                        ...disallowedTools,
                       ]),
                     ],
                   },

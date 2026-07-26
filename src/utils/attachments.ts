@@ -602,6 +602,7 @@ export type Attachment =
   | {
       type: 'command_permissions'
       allowedTools: string[]
+      disallowedTools?: string[]
       model?: string
     }
   | AgentMentionAttachment

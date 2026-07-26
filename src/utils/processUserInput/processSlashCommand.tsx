@@ -386,6 +386,7 @@ export async function processSlashCommand(inputString: string, precedingInputBlo
     messages: newMessages,
     shouldQuery: messageShouldQuery,
     allowedTools,
+    disallowedTools,
     model,
     effort,
     command: returnedCommand,
@@ -443,6 +444,7 @@ export async function processSlashCommand(inputString: string, precedingInputBlo
     return {
       messages: [],
       shouldQuery: false,
+      disallowedTools,
       model,
       nextInput,
       submitNextInput
@@ -462,6 +464,7 @@ export async function processSlashCommand(inputString: string, precedingInputBlo
       messages: [createSyntheticUserCaveatMessage(), ...newMessages],
       shouldQuery: messageShouldQuery,
       allowedTools,
+      disallowedTools,
       model
     };
   }
@@ -515,6 +518,7 @@ export async function processSlashCommand(inputString: string, precedingInputBlo
     messages: messageShouldQuery || newMessages.every(isSystemLocalCommandMessage) || isCompactResult ? newMessages : [createSyntheticUserCaveatMessage(), ...newMessages],
     shouldQuery: messageShouldQuery,
     allowedTools,
+    disallowedTools,
     model,
     effort,
     resultText,
@@ -861,6 +865,8 @@ async function getMessagesForPromptSlashCommand(command: CommandBase & PromptCom
         isMeta: true
       })],
       shouldQuery: true,
+      allowedTools: parseToolListFromCLI(command.allowedTools ?? []),
+      disallowedTools: parseToolListFromCLI(command.disallowedTools ?? []),
       model: command.model,
       effort: command.effort,
       command
@@ -885,6 +891,7 @@ async function getMessagesForPromptSlashCommand(command: CommandBase & PromptCom
   addInvokedSkill(command.name, skillPath, skillContent, getAgentContext()?.agentId ?? null);
   const metadata = formatCommandLoadingMetadata(command, args);
   const additionalAllowedTools = parseToolListFromCLI(command.allowedTools ?? []);
+  const additionalDisallowedTools = parseToolListFromCLI(command.disallowedTools ?? []);
 
   // Create content for the main message, including any pasted images
   const mainMessageContent: ContentBlockParam[] = imageContentBlocks.length > 0 || precedingInputBlocks.length > 0 ? [...imageContentBlocks, ...precedingInputBlocks, ...result] : result;
@@ -908,12 +915,14 @@ async function getMessagesForPromptSlashCommand(command: CommandBase & PromptCom
   }), ...attachmentMessages, createAttachmentMessage({
     type: 'command_permissions',
     allowedTools: additionalAllowedTools,
+    disallowedTools: additionalDisallowedTools,
     model: command.model
   })];
   return {
     messages,
     shouldQuery: true,
     allowedTools: additionalAllowedTools,
+    disallowedTools: additionalDisallowedTools,
     model: command.model,
     effort: command.effort,
     command

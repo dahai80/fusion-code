@@ -811,7 +811,16 @@ function loadSettingsFromDisk(): SettingsWithErrors {
  */
 export function getInitialSettings(): SettingsJson {
   const { settings } = getSettingsWithErrors()
-  return settings || {}
+  const merged = settings || {}
+  // --ax-screen-reader: force reduced motion for screen reader accessibility
+  // Check both CLI env var and runtime override from /screen-reader command
+  const screenReaderActive =
+    process.env.FUSION_SCREEN_READER === '1' ||
+    (globalThis as { __fusionScreenReaderOverride?: boolean }).__fusionScreenReaderOverride === true
+  if (screenReaderActive) {
+    merged.prefersReducedMotion = true
+  }
+  return merged
 }
 
 export type SettingsWithSources = {
