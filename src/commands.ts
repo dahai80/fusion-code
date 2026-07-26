@@ -1,6 +1,8 @@
 // biome-ignore-all assist/source/organizeImports: imports must match registration order
 import addDir from './commands/add-dir/index.js'
+import aside from './commands/aside/index.js'
 import cd from './commands/cd/index.js'
+import checkpoint from './commands/checkpoint/index.js'
 import clear from './commands/clear/index.js'
 import color from './commands/color/index.js'
 import commit from './commands/commit.js'
@@ -30,6 +32,10 @@ import breakCache from './commands/break-cache/index.js'
 import mcp from './commands/mcp/index.js'
 import resume from './commands/resume/index.js'
 import saveSession from './commands/save-session/index.js'
+import skillCreate from './commands/skill-create/index.js'
+import updateCodemaps from './commands/update-codemaps/index.js'
+import updateDocs from './commands/update-docs/index.js'
+import projectInit from './commands/project-init/index.js'
 import session from './commands/session/index.js'
 import status from './commands/status/index.js'
 import tasks from './commands/tasks/index.js'
@@ -152,7 +158,9 @@ export const INTERNAL_ONLY_COMMANDS = [
 // since underlying functions read from config, which can't be read at module initialization time
 const COMMANDS = memoize((): Command[] => [
     addDir,
+    aside,
     cd,
+    checkpoint,
     advisor,
     agents,
     branch,
@@ -199,6 +207,10 @@ const COMMANDS = memoize((): Command[] => [
     resume,
     resumeSession,
     saveSession,
+    skillCreate,
+    updateCodemaps,
+    updateDocs,
+    projectInit,
     session,
     skills,
     screenReader,
