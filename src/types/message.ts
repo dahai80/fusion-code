@@ -131,6 +131,7 @@ export type AssistantMessage = {
     isApiErrorMessage?: boolean
     isVirtual?: true
     advisorModel?: string
+    isMeta?: boolean // log: fix TS2339
 }
 
 // ============================================================================
@@ -435,6 +436,7 @@ export type NormalizedUserMessage = Omit<UserMessage, 'message'> & {
         role: 'user'
         content: ContentBlockParam[]
     }
+    sourceToolUseID?: string // log: fix TS2339
 }
 
 export type NormalizedAssistantMessage<T = BetaContentBlock> = Omit<AssistantMessage, 'message'> & {

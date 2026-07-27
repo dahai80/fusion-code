@@ -76,7 +76,6 @@ import {
 import type {
   HookEvent,
   HookInput,
-  HookJSONOutput,
   NotificationHookInput,
   PostToolUseHookInput,
   PostToolUseFailureHookInput,
@@ -87,7 +86,6 @@ import type {
   SessionStartHookInput,
   SessionEndHookInput,
   SetupHookInput,
-  StopHookInput,
   StopFailureHookInput,
   SubagentStartHookInput,
   SubagentStopHookInput,
@@ -102,12 +100,15 @@ import type {
   PermissionRequestHookInput,
   ElicitationHookInput,
   ElicitationResultHookInput,
-  PermissionUpdate,
   ExitReason,
   SyncHookJSONOutput,
   AsyncHookJSONOutput,
 } from 'src/entrypoints/agentSdkTypes.js'
+import type { PermissionUpdate } from 'src/types/permissions.js'
+import type { HookJSONOutput } from '../types/hooks.js'
 import type { StatusLineCommandInput } from '../types/statusLine.js'
+
+type StopHookInput = HookInput & { hook_event_name: 'Stop'; reason?: string }
 import type { ElicitResult } from '@modelcontextprotocol/sdk/types.js'
 import type { FileSuggestionCommandInput } from '../types/fileSuggestion.js'
 import type { HookResultMessage, ProgressMessage } from 'src/types/message.js'
@@ -205,6 +206,7 @@ type TypedHookInput = HookInput & {
     file_path?: string
     hook_event_name?: HookEvent
 }
+
 
 const TOOL_HOOK_EXECUTION_TIMEOUT_MS = 10 * 60 * 1000
 
@@ -567,7 +569,7 @@ function processHookJSONOutput({
   }
 
   if (json.decision) {
-    switch (json.decision) {
+    switch (json.decision as 'approve' | 'block' | 'allow' | 'deny' | 'ask') {
       case 'approve':
         result.permissionBehavior = 'allow'
         break
@@ -4479,7 +4481,7 @@ function parseElicitationHookOutput(
   }
 
   try {
-    const parsed = hookJSONOutputSchema().parse(JSON.parse(trimmed))
+    const parsed = hookJSONOutputSchema().parse(JSON.parse(trimmed)) as HookJSONOutput
     if (isAsyncHookJSONOutput(parsed)) {
       return {}
     }

@@ -12,6 +12,8 @@ import type {
   AsyncHookJSONOutput,
   SyncHookJSONOutput,
 } from 'src/entrypoints/agentSdkTypes.js'
+
+export type { HookJSONOutput, AsyncHookJSONOutput, SyncHookJSONOutput }
 import type { Message } from 'src/types/message.js'
 import type { PermissionResult } from 'src/utils/permissions/PermissionResult.js'
 import { permissionBehaviorSchema } from 'src/utils/permissions/PermissionRule.js'

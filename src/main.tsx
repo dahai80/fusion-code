@@ -1875,7 +1875,7 @@ async function run(): Promise<CommanderCommand> {
 					// (max ~5s). --assistant skips the gate entirely (daemon is
 					// pre-entitled).
 					kairosEnabled =
-						assistantModule.isAssistantForced() ||
+						assistantModule.isAssistantMode() ||
 						kairosGate.isKairosGateOpen();
 					if (kairosEnabled) {
 						const opts = options as {
@@ -4210,9 +4210,8 @@ async function run(): Promise<CommanderCommand> {
 				cli_flag:
 					options.model as AnalyticsMetadata_I_VERIFIED_THIS_IS_NOT_CODE_OR_FILEPATHS,
 				env_var:
-					process.env.FUSION_MODEL ||
-					(process.env
-						.ANTHROPIC_MODEL as AnalyticsMetadata_I_VERIFIED_THIS_IS_NOT_CODE_OR_FILEPATHS),
+					(process.env.FUSION_MODEL ||
+						process.env.ANTHROPIC_MODEL) as AnalyticsMetadata_I_VERIFIED_THIS_IS_NOT_CODE_OR_FILEPATHS,
 				settings_file: (getInitialSettings() || {})
 					.model as AnalyticsMetadata_I_VERIFIED_THIS_IS_NOT_CODE_OR_FILEPATHS,
 				subscriptionType:
@@ -4404,7 +4403,7 @@ async function run(): Promise<CommanderCommand> {
 				// without TeamCreate. computeInitialTeamContext() is for tmux-spawned
 				// teammates reading their own identity, not the assistant-mode leader.
 				teamContext: feature("KAIROS")
-					? (assistantTeamContext ?? computeInitialTeamContext?.())
+					? ((assistantTeamContext ?? computeInitialTeamContext?.()) as AppState['teamContext'])
 					: computeInitialTeamContext?.(),
 			};
 
@@ -5417,12 +5416,12 @@ async function run(): Promise<CommanderCommand> {
 										? new Date(options.deepLinkLastFetch)
 										: undefined,
 							}),
-							"warning",
+							"warn",
 						);
 					} else if (options.prefill) {
 						deepLinkBanner = createSystemMessage(
 							"Launched with a pre-filled prompt — review it before pressing Enter.",
-							"warning",
+							"warn",
 						);
 					}
 				}

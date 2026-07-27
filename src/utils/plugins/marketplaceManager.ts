@@ -38,5 +38,5 @@ export const clearMarketplacesCache = (): void => {}
 export const registerSeedMarketplaces = async (): Promise<void> => {}
 export const refreshMarketplace = async (_marketplaceId: string): Promise<void> => {}
 export const refreshAllMarketplaces = async (): Promise<void> => {}
-export const addMarketplaceSource = async (_source: string): Promise<void> => {}
+export const addMarketplaceSource = async (_source: string): Promise<{ name: string; alreadyMaterialized: boolean; resolvedSource: unknown }> => ({ name: '', alreadyMaterialized: false, resolvedSource: {} })
 export const removeMarketplaceSource = async (_source: string): Promise<void> => {}

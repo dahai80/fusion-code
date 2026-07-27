@@ -1814,12 +1814,12 @@ function runHeadlessStreaming(
 				type === "http" ||
 				type === "sdk"
 			) {
-				supportedConfigs[name] = config;
+				supportedConfigs[name] = config as McpServerConfigForProcessTransport;
 			}
 		}
 		for (const [name, config] of Object.entries(sdkMcpConfigs)) {
 			if (config.type === "sdk" && !(name in supportedConfigs)) {
-				supportedConfigs[name] = config;
+				supportedConfigs[name] = config as McpServerConfigForProcessTransport;
 			}
 		}
 		const { response, sdkServersChanged } =
@@ -1985,7 +1985,7 @@ function runHeadlessStreaming(
 							if (c.uuid && c.uuid !== command.uuid) {
 								output.enqueue({
 									type: "user",
-									message: { role: "user", content: c.value },
+									message: { content: c.value },
 									session_id: getSessionId(),
 									parent_tool_use_id: null,
 									uuid: c.uuid,
@@ -2265,7 +2265,7 @@ function runHeadlessStreaming(
 
 					// Forward messages to bridge after each turn
 					forwardMessagesToBridge();
-					bridgeHandle?.sendResult();
+					bridgeHandle?.sendResult(undefined);
 
 					if (feature("FILE_PERSISTENCE") && turnStartTime !== undefined) {
 						void executeFilePersistence(
@@ -2345,7 +2345,7 @@ function runHeadlessStreaming(
 										};
 									} else {
 										suggestionState.lastEmitted = lastEmittedEntry;
-										output.enqueue(suggestionMsg);
+										output.enqueue(suggestionMsg as StdoutMessage);
 									}
 								} catch (error) {
 									if (
@@ -2423,7 +2423,7 @@ function runHeadlessStreaming(
 				output.enqueue(heldBackResult);
 				heldBackResult = null;
 				if (suggestionState.pendingSuggestion) {
-					output.enqueue(suggestionState.pendingSuggestion);
+					output.enqueue(suggestionState.pendingSuggestion as StdoutMessage);
 					// Now that the suggestion is actually delivered, record it for acceptance tracking
 					if (suggestionState.pendingLastEmittedEntry) {
 						suggestionState.lastEmitted = {
@@ -2862,7 +2862,7 @@ function runHeadlessStreaming(
 					suggestionState.lastEmitted = null;
 					suggestionState.pendingSuggestion = null;
 					sendControlResponseSuccess(message);
-				} else if (message.request.subtype === "end_session") {
+				} else if ((message.request as { subtype: string }).subtype === "end_session") {
 					const endSessionReq = message.request as unknown as { subtype: string; reason?: string }; // log: fix TS2339
 					logForDebugging(
 						`[print.ts] end_session received, reason=${endSessionReq.reason ?? "unspecified"}`,
@@ -3005,7 +3005,7 @@ function runHeadlessStreaming(
 						sdkClient.type === "connected" &&
 						sdkClient.client?.transport?.onmessage
 					) {
-						sdkClient.client.transport.onmessage(mcpRequest.message);
+						sdkClient.client.transport.onmessage(mcpRequest.message as any);
 					}
 					sendControlResponseSuccess(message);
 				} else if (message.request.subtype === "rewind_files") {
@@ -3320,7 +3320,7 @@ function runHeadlessStreaming(
 							sendControlResponseError(message, errorMessage);
 						}
 					}
-				} else if (message.request.subtype === "channel_enable") {
+				} else if ((message.request as { subtype: string }).subtype === "channel_enable") {
 					const channelReq = message.request as unknown as { subtype: string; serverName: string }; // log: fix TS2339
 					const currentAppState = getAppState();
 					handleChannelEnable(
@@ -3334,7 +3334,7 @@ function runHeadlessStreaming(
 						],
 						output,
 					);
-				} else if (message.request.subtype === "mcp_authenticate") {
+				} else if ((message.request as { subtype: string }).subtype === "mcp_authenticate") {
 					const { serverName } = message.request;
 					const currentAppState = getAppState();
 					const config =
@@ -3490,7 +3490,7 @@ function runHeadlessStreaming(
 							sendControlResponseError(message, errorMessage(error));
 						}
 					}
-				} else if (message.request.subtype === "mcp_oauth_callback_url") {
+				} else if ((message.request as { subtype: string }).subtype === "mcp_oauth_callback_url") {
 					const { serverName, callbackUrl } = message.request;
 					const submit = oauthCallbackSubmitters.get(serverName);
 					if (submit) {
@@ -3541,7 +3541,7 @@ function runHeadlessStreaming(
 							`No active OAuth flow for server: ${serverName}`,
 						);
 					}
-				} else if (message.request.subtype === "claude_authenticate") {
+				} else if ((message.request as { subtype: string }).subtype === "claude_authenticate") {
 					// Anthropic OAuth over the control channel. The SDK client owns
 					// the user's browser (we're headless in -p mode); we hand back
 					// both URLs and wait. Automatic URL → localhost listener catches
@@ -3636,8 +3636,8 @@ function runHeadlessStreaming(
 						sendControlResponseError(message, errorMessage(error));
 					}
 				} else if (
-					message.request.subtype === "claude_oauth_callback" ||
-					message.request.subtype === "claude_oauth_wait_for_completion"
+					(message.request as { subtype: string }).subtype === "claude_oauth_callback" ||
+					(message.request as { subtype: string }).subtype === "claude_oauth_wait_for_completion"
 				) {
 					if (!claudeOAuth) {
 						sendControlResponseError(
@@ -3679,7 +3679,7 @@ function runHeadlessStreaming(
 								sendControlResponseError(message, errorMessage(error)),
 						);
 					}
-				} else if (message.request.subtype === "mcp_clear_auth") {
+				} else if ((message.request as { subtype: string }).subtype === "mcp_clear_auth") {
 					const { serverName } = message.request;
 					const currentAppState = getAppState();
 					const config =
@@ -3816,7 +3816,7 @@ function runHeadlessStreaming(
 					} catch (error) {
 						sendControlResponseError(message, errorMessage(error));
 					}
-				} else if (message.request.subtype === "generate_session_title") {
+				} else if ((message.request as { subtype: string }).subtype === "generate_session_title") {
 					// Fire-and-forget so the Haiku call does not block the stdin loop
 					// (which would delay processing of subsequent user messages /
 					// interrupts for the duration of the API roundtrip).
@@ -3851,7 +3851,7 @@ function runHeadlessStreaming(
 							sendControlResponseError(message, errorMessage(e));
 						}
 					})();
-				} else if (message.request.subtype === "side_question") {
+				} else if ((message.request as { subtype: string }).subtype === "side_question") {
 					// Same fire-and-forget pattern as generate_session_title above —
 					// the forked agent's API roundtrip must not block the stdin loop.
 					//
@@ -3930,7 +3930,7 @@ function runHeadlessStreaming(
 						proactiveModule!.deactivateProactive();
 					}
 					sendControlResponseSuccess(message);
-				} else if (message.request.subtype === "remote_control") {
+				} else if ((message.request as { subtype: string }).subtype === "remote_control") {
 					const remoteReq = message.request as unknown as { subtype: string; enabled: boolean }; // log: fix TS2339
 					if (remoteReq.enabled) {
 						if (bridgeHandle) {

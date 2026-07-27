@@ -126,12 +126,12 @@ export function MCPAgentServerMenu({
           <Text dimColor>{agentServer.transport}</Text>
         </Box>
 
-        {agentServer.url && <Box>
+        {agentServer.transport !== 'stdio' && 'url' in agentServer && agentServer.url && <Box>
             <Text bold>URL: </Text>
             <Text dimColor>{agentServer.url}</Text>
           </Box>}
 
-        {agentServer.command && <Box>
+        {agentServer.transport === 'stdio' && 'command' in agentServer && agentServer.command && <Box>
             <Text bold>Command: </Text>
             <Text dimColor>{agentServer.command}</Text>
           </Box>}

@@ -222,7 +222,7 @@ export function clearStreamAccumulatorForMessage(
   }
 }
 
-type RequestResult = { ok: true } | { ok: false; retryAfterMs?: number }
+type RequestResult = { ok: true } | { ok: false; retryAfterMs?: number } // log: fix TS2339
 
 type WorkerEvent = {
   payload: EventPayload

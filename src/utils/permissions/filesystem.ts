@@ -1327,12 +1327,12 @@ export function checkWritePermissionForTool<Input extends AnyObject>(
       : generateSuggestions(path, 'write', toolPermissionContext, pathsToCheck)
     return {
       behavior: 'ask',
-      message: safetyCheck.message,
+      message: !safetyCheck.safe ? safetyCheck.message : '',
       suggestions: safetySuggestions,
       decisionReason: {
         type: 'safetyCheck',
-        reason: safetyCheck.message,
-        classifierApprovable: safetyCheck.classifierApprovable,
+        reason: !safetyCheck.safe ? safetyCheck.message : '',
+        classifierApprovable: !safetyCheck.safe ? safetyCheck.classifierApprovable : false,
       },
     }
   }

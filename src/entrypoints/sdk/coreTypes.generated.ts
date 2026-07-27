@@ -93,8 +93,19 @@ export type SDKSystemMessage = SDKBaseMessage & {
   content?: string
 }
 
+export type SDKCompactMetadata = { // log: fix TS2339
+  trigger: 'manual' | 'auto' // log: fix TS2339
+  pre_tokens: number // log: fix TS2339
+  preserved_segment?: { // log: fix TS2339
+    head_uuid: string // log: fix TS2339
+    anchor_uuid: string // log: fix TS2339
+    tail_uuid: string // log: fix TS2339
+  } // log: fix TS2339
+} // log: fix TS2339
+
 export type SDKCompactBoundaryMessage = SDKSystemMessage & {
   subtype: 'compact_boundary' | 'microcompact_boundary'
+  compact_metadata: SDKCompactMetadata // log: fix TS2339
 }
 
 export type SDKToolProgressMessage = SDKBaseMessage & {

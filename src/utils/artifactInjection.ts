@@ -81,7 +81,8 @@ export async function injectArtifactsIntoMessages(messages: Message[]): Promise<
         messages.map(async (msg): Promise<Message> => {
             if (msg.type !== 'user' && msg.type !== 'assistant') return msg
 
-            const content = typeof msg.content === 'string' ? msg.content : ''
+            const rawContent = msg.type === 'user' ? msg.message.content : msg.message.content
+            const content = typeof rawContent === 'string' ? rawContent : ''
             const artifactIds = extractArtifactIds(content)
             if (artifactIds.length === 0) return msg
 

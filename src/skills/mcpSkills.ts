@@ -94,12 +94,32 @@ export function unregisterMCPServerSkills(serverName: string): void {
   logForDebugging(`[MCPSkills] Unregistered skills for server: ${serverName}`)
 }
 
-export function fetchMcpSkillsForClient(
-  _clientName: string,
-): Promise<MCPSkill[]> { // log: fix TS2339
-  if (!isMcpSkillsEnabled()) {
-    return Promise.resolve([])
-  }
-  logForDebugging('[MCPSkills] fetchMcpSkillsForClient called')
-  return discoverMCPSkills()
+// log: fix TS2339 — cache interface matching memoizeWithLRU
+type McpSkillsCache = {
+    clear: () => void
+    size: () => number
+    delete: (key: string) => boolean
+    get: (key: string) => MCPSkill[] | undefined
+    has: (key: string) => boolean
 }
+type FetchMcpSkillsFn = ((_clientName: string) => Promise<MCPSkill[]>) & { cache: McpSkillsCache }
+
+const _mcpSkillsCache: McpSkillsCache = {
+    clear: () => {},
+    size: () => 0,
+    delete: (_key: string) => false,
+    get: (_key: string) => undefined,
+    has: (_key: string) => false,
+}
+
+const _fetchMcpSkills = (_clientName: string): Promise<MCPSkill[]> => {
+    if (!isMcpSkillsEnabled()) {
+        return Promise.resolve([])
+    }
+    logForDebugging('[MCPSkills] fetchMcpSkillsForClient called')
+    return discoverMCPSkills()
+}
+export const fetchMcpSkillsForClient: FetchMcpSkillsFn = Object.assign(
+    _fetchMcpSkills,
+    { cache: _mcpSkillsCache },
+)

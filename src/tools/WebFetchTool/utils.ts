@@ -539,7 +539,7 @@ export async function getURLMarkdownContent(
 
   let markdownContent: string
   let contentBytes: number
-  if (contentType.includes('text/html')) {
+  if (String(contentType).includes('text/html')) {
     markdownContent = (await getTurndownService()).turndown(htmlContent)
     contentBytes = Buffer.byteLength(markdownContent)
   } else {

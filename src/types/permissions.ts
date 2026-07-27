@@ -75,6 +75,8 @@ export type PermissionRule = {
   source: PermissionRuleSource
   ruleBehavior: PermissionBehavior
   ruleValue: PermissionRuleValue
+  rule?: string // log: fix TS2339
+  tool?: string // log: fix TS2339
 }
 
 // ============================================================================

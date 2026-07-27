@@ -2558,8 +2558,9 @@ function smooshIntoToolResult(
   // blocks are text — this is the common case (hook reminders into Bash/Read
   // results) and matches the legacy smoosh output shape.
   if (allText && (existing === undefined || typeof existing === 'string')) {
+    const existingStr = typeof existing === 'string' ? existing : ''
     const joined = [
-      (existing ?? '').trim(),
+      existingStr.trim(),
       ...blocks.map(b => (b as TextBlockParam).text.trim()),
     ]
       .filter(Boolean)

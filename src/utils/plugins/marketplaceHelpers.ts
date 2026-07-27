@@ -6,7 +6,7 @@ export type EmptyMarketplaceReason = 'no_marketplaces' | 'loading_failed' | 'emp
 export const formatFailureDetails = (_errors: Array<{ source: MarketplaceSource; error: Error }>): string => ''
 export const getMarketplaceSourceDisplay = (source: MarketplaceSource): string => source
 export const createPluginId = (source: MarketplaceSource, name: string): string => `${source}/${name}`
-export const loadMarketplacesWithGracefulDegradation = async (): Promise<{ marketplaces: unknown[]; errors: unknown[] }> => ({ marketplaces: [], errors: [] })
+export const loadMarketplacesWithGracefulDegradation = async (): Promise<{ marketplaces: Array<{ name: string; data: unknown }>; errors: unknown[] }> => ({ marketplaces: [], errors: [] })
 export const formatMarketplaceLoadingErrors = (_errors: unknown[]): string => ''
 export const getStrictKnownMarketplaces = (): MarketplaceSource[] | null => null
 export const getBlockedMarketplaces = (): MarketplaceSource[] | null => null
