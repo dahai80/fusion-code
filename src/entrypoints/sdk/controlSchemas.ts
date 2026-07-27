@@ -546,6 +546,195 @@ export const SDKControlElicitationResponseSchema = lazySchema(() =>
 
 
 // ============================================================================
+// Code API Schemas (Issues #3, #4, #5)
+// ============================================================================
+
+// Issue #5: Command Execution
+
+export const SDKControlCodeExecRequestSchema = lazySchema(() =>
+    z.object({
+        subtype: z.literal('code_exec'),
+        command: z.string().describe('Shell command to execute'),
+        cwd: z.string().optional().describe('Working directory for the command'),
+        timeout: z.number().optional().describe('Timeout in seconds (default: 120)'),
+    })
+    .describe('Executes a shell command and returns output.'),
+)
+
+export const SDKControlCodeExecResponseSchema = lazySchema(() =>
+    z.object({
+        pid: z.number().describe('Process ID of the executed command'),
+        exit_code: z.number().nullable().describe('Exit code (null if timed out or still running)'),
+        stdout: z.string().describe('Combined stdout output'),
+        stderr: z.string().describe('Combined stderr output'),
+    })
+    .describe('Result of command execution.'),
+)
+
+export const SDKControlCodeProcessesRequestSchema = lazySchema(() =>
+    z.object({
+        subtype: z.literal('code_processes'),
+    })
+    .describe('Lists running child processes spawned by code.exec.'),
+)
+
+export const SDKControlCodeProcessesResponseSchema = lazySchema(() =>
+    z.object({
+        processes: z.array(z.object({
+            pid: z.number(),
+            command: z.string(),
+            cwd: z.string().optional(),
+            status: z.enum(['running', 'exited', 'signaled']),
+            exit_code: z.number().nullable().optional(),
+        })),
+    })
+    .describe('List of tracked child processes.'),
+)
+
+export const SDKControlCodeKillRequestSchema = lazySchema(() =>
+    z.object({
+        subtype: z.literal('code_kill'),
+        pid: z.number().describe('Process ID to kill'),
+        signal: z.string().optional().describe('Signal to send (default: SIGTERM)'),
+    })
+    .describe('Kills a running child process by PID.'),
+)
+
+export const SDKControlCodeKillResponseSchema = lazySchema(() =>
+    z.object({
+        killed: z.boolean().describe('Whether the process was successfully killed'),
+    })
+    .describe('Result of kill operation.'),
+)
+
+// Issue #4: File Operations
+
+export const SDKControlCodeFileReadRequestSchema = lazySchema(() =>
+    z.object({
+        subtype: z.literal('code_file_read'),
+        path: z.string().describe('Absolute or relative file path to read'),
+        encoding: z.string().optional().describe('File encoding (default: utf-8)'),
+        offset: z.number().optional().describe('Line offset to start reading from'),
+        limit: z.number().optional().describe('Maximum number of lines to read'),
+    })
+    .describe('Reads a file and returns its content.'),
+)
+
+export const SDKControlCodeFileReadResponseSchema = lazySchema(() =>
+    z.object({
+        content: z.string().describe('File content'),
+        size: z.number().describe('File size in bytes'),
+        encoding: z.string().describe('Encoding used to read the file'),
+    })
+    .describe('Result of file read operation.'),
+)
+
+export const SDKControlCodeFileWriteRequestSchema = lazySchema(() =>
+    z.object({
+        subtype: z.literal('code_file_write'),
+        path: z.string().describe('Absolute or relative file path to write'),
+        content: z.string().describe('Content to write to the file'),
+        create_dirs: z.boolean().optional().describe('Create parent directories if they don\'t exist'),
+        encoding: z.string().optional().describe('File encoding (default: utf-8)'),
+    })
+    .describe('Writes content to a file, creating it if it doesn\'t exist.'),
+)
+
+export const SDKControlCodeFileWriteResponseSchema = lazySchema(() =>
+    z.object({
+        written: z.boolean().describe('Whether the file was successfully written'),
+        size: z.number().describe('Number of bytes written'),
+    })
+    .describe('Result of file write operation.'),
+)
+
+export const SDKControlCodeDiffRequestSchema = lazySchema(() =>
+    z.object({
+        subtype: z.literal('code_diff'),
+        original: z.string().describe('Original file content'),
+        modified: z.string().describe('Modified file content'),
+        path: z.string().optional().describe('File path for diff header'),
+        language: z.string().optional().describe('Language for syntax-aware diff'),
+    })
+    .describe('Generates a unified diff between two text contents.'),
+)
+
+export const SDKControlCodeDiffResponseSchema = lazySchema(() =>
+    z.object({
+        patch: z.string().describe('Unified diff output'),
+        additions: z.number().describe('Number of added lines'),
+        deletions: z.number().describe('Number of deleted lines'),
+    })
+    .describe('Result of diff generation.'),
+)
+
+export const SDKControlCodeApplyPatchRequestSchema = lazySchema(() =>
+    z.object({
+        subtype: z.literal('code_apply_patch'),
+        path: z.string().describe('File path to apply the patch to'),
+        patch: z.string().describe('Unified diff patch to apply'),
+        backup: z.boolean().optional().describe('Create a .bak backup before applying (default: true)'),
+    })
+    .describe('Applies a unified diff patch to a file with optional backup.'),
+)
+
+export const SDKControlCodeApplyPatchResponseSchema = lazySchema(() =>
+    z.object({
+        applied: z.boolean().describe('Whether the patch was successfully applied'),
+        backup_path: z.string().optional().describe('Path to backup file if backup was created'),
+    })
+    .describe('Result of patch application.'),
+)
+
+export const SDKControlCodeSearchFilesRequestSchema = lazySchema(() =>
+    z.object({
+        subtype: z.literal('code_search_files'),
+        pattern: z.string().describe('Search pattern (regex or glob)'),
+        path: z.string().optional().describe('Directory to search in (default: cwd)'),
+        type: z.enum(['content', 'filename']).optional().describe('Search type: content grep or filename glob (default: content)'),
+        max_results: z.number().optional().describe('Maximum number of results (default: 20)'),
+    })
+    .describe('Searches files by content pattern or filename glob.'),
+)
+
+export const SDKControlCodeSearchFilesResponseSchema = lazySchema(() =>
+    z.object({
+        results: z.array(z.object({
+            path: z.string().describe('File path'),
+            line: z.number().optional().describe('Line number (for content search)'),
+            content: z.string().optional().describe('Matching line content (for content search)'),
+        })),
+        total: z.number().describe('Total matches found (may exceed max_results)'),
+    })
+    .describe('Result of file search operation.'),
+)
+
+// Issue #3: Artifact Chat
+
+export const SDKControlArtifactChatRequestSchema = lazySchema(() =>
+    z.object({
+        subtype: z.literal('artifact_chat'),
+        kind: z.enum(['app', 'game', 'tool', 'document', 'template', 'code'])
+            .describe('Artifact kind to generate'),
+        message: z.string().describe('User description of what to generate'),
+        session_id: z.string().optional().describe('Session ID for conversation continuity'),
+        artifact_id: z.string().optional().describe('Existing artifact ID for follow-up iterations'),
+    })
+    .describe('Generates or iterates on an artifact through AI conversation.'),
+)
+
+export const SDKControlArtifactChatResponseSchema = lazySchema(() =>
+    z.object({
+        artifact_id: z.string().describe('Created or updated artifact ID'),
+        name: z.string().describe('Artifact name'),
+        version: z.number().describe('Artifact version number'),
+        type: z.string().describe('Artifact type'),
+        ref_text: z.string().describe('Compact reference tag for the artifact'),
+    })
+    .describe('Result of artifact chat generation.'),
+)
+
+// ============================================================================
 // Control Request/Response Wrappers
 // ============================================================================
 
@@ -572,6 +761,15 @@ export const SDKControlRequestInnerSchema = lazySchema(() =>
     SDKControlApplyFlagSettingsRequestSchema(),
     SDKControlGetSettingsRequestSchema(),
     SDKControlElicitationRequestSchema(),
+    SDKControlCodeExecRequestSchema(),
+    SDKControlCodeProcessesRequestSchema(),
+    SDKControlCodeKillRequestSchema(),
+    SDKControlCodeFileReadRequestSchema(),
+    SDKControlCodeFileWriteRequestSchema(),
+    SDKControlCodeDiffRequestSchema(),
+    SDKControlCodeApplyPatchRequestSchema(),
+    SDKControlCodeSearchFilesRequestSchema(),
+    SDKControlArtifactChatRequestSchema(),
   ]),
 )
 

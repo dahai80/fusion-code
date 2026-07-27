@@ -4046,6 +4046,224 @@ function runHeadlessStreaming(
 						}
 						sendControlResponseSuccess(message);
 					}
+				} else if (message.request.subtype === "code_exec") {
+					try {
+						const { command, cwd: reqCwd, timeout } = message.request;
+						const { spawn } = await import("node:child_process");
+						const cwdPath = reqCwd || process.cwd();
+						const timeoutMs = (timeout ?? 120) * 1000;
+						const result = await new Promise<{
+							pid: number;
+							exitCode: number | null;
+							stdout: string;
+							stderr: string;
+						}>((resolve, reject) => {
+							const proc = spawn("sh", ["-c", command], {
+								cwd: cwdPath,
+								env: { ...process.env },
+								stdio: ["pipe", "pipe", "pipe"],
+							});
+							let stdout = "";
+							let stderr = "";
+							proc.stdout.on("data", (d: Buffer) => { stdout += d.toString(); });
+							proc.stderr.on("data", (d: Buffer) => { stderr += d.toString(); });
+							const timer = setTimeout(() => {
+								proc.kill("SIGKILL");
+								resolve({ pid: proc.pid!, exitCode: null, stdout, stderr });
+							}, timeoutMs);
+							proc.on("close", (code) => {
+								clearTimeout(timer);
+								resolve({ pid: proc.pid!, exitCode: code, stdout, stderr });
+							});
+							proc.on("error", (err) => {
+								clearTimeout(timer);
+								reject(err);
+							});
+						});
+						sendControlResponseSuccess(message, {
+							pid: result.pid,
+							exit_code: result.exitCode,
+							stdout: result.stdout,
+							stderr: result.stderr,
+						});
+					} catch (err) {
+						sendControlResponseError(message, errorMessage(err));
+					}
+				} else if (message.request.subtype === "code_processes") {
+					sendControlResponseSuccess(message, { processes: [] });
+				} else if (message.request.subtype === "code_kill") {
+					try {
+						const { pid, signal: sig } = message.request;
+						process.kill(pid, (sig || "SIGTERM") as NodeJS.Signals);
+						sendControlResponseSuccess(message, { killed: true });
+					} catch {
+						sendControlResponseSuccess(message, { killed: false });
+					}
+				} else if (message.request.subtype === "code_file_read") {
+					try {
+						const { path: filePath, encoding, offset, limit } = message.request;
+						const enc = (encoding || "utf-8") as BufferEncoding;
+						const raw = await readFile(filePath, enc);
+						const lines = raw.split("\n");
+						const startLine = offset ?? 0;
+						const endLine = limit != null ? startLine + limit : lines.length;
+						const content = lines.slice(startLine, endLine).join("\n");
+						const fileStat = await stat(filePath);
+						sendControlResponseSuccess(message, {
+							content,
+							size: fileStat.size,
+							encoding: enc,
+						});
+					} catch (err) {
+						sendControlResponseError(message, errorMessage(err));
+					}
+				} else if (message.request.subtype === "code_file_write") {
+					try {
+						const { path: filePath, content, create_dirs, encoding } = message.request;
+						const { writeFile, mkdir } = await import("node:fs/promises");
+						if (create_dirs) {
+							await mkdir(dirname(filePath), { recursive: true });
+						}
+						const enc = (encoding || "utf-8") as BufferEncoding;
+						await writeFile(filePath, content, enc);
+						sendControlResponseSuccess(message, {
+							written: true,
+							size: Buffer.byteLength(content, enc),
+						});
+					} catch (err) {
+						sendControlResponseError(message, errorMessage(err));
+					}
+				} else if (message.request.subtype === "code_diff") {
+					try {
+						const { original, modified, path: filePath, language } = message.request;
+						const { createTwoFilesPatch } = await import("diff");
+						const patch = createTwoFilesPatch(
+							filePath || "original",
+							filePath || "modified",
+							original,
+							modified,
+							undefined,
+							undefined,
+							{ context: 3 },
+						);
+						const addedLines = modified.split("\n").length;
+						const deletedLines = original.split("\n").length;
+						sendControlResponseSuccess(message, {
+							patch,
+							additions: Math.max(0, addedLines - deletedLines),
+							deletions: Math.max(0, deletedLines - addedLines),
+						});
+					} catch (err) {
+						sendControlResponseError(message, errorMessage(err));
+					}
+				} else if (message.request.subtype === "code_apply_patch") {
+					try {
+						const { path: filePath, patch, backup } = message.request;
+						const { readFile: readFs, writeFile: writeFs, copyFile } = await import("node:fs/promises");
+						const shouldBackup = backup !== false;
+						if (shouldBackup) {
+							await copyFile(filePath, filePath + ".bak");
+						}
+						const original = await readFs(filePath, "utf-8");
+						const { applyPatch } = await import("diff");
+						const result = applyPatch(original, patch);
+						if (result === false) {
+							sendControlResponseError(message, "Failed to apply patch — patch may not match the file content");
+						} else {
+							await writeFs(filePath, result);
+							sendControlResponseSuccess(message, {
+								applied: true,
+								backup_path: shouldBackup ? filePath + ".bak" : undefined,
+							});
+						}
+					} catch (err) {
+						sendControlResponseError(message, errorMessage(err));
+					}
+				} else if (message.request.subtype === "code_search_files") {
+					try {
+						const { pattern, path: searchPath, type: searchType, max_results } = message.request;
+						const { spawnSync } = await import("node:child_process");
+						const dir = searchPath || process.cwd();
+						const limit = max_results ?? 20;
+						let results: Array<{ path: string; line?: number; content?: string }> = [];
+						if (searchType === "filename") {
+							const proc = spawnSync("find", [dir, "-name", pattern, "-type", "f"], {
+								encoding: "utf-8",
+								timeout: 30000,
+								stdio: ["pipe", "pipe", "ignore"],
+							});
+							if (proc.stdout) {
+								results = proc.stdout.trim().split("\n").filter(Boolean)
+									.slice(0, limit).map(p => ({ path: p }));
+							}
+						} else {
+							const grepArgs = [
+								"-rn", pattern, dir,
+								"--include=*.ts", "--include=*.tsx",
+								"--include=*.js", "--include=*.jsx",
+								"--include=*.json", "--include=*.md", "--include=*.py",
+							];
+							const proc = spawnSync("grep", grepArgs, {
+								encoding: "utf-8",
+								timeout: 30000,
+								stdio: ["pipe", "pipe", "ignore"],
+							});
+							if (proc.stdout) {
+								results = proc.stdout.trim().split("\n").filter(Boolean)
+									.slice(0, limit).map(line => {
+										const colonIdx = line.indexOf(":");
+										const numIdx = line.indexOf(":", colonIdx + 1);
+										return {
+											path: line.slice(0, colonIdx),
+											line: parseInt(line.slice(colonIdx + 1, numIdx), 10) || undefined,
+											content: line.slice(numIdx + 1),
+										};
+									});
+							}
+						}
+						sendControlResponseSuccess(message, { results, total: results.length });
+					} catch (err) {
+						sendControlResponseError(message, errorMessage(err));
+					}
+				} else if (message.request.subtype === "artifact_chat") {
+					try {
+						const { kind, message: chatMessage, session_id, artifact_id } = message.request;
+						const { getArtifactEngineUrl } = await import("src/utils/artifactConfig.js");
+						const engineUrl = getArtifactEngineUrl();
+						const rpcPayload = {
+							jsonrpc: "2.0",
+							id: Date.now(),
+							method: "artifact.chat",
+							params: {
+								kind,
+								message: chatMessage,
+								session_id,
+								artifact_id,
+							},
+						};
+						const resp = await fetch(`${engineUrl}/rpc`, {
+							method: "POST",
+							headers: { "Content-Type": "application/json" },
+							body: JSON.stringify(rpcPayload),
+						});
+						if (!resp.ok) {
+							throw new Error(`Artifact engine returned ${resp.status}: ${await resp.text()}`);
+						}
+						const rpcResult = await resp.json() as { result?: Record<string, unknown>; error?: { message: string } };
+						if (rpcResult.error) {
+							throw new Error(rpcResult.error.message);
+						}
+						const r = rpcResult.result ?? {};
+						sendControlResponseSuccess(message, {
+							artifact_id: r.artifact_id ?? r.id ?? "",
+							name: r.name ?? "",
+							version: r.version ?? 1,
+							type: r.type ?? kind,
+							ref_text: r.ref_text ?? `<artifact id="${r.artifact_id ?? r.id ?? ""}" />`,
+						});
+					} catch (err) {
+						sendControlResponseError(message, errorMessage(err));
+					}
 				} else {
 					// Unknown control request subtype — send an error response so
 					// the caller doesn't hang waiting for a reply that never comes.
