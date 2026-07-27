@@ -144,3 +144,22 @@ declare namespace NodeJS {
 
 // Stripped Anthropic-only runtime functions
 declare function fireCompanionObserver(messages: unknown, callback: (reaction: unknown) => void): Promise<void>
+
+// Missing module stubs for src/main.tsx
+declare module 'src/utils/eventLoopStallDetector.js' {
+    export function startEventLoopStallDetector(): void
+}
+declare module 'src/utils/sdkHeapDumpMonitor.js' {
+    export function startSdkMemoryMonitor(): void
+}
+declare module 'src/utils/sessionDataUploader.js' {
+    const _default: unknown
+    export default _default
+}
+declare module 'src/bridge/bridgeMain.js' {
+    export function bridgeMain(args: string[]): Promise<void>
+}
+declare module 'src/utils/ccshareResume.js' {
+    export function parseCcshareId(input: string): string | undefined
+    export function loadCcshare(id: string, opts?: { print?: string | boolean; outputFormat: string }): Promise<void>
+}

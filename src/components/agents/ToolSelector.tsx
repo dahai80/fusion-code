@@ -317,7 +317,7 @@ export function ToolSelector(t0) {
       const {
         id,
         name: name_1,
-        tools: bucketTools_0
+        tools: bucketTools_0: Tool[]
       } = t11;
       if (bucketTools_0.length === 0) {
         return;

@@ -114,11 +114,11 @@ function convertToolProgressMessage(
   return {
     type: 'system',
     subtype: 'informational',
-    content: `Tool ${msg.tool_name} running for ${msg.elapsed_time_seconds}s…`,
+    content: `Tool ${msg.tool_name as string} running for ${msg.elapsed_time_seconds as number}s…`,
     level: 'info',
-    uuid: msg.uuid,
+    uuid: (msg.uuid ?? '') as UUID,
     timestamp: new Date().toISOString(),
-    toolUseID: msg.tool_use_id,
+    toolUseID: msg.tool_use_id as string,
   }
 }
 
@@ -133,7 +133,7 @@ function convertCompactBoundaryMessage(
     subtype: 'compact_boundary',
     content: 'Conversation compacted',
     level: 'info',
-    uuid: msg.uuid,
+    uuid: (msg.uuid ?? '') as UUID,
     timestamp: new Date().toISOString(),
     compactMetadata: fromSDKCompactMetadata(msg.compact_metadata),
   }
