@@ -1,29 +1,13 @@
-import { readFileSync, existsSync } from 'fs'
-import { homedir } from 'os'
+import { existsSync } from 'fs'
+import { readFileSync } from 'fs'
 import { join } from 'path'
+import { getClaudeConfigHomeDir } from './envUtils.js'
+import { parseYaml } from './yaml.js'
 
 let cachedURL: string | null = null
 
-function parseYAMLSection(text: string, section: string): Record<string, string> {
-    const result: Record<string, string> = {}
-    const sectionRegex = new RegExp(`^${section}:\\s*$`, 'm')
-    const match = sectionRegex.exec(text)
-    if (!match) return result
-    const afterSection = text.slice(match.index + match[0].length)
-    const lines = afterSection.split('\n')
-    for (const line of lines) {
-        const trimmed = line.match(/^(\s{2,})\S/)
-        if (!trimmed) break
-        const kvMatch = line.match(/^\s+(\w+):\s*["']?(.*?)["']?\s*$/)
-        if (kvMatch) {
-            result[kvMatch[1]] = kvMatch[2]
-        }
-    }
-    return result
-}
-
 export function getArtifactEngineURL(): string {
-    if (cachedURL) return cachedURL
+    if (cachedURL !== null) return cachedURL
 
     if (process.env.ARTIFACT_ENGINE_URL) {
         cachedURL = process.env.ARTIFACT_ENGINE_URL
@@ -31,19 +15,21 @@ export function getArtifactEngineURL(): string {
     }
 
     const configPath = process.env.FUSION_ARTIFACTS_CONFIG ||
-        join(homedir(), '.fusion', 'artifacts', 'config.yaml')
+        join(getClaudeConfigHomeDir(), 'artifacts', 'config.yaml')
 
     try {
         if (existsSync(configPath)) {
             const content = readFileSync(configPath, 'utf-8')
-            const server = parseYAMLSection(content, 'server')
-            const host = server.host || '127.0.0.1'
-            const port = server.port || '8892'
+            const parsed = parseYaml(content) as Record<string, Record<string, string>> | null
+            const server = parsed?.server
+            const host = server?.host || '127.0.0.1'
+            const port = server?.port || '8892'
             cachedURL = `http://${host}:${port}`
+            console.log(`[artifactConfig] loaded from ${configPath}: ${cachedURL}`)
             return cachedURL
         }
-    } catch {
-        // Fall through to default
+    } catch (e) {
+        console.log(`[artifactConfig] failed to read ${configPath}: ${e}`)
     }
 
     cachedURL = 'http://127.0.0.1:8892'
