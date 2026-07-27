@@ -163,6 +163,22 @@ import { jsonStringify, jsonParse } from './slowOperations.js'
 import { isEnvTruthy } from './envUtils.js'
 import { errorMessage, getErrnoCode } from './errors.js'
 
+type HookSpecificOutput = {
+    hookEventName: string
+    permissionDecision?: 'allow' | 'deny' | 'ask'
+    permissionDecisionReason?: string
+    updatedInput?: Record<string, unknown>
+    additionalContext?: string
+    initialUserMessage?: string
+    watchPaths?: string[]
+    updatedToolOutput?: unknown
+    retry?: boolean
+    decision?: { behavior: string; updatedInput?: Record<string, unknown> }
+    action?: string
+    content?: unknown
+    worktreePath?: string
+}
+
 const TOOL_HOOK_EXECUTION_TIMEOUT_MS = 10 * 60 * 1000
 
 /**
@@ -509,6 +525,7 @@ function processHookJSONOutput({
   exitCode?: number
   durationMs?: number
 }): Partial<HookResult> {
+  const hso = hso as HookSpecificOutput | undefined
   const result: Partial<HookResult> = {}
 
   // At this point we know it's a sync response
@@ -549,10 +566,10 @@ function processHookJSONOutput({
 
   // Handle PreToolUse specific
   if (
-    json.hookSpecificOutput?.hookEventName === 'PreToolUse' &&
-    json.hookSpecificOutput.permissionDecision
+    hso?.hookEventName === 'PreToolUse' &&
+    hso.permissionDecision
   ) {
-    switch (json.hookSpecificOutput.permissionDecision) {
+    switch (hso.permissionDecision) {
       case 'allow':
         result.permissionBehavior = 'allow'
         break
@@ -569,7 +586,7 @@ function processHookJSONOutput({
       default:
         // Handle unknown decision types as errors
         throw new Error(
-          `Unknown hook permissionDecision type: ${json.hookSpecificOutput.permissionDecision}. Valid types are: allow, deny, ask`,
+          `Unknown hook permissionDecision type: ${hso.permissionDecision}. Valid types are: allow, deny, ask`,
         )
     }
   }
@@ -578,22 +595,22 @@ function processHookJSONOutput({
   }
 
   // Handle hookSpecificOutput
-  if (json.hookSpecificOutput) {
+  if (hso) {
     // Validate hook event name matches expected if provided
     if (
       expectedHookEvent &&
-      json.hookSpecificOutput.hookEventName !== expectedHookEvent
+      hso.hookEventName !== expectedHookEvent
     ) {
       throw new Error(
-        `Hook returned incorrect event name: expected '${expectedHookEvent}' but got '${json.hookSpecificOutput.hookEventName}'. Full stdout: ${jsonStringify(json, null, 2)}`,
+        `Hook returned incorrect event name: expected '${expectedHookEvent}' but got '${hso.hookEventName}'. Full stdout: ${jsonStringify(json, null, 2)}`,
       )
     }
 
-    switch (json.hookSpecificOutput.hookEventName) {
+    switch (hso.hookEventName) {
       case 'PreToolUse':
         // Override with more specific permission decision if provided
-        if (json.hookSpecificOutput.permissionDecision) {
-          switch (json.hookSpecificOutput.permissionDecision) {
+        if (hso.permissionDecision) {
+          switch (hso.permissionDecision) {
             case 'allow':
               result.permissionBehavior = 'allow'
               break
@@ -601,7 +618,7 @@ function processHookJSONOutput({
               result.permissionBehavior = 'deny'
               result.blockingError = {
                 blockingError:
-                  json.hookSpecificOutput.permissionDecisionReason ||
+                  hso.permissionDecisionReason ||
                   json.reason ||
                   'Blocked by hook',
                 command,
@@ -613,73 +630,73 @@ function processHookJSONOutput({
           }
         }
         result.hookPermissionDecisionReason =
-          json.hookSpecificOutput.permissionDecisionReason
+          hso.permissionDecisionReason
         // Extract updatedInput if provided
-        if (json.hookSpecificOutput.updatedInput) {
-          result.updatedInput = json.hookSpecificOutput.updatedInput
+        if (hso.updatedInput) {
+          result.updatedInput = hso.updatedInput
         }
         // Extract additionalContext if provided
-        result.additionalContext = json.hookSpecificOutput.additionalContext
+        result.additionalContext = hso.additionalContext
         break
       case 'UserPromptSubmit':
-        result.additionalContext = json.hookSpecificOutput.additionalContext
+        result.additionalContext = hso.additionalContext
         break
       case 'SessionStart':
-        result.additionalContext = json.hookSpecificOutput.additionalContext
-        result.initialUserMessage = json.hookSpecificOutput.initialUserMessage
+        result.additionalContext = hso.additionalContext
+        result.initialUserMessage = hso.initialUserMessage
         if (
-          'watchPaths' in json.hookSpecificOutput &&
-          json.hookSpecificOutput.watchPaths
+          'watchPaths' in hso &&
+          hso.watchPaths
         ) {
-          result.watchPaths = json.hookSpecificOutput.watchPaths
+          result.watchPaths = hso.watchPaths
         }
         break
       case 'Setup':
-        result.additionalContext = json.hookSpecificOutput.additionalContext
+        result.additionalContext = hso.additionalContext
         break
       case 'SubagentStart':
-        result.additionalContext = json.hookSpecificOutput.additionalContext
+        result.additionalContext = hso.additionalContext
         break
       case 'PostToolUse':
-        result.additionalContext = json.hookSpecificOutput.additionalContext
+        result.additionalContext = hso.additionalContext
         // Extract updatedToolOutput if provided
-        if (json.hookSpecificOutput.updatedToolOutput) {
+        if (hso.updatedToolOutput) {
           result.updatedToolOutput =
-            json.hookSpecificOutput.updatedToolOutput
+            hso.updatedToolOutput
         }
         break
       case 'PostToolUseFailure':
-        result.additionalContext = json.hookSpecificOutput.additionalContext
+        result.additionalContext = hso.additionalContext
         break
       case 'PermissionDenied':
-        result.retry = json.hookSpecificOutput.retry
+        result.retry = hso.retry
         break
       case 'PermissionRequest':
         // Extract the permission request decision
-        if (json.hookSpecificOutput.decision) {
-          result.permissionRequestResult = json.hookSpecificOutput.decision
+        if (hso.decision) {
+          result.permissionRequestResult = hso.decision
           // Also update permissionBehavior for consistency
           result.permissionBehavior =
-            json.hookSpecificOutput.decision.behavior === 'allow'
+            hso.decision.behavior === 'allow'
               ? 'allow'
               : 'deny'
           if (
-            json.hookSpecificOutput.decision.behavior === 'allow' &&
-            json.hookSpecificOutput.decision.updatedInput
+            hso.decision.behavior === 'allow' &&
+            hso.decision.updatedInput
           ) {
-            result.updatedInput = json.hookSpecificOutput.decision.updatedInput
+            result.updatedInput = hso.decision.updatedInput
           }
         }
         break
       case 'Elicitation':
-        if (json.hookSpecificOutput.action) {
+        if (hso.action) {
           result.elicitationResponse = {
-            action: json.hookSpecificOutput.action,
-            content: json.hookSpecificOutput.content as
+            action: hso.action,
+            content: hso.content as
               | ElicitationResponse['content']
               | undefined,
           }
-          if (json.hookSpecificOutput.action === 'decline') {
+          if (hso.action === 'decline') {
             result.blockingError = {
               blockingError: json.reason || 'Elicitation denied by hook',
               command,
@@ -688,14 +705,14 @@ function processHookJSONOutput({
         }
         break
       case 'ElicitationResult':
-        if (json.hookSpecificOutput.action) {
+        if (hso.action) {
           result.elicitationResultResponse = {
-            action: json.hookSpecificOutput.action,
-            content: json.hookSpecificOutput.content as
+            action: hso.action,
+            content: hso.content as
               | ElicitationResponse['content']
               | undefined,
           }
-          if (json.hookSpecificOutput.action === 'decline') {
+          if (hso.action === 'decline') {
             result.blockingError = {
               blockingError:
                 json.reason || 'Elicitation result blocked by hook',
@@ -2201,7 +2218,7 @@ async function* executeHooks({
     const hookCommand = getHookDisplayText(hook)
 
     try {
-      const jsonInputRes = getJsonInput()
+      const jsonInputRes = getJsonInput() as { ok: boolean; value?: string; error?: any }
       if (!jsonInputRes.ok) {
         yield {
           message: createAttachmentMessage({
@@ -2209,7 +2226,7 @@ async function* executeHooks({
             hookName,
             toolUseID,
             hookEvent,
-            content: `Failed to prepare hook input: ${errorMessage(jsonInputRes.error)}`,
+            content: `Failed to prepare hook input: ${errorMessage(jsonInputRes.error as any)}`,
             command: hookCommand,
             durationMs: Date.now() - hookStartMs,
           }),
@@ -3117,8 +3134,8 @@ async function executeHooksOutsideREPL({
           const output =
             hookEvent === 'WorktreeCreate' &&
             isSyncHookJSONOutput(json) &&
-            json.hookSpecificOutput?.hookEventName === 'WorktreeCreate'
-              ? json.hookSpecificOutput.worktreePath
+            hso?.hookEventName === 'WorktreeCreate'
+              ? hso.worktreePath
               : json.systemMessage || ''
           const blocked =
             isSyncHookJSONOutput(json) && json.decision === 'block'
@@ -3245,12 +3262,13 @@ async function executeHooksOutsideREPL({
           // via hookSpecificOutput.worktreePath. Without worktreePath, emit ''
           // so the consumer's length filter skips it instead of treating the
           // raw '{}' body as a path.
+          const httpHso = httpJson?.hookSpecificOutput as HookSpecificOutput | undefined
           const output =
             hookEvent === 'WorktreeCreate'
               ? httpJson &&
                 isSyncHookJSONOutput(httpJson) &&
-                httpJson.hookSpecificOutput?.hookEventName === 'WorktreeCreate'
-                ? httpJson.hookSpecificOutput.worktreePath
+                httpHso?.hookEventName === 'WorktreeCreate'
+                ? httpHso.worktreePath
                 : ''
               : httpResult.body
 
@@ -3340,9 +3358,9 @@ async function executeHooksOutsideREPL({
         const watchPaths =
           json &&
           isSyncHookJSONOutput(json) &&
-          json.hookSpecificOutput &&
-          'watchPaths' in json.hookSpecificOutput
-            ? json.hookSpecificOutput.watchPaths
+          hso &&
+          'watchPaths' in hso
+            ? hso.watchPaths
             : undefined
 
         const systemMessage =
@@ -4447,7 +4465,7 @@ function parseElicitationHookOutput(
       }
     }
 
-    const specific = parsed.hookSpecificOutput
+    const specific = parsed.hookSpecificOutput as HookSpecificOutput | undefined
     if (!specific || specific.hookEventName !== expectedEventName) {
       return {}
     }
