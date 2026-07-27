@@ -8,7 +8,21 @@ import type { LocalShellTaskState } from './LocalShellTask/guards.js'
 import type { LocalWorkflowTaskState } from './LocalWorkflowTask/LocalWorkflowTask.js'
 import type { MonitorMcpTaskState } from './MonitorMcpTask/MonitorMcpTask.js'
 // RemoteAgentTask removed - cloud-only
-type RemoteAgentTaskState = never
+interface RemoteAgentTaskState { // log: fix TS2339
+    sessionId: string; // log: fix TS2339
+    title: string; // log: fix TS2339
+    status: string; // log: fix TS2339
+    startTime: number; // log: fix TS2339
+    endTime: number | null; // log: fix TS2339
+    log: unknown[]; // log: fix TS2339
+    isUltraplan: boolean; // log: fix TS2339
+    isRemoteReview: boolean; // log: fix TS2339
+    ultraplanPhase?: string | null; // log: fix TS2339
+    reviewProgress?: unknown; // log: fix TS2339
+    todoList?: Array<{ status: string }>; // log: fix TS2339
+    id: string; // log: fix TS2339
+    type: 'remote_agent'; // log: fix TS2339
+}
 
 export type TaskState =
   | LocalShellTaskState

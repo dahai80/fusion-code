@@ -110,7 +110,7 @@ import type {
 import type { StatusLineCommandInput } from '../types/statusLine.js'
 import type { ElicitResult } from '@modelcontextprotocol/sdk/types.js'
 import type { FileSuggestionCommandInput } from '../types/fileSuggestion.js'
-import type { HookResultMessage } from 'src/types/message.js'
+import type { HookResultMessage, ProgressMessage } from 'src/types/message.js'
 import chalk from 'chalk'
 import type {
   HookMatcher,
@@ -177,6 +177,33 @@ type HookSpecificOutput = {
     action?: string
     content?: unknown
     worktreePath?: string
+}
+
+type TypedHookJSON = {
+    continue?: boolean
+    stopReason?: string
+    message?: string
+    decision?: 'approve' | 'block' | 'allow' | 'deny' | 'ask'
+    reason?: string
+    systemMessage?: string
+    suppressOutput?: boolean
+    hookSpecificOutput?: HookSpecificOutput
+    [key: string]: unknown
+}
+
+type TypedHookInput = HookInput & {
+    tool_name?: string
+    tool_input?: Record<string, unknown>
+    source?: string
+    trigger?: string
+    notification_type?: string
+    reason?: string
+    error?: string
+    agent_type?: string
+    mcp_server_name?: string
+    load_reason?: string
+    file_path?: string
+    hook_event_name?: HookEvent
 }
 
 const TOOL_HOOK_EXECUTION_TIMEOUT_MS = 10 * 60 * 1000
@@ -352,7 +379,7 @@ export interface HookBlockingError {
 export type ElicitationResponse = ElicitResult
 
 export interface HookResult {
-  message?: HookResultMessage
+  message?: HookResultMessage | ProgressMessage // log: fix TS2339
   systemMessage?: string
   blockingError?: HookBlockingError
   outcome: 'success' | 'blocking' | 'non_blocking_error' | 'cancelled'
@@ -373,7 +400,7 @@ export interface HookResult {
 }
 
 export type AggregatedHookResult = {
-  message?: HookResultMessage
+  message?: HookResultMessage | ProgressMessage // log: fix TS2339
   blockingError?: HookBlockingError
   preventContinuation?: boolean
   stopReason?: string
@@ -402,7 +429,7 @@ function validateHookJson(
   const validation = hookJSONOutputSchema().safeParse(parsed)
   if (validation.success) {
     logForDebugging('Successfully parsed and validated hook JSON output')
-    return { json: validation.data }
+    return { json: validation.data as HookJSONOutput }
   }
   const errors = validation.error.issues
     .map(err => `  - ${err.path.join('.')}: ${err.message}`)
@@ -478,7 +505,7 @@ function parseHttpHookOutput(body: string): {
       logForDebugging(
         'HTTP hook returned empty body, treating as empty JSON object',
       )
-      return { json: validation.data }
+      return { json: validation.data as HookJSONOutput }
     }
   }
 
@@ -514,7 +541,7 @@ function processHookJSONOutput({
   exitCode,
   durationMs,
 }: {
-  json: SyncHookJSONOutput
+  json: SyncHookJSONOutput & TypedHookJSON
   command: string
   hookName: string
   toolUseID: string
@@ -525,7 +552,7 @@ function processHookJSONOutput({
   exitCode?: number
   durationMs?: number
 }): Partial<HookResult> {
-  const hso = hso as HookSpecificOutput | undefined
+  const hso = json.hookSpecificOutput as HookSpecificOutput | undefined
   const result: Partial<HookResult> = {}
 
   // At this point we know it's a sync response
@@ -674,7 +701,7 @@ function processHookJSONOutput({
       case 'PermissionRequest':
         // Extract the permission request decision
         if (hso.decision) {
-          result.permissionRequestResult = hso.decision
+          result.permissionRequestResult = hso.decision as PermissionRequestResult
           // Also update permissionBehavior for consistency
           result.permissionBehavior =
             hso.decision.behavior === 'allow'
@@ -691,7 +718,7 @@ function processHookJSONOutput({
       case 'Elicitation':
         if (hso.action) {
           result.elicitationResponse = {
-            action: hso.action,
+            action: hso.action as 'accept' | 'decline' | 'cancel',
             content: hso.content as
               | ElicitationResponse['content']
               | undefined,
@@ -707,7 +734,7 @@ function processHookJSONOutput({
       case 'ElicitationResult':
         if (hso.action) {
           result.elicitationResultResponse = {
-            action: hso.action,
+            action: hso.action as 'accept' | 'decline' | 'cancel',
             content: hso.content as
               | ElicitationResponse['content']
               | undefined,
@@ -1408,18 +1435,19 @@ async function prepareIfConditionMatcher(
   hookInput: HookInput,
   tools: Tools | undefined,
 ): Promise<IfConditionMatcher | undefined> {
+  const hi = hookInput as TypedHookInput
   if (
-    hookInput.hook_event_name !== 'PreToolUse' &&
-    hookInput.hook_event_name !== 'PostToolUse' &&
-    hookInput.hook_event_name !== 'PostToolUseFailure' &&
-    hookInput.hook_event_name !== 'PermissionRequest'
+    hi.hook_event_name !== 'PreToolUse' &&
+    hi.hook_event_name !== 'PostToolUse' &&
+    hi.hook_event_name !== 'PostToolUseFailure' &&
+    hi.hook_event_name !== 'PermissionRequest'
   ) {
     return undefined
   }
 
-  const toolName = normalizeLegacyToolName(hookInput.tool_name)
-  const tool = tools && findToolByName(tools, hookInput.tool_name)
-  const input = tool?.inputSchema.safeParse(hookInput.tool_input)
+  const toolName = normalizeLegacyToolName(hi.tool_name)
+  const tool = tools && findToolByName(tools, hi.tool_name)
+  const input = tool?.inputSchema.safeParse(hi.tool_input)
   const patternMatcher =
     input?.success && tool?.preparePermissionMatcher
       ? await tool.preparePermissionMatcher(input.data)
@@ -1625,62 +1653,63 @@ export async function getMatchingHooks(
   tools?: Tools,
 ): Promise<MatchedHook[]> {
   try {
+    const hi = hookInput as TypedHookInput
     const hookMatchers = getHooksConfig(appState, sessionId, hookEvent)
 
     // If you change the criteria below, then you must change
     // src/utils/hooks/hooksConfigManager.ts as well.
     let matchQuery: string | undefined = undefined
-    switch (hookInput.hook_event_name) {
+    switch (hi.hook_event_name) {
       case 'PreToolUse':
       case 'PostToolUse':
       case 'PostToolUseFailure':
       case 'PermissionRequest':
       case 'PermissionDenied':
-        matchQuery = hookInput.tool_name
+        matchQuery = hi.tool_name
         break
       case 'SessionStart':
-        matchQuery = hookInput.source
+        matchQuery = hi.source
         break
       case 'Setup':
-        matchQuery = hookInput.trigger
+        matchQuery = hi.trigger
         break
       case 'PreCompact':
       case 'PostCompact':
-        matchQuery = hookInput.trigger
+        matchQuery = hi.trigger
         break
       case 'Notification':
-        matchQuery = hookInput.notification_type
+        matchQuery = hi.notification_type
         break
       case 'SessionEnd':
-        matchQuery = hookInput.reason
+        matchQuery = hi.reason
         break
       case 'StopFailure':
-        matchQuery = hookInput.error
+        matchQuery = hi.error
         break
       case 'SubagentStart':
-        matchQuery = hookInput.agent_type
+        matchQuery = hi.agent_type
         break
       case 'SubagentStop':
-        matchQuery = hookInput.agent_type
+        matchQuery = hi.agent_type
         break
       case 'TeammateIdle':
       case 'TaskCreated':
       case 'TaskCompleted':
         break
       case 'Elicitation':
-        matchQuery = hookInput.mcp_server_name
+        matchQuery = hi.mcp_server_name
         break
       case 'ElicitationResult':
-        matchQuery = hookInput.mcp_server_name
+        matchQuery = hi.mcp_server_name
         break
       case 'ConfigChange':
-        matchQuery = hookInput.source
+        matchQuery = hi.source
         break
       case 'InstructionsLoaded':
-        matchQuery = hookInput.load_reason
+        matchQuery = hi.load_reason
         break
       case 'FileChanged':
-        matchQuery = basename(hookInput.file_path)
+        matchQuery = basename(hi.file_path)
         break
       default:
         break
@@ -1992,6 +2021,7 @@ async function* executeHooks({
   ) => (request: PromptRequest) => Promise<PromptResponse>
   toolInputSummary?: string | null
 }): AsyncGenerator<AggregatedHookResult> {
+  const hi = hookInput as TypedHookInput
   if (shouldDisableAllHooksIncludingManaged()) {
     return
   }
@@ -2000,7 +2030,7 @@ async function* executeHooks({
     return
   }
 
-  const hookEvent = hookInput.hook_event_name
+  const hookEvent = hi.hook_event_name
   const hookName = matchQuery ? `${hookEvent}:${matchQuery}` : hookEvent
 
   // Bind the prompt callback to this hook's name and tool input summary so the UI can display context
@@ -2291,7 +2321,7 @@ async function* executeHooks({
           toolUseID,
           messages,
           'agent_type' in hookInput
-            ? (hookInput.agent_type as string)
+            ? (hi.agent_type as string)
             : undefined,
         )
         // Inject timing fields for hook visibility
@@ -3030,11 +3060,12 @@ async function executeHooksOutsideREPL({
   signal?: AbortSignal
   timeoutMs: number
 }): Promise<HookOutsideReplResult[]> {
+  const hi = hookInput as TypedHookInput
   if (isEnvTruthy(process.env.FUSION_CODE_SIMPLE)) {
     return []
   }
 
-  const hookEvent = hookInput.hook_event_name
+  const hookEvent = hi.hook_event_name
   const hookName = matchQuery ? `${hookEvent}:${matchQuery}` : hookEvent
   if (shouldDisableAllHooksIncludingManaged()) {
     logForDebugging(
@@ -3395,7 +3426,7 @@ async function executeHooksOutsideREPL({
   )
 
   // Wait for all hooks to complete and collect results
-  return await Promise.all(hookPromises)
+  return await Promise.all(hookPromises) as HookOutsideReplResult[]
 }
 
 /**
@@ -3640,7 +3671,7 @@ export async function executeStopFailureHooks(
     getAppState: toolUseContext?.getAppState,
     hookInput,
     timeoutMs,
-    matchQuery: error,
+    matchQuery: String(error),
   })
 }
 
@@ -4459,7 +4490,7 @@ function parseElicitationHookOutput(
     if (parsed.decision === 'block' || result.blocked) {
       return {
         blockingError: {
-          blockingError: parsed.reason || 'Elicitation blocked by hook',
+          blockingError: (parsed.reason as string) || 'Elicitation blocked by hook',
           command: result.command,
         },
       }
@@ -4475,7 +4506,7 @@ function parseElicitationHookOutput(
     }
 
     const response: ElicitationResponse = {
-      action: specific.action,
+      action: specific.action as 'accept' | 'decline' | 'cancel',
       content: specific.content as ElicitationResponse['content'] | undefined,
     }
 
@@ -4487,7 +4518,7 @@ function parseElicitationHookOutput(
     if (specific.action === 'decline') {
       out.blockingError = {
         blockingError:
-          parsed.reason ||
+          (parsed.reason as string) ||
           (expectedEventName === 'Elicitation'
             ? 'Elicitation denied by hook'
             : 'Elicitation result blocked by hook'),

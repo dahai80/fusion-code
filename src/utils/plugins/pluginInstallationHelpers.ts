@@ -296,6 +296,9 @@ export type InstallCoreResult =
       blockedDependency: string
     }
 
+// log: fix TS2339 — extracted failure union for reliable narrowing
+export type InstallCoreFailure = Extract<InstallCoreResult, { ok: false }>
+
 /**
  * Format a failed ResolutionResult into a user-facing message. Unified on
  * the richer CLI messages (the "Is the X marketplace added?" hint is useful
@@ -389,7 +392,7 @@ export async function installResolvedPlugin({
   }
 
   const rootMarketplace = parsePluginIdentifier(pluginId).marketplace
-  const allowedCrossMarketplaces = new Set(
+  const allowedCrossMarketplaces: ReadonlySet<string> = new Set<string>(
     (rootMarketplace
       ? (await getMarketplaceCacheOnly(rootMarketplace))
           ?.allowCrossMarketplaceDependenciesOn
@@ -401,14 +404,16 @@ export async function installResolvedPlugin({
       if (depInfo.has(id)) return depInfo.get(id)!.entry
       if (id === pluginId) return entry
       const info = await getPluginById(id)
-      if (info) depInfo.set(id, info)
+      if (info?.entry && info.marketplaceInstallLocation) {
+        depInfo.set(id, { entry: info.entry, marketplaceInstallLocation: info.marketplaceInstallLocation })
+      }
       return info?.entry ?? null
     },
     getEnabledPluginIdsForScope(settingSource),
     allowedCrossMarketplaces,
   )
   if (!resolution.ok) {
-    return { ok: false, reason: 'resolution-failed', resolution }
+    return { ok: false, reason: 'resolution-failed', resolution: resolution as ResolutionResult & { ok: false } }
   }
 
   // ── Policy guard for transitive dependencies ──
@@ -525,31 +530,32 @@ export async function installPluginFromMarketplace({
     })
 
     if (!result.ok) {
-      switch (result.reason) {
+      const fail = result as InstallCoreFailure
+      switch (fail.reason) {
         case 'local-source-no-location':
           return {
             success: false,
-            error: `Cannot install local plugin "${result.pluginName}" without marketplace install location`,
+            error: `Cannot install local plugin "${fail.pluginName}" without marketplace install location`,
           }
         case 'settings-write-failed':
           return {
             success: false,
-            error: `Failed to update settings: ${result.message}`,
+            error: `Failed to update settings: ${fail.message}`,
           }
         case 'resolution-failed':
           return {
             success: false,
-            error: formatResolutionError(result.resolution),
+            error: formatResolutionError(fail.resolution),
           }
         case 'blocked-by-policy':
           return {
             success: false,
-            error: `Plugin "${result.pluginName}" is blocked by your organization's policy and cannot be installed`,
+            error: `Plugin "${fail.pluginName}" is blocked by your organization's policy and cannot be installed`,
           }
         case 'dependency-blocked-by-policy':
           return {
             success: false,
-            error: `Cannot install "${result.pluginName}": dependency "${result.blockedDependency}" is blocked by your organization's policy`,
+            error: `Cannot install "${fail.pluginName}": dependency "${fail.blockedDependency}" is blocked by your organization's policy`,
           }
       }
     }
@@ -583,9 +589,10 @@ export async function installPluginFromMarketplace({
       }),
     })
 
+    const okResult = result as Extract<InstallCoreResult, { ok: true }>
     return {
       success: true,
-      message: `✓ Installed ${entry.name}${result.depNote}. Run /reload-plugins to activate.`,
+      message: `✓ Installed ${entry.name}${okResult.depNote}. Run /reload-plugins to activate.`,
     }
   } catch (err) {
     const errorMessage = err instanceof Error ? err.message : String(err)

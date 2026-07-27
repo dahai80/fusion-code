@@ -1,3 +1,5 @@
+// log: created for TS2307 fix
+
 import type { ReactNode } from 'react'
 
 export type WizardStepComponent<

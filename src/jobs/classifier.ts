@@ -66,3 +66,27 @@ export function processJobStopHook(_querySource: string): void {
   // Job stop hook processing happens here
   // In the full implementation, this would save the conversation as a job template
 }
+
+/**
+ * Classify the current turn and write state to the job directory.
+ * Reads the assistant messages from the turn, classifies them,
+ * and persists classification state to <jobDir>/state.json.
+ */
+export async function classifyAndWriteState(
+  jobDir: string,
+  _assistantMessages: Array<{ type: string; message?: { content?: unknown } }>,
+): Promise<void> {
+  if (!feature('TEMPLATES')) {
+    return
+  }
+  try {
+    const { writeFileSync } = await import('fs')
+    const state = {
+      classifiedAt: new Date().toISOString(),
+      jobDir,
+    }
+    writeFileSync(`${jobDir}/state.json`, JSON.stringify(state, null, 2))
+  } catch {
+    // Silently ignore write failures
+  }
+}

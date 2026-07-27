@@ -165,11 +165,7 @@ async function compactViaReactive(
     ])
     if (hookResult.blocked) {
       context.onCompactProgress?.({ type: 'compact_end' })
-      return {
-        type: 'tool_result',
-        toolUseID: '',
-        result: `Compaction blocked by PreCompact hook: ${hookResult.stopReason || 'no reason provided'}`,
-      }
+      throw new Error(`Compaction blocked by PreCompact hook: ${hookResult.stopReason || 'no reason provided'}`)
     }
     const mergedInstructions = mergeHookInstructions(
       customInstructions,
@@ -190,7 +186,8 @@ async function compactViaReactive(
       // The outer catch in `call` translates these: aborted → "Compaction
       // canceled." (via abortController.signal.aborted check), NOT_ENOUGH →
       // re-thrown as-is, everything else → "Error during compaction: …".
-      switch (outcome.reason) {
+      const reason = outcome.reason as string
+      switch (reason) {
         case 'too_few_groups':
           throw new Error(ERROR_MESSAGE_NOT_ENOUGH_MESSAGES)
         case 'aborted':
@@ -198,9 +195,12 @@ async function compactViaReactive(
         case 'exhausted':
         case 'error':
         case 'media_unstrippable':
+        case 'blocked_by_hook':
           throw new Error(ERROR_MESSAGE_INCOMPLETE_RESPONSE)
       }
+      throw new Error(ERROR_MESSAGE_INCOMPLETE_RESPONSE)
     }
+    const compactResult = outcome.result as CompactionResult
 
     // Mirrors the post-success cleanup in tryReactiveCompact, minus
     // resetMicrocompactState — processSlashCommand calls that for all
@@ -215,14 +215,14 @@ async function compactViaReactive(
     // they can merge its userDisplayMessage with PostCompact's here. This
     // caller additionally runs it concurrently with getCacheSharingParams.
     const combinedMessage =
-      [hookResult.userDisplayMessage, outcome.result.userDisplayMessage]
+      [hookResult.userDisplayMessage, compactResult.userDisplayMessage]
         .filter(Boolean)
         .join('\n') || undefined
 
     return {
       type: 'compact',
       compactionResult: {
-        ...outcome.result,
+        ...compactResult,
         userDisplayMessage: combinedMessage,
       },
       displayText: buildDisplayText(context, combinedMessage),

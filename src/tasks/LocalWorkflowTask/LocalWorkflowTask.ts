@@ -7,6 +7,7 @@ export type LocalWorkflowTaskState = TaskStateBase & {
     agents: string[]
     currentAgentIndex: number
     abortController?: AbortController
+    summary?: string // log: fix TS2339
 }
 
 export function killWorkflowTask(

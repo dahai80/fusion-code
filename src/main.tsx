@@ -1876,7 +1876,7 @@ async function run(): Promise<CommanderCommand> {
 					// pre-entitled).
 					kairosEnabled =
 						assistantModule.isAssistantForced() ||
-						(await kairosGate.isKairosEnabled());
+						kairosGate.isKairosGateOpen();
 					if (kairosEnabled) {
 						const opts = options as {
 							brief?: boolean;

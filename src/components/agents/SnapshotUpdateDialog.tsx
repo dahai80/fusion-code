@@ -15,3 +15,11 @@ export function SnapshotUpdateDialog({ onCancel }: Props) {
 
   return null
 }
+
+/**
+ * Build a merge prompt for snapshot update dialog.
+ * log: fix TS2339
+ */
+export function buildMergePrompt(agentType: string, _scope: unknown): string {
+  return `[Snapshot Update] Agent "${agentType}" has a pending snapshot update. Merge incoming changes with existing memory.`
+}

@@ -56,6 +56,8 @@ export interface ParsedConnectUrl {
   authToken?: string
   /** Session ID to resume */
   sessionId?: string
+  /** Constructed server URL (http://host:port for TCP) */ // log: fix TS2339
+  serverUrl?: string // log: fix TS2339
 }
 
 /**
@@ -91,12 +93,14 @@ function parseTcpUrl(url: string): ParsedConnectUrl {
     )
   }
 
+  const resolvedPort = port || 8080
   return {
     type: 'tcp',
     host: resolvedHost,
-    port: port || 8080,
+    port: resolvedPort,
     authToken: params.get('token') || undefined,
     sessionId: params.get('session') || undefined,
+    serverUrl: `http://${resolvedHost}:${resolvedPort}`, // log: fix TS2339
   }
 }
 
@@ -111,5 +115,6 @@ function parseUnixUrl(url: string): ParsedConnectUrl {
     socketPath: socketPath || undefined,
     authToken: params.get('token') || undefined,
     sessionId: params.get('session') || undefined,
+    serverUrl: socketPath || '', // log: fix TS2339
   }
 }

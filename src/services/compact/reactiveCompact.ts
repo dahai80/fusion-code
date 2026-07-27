@@ -252,6 +252,7 @@ type PromptTooLongOutcome =
               | 'exhausted'
               | 'error'
               | 'media_unstrippable'
+              | 'blocked_by_hook'
       }
 
 /**

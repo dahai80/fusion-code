@@ -622,6 +622,26 @@ export function prefetchApiKeyFromApiKeyHelperIfSafe(
   void getApiKeyFromApiKeyHelper(isNonInteractiveSession)
 }
 
+// log: fix TS2339 — stubs for AWS STS helpers (AWS not supported in China fork)
+async function checkStsCallerIdentity(): Promise<void> {
+    const { execa: _execa } = await import('execa')
+    await _execa('aws', ['sts', 'get-caller-identity'], { reject: true })
+}
+
+function isValidAwsStsOutput(output: unknown): output is { Credentials: { AccessKeyId: string; SecretAccessKey: string; SessionToken: string } } {
+    return (
+        typeof output === 'object' &&
+        output !== null &&
+        'Credentials' in output &&
+        typeof (output as { Credentials: unknown }).Credentials === 'object' &&
+        (output as { Credentials: unknown }).Credentials !== null
+    )
+}
+
+async function clearAwsIniCache(): Promise<void> {
+    logForDebugging('clearAwsIniCache: no-op stub')
+}
+
 /** Default STS credentials are one hour. We manually manage invalidation, so not too worried about this being accurate. */
 const DEFAULT_AWS_STS_TTL = 60 * 60 * 1000
 
@@ -2103,7 +2123,7 @@ export function getAccountInformation() {
  * Result of org validation — either success or a descriptive error.
  */
 export type OrgValidationResult =
-  | { valid: true }
+  | { valid: true; message?: undefined } // log: fix TS2339
   | { valid: false; message: string }
 
 /**

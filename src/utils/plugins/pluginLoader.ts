@@ -2037,6 +2037,8 @@ async function loadPluginsFromMarketplaces({
         const entry = marketplace.plugins.find(p => p.name === pluginName)
         if (entry) {
           result = {
+            id: pluginId,
+            name: entry.name,
             entry,
             marketplaceInstallLocation: marketplaceConfig.installLocation,
           }

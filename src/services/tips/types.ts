@@ -1,13 +1,16 @@
 // log: created for TS2307 fix
 
-export type TipEntry = {
-    id: string
-    message: string
-    category?: string
-    priority?: number
+export type TipContext = {
+    theme?: unknown
+    bashTools?: Set<string>
+    readFileState?: unknown & {
+        cacheKeys?: () => string[]
+    }
 }
 
-export type TipRegistry = {
-    tips: TipEntry[]
-    seenTipIds: Set<string>
+export type Tip = {
+    id: string
+    content: (context?: TipContext) => Promise<string>
+    cooldownSessions: number
+    isRelevant?: (context?: TipContext) => Promise<boolean>
 }

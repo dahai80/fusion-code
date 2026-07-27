@@ -1,3 +1,5 @@
+// log: created for TS2307 fix
+
 export type FileSuggestionCommandInput = {
     session_id: string
     transcript_path: string

@@ -37,19 +37,20 @@ export type MessageOrigin =
 // System message level
 // ============================================================================
 
-export type SystemMessageLevel = 'info' | 'warn' | 'error'
+export type SystemMessageLevel = 'info' | 'warn' | 'error' | 'suggestion' // log: fix TS2339
 
 // ============================================================================
 // Compact metadata
 // ============================================================================
 
-export type PartialCompactDirection = 'from' | 'to'
+export type PartialCompactDirection = 'from' | 'to' | 'up_to' // log: fix TS2339
 
 export type CompactMetadata = {
     trigger: 'manual' | 'auto'
     preTokens: number
     userContext?: string
     messagesSummarized?: number
+    preCompactDiscoveredTools?: string[] // log: fix TS2339
     preservedSegment?: {
         headUuid: string
         anchorUuid: string
@@ -72,6 +73,7 @@ export type MicrocompactMetadata = {
 export type StopHookInfo = {
     command: string
     promptText?: string
+    durationMs?: number // log: fix TS2339
 }
 
 // ============================================================================

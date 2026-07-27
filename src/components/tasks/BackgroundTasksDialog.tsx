@@ -18,8 +18,24 @@ import { LocalShellTask } from 'src/tasks/LocalShellTask/LocalShellTask.js';
 import type { LocalWorkflowTaskState } from 'src/tasks/LocalWorkflowTask/LocalWorkflowTask.js';
 import type { MonitorMcpTaskState } from 'src/tasks/MonitorMcpTask/MonitorMcpTask.js';
 // RemoteAgentTask removed - cloud-only
-const RemoteAgentTask = { type: 'remote-agent' }
-type RemoteAgentTaskState = never
+const RemoteAgentTask = {
+    type: 'remote-agent' as const,
+    kill: async (_taskId: string, _setAppState: (f: any) => void) => {}, // log: fix TS2339
+}
+interface RemoteAgentTaskState { // log: fix TS2339
+    sessionId: string; // log: fix TS2339
+    title: string; // log: fix TS2339
+    status: string; // log: fix TS2339
+    startTime: number; // log: fix TS2339
+    endTime: number | null; // log: fix TS2339
+    log: unknown[]; // log: fix TS2339
+    isUltraplan: boolean; // log: fix TS2339
+    isRemoteReview: boolean; // log: fix TS2339
+    ultraplanPhase?: string | null; // log: fix TS2339
+    reviewProgress?: unknown; // log: fix TS2339
+    todoList?: Array<{ status: string }>; // log: fix TS2339
+    id: string; // log: fix TS2339
+}
 import { type BackgroundTaskState, isBackgroundTask, type TaskState } from 'src/tasks/types.js';
 import type { DeepImmutable } from 'src/types/utils.js';
 import { intersperse } from 'src/utils/array.js';
@@ -168,7 +184,7 @@ export function BackgroundTasksDialog({
 
   // Register as modal overlay so parent Chat keybindings (up/down for history)
   // are deactivated while this dialog is open
-  useRegisterOverlay('background-tasks-dialog');
+  useRegisterOverlay('background-tasks-dialog', true);
 
   // Memoize the sorted and categorized items together to ensure stable references
   const {
@@ -381,7 +397,7 @@ export function BackgroundTasksDialog({
       case 'local_agent':
         return <AsyncAgentDetailDialog agent={task_0} onDone={onDone} onKillAgent={() => void killAgentTask(task_0.id)} onBack={goBackToList} key={`agent-${task_0.id}`} />;
       case 'remote_agent':
-        return <RemoteSessionDetailDialog session={task_0} onDone={onDone} toolUseContext={toolUseContext} onBack={goBackToList} onKill={task_0.status !== 'running' ? undefined : task_0.isUltraplan ? () => void stopUltraplan(task_0.id, task_0.sessionId, setAppState) : () => void killRemoteAgentTask(task_0.id)} key={`session-${task_0.id}`} />;
+        return <RemoteSessionDetailDialog session={task_0 as unknown as Parameters<typeof RemoteSessionDetailDialog>[0]['session']} onDone={onDone} toolUseContext={toolUseContext} onBack={goBackToList} onKill={task_0.status !== 'running' ? undefined : task_0.isUltraplan ? () => void stopUltraplan(task_0.id, task_0.sessionId, setAppState) : () => void killRemoteAgentTask(task_0.id)} key={`session-${task_0.id}`} />;
       case 'in_process_teammate':
         return <InProcessTeammateDetailDialog teammate={task_0} onDone={onDone} onKill={task_0.status === 'running' ? () => void killTeammateTask(task_0.id) : undefined} onBack={goBackToList} onForeground={task_0.status === 'running' ? () => {
           enterTeammateView(task_0.id, setAppState);

@@ -1,3 +1,5 @@
+// log: created for TS2307 fix
+
 export type SpinnerMode =
     | 'requesting'
     | 'tool-use'

@@ -10,7 +10,26 @@ import { useElapsedTime } from '../../hooks/useElapsedTime.js';
 import type { KeyboardEvent } from '../../ink/events/keyboard-event.js';
 import { Box, Link, Text } from '../../ink.js';
 // RemoteAgentTask removed - cloud-only
-type RemoteAgentTaskState = never
+// log: fix TS2339 - define local interface for remote session state
+type ReviewProgress = { // log: fix TS2339
+    stage: 'finding' | 'verifying' | 'synthesizing'; // log: fix TS2339
+    bugsFound: number; // log: fix TS2339
+    bugsVerified: number; // log: fix TS2339
+    bugsRefuted?: number; // log: fix TS2339
+}; // log: fix TS2339
+interface RemoteAgentTaskState { // log: fix TS2339
+    sessionId: string; // log: fix TS2339
+    title: string; // log: fix TS2339
+    status: string; // log: fix TS2339
+    startTime: number; // log: fix TS2339
+    endTime: number | null; // log: fix TS2339
+    log: SDKMessage[]; // log: fix TS2339
+    isUltraplan: boolean; // log: fix TS2339
+    isRemoteReview: boolean; // log: fix TS2339
+    ultraplanPhase?: string | null; // log: fix TS2339
+    reviewProgress?: ReviewProgress | null; // log: fix TS2339
+    todoList?: Array<{ status: string }>; // log: fix TS2339
+} // log: fix TS2339
 const getRemoteTaskSessionUrl = (_id: string): string => ''
 import { AGENT_TOOL_NAME, LEGACY_AGENT_TOOL_NAME } from '../../tools/AgentTool/constants.js';
 import { ASK_USER_QUESTION_TOOL_NAME } from '../../tools/AskUserQuestionTool/prompt.js';

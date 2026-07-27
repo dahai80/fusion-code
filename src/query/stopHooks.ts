@@ -62,6 +62,10 @@ type StopHookResult = {
   preventContinuation: boolean
 }
 
+type HookAttachment = Record<string, unknown> & {
+  type: string
+}
+
 export async function* handleStopHooks(
   messagesForQuery: Message[],
   assistantMessages: AssistantMessage[],
@@ -215,7 +219,7 @@ export async function* handleStopHooks(
         }
         // Track errors and output from attachments
         if (result.message.type === 'attachment') {
-          const attachment = result.message.attachment
+          const attachment = result.message.attachment as HookAttachment
           if (
             'hookEvent' in attachment &&
             (attachment.hookEvent === 'Stop' ||
@@ -223,18 +227,18 @@ export async function* handleStopHooks(
           ) {
             if (attachment.type === 'hook_non_blocking_error') {
               hookErrors.push(
-                attachment.stderr || `Exit code ${attachment.exitCode}`,
+                (attachment.stderr as string) || `Exit code ${attachment.exitCode}`,
               )
               // Non-blocking errors always have output
               hasOutput = true
             } else if (attachment.type === 'hook_error_during_execution') {
-              hookErrors.push(attachment.content)
+              hookErrors.push(attachment.content as string)
               hasOutput = true
             } else if (attachment.type === 'hook_success') {
               // Check if successful hook produced any stdout/stderr
               if (
-                (attachment.stdout && attachment.stdout.trim()) ||
-                (attachment.stderr && attachment.stderr.trim())
+                (attachment.stdout && (attachment.stdout as string).trim()) ||
+                (attachment.stderr && (attachment.stderr as string).trim())
               ) {
                 hasOutput = true
               }
@@ -244,11 +248,11 @@ export async function* handleStopHooks(
             if ('durationMs' in attachment && 'command' in attachment) {
               const info = hookInfos.find(
                 i =>
-                  i.command === attachment.command &&
+                  i.command === (attachment.command as string) &&
                   i.durationMs === undefined,
               )
               if (info) {
-                info.durationMs = attachment.durationMs
+                info.durationMs = attachment.durationMs as number
               }
             }
           }
@@ -466,7 +470,7 @@ export async function* handleStopHooks(
     // to debug their hook.
     yield createSystemMessage(
       `Stop hook failed: ${errorMessage(error)}`,
-      'warning',
+      'warn',
     )
     return { blockingErrors: [], preventContinuation: false }
   }

@@ -15,25 +15,51 @@ export type UndoAvailability = {
     anchorCount: number
 }
 
+function getMessageContentText(msg: Message): string {
+    if (msg.type === 'user') {
+        const c = msg.message.content
+        return typeof c === 'string' ? c : ''
+    }
+    if (msg.type === 'system' && 'content' in msg) {
+        const c = msg.content
+        return typeof c === 'string' ? c : ''
+    }
+    return ''
+}
+
+function getMessageId(msg: Message): string {
+    if ('uuid' in msg) return msg.uuid as string // log: fix TS2339
+    return ''
+}
+
+function getMessageTimestamp(msg: Message): number {
+    if ('timestamp' in msg && typeof msg.timestamp === 'string') {
+        return new Date(msg.timestamp).getTime()
+    }
+    return 0
+}
+
 function isCompactionMessage(msg: Message): boolean {
-    if (msg.role !== 'system') return false
-    const content = typeof msg.content === 'string' ? msg.content : ''
+    if (msg.type !== 'system') return false
+    if (msg.type === 'system' && 'subtype' in msg && msg.subtype === 'compact_boundary') return true
+    if (msg.type === 'system' && 'subtype' in msg && msg.subtype === 'microcompact_boundary') return true
+    const content = getMessageContentText(msg)
     return content.includes('[compaction]') || content.includes('Compaction')
 }
 
 function isUserMessage(msg: Message): boolean {
-    return msg.role === 'user'
+    return msg.type === 'user'
 }
 
 function isSkillActivation(msg: Message): boolean {
-    if (msg.role !== 'system') return false
-    const content = typeof msg.content === 'string' ? msg.content : ''
+    if (msg.type !== 'system') return false
+    const content = getMessageContentText(msg)
     return content.includes('skill') || content.includes('Skill')
 }
 
 function isPluginCommand(msg: Message): boolean {
-    if (msg.role !== 'system') return false
-    const content = typeof msg.content === 'string' ? msg.content : ''
+    if (msg.type !== 'system') return false
+    const content = getMessageContentText(msg)
     return content.includes('plugin_command') || content.includes('Plugin')
 }
 
@@ -60,15 +86,11 @@ export function findUndoAnchors(messages: Message[]): UndoAnchor[] {
         }
 
         if (type) {
-            const content = typeof msg.content === 'string'
-                ? msg.content
-                : Array.isArray(msg.content)
-                    ? msg.content.map(b => 'text' in b ? b.text : '').join('')
-                    : ''
+            const content = getMessageContentText(msg)
             anchors.push({
-                messageId: msg.id ?? `msg_${i}`,
+                messageId: getMessageId(msg) || `msg_${i}`,
                 type,
-                timestamp: msg.timestamp ?? 0,
+                timestamp: getMessageTimestamp(msg),
                 text: content.slice(0, 100),
                 index: i,
             })

@@ -135,3 +135,9 @@ declare module '*.md' {
     const content: string
     export default content
 }
+
+declare namespace NodeJS {
+    interface ProcessEnv {
+        USER_TYPE?: 'external' | 'ant'
+    }
+}

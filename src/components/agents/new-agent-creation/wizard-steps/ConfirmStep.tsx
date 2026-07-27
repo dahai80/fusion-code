@@ -7,6 +7,7 @@ import { isAutoMemoryEnabled } from '../../../../memdir/paths.js';
 import type { Tools } from '../../../../Tool.js';
 import { getMemoryScopeDisplay } from '../../../../tools/AgentTool/agentMemory.js';
 import type { AgentDefinition } from '../../../../tools/AgentTool/loadAgentsDir.js';
+import type { SettingSource } from '../../../../utils/settings/constants.js';
 import { truncateToWidth } from '../../../../utils/format.js';
 import { getAgentModelDisplay } from '../../../../utils/model/agent.js';
 import { ConfigurableShortcutHint } from '../../../ConfigurableShortcutHint.js';
@@ -16,7 +17,7 @@ import { useWizard } from '../../../wizard/index.js';
 import { WizardDialogLayout } from '../../../wizard/WizardDialogLayout.js';
 import { getNewRelativeAgentFilePath } from '../../agentFileUtils.js';
 import { validateAgent } from '../../validateAgent.js';
-import type { AgentWizardData } from '../types.js';
+import type { AgentWizardData, FinalAgentData } from '../types.js';
 type Props = {
   tools: Tools;
   existingAgents: AgentDefinition[];
@@ -67,7 +68,7 @@ export function ConfirmStep(t0) {
     t2 = $[3];
   }
   const handleKeyDown = t2;
-  const agent = wizardData.finalAgent;
+  const agent = wizardData.finalAgent as FinalAgentData;
   let T0;
   let T1;
   let t10;
@@ -154,7 +155,7 @@ export function ConfirmStep(t0) {
     let t25;
     if ($[39] !== agent.agentType || $[40] !== wizardData.location) {
       t25 = getNewRelativeAgentFilePath({
-        source: wizardData.location,
+        source: wizardData.location as SettingSource,
         agentType: agent.agentType
       });
       $[39] = agent.agentType;

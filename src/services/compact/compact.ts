@@ -4,7 +4,7 @@ import uniqBy from 'lodash-es/uniqBy.js'
 
 /* eslint-disable @typescript-eslint/no-require-imports */
 const sessionTranscriptModule = feature('KAIROS')
-  ? (require('../sessionTranscript/sessionTranscript.js') as typeof import('../sessionTranscript/sessionTranscript.js'))
+  ? (() => { try { return require('../sessionTranscript/sessionTranscript.js') as { writeSessionTranscriptSegment: (messages: Message[]) => void } } catch { return null } })()
   : null
 
 import { APIUserAbortError } from '@anthropic-ai/sdk'
@@ -27,6 +27,8 @@ import type {
   HookResultMessage,
   Message,
   PartialCompactDirection,
+  StreamEvent,
+  SystemAPIErrorMessage,
   SystemCompactBoundaryMessage,
   SystemMessage,
   UserMessage,
@@ -279,7 +281,7 @@ export function truncateHeadForPTLRetry(
     let acc = 0
     dropCount = 0
     for (const g of groups) {
-      acc += roughTokenCountEstimationForMessages(g)
+      acc += roughTokenCountEstimationForMessages(g as readonly { type: string; message?: { content?: unknown }; attachment?: import('../../utils/attachments.js').Attachment }[])
       dropCount++
       if (acc >= tokenGap) break
     }
@@ -392,7 +394,7 @@ export function preflightMlxTokenTruncate(
     let dropCount = 0
     let remaining = estimated
     for (const g of groups) {
-        remaining -= roughTokenCountEstimationForMessages(g)
+        remaining -= roughTokenCountEstimationForMessages(g as readonly { type: string; message?: { content?: unknown }; attachment?: import('../../utils/attachments.js').Attachment }[])
         dropCount++
         if (remaining <= messageBudget) break
     }
@@ -548,9 +550,9 @@ export async function compactConversation(
       logForDebugging(`Compaction blocked by PreCompact hook: ${hookResult.stopReason}`)
       context.onCompactProgress?.({ type: 'compact_end' })
       return {
-        messages: [...messages],
-        summary: '',
-        tokenCount: 0,
+        boundaryMarker: createCompactBoundaryMessage('auto', 0, undefined),
+        summaryMessages: [],
+        attachments: [],
         hookResults: [],
         userDisplayMessage: hookResult.userDisplayMessage,
       }
@@ -885,7 +887,7 @@ export async function compactConversation(
       ...summaryMessages,
       ...postCompactFileAttachments,
       ...hookMessages,
-    ])
+    ] as readonly { type: string; message?: { content?: unknown }; attachment?: import('../../utils/attachments.js').Attachment }[])
 
     // Extract compaction API usage metrics
     const compactionUsage = getTokenUsage(summaryResponse)
@@ -1081,9 +1083,9 @@ export async function partialCompactConversation(
       logForDebugging(`Partial compaction blocked by PreCompact hook: ${hookResult.stopReason}`)
       context.onCompactProgress?.({ type: 'compact_end' })
       return {
-        messages: [...allMessages],
-        summary: '',
-        tokenCount: 0,
+        boundaryMarker: createCompactBoundaryMessage('manual', 0, undefined),
+        summaryMessages: [],
+        attachments: [],
         hookResults: [],
         userDisplayMessage: hookResult.userDisplayMessage,
       }
@@ -1658,7 +1660,7 @@ async function streamCompactSummary({
       let next = await streamIter.next()
 
       while (!next.done) {
-        const event = next.value
+        const event = next.value as AssistantMessage | SystemAPIErrorMessage | StreamEvent
 
         if (
           !hasStartedStreaming &&

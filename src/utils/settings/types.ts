@@ -263,8 +263,16 @@ export const SettingsSchema = lazySchema(() =>
         .string()
         .optional()
         .describe('Path to a script that outputs authentication values'),
-      // awsCredentialExport: removed (AWS not supported in China)
-      // awsAuthRefresh: removed (AWS not supported in China)
+      // log: fix TS2339 — awsCredentialExport referenced in auth.ts
+      awsCredentialExport: z
+        .string()
+        .optional()
+        .describe('Command to export AWS credentials as JSON'),
+      // log: fix TS2339 — awsAuthRefresh referenced in auth.ts
+      awsAuthRefresh: z
+        .string()
+        .optional()
+        .describe('Command to refresh AWS authentication (e.g., aws sso login)'),
       gcpAuthRefresh: z
         .string()
         .optional()

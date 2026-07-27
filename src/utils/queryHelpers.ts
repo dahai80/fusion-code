@@ -18,6 +18,10 @@ import {
 import { FILE_WRITE_TOOL_NAME } from '../tools/FileWriteTool/prompt.js'
 import type { Message } from '../types/message.js'
 import type { OrphanedPermission } from '../types/textInputTypes.js'
+import type {
+    AgentToolProgress,
+    SkillToolProgress,
+} from '../types/tools.js'
 import { logForDebugging } from './debug.js'
 import { isEnvTruthy } from './envUtils.js'
 import { isFsInaccessible } from './errors.js'
@@ -122,7 +126,8 @@ export function* normalizeMessage(message: Message): Generator<SDKMessage> {
         message.data.type === 'agent_progress' ||
         message.data.type === 'skill_progress'
       ) {
-        for (const _ of normalizeMessages([message.data.message])) {
+        const progressData = message.data as AgentToolProgress | SkillToolProgress // log: fix TS2339
+        for (const _ of normalizeMessages([progressData.message])) {
           switch (_.type) {
             case 'assistant':
               // Skip empty messages (e.g., "(no content)") that shouldn't be output to SDK
@@ -229,7 +234,7 @@ export async function* handleOrphanedPermission(
 ): AsyncGenerator<SDKMessage, void, unknown> {
   const persistSession = !isSessionPersistenceDisabled()
   const { permissionResult, assistantMessage } = orphanedPermission
-  const { toolUseID } = permissionResult
+  const toolUseID = (permissionResult as Record<string, unknown>).toolUseID as string | undefined // log: fix TS2339
 
   if (!toolUseID) {
     return
@@ -275,13 +280,37 @@ export async function* handleOrphanedPermission(
     input: finalInput,
   }
 
-  const canUseTool: CanUseToolFn = async () => ({
-    ...permissionResult,
-    decisionReason: {
-      type: 'mode',
-      mode: 'default' as const,
-    },
-  })
+  const canUseTool: CanUseToolFn = async () => {
+    if (permissionResult.behavior === 'allow') {
+      return {
+        behavior: 'allow' as const,
+        updatedInput: permissionResult.updatedInput,
+        decisionReason: {
+          type: 'mode' as const,
+          mode: 'default' as const,
+        },
+      }
+    }
+    if (permissionResult.behavior === 'deny') {
+      return {
+        behavior: 'deny' as const,
+        message: permissionResult.message ?? 'Permission denied',
+        decisionReason: {
+          type: 'mode' as const,
+          mode: 'default' as const,
+        },
+      }
+    }
+    return {
+      behavior: 'ask' as const,
+      message: permissionResult.message ?? '',
+      updatedInput: permissionResult.updatedInput,
+      decisionReason: {
+        type: 'mode' as const,
+        mode: 'default' as const,
+      },
+    }
+  }
 
   // Add the assistant message with tool_use to messages BEFORE executing
   // so the conversation history is complete (tool_use -> tool_result).
