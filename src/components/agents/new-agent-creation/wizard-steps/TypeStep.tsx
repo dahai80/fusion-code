@@ -21,7 +21,7 @@ export function TypeStep(_props) {
     goBack,
     updateWizardData,
     wizardData
-  } = useWizard();
+  } = useWizard<AgentWizardData>();
   const [agentType, setAgentType] = useState(wizardData.agentType || "");
   const [error, setError] = useState(null);
   const [cursorOffset, setCursorOffset] = useState(agentType.length);

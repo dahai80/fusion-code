@@ -15,6 +15,7 @@ import {
 } from '../../services/analytics/index.js'
 import {
   type FilesApiConfig,
+  type UploadResult, // log: fix TS2339
   uploadSessionFiles,
 } from '../../services/api/filesApi.js'
 import { getCwd } from '../cwd.js'

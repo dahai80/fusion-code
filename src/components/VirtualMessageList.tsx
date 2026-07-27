@@ -151,7 +151,7 @@ function computeStickyPromptText(msg: RenderableMessage): string | null {
     raw = block.text;
   } else if (msg.type === 'attachment' && msg.attachment.type === 'queued_command' && msg.attachment.commandMode !== 'task-notification' && !msg.attachment.isMeta) {
     const p = msg.attachment.prompt;
-    raw = typeof p === 'string' ? p : p.flatMap(b => b.type === 'text' ? [b.text] : []).join('\n');
+    raw = typeof p === 'string' ? p : (p as { type: string; text: string }[]).flatMap(b => b.type === 'text' ? [b.text] : []).join('\n');
   }
   if (raw === null) return null;
   const t = stripSystemReminders(raw);

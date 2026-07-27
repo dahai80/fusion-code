@@ -178,20 +178,13 @@ export function generateTmuxSessionName(
   return combined.replace(/[/.]/g, '_')
 }
 
-type WorktreeCreateResult =
-  | {
-      worktreePath: string
-      worktreeBranch: string
-      headCommit: string
-      existed: true
-    }
-  | {
-      worktreePath: string
-      worktreeBranch: string
-      headCommit: string
-      baseBranch: string
-      existed: false
-    }
+type WorktreeCreateResult = {
+    worktreePath: string
+    worktreeBranch: string
+    headCommit: string
+    baseBranch: string // log: fix TS2339
+    existed: boolean
+}
 
 // Env vars to prevent git/SSH from prompting for credentials (which hangs the CLI).
 // GIT_TERMINAL_PROMPT=0 prevents git from opening /dev/tty for credential prompts.

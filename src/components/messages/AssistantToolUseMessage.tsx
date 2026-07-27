@@ -51,7 +51,7 @@ export function AssistantToolUseMessage(t0) {
   const terminalSize = useTerminalSize();
   const [theme] = useTheme();
   const bg = useSelectedMessageBg();
-  const pendingWorkerRequest = useAppStateMaybeOutsideOfProvider(_temp);
+  const pendingWorkerRequest = useAppStateMaybeOutsideOfProvider(_temp) as { toolName: string; toolUseId: string; description: string } | null;
   const isClassifierCheckingRaw = useIsClassifierChecking(param.id);
   const permissionMode = useAppStateMaybeOutsideOfProvider(_temp2);
   const hasStrippedRules = useAppStateMaybeOutsideOfProvider(_temp3);

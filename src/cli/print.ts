@@ -3335,7 +3335,7 @@ function runHeadlessStreaming(
 						output,
 					);
 				} else if ((message.request as { subtype: string }).subtype === "mcp_authenticate") {
-					const { serverName } = message.request;
+					const { serverName } = message.request as unknown as { subtype: string; serverName: string }; // log: fix TS2339
 					const currentAppState = getAppState();
 					const config =
 						getMcpConfigByName(serverName) ??
@@ -3491,7 +3491,7 @@ function runHeadlessStreaming(
 						}
 					}
 				} else if ((message.request as { subtype: string }).subtype === "mcp_oauth_callback_url") {
-					const { serverName, callbackUrl } = message.request;
+					const { serverName, callbackUrl } = message.request as unknown as { subtype: string; serverName: string; callbackUrl: string }; // log: fix TS2339
 					const submit = oauthCallbackSubmitters.get(serverName);
 					if (submit) {
 						// Validate the callback URL before submitting. The submit
@@ -3547,7 +3547,7 @@ function runHeadlessStreaming(
 					// both URLs and wait. Automatic URL → localhost listener catches
 					// the redirect if the browser is on this host; manual URL → the
 					// success page shows "code#state" for claude_oauth_callback.
-					const { loginWithClaudeAi } = message.request;
+					const { loginWithClaudeAi } = message.request as unknown as { subtype: string; loginWithClaudeAi: boolean }; // log: fix TS2339
 
 					// Clean up any prior flow. cleanup() closes the localhost listener
 					// and nulls the manual resolver. The prior `flow` promise is left
@@ -3680,7 +3680,7 @@ function runHeadlessStreaming(
 						);
 					}
 				} else if ((message.request as { subtype: string }).subtype === "mcp_clear_auth") {
-					const { serverName } = message.request;
+					const { serverName } = message.request as unknown as { subtype: string; serverName: string }; // log: fix TS2339
 					const currentAppState = getAppState();
 					const config =
 						getMcpConfigByName(serverName) ??
@@ -3820,7 +3820,7 @@ function runHeadlessStreaming(
 					// Fire-and-forget so the Haiku call does not block the stdin loop
 					// (which would delay processing of subsequent user messages /
 					// interrupts for the duration of the API roundtrip).
-					const { description, persist } = message.request;
+					const { description, persist } = message.request as unknown as { subtype: string; description: string; persist: boolean }; // log: fix TS2339
 					// Reuse the live controller only if it has not already been aborted
 					// (e.g. by interrupt()); an aborted signal would cause queryHaiku to
 					// immediately throw APIUserAbortError → {title: null}.
@@ -3867,7 +3867,7 @@ function runHeadlessStreaming(
 					// matches in the common case. May still miss the cache for
 					// coordinator mode or memory-mechanics extras — acceptable, the
 					// alternative is the side question failing entirely.
-					const { question } = message.request;
+					const { question } = message.request as unknown as { subtype: string; question: string }; // log: fix TS2339
 					void (async () => {
 						try {
 							const saved = getLastCacheSafeParams();

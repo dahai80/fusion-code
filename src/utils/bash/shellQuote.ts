@@ -14,7 +14,7 @@ import { jsonStringify } from '../slowOperations.js'
 export type { ParseEntry } from 'shell-quote'
 
 export type ShellParseResult =
-  | { success: true; tokens: ParseEntry[] }
+  | { success: true; tokens: ParseEntry[]; error?: undefined } // log: fix TS2339
   | { success: false; error: string }
 
 export type ShellQuoteResult =

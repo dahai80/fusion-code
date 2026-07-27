@@ -48,7 +48,7 @@ const call: LocalCommandCall = async (args: string) => {
                 }
             }
             const cmd = createWorkflowCommand(target)
-            const loaded = await cmd.load()
+            const loaded = await (cmd as { load: () => Promise<{ call?: LocalCommandCall; execute?: LocalCommandCall }> }).load()
             const runArgs = parts.slice(2).join(' ')
             return (loaded.call || loaded.execute)!(runArgs, {} as any)
         }

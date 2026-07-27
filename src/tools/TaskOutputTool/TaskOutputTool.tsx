@@ -115,10 +115,10 @@ async function getTaskOutputData(task: TaskState): Promise<TaskOutput> {
     };
   }
   if (task.type === 'remote_agent') {
-    const remoteTask = task as RemoteAgentTaskState;
+    const remoteTask = task as Record<string, unknown>; // log: fix TS2339
     return {
       ...baseOutput,
-      prompt: remoteTask.command
+      prompt: String(remoteTask.description ?? '') // log: fix TS2339
     };
   }
   return baseOutput;

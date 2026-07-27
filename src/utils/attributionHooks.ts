@@ -48,3 +48,13 @@ export function trackAttribution(_data: {
 export function getAttributionSummary(): string {
   return 'Generated with AI assistance'
 }
+
+// log: fix TS2339
+export function clearAttributionCaches(): void {
+  logForDebugging('[Attribution] Clearing attribution caches')
+}
+
+export function sweepFileContentCache(): void {
+    logForDebugging('[Attribution] Sweeping file content cache')
+    clearAttributionCaches()
+}

@@ -1,13 +1,5 @@
 import { c as _c } from "react/compiler-runtime";
 import React from 'react';
-declare global {
-  namespace JSX {
-    // log: fix TS2339
-    interface IntrinsicElements {
-      'ink-raw-ansi': { rawText: string; rawWidth: number; rawHeight: number };
-    }
-  }
-}
 type Props = {
   /**
    * Pre-rendered ANSI lines. Each element must be exactly one terminal row
@@ -52,7 +44,7 @@ export function RawAnsi(t0) {
   }
   let t2;
   if ($[2] !== lines.length || $[3] !== t1 || $[4] !== width) {
-    t2 = <ink-raw-ansi rawText={t1} rawWidth={width} rawHeight={lines.length} />;
+    t2 = React.createElement('ink-raw-ansi', { rawText: t1, rawWidth: width, rawHeight: lines.length } as React.HTMLAttributes<HTMLElement> & Record<string, unknown>);
     $[2] = lines.length;
     $[3] = t1;
     $[4] = width;

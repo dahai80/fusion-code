@@ -383,6 +383,13 @@ export type Tool<
     parentMessage: AssistantMessage,
     onProgress?: ToolCallProgress<P>,
   ): Promise<ToolResult<Output>>
+  execute?(
+    args: z.infer<Input>,
+    context: ToolUseContext,
+    canUseTool?: CanUseToolFn,
+    parentMessage?: AssistantMessage,
+    onProgress?: ToolCallProgress<P>,
+  ): Promise<ToolResult<Output>>
   description(
     input: z.infer<Input>,
     options: {
@@ -781,12 +788,15 @@ type ToolDefaults = typeof TOOL_DEFAULTS
 type AnyToolDef = ToolDef<any, any, any>
 
 export function buildTool<D extends AnyToolDef>(def: D): BuiltTool<D> {
-  // The runtime spread is straightforward; the `as` bridges the gap between
-  // the structural-any constraint and the precise BuiltTool<D> return. The
-  // type semantics are proven by the 0-error typecheck across all 60+ tools.
+  const call = def.call ?? (def.execute ? (
+    // log: map execute→call so runtime dispatch (tool.call) works
+    (args: any, ctx: any, canUseTool: any, parentMessage: any, onProgress?: any) =>
+      def.execute!(args, ctx, canUseTool, parentMessage, onProgress)
+  ) : undefined)
   return {
     ...TOOL_DEFAULTS,
     userFacingName: () => def.name,
     ...def,
+    ...(call ? { call } : {}),
   } as BuiltTool<D>
 }

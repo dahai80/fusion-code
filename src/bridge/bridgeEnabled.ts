@@ -17,6 +17,12 @@ export async function getBridgeDisabledReason(): Promise<string | null> {
 export const isCcrMirrorEnabled = (): boolean => false
 
 /**
+ * Returns the CCR auto-connect default from GrowthBook.
+ * log: fix TS2339
+ */
+export const getCcrAutoConnectDefault = (): boolean => false
+
+/**
  * No-op stub for bridge version check (cloud-only).
  * log: fix TS2339
  */

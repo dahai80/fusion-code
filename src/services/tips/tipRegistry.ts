@@ -3,7 +3,6 @@ import { logForDebugging } from 'src/utils/debug.js'
 import { fileHistoryEnabled } from 'src/utils/fileHistory.js'
 import {
   getInitialSettings,
-  getInitialSettings,
   getSettingsForSource,
 } from 'src/utils/settings/settings.js'
 import { shouldOfferTerminalSetup } from '../../commands/terminalSetup/terminalSetup.js'
@@ -85,7 +84,7 @@ async function isMarketplacePluginRelevant(
     }
   }
   if (signals.filePath && context?.readFileState) {
-    const readFiles = cacheKeys(context.readFileState)
+    const readFiles = context.readFileState.cacheKeys?.() ?? []
     if (readFiles.some(fp => signals.filePath!.test(fp))) {
       return true
     }
@@ -434,7 +433,7 @@ const externalTips: Tip[] = [
   {
     id: 'desktop-shortcut',
     content: async ctx => {
-      const blue = color('suggestion', ctx.theme)
+      const blue = color('suggestion', ctx.theme as import('../../utils/theme.js').ThemeName)
       return `Continue your session in Fusion-Code Desktop`
     },
     cooldownSessions: 15,
@@ -480,7 +479,7 @@ const externalTips: Tip[] = [
   {
     id: 'vercel-plugin',
     content: async ctx => {
-      const blue = color('suggestion', ctx.theme)
+      const blue = color('suggestion', ctx.theme as import('../../utils/theme.js').ThemeName)
       return `Working with Vercel? Install the vercel plugin:\n${blue(`/plugin install vercel@${OFFICIAL_MARKETPLACE_NAME}`)}`
     },
     cooldownSessions: 3,
@@ -493,7 +492,7 @@ const externalTips: Tip[] = [
   {
     id: 'effort-high-nudge',
     content: async ctx => {
-      const blue = color('suggestion', ctx.theme)
+      const blue = color('suggestion', ctx.theme as import('../../utils/theme.js').ThemeName)
       const cmd = blue('/effort high')
       const variant = getFeatureValue_CACHED_MAY_BE_STALE<
         'off' | 'copy_a' | 'copy_b'
@@ -523,7 +522,7 @@ const externalTips: Tip[] = [
   {
     id: 'subagent-fanout-nudge',
     content: async ctx => {
-      const blue = color('suggestion', ctx.theme)
+      const blue = color('suggestion', ctx.theme as import('../../utils/theme.js').ThemeName)
       const variant = getFeatureValue_CACHED_MAY_BE_STALE<
         'off' | 'copy_a' | 'copy_b'
       >('tengu_tern_alloy', 'off')
@@ -545,7 +544,7 @@ const externalTips: Tip[] = [
   {
     id: 'loop-command-nudge',
     content: async ctx => {
-      const blue = color('suggestion', ctx.theme)
+      const blue = color('suggestion', ctx.theme as import('../../utils/theme.js').ThemeName)
       const variant = getFeatureValue_CACHED_MAY_BE_STALE<
         'off' | 'copy_a' | 'copy_b'
       >('tengu_timber_lark', 'off')
@@ -568,7 +567,7 @@ const externalTips: Tip[] = [
   {
     id: 'guest-passes',
     content: async ctx => {
-      const claude = color('claude', ctx.theme)
+      const claude = color('claude', ctx.theme as import('../../utils/theme.js').ThemeName)
       const reward = getCachedReferrerReward()
       return reward
         ? `Share Fusion-Code and earn ${claude(formatCreditAmount(reward))} of extra usage · ${claude('/passes')}`
@@ -587,7 +586,7 @@ const externalTips: Tip[] = [
   {
     id: 'overage-credit',
     content: async ctx => {
-      const claude = color('claude', ctx.theme)
+      const claude = color('claude', ctx.theme as import('../../utils/theme.js').ThemeName)
       const info = getCachedOverageCreditGrant()
       const amount = info ? formatGrantAmount(info) : null
       if (!amount) return ''

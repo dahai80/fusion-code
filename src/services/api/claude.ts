@@ -58,7 +58,6 @@ import {
 } from '../../utils/api.js'
 import { getOauthAccountInfo } from '../../utils/auth.js'
 import {
-  getBedrockExtraBodyParamsBetas,
   getMergedBetas,
   getModelBetas,
 } from '../../utils/betas.js'
@@ -965,7 +964,7 @@ export function stripExcessMediaItems(
     for (const block of msg.message.content) {
       if (isMedia(block)) toRemove++
       if (isToolResult(block) && Array.isArray(block.content)) {
-        for (const nested of block.content) {
+        for (const nested of block.content as BetaContentBlockParam[]) {
           if (isMedia(nested)) toRemove++
         }
       }
@@ -988,7 +987,7 @@ export function stripExcessMediaItems(
           !Array.isArray(block.content)
         )
           return block
-        const filtered = block.content.filter(n => {
+        const filtered = (block.content as BetaContentBlockParam[]).filter(n => {
           if (toRemove > 0 && isMedia(n)) {
             toRemove--
             return false

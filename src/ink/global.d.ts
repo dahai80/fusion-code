@@ -5,7 +5,7 @@ import type { ClickEvent } from './events/click-event.js'
 import type { FocusEvent } from './events/focus-event.js'
 import type { KeyboardEvent } from './events/keyboard-event.js'
 
-declare global {
+declare module 'react' {
     namespace JSX {
         interface IntrinsicElements {
             // log: fix TS2339

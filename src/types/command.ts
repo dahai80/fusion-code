@@ -21,6 +21,7 @@ export type LocalCommandResult =
       displayText?: string
     }
   | { type: 'skip' } // Skip messages
+  | { display: string }
 
 export type PromptCommand = {
   type: 'prompt'
@@ -97,6 +98,8 @@ export type LocalJSXCommandContext = ToolUseContext & {
     log: LogOption,
     entrypoint: ResumeEntrypoint,
   ) => Promise<void>
+  // log: fix TS2339
+  cwd?: string
 }
 
 export type ResumeEntrypoint =
@@ -141,6 +144,7 @@ export type LocalJSXCommandCall = (
  */
 export type LocalJSXCommandModule = {
   call: LocalJSXCommandCall
+  execute?: LocalJSXCommandCall // log: fix TS2339
 }
 
 type LocalJSXCommand = {

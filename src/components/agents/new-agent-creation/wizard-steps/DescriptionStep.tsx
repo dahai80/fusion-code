@@ -17,7 +17,7 @@ export function DescriptionStep() {
     goBack,
     updateWizardData,
     wizardData
-  } = useWizard();
+  } = useWizard<AgentWizardData>();
   const [whenToUse, setWhenToUse] = useState(wizardData.whenToUse || "");
   const [cursorOffset, setCursorOffset] = useState(whenToUse.length);
   const [error, setError] = useState(null);

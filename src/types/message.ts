@@ -296,6 +296,7 @@ export type SystemMemorySavedMessage = {
     timestamp: string
     uuid: UUID
     isMeta: boolean
+    teamCount?: number // log: fix TS2339
 }
 
 export type SystemAgentsKilledMessage = {

@@ -1890,7 +1890,7 @@ function applyPreservedSegmentRelinks(
   const preservedUuids = new Set<UUID>()
   if (segIsLive) {
     const walkSeen = new Set<UUID>()
-    let cur = messages.get(lastSeg.tailUuid)
+    let cur = messages.get(lastSeg.tailUuid as UUID)
     let reachedHead = false
     while (cur && !walkSeen.has(cur.uuid)) {
       walkSeen.add(cur.uuid)
@@ -1908,9 +1908,9 @@ function applyPreservedSegmentRelinks(
       // attachment pushed to mutableMessages but never recordTranscript'd
       // (SDK subprocess restarted before next turn's qe:420 flush).
       logEvent('tengu_relink_walk_broken', {
-        tailInTranscript: messages.has(lastSeg.tailUuid),
-        headInTranscript: messages.has(lastSeg.headUuid),
-        anchorInTranscript: messages.has(lastSeg.anchorUuid),
+        tailInTranscript: messages.has(lastSeg.tailUuid as UUID),
+        headInTranscript: messages.has(lastSeg.headUuid as UUID),
+        anchorInTranscript: messages.has(lastSeg.anchorUuid as UUID),
         walkSteps: walkSeen.size,
         transcriptSize: messages.size,
       })
@@ -1919,9 +1919,9 @@ function applyPreservedSegmentRelinks(
   }
 
   if (segIsLive) {
-    const head = messages.get(lastSeg.headUuid)
+    const head = messages.get(lastSeg.headUuid as UUID)
     if (head) {
-      messages.set(lastSeg.headUuid, {
+      messages.set(lastSeg.headUuid as UUID, {
         ...head,
         parentUuid: lastSeg.anchorUuid,
       })
@@ -1929,8 +1929,8 @@ function applyPreservedSegmentRelinks(
     // Tail-splice: anchor's other children → tail. No-op if already pointing
     // at tail (the useLogMessages race case).
     for (const [uuid, msg] of messages) {
-      if (msg.parentUuid === lastSeg.anchorUuid && uuid !== lastSeg.headUuid) {
-        messages.set(uuid, { ...msg, parentUuid: lastSeg.tailUuid })
+      if (msg.parentUuid === (lastSeg.anchorUuid as UUID) && uuid !== (lastSeg.headUuid as UUID)) {
+        messages.set(uuid, { ...msg, parentUuid: lastSeg.tailUuid as UUID })
       }
     }
     // Zero stale usage: on-disk input_tokens reflect pre-compact context

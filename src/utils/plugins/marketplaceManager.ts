@@ -5,6 +5,7 @@ export interface MarketplaceConfig {
     id: string
     name: string
     url: string
+    forceRemoveDeletedPlugins?: boolean // log: fix TS2339
     allowCrossMarketplaceDependenciesOn?: string[] // log: fix TS2339
     plugins?: import('./schemas.js').PluginMarketplaceEntry[] // log: fix TS2339
     installLocation?: string // log: fix TS2339

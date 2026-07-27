@@ -145,32 +145,36 @@ declare namespace NodeJS {
 // Stripped Anthropic-only runtime functions
 declare function fireCompanionObserver(messages: unknown, callback: (reaction: unknown) => void): Promise<void>
 
-// Missing module stubs for src/main.tsx
-// These use relative paths matching the import site (src/main.tsx -> ./utils/... -> src/utils/...)
-declare module './utils/eventLoopStallDetector.js' {
-    export function startEventLoopStallDetector(): void
-}
-declare module './utils/sdkHeapDumpMonitor.js' {
-    export function startSdkMemoryMonitor(): void
-}
-declare module './utils/sessionDataUploader.js' {
-    const _default: unknown
-    export default _default
-}
-declare module './bridge/bridgeMain.js' {
-    export function bridgeMain(args: string[]): Promise<void>
-}
-declare module './utils/ccshareResume.js' {
-    export function parseCcshareId(input: string): string | undefined
-    export function loadCcshare(id: string, opts?: { print?: string | boolean; outputFormat: string }): Promise<void>
-}
-declare module '../bridge/envLessBridgeConfig.js' {
-    export function shouldShowAppUpgradeMessage(): Promise<boolean>
-}
-declare module '../bridge/webhookSanitizer.js' {
-    export function sanitizeInboundWebhookContent(content: unknown): string
-}
 declare module './services/skillSearch/prefetch.js' {
     export function startSkillDiscoveryPrefetch(_arg: null, messages: unknown[], ctx: unknown): unknown
     export function collectSkillDiscoveryPrefetch(prefetch: unknown): Promise<unknown[]>
+}
+
+// Missing modules for src/main.tsx — using wildcard relative paths
+// (relative module declarations resolve from the .d.ts location, which is the project root)
+declare module '*/utils/eventLoopStallDetector.js' {
+    export function startEventLoopStallDetector(): void
+}
+declare module '*/utils/sdkHeapDumpMonitor.js' {
+    export function startSdkMemoryMonitor(): void
+}
+declare module '*/utils/sessionDataUploader.js' {
+    export function createSessionTurnUploader(): unknown
+}
+declare module '*/bridge/bridgeMain.js' {
+    export function bridgeMain(args: string[]): Promise<void>
+}
+declare module '*/utils/ccshareResume.js' {
+    export function parseCcshareId(input: string): string | undefined
+    export function loadCcshare(id: string, opts?: { print?: string | boolean; outputFormat: string }): Promise<unknown>
+}
+
+// log: fix TS2339 — ink custom JSX intrinsic elements
+declare namespace JSX {
+    interface IntrinsicElements {
+        'ink-box': Record<string, unknown>
+        'ink-text': Record<string, unknown>
+        'ink-link': Record<string, unknown>
+        'ink-raw-ansi': Record<string, unknown>
+    }
 }

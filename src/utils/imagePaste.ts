@@ -84,6 +84,15 @@ function getClipboardCommands() {
   }
 }
 
+// log: fix TS2339 — native clipboard reader returns this shape
+type NativeClipboardImage = {
+    png: Buffer
+    originalWidth: number
+    originalHeight: number
+    width: number
+    height: number
+}
+
 export type ImageWithDimensions = {
   base64: string
   mediaType: string
@@ -105,7 +114,7 @@ export async function hasImageInClipboard(): Promise<boolean> {
     // when the module/export is missing. Catch a throw too: it would surface
     // as an unhandled rejection in useClipboardImageHint's setTimeout.
     try {
-      const mod = await import('image-processor-napi') as typeof import('image-processor-napi') & { getNativeModule?: () => { hasClipboardImage?: () => boolean; readClipboardImage?: (maxW: number, maxH: number) => ImageWithDimensions | null } }
+      const mod = await import('image-processor-napi') as typeof import('image-processor-napi') & { getNativeModule?: () => { hasClipboardImage?: () => boolean; readClipboardImage?: (maxW: number, maxH: number) => NativeClipboardImage | null } }
       const hasImage = mod.getNativeModule?.()?.hasClipboardImage
       if (hasImage) {
         return hasImage()
@@ -134,7 +143,7 @@ export async function getImageFromClipboard(): Promise<ImageWithDimensions | nul
     getFeatureValue_CACHED_MAY_BE_STALE('tengu_collage_kaleidoscope', true)
   ) {
     try {
-      const mod = await import('image-processor-napi') as typeof import('image-processor-napi') & { getNativeModule?: () => { hasClipboardImage?: () => boolean; readClipboardImage?: (maxW: number, maxH: number) => ImageWithDimensions | null } }
+      const mod = await import('image-processor-napi') as typeof import('image-processor-napi') & { getNativeModule?: () => { hasClipboardImage?: () => boolean; readClipboardImage?: (maxW: number, maxH: number) => NativeClipboardImage | null } }
       const readClipboard = mod.getNativeModule?.()?.readClipboardImage
       if (!readClipboard) {
         throw new Error('native clipboard reader unavailable')

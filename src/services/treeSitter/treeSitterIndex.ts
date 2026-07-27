@@ -89,9 +89,9 @@ export class TreeSitterIndex {
         const start = Date.now()
 
         try {
-            const Parser = await import('web-tree-sitter')
-            await Parser.init()
-            this.parser = new Parser()
+            const TreeSitter = await import('web-tree-sitter') as unknown as typeof import('web-tree-sitter') & { init: () => Promise<void> } // log: fix TS2339
+            await TreeSitter.init()
+            this.parser = new TreeSitter.Parser()
         } catch (e) {
             console.log(`${LOG_PREFIX} web-tree-sitter init failed, using regex fallback: ${e}`)
             this.parser = null

@@ -1056,7 +1056,7 @@ function PromptInput({
           clearBuffer();
           resetHistory();
           return;
-        } else if (result.error === 'no_team_context') {
+        } else if (result.success === false && result.error === 'no_team_context') {
           // No team context - fall through to normal prompt submission
         } else {
           // Unknown recipient - fall through to normal prompt submission
@@ -1419,7 +1419,7 @@ function PromptInput({
     const persistable = toPersistableEffort(nextLevel)
     setAppState(prev => ({ ...prev, effortValue: nextLevel }))
     if (persistable) {
-      void applySettingsChange({ effortLevel: persistable })
+      void applySettingsChange('effort', setAppState)
     }
     logForDebugging(`[effort] up: ${currentLevel} → ${nextLevel}`)
   }, [mainLoopModel, effortValue])
@@ -1435,7 +1435,7 @@ function PromptInput({
     const persistable = toPersistableEffort(nextLevel)
     setAppState(prev => ({ ...prev, effortValue: nextLevel }))
     if (persistable) {
-      void applySettingsChange({ effortLevel: persistable })
+      void applySettingsChange('effort', setAppState)
     }
     logForDebugging(`[effort] down: ${currentLevel} → ${nextLevel}`)
   }, [mainLoopModel, effortValue])

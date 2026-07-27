@@ -101,22 +101,24 @@ export class ExitPlanModeScanner {
   ingest(newEvents: SDKMessage[]): ScanResult {
     for (const m of newEvents) {
       if (m.type === 'assistant') {
-        for (const block of m.message.content) {
-          if (block.type !== 'tool_use') continue
+        const content = m.message?.content
+        if (!Array.isArray(content)) continue
+        for (const block of content) {
+          if ((block as { type: string }).type !== 'tool_use') continue
           const tu = block as ToolUseBlock
           if (tu.name === EXIT_PLAN_MODE_V2_TOOL_NAME) {
             this.exitPlanCalls.push(tu.id)
           }
         }
       } else if (m.type === 'user') {
-        const content = m.message.content
+        const content = m.message?.content
         if (!Array.isArray(content)) continue
         for (const block of content) {
-          if (block.type === 'tool_result') {
-            this.results.set(block.tool_use_id, block)
+          if ((block as { type: string }).type === 'tool_result') {
+            this.results.set((block as { tool_use_id: string }).tool_use_id, block as ToolResultBlockParam)
           }
         }
-      } else if (m.type === 'result' && m.subtype !== 'success') {
+      } else if ((m as { type: string }).type === 'result' && (m as { subtype?: string }).subtype !== 'success') {
         // result(success) fires after EVERY CCR turn
         // If the remote asks a clarifying question (turn ends without
         // ExitPlanMode), we must keep polling — the user can reply in

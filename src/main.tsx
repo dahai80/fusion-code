@@ -5949,7 +5949,7 @@ async function run(): Promise<CommanderCommand> {
 				"text",
 			)
 			.action(
-				async (
+				(async (
 					ccUrl: string,
 					opts: {
 						print?: string | boolean;
@@ -5993,7 +5993,7 @@ async function run(): Promise<CommanderCommand> {
 						opts.outputFormat,
 						interactive,
 					);
-				},
+				}) as any,
 			);
 	}
 

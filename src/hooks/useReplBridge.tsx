@@ -206,7 +206,7 @@ export function useReplBridge(messages: Message[], setMessages: (action: React.S
               enqueue({
                 value: content,
                 mode: 'prompt' as const,
-                uuid: uuid as string,
+                uuid: uuid as any,
                 // skipSlashCommands stays true as defense-in-depth —
                 // processUserInputBase overrides it internally when bridgeOrigin
                 // is set AND the resolved command passes isBridgeSafeCommand.
@@ -252,7 +252,7 @@ export function useReplBridge(messages: Message[], setMessages: (action: React.S
             switch (state) {
               case 'ready' as string as BridgeState:
                 setAppState(prev_9 => {
-                  const connectUrl = handle && handle.environmentId !== '' ? buildBridgeConnectUrl(handle.environmentId, handle.sessionIngressUrl) : prev_9.replBridgeConnectUrl;
+                  const connectUrl = handle && handle.environmentId !== '' ? buildBridgeConnectUrl() : prev_9.replBridgeConnectUrl;
                   const sessionUrl = handle ? getRemoteSessionUrl(handle.bridgeSessionId, handle.sessionIngressUrl) : prev_9.replBridgeSessionUrl;
                   const envId = handle?.environmentId;
                   const sessionId = handle?.bridgeSessionId;
@@ -328,7 +328,7 @@ export function useReplBridge(messages: Message[], setMessages: (action: React.S
                   }
                   break;
                 }
-              case 'reconnecting':
+              case 'reconnecting' as string as BridgeState:
                 setAppState(prev_7 => {
                   if (prev_7.replBridgeReconnecting) return prev_7;
                   return {
@@ -338,7 +338,7 @@ export function useReplBridge(messages: Message[], setMessages: (action: React.S
                   };
                 });
                 break;
-              case 'failed':
+              case 'failed' as string as BridgeState:
                 // Clear any previous failure dismiss timer
                 clearTimeout(failureTimeoutRef.current);
                 notifyBridgeFailed(detail_0);
@@ -405,7 +405,7 @@ export function useReplBridge(messages: Message[], setMessages: (action: React.S
                 };
               });
             },
-            onSetMaxThinkingTokens(maxTokens) {
+            onSetMaxThinkingTokens: (maxTokens: unknown) => {
               const enabled = maxTokens !== null;
               setAppState(prev_11 => {
                 if (prev_11.thinkingEnabled === enabled) return prev_11;
@@ -486,7 +486,7 @@ export function useReplBridge(messages: Message[], setMessages: (action: React.S
             })(),
             initialName: replBridgeInitialName,
             perpetual
-          });
+          } as any);
           if (cancelled) {
             // Effect was cancelled while initReplBridge was in flight.
             // Tear down the handle to avoid leaking resources (poll loop,
@@ -596,7 +596,7 @@ export function useReplBridge(messages: Message[], setMessages: (action: React.S
             // environmentId === '' signals the v2 env-less path. buildBridgeConnectUrl
             // builds an env-specific connect URL, which doesn't exist without an env.
             const hasEnv = handle_0.environmentId !== '';
-            const connectUrl_0 = hasEnv ? buildBridgeConnectUrl(handle_0.environmentId, handle_0.sessionIngressUrl) : undefined;
+            const connectUrl_0 = hasEnv ? buildBridgeConnectUrl() : undefined;
             setAppState(prev_17 => {
               if (prev_17.replBridgeConnected && prev_17.replBridgeSessionUrl === url) {
                 return prev_17;
@@ -651,7 +651,7 @@ export function useReplBridge(messages: Message[], setMessages: (action: React.S
             });
           }, BRIDGE_FAILURE_DISMISS_MS);
           if (!outboundOnly) {
-            setMessages(prev_2 => [...prev_2, createSystemMessage(`Remote Control failed to connect: ${errMsg}`, 'warning')]);
+            setMessages(prev_2 => [...prev_2, createSystemMessage(`Remote Control failed to connect: ${errMsg}`, 'warn')]);
           }
         }
       })();
@@ -721,7 +721,7 @@ export function useReplBridge(messages: Message[], setMessages: (action: React.S
   }, [messages, replBridgeConnected]);
   const sendBridgeResult = useCallback(() => {
     if (feature('BRIDGE_MODE')) {
-      handleRef.current?.sendResult();
+      handleRef.current?.sendResult(undefined);
     }
   }, []);
   return {
