@@ -145,6 +145,7 @@ import type {
   ConnectedMCPServer,
   MCPServerConnection,
   McpSdkServerConfig,
+  McpStdioServerConfig, // log: fix TS2339
   ScopedMcpServerConfig,
   ServerResource,
 } from './types.js'
@@ -936,7 +937,7 @@ export const connectToServer = memoize(
         const { createLinkedTransportPair } = await import(
           './InProcessTransport.js'
         )
-        const context = createChromeContext((serverRef as ScopedMcpServerConfig).env)
+        const context = createChromeContext((serverRef as McpStdioServerConfig).env)
         inProcessServer = createClaudeForChromeMcpServer(context)
         const [clientTransport, serverTransport] = createLinkedTransportPair()
         await inProcessServer.connect(serverTransport)
@@ -961,23 +962,23 @@ export const connectToServer = memoize(
         await inProcessServer.connect(serverTransport)
         transport = clientTransport
         logMCPDebug(name, `In-process Computer Use MCP server started`)
-      } else if ((serverRef as ScopedMcpServerConfig).type === 'stdio' || !(serverRef as ScopedMcpServerConfig).type) {
+      } else if ((serverRef as McpStdioServerConfig).type === 'stdio' || !(serverRef as McpStdioServerConfig).type) {
         const finalCommand =
-          process.env.FUSION_CODE_SHELL_PREFIX || (serverRef as ScopedMcpServerConfig).command
+          process.env.FUSION_CODE_SHELL_PREFIX || (serverRef as McpStdioServerConfig).command
         const finalArgs = process.env.FUSION_CODE_SHELL_PREFIX
-          ? [[(serverRef as ScopedMcpServerConfig).command, ...(serverRef as ScopedMcpServerConfig).args].join(' ')]
-          : (serverRef as ScopedMcpServerConfig).args
+          ? [[(serverRef as McpStdioServerConfig).command, ...(serverRef as McpStdioServerConfig).args].join(' ')]
+          : (serverRef as McpStdioServerConfig).args
         transport = new StdioClientTransport({
           command: finalCommand,
           args: finalArgs,
           env: {
             ...subprocessEnv(),
-            ...(serverRef as ScopedMcpServerConfig).env,
+            ...(serverRef as McpStdioServerConfig).env,
           } as Record<string, string>,
           stderr: 'pipe', // prevents error output from the MCP server from printing to the UI
         })
       } else {
-        throw new Error(`Unsupported server type: ${(serverRef as ScopedMcpServerConfig).type}`)
+        throw new Error(`Unsupported server type: ${(serverRef as { type?: string }).type}`)
       }
 
       // Set up stderr logging for stdio transport before connecting in case there are any stderr

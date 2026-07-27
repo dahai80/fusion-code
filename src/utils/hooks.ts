@@ -3165,8 +3165,8 @@ async function executeHooksOutsideREPL({
           const output =
             hookEvent === 'WorktreeCreate' &&
             isSyncHookJSONOutput(json) &&
-            hso?.hookEventName === 'WorktreeCreate'
-              ? hso.worktreePath
+            (json as TypedHookJSON).hookSpecificOutput?.hookEventName === 'WorktreeCreate'
+              ? (json as TypedHookJSON).hookSpecificOutput?.worktreePath
               : json.systemMessage || ''
           const blocked =
             isSyncHookJSONOutput(json) && json.decision === 'block'
@@ -3386,12 +3386,13 @@ async function executeHooksOutsideREPL({
         const output =
           result.status === 0 ? result.stdout || '' : result.stderr || ''
 
+        const hso2 = (json as TypedHookJSON).hookSpecificOutput
         const watchPaths =
           json &&
           isSyncHookJSONOutput(json) &&
-          hso &&
-          'watchPaths' in hso
-            ? hso.watchPaths
+          hso2 &&
+          'watchPaths' in hso2
+            ? hso2.watchPaths
             : undefined
 
         const systemMessage =
