@@ -1368,9 +1368,10 @@ export function parseMcpConfig(params: {
 		}
 
 		// Check for Windows-specific npx usage without cmd wrapper
-		const stdioCfg = (!configToCheck.type || configToCheck.type === "stdio")
-			? (configToCheck as { command?: string; args?: string[] })
-			: null;
+		const stdioCfg =
+			!configToCheck.type || configToCheck.type === "stdio"
+				? (configToCheck as { command?: string; args?: string[] })
+				: null;
 		if (
 			getPlatform() === "windows" &&
 			stdioCfg &&

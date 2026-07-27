@@ -1342,8 +1342,15 @@ export function createFusionMlxFetch(model: string): typeof globalThis.fetch {
 						| undefined,
 				);
 				const toolsForMlx =
-					(countBody.tools as Array<Record<string, unknown>> | undefined)?.length > 0
-						? anthropicToMlxTools(countBody.tools as Array<{ name: string; description: string; input_schema: Record<string, unknown> }>) // log: assert tool shape for anthropicToMlxTools
+					(countBody.tools as Array<Record<string, unknown>> | undefined)
+						?.length > 0
+						? anthropicToMlxTools(
+								countBody.tools as Array<{
+									name: string;
+									description: string;
+									input_schema: Record<string, unknown>;
+								}>,
+							) // log: assert tool shape for anthropicToMlxTools
 						: undefined;
 				const chatResp = await mlxFetchWithRetry(
 					`${baseUrl}/v1/chat/completions`,
@@ -1458,13 +1465,27 @@ export function createFusionMlxFetch(model: string): typeof globalThis.fetch {
 			// Auto-inject structured output schema for models that support it
 			const caps = await getMlxModelCapabilities(finalModel);
 			const toolsForMlx =
-				(body.tools as Array<Record<string, unknown>> | undefined)?.length > 0 ? anthropicToMlxTools(body.tools as Array<{ name: string; description: string; input_schema: Record<string, unknown> }>) : undefined; // log: assert tool shape
+				(body.tools as Array<Record<string, unknown>> | undefined)?.length > 0
+					? anthropicToMlxTools(
+							body.tools as Array<{
+								name: string;
+								description: string;
+								input_schema: Record<string, unknown>;
+							}>,
+						)
+					: undefined; // log: assert tool shape
 			const autoResponseFormat =
 				caps.supportsStructuredOutput &&
 				toolsForMlx &&
 				toolsForMlx.length > 0 &&
 				!body.response_format
-					? buildToolResponseSchema(body.tools as Array<{ name: string; description: string; input_schema: Record<string, unknown> }>) // log: assert tool shape
+					? buildToolResponseSchema(
+							body.tools as Array<{
+								name: string;
+								description: string;
+								input_schema: Record<string, unknown>;
+							}>,
+						) // log: assert tool shape
 					: undefined;
 
 			const inferenceParams = getModelInferenceParams(finalModel);
@@ -1472,7 +1493,8 @@ export function createFusionMlxFetch(model: string): typeof globalThis.fetch {
 			const mlxBody: MLXChatCompletionRequest = {
 				model: toMlxModelName(finalModel),
 				messages: mlxMessages,
-				temperature: (body.temperature as number) ?? inferenceParams.temperature, // log: cast unknown to number
+				temperature:
+					(body.temperature as number) ?? inferenceParams.temperature, // log: cast unknown to number
 				top_p: inferenceParams.top_p,
 				...(inferenceParams.repetition_penalty
 					? { repetition_penalty: inferenceParams.repetition_penalty }
@@ -1494,7 +1516,10 @@ export function createFusionMlxFetch(model: string): typeof globalThis.fetch {
 				max_tokens: (body.max_tokens as number) || 8192, // log: cast unknown to number
 				// Structured output: auto-injected or caller-provided
 				...((body.response_format as MLXChatCompletionRequest["response_format"])
-					? { response_format: body.response_format as MLXChatCompletionRequest["response_format"] }
+					? {
+							response_format:
+								body.response_format as MLXChatCompletionRequest["response_format"],
+						}
 					: autoResponseFormat
 						? { response_format: autoResponseFormat }
 						: {}),

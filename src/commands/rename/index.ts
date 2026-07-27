@@ -1,18 +1,18 @@
-import type { UUID } from 'crypto'
-import type { Command } from '../../types/command.js'
+import type { UUID } from "crypto";
+import type { Command } from "../../types/command.js";
 import {
-    getTranscriptPath,
-    saveAgentName,
-    saveCustomTitle,
-} from '../../utils/sessionStorage.js'
+	getTranscriptPath,
+	saveAgentName,
+	saveCustomTitle,
+} from "../../utils/sessionStorage.js";
 
 const rename: Command = {
-    type: 'local-jsx',
-    name: 'rename',
-    description: 'Rename the current conversation',
-    immediate: true,
-    argumentHint: '[name]',
-    load: () => import('./rename.js'), // log: moved call to module via load()
-}
+	type: "local-jsx",
+	name: "rename",
+	description: "Rename the current conversation",
+	immediate: true,
+	argumentHint: "[name]",
+	load: () => import("./rename.js"), // log: moved call to module via load()
+};
 
-export default rename
+export default rename;

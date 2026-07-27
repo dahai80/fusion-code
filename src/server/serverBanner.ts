@@ -5,9 +5,9 @@
  */
 
 export function printBanner(
-    _config: Record<string, unknown>,
-    _authToken: string,
-    _port: number,
+	_config: Record<string, unknown>,
+	_authToken: string,
+	_port: number,
 ): void {
-    throw new Error('printBanner is not available in this build')
+	throw new Error("printBanner is not available in this build");
 }

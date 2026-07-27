@@ -5,8 +5,11 @@
  */
 
 export class SessionManager {
-    constructor(_backend: unknown, _opts: { idleTimeoutMs: number; maxSessions: number }) {
-        throw new Error('SessionManager is not available in this build')
-    }
-    async destroyAll(): Promise<void> {}
+	constructor(
+		_backend: unknown,
+		_opts: { idleTimeoutMs: number; maxSessions: number },
+	) {
+		throw new Error("SessionManager is not available in this build");
+	}
+	async destroyAll(): Promise<void> {}
 }

@@ -1,148 +1,159 @@
-import { feature } from 'bun:bundle'
-import type { UUID } from 'crypto'
-import uniqBy from 'lodash-es/uniqBy.js'
+import { feature } from "bun:bundle";
+import type { UUID } from "crypto";
+import uniqBy from "lodash-es/uniqBy.js";
 
 /* eslint-disable @typescript-eslint/no-require-imports */
-const sessionTranscriptModule = feature('KAIROS')
-  ? (() => { try { return require('../sessionTranscript/sessionTranscript.js') as { writeSessionTranscriptSegment: (messages: Message[]) => void } } catch { return null } })()
-  : null
+const sessionTranscriptModule = feature("KAIROS")
+	? (() => {
+			try {
+				return require("../sessionTranscript/sessionTranscript.js") as {
+					writeSessionTranscriptSegment: (messages: Message[]) => void;
+				};
+			} catch {
+				return null;
+			}
+		})()
+	: null;
 
-import { APIUserAbortError } from '@anthropic-ai/sdk'
-import { markPostCompaction } from 'src/bootstrap/state.js'
-import { getInvokedSkillsForAgent } from '../../bootstrap/state.js'
-import type { QuerySource } from '../../constants/querySource.js'
-import type { CanUseToolFn } from '../../hooks/useCanUseTool.js'
-import type { Tool, ToolUseContext } from '../../Tool.js'
-import type { LocalAgentTaskState } from '../../tasks/LocalAgentTask/LocalAgentTask.js'
-import { FileReadTool } from '../../tools/FileReadTool/FileReadTool.js'
+import { APIUserAbortError } from "@anthropic-ai/sdk";
+import { markPostCompaction } from "src/bootstrap/state.js";
+import { getInvokedSkillsForAgent } from "../../bootstrap/state.js";
+import type { QuerySource } from "../../constants/querySource.js";
+import type { CanUseToolFn } from "../../hooks/useCanUseTool.js";
+import type { Tool, ToolUseContext } from "../../Tool.js";
+import type { LocalAgentTaskState } from "../../tasks/LocalAgentTask/LocalAgentTask.js";
+import { FileReadTool } from "../../tools/FileReadTool/FileReadTool.js";
 import {
-  FILE_READ_TOOL_NAME,
-  FILE_UNCHANGED_STUB,
-} from '../../tools/FileReadTool/prompt.js'
-import { ToolSearchTool } from '../../tools/ToolSearchTool/ToolSearchTool.js'
-import type { AgentId } from '../../types/ids.js'
+	FILE_READ_TOOL_NAME,
+	FILE_UNCHANGED_STUB,
+} from "../../tools/FileReadTool/prompt.js";
+import { ToolSearchTool } from "../../tools/ToolSearchTool/ToolSearchTool.js";
+import type { AgentId } from "../../types/ids.js";
 import type {
-  AssistantMessage,
-  AttachmentMessage,
-  HookResultMessage,
-  Message,
-  PartialCompactDirection,
-  StreamEvent,
-  SystemAPIErrorMessage,
-  SystemCompactBoundaryMessage,
-  SystemMessage,
-  UserMessage,
-} from '../../types/message.js'
+	AssistantMessage,
+	AttachmentMessage,
+	HookResultMessage,
+	Message,
+	PartialCompactDirection,
+	StreamEvent,
+	SystemAPIErrorMessage,
+	SystemCompactBoundaryMessage,
+	SystemMessage,
+	UserMessage,
+} from "../../types/message.js";
 import {
-  createAttachmentMessage,
-  generateFileAttachment,
-  getAgentListingDeltaAttachment,
-  getDeferredToolsDeltaAttachment,
-  getMcpInstructionsDeltaAttachment,
-} from '../../utils/attachments.js'
-import { getMemoryPath } from '../../utils/config.js'
+	createAttachmentMessage,
+	generateFileAttachment,
+	getAgentListingDeltaAttachment,
+	getDeferredToolsDeltaAttachment,
+	getMcpInstructionsDeltaAttachment,
+} from "../../utils/attachments.js";
+import { getMemoryPath } from "../../utils/config.js";
 import {
-    COMPACT_MAX_OUTPUT_TOKENS,
-    getContextWindowForModel,
-} from '../../utils/context.js'
+	COMPACT_MAX_OUTPUT_TOKENS,
+	getContextWindowForModel,
+} from "../../utils/context.js";
 import {
-  analyzeContext,
-  tokenStatsToStatsigMetrics,
-} from '../../utils/contextAnalysis.js'
-import { logForDebugging } from '../../utils/debug.js'
-import { hasExactErrorMessage } from '../../utils/errors.js'
-import { cacheToObject } from '../../utils/fileStateCache.js'
+	analyzeContext,
+	tokenStatsToStatsigMetrics,
+} from "../../utils/contextAnalysis.js";
+import { logForDebugging } from "../../utils/debug.js";
+import { hasExactErrorMessage } from "../../utils/errors.js";
+import { cacheToObject } from "../../utils/fileStateCache.js";
 import {
-  type CacheSafeParams,
-  runForkedAgent,
-} from '../../utils/forkedAgent.js'
+	type CacheSafeParams,
+	runForkedAgent,
+} from "../../utils/forkedAgent.js";
 import {
-  executePostCompactHooks,
-  executePreCompactHooks,
-} from '../../utils/hooks.js'
-import { logError } from '../../utils/log.js'
-import { MEMORY_TYPE_VALUES } from '../../utils/memory/types.js'
+	executePostCompactHooks,
+	executePreCompactHooks,
+} from "../../utils/hooks.js";
+import { logError } from "../../utils/log.js";
+import { MEMORY_TYPE_VALUES } from "../../utils/memory/types.js";
 import {
-  createCompactBoundaryMessage,
-  createUserMessage,
-  getAssistantMessageText,
-  getLastAssistantMessage,
-  getMessagesAfterCompactBoundary,
-  isCompactBoundaryMessage,
-  normalizeMessagesForAPI,
-} from '../../utils/messages.js'
-import { isFusionMlxProvider } from '../../utils/model/providers.js'
-import { getMainLoopModel } from '../../utils/model/model.js'
-import { expandPath } from '../../utils/path.js'
-import { getPlan, getPlanFilePath } from '../../utils/plans.js'
+	createCompactBoundaryMessage,
+	createUserMessage,
+	getAssistantMessageText,
+	getLastAssistantMessage,
+	getMessagesAfterCompactBoundary,
+	isCompactBoundaryMessage,
+	normalizeMessagesForAPI,
+} from "../../utils/messages.js";
+import { getMainLoopModel } from "../../utils/model/model.js";
+import { isFusionMlxProvider } from "../../utils/model/providers.js";
+import { expandPath } from "../../utils/path.js";
+import { getPlan, getPlanFilePath } from "../../utils/plans.js";
 import {
-  isSessionActivityTrackingActive,
-  sendSessionActivitySignal,
-} from '../../utils/sessionActivity.js'
-import { processSessionStartHooks } from '../../utils/sessionStart.js'
+	isSessionActivityTrackingActive,
+	sendSessionActivitySignal,
+} from "../../utils/sessionActivity.js";
+import { processSessionStartHooks } from "../../utils/sessionStart.js";
 import {
-  getTranscriptPath,
-  reAppendSessionMetadata,
-} from '../../utils/sessionStorage.js'
-import { sleep } from '../../utils/sleep.js'
-import { jsonStringify } from '../../utils/slowOperations.js'
+	getTranscriptPath,
+	reAppendSessionMetadata,
+} from "../../utils/sessionStorage.js";
+import { sleep } from "../../utils/sleep.js";
+import { jsonStringify } from "../../utils/slowOperations.js";
 /* eslint-enable @typescript-eslint/no-require-imports */
-import { asSystemPrompt, type SystemPrompt } from '../../utils/systemPromptType.js'
-import { getTaskOutputPath } from '../../utils/task/diskOutput.js'
 import {
-  getTokenUsage,
-  tokenCountFromLastAPIResponse,
-  tokenCountWithEstimation,
-} from '../../utils/tokens.js'
+	asSystemPrompt,
+	type SystemPrompt,
+} from "../../utils/systemPromptType.js";
+import { getTaskOutputPath } from "../../utils/task/diskOutput.js";
 import {
-  extractDiscoveredToolNames,
-  isToolSearchEnabled,
-} from '../../utils/toolSearch.js'
-import { getFeatureValue_CACHED_MAY_BE_STALE } from '../analytics/growthbook.js'
+	getTokenUsage,
+	tokenCountFromLastAPIResponse,
+	tokenCountWithEstimation,
+} from "../../utils/tokens.js";
 import {
-  type AnalyticsMetadata_I_VERIFIED_THIS_IS_NOT_CODE_OR_FILEPATHS,
-  logEvent,
-} from '../analytics/index.js'
+	extractDiscoveredToolNames,
+	isToolSearchEnabled,
+} from "../../utils/toolSearch.js";
+import { getFeatureValue_CACHED_MAY_BE_STALE } from "../analytics/growthbook.js";
 import {
-  getMaxOutputTokensForModel,
-  queryModelWithStreaming,
-} from '../api/claude.js'
+	type AnalyticsMetadata_I_VERIFIED_THIS_IS_NOT_CODE_OR_FILEPATHS,
+	logEvent,
+} from "../analytics/index.js";
 import {
-  getPromptTooLongTokenGap,
-  PROMPT_TOO_LONG_ERROR_MESSAGE,
-  startsWithApiErrorPrefix,
-} from '../api/errors.js'
-import { notifyCompaction } from '../api/promptCacheBreakDetection.js'
-import { getRetryDelay } from '../api/withRetry.js'
-import { logPermissionContextForAnts } from '../internalLogging.js'
+	getMaxOutputTokensForModel,
+	queryModelWithStreaming,
+} from "../api/claude.js";
 import {
-  roughTokenCountEstimation,
-  roughTokenCountEstimationForMessages,
-} from '../tokenEstimation.js'
-import { groupMessagesByApiRound } from './grouping.js'
+	getPromptTooLongTokenGap,
+	PROMPT_TOO_LONG_ERROR_MESSAGE,
+	startsWithApiErrorPrefix,
+} from "../api/errors.js";
+import { requestMlxGC } from "../api/fusion-mlx-adapter.js";
+import { notifyCompaction } from "../api/promptCacheBreakDetection.js";
+import { getRetryDelay } from "../api/withRetry.js";
+import { logPermissionContextForAnts } from "../internalLogging.js";
 import {
-    hardCompactMessages,
-    shouldUseHardCompact,
-    getHardCompactTokenBudget,
-    type HardCompactResult,
-} from './hardCompact.js'
-import { requestMlxGC } from '../api/fusion-mlx-adapter.js'
+	roughTokenCountEstimation,
+	roughTokenCountEstimationForMessages,
+} from "../tokenEstimation.js";
+import { groupMessagesByApiRound } from "./grouping.js";
 import {
-  getCompactPrompt,
-  getCompactUserSummaryMessage,
-  getPartialCompactPrompt,
-} from './prompt.js'
+	getHardCompactTokenBudget,
+	type HardCompactResult,
+	hardCompactMessages,
+	shouldUseHardCompact,
+} from "./hardCompact.js";
+import {
+	getCompactPrompt,
+	getCompactUserSummaryMessage,
+	getPartialCompactPrompt,
+} from "./prompt.js";
 
-export const POST_COMPACT_MAX_FILES_TO_RESTORE = 5
-export const POST_COMPACT_TOKEN_BUDGET = 50_000
-export const POST_COMPACT_MAX_TOKENS_PER_FILE = 5_000
+export const POST_COMPACT_MAX_FILES_TO_RESTORE = 5;
+export const POST_COMPACT_TOKEN_BUDGET = 50_000;
+export const POST_COMPACT_MAX_TOKENS_PER_FILE = 5_000;
 // Skills can be large (verify=18.7KB, claude-api=20.1KB). Previously re-injected
 // unbounded on every compact → 5-10K tok/compact. Per-skill truncation beats
 // dropping — instructions at the top of a skill file are usually the critical
 // part. Budget sized to hold ~5 skills at the per-skill cap.
-export const POST_COMPACT_MAX_TOKENS_PER_SKILL = 5_000
-export const POST_COMPACT_SKILLS_TOKEN_BUDGET = 25_000
-const MAX_COMPACT_STREAMING_RETRIES = 2
+export const POST_COMPACT_MAX_TOKENS_PER_SKILL = 5_000;
+export const POST_COMPACT_SKILLS_TOKEN_BUDGET = 25_000;
+const MAX_COMPACT_STREAMING_RETRIES = 2;
 
 /**
  * Strip image blocks from user messages before sending for compaction.
@@ -157,60 +168,60 @@ const MAX_COMPACT_STREAMING_RETRIES = 2
  * and thinking blocks but not images.
  */
 export function stripImagesFromMessages(messages: Message[]): Message[] {
-  return messages.map(message => {
-    if (message.type !== 'user') {
-      return message
-    }
+	return messages.map((message) => {
+		if (message.type !== "user") {
+			return message;
+		}
 
-    const content = message.message.content
-    if (!Array.isArray(content)) {
-      return message
-    }
+		const content = message.message.content;
+		if (!Array.isArray(content)) {
+			return message;
+		}
 
-    let hasMediaBlock = false
-    const newContent = content.flatMap(block => {
-      if (block.type === 'image') {
-        hasMediaBlock = true
-        return [{ type: 'text' as const, text: '[image]' }]
-      }
-      if (block.type === 'document') {
-        hasMediaBlock = true
-        return [{ type: 'text' as const, text: '[document]' }]
-      }
-      // Also strip images/documents nested inside tool_result content arrays
-      if (block.type === 'tool_result' && Array.isArray(block.content)) {
-        let toolHasMedia = false
-        const newToolContent = block.content.map(item => {
-          if (item.type === 'image') {
-            toolHasMedia = true
-            return { type: 'text' as const, text: '[image]' }
-          }
-          if (item.type === 'document') {
-            toolHasMedia = true
-            return { type: 'text' as const, text: '[document]' }
-          }
-          return item
-        })
-        if (toolHasMedia) {
-          hasMediaBlock = true
-          return [{ ...block, content: newToolContent }]
-        }
-      }
-      return [block]
-    })
+		let hasMediaBlock = false;
+		const newContent = content.flatMap((block) => {
+			if (block.type === "image") {
+				hasMediaBlock = true;
+				return [{ type: "text" as const, text: "[image]" }];
+			}
+			if (block.type === "document") {
+				hasMediaBlock = true;
+				return [{ type: "text" as const, text: "[document]" }];
+			}
+			// Also strip images/documents nested inside tool_result content arrays
+			if (block.type === "tool_result" && Array.isArray(block.content)) {
+				let toolHasMedia = false;
+				const newToolContent = block.content.map((item) => {
+					if (item.type === "image") {
+						toolHasMedia = true;
+						return { type: "text" as const, text: "[image]" };
+					}
+					if (item.type === "document") {
+						toolHasMedia = true;
+						return { type: "text" as const, text: "[document]" };
+					}
+					return item;
+				});
+				if (toolHasMedia) {
+					hasMediaBlock = true;
+					return [{ ...block, content: newToolContent }];
+				}
+			}
+			return [block];
+		});
 
-    if (!hasMediaBlock) {
-      return message
-    }
+		if (!hasMediaBlock) {
+			return message;
+		}
 
-    return {
-      ...message,
-      message: {
-        ...message.message,
-        content: newContent,
-      },
-    } as typeof message
-  })
+		return {
+			...message,
+			message: {
+				...message.message,
+				content: newContent,
+			},
+		} as typeof message;
+	});
 }
 
 /**
@@ -223,26 +234,27 @@ export function stripImagesFromMessages(messages: Message[]): Message[] {
  * don't exist on external builds).
  */
 export function stripReinjectedAttachments(messages: Message[]): Message[] {
-  if (feature('EXPERIMENTAL_SKILL_SEARCH')) {
-    return messages.filter(
-      m =>
-        !(
-          m.type === 'attachment' &&
-          (m.attachment.type === 'skill_discovery' ||
-            m.attachment.type === 'skill_listing')
-        ),
-    )
-  }
-  return messages
+	if (feature("EXPERIMENTAL_SKILL_SEARCH")) {
+		return messages.filter(
+			(m) =>
+				!(
+					m.type === "attachment" &&
+					(m.attachment.type === "skill_discovery" ||
+						m.attachment.type === "skill_listing")
+				),
+		);
+	}
+	return messages;
 }
 
 export const ERROR_MESSAGE_NOT_ENOUGH_MESSAGES =
-  'Not enough messages to compact.'
-const MAX_PTL_RETRIES = 3
-const PTL_RETRY_MARKER = '[earlier conversation truncated for compaction retry]'
+	"Not enough messages to compact.";
+const MAX_PTL_RETRIES = 3;
+const PTL_RETRY_MARKER =
+	"[earlier conversation truncated for compaction retry]";
 // 本地模型 compact 安全系数:只用上下文窗口的 70%作为 compact 输入上限,
 // 留 30%给 KV cache 开销(32B 模型长上下文 KV cache 可占 30%+内存)
-const MLX_COMPACT_TOKEN_SAFETY_FACTOR = 0.7
+const MLX_COMPACT_TOKEN_SAFETY_FACTOR = 0.7;
 
 /**
  * Drops the oldest API-round groups from messages until tokenGap is covered.
@@ -258,53 +270,59 @@ const MLX_COMPACT_TOKEN_SAFETY_FACTOR = 0.7
  * that wasn't migrated in bfdb472f's unification.
  */
 export function truncateHeadForPTLRetry(
-  messages: Message[],
-  ptlResponse: AssistantMessage,
+	messages: Message[],
+	ptlResponse: AssistantMessage,
 ): Message[] | null {
-  // Strip our own synthetic marker from a previous retry before grouping.
-  // Otherwise it becomes its own group 0 and the 20% fallback stalls
-  // (drops only the marker, re-adds it, zero progress on retry 2+).
-  const input =
-    messages[0]?.type === 'user' &&
-    messages[0].isMeta &&
-    messages[0].message.content === PTL_RETRY_MARKER
-      ? messages.slice(1)
-      : messages
+	// Strip our own synthetic marker from a previous retry before grouping.
+	// Otherwise it becomes its own group 0 and the 20% fallback stalls
+	// (drops only the marker, re-adds it, zero progress on retry 2+).
+	const input =
+		messages[0]?.type === "user" &&
+		messages[0].isMeta &&
+		messages[0].message.content === PTL_RETRY_MARKER
+			? messages.slice(1)
+			: messages;
 
-  const groups = groupMessagesByApiRound(input)
-  if (groups.length < 2) return null
+	const groups = groupMessagesByApiRound(input);
+	if (groups.length < 2) return null;
 
-  const tokenGap = getPromptTooLongTokenGap(ptlResponse)
-  let dropCount: number
-  if (tokenGap !== undefined) {
-    let acc = 0
-    dropCount = 0
-    for (const g of groups) {
-      acc += roughTokenCountEstimationForMessages(g as readonly { type: string; message?: { content?: unknown }; attachment?: import('../../utils/attachments.js').Attachment }[])
-      dropCount++
-      if (acc >= tokenGap) break
-    }
-  } else {
-    dropCount = Math.max(1, Math.floor(groups.length * 0.2))
-  }
+	const tokenGap = getPromptTooLongTokenGap(ptlResponse);
+	let dropCount: number;
+	if (tokenGap !== undefined) {
+		let acc = 0;
+		dropCount = 0;
+		for (const g of groups) {
+			acc += roughTokenCountEstimationForMessages(
+				g as readonly {
+					type: string;
+					message?: { content?: unknown };
+					attachment?: import("../../utils/attachments.js").Attachment;
+				}[],
+			);
+			dropCount++;
+			if (acc >= tokenGap) break;
+		}
+	} else {
+		dropCount = Math.max(1, Math.floor(groups.length * 0.2));
+	}
 
-  // Keep at least one group so there's something to summarize.
-  dropCount = Math.min(dropCount, groups.length - 1)
-  if (dropCount < 1) return null
+	// Keep at least one group so there's something to summarize.
+	dropCount = Math.min(dropCount, groups.length - 1);
+	if (dropCount < 1) return null;
 
-  const sliced = groups.slice(dropCount).flat()
-  // groupMessagesByApiRound puts the preamble in group 0 and starts every
-  // subsequent group with an assistant message. Dropping group 0 leaves an
-  // assistant-first sequence which the API rejects (first message must be
-  // role=user). Prepend a synthetic user marker — ensureToolResultPairing
-  // already handles any orphaned tool_results this creates.
-  if (sliced[0]?.type === 'assistant') {
-    return [
-      createUserMessage({ content: PTL_RETRY_MARKER, isMeta: true }),
-      ...sliced,
-    ]
-  }
-  return sliced
+	const sliced = groups.slice(dropCount).flat();
+	// groupMessagesByApiRound puts the preamble in group 0 and starts every
+	// subsequent group with an assistant message. Dropping group 0 leaves an
+	// assistant-first sequence which the API rejects (first message must be
+	// role=user). Prepend a synthetic user marker — ensureToolResultPairing
+	// already handles any orphaned tool_results this creates.
+	if (sliced[0]?.type === "assistant") {
+		return [
+			createUserMessage({ content: PTL_RETRY_MARKER, isMeta: true }),
+			...sliced,
+		];
+	}
+	return sliced;
 }
 
 /**
@@ -318,123 +336,140 @@ export function truncateHeadForPTLRetry(
  * Returns truncated messages, or null if no truncation needed.
  */
 export function preflightMlxTokenTruncate(
-    messages: Message[],
-    systemPrompt?: SystemPrompt,
-    toolUseContext?: ToolUseContext,
+	messages: Message[],
+	systemPrompt?: SystemPrompt,
+	toolUseContext?: ToolUseContext,
 ): Message[] | null {
-    if (!isFusionMlxProvider()) {
-        logForDebugging(`[Compact] MLX pre-flight skip: not MLX provider`)
-        return null
-    }
+	if (!isFusionMlxProvider()) {
+		logForDebugging(`[Compact] MLX pre-flight skip: not MLX provider`);
+		return null;
+	}
 
-    const model = getMainLoopModel()
-    if (!model) {
-        logForDebugging(`[Compact] MLX pre-flight skip: no model`, { level: 'warn' })
-        return null
-    }
+	const model = getMainLoopModel();
+	if (!model) {
+		logForDebugging(`[Compact] MLX pre-flight skip: no model`, {
+			level: "warn",
+		});
+		return null;
+	}
 
-    const contextWindow = getContextWindowForModel(model)
-    if (!contextWindow || contextWindow <= 0) {
-        logForDebugging(`[Compact] MLX pre-flight skip: no context window for ${model}`, { level: 'warn' })
-        return null
-    }
+	const contextWindow = getContextWindowForModel(model);
+	if (!contextWindow || contextWindow <= 0) {
+		logForDebugging(
+			`[Compact] MLX pre-flight skip: no context window for ${model}`,
+			{ level: "warn" },
+		);
+		return null;
+	}
 
-    // 输出 token 也占用 context window, 必须从输入预算中扣除
-    const safeBudget = Math.floor(
-        (contextWindow - COMPACT_MAX_OUTPUT_TOKENS) * MLX_COMPACT_TOKEN_SAFETY_FACTOR,
-    )
-    // Compact sends system_prompt + tool_defs + messages to the model.
-    // safeBudget is for the TOTAL input, so the message-only budget must
-    // subtract system prompt and tool definition tokens. Without this,
-    // truncating messages to safeBudget leaves no room for system+tools,
-    // and the compact call itself OOMs on 32K windows.
-    const systemStr = systemPrompt ? systemPrompt.join('\n') : ''
-    const estimatedSystemTokens = Math.floor(systemStr.length / 3.5)
-    const toolDefs = toolUseContext?.options?.tools
-    const estimatedToolTokens = toolDefs ? Math.floor(
-        JSON.stringify(toolDefs.map(t => ({
-            name: t.name,
-            description: (t as any).description ?? '',
-        }))).length / 3.5,
-    ) : 0
-    const messageBudget = safeBudget - estimatedSystemTokens - estimatedToolTokens
-    const estimated = tokenCountWithEstimation(messages)
+	// 输出 token 也占用 context window, 必须从输入预算中扣除
+	const safeBudget = Math.floor(
+		(contextWindow - COMPACT_MAX_OUTPUT_TOKENS) *
+			MLX_COMPACT_TOKEN_SAFETY_FACTOR,
+	);
+	// Compact sends system_prompt + tool_defs + messages to the model.
+	// safeBudget is for the TOTAL input, so the message-only budget must
+	// subtract system prompt and tool definition tokens. Without this,
+	// truncating messages to safeBudget leaves no room for system+tools,
+	// and the compact call itself OOMs on 32K windows.
+	const systemStr = systemPrompt ? systemPrompt.join("\n") : "";
+	const estimatedSystemTokens = Math.floor(systemStr.length / 3.5);
+	const toolDefs = toolUseContext?.options?.tools;
+	const estimatedToolTokens = toolDefs
+		? Math.floor(
+				JSON.stringify(
+					toolDefs.map((t) => ({
+						name: t.name,
+						description: (t as any).description ?? "",
+					})),
+				).length / 3.5,
+			)
+		: 0;
+	const messageBudget =
+		safeBudget - estimatedSystemTokens - estimatedToolTokens;
+	const estimated = tokenCountWithEstimation(messages);
 
-    if (messageBudget <= 0) {
-        logForDebugging(
-            `[Compact] MLX pre-flight: message budget <= 0 (safe=${safeBudget} sys=${estimatedSystemTokens} tools=${estimatedToolTokens}), cannot compact safely`,
-            { level: 'warn' },
-        )
-        return null
-    }
+	if (messageBudget <= 0) {
+		logForDebugging(
+			`[Compact] MLX pre-flight: message budget <= 0 (safe=${safeBudget} sys=${estimatedSystemTokens} tools=${estimatedToolTokens}), cannot compact safely`,
+			{ level: "warn" },
+		);
+		return null;
+	}
 
-    if (estimated <= messageBudget) {
-        logForDebugging(
-            `[Compact] MLX pre-flight OK: ${estimated} tokens <= message budget ${messageBudget} (safe=${safeBudget} sys=${estimatedSystemTokens} tools=${estimatedToolTokens})`,
-        )
-        return null
-    }
+	if (estimated <= messageBudget) {
+		logForDebugging(
+			`[Compact] MLX pre-flight OK: ${estimated} tokens <= message budget ${messageBudget} (safe=${safeBudget} sys=${estimatedSystemTokens} tools=${estimatedToolTokens})`,
+		);
+		return null;
+	}
 
-    logForDebugging(
-        `[Compact] MLX pre-flight OVER: ${estimated} tokens > message budget ${messageBudget} (safe=${safeBudget} sys=${estimatedSystemTokens} tools=${estimatedToolTokens}), truncating`,
-        { level: 'warn' },
-    )
+	logForDebugging(
+		`[Compact] MLX pre-flight OVER: ${estimated} tokens > message budget ${messageBudget} (safe=${safeBudget} sys=${estimatedSystemTokens} tools=${estimatedToolTokens}), truncating`,
+		{ level: "warn" },
+	);
 
-    // 按API轮次从旧到新丢弃,直到落入安全预算
-    const groups = groupMessagesByApiRound(messages)
-    if (groups.length < 2) {
-        logForDebugging(
-            `[Compact] MLX pre-flight: only 1 group, cannot truncate safely`,
-            { level: 'warn' },
-        )
-        return null
-    }
+	// 按API轮次从旧到新丢弃,直到落入安全预算
+	const groups = groupMessagesByApiRound(messages);
+	if (groups.length < 2) {
+		logForDebugging(
+			`[Compact] MLX pre-flight: only 1 group, cannot truncate safely`,
+			{ level: "warn" },
+		);
+		return null;
+	}
 
-    let dropCount = 0
-    let remaining = estimated
-    for (const g of groups) {
-        remaining -= roughTokenCountEstimationForMessages(g as readonly { type: string; message?: { content?: unknown }; attachment?: import('../../utils/attachments.js').Attachment }[])
-        dropCount++
-        if (remaining <= messageBudget) break
-    }
+	let dropCount = 0;
+	let remaining = estimated;
+	for (const g of groups) {
+		remaining -= roughTokenCountEstimationForMessages(
+			g as readonly {
+				type: string;
+				message?: { content?: unknown };
+				attachment?: import("../../utils/attachments.js").Attachment;
+			}[],
+		);
+		dropCount++;
+		if (remaining <= messageBudget) break;
+	}
 
-    // 至少保留1个组
-    dropCount = Math.min(dropCount, groups.length - 1)
-    if (dropCount < 1) return null
+	// 至少保留1个组
+	dropCount = Math.min(dropCount, groups.length - 1);
+	if (dropCount < 1) return null;
 
-    const sliced = groups.slice(dropCount).flat()
-    if (sliced[0]?.type === 'assistant') {
-        return [
-            createUserMessage({ content: PTL_RETRY_MARKER, isMeta: true }),
-            ...sliced,
-        ]
-    }
+	const sliced = groups.slice(dropCount).flat();
+	if (sliced[0]?.type === "assistant") {
+		return [
+			createUserMessage({ content: PTL_RETRY_MARKER, isMeta: true }),
+			...sliced,
+		];
+	}
 
-    logForDebugging(
-        `[Compact] MLX pre-flight: dropped ${dropCount} groups, ${sliced.length} messages remaining`,
-    )
-    return sliced
+	logForDebugging(
+		`[Compact] MLX pre-flight: dropped ${dropCount} groups, ${sliced.length} messages remaining`,
+	);
+	return sliced;
 }
 
 export const ERROR_MESSAGE_PROMPT_TOO_LONG =
-  'Conversation too long. Press esc twice to go up a few messages and try again.'
-export const ERROR_MESSAGE_USER_ABORT = 'API Error: Request was aborted.'
+	"Conversation too long. Press esc twice to go up a few messages and try again.";
+export const ERROR_MESSAGE_USER_ABORT = "API Error: Request was aborted.";
 export const ERROR_MESSAGE_MLX_MEMORY_LIMIT =
-  'Conversation too large for the local MLX model memory limit. Try /clear, switch to a smaller model, or remove some context before compacting.'
+	"Conversation too large for the local MLX model memory limit. Try /clear, switch to a smaller model, or remove some context before compacting.";
 export const ERROR_MESSAGE_INCOMPLETE_RESPONSE =
-  'Compaction interrupted · This may be due to network issues — please try again.'
+	"Compaction interrupted · This may be due to network issues — please try again.";
 
 export interface CompactionResult {
-  boundaryMarker: SystemMessage
-  summaryMessages: UserMessage[]
-  attachments: AttachmentMessage[]
-  hookResults: HookResultMessage[]
-  messagesToKeep?: Message[]
-  userDisplayMessage?: string
-  preCompactTokenCount?: number
-  postCompactTokenCount?: number
-  truePostCompactTokenCount?: number
-  compactionUsage?: ReturnType<typeof getTokenUsage>
+	boundaryMarker: SystemMessage;
+	summaryMessages: UserMessage[];
+	attachments: AttachmentMessage[];
+	hookResults: HookResultMessage[];
+	messagesToKeep?: Message[];
+	userDisplayMessage?: string;
+	preCompactTokenCount?: number;
+	postCompactTokenCount?: number;
+	truePostCompactTokenCount?: number;
+	compactionUsage?: ReturnType<typeof getTokenUsage>;
 }
 
 /**
@@ -443,12 +478,12 @@ export interface CompactionResult {
  * cross-agent (H1/H5) and manual-vs-auto (H3) compactions without joins.
  */
 export type RecompactionInfo = {
-  isRecompactionInChain: boolean
-  turnsSincePreviousCompact: number
-  previousCompactTurnId?: string
-  autoCompactThreshold: number
-  querySource?: QuerySource
-}
+	isRecompactionInChain: boolean;
+	turnsSincePreviousCompact: number;
+	previousCompactTurnId?: string;
+	autoCompactThreshold: number;
+	querySource?: QuerySource;
+};
 
 /**
  * Build the base post-compact messages array from a CompactionResult.
@@ -456,13 +491,13 @@ export type RecompactionInfo = {
  * Order: boundaryMarker, summaryMessages, messagesToKeep, attachments, hookResults
  */
 export function buildPostCompactMessages(result: CompactionResult): Message[] {
-  return [
-    result.boundaryMarker,
-    ...result.summaryMessages,
-    ...(result.messagesToKeep ?? []),
-    ...result.attachments,
-    ...result.hookResults,
-  ]
+	return [
+		result.boundaryMarker,
+		...result.summaryMessages,
+		...(result.messagesToKeep ?? []),
+		...result.attachments,
+		...result.hookResults,
+	];
 }
 
 /**
@@ -475,23 +510,23 @@ export function buildPostCompactMessages(result: CompactionResult): Message[] {
  *   - prefix-preserving (partial compact): the boundary itself
  */
 export function annotateBoundaryWithPreservedSegment(
-  boundary: SystemCompactBoundaryMessage,
-  anchorUuid: UUID,
-  messagesToKeep: readonly Message[] | undefined,
+	boundary: SystemCompactBoundaryMessage,
+	anchorUuid: UUID,
+	messagesToKeep: readonly Message[] | undefined,
 ): SystemCompactBoundaryMessage {
-  const keep = messagesToKeep ?? []
-  if (keep.length === 0) return boundary
-  return {
-    ...boundary,
-    compactMetadata: {
-      ...boundary.compactMetadata,
-      preservedSegment: {
-        headUuid: keep[0]!.uuid,
-        anchorUuid,
-        tailUuid: keep.at(-1)!.uuid,
-      },
-    },
-  }
+	const keep = messagesToKeep ?? [];
+	if (keep.length === 0) return boundary;
+	return {
+		...boundary,
+		compactMetadata: {
+			...boundary.compactMetadata,
+			preservedSegment: {
+				headUuid: keep[0]!.uuid,
+				anchorUuid,
+				tailUuid: keep.at(-1)!.uuid,
+			},
+		},
+	};
 }
 
 /**
@@ -500,12 +535,12 @@ export function annotateBoundaryWithPreservedSegment(
  * Empty strings normalize to undefined.
  */
 export function mergeHookInstructions(
-  userInstructions: string | undefined,
-  hookInstructions: string | undefined,
+	userInstructions: string | undefined,
+	hookInstructions: string | undefined,
 ): string | undefined {
-  if (!hookInstructions) return userInstructions || undefined
-  if (!userInstructions) return hookInstructions
-  return `${userInstructions}\n\n${hookInstructions}`
+	if (!hookInstructions) return userInstructions || undefined;
+	if (!userInstructions) return hookInstructions;
+	return `${userInstructions}\n\n${hookInstructions}`;
 }
 
 /**
@@ -513,509 +548,534 @@ export function mergeHookInstructions(
  * and preserving recent conversation history.
  */
 export async function compactConversation(
-  messages: Message[],
-  context: ToolUseContext,
-  cacheSafeParams: CacheSafeParams,
-  suppressFollowUpQuestions: boolean,
-  customInstructions?: string,
-  isAutoCompact: boolean = false,
-  recompactionInfo?: RecompactionInfo,
+	messages: Message[],
+	context: ToolUseContext,
+	cacheSafeParams: CacheSafeParams,
+	suppressFollowUpQuestions: boolean,
+	customInstructions?: string,
+	isAutoCompact: boolean = false,
+	recompactionInfo?: RecompactionInfo,
 ): Promise<CompactionResult> {
-  try {
-    if (messages.length === 0) {
-      throw new Error(ERROR_MESSAGE_NOT_ENOUGH_MESSAGES)
-    }
+	try {
+		if (messages.length === 0) {
+			throw new Error(ERROR_MESSAGE_NOT_ENOUGH_MESSAGES);
+		}
 
-    const preCompactTokenCount = tokenCountWithEstimation(messages)
+		const preCompactTokenCount = tokenCountWithEstimation(messages);
 
-    const appState = context.getAppState()
-    void logPermissionContextForAnts(appState.toolPermissionContext, 'summary')
+		const appState = context.getAppState();
+		void logPermissionContextForAnts(appState.toolPermissionContext, "summary");
 
-    context.onCompactProgress?.({
-      type: 'hooks_start',
-      hookType: 'pre_compact',
-    })
+		context.onCompactProgress?.({
+			type: "hooks_start",
+			hookType: "pre_compact",
+		});
 
-    // Execute PreCompact hooks
-    context.setSDKStatus?.('compacting')
-    const hookResult = await executePreCompactHooks(
-      {
-        trigger: isAutoCompact ? 'auto' : 'manual',
-        customInstructions: customInstructions ?? null,
-      },
-      context.abortController.signal,
-    )
-    if (hookResult.blocked) {
-      logForDebugging(`Compaction blocked by PreCompact hook: ${hookResult.stopReason}`)
-      context.onCompactProgress?.({ type: 'compact_end' })
-      return {
-        boundaryMarker: createCompactBoundaryMessage('auto', 0, undefined),
-        summaryMessages: [],
-        attachments: [],
-        hookResults: [],
-        userDisplayMessage: hookResult.userDisplayMessage,
-      }
-    }
-    customInstructions = mergeHookInstructions(
-      customInstructions,
-      hookResult.newCustomInstructions,
-    )
-    const userDisplayMessage = hookResult.userDisplayMessage
+		// Execute PreCompact hooks
+		context.setSDKStatus?.("compacting");
+		const hookResult = await executePreCompactHooks(
+			{
+				trigger: isAutoCompact ? "auto" : "manual",
+				customInstructions: customInstructions ?? null,
+			},
+			context.abortController.signal,
+		);
+		if (hookResult.blocked) {
+			logForDebugging(
+				`Compaction blocked by PreCompact hook: ${hookResult.stopReason}`,
+			);
+			context.onCompactProgress?.({ type: "compact_end" });
+			return {
+				boundaryMarker: createCompactBoundaryMessage("auto", 0, undefined),
+				summaryMessages: [],
+				attachments: [],
+				hookResults: [],
+				userDisplayMessage: hookResult.userDisplayMessage,
+			};
+		}
+		customInstructions = mergeHookInstructions(
+			customInstructions,
+			hookResult.newCustomInstructions,
+		);
+		const userDisplayMessage = hookResult.userDisplayMessage;
 
-    // Show requesting mode with up arrow and custom message
-    context.setStreamMode?.('requesting')
-    context.setResponseLength?.(() => 0)
-    context.onCompactProgress?.({ type: 'compact_start' })
+		// Show requesting mode with up arrow and custom message
+		context.setStreamMode?.("requesting");
+		context.setResponseLength?.(() => 0);
+		context.onCompactProgress?.({ type: "compact_start" });
 
-    // 3P default: true — forked-agent path reuses main conversation's prompt cache.
-    // Experiment (Jan 2026) confirmed: false path is 98% cache miss, costs ~0.76% of
-    // fleet cache_creation (~38B tok/day), concentrated in ephemeral envs (CCR/GHA/SDK)
-    // with cold GB cache and 3P providers where GB is disabled. GB gate kept as kill-switch.
-    const promptCacheSharingEnabled = getFeatureValue_CACHED_MAY_BE_STALE(
-      'tengu_compact_cache_prefix',
-      true,
-    )
+		// 3P default: true — forked-agent path reuses main conversation's prompt cache.
+		// Experiment (Jan 2026) confirmed: false path is 98% cache miss, costs ~0.76% of
+		// fleet cache_creation (~38B tok/day), concentrated in ephemeral envs (CCR/GHA/SDK)
+		// with cold GB cache and 3P providers where GB is disabled. GB gate kept as kill-switch.
+		const promptCacheSharingEnabled = getFeatureValue_CACHED_MAY_BE_STALE(
+			"tengu_compact_cache_prefix",
+			true,
+		);
 
-    // Hard compact: MLX 优先走确定性截断路径,不调用 LLM
-    // suggest1.md 核心洞察: "让 LLM 去生成摘要在本地架构下是逻辑悖论"
-    // compact 触发时已接近上下文上限,再发全量消息做摘要只会 OOM
-    if (shouldUseHardCompact()) {
-        const hardResult = hardCompactMessages(messages)
-        const hardBudget = getHardCompactTokenBudget()
-        logEvent('tengu_compact_hard', {
-            originalMessageCount: messages.length,
-            hardCompactMessageCount: hardResult.messages.length,
-            truncatedToolResults: hardResult.truncatedToolResults,
-            truncatedAssistantTexts: hardResult.truncatedAssistantTexts,
-            roundsKeptIntact: hardResult.roundsKeptIntact,
-            roundsProcessed: hardResult.roundsProcessed,
-            preCompactTokens: hardResult.preCompactTokens,
-            postCompactTokens: hardResult.postCompactTokens,
-            withinBudget: hardResult.postCompactTokens <= hardBudget,
-        })
-        if (hardResult.postCompactTokens <= hardBudget) {
-            logForDebugging(
-                `[Compact] Hard compact succeeded: ${hardResult.preCompactTokens} → ${hardResult.postCompactTokens} tokens, `
-                + `truncated ${hardResult.truncatedToolResults} tool_results, ${hardResult.truncatedAssistantTexts} assistant texts`,
-            )
-            // Post-hard-compact GC: release stale KV cache in fusion-mlx backend
-            requestMlxGC().then(gcResult => {
-                if (gcResult.success) {
-                    logForDebugging(`[Compact] Post-hard-compact GC freed ${gcResult.freed ?? 'unknown'} bytes`)
-                }
-            }).catch(() => { /* non-blocking */ })
-            const boundaryMarker = createCompactBoundaryMessage(
-                isAutoCompact ? 'auto' : 'manual',
-                preCompactTokenCount ?? 0,
-                messages.at(-1)?.uuid,
-            )
-            return {
-                boundaryMarker,
-                summaryMessages: [
-                    createUserMessage({
-                        content: `[Hard compact: ${hardResult.roundsProcessed} rounds truncated, ${hardResult.truncatedToolResults} tool results shortened, ${hardResult.truncatedAssistantTexts} assistant texts shortened. Recent ${hardResult.roundsKeptIntact} rounds preserved intact.]`,
-                    }),
-                ],
-                attachments: [],
-                hookResults: [],
-                messagesToKeep: hardResult.messages,
-                userDisplayMessage: `Hard compact: ${hardResult.truncatedToolResults} tool outputs shortened, recent ${hardResult.roundsKeptIntact} rounds kept intact`,
-                preCompactTokenCount: hardResult.preCompactTokens,
-                postCompactTokenCount: hardResult.postCompactTokens,
-                truePostCompactTokenCount: hardResult.postCompactTokens,
-            }
-        }
-        logForDebugging(
-            `[Compact] Hard compact result ${hardResult.postCompactTokens} still over budget ${hardBudget}, falling back to LLM summarization`,
-        )
-    }
+		// Hard compact: MLX 优先走确定性截断路径,不调用 LLM
+		// suggest1.md 核心洞察: "让 LLM 去生成摘要在本地架构下是逻辑悖论"
+		// compact 触发时已接近上下文上限,再发全量消息做摘要只会 OOM
+		if (shouldUseHardCompact()) {
+			const hardResult = hardCompactMessages(messages);
+			const hardBudget = getHardCompactTokenBudget();
+			logEvent("tengu_compact_hard", {
+				originalMessageCount: messages.length,
+				hardCompactMessageCount: hardResult.messages.length,
+				truncatedToolResults: hardResult.truncatedToolResults,
+				truncatedAssistantTexts: hardResult.truncatedAssistantTexts,
+				roundsKeptIntact: hardResult.roundsKeptIntact,
+				roundsProcessed: hardResult.roundsProcessed,
+				preCompactTokens: hardResult.preCompactTokens,
+				postCompactTokens: hardResult.postCompactTokens,
+				withinBudget: hardResult.postCompactTokens <= hardBudget,
+			});
+			if (hardResult.postCompactTokens <= hardBudget) {
+				logForDebugging(
+					`[Compact] Hard compact succeeded: ${hardResult.preCompactTokens} → ${hardResult.postCompactTokens} tokens, ` +
+						`truncated ${hardResult.truncatedToolResults} tool_results, ${hardResult.truncatedAssistantTexts} assistant texts`,
+				);
+				// Post-hard-compact GC: release stale KV cache in fusion-mlx backend
+				requestMlxGC()
+					.then((gcResult) => {
+						if (gcResult.success) {
+							logForDebugging(
+								`[Compact] Post-hard-compact GC freed ${gcResult.freed ?? "unknown"} bytes`,
+							);
+						}
+					})
+					.catch(() => {
+						/* non-blocking */
+					});
+				const boundaryMarker = createCompactBoundaryMessage(
+					isAutoCompact ? "auto" : "manual",
+					preCompactTokenCount ?? 0,
+					messages.at(-1)?.uuid,
+				);
+				return {
+					boundaryMarker,
+					summaryMessages: [
+						createUserMessage({
+							content: `[Hard compact: ${hardResult.roundsProcessed} rounds truncated, ${hardResult.truncatedToolResults} tool results shortened, ${hardResult.truncatedAssistantTexts} assistant texts shortened. Recent ${hardResult.roundsKeptIntact} rounds preserved intact.]`,
+						}),
+					],
+					attachments: [],
+					hookResults: [],
+					messagesToKeep: hardResult.messages,
+					userDisplayMessage: `Hard compact: ${hardResult.truncatedToolResults} tool outputs shortened, recent ${hardResult.roundsKeptIntact} rounds kept intact`,
+					preCompactTokenCount: hardResult.preCompactTokens,
+					postCompactTokenCount: hardResult.postCompactTokens,
+					truePostCompactTokenCount: hardResult.postCompactTokens,
+				};
+			}
+			logForDebugging(
+				`[Compact] Hard compact result ${hardResult.postCompactTokens} still over budget ${hardBudget}, falling back to LLM summarization`,
+			);
+		}
 
-    const compactPrompt = getCompactPrompt(customInstructions)
-    const summaryRequest = createUserMessage({
-      content: compactPrompt,
-    })
+		const compactPrompt = getCompactPrompt(customInstructions);
+		const summaryRequest = createUserMessage({
+			content: compactPrompt,
+		});
 
-    let messagesToSummarize = messages
-    // Pre-flight: 本地模型 compact 前先检查 token 预算,避免发送超大请求导致 OOM 崩溃
-    const preflightTruncated = preflightMlxTokenTruncate(messages, cacheSafeParams.systemPrompt, context)
-    if (preflightTruncated) {
-        logEvent('tengu_compact_mlx_preflight_truncate', {
-            originalMessageCount: messages.length,
-            truncatedMessageCount: preflightTruncated.length,
-            preCompactTokenCount,
-        })
-        messagesToSummarize = preflightTruncated
-    }
-    // 如果 preflight 截断了消息, forkContextMessages 必须同步更新,
-    // 否则 fork-agent 路径发送未截断原始消息到 MLX 导致 OOM
-    let retryCacheSafeParams = preflightTruncated
-        ? { ...cacheSafeParams, forkContextMessages: preflightTruncated }
-        : cacheSafeParams
-    let summaryResponse: AssistantMessage
-    let summary: string | null
-    let ptlAttempts = 0
-    for (;;) {
-      summaryResponse = await streamCompactSummary({
-        messages: messagesToSummarize,
-        summaryRequest,
-        appState,
-        context,
-        preCompactTokenCount,
-        cacheSafeParams: retryCacheSafeParams,
-      })
-      summary = getAssistantMessageText(summaryResponse)
-      // fusion-mlx 内存撞顶时返回 200 + 空内容流(prefill 阶段 abort,无 error 事件),
-      // summary 为空且无错误文本 -> 上层抛 "no valid text content"。MLX 空响应几乎必为
-      // 内存撞顶,复用 prompt-too-long 截断重试:逐轮丢弃最旧 API 轮次直到 prefill 落入
-      // 内存上限,让 /compact 在超大对话上也能成功;无法再截断则抛明确内存上限错误。
-      const isEmptyMlxOom = !summary && isFusionMlxProvider()
-      // fusion-mlx 引擎路由 bug(AttributeError)或 OOM(RuntimeError)会返回 500 错误,
-      // MLX adapter 将其转为 "Fusion-MLX API error: 500 ..." 或 mid-stream error,
-      // compact 流式路径将其作为 API Error summary 返回。检测此类错误也触发截断重试。
-      const isMlxServerError = isFusionMlxProvider() && summary && (
-        summary.includes('process memory limit exceeded') ||
-        summary.includes('Fusion-MLX API error: 5')
-      )
-      const needsTruncateRetry =
-        summary?.startsWith(PROMPT_TOO_LONG_ERROR_MESSAGE) || isEmptyMlxOom || isMlxServerError
-      if (isEmptyMlxOom) {
-        logForDebugging(
-          `[Compact] 空响应(疑似 fusion-mlx 内存撞顶),触发截断重试`,
-          { level: 'warn' },
-        )
-      }
-      if (isMlxServerError) {
-        logForDebugging(
-          `[Compact] MLX 服务端错误,触发截断重试: ${summary?.slice(0, 200)}`,
-          { level: 'warn' },
-        )
-      }
-      if (!needsTruncateRetry) break
+		let messagesToSummarize = messages;
+		// Pre-flight: 本地模型 compact 前先检查 token 预算,避免发送超大请求导致 OOM 崩溃
+		const preflightTruncated = preflightMlxTokenTruncate(
+			messages,
+			cacheSafeParams.systemPrompt,
+			context,
+		);
+		if (preflightTruncated) {
+			logEvent("tengu_compact_mlx_preflight_truncate", {
+				originalMessageCount: messages.length,
+				truncatedMessageCount: preflightTruncated.length,
+				preCompactTokenCount,
+			});
+			messagesToSummarize = preflightTruncated;
+		}
+		// 如果 preflight 截断了消息, forkContextMessages 必须同步更新,
+		// 否则 fork-agent 路径发送未截断原始消息到 MLX 导致 OOM
+		let retryCacheSafeParams = preflightTruncated
+			? { ...cacheSafeParams, forkContextMessages: preflightTruncated }
+			: cacheSafeParams;
+		let summaryResponse: AssistantMessage;
+		let summary: string | null;
+		let ptlAttempts = 0;
+		for (;;) {
+			summaryResponse = await streamCompactSummary({
+				messages: messagesToSummarize,
+				summaryRequest,
+				appState,
+				context,
+				preCompactTokenCount,
+				cacheSafeParams: retryCacheSafeParams,
+			});
+			summary = getAssistantMessageText(summaryResponse);
+			// fusion-mlx 内存撞顶时返回 200 + 空内容流(prefill 阶段 abort,无 error 事件),
+			// summary 为空且无错误文本 -> 上层抛 "no valid text content"。MLX 空响应几乎必为
+			// 内存撞顶,复用 prompt-too-long 截断重试:逐轮丢弃最旧 API 轮次直到 prefill 落入
+			// 内存上限,让 /compact 在超大对话上也能成功;无法再截断则抛明确内存上限错误。
+			const isEmptyMlxOom = !summary && isFusionMlxProvider();
+			// fusion-mlx 引擎路由 bug(AttributeError)或 OOM(RuntimeError)会返回 500 错误,
+			// MLX adapter 将其转为 "Fusion-MLX API error: 500 ..." 或 mid-stream error,
+			// compact 流式路径将其作为 API Error summary 返回。检测此类错误也触发截断重试。
+			const isMlxServerError =
+				isFusionMlxProvider() &&
+				summary &&
+				(summary.includes("process memory limit exceeded") ||
+					summary.includes("Fusion-MLX API error: 5"));
+			const needsTruncateRetry =
+				summary?.startsWith(PROMPT_TOO_LONG_ERROR_MESSAGE) ||
+				isEmptyMlxOom ||
+				isMlxServerError;
+			if (isEmptyMlxOom) {
+				logForDebugging(
+					`[Compact] 空响应(疑似 fusion-mlx 内存撞顶),触发截断重试`,
+					{ level: "warn" },
+				);
+			}
+			if (isMlxServerError) {
+				logForDebugging(
+					`[Compact] MLX 服务端错误,触发截断重试: ${summary?.slice(0, 200)}`,
+					{ level: "warn" },
+				);
+			}
+			if (!needsTruncateRetry) break;
 
-      // CC-1180: compact request itself hit prompt-too-long. Truncate the
-      // oldest API-round groups and retry rather than leaving the user stuck.
-      ptlAttempts++
-      const truncated =
-        ptlAttempts <= MAX_PTL_RETRIES
-          ? truncateHeadForPTLRetry(messagesToSummarize, summaryResponse)
-          : null
-      if (!truncated) {
-        logEvent('tengu_compact_failed', {
-          reason:
-            'prompt_too_long' as AnalyticsMetadata_I_VERIFIED_THIS_IS_NOT_CODE_OR_FILEPATHS,
-          preCompactTokenCount,
-          promptCacheSharingEnabled,
-          ptlAttempts,
-        })
-        throw new Error(
-          isEmptyMlxOom || isMlxServerError
-            ? ERROR_MESSAGE_MLX_MEMORY_LIMIT
-            : ERROR_MESSAGE_PROMPT_TOO_LONG,
-        )
-      }
-      logEvent('tengu_compact_ptl_retry', {
-        attempt: ptlAttempts,
-        droppedMessages: messagesToSummarize.length - truncated.length,
-        remainingMessages: truncated.length,
-      })
-      messagesToSummarize = truncated
-      // The forked-agent path reads from cacheSafeParams.forkContextMessages,
-      // not the messages param — thread the truncated set through both paths.
-      retryCacheSafeParams = {
-        ...retryCacheSafeParams,
-        forkContextMessages: truncated,
-      }
-    }
+			// CC-1180: compact request itself hit prompt-too-long. Truncate the
+			// oldest API-round groups and retry rather than leaving the user stuck.
+			ptlAttempts++;
+			const truncated =
+				ptlAttempts <= MAX_PTL_RETRIES
+					? truncateHeadForPTLRetry(messagesToSummarize, summaryResponse)
+					: null;
+			if (!truncated) {
+				logEvent("tengu_compact_failed", {
+					reason:
+						"prompt_too_long" as AnalyticsMetadata_I_VERIFIED_THIS_IS_NOT_CODE_OR_FILEPATHS,
+					preCompactTokenCount,
+					promptCacheSharingEnabled,
+					ptlAttempts,
+				});
+				throw new Error(
+					isEmptyMlxOom || isMlxServerError
+						? ERROR_MESSAGE_MLX_MEMORY_LIMIT
+						: ERROR_MESSAGE_PROMPT_TOO_LONG,
+				);
+			}
+			logEvent("tengu_compact_ptl_retry", {
+				attempt: ptlAttempts,
+				droppedMessages: messagesToSummarize.length - truncated.length,
+				remainingMessages: truncated.length,
+			});
+			messagesToSummarize = truncated;
+			// The forked-agent path reads from cacheSafeParams.forkContextMessages,
+			// not the messages param — thread the truncated set through both paths.
+			retryCacheSafeParams = {
+				...retryCacheSafeParams,
+				forkContextMessages: truncated,
+			};
+		}
 
-    if (!summary) {
-      logForDebugging(
-        `Compact failed: no summary text in response. Response: ${jsonStringify(summaryResponse)}`,
-        { level: 'error' },
-      )
-      logEvent('tengu_compact_failed', {
-        reason:
-          'no_summary' as AnalyticsMetadata_I_VERIFIED_THIS_IS_NOT_CODE_OR_FILEPATHS,
-        preCompactTokenCount,
-        promptCacheSharingEnabled,
-      })
-      throw new Error(
-        `Failed to generate conversation summary - response did not contain valid text content`,
-      )
-    } else if (startsWithApiErrorPrefix(summary)) {
-      logEvent('tengu_compact_failed', {
-        reason:
-          'api_error' as AnalyticsMetadata_I_VERIFIED_THIS_IS_NOT_CODE_OR_FILEPATHS,
-        preCompactTokenCount,
-        promptCacheSharingEnabled,
-      })
-      throw new Error(summary)
-    }
+		if (!summary) {
+			logForDebugging(
+				`Compact failed: no summary text in response. Response: ${jsonStringify(summaryResponse)}`,
+				{ level: "error" },
+			);
+			logEvent("tengu_compact_failed", {
+				reason:
+					"no_summary" as AnalyticsMetadata_I_VERIFIED_THIS_IS_NOT_CODE_OR_FILEPATHS,
+				preCompactTokenCount,
+				promptCacheSharingEnabled,
+			});
+			throw new Error(
+				`Failed to generate conversation summary - response did not contain valid text content`,
+			);
+		} else if (startsWithApiErrorPrefix(summary)) {
+			logEvent("tengu_compact_failed", {
+				reason:
+					"api_error" as AnalyticsMetadata_I_VERIFIED_THIS_IS_NOT_CODE_OR_FILEPATHS,
+				preCompactTokenCount,
+				promptCacheSharingEnabled,
+			});
+			throw new Error(summary);
+		}
 
-    // Store the current file state before clearing
-    const preCompactReadFileState = cacheToObject(context.readFileState)
+		// Store the current file state before clearing
+		const preCompactReadFileState = cacheToObject(context.readFileState);
 
-    // Clear the cache
-    context.readFileState.clear()
-    context.loadedNestedMemoryPaths?.clear()
+		// Clear the cache
+		context.readFileState.clear();
+		context.loadedNestedMemoryPaths?.clear();
 
-    // Intentionally NOT resetting sentSkillNames: re-injecting the full
-    // skill_listing (~4K tokens) post-compact is pure cache_creation with
-    // marginal benefit. The model still has SkillTool in its schema and
-    // invoked_skills attachment (below) preserves used-skill content. Ants
-    // with EXPERIMENTAL_SKILL_SEARCH already skip re-injection via the
-    // early-return in getSkillListingAttachments.
+		// Intentionally NOT resetting sentSkillNames: re-injecting the full
+		// skill_listing (~4K tokens) post-compact is pure cache_creation with
+		// marginal benefit. The model still has SkillTool in its schema and
+		// invoked_skills attachment (below) preserves used-skill content. Ants
+		// with EXPERIMENTAL_SKILL_SEARCH already skip re-injection via the
+		// early-return in getSkillListingAttachments.
 
-    // Run async attachment generation in parallel
-    const [fileAttachments, asyncAgentAttachments] = await Promise.all([
-      createPostCompactFileAttachments(
-        preCompactReadFileState,
-        context,
-        POST_COMPACT_MAX_FILES_TO_RESTORE,
-      ),
-      createAsyncAgentAttachmentsIfNeeded(context),
-    ])
+		// Run async attachment generation in parallel
+		const [fileAttachments, asyncAgentAttachments] = await Promise.all([
+			createPostCompactFileAttachments(
+				preCompactReadFileState,
+				context,
+				POST_COMPACT_MAX_FILES_TO_RESTORE,
+			),
+			createAsyncAgentAttachmentsIfNeeded(context),
+		]);
 
-    const postCompactFileAttachments: AttachmentMessage[] = [
-      ...fileAttachments,
-      ...asyncAgentAttachments,
-    ]
-    const planAttachment = createPlanAttachmentIfNeeded(context.agentId)
-    if (planAttachment) {
-      postCompactFileAttachments.push(planAttachment)
-    }
+		const postCompactFileAttachments: AttachmentMessage[] = [
+			...fileAttachments,
+			...asyncAgentAttachments,
+		];
+		const planAttachment = createPlanAttachmentIfNeeded(context.agentId);
+		if (planAttachment) {
+			postCompactFileAttachments.push(planAttachment);
+		}
 
-    // Add plan mode instructions if currently in plan mode, so the model
-    // continues operating in plan mode after compaction
-    const planModeAttachment = await createPlanModeAttachmentIfNeeded(context)
-    if (planModeAttachment) {
-      postCompactFileAttachments.push(planModeAttachment)
-    }
+		// Add plan mode instructions if currently in plan mode, so the model
+		// continues operating in plan mode after compaction
+		const planModeAttachment = await createPlanModeAttachmentIfNeeded(context);
+		if (planModeAttachment) {
+			postCompactFileAttachments.push(planModeAttachment);
+		}
 
-    // Add skill attachment if skills were invoked in this session
-    const skillAttachment = createSkillAttachmentIfNeeded(context.agentId)
-    if (skillAttachment) {
-      postCompactFileAttachments.push(skillAttachment)
-    }
+		// Add skill attachment if skills were invoked in this session
+		const skillAttachment = createSkillAttachmentIfNeeded(context.agentId);
+		if (skillAttachment) {
+			postCompactFileAttachments.push(skillAttachment);
+		}
 
-    // Preserve sensitive instructions (customInstructions, appendSystemPrompt)
-    // that would otherwise be lost after compaction
-    const preservedAttachment = createPreservedInstructionsAttachment(
-      customInstructions,
-      context.options.appendSystemPrompt,
-    )
-    if (preservedAttachment) {
-      postCompactFileAttachments.push(preservedAttachment)
-    }
+		// Preserve sensitive instructions (customInstructions, appendSystemPrompt)
+		// that would otherwise be lost after compaction
+		const preservedAttachment = createPreservedInstructionsAttachment(
+			customInstructions,
+			context.options.appendSystemPrompt,
+		);
+		if (preservedAttachment) {
+			postCompactFileAttachments.push(preservedAttachment);
+		}
 
-    // Compaction ate prior delta attachments. Re-announce from the current
-    // state so the model has tool/instruction context on the first
-    // post-compact turn. Empty message history → diff against nothing →
-    // announces the full set.
-    for (const att of getDeferredToolsDeltaAttachment(
-      context.options.tools,
-      context.options.mainLoopModel,
-      [],
-      { callSite: 'compact_full' },
-    )) {
-      postCompactFileAttachments.push(createAttachmentMessage(att))
-    }
-    for (const att of getAgentListingDeltaAttachment(context, [])) {
-      postCompactFileAttachments.push(createAttachmentMessage(att))
-    }
-    for (const att of getMcpInstructionsDeltaAttachment(
-      context.options.mcpClients,
-      context.options.tools,
-      context.options.mainLoopModel,
-      [],
-    )) {
-      postCompactFileAttachments.push(createAttachmentMessage(att))
-    }
+		// Compaction ate prior delta attachments. Re-announce from the current
+		// state so the model has tool/instruction context on the first
+		// post-compact turn. Empty message history → diff against nothing →
+		// announces the full set.
+		for (const att of getDeferredToolsDeltaAttachment(
+			context.options.tools,
+			context.options.mainLoopModel,
+			[],
+			{ callSite: "compact_full" },
+		)) {
+			postCompactFileAttachments.push(createAttachmentMessage(att));
+		}
+		for (const att of getAgentListingDeltaAttachment(context, [])) {
+			postCompactFileAttachments.push(createAttachmentMessage(att));
+		}
+		for (const att of getMcpInstructionsDeltaAttachment(
+			context.options.mcpClients,
+			context.options.tools,
+			context.options.mainLoopModel,
+			[],
+		)) {
+			postCompactFileAttachments.push(createAttachmentMessage(att));
+		}
 
-    context.onCompactProgress?.({
-      type: 'hooks_start',
-      hookType: 'session_start',
-    })
-    // Execute SessionStart hooks after successful compaction
-    const hookMessages = await processSessionStartHooks('compact', {
-      model: context.options.mainLoopModel,
-    })
+		context.onCompactProgress?.({
+			type: "hooks_start",
+			hookType: "session_start",
+		});
+		// Execute SessionStart hooks after successful compaction
+		const hookMessages = await processSessionStartHooks("compact", {
+			model: context.options.mainLoopModel,
+		});
 
-    // Create the compact boundary marker and summary messages before the
-    // event so we can compute the true resulting-context size.
-    const boundaryMarker = createCompactBoundaryMessage(
-      isAutoCompact ? 'auto' : 'manual',
-      preCompactTokenCount ?? 0,
-      messages.at(-1)?.uuid,
-    )
-    // Carry loaded-tool state — the summary doesn't preserve tool_reference
-    // blocks, so the post-compact schema filter needs this to keep sending
-    // already-loaded deferred tool schemas to the API.
-    const preCompactDiscovered = extractDiscoveredToolNames(messages)
-    if (preCompactDiscovered.size > 0) {
-      boundaryMarker.compactMetadata.preCompactDiscoveredTools = [
-        ...preCompactDiscovered,
-      ].sort()
-    }
+		// Create the compact boundary marker and summary messages before the
+		// event so we can compute the true resulting-context size.
+		const boundaryMarker = createCompactBoundaryMessage(
+			isAutoCompact ? "auto" : "manual",
+			preCompactTokenCount ?? 0,
+			messages.at(-1)?.uuid,
+		);
+		// Carry loaded-tool state — the summary doesn't preserve tool_reference
+		// blocks, so the post-compact schema filter needs this to keep sending
+		// already-loaded deferred tool schemas to the API.
+		const preCompactDiscovered = extractDiscoveredToolNames(messages);
+		if (preCompactDiscovered.size > 0) {
+			boundaryMarker.compactMetadata.preCompactDiscoveredTools = [
+				...preCompactDiscovered,
+			].sort();
+		}
 
-    const transcriptPath = getTranscriptPath()
-    const summaryMessages: UserMessage[] = [
-      createUserMessage({
-        content: getCompactUserSummaryMessage(
-          summary,
-          suppressFollowUpQuestions,
-          transcriptPath,
-        ),
-        isCompactSummary: true,
-        isVisibleInTranscriptOnly: true,
-      }),
-    ]
+		const transcriptPath = getTranscriptPath();
+		const summaryMessages: UserMessage[] = [
+			createUserMessage({
+				content: getCompactUserSummaryMessage(
+					summary,
+					suppressFollowUpQuestions,
+					transcriptPath,
+				),
+				isCompactSummary: true,
+				isVisibleInTranscriptOnly: true,
+			}),
+		];
 
-    // Previously "postCompactTokenCount" — renamed because this is the
-    // compact API call's total usage (input_tokens ≈ preCompactTokenCount),
-    // NOT the size of the resulting context. Kept for event-field continuity.
-    const compactionCallTotalTokens = tokenCountFromLastAPIResponse([
-      summaryResponse,
-    ])
+		// Previously "postCompactTokenCount" — renamed because this is the
+		// compact API call's total usage (input_tokens ≈ preCompactTokenCount),
+		// NOT the size of the resulting context. Kept for event-field continuity.
+		const compactionCallTotalTokens = tokenCountFromLastAPIResponse([
+			summaryResponse,
+		]);
 
-    // Message-payload estimate of the resulting context. The next iteration's
-    // shouldAutoCompact will see this PLUS ~20-40K for system prompt + tools +
-    // userContext (via API usage.input_tokens). So `willRetriggerNextTurn: true`
-    // is a strong signal; `false` may still retrigger when this is close to threshold.
-    const truePostCompactTokenCount = roughTokenCountEstimationForMessages([
-      boundaryMarker,
-      ...summaryMessages,
-      ...postCompactFileAttachments,
-      ...hookMessages,
-    ] as readonly { type: string; message?: { content?: unknown }; attachment?: import('../../utils/attachments.js').Attachment }[])
+		// Message-payload estimate of the resulting context. The next iteration's
+		// shouldAutoCompact will see this PLUS ~20-40K for system prompt + tools +
+		// userContext (via API usage.input_tokens). So `willRetriggerNextTurn: true`
+		// is a strong signal; `false` may still retrigger when this is close to threshold.
+		const truePostCompactTokenCount = roughTokenCountEstimationForMessages([
+			boundaryMarker,
+			...summaryMessages,
+			...postCompactFileAttachments,
+			...hookMessages,
+		] as readonly {
+			type: string;
+			message?: { content?: unknown };
+			attachment?: import("../../utils/attachments.js").Attachment;
+		}[]);
 
-    // Extract compaction API usage metrics
-    const compactionUsage = getTokenUsage(summaryResponse)
+		// Extract compaction API usage metrics
+		const compactionUsage = getTokenUsage(summaryResponse);
 
-    const querySourceForEvent =
-      recompactionInfo?.querySource ?? context.options.querySource ?? 'unknown'
+		const querySourceForEvent =
+			recompactionInfo?.querySource ?? context.options.querySource ?? "unknown";
 
-    logEvent('tengu_compact', {
-      preCompactTokenCount,
-      // Kept for continuity — semantically the compact API call's total usage
-      postCompactTokenCount: compactionCallTotalTokens,
-      truePostCompactTokenCount,
-      autoCompactThreshold: recompactionInfo?.autoCompactThreshold ?? -1,
-      willRetriggerNextTurn:
-        recompactionInfo !== undefined &&
-        truePostCompactTokenCount >= recompactionInfo.autoCompactThreshold,
-      isAutoCompact,
-      querySource:
-        querySourceForEvent as AnalyticsMetadata_I_VERIFIED_THIS_IS_NOT_CODE_OR_FILEPATHS,
-      queryChainId: (context.queryTracking?.chainId ??
-        '') as AnalyticsMetadata_I_VERIFIED_THIS_IS_NOT_CODE_OR_FILEPATHS,
-      queryDepth: context.queryTracking?.depth ?? -1,
-      isRecompactionInChain: recompactionInfo?.isRecompactionInChain ?? false,
-      turnsSincePreviousCompact:
-        recompactionInfo?.turnsSincePreviousCompact ?? -1,
-      previousCompactTurnId: (recompactionInfo?.previousCompactTurnId ??
-        '') as AnalyticsMetadata_I_VERIFIED_THIS_IS_NOT_CODE_OR_FILEPATHS,
-      compactionInputTokens: compactionUsage?.input_tokens,
-      compactionOutputTokens: compactionUsage?.output_tokens,
-      compactionCacheReadTokens: compactionUsage?.cache_read_input_tokens ?? 0,
-      compactionCacheCreationTokens:
-        compactionUsage?.cache_creation_input_tokens ?? 0,
-      compactionTotalTokens: compactionUsage
-        ? compactionUsage.input_tokens +
-          (compactionUsage.cache_creation_input_tokens ?? 0) +
-          (compactionUsage.cache_read_input_tokens ?? 0) +
-          compactionUsage.output_tokens
-        : 0,
-      promptCacheSharingEnabled,
-      // analyzeContext walks every content block (~11ms on a 4.5K-message
-      // session) purely for this telemetry breakdown. Computed here, past
-      // the compaction-API await, so the sync walk doesn't starve the
-      // render loop before compaction even starts. Same deferral pattern
-      // as reactiveCompact.ts.
-      ...(() => {
-        try {
-          return tokenStatsToStatsigMetrics(analyzeContext(messages))
-        } catch (error) {
-          logError(error as Error)
-          return {}
-        }
-      })(),
-    })
+		logEvent("tengu_compact", {
+			preCompactTokenCount,
+			// Kept for continuity — semantically the compact API call's total usage
+			postCompactTokenCount: compactionCallTotalTokens,
+			truePostCompactTokenCount,
+			autoCompactThreshold: recompactionInfo?.autoCompactThreshold ?? -1,
+			willRetriggerNextTurn:
+				recompactionInfo !== undefined &&
+				truePostCompactTokenCount >= recompactionInfo.autoCompactThreshold,
+			isAutoCompact,
+			querySource:
+				querySourceForEvent as AnalyticsMetadata_I_VERIFIED_THIS_IS_NOT_CODE_OR_FILEPATHS,
+			queryChainId: (context.queryTracking?.chainId ??
+				"") as AnalyticsMetadata_I_VERIFIED_THIS_IS_NOT_CODE_OR_FILEPATHS,
+			queryDepth: context.queryTracking?.depth ?? -1,
+			isRecompactionInChain: recompactionInfo?.isRecompactionInChain ?? false,
+			turnsSincePreviousCompact:
+				recompactionInfo?.turnsSincePreviousCompact ?? -1,
+			previousCompactTurnId: (recompactionInfo?.previousCompactTurnId ??
+				"") as AnalyticsMetadata_I_VERIFIED_THIS_IS_NOT_CODE_OR_FILEPATHS,
+			compactionInputTokens: compactionUsage?.input_tokens,
+			compactionOutputTokens: compactionUsage?.output_tokens,
+			compactionCacheReadTokens: compactionUsage?.cache_read_input_tokens ?? 0,
+			compactionCacheCreationTokens:
+				compactionUsage?.cache_creation_input_tokens ?? 0,
+			compactionTotalTokens: compactionUsage
+				? compactionUsage.input_tokens +
+					(compactionUsage.cache_creation_input_tokens ?? 0) +
+					(compactionUsage.cache_read_input_tokens ?? 0) +
+					compactionUsage.output_tokens
+				: 0,
+			promptCacheSharingEnabled,
+			// analyzeContext walks every content block (~11ms on a 4.5K-message
+			// session) purely for this telemetry breakdown. Computed here, past
+			// the compaction-API await, so the sync walk doesn't starve the
+			// render loop before compaction even starts. Same deferral pattern
+			// as reactiveCompact.ts.
+			...(() => {
+				try {
+					return tokenStatsToStatsigMetrics(analyzeContext(messages));
+				} catch (error) {
+					logError(error as Error);
+					return {};
+				}
+			})(),
+		});
 
-    // Reset cache read baseline so the post-compact drop isn't flagged as a break
-    if (feature('PROMPT_CACHE_BREAK_DETECTION')) {
-      notifyCompaction(
-        context.options.querySource ?? 'compact',
-        context.agentId,
-      )
-    }
-    markPostCompaction()
+		// Reset cache read baseline so the post-compact drop isn't flagged as a break
+		if (feature("PROMPT_CACHE_BREAK_DETECTION")) {
+			notifyCompaction(
+				context.options.querySource ?? "compact",
+				context.agentId,
+			);
+		}
+		markPostCompaction();
 
-    // Post-compact GC: release stale KV cache in fusion-mlx backend (fire-and-forget)
-    if (isFusionMlxProvider()) {
-        requestMlxGC().then(gcResult => {
-            if (gcResult.success) {
-                logForDebugging(`[Compact] Post-compact GC freed ${gcResult.freed ?? 'unknown'} bytes`)
-            }
-        }).catch(() => { /* non-blocking */ })
-    }
+		// Post-compact GC: release stale KV cache in fusion-mlx backend (fire-and-forget)
+		if (isFusionMlxProvider()) {
+			requestMlxGC()
+				.then((gcResult) => {
+					if (gcResult.success) {
+						logForDebugging(
+							`[Compact] Post-compact GC freed ${gcResult.freed ?? "unknown"} bytes`,
+						);
+					}
+				})
+				.catch(() => {
+					/* non-blocking */
+				});
+		}
 
-    // Re-append session metadata (custom title, tag) so it stays within
-    // the 16KB tail window that readLiteMetadata reads for --resume display.
-    // Without this, enough post-compaction messages push the metadata entry
-    // out of the window, causing --resume to show the auto-generated title
-    // instead of the user-set session name.
-    reAppendSessionMetadata()
+		// Re-append session metadata (custom title, tag) so it stays within
+		// the 16KB tail window that readLiteMetadata reads for --resume display.
+		// Without this, enough post-compaction messages push the metadata entry
+		// out of the window, causing --resume to show the auto-generated title
+		// instead of the user-set session name.
+		reAppendSessionMetadata();
 
-    // Write a reduced transcript segment for the pre-compaction messages
-    // (assistant mode only). Fire-and-forget — errors are logged internally.
-    if (feature('KAIROS')) {
-      void sessionTranscriptModule?.writeSessionTranscriptSegment(messages)
-    }
+		// Write a reduced transcript segment for the pre-compaction messages
+		// (assistant mode only). Fire-and-forget — errors are logged internally.
+		if (feature("KAIROS")) {
+			void sessionTranscriptModule?.writeSessionTranscriptSegment(messages);
+		}
 
-    context.onCompactProgress?.({
-      type: 'hooks_start',
-      hookType: 'post_compact',
-    })
-    const postCompactHookResult = await executePostCompactHooks(
-      {
-        trigger: isAutoCompact ? 'auto' : 'manual',
-        compactSummary: summary,
-      },
-      context.abortController.signal,
-    )
+		context.onCompactProgress?.({
+			type: "hooks_start",
+			hookType: "post_compact",
+		});
+		const postCompactHookResult = await executePostCompactHooks(
+			{
+				trigger: isAutoCompact ? "auto" : "manual",
+				compactSummary: summary,
+			},
+			context.abortController.signal,
+		);
 
-    const combinedUserDisplayMessage = [
-      userDisplayMessage,
-      postCompactHookResult.userDisplayMessage,
-    ]
-      .filter(Boolean)
-      .join('\n')
+		const combinedUserDisplayMessage = [
+			userDisplayMessage,
+			postCompactHookResult.userDisplayMessage,
+		]
+			.filter(Boolean)
+			.join("\n");
 
-    return {
-      boundaryMarker,
-      summaryMessages,
-      attachments: postCompactFileAttachments,
-      hookResults: hookMessages,
-      userDisplayMessage: combinedUserDisplayMessage || undefined,
-      preCompactTokenCount,
-      postCompactTokenCount: compactionCallTotalTokens,
-      truePostCompactTokenCount,
-      compactionUsage,
-    }
-  } catch (error) {
-    // Only show the error notification for manual /compact.
-    // Auto-compact failures are retried on the next turn and the
-    // notification is confusing when compaction eventually succeeds.
-    if (!isAutoCompact) {
-      addErrorNotificationIfNeeded(error, context)
-    }
-    throw error
-  } finally {
-    context.setStreamMode?.('requesting')
-    context.setResponseLength?.(() => 0)
-    context.onCompactProgress?.({ type: 'compact_end' })
-    context.setSDKStatus?.(null)
-  }
+		return {
+			boundaryMarker,
+			summaryMessages,
+			attachments: postCompactFileAttachments,
+			hookResults: hookMessages,
+			userDisplayMessage: combinedUserDisplayMessage || undefined,
+			preCompactTokenCount,
+			postCompactTokenCount: compactionCallTotalTokens,
+			truePostCompactTokenCount,
+			compactionUsage,
+		};
+	} catch (error) {
+		// Only show the error notification for manual /compact.
+		// Auto-compact failures are retried on the next turn and the
+		// notification is confusing when compaction eventually succeeds.
+		if (!isAutoCompact) {
+			addErrorNotificationIfNeeded(error, context);
+		}
+		throw error;
+	} finally {
+		context.setStreamMode?.("requesting");
+		context.setResponseLength?.(() => 0);
+		context.onCompactProgress?.({ type: "compact_end" });
+		context.setSDKStatus?.(null);
+	}
 }
 
 /**
@@ -1026,704 +1086,723 @@ export async function compactConversation(
  *   Prompt cache is invalidated since the summary precedes the kept messages.
  */
 export async function partialCompactConversation(
-  allMessages: Message[],
-  pivotIndex: number,
-  context: ToolUseContext,
-  cacheSafeParams: CacheSafeParams,
-  userFeedback?: string,
-  direction: PartialCompactDirection = 'from',
+	allMessages: Message[],
+	pivotIndex: number,
+	context: ToolUseContext,
+	cacheSafeParams: CacheSafeParams,
+	userFeedback?: string,
+	direction: PartialCompactDirection = "from",
 ): Promise<CompactionResult> {
-  try {
-    const messagesToSummarize =
-      direction === 'up_to'
-        ? allMessages.slice(0, pivotIndex)
-        : allMessages.slice(pivotIndex)
-    // 'up_to' must strip old compact boundaries/summaries: for 'up_to',
-    // summary_B sits BEFORE kept, so a stale boundary_A in kept wins
-    // findLastCompactBoundaryIndex's backward scan and drops summary_B.
-    // 'from' keeps them: summary_B sits AFTER kept (backward scan still
-    // works), and removing an old summary would lose its covered history.
-    const messagesToKeep =
-      direction === 'up_to'
-        ? allMessages
-            .slice(pivotIndex)
-            .filter(
-              m =>
-                m.type !== 'progress' &&
-                !isCompactBoundaryMessage(m) &&
-                !(m.type === 'user' && m.isCompactSummary),
-            )
-        : allMessages.slice(0, pivotIndex).filter(m => m.type !== 'progress')
+	try {
+		const messagesToSummarize =
+			direction === "up_to"
+				? allMessages.slice(0, pivotIndex)
+				: allMessages.slice(pivotIndex);
+		// 'up_to' must strip old compact boundaries/summaries: for 'up_to',
+		// summary_B sits BEFORE kept, so a stale boundary_A in kept wins
+		// findLastCompactBoundaryIndex's backward scan and drops summary_B.
+		// 'from' keeps them: summary_B sits AFTER kept (backward scan still
+		// works), and removing an old summary would lose its covered history.
+		const messagesToKeep =
+			direction === "up_to"
+				? allMessages
+						.slice(pivotIndex)
+						.filter(
+							(m) =>
+								m.type !== "progress" &&
+								!isCompactBoundaryMessage(m) &&
+								!(m.type === "user" && m.isCompactSummary),
+						)
+				: allMessages.slice(0, pivotIndex).filter((m) => m.type !== "progress");
 
-    if (messagesToSummarize.length === 0) {
-      throw new Error(
-        direction === 'up_to'
-          ? 'Nothing to summarize before the selected message.'
-          : 'Nothing to summarize after the selected message.',
-      )
-    }
+		if (messagesToSummarize.length === 0) {
+			throw new Error(
+				direction === "up_to"
+					? "Nothing to summarize before the selected message."
+					: "Nothing to summarize after the selected message.",
+			);
+		}
 
-    const preCompactTokenCount = tokenCountWithEstimation(allMessages)
+		const preCompactTokenCount = tokenCountWithEstimation(allMessages);
 
-    context.onCompactProgress?.({
-      type: 'hooks_start',
-      hookType: 'pre_compact',
-    })
+		context.onCompactProgress?.({
+			type: "hooks_start",
+			hookType: "pre_compact",
+		});
 
-    context.setSDKStatus?.('compacting')
-    const hookResult = await executePreCompactHooks(
-      {
-        trigger: 'manual',
-        customInstructions: null,
-      },
-      context.abortController.signal,
-    )
-    if (hookResult.blocked) {
-      logForDebugging(`Partial compaction blocked by PreCompact hook: ${hookResult.stopReason}`)
-      context.onCompactProgress?.({ type: 'compact_end' })
-      return {
-        boundaryMarker: createCompactBoundaryMessage('manual', 0, undefined),
-        summaryMessages: [],
-        attachments: [],
-        hookResults: [],
-        userDisplayMessage: hookResult.userDisplayMessage,
-      }
-    }
+		context.setSDKStatus?.("compacting");
+		const hookResult = await executePreCompactHooks(
+			{
+				trigger: "manual",
+				customInstructions: null,
+			},
+			context.abortController.signal,
+		);
+		if (hookResult.blocked) {
+			logForDebugging(
+				`Partial compaction blocked by PreCompact hook: ${hookResult.stopReason}`,
+			);
+			context.onCompactProgress?.({ type: "compact_end" });
+			return {
+				boundaryMarker: createCompactBoundaryMessage("manual", 0, undefined),
+				summaryMessages: [],
+				attachments: [],
+				hookResults: [],
+				userDisplayMessage: hookResult.userDisplayMessage,
+			};
+		}
 
-    // Merge hook instructions with user feedback
-    let customInstructions: string | undefined
-    if (hookResult.newCustomInstructions && userFeedback) {
-      customInstructions = `${hookResult.newCustomInstructions}\n\nUser context: ${userFeedback}`
-    } else if (hookResult.newCustomInstructions) {
-      customInstructions = hookResult.newCustomInstructions
-    } else if (userFeedback) {
-      customInstructions = `User context: ${userFeedback}`
-    }
+		// Merge hook instructions with user feedback
+		let customInstructions: string | undefined;
+		if (hookResult.newCustomInstructions && userFeedback) {
+			customInstructions = `${hookResult.newCustomInstructions}\n\nUser context: ${userFeedback}`;
+		} else if (hookResult.newCustomInstructions) {
+			customInstructions = hookResult.newCustomInstructions;
+		} else if (userFeedback) {
+			customInstructions = `User context: ${userFeedback}`;
+		}
 
-    context.setStreamMode?.('requesting')
-    context.setResponseLength?.(() => 0)
-    context.onCompactProgress?.({ type: 'compact_start' })
+		context.setStreamMode?.("requesting");
+		context.setResponseLength?.(() => 0);
+		context.onCompactProgress?.({ type: "compact_start" });
 
-    const compactPrompt = getPartialCompactPrompt(customInstructions, direction)
-    const summaryRequest = createUserMessage({
-      content: compactPrompt,
-    })
+		const compactPrompt = getPartialCompactPrompt(
+			customInstructions,
+			direction,
+		);
+		const summaryRequest = createUserMessage({
+			content: compactPrompt,
+		});
 
-    const failureMetadata = {
-      preCompactTokenCount,
-      direction:
-        direction as AnalyticsMetadata_I_VERIFIED_THIS_IS_NOT_CODE_OR_FILEPATHS,
-      messagesSummarized: messagesToSummarize.length,
-    }
+		const failureMetadata = {
+			preCompactTokenCount,
+			direction:
+				direction as AnalyticsMetadata_I_VERIFIED_THIS_IS_NOT_CODE_OR_FILEPATHS,
+			messagesSummarized: messagesToSummarize.length,
+		};
 
-    // 'up_to' prefix hits cache directly; 'from' sends all (tail wouldn't cache).
-    // PTL retry breaks the cache prefix but unblocks the user (CC-1180).
-    let apiMessages = direction === 'up_to' ? messagesToSummarize : allMessages
-    // Pre-flight: 本地 MLX 模型 partial compact 也需要 token 预算检查
-    const partialPreflight = preflightMlxTokenTruncate(apiMessages, cacheSafeParams.systemPrompt, context)
-    if (partialPreflight) {
-        logEvent('tengu_compact_mlx_preflight_truncate', {
-            originalMessageCount: apiMessages.length,
-            truncatedMessageCount: partialPreflight.length,
-            preCompactTokenCount,
-            path: 'partial' as AnalyticsMetadata_I_VERIFIED_THIS_IS_NOT_CODE_OR_FILEPATHS,
-        })
-        apiMessages = partialPreflight
-    }
-    let retryCacheSafeParams =
-      direction === 'up_to'
-        ? { ...cacheSafeParams, forkContextMessages: partialPreflight ?? messagesToSummarize }
-        : partialPreflight
-            ? { ...cacheSafeParams, forkContextMessages: partialPreflight }
-            : cacheSafeParams
-    let summaryResponse: AssistantMessage
-    let summary: string | null
-    let ptlAttempts = 0
-    for (;;) {
-      summaryResponse = await streamCompactSummary({
-        messages: apiMessages,
-        summaryRequest,
-        appState: context.getAppState(),
-        context,
-        preCompactTokenCount,
-        cacheSafeParams: retryCacheSafeParams,
-      })
-      summary = getAssistantMessageText(summaryResponse)
-      // MLX 内存撞顶返回空响应(见 compactConversation 同名处理),复用截断重试。
-      const isEmptyMlxOom = !summary && isFusionMlxProvider()
-      // MLX 服务端错误(OOM/500)也触发截断重试;不再匹配通用 Python 异常名
-      // (AttributeError/RuntimeError),避免合法 Python 调试摘要触发误判
-      const isMlxServerError = isFusionMlxProvider() && summary && (
-        summary.includes('process memory limit exceeded') ||
-        summary.includes('Fusion-MLX API error: 5')
-      )
-      const needsTruncateRetry =
-        summary?.startsWith(PROMPT_TOO_LONG_ERROR_MESSAGE) || isEmptyMlxOom || isMlxServerError
-      if (isEmptyMlxOom) {
-        logForDebugging(
-          `[Partial Compact] 空响应(疑似 fusion-mlx 内存撞顶),触发截断重试`,
-          { level: 'warn' },
-        )
-      }
-      if (isMlxServerError) {
-        logForDebugging(
-          `[Partial Compact] MLX 服务端错误,触发截断重试: ${summary?.slice(0, 200)}`,
-          { level: 'warn' },
-        )
-      }
-      if (!needsTruncateRetry) break
+		// 'up_to' prefix hits cache directly; 'from' sends all (tail wouldn't cache).
+		// PTL retry breaks the cache prefix but unblocks the user (CC-1180).
+		let apiMessages = direction === "up_to" ? messagesToSummarize : allMessages;
+		// Pre-flight: 本地 MLX 模型 partial compact 也需要 token 预算检查
+		const partialPreflight = preflightMlxTokenTruncate(
+			apiMessages,
+			cacheSafeParams.systemPrompt,
+			context,
+		);
+		if (partialPreflight) {
+			logEvent("tengu_compact_mlx_preflight_truncate", {
+				originalMessageCount: apiMessages.length,
+				truncatedMessageCount: partialPreflight.length,
+				preCompactTokenCount,
+				path: "partial" as AnalyticsMetadata_I_VERIFIED_THIS_IS_NOT_CODE_OR_FILEPATHS,
+			});
+			apiMessages = partialPreflight;
+		}
+		let retryCacheSafeParams =
+			direction === "up_to"
+				? {
+						...cacheSafeParams,
+						forkContextMessages: partialPreflight ?? messagesToSummarize,
+					}
+				: partialPreflight
+					? { ...cacheSafeParams, forkContextMessages: partialPreflight }
+					: cacheSafeParams;
+		let summaryResponse: AssistantMessage;
+		let summary: string | null;
+		let ptlAttempts = 0;
+		for (;;) {
+			summaryResponse = await streamCompactSummary({
+				messages: apiMessages,
+				summaryRequest,
+				appState: context.getAppState(),
+				context,
+				preCompactTokenCount,
+				cacheSafeParams: retryCacheSafeParams,
+			});
+			summary = getAssistantMessageText(summaryResponse);
+			// MLX 内存撞顶返回空响应(见 compactConversation 同名处理),复用截断重试。
+			const isEmptyMlxOom = !summary && isFusionMlxProvider();
+			// MLX 服务端错误(OOM/500)也触发截断重试;不再匹配通用 Python 异常名
+			// (AttributeError/RuntimeError),避免合法 Python 调试摘要触发误判
+			const isMlxServerError =
+				isFusionMlxProvider() &&
+				summary &&
+				(summary.includes("process memory limit exceeded") ||
+					summary.includes("Fusion-MLX API error: 5"));
+			const needsTruncateRetry =
+				summary?.startsWith(PROMPT_TOO_LONG_ERROR_MESSAGE) ||
+				isEmptyMlxOom ||
+				isMlxServerError;
+			if (isEmptyMlxOom) {
+				logForDebugging(
+					`[Partial Compact] 空响应(疑似 fusion-mlx 内存撞顶),触发截断重试`,
+					{ level: "warn" },
+				);
+			}
+			if (isMlxServerError) {
+				logForDebugging(
+					`[Partial Compact] MLX 服务端错误,触发截断重试: ${summary?.slice(0, 200)}`,
+					{ level: "warn" },
+				);
+			}
+			if (!needsTruncateRetry) break;
 
-      ptlAttempts++
-      const truncated =
-        ptlAttempts <= MAX_PTL_RETRIES
-          ? truncateHeadForPTLRetry(apiMessages, summaryResponse)
-          : null
-      if (!truncated) {
-        logEvent('tengu_partial_compact_failed', {
-          reason:
-            'prompt_too_long' as AnalyticsMetadata_I_VERIFIED_THIS_IS_NOT_CODE_OR_FILEPATHS,
-          ...failureMetadata,
-          ptlAttempts,
-        })
-        throw new Error(
-          isEmptyMlxOom || isMlxServerError
-            ? ERROR_MESSAGE_MLX_MEMORY_LIMIT
-            : ERROR_MESSAGE_PROMPT_TOO_LONG,
-        )
-      }
-      logEvent('tengu_compact_ptl_retry', {
-        attempt: ptlAttempts,
-        droppedMessages: apiMessages.length - truncated.length,
-        remainingMessages: truncated.length,
-        path: 'partial' as AnalyticsMetadata_I_VERIFIED_THIS_IS_NOT_CODE_OR_FILEPATHS,
-      })
-      apiMessages = truncated
-      retryCacheSafeParams = {
-        ...retryCacheSafeParams,
-        forkContextMessages: truncated,
-      }
-    }
-    if (!summary) {
-      logEvent('tengu_partial_compact_failed', {
-        reason:
-          'no_summary' as AnalyticsMetadata_I_VERIFIED_THIS_IS_NOT_CODE_OR_FILEPATHS,
-        ...failureMetadata,
-      })
-      throw new Error(
-        'Failed to generate conversation summary - response did not contain valid text content',
-      )
-    } else if (startsWithApiErrorPrefix(summary)) {
-      logEvent('tengu_partial_compact_failed', {
-        reason:
-          'api_error' as AnalyticsMetadata_I_VERIFIED_THIS_IS_NOT_CODE_OR_FILEPATHS,
-        ...failureMetadata,
-      })
-      throw new Error(summary)
-    }
+			ptlAttempts++;
+			const truncated =
+				ptlAttempts <= MAX_PTL_RETRIES
+					? truncateHeadForPTLRetry(apiMessages, summaryResponse)
+					: null;
+			if (!truncated) {
+				logEvent("tengu_partial_compact_failed", {
+					reason:
+						"prompt_too_long" as AnalyticsMetadata_I_VERIFIED_THIS_IS_NOT_CODE_OR_FILEPATHS,
+					...failureMetadata,
+					ptlAttempts,
+				});
+				throw new Error(
+					isEmptyMlxOom || isMlxServerError
+						? ERROR_MESSAGE_MLX_MEMORY_LIMIT
+						: ERROR_MESSAGE_PROMPT_TOO_LONG,
+				);
+			}
+			logEvent("tengu_compact_ptl_retry", {
+				attempt: ptlAttempts,
+				droppedMessages: apiMessages.length - truncated.length,
+				remainingMessages: truncated.length,
+				path: "partial" as AnalyticsMetadata_I_VERIFIED_THIS_IS_NOT_CODE_OR_FILEPATHS,
+			});
+			apiMessages = truncated;
+			retryCacheSafeParams = {
+				...retryCacheSafeParams,
+				forkContextMessages: truncated,
+			};
+		}
+		if (!summary) {
+			logEvent("tengu_partial_compact_failed", {
+				reason:
+					"no_summary" as AnalyticsMetadata_I_VERIFIED_THIS_IS_NOT_CODE_OR_FILEPATHS,
+				...failureMetadata,
+			});
+			throw new Error(
+				"Failed to generate conversation summary - response did not contain valid text content",
+			);
+		} else if (startsWithApiErrorPrefix(summary)) {
+			logEvent("tengu_partial_compact_failed", {
+				reason:
+					"api_error" as AnalyticsMetadata_I_VERIFIED_THIS_IS_NOT_CODE_OR_FILEPATHS,
+				...failureMetadata,
+			});
+			throw new Error(summary);
+		}
 
-    // Store the current file state before clearing
-    const preCompactReadFileState = cacheToObject(context.readFileState)
-    context.readFileState.clear()
-    context.loadedNestedMemoryPaths?.clear()
-    // Intentionally NOT resetting sentSkillNames — see compactConversation()
-    // for rationale (~4K tokens saved per compact event).
+		// Store the current file state before clearing
+		const preCompactReadFileState = cacheToObject(context.readFileState);
+		context.readFileState.clear();
+		context.loadedNestedMemoryPaths?.clear();
+		// Intentionally NOT resetting sentSkillNames — see compactConversation()
+		// for rationale (~4K tokens saved per compact event).
 
-    const [fileAttachments, asyncAgentAttachments] = await Promise.all([
-      createPostCompactFileAttachments(
-        preCompactReadFileState,
-        context,
-        POST_COMPACT_MAX_FILES_TO_RESTORE,
-        messagesToKeep,
-      ),
-      createAsyncAgentAttachmentsIfNeeded(context),
-    ])
+		const [fileAttachments, asyncAgentAttachments] = await Promise.all([
+			createPostCompactFileAttachments(
+				preCompactReadFileState,
+				context,
+				POST_COMPACT_MAX_FILES_TO_RESTORE,
+				messagesToKeep,
+			),
+			createAsyncAgentAttachmentsIfNeeded(context),
+		]);
 
-    const postCompactFileAttachments: AttachmentMessage[] = [
-      ...fileAttachments,
-      ...asyncAgentAttachments,
-    ]
-    const planAttachment = createPlanAttachmentIfNeeded(context.agentId)
-    if (planAttachment) {
-      postCompactFileAttachments.push(planAttachment)
-    }
+		const postCompactFileAttachments: AttachmentMessage[] = [
+			...fileAttachments,
+			...asyncAgentAttachments,
+		];
+		const planAttachment = createPlanAttachmentIfNeeded(context.agentId);
+		if (planAttachment) {
+			postCompactFileAttachments.push(planAttachment);
+		}
 
-    // Add plan mode instructions if currently in plan mode
-    const planModeAttachment = await createPlanModeAttachmentIfNeeded(context)
-    if (planModeAttachment) {
-      postCompactFileAttachments.push(planModeAttachment)
-    }
+		// Add plan mode instructions if currently in plan mode
+		const planModeAttachment = await createPlanModeAttachmentIfNeeded(context);
+		if (planModeAttachment) {
+			postCompactFileAttachments.push(planModeAttachment);
+		}
 
-    const skillAttachment = createSkillAttachmentIfNeeded(context.agentId)
-    if (skillAttachment) {
-      postCompactFileAttachments.push(skillAttachment)
-    }
+		const skillAttachment = createSkillAttachmentIfNeeded(context.agentId);
+		if (skillAttachment) {
+			postCompactFileAttachments.push(skillAttachment);
+		}
 
-    // Preserve sensitive instructions for partial compact too
-    const preservedAttachment = createPreservedInstructionsAttachment(
-      customInstructions,
-      context.options.appendSystemPrompt,
-    )
-    if (preservedAttachment) {
-      postCompactFileAttachments.push(preservedAttachment)
-    }
+		// Preserve sensitive instructions for partial compact too
+		const preservedAttachment = createPreservedInstructionsAttachment(
+			customInstructions,
+			context.options.appendSystemPrompt,
+		);
+		if (preservedAttachment) {
+			postCompactFileAttachments.push(preservedAttachment);
+		}
 
-    // Re-announce only what was in the summarized portion — messagesToKeep
-    // is scanned, so anything already announced there is skipped.
-    for (const att of getDeferredToolsDeltaAttachment(
-      context.options.tools,
-      context.options.mainLoopModel,
-      messagesToKeep,
-      { callSite: 'compact_partial' },
-    )) {
-      postCompactFileAttachments.push(createAttachmentMessage(att))
-    }
-    for (const att of getAgentListingDeltaAttachment(context, messagesToKeep)) {
-      postCompactFileAttachments.push(createAttachmentMessage(att))
-    }
-    for (const att of getMcpInstructionsDeltaAttachment(
-      context.options.mcpClients,
-      context.options.tools,
-      context.options.mainLoopModel,
-      messagesToKeep,
-    )) {
-      postCompactFileAttachments.push(createAttachmentMessage(att))
-    }
+		// Re-announce only what was in the summarized portion — messagesToKeep
+		// is scanned, so anything already announced there is skipped.
+		for (const att of getDeferredToolsDeltaAttachment(
+			context.options.tools,
+			context.options.mainLoopModel,
+			messagesToKeep,
+			{ callSite: "compact_partial" },
+		)) {
+			postCompactFileAttachments.push(createAttachmentMessage(att));
+		}
+		for (const att of getAgentListingDeltaAttachment(context, messagesToKeep)) {
+			postCompactFileAttachments.push(createAttachmentMessage(att));
+		}
+		for (const att of getMcpInstructionsDeltaAttachment(
+			context.options.mcpClients,
+			context.options.tools,
+			context.options.mainLoopModel,
+			messagesToKeep,
+		)) {
+			postCompactFileAttachments.push(createAttachmentMessage(att));
+		}
 
-    context.onCompactProgress?.({
-      type: 'hooks_start',
-      hookType: 'session_start',
-    })
-    const hookMessages = await processSessionStartHooks('compact', {
-      model: context.options.mainLoopModel,
-    })
+		context.onCompactProgress?.({
+			type: "hooks_start",
+			hookType: "session_start",
+		});
+		const hookMessages = await processSessionStartHooks("compact", {
+			model: context.options.mainLoopModel,
+		});
 
-    const postCompactTokenCount = tokenCountFromLastAPIResponse([
-      summaryResponse,
-    ])
-    const compactionUsage = getTokenUsage(summaryResponse)
+		const postCompactTokenCount = tokenCountFromLastAPIResponse([
+			summaryResponse,
+		]);
+		const compactionUsage = getTokenUsage(summaryResponse);
 
-    logEvent('tengu_partial_compact', {
-      preCompactTokenCount,
-      postCompactTokenCount,
-      messagesKept: messagesToKeep.length,
-      messagesSummarized: messagesToSummarize.length,
-      direction:
-        direction as AnalyticsMetadata_I_VERIFIED_THIS_IS_NOT_CODE_OR_FILEPATHS,
-      hasUserFeedback: !!userFeedback,
-      trigger:
-        'message_selector' as AnalyticsMetadata_I_VERIFIED_THIS_IS_NOT_CODE_OR_FILEPATHS,
-      compactionInputTokens: compactionUsage?.input_tokens,
-      compactionOutputTokens: compactionUsage?.output_tokens,
-      compactionCacheReadTokens: compactionUsage?.cache_read_input_tokens ?? 0,
-      compactionCacheCreationTokens:
-        compactionUsage?.cache_creation_input_tokens ?? 0,
-    })
+		logEvent("tengu_partial_compact", {
+			preCompactTokenCount,
+			postCompactTokenCount,
+			messagesKept: messagesToKeep.length,
+			messagesSummarized: messagesToSummarize.length,
+			direction:
+				direction as AnalyticsMetadata_I_VERIFIED_THIS_IS_NOT_CODE_OR_FILEPATHS,
+			hasUserFeedback: !!userFeedback,
+			trigger:
+				"message_selector" as AnalyticsMetadata_I_VERIFIED_THIS_IS_NOT_CODE_OR_FILEPATHS,
+			compactionInputTokens: compactionUsage?.input_tokens,
+			compactionOutputTokens: compactionUsage?.output_tokens,
+			compactionCacheReadTokens: compactionUsage?.cache_read_input_tokens ?? 0,
+			compactionCacheCreationTokens:
+				compactionUsage?.cache_creation_input_tokens ?? 0,
+		});
 
-    // Progress messages aren't loggable, so forkSessionImpl would null out
-    // a logicalParentUuid pointing at one. Both directions skip them.
-    const lastPreCompactUuid =
-      direction === 'up_to'
-        ? allMessages.slice(0, pivotIndex).findLast(m => m.type !== 'progress')
-            ?.uuid
-        : messagesToKeep.at(-1)?.uuid
-    const boundaryMarker = createCompactBoundaryMessage(
-      'manual',
-      preCompactTokenCount ?? 0,
-      lastPreCompactUuid,
-      userFeedback,
-      messagesToSummarize.length,
-    )
-    // allMessages not just messagesToSummarize — set union is idempotent,
-    // simpler than tracking which half each tool lived in.
-    const preCompactDiscovered = extractDiscoveredToolNames(allMessages)
-    if (preCompactDiscovered.size > 0) {
-      boundaryMarker.compactMetadata.preCompactDiscoveredTools = [
-        ...preCompactDiscovered,
-      ].sort()
-    }
+		// Progress messages aren't loggable, so forkSessionImpl would null out
+		// a logicalParentUuid pointing at one. Both directions skip them.
+		const lastPreCompactUuid =
+			direction === "up_to"
+				? allMessages
+						.slice(0, pivotIndex)
+						.findLast((m) => m.type !== "progress")?.uuid
+				: messagesToKeep.at(-1)?.uuid;
+		const boundaryMarker = createCompactBoundaryMessage(
+			"manual",
+			preCompactTokenCount ?? 0,
+			lastPreCompactUuid,
+			userFeedback,
+			messagesToSummarize.length,
+		);
+		// allMessages not just messagesToSummarize — set union is idempotent,
+		// simpler than tracking which half each tool lived in.
+		const preCompactDiscovered = extractDiscoveredToolNames(allMessages);
+		if (preCompactDiscovered.size > 0) {
+			boundaryMarker.compactMetadata.preCompactDiscoveredTools = [
+				...preCompactDiscovered,
+			].sort();
+		}
 
-    const transcriptPath = getTranscriptPath()
-    const summaryMessages: UserMessage[] = [
-      createUserMessage({
-        content: getCompactUserSummaryMessage(summary, false, transcriptPath),
-        isCompactSummary: true,
-        ...(messagesToKeep.length > 0
-          ? {
-              summarizeMetadata: {
-                messagesSummarized: messagesToSummarize.length,
-                userContext: userFeedback,
-                direction,
-              },
-            }
-          : { isVisibleInTranscriptOnly: true as const }),
-      }),
-    ]
+		const transcriptPath = getTranscriptPath();
+		const summaryMessages: UserMessage[] = [
+			createUserMessage({
+				content: getCompactUserSummaryMessage(summary, false, transcriptPath),
+				isCompactSummary: true,
+				...(messagesToKeep.length > 0
+					? {
+							summarizeMetadata: {
+								messagesSummarized: messagesToSummarize.length,
+								userContext: userFeedback,
+								direction,
+							},
+						}
+					: { isVisibleInTranscriptOnly: true as const }),
+			}),
+		];
 
-    if (feature('PROMPT_CACHE_BREAK_DETECTION')) {
-      notifyCompaction(
-        context.options.querySource ?? 'compact',
-        context.agentId,
-      )
-    }
-    markPostCompaction()
+		if (feature("PROMPT_CACHE_BREAK_DETECTION")) {
+			notifyCompaction(
+				context.options.querySource ?? "compact",
+				context.agentId,
+			);
+		}
+		markPostCompaction();
 
-    // Re-append session metadata (custom title, tag) so it stays within
-    // the 16KB tail window that readLiteMetadata reads for --resume display.
-    reAppendSessionMetadata()
+		// Re-append session metadata (custom title, tag) so it stays within
+		// the 16KB tail window that readLiteMetadata reads for --resume display.
+		reAppendSessionMetadata();
 
-    if (feature('KAIROS')) {
-      void sessionTranscriptModule?.writeSessionTranscriptSegment(
-        messagesToSummarize,
-      )
-    }
+		if (feature("KAIROS")) {
+			void sessionTranscriptModule?.writeSessionTranscriptSegment(
+				messagesToSummarize,
+			);
+		}
 
-    context.onCompactProgress?.({
-      type: 'hooks_start',
-      hookType: 'post_compact',
-    })
-    const postCompactHookResult = await executePostCompactHooks(
-      {
-        trigger: 'manual',
-        compactSummary: summary,
-      },
-      context.abortController.signal,
-    )
+		context.onCompactProgress?.({
+			type: "hooks_start",
+			hookType: "post_compact",
+		});
+		const postCompactHookResult = await executePostCompactHooks(
+			{
+				trigger: "manual",
+				compactSummary: summary,
+			},
+			context.abortController.signal,
+		);
 
-    // 'from': prefix-preserving → boundary; 'up_to': suffix → last summary
-    const anchorUuid =
-      direction === 'up_to'
-        ? (summaryMessages.at(-1)?.uuid ?? boundaryMarker.uuid)
-        : boundaryMarker.uuid
-    return {
-      boundaryMarker: annotateBoundaryWithPreservedSegment(
-        boundaryMarker,
-        anchorUuid,
-        messagesToKeep,
-      ),
-      summaryMessages,
-      messagesToKeep,
-      attachments: postCompactFileAttachments,
-      hookResults: hookMessages,
-      userDisplayMessage: postCompactHookResult.userDisplayMessage,
-      preCompactTokenCount,
-      postCompactTokenCount,
-      compactionUsage,
-    }
-  } catch (error) {
-    addErrorNotificationIfNeeded(error, context)
-    throw error
-  } finally {
-    context.setStreamMode?.('requesting')
-    context.setResponseLength?.(() => 0)
-    context.onCompactProgress?.({ type: 'compact_end' })
-    context.setSDKStatus?.(null)
-  }
+		// 'from': prefix-preserving → boundary; 'up_to': suffix → last summary
+		const anchorUuid =
+			direction === "up_to"
+				? (summaryMessages.at(-1)?.uuid ?? boundaryMarker.uuid)
+				: boundaryMarker.uuid;
+		return {
+			boundaryMarker: annotateBoundaryWithPreservedSegment(
+				boundaryMarker,
+				anchorUuid,
+				messagesToKeep,
+			),
+			summaryMessages,
+			messagesToKeep,
+			attachments: postCompactFileAttachments,
+			hookResults: hookMessages,
+			userDisplayMessage: postCompactHookResult.userDisplayMessage,
+			preCompactTokenCount,
+			postCompactTokenCount,
+			compactionUsage,
+		};
+	} catch (error) {
+		addErrorNotificationIfNeeded(error, context);
+		throw error;
+	} finally {
+		context.setStreamMode?.("requesting");
+		context.setResponseLength?.(() => 0);
+		context.onCompactProgress?.({ type: "compact_end" });
+		context.setSDKStatus?.(null);
+	}
 }
 
 function addErrorNotificationIfNeeded(
-  error: unknown,
-  context: Pick<ToolUseContext, 'addNotification'>,
+	error: unknown,
+	context: Pick<ToolUseContext, "addNotification">,
 ) {
-  if (
-    !hasExactErrorMessage(error, ERROR_MESSAGE_USER_ABORT) &&
-    !hasExactErrorMessage(error, ERROR_MESSAGE_NOT_ENOUGH_MESSAGES)
-  ) {
-    context.addNotification?.({
-      key: 'error-compacting-conversation',
-      text: 'Error compacting conversation',
-      priority: 'immediate',
-      color: 'error',
-    })
-  }
+	if (
+		!hasExactErrorMessage(error, ERROR_MESSAGE_USER_ABORT) &&
+		!hasExactErrorMessage(error, ERROR_MESSAGE_NOT_ENOUGH_MESSAGES)
+	) {
+		context.addNotification?.({
+			key: "error-compacting-conversation",
+			text: "Error compacting conversation",
+			priority: "immediate",
+			color: "error",
+		});
+	}
 }
 
 export function createCompactCanUseTool(): CanUseToolFn {
-  return async () => ({
-    behavior: 'deny' as const,
-    message: 'Tool use is not allowed during compaction',
-    decisionReason: {
-      type: 'other' as const,
-      reason: 'compaction agent should only produce text summary',
-    },
-  })
+	return async () => ({
+		behavior: "deny" as const,
+		message: "Tool use is not allowed during compaction",
+		decisionReason: {
+			type: "other" as const,
+			reason: "compaction agent should only produce text summary",
+		},
+	});
 }
 
 async function streamCompactSummary({
-  messages,
-  summaryRequest,
-  appState,
-  context,
-  preCompactTokenCount,
-  cacheSafeParams,
+	messages,
+	summaryRequest,
+	appState,
+	context,
+	preCompactTokenCount,
+	cacheSafeParams,
 }: {
-  messages: Message[]
-  summaryRequest: UserMessage
-  appState: Awaited<ReturnType<ToolUseContext['getAppState']>>
-  context: ToolUseContext
-  preCompactTokenCount: number
-  cacheSafeParams: CacheSafeParams
+	messages: Message[];
+	summaryRequest: UserMessage;
+	appState: Awaited<ReturnType<ToolUseContext["getAppState"]>>;
+	context: ToolUseContext;
+	preCompactTokenCount: number;
+	cacheSafeParams: CacheSafeParams;
 }): Promise<AssistantMessage> {
-  // When prompt cache sharing is enabled, use forked agent to reuse the
-  // main conversation's cached prefix (system prompt, tools, context messages).
-  // Falls back to regular streaming path on failure.
-  // 3P default: true — see comment at the other tengu_compact_cache_prefix read above.
-  const promptCacheSharingEnabled = getFeatureValue_CACHED_MAY_BE_STALE(
-    'tengu_compact_cache_prefix',
-    true,
-  )
-  // Send keep-alive signals during compaction to prevent remote session
-  // WebSocket idle timeouts from dropping bridge connections. Compaction
-  // API calls can take 5-10+ seconds, during which no other messages
-  // flow through the transport — without keep-alives, the server may
-  // close the WebSocket for inactivity.
-  // Two signals: (1) PUT /worker heartbeat via sessionActivity, and
-  // (2) re-emit 'compacting' status so the SDK event stream stays active
-  // and the server doesn't consider the session stale.
-  const activityInterval = isSessionActivityTrackingActive()
-    ? setInterval(
-        (statusSetter?: (status: 'compacting' | null) => void) => {
-          sendSessionActivitySignal()
-          statusSetter?.('compacting')
-        },
-        30_000,
-        context.setSDKStatus,
-      )
-    : undefined
+	// When prompt cache sharing is enabled, use forked agent to reuse the
+	// main conversation's cached prefix (system prompt, tools, context messages).
+	// Falls back to regular streaming path on failure.
+	// 3P default: true — see comment at the other tengu_compact_cache_prefix read above.
+	const promptCacheSharingEnabled = getFeatureValue_CACHED_MAY_BE_STALE(
+		"tengu_compact_cache_prefix",
+		true,
+	);
+	// Send keep-alive signals during compaction to prevent remote session
+	// WebSocket idle timeouts from dropping bridge connections. Compaction
+	// API calls can take 5-10+ seconds, during which no other messages
+	// flow through the transport — without keep-alives, the server may
+	// close the WebSocket for inactivity.
+	// Two signals: (1) PUT /worker heartbeat via sessionActivity, and
+	// (2) re-emit 'compacting' status so the SDK event stream stays active
+	// and the server doesn't consider the session stale.
+	const activityInterval = isSessionActivityTrackingActive()
+		? setInterval(
+				(statusSetter?: (status: "compacting" | null) => void) => {
+					sendSessionActivitySignal();
+					statusSetter?.("compacting");
+				},
+				30_000,
+				context.setSDKStatus,
+			)
+		: undefined;
 
-  try {
-    if (promptCacheSharingEnabled) {
-      try {
-        // DO NOT set maxOutputTokens here. The fork piggybacks on the main thread's
-        // prompt cache by sending identical cache-key params (system, tools, model,
-        // messages prefix, thinking config). Setting maxOutputTokens would clamp
-        // budget_tokens via Math.min(budget, maxOutputTokens-1) in claude.ts,
-        // creating a thinking config mismatch that invalidates the cache.
-        // The streaming fallback path (below) can safely set maxOutputTokensOverride
-        // since it doesn't share cache with the main thread.
-        // MLX: compact agent cannot use tools (canUseTool denies everything),
-        // but the full tool definitions are still sent in the API request,
-        // consuming ~5K tokens on 32K windows. Strip tools for MLX to save
-        // context — compact only needs to produce a text summary.
-        const compactCacheSafeParams = isFusionMlxProvider()
-          ? {
-              ...cacheSafeParams,
-              toolUseContext: {
-                ...cacheSafeParams.toolUseContext,
-                options: {
-                  ...cacheSafeParams.toolUseContext.options,
-                  tools: [],
-                },
-              },
-            }
-          : cacheSafeParams
-        const result = await runForkedAgent({
-          promptMessages: [summaryRequest],
-          cacheSafeParams: compactCacheSafeParams,
-          canUseTool: createCompactCanUseTool(),
-          querySource: 'compact',
-          forkLabel: 'compact',
-          maxTurns: 1,
-          skipCacheWrite: true,
-          // Pass the compact context's abortController so user Esc aborts the
-          // fork — same signal the streaming fallback uses at
-          // `signal: context.abortController.signal` below.
-          overrides: { abortController: context.abortController },
-        })
-        const assistantMsg = getLastAssistantMessage(result.messages)
-        const assistantText = assistantMsg
-          ? getAssistantMessageText(assistantMsg)
-          : null
-        // Guard isApiErrorMessage: query() catches API errors (including
-        // APIUserAbortError on ESC) and yields them as synthetic assistant
-        // messages. Without this check, an aborted compact "succeeds" with
-        // "Request was aborted." as the summary — the text doesn't start with
-        // "API Error" so the caller's startsWithApiErrorPrefix guard misses it.
-        if (assistantMsg && assistantText && !assistantMsg.isApiErrorMessage) {
-          // Skip success logging for PTL error text — it's returned so the
-          // caller's retry loop catches it, but it's not a successful summary.
-          if (!assistantText.startsWith(PROMPT_TOO_LONG_ERROR_MESSAGE)) {
-            logEvent('tengu_compact_cache_sharing_success', {
-              preCompactTokenCount,
-              outputTokens: result.totalUsage.output_tokens,
-              cacheReadInputTokens: result.totalUsage.cache_read_input_tokens,
-              cacheCreationInputTokens:
-                result.totalUsage.cache_creation_input_tokens,
-              cacheHitRate:
-                result.totalUsage.cache_read_input_tokens > 0
-                  ? result.totalUsage.cache_read_input_tokens /
-                    (result.totalUsage.cache_read_input_tokens +
-                      result.totalUsage.cache_creation_input_tokens +
-                      result.totalUsage.input_tokens)
-                  : 0,
-            })
-          }
-          return assistantMsg
-        }
-        logForDebugging(
-          `Compact cache sharing: no text in response, falling back. Response: ${jsonStringify(assistantMsg)}`,
-          { level: 'warn' },
-        )
-        logEvent('tengu_compact_cache_sharing_fallback', {
-          reason:
-            'no_text_response' as AnalyticsMetadata_I_VERIFIED_THIS_IS_NOT_CODE_OR_FILEPATHS,
-          preCompactTokenCount,
-        })
-      } catch (error) {
-        logError(error)
-        logEvent('tengu_compact_cache_sharing_fallback', {
-          reason:
-            'error' as AnalyticsMetadata_I_VERIFIED_THIS_IS_NOT_CODE_OR_FILEPATHS,
-          preCompactTokenCount,
-        })
-      }
-    }
+	try {
+		if (promptCacheSharingEnabled) {
+			try {
+				// DO NOT set maxOutputTokens here. The fork piggybacks on the main thread's
+				// prompt cache by sending identical cache-key params (system, tools, model,
+				// messages prefix, thinking config). Setting maxOutputTokens would clamp
+				// budget_tokens via Math.min(budget, maxOutputTokens-1) in claude.ts,
+				// creating a thinking config mismatch that invalidates the cache.
+				// The streaming fallback path (below) can safely set maxOutputTokensOverride
+				// since it doesn't share cache with the main thread.
+				// MLX: compact agent cannot use tools (canUseTool denies everything),
+				// but the full tool definitions are still sent in the API request,
+				// consuming ~5K tokens on 32K windows. Strip tools for MLX to save
+				// context — compact only needs to produce a text summary.
+				const compactCacheSafeParams = isFusionMlxProvider()
+					? {
+							...cacheSafeParams,
+							toolUseContext: {
+								...cacheSafeParams.toolUseContext,
+								options: {
+									...cacheSafeParams.toolUseContext.options,
+									tools: [],
+								},
+							},
+						}
+					: cacheSafeParams;
+				const result = await runForkedAgent({
+					promptMessages: [summaryRequest],
+					cacheSafeParams: compactCacheSafeParams,
+					canUseTool: createCompactCanUseTool(),
+					querySource: "compact",
+					forkLabel: "compact",
+					maxTurns: 1,
+					skipCacheWrite: true,
+					// Pass the compact context's abortController so user Esc aborts the
+					// fork — same signal the streaming fallback uses at
+					// `signal: context.abortController.signal` below.
+					overrides: { abortController: context.abortController },
+				});
+				const assistantMsg = getLastAssistantMessage(result.messages);
+				const assistantText = assistantMsg
+					? getAssistantMessageText(assistantMsg)
+					: null;
+				// Guard isApiErrorMessage: query() catches API errors (including
+				// APIUserAbortError on ESC) and yields them as synthetic assistant
+				// messages. Without this check, an aborted compact "succeeds" with
+				// "Request was aborted." as the summary — the text doesn't start with
+				// "API Error" so the caller's startsWithApiErrorPrefix guard misses it.
+				if (assistantMsg && assistantText && !assistantMsg.isApiErrorMessage) {
+					// Skip success logging for PTL error text — it's returned so the
+					// caller's retry loop catches it, but it's not a successful summary.
+					if (!assistantText.startsWith(PROMPT_TOO_LONG_ERROR_MESSAGE)) {
+						logEvent("tengu_compact_cache_sharing_success", {
+							preCompactTokenCount,
+							outputTokens: result.totalUsage.output_tokens,
+							cacheReadInputTokens: result.totalUsage.cache_read_input_tokens,
+							cacheCreationInputTokens:
+								result.totalUsage.cache_creation_input_tokens,
+							cacheHitRate:
+								result.totalUsage.cache_read_input_tokens > 0
+									? result.totalUsage.cache_read_input_tokens /
+										(result.totalUsage.cache_read_input_tokens +
+											result.totalUsage.cache_creation_input_tokens +
+											result.totalUsage.input_tokens)
+									: 0,
+						});
+					}
+					return assistantMsg;
+				}
+				logForDebugging(
+					`Compact cache sharing: no text in response, falling back. Response: ${jsonStringify(assistantMsg)}`,
+					{ level: "warn" },
+				);
+				logEvent("tengu_compact_cache_sharing_fallback", {
+					reason:
+						"no_text_response" as AnalyticsMetadata_I_VERIFIED_THIS_IS_NOT_CODE_OR_FILEPATHS,
+					preCompactTokenCount,
+				});
+			} catch (error) {
+				logError(error);
+				logEvent("tengu_compact_cache_sharing_fallback", {
+					reason:
+						"error" as AnalyticsMetadata_I_VERIFIED_THIS_IS_NOT_CODE_OR_FILEPATHS,
+					preCompactTokenCount,
+				});
+			}
+		}
 
-    // Regular streaming path (fallback when cache sharing fails or is disabled)
-    const retryEnabled = getFeatureValue_CACHED_MAY_BE_STALE(
-      'tengu_compact_streaming_retry',
-      false,
-    )
-    const maxAttempts = retryEnabled ? MAX_COMPACT_STREAMING_RETRIES : 1
+		// Regular streaming path (fallback when cache sharing fails or is disabled)
+		const retryEnabled = getFeatureValue_CACHED_MAY_BE_STALE(
+			"tengu_compact_streaming_retry",
+			false,
+		);
+		const maxAttempts = retryEnabled ? MAX_COMPACT_STREAMING_RETRIES : 1;
 
-    for (let attempt = 1; attempt <= maxAttempts; attempt++) {
-      // Reset state for retry
-      let hasStartedStreaming = false
-      let response: AssistantMessage | undefined
-      context.setResponseLength?.(() => 0)
+		for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+			// Reset state for retry
+			let hasStartedStreaming = false;
+			let response: AssistantMessage | undefined;
+			context.setResponseLength?.(() => 0);
 
-      // Check if tool search is enabled using the main loop's tools list.
-      // context.options.tools includes MCP tools merged via useMergedTools.
-      const useToolSearch = await isToolSearchEnabled(
-        context.options.mainLoopModel,
-        context.options.tools,
-        async () => appState.toolPermissionContext,
-        context.options.agentDefinitions.activeAgents,
-        'compact',
-      )
+			// Check if tool search is enabled using the main loop's tools list.
+			// context.options.tools includes MCP tools merged via useMergedTools.
+			const useToolSearch = await isToolSearchEnabled(
+				context.options.mainLoopModel,
+				context.options.tools,
+				async () => appState.toolPermissionContext,
+				context.options.agentDefinitions.activeAgents,
+				"compact",
+			);
 
-      // When tool search is enabled, include ToolSearchTool and MCP tools. They get
-      // defer_loading: true and don't count against context - the API filters them out
-      // of system_prompt_tools before token counting (see api/token_count_api/counting.py:188
-      // and api/public_api/messages/handler.py:324).
-      // Filter MCP tools from context.options.tools (not appState.mcp.tools) so we
-      // get the permission-filtered set from useMergedTools — same source used for
-      // isToolSearchEnabled above and normalizeMessagesForAPI below.
-      // Deduplicate by name to avoid API errors when MCP tools share names with built-in tools.
-      const tools: Tool[] = useToolSearch
-        ? uniqBy(
-            [
-              FileReadTool,
-              ToolSearchTool,
-              ...context.options.tools.filter(t => t.isMcp),
-            ],
-            'name',
-          )
-        : [FileReadTool]
+			// When tool search is enabled, include ToolSearchTool and MCP tools. They get
+			// defer_loading: true and don't count against context - the API filters them out
+			// of system_prompt_tools before token counting (see api/token_count_api/counting.py:188
+			// and api/public_api/messages/handler.py:324).
+			// Filter MCP tools from context.options.tools (not appState.mcp.tools) so we
+			// get the permission-filtered set from useMergedTools — same source used for
+			// isToolSearchEnabled above and normalizeMessagesForAPI below.
+			// Deduplicate by name to avoid API errors when MCP tools share names with built-in tools.
+			const tools: Tool[] = useToolSearch
+				? uniqBy(
+						[
+							FileReadTool,
+							ToolSearchTool,
+							...context.options.tools.filter((t) => t.isMcp),
+						],
+						"name",
+					)
+				: [FileReadTool];
 
-      const streamingGen = queryModelWithStreaming({
-        messages: normalizeMessagesForAPI(
-          stripImagesFromMessages(
-            stripReinjectedAttachments([
-              ...getMessagesAfterCompactBoundary(messages),
-              summaryRequest,
-            ]),
-          ),
-          context.options.tools,
-        ),
-        systemPrompt: asSystemPrompt([
-          'You are a helpful AI assistant tasked with summarizing conversations.',
-        ]),
-        thinkingConfig: { type: 'disabled' as const },
-        tools,
-        signal: context.abortController.signal,
-        options: {
-          async getToolPermissionContext() {
-            const appState = context.getAppState()
-            return appState.toolPermissionContext
-          },
-          model: context.options.mainLoopModel,
-          toolChoice: undefined,
-          isNonInteractiveSession: context.options.isNonInteractiveSession,
-          hasAppendSystemPrompt: !!context.options.appendSystemPrompt,
-          maxOutputTokensOverride: Math.min(
-            COMPACT_MAX_OUTPUT_TOKENS,
-            getMaxOutputTokensForModel(context.options.mainLoopModel),
-          ),
-          querySource: 'compact',
-          agents: context.options.agentDefinitions.activeAgents,
-          mcpTools: [],
-          effortValue: appState.effortValue,
-        },
-      })
-      const streamIter = streamingGen[Symbol.asyncIterator]()
-      let next = await streamIter.next()
+			const streamingGen = queryModelWithStreaming({
+				messages: normalizeMessagesForAPI(
+					stripImagesFromMessages(
+						stripReinjectedAttachments([
+							...getMessagesAfterCompactBoundary(messages),
+							summaryRequest,
+						]),
+					),
+					context.options.tools,
+				),
+				systemPrompt: asSystemPrompt([
+					"You are a helpful AI assistant tasked with summarizing conversations.",
+				]),
+				thinkingConfig: { type: "disabled" as const },
+				tools,
+				signal: context.abortController.signal,
+				options: {
+					async getToolPermissionContext() {
+						const appState = context.getAppState();
+						return appState.toolPermissionContext;
+					},
+					model: context.options.mainLoopModel,
+					toolChoice: undefined,
+					isNonInteractiveSession: context.options.isNonInteractiveSession,
+					hasAppendSystemPrompt: !!context.options.appendSystemPrompt,
+					maxOutputTokensOverride: Math.min(
+						COMPACT_MAX_OUTPUT_TOKENS,
+						getMaxOutputTokensForModel(context.options.mainLoopModel),
+					),
+					querySource: "compact",
+					agents: context.options.agentDefinitions.activeAgents,
+					mcpTools: [],
+					effortValue: appState.effortValue,
+				},
+			});
+			const streamIter = streamingGen[Symbol.asyncIterator]();
+			let next = await streamIter.next();
 
-      while (!next.done) {
-        const event = next.value as AssistantMessage | SystemAPIErrorMessage | StreamEvent
+			while (!next.done) {
+				const event = next.value as
+					| AssistantMessage
+					| SystemAPIErrorMessage
+					| StreamEvent;
 
-        if (
-          !hasStartedStreaming &&
-          event.type === 'stream_event' &&
-          event.event.type === 'content_block_start' &&
-          event.event.content_block.type === 'text'
-        ) {
-          hasStartedStreaming = true
-          context.setStreamMode?.('responding')
-        }
+				if (
+					!hasStartedStreaming &&
+					event.type === "stream_event" &&
+					event.event.type === "content_block_start" &&
+					event.event.content_block.type === "text"
+				) {
+					hasStartedStreaming = true;
+					context.setStreamMode?.("responding");
+				}
 
-        if (
-          event.type === 'stream_event' &&
-          event.event.type === 'content_block_delta' &&
-          event.event.delta.type === 'text_delta'
-        ) {
-          const charactersStreamed = event.event.delta.text.length
-          context.setResponseLength?.(length => length + charactersStreamed)
-        }
+				if (
+					event.type === "stream_event" &&
+					event.event.type === "content_block_delta" &&
+					event.event.delta.type === "text_delta"
+				) {
+					const charactersStreamed = event.event.delta.text.length;
+					context.setResponseLength?.((length) => length + charactersStreamed);
+				}
 
-        if (event.type === 'assistant') {
-          response = event
-        }
+				if (event.type === "assistant") {
+					response = event;
+				}
 
-        next = await streamIter.next()
-      }
+				next = await streamIter.next();
+			}
 
-      if (response) {
-        return response
-      }
+			if (response) {
+				return response;
+			}
 
-      if (attempt < maxAttempts) {
-        logEvent('tengu_compact_streaming_retry', {
-          attempt,
-          preCompactTokenCount,
-          hasStartedStreaming,
-        })
-        await sleep(getRetryDelay(attempt), context.abortController.signal, {
-          abortError: () => new APIUserAbortError(),
-        })
-        continue
-      }
+			if (attempt < maxAttempts) {
+				logEvent("tengu_compact_streaming_retry", {
+					attempt,
+					preCompactTokenCount,
+					hasStartedStreaming,
+				});
+				await sleep(getRetryDelay(attempt), context.abortController.signal, {
+					abortError: () => new APIUserAbortError(),
+				});
+				continue;
+			}
 
-      logForDebugging(
-        `Compact streaming failed after ${attempt} attempts. hasStartedStreaming=${hasStartedStreaming}`,
-        { level: 'error' },
-      )
-      logEvent('tengu_compact_failed', {
-        reason:
-          'no_streaming_response' as AnalyticsMetadata_I_VERIFIED_THIS_IS_NOT_CODE_OR_FILEPATHS,
-        preCompactTokenCount,
-        hasStartedStreaming,
-        retryEnabled,
-        attempts: attempt,
-        promptCacheSharingEnabled,
-      })
-      throw new Error(ERROR_MESSAGE_INCOMPLETE_RESPONSE)
-    }
+			logForDebugging(
+				`Compact streaming failed after ${attempt} attempts. hasStartedStreaming=${hasStartedStreaming}`,
+				{ level: "error" },
+			);
+			logEvent("tengu_compact_failed", {
+				reason:
+					"no_streaming_response" as AnalyticsMetadata_I_VERIFIED_THIS_IS_NOT_CODE_OR_FILEPATHS,
+				preCompactTokenCount,
+				hasStartedStreaming,
+				retryEnabled,
+				attempts: attempt,
+				promptCacheSharingEnabled,
+			});
+			throw new Error(ERROR_MESSAGE_INCOMPLETE_RESPONSE);
+		}
 
-    // This should never be reached due to the throw above, but TypeScript needs it
-    throw new Error(ERROR_MESSAGE_INCOMPLETE_RESPONSE)
-  } finally {
-    clearInterval(activityInterval)
-  }
+		// This should never be reached due to the throw above, but TypeScript needs it
+		throw new Error(ERROR_MESSAGE_INCOMPLETE_RESPONSE);
+	} finally {
+		clearInterval(activityInterval);
+	}
 }
 
 /**
@@ -1744,54 +1823,54 @@ async function streamCompactSummary({
  * @returns Array of attachment messages for the most recently accessed files that fit within token budget
  */
 export async function createPostCompactFileAttachments(
-  readFileState: Record<string, { content: string; timestamp: number }>,
-  toolUseContext: ToolUseContext,
-  maxFiles: number,
-  preservedMessages: Message[] = [],
+	readFileState: Record<string, { content: string; timestamp: number }>,
+	toolUseContext: ToolUseContext,
+	maxFiles: number,
+	preservedMessages: Message[] = [],
 ): Promise<AttachmentMessage[]> {
-  const preservedReadPaths = collectReadToolFilePaths(preservedMessages)
-  const recentFiles = Object.entries(readFileState)
-    .map(([filename, state]) => ({ filename, ...state }))
-    .filter(
-      file =>
-        !shouldExcludeFromPostCompactRestore(
-          file.filename,
-          toolUseContext.agentId,
-        ) && !preservedReadPaths.has(expandPath(file.filename)),
-    )
-    .sort((a, b) => b.timestamp - a.timestamp)
-    .slice(0, maxFiles)
+	const preservedReadPaths = collectReadToolFilePaths(preservedMessages);
+	const recentFiles = Object.entries(readFileState)
+		.map(([filename, state]) => ({ filename, ...state }))
+		.filter(
+			(file) =>
+				!shouldExcludeFromPostCompactRestore(
+					file.filename,
+					toolUseContext.agentId,
+				) && !preservedReadPaths.has(expandPath(file.filename)),
+		)
+		.sort((a, b) => b.timestamp - a.timestamp)
+		.slice(0, maxFiles);
 
-  const results = await Promise.all(
-    recentFiles.map(async file => {
-      const attachment = await generateFileAttachment(
-        file.filename,
-        {
-          ...toolUseContext,
-          fileReadingLimits: {
-            maxTokens: POST_COMPACT_MAX_TOKENS_PER_FILE,
-          },
-        },
-        'tengu_post_compact_file_restore_success',
-        'tengu_post_compact_file_restore_error',
-        'compact',
-      )
-      return attachment ? createAttachmentMessage(attachment) : null
-    }),
-  )
+	const results = await Promise.all(
+		recentFiles.map(async (file) => {
+			const attachment = await generateFileAttachment(
+				file.filename,
+				{
+					...toolUseContext,
+					fileReadingLimits: {
+						maxTokens: POST_COMPACT_MAX_TOKENS_PER_FILE,
+					},
+				},
+				"tengu_post_compact_file_restore_success",
+				"tengu_post_compact_file_restore_error",
+				"compact",
+			);
+			return attachment ? createAttachmentMessage(attachment) : null;
+		}),
+	);
 
-  let usedTokens = 0
-  return results.filter((result): result is AttachmentMessage => {
-    if (result === null) {
-      return false
-    }
-    const attachmentTokens = roughTokenCountEstimation(jsonStringify(result))
-    if (usedTokens + attachmentTokens <= POST_COMPACT_TOKEN_BUDGET) {
-      usedTokens += attachmentTokens
-      return true
-    }
-    return false
-  })
+	let usedTokens = 0;
+	return results.filter((result): result is AttachmentMessage => {
+		if (result === null) {
+			return false;
+		}
+		const attachmentTokens = roughTokenCountEstimation(jsonStringify(result));
+		if (usedTokens + attachmentTokens <= POST_COMPACT_TOKEN_BUDGET) {
+			usedTokens += attachmentTokens;
+			return true;
+		}
+		return false;
+	});
 }
 
 /**
@@ -1799,21 +1878,21 @@ export async function createPostCompactFileAttachments(
  * This ensures the plan is preserved after compaction.
  */
 export function createPlanAttachmentIfNeeded(
-  agentId?: AgentId,
+	agentId?: AgentId,
 ): AttachmentMessage | null {
-  const planContent = getPlan(agentId)
+	const planContent = getPlan(agentId);
 
-  if (!planContent) {
-    return null
-  }
+	if (!planContent) {
+		return null;
+	}
 
-  const planFilePath = getPlanFilePath(agentId)
+	const planFilePath = getPlanFilePath(agentId);
 
-  return createAttachmentMessage({
-    type: 'plan_file_reference',
-    planFilePath,
-    planContent,
-  })
+	return createAttachmentMessage({
+		type: "plan_file_reference",
+		planFilePath,
+		planContent,
+	});
 }
 
 /**
@@ -1823,108 +1902,108 @@ export function createPlanAttachmentIfNeeded(
  * without leaking skills from other agent contexts.
  */
 export function createSkillAttachmentIfNeeded(
-  agentId?: string,
+	agentId?: string,
 ): AttachmentMessage | null {
-  const invokedSkills = getInvokedSkillsForAgent(agentId)
+	const invokedSkills = getInvokedSkillsForAgent(agentId);
 
-  if (invokedSkills.size === 0) {
-    return null
-  }
+	if (invokedSkills.size === 0) {
+		return null;
+	}
 
-  // Sorted most-recent-first so budget pressure drops the least-relevant skills.
-  // Per-skill truncation keeps the head of each file (where setup/usage
-  // instructions typically live) rather than dropping whole skills.
-  let usedTokens = 0
-  const skills = Array.from(invokedSkills.values())
-    .sort((a, b) => b.invokedAt - a.invokedAt)
-    .map(skill => ({
-      name: skill.skillName,
-      path: skill.skillPath,
-      content: truncateToTokens(
-        skill.content,
-        POST_COMPACT_MAX_TOKENS_PER_SKILL,
-      ),
-    }))
-    .filter(skill => {
-      const tokens = roughTokenCountEstimation(skill.content)
-      if (usedTokens + tokens > POST_COMPACT_SKILLS_TOKEN_BUDGET) {
-        return false
-      }
-      usedTokens += tokens
-      return true
-    })
+	// Sorted most-recent-first so budget pressure drops the least-relevant skills.
+	// Per-skill truncation keeps the head of each file (where setup/usage
+	// instructions typically live) rather than dropping whole skills.
+	let usedTokens = 0;
+	const skills = Array.from(invokedSkills.values())
+		.sort((a, b) => b.invokedAt - a.invokedAt)
+		.map((skill) => ({
+			name: skill.skillName,
+			path: skill.skillPath,
+			content: truncateToTokens(
+				skill.content,
+				POST_COMPACT_MAX_TOKENS_PER_SKILL,
+			),
+		}))
+		.filter((skill) => {
+			const tokens = roughTokenCountEstimation(skill.content);
+			if (usedTokens + tokens > POST_COMPACT_SKILLS_TOKEN_BUDGET) {
+				return false;
+			}
+			usedTokens += tokens;
+			return true;
+		});
 
-  if (skills.length === 0) {
-    return null
-  }
+	if (skills.length === 0) {
+		return null;
+	}
 
-  return createAttachmentMessage({
-    type: 'invoked_skills',
-    skills,
-  })
+	return createAttachmentMessage({
+		type: "invoked_skills",
+		skills,
+	});
 }
 
-const PRESERVED_INSTRUCTIONS_TOKEN_BUDGET = 4000
+const PRESERVED_INSTRUCTIONS_TOKEN_BUDGET = 4000;
 
 export function createPreservedInstructionsAttachment(
-    customInstructions?: string,
-    appendSystemPrompt?: string,
+	customInstructions?: string,
+	appendSystemPrompt?: string,
 ): AttachmentMessage | null {
-    const instructions: Array<{ source: string; content: string }> = []
-    let usedTokens = 0
+	const instructions: Array<{ source: string; content: string }> = [];
+	let usedTokens = 0;
 
-    if (customInstructions?.trim()) {
-        const tokens = roughTokenCountEstimation(customInstructions)
-        if (usedTokens + tokens <= PRESERVED_INSTRUCTIONS_TOKEN_BUDGET) {
-            instructions.push({
-                source: 'custom_instructions',
-                content: customInstructions,
-            })
-            usedTokens += tokens
-        } else {
-            const truncated = truncateToTokens(
-                customInstructions,
-                PRESERVED_INSTRUCTIONS_TOKEN_BUDGET - usedTokens,
-            )
-            instructions.push({
-                source: 'custom_instructions',
-                content: truncated,
-            })
-            usedTokens += roughTokenCountEstimation(truncated)
-        }
-    }
+	if (customInstructions?.trim()) {
+		const tokens = roughTokenCountEstimation(customInstructions);
+		if (usedTokens + tokens <= PRESERVED_INSTRUCTIONS_TOKEN_BUDGET) {
+			instructions.push({
+				source: "custom_instructions",
+				content: customInstructions,
+			});
+			usedTokens += tokens;
+		} else {
+			const truncated = truncateToTokens(
+				customInstructions,
+				PRESERVED_INSTRUCTIONS_TOKEN_BUDGET - usedTokens,
+			);
+			instructions.push({
+				source: "custom_instructions",
+				content: truncated,
+			});
+			usedTokens += roughTokenCountEstimation(truncated);
+		}
+	}
 
-    if (appendSystemPrompt?.trim()) {
-        const tokens = roughTokenCountEstimation(appendSystemPrompt)
-        if (usedTokens + tokens <= PRESERVED_INSTRUCTIONS_TOKEN_BUDGET) {
-            instructions.push({
-                source: 'append_system_prompt',
-                content: appendSystemPrompt,
-            })
-        } else {
-            const truncated = truncateToTokens(
-                appendSystemPrompt,
-                PRESERVED_INSTRUCTIONS_TOKEN_BUDGET - usedTokens,
-            )
-            instructions.push({
-                source: 'append_system_prompt',
-                content: truncated,
-            })
-        }
-    }
+	if (appendSystemPrompt?.trim()) {
+		const tokens = roughTokenCountEstimation(appendSystemPrompt);
+		if (usedTokens + tokens <= PRESERVED_INSTRUCTIONS_TOKEN_BUDGET) {
+			instructions.push({
+				source: "append_system_prompt",
+				content: appendSystemPrompt,
+			});
+		} else {
+			const truncated = truncateToTokens(
+				appendSystemPrompt,
+				PRESERVED_INSTRUCTIONS_TOKEN_BUDGET - usedTokens,
+			);
+			instructions.push({
+				source: "append_system_prompt",
+				content: truncated,
+			});
+		}
+	}
 
-    if (instructions.length === 0) {
-        return null
-    }
+	if (instructions.length === 0) {
+		return null;
+	}
 
-    logForDebugging(
-        `[Compact] Preserved instructions: ${instructions.map(i => `${i.source}(${roughTokenCountEstimation(i.content)}t)`).join(', ')}`,
-    )
+	logForDebugging(
+		`[Compact] Preserved instructions: ${instructions.map((i) => `${i.source}(${roughTokenCountEstimation(i.content)}t)`).join(", ")}`,
+	);
 
-    return createAttachmentMessage({
-        type: 'preserved_instructions',
-        instructions,
-    })
+	return createAttachmentMessage({
+		type: "preserved_instructions",
+		instructions,
+	});
 }
 
 /**
@@ -1934,23 +2013,23 @@ export function createPreservedInstructionsAttachment(
  * normally only injected on tool-use turns via getAttachmentMessages).
  */
 export async function createPlanModeAttachmentIfNeeded(
-  context: ToolUseContext,
+	context: ToolUseContext,
 ): Promise<AttachmentMessage | null> {
-  const appState = context.getAppState()
-  if (appState.toolPermissionContext.mode !== 'plan') {
-    return null
-  }
+	const appState = context.getAppState();
+	if (appState.toolPermissionContext.mode !== "plan") {
+		return null;
+	}
 
-  const planFilePath = getPlanFilePath(context.agentId)
-  const planExists = getPlan(context.agentId) !== null
+	const planFilePath = getPlanFilePath(context.agentId);
+	const planExists = getPlan(context.agentId) !== null;
 
-  return createAttachmentMessage({
-    type: 'plan_mode',
-    reminderType: 'full',
-    isSubAgent: !!context.agentId,
-    planFilePath,
-    planExists,
-  })
+	return createAttachmentMessage({
+		type: "plan_mode",
+		reminderType: "full",
+		isSubAgent: !!context.agentId,
+		planFilePath,
+		planExists,
+	});
 }
 
 /**
@@ -1960,36 +2039,36 @@ export async function createPlanModeAttachmentIfNeeded(
  * haven't been retrieved yet.
  */
 export async function createAsyncAgentAttachmentsIfNeeded(
-  context: ToolUseContext,
+	context: ToolUseContext,
 ): Promise<AttachmentMessage[]> {
-  const appState = context.getAppState()
-  const asyncAgents = Object.values(appState.tasks).filter(
-    (task): task is LocalAgentTaskState => task.type === 'local_agent',
-  )
+	const appState = context.getAppState();
+	const asyncAgents = Object.values(appState.tasks).filter(
+		(task): task is LocalAgentTaskState => task.type === "local_agent",
+	);
 
-  return asyncAgents.flatMap(agent => {
-    if (
-      agent.retrieved ||
-      agent.status === 'pending' ||
-      agent.agentId === context.agentId
-    ) {
-      return []
-    }
-    return [
-      createAttachmentMessage({
-        type: 'task_status',
-        taskId: agent.agentId,
-        taskType: 'local_agent',
-        description: agent.description,
-        status: agent.status,
-        deltaSummary:
-          agent.status === 'running'
-            ? (agent.progress?.summary ?? null)
-            : (agent.error ?? null),
-        outputFilePath: getTaskOutputPath(agent.agentId),
-      }),
-    ]
-  })
+	return asyncAgents.flatMap((agent) => {
+		if (
+			agent.retrieved ||
+			agent.status === "pending" ||
+			agent.agentId === context.agentId
+		) {
+			return [];
+		}
+		return [
+			createAttachmentMessage({
+				type: "task_status",
+				taskId: agent.agentId,
+				taskType: "local_agent",
+				description: agent.description,
+				status: agent.status,
+				deltaSummary:
+					agent.status === "running"
+						? (agent.progress?.summary ?? null)
+						: (agent.error ?? null),
+				outputFilePath: getTaskOutputPath(agent.agentId),
+			}),
+		];
+	});
 }
 
 /**
@@ -2002,54 +2081,54 @@ export async function createAsyncAgentAttachmentsIfNeeded(
  * createPostCompactFileAttachments to re-inject the real content.
  */
 function collectReadToolFilePaths(messages: Message[]): Set<string> {
-  const stubIds = new Set<string>()
-  for (const message of messages) {
-    if (message.type !== 'user' || !Array.isArray(message.message.content)) {
-      continue
-    }
-    for (const block of message.message.content) {
-      if (
-        block.type === 'tool_result' &&
-        typeof block.content === 'string' &&
-        block.content.startsWith(FILE_UNCHANGED_STUB)
-      ) {
-        stubIds.add(block.tool_use_id)
-      }
-    }
-  }
+	const stubIds = new Set<string>();
+	for (const message of messages) {
+		if (message.type !== "user" || !Array.isArray(message.message.content)) {
+			continue;
+		}
+		for (const block of message.message.content) {
+			if (
+				block.type === "tool_result" &&
+				typeof block.content === "string" &&
+				block.content.startsWith(FILE_UNCHANGED_STUB)
+			) {
+				stubIds.add(block.tool_use_id);
+			}
+		}
+	}
 
-  const paths = new Set<string>()
-  for (const message of messages) {
-    if (
-      message.type !== 'assistant' ||
-      !Array.isArray(message.message.content)
-    ) {
-      continue
-    }
-    for (const block of message.message.content) {
-      if (
-        block.type !== 'tool_use' ||
-        block.name !== FILE_READ_TOOL_NAME ||
-        stubIds.has(block.id)
-      ) {
-        continue
-      }
-      const input = block.input
-      if (
-        input &&
-        typeof input === 'object' &&
-        'file_path' in input &&
-        typeof input.file_path === 'string'
-      ) {
-        paths.add(expandPath(input.file_path))
-      }
-    }
-  }
-  return paths
+	const paths = new Set<string>();
+	for (const message of messages) {
+		if (
+			message.type !== "assistant" ||
+			!Array.isArray(message.message.content)
+		) {
+			continue;
+		}
+		for (const block of message.message.content) {
+			if (
+				block.type !== "tool_use" ||
+				block.name !== FILE_READ_TOOL_NAME ||
+				stubIds.has(block.id)
+			) {
+				continue;
+			}
+			const input = block.input;
+			if (
+				input &&
+				typeof input === "object" &&
+				"file_path" in input &&
+				typeof input.file_path === "string"
+			) {
+				paths.add(expandPath(input.file_path));
+			}
+		}
+	}
+	return paths;
 }
 
 const SKILL_TRUNCATION_MARKER =
-  '\n\n[... skill content truncated for compaction; use Read on the skill path if you need the full text]'
+	"\n\n[... skill content truncated for compaction; use Read on the skill path if you need the full text]";
 
 /**
  * Truncate content to roughly maxTokens, keeping the head. roughTokenCountEstimation
@@ -2058,42 +2137,42 @@ const SKILL_TRUNCATION_MARKER =
  * can Read the full file if needed.
  */
 function truncateToTokens(content: string, maxTokens: number): string {
-  if (roughTokenCountEstimation(content) <= maxTokens) {
-    return content
-  }
-  const charBudget = maxTokens * 4 - SKILL_TRUNCATION_MARKER.length
-  return content.slice(0, charBudget) + SKILL_TRUNCATION_MARKER
+	if (roughTokenCountEstimation(content) <= maxTokens) {
+		return content;
+	}
+	const charBudget = maxTokens * 4 - SKILL_TRUNCATION_MARKER.length;
+	return content.slice(0, charBudget) + SKILL_TRUNCATION_MARKER;
 }
 
 function shouldExcludeFromPostCompactRestore(
-  filename: string,
-  agentId?: AgentId,
+	filename: string,
+	agentId?: AgentId,
 ): boolean {
-  const normalizedFilename = expandPath(filename)
-  // Exclude plan files
-  try {
-    const planFilePath = expandPath(getPlanFilePath(agentId))
-    if (normalizedFilename === planFilePath) {
-      return true
-    }
-  } catch {
-    // If we can't get plan file path, continue with other checks
-  }
+	const normalizedFilename = expandPath(filename);
+	// Exclude plan files
+	try {
+		const planFilePath = expandPath(getPlanFilePath(agentId));
+		if (normalizedFilename === planFilePath) {
+			return true;
+		}
+	} catch {
+		// If we can't get plan file path, continue with other checks
+	}
 
-  // Exclude all types of claude.md files
-  // TODO: Refactor to use isMemoryFilePath() from claudemd.ts for consistency
-  // and to also match child directory memory files (.claude/rules/*.md, etc.)
-  try {
-    const normalizedMemoryPaths = new Set(
-      MEMORY_TYPE_VALUES.map(type => expandPath(getMemoryPath(type))),
-    )
+	// Exclude all types of claude.md files
+	// TODO: Refactor to use isMemoryFilePath() from claudemd.ts for consistency
+	// and to also match child directory memory files (.claude/rules/*.md, etc.)
+	try {
+		const normalizedMemoryPaths = new Set(
+			MEMORY_TYPE_VALUES.map((type) => expandPath(getMemoryPath(type))),
+		);
 
-    if (normalizedMemoryPaths.has(normalizedFilename)) {
-      return true
-    }
-  } catch {
-    // If we can't get memory paths, continue
-  }
+		if (normalizedMemoryPaths.has(normalizedFilename)) {
+			return true;
+		}
+	} catch {
+		// If we can't get memory paths, continue
+	}
 
-  return false
+	return false;
 }

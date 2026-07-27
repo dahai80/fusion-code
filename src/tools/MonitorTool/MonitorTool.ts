@@ -8,90 +8,111 @@
  * gated by feature('MONITOR_TOOL')
  */
 
-import { z } from 'zod/v4'
-import { buildTool, type ToolDef } from '../../Tool.js'
-import { lazySchema } from '../../utils/lazySchema.js'
+import { z } from "zod/v4";
+import { buildTool, type ToolDef } from "../../Tool.js";
+import { lazySchema } from "../../utils/lazySchema.js";
 
-export const MONITOR_TOOL_NAME = 'Monitor'
+export const MONITOR_TOOL_NAME = "Monitor";
 
 // ─── Input Schema ───────────────────────────────────────────
 
 const inputSchema = lazySchema(() =>
-  z.strictObject({
-    command: z.string().describe('The command to monitor (must be a long-running process)'),
-    description: z.string().optional().describe('Description of what is being monitored'),
-    timeout: z.number().int().min(5000).max(600_000).optional().default(120_000)
-      .describe('Maximum time to monitor in ms (default: 120s, max: 600s)'),
-  }),
-)
-type InputSchema = ReturnType<typeof inputSchema>
+	z.strictObject({
+		command: z
+			.string()
+			.describe("The command to monitor (must be a long-running process)"),
+		description: z
+			.string()
+			.optional()
+			.describe("Description of what is being monitored"),
+		timeout: z
+			.number()
+			.int()
+			.min(5000)
+			.max(600_000)
+			.optional()
+			.default(120_000)
+			.describe("Maximum time to monitor in ms (default: 120s, max: 600s)"),
+	}),
+);
+type InputSchema = ReturnType<typeof inputSchema>;
 
 // ─── Output Schema ──────────────────────────────────────────
 
 const outputSchema = lazySchema(() =>
-  z.object({
-    exit_code: z.number().describe('Exit code of the monitored process'),
-    stdout: z.string().describe('Captured stdout from the process'),
-    stderr: z.string().describe('Captured stderr from the process'),
-    timed_out: z.boolean().describe('Whether the monitor timed out'),
-    duration_ms: z.number().describe('How long the monitor ran'),
-    lines_captured: z.number().describe('Number of output lines captured'),
-  }),
-)
-type OutputSchema = ReturnType<typeof outputSchema>
+	z.object({
+		exit_code: z.number().describe("Exit code of the monitored process"),
+		stdout: z.string().describe("Captured stdout from the process"),
+		stderr: z.string().describe("Captured stderr from the process"),
+		timed_out: z.boolean().describe("Whether the monitor timed out"),
+		duration_ms: z.number().describe("How long the monitor ran"),
+		lines_captured: z.number().describe("Number of output lines captured"),
+	}),
+);
+type OutputSchema = ReturnType<typeof outputSchema>;
 
 // ─── Tool Implementation ────────────────────────────────────
 
 async function monitorToolCall(
-  input: z.infer<InputSchema>,
+	input: z.infer<InputSchema>,
 ): Promise<z.infer<OutputSchema>> {
-  const startTime = Date.now()
-  const { execa } = await import('execa')
+	const startTime = Date.now();
+	const { execa } = await import("execa");
 
-  try {
-    const subprocess = execa(input.command, {
-      shell: true,
-      timeout: input.timeout || 120_000,
-      reject: false,
-      all: false,
-    })
+	try {
+		const subprocess = execa(input.command, {
+			shell: true,
+			timeout: input.timeout || 120_000,
+			reject: false,
+			all: false,
+		});
 
-    const result = await subprocess
-    const lines = (result.stdout || '').split('\n').filter(Boolean)
+		const result = await subprocess;
+		const lines = (result.stdout || "").split("\n").filter(Boolean);
 
-    return {
-      exit_code: result.exitCode ?? -1,
-      stdout: result.stdout || '',
-      stderr: result.stderr || '',
-      timed_out: result.timedOut || false,
-      duration_ms: Date.now() - startTime,
-      lines_captured: lines.length,
-    }
-  } catch (error) {
-    return {
-      exit_code: -1,
-      stdout: '',
-      stderr: `Monitor error: ${(error as Error).message}`,
-      timed_out: false,
-      duration_ms: Date.now() - startTime,
-      lines_captured: 0,
-    }
-  }
+		return {
+			exit_code: result.exitCode ?? -1,
+			stdout: result.stdout || "",
+			stderr: result.stderr || "",
+			timed_out: result.timedOut || false,
+			duration_ms: Date.now() - startTime,
+			lines_captured: lines.length,
+		};
+	} catch (error) {
+		return {
+			exit_code: -1,
+			stdout: "",
+			stderr: `Monitor error: ${(error as Error).message}`,
+			timed_out: false,
+			duration_ms: Date.now() - startTime,
+			lines_captured: 0,
+		};
+	}
 }
 
 // ─── Tool Definition ────────────────────────────────────────
 
 // log: cast toolDef as any — lazySchema/getter mismatch with ToolDef type
 const toolDef = {
-  name: MONITOR_TOOL_NAME,
-  description: `Monitor a long-running process and stream its output. Use this instead of polling with sleep loops. The process runs in the background and each line of stdout is returned as a notification. Supports timeout.`,
-  get inputSchema(): InputSchema { return inputSchema() },
-  get outputSchema(): OutputSchema { return outputSchema() },
-  async execute(input: z.infer<InputSchema>, _context?: unknown, _canUseTool?: unknown, _parentMessage?: unknown, _onProgress?: unknown) {
-    return { data: await monitorToolCall(input) }
-  },
-  userFacingName: () => 'Monitor',
-  isEnabled: () => true,
-} as any
+	name: MONITOR_TOOL_NAME,
+	description: `Monitor a long-running process and stream its output. Use this instead of polling with sleep loops. The process runs in the background and each line of stdout is returned as a notification. Supports timeout.`,
+	get inputSchema(): InputSchema {
+		return inputSchema();
+	},
+	get outputSchema(): OutputSchema {
+		return outputSchema();
+	},
+	async execute(
+		input: z.infer<InputSchema>,
+		_context?: unknown,
+		_canUseTool?: unknown,
+		_parentMessage?: unknown,
+		_onProgress?: unknown,
+	) {
+		return { data: await monitorToolCall(input) };
+	},
+	userFacingName: () => "Monitor",
+	isEnabled: () => true,
+} as any;
 
-export const MonitorTool = buildTool(toolDef)
+export const MonitorTool = buildTool(toolDef);

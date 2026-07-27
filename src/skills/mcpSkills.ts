@@ -11,28 +11,28 @@
  * gated by feature('MCP_SKILLS')
  */
 
-import { feature } from 'bun:bundle'
-import { getMCPSkillBuilders } from './mcpSkillBuilders.js'
-import { logForDebugging } from '../utils/debug.js'
+import { feature } from "bun:bundle";
+import { logForDebugging } from "../utils/debug.js";
+import { getMCPSkillBuilders } from "./mcpSkillBuilders.js";
 
 export interface MCPSkill {
-  name: string
-  description: string
-  serverName: string
-  type: 'prompt' | 'tool' | 'resource'
-  /** MCP prompt template arguments (for prompt type) */
-  arguments?: Array<{
-    name: string
-    description?: string
-    required?: boolean
-  }>
+	name: string;
+	description: string;
+	serverName: string;
+	type: "prompt" | "tool" | "resource";
+	/** MCP prompt template arguments (for prompt type) */
+	arguments?: Array<{
+		name: string;
+		description?: string;
+		required?: boolean;
+	}>;
 }
 
 /**
  * Check if MCP skills are enabled.
  */
 export function isMcpSkillsEnabled(): boolean {
-  return feature('MCP_SKILLS')
+	return feature("MCP_SKILLS");
 }
 
 /**
@@ -41,33 +41,31 @@ export function isMcpSkillsEnabled(): boolean {
  * that can be registered as skills.
  */
 export async function discoverMCPSkills(): Promise<MCPSkill[]> {
-  if (!isMcpSkillsEnabled()) {
-    return []
-  }
+	if (!isMcpSkillsEnabled()) {
+		return [];
+	}
 
-  const skills: MCPSkill[] = []
+	const skills: MCPSkill[] = [];
 
-  try {
-    // Get the registered skill builders
-    const builders = getMCPSkillBuilders()
+	try {
+		// Get the registered skill builders
+		const builders = getMCPSkillBuilders();
 
-    // MCP skills are discovered through the MCP connection manager.
-    // Each connected MCP server may expose prompts, tools, and resources
-    // that can be converted into skills.
-    // The actual discovery happens through the MCP client layer.
-    logForDebugging('[MCPSkills] MCP skill discovery initialized')
+		// MCP skills are discovered through the MCP connection manager.
+		// Each connected MCP server may expose prompts, tools, and resources
+		// that can be converted into skills.
+		// The actual discovery happens through the MCP client layer.
+		logForDebugging("[MCPSkills] MCP skill discovery initialized");
 
-    // Builders are registered for future use when MCP servers connect
-    if (builders) {
-      logForDebugging('[MCPSkills] MCP skill builders registered')
-    }
-  } catch (error) {
-    logForDebugging(
-      `[MCPSkills] Discovery error: ${(error as Error).message}`,
-    )
-  }
+		// Builders are registered for future use when MCP servers connect
+		if (builders) {
+			logForDebugging("[MCPSkills] MCP skill builders registered");
+		}
+	} catch (error) {
+		logForDebugging(`[MCPSkills] Discovery error: ${(error as Error).message}`);
+	}
 
-  return skills
+	return skills;
 }
 
 /**
@@ -75,12 +73,12 @@ export async function discoverMCPSkills(): Promise<MCPSkill[]> {
  * Called when an MCP server connects and exposes prompts.
  */
 export function registerMCPSkill(skill: MCPSkill): void {
-  if (!isMcpSkillsEnabled()) {
-    return
-  }
-  logForDebugging(
-    `[MCPSkills] Registered: ${skill.serverName}/${skill.name} (${skill.type})`,
-  )
+	if (!isMcpSkillsEnabled()) {
+		return;
+	}
+	logForDebugging(
+		`[MCPSkills] Registered: ${skill.serverName}/${skill.name} (${skill.type})`,
+	);
 }
 
 /**
@@ -88,38 +86,40 @@ export function registerMCPSkill(skill: MCPSkill): void {
  * Called when an MCP server disconnects.
  */
 export function unregisterMCPServerSkills(serverName: string): void {
-  if (!isMcpSkillsEnabled()) {
-    return
-  }
-  logForDebugging(`[MCPSkills] Unregistered skills for server: ${serverName}`)
+	if (!isMcpSkillsEnabled()) {
+		return;
+	}
+	logForDebugging(`[MCPSkills] Unregistered skills for server: ${serverName}`);
 }
 
 // log: fix TS2339 — cache interface matching memoizeWithLRU
 type McpSkillsCache = {
-    clear: () => void
-    size: () => number
-    delete: (key: string) => boolean
-    get: (key: string) => MCPSkill[] | undefined
-    has: (key: string) => boolean
-}
-type FetchMcpSkillsFn = ((_clientName: string) => Promise<MCPSkill[]>) & { cache: McpSkillsCache }
+	clear: () => void;
+	size: () => number;
+	delete: (key: string) => boolean;
+	get: (key: string) => MCPSkill[] | undefined;
+	has: (key: string) => boolean;
+};
+type FetchMcpSkillsFn = ((_clientName: string) => Promise<MCPSkill[]>) & {
+	cache: McpSkillsCache;
+};
 
 const _mcpSkillsCache: McpSkillsCache = {
-    clear: () => {},
-    size: () => 0,
-    delete: (_key: string) => false,
-    get: (_key: string) => undefined,
-    has: (_key: string) => false,
-}
+	clear: () => {},
+	size: () => 0,
+	delete: (_key: string) => false,
+	get: (_key: string) => undefined,
+	has: (_key: string) => false,
+};
 
 const _fetchMcpSkills = (_clientName: string): Promise<MCPSkill[]> => {
-    if (!isMcpSkillsEnabled()) {
-        return Promise.resolve([])
-    }
-    logForDebugging('[MCPSkills] fetchMcpSkillsForClient called')
-    return discoverMCPSkills()
-}
+	if (!isMcpSkillsEnabled()) {
+		return Promise.resolve([]);
+	}
+	logForDebugging("[MCPSkills] fetchMcpSkillsForClient called");
+	return discoverMCPSkills();
+};
 export const fetchMcpSkillsForClient: FetchMcpSkillsFn = Object.assign(
-    _fetchMcpSkills,
-    { cache: _mcpSkillsCache },
-)
+	_fetchMcpSkills,
+	{ cache: _mcpSkillsCache },
+);

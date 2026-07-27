@@ -5,10 +5,10 @@
  */
 
 export interface ServerLogger {
-    info(msg: string): void
-    error(msg: string): void
+	info(msg: string): void;
+	error(msg: string): void;
 }
 
 export function createServerLogger(): ServerLogger {
-    throw new Error('createServerLogger is not available in this build')
+	throw new Error("createServerLogger is not available in this build");
 }

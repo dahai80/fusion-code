@@ -107,7 +107,14 @@ import {
 } from "src/utils/gracefulShutdown.js";
 import { registerCleanup } from "src/utils/cleanupRegistry.js";
 import { createIdleTimeoutManager } from "src/utils/idleTimeout.js";
-import type { SDKStatus, SDKMessage, SDKUserMessage, SDKUserMessageReplay, PermissionResult, HookEvent } from 'src/entrypoints/sdk/types.js'
+import type {
+	SDKStatus,
+	SDKMessage,
+	SDKUserMessage,
+	SDKUserMessageReplay,
+	PermissionResult,
+	HookEvent,
+} from "src/entrypoints/sdk/types.js";
 import type {
 	ModelInfo,
 	McpServerConfigForProcessTransport,
@@ -349,12 +356,12 @@ import { sleep } from "../utils/sleep.js";
 import { isExtractModeActive } from "../memdir/paths.js";
 
 type RewindFilesResult = {
-    canRewind: boolean
-    error?: string
-    filesChanged?: string[]
-    insertions?: number
-    deletions?: number
-}
+	canRewind: boolean;
+	error?: string;
+	filesChanged?: string[];
+	insertions?: number;
+	deletions?: number;
+};
 
 // Dead code elimination: conditional imports
 /* eslint-disable @typescript-eslint/no-require-imports */
@@ -1651,7 +1658,8 @@ function runHeadlessStreaming(
 				connection.config.type === "stdio" ||
 				connection.config.type === undefined
 			) {
-				const stdioConfig = connection.config as import("src/services/mcp/types.js").McpStdioServerConfig; // log: fix TS2339
+				const stdioConfig =
+					connection.config as import("src/services/mcp/types.js").McpStdioServerConfig; // log: fix TS2339
 				config = {
 					type: "stdio" as const,
 					command: stdioConfig.command,
@@ -2417,7 +2425,9 @@ function runHeadlessStreaming(
 				output.enqueue(heldBackResult);
 				heldBackResult = null;
 				if (suggestionState.pendingSuggestion) {
-					output.enqueue(suggestionState.pendingSuggestion as unknown as StdoutMessage); // log: prompt_suggestion not in StdoutMessage union
+					output.enqueue(
+						suggestionState.pendingSuggestion as unknown as StdoutMessage,
+					); // log: prompt_suggestion not in StdoutMessage union
 					// Now that the suggestion is actually delivered, record it for acceptance tracking
 					if (suggestionState.pendingLastEmittedEntry) {
 						suggestionState.lastEmitted = {
@@ -2856,8 +2866,13 @@ function runHeadlessStreaming(
 					suggestionState.lastEmitted = null;
 					suggestionState.pendingSuggestion = null;
 					sendControlResponseSuccess(message);
-				} else if ((message.request as { subtype: string }).subtype === "end_session") {
-					const endSessionReq = message.request as unknown as { subtype: string; reason?: string }; // log: fix TS2339
+				} else if (
+					(message.request as { subtype: string }).subtype === "end_session"
+				) {
+					const endSessionReq = message.request as unknown as {
+						subtype: string;
+						reason?: string;
+					}; // log: fix TS2339
 					logForDebugging(
 						`[print.ts] end_session received, reason=${endSessionReq.reason ?? "unspecified"}`,
 					);
@@ -3314,8 +3329,13 @@ function runHeadlessStreaming(
 							sendControlResponseError(message, errorMessage);
 						}
 					}
-				} else if ((message.request as { subtype: string }).subtype === "channel_enable") {
-					const channelReq = message.request as unknown as { subtype: string; serverName: string }; // log: fix TS2339
+				} else if (
+					(message.request as { subtype: string }).subtype === "channel_enable"
+				) {
+					const channelReq = message.request as unknown as {
+						subtype: string;
+						serverName: string;
+					}; // log: fix TS2339
 					const currentAppState = getAppState();
 					handleChannelEnable(
 						message.request_id,
@@ -3328,8 +3348,14 @@ function runHeadlessStreaming(
 						],
 						output,
 					);
-				} else if ((message.request as { subtype: string }).subtype === "mcp_authenticate") {
-					const { serverName } = message.request as unknown as { subtype: string; serverName: string }; // log: fix TS2339
+				} else if (
+					(message.request as { subtype: string }).subtype ===
+					"mcp_authenticate"
+				) {
+					const { serverName } = message.request as unknown as {
+						subtype: string;
+						serverName: string;
+					}; // log: fix TS2339
 					const currentAppState = getAppState();
 					const config =
 						getMcpConfigByName(serverName) ??
@@ -3484,8 +3510,15 @@ function runHeadlessStreaming(
 							sendControlResponseError(message, errorMessage(error));
 						}
 					}
-				} else if ((message.request as { subtype: string }).subtype === "mcp_oauth_callback_url") {
-					const { serverName, callbackUrl } = message.request as unknown as { subtype: string; serverName: string; callbackUrl: string }; // log: fix TS2339
+				} else if (
+					(message.request as { subtype: string }).subtype ===
+					"mcp_oauth_callback_url"
+				) {
+					const { serverName, callbackUrl } = message.request as unknown as {
+						subtype: string;
+						serverName: string;
+						callbackUrl: string;
+					}; // log: fix TS2339
 					const submit = oauthCallbackSubmitters.get(serverName);
 					if (submit) {
 						// Validate the callback URL before submitting. The submit
@@ -3535,13 +3568,19 @@ function runHeadlessStreaming(
 							`No active OAuth flow for server: ${serverName}`,
 						);
 					}
-				} else if ((message.request as { subtype: string }).subtype === "claude_authenticate") {
+				} else if (
+					(message.request as { subtype: string }).subtype ===
+					"claude_authenticate"
+				) {
 					// Anthropic OAuth over the control channel. The SDK client owns
 					// the user's browser (we're headless in -p mode); we hand back
 					// both URLs and wait. Automatic URL → localhost listener catches
 					// the redirect if the browser is on this host; manual URL → the
 					// success page shows "code#state" for claude_oauth_callback.
-					const { loginWithClaudeAi } = message.request as unknown as { subtype: string; loginWithClaudeAi: boolean }; // log: fix TS2339
+					const { loginWithClaudeAi } = message.request as unknown as {
+						subtype: string;
+						loginWithClaudeAi: boolean;
+					}; // log: fix TS2339
 
 					// Clean up any prior flow. cleanup() closes the localhost listener
 					// and nulls the manual resolver. The prior `flow` promise is left
@@ -3630,8 +3669,10 @@ function runHeadlessStreaming(
 						sendControlResponseError(message, errorMessage(error));
 					}
 				} else if (
-					(message.request as { subtype: string }).subtype === "claude_oauth_callback" ||
-					(message.request as { subtype: string }).subtype === "claude_oauth_wait_for_completion"
+					(message.request as { subtype: string }).subtype ===
+						"claude_oauth_callback" ||
+					(message.request as { subtype: string }).subtype ===
+						"claude_oauth_wait_for_completion"
 				) {
 					if (!claudeOAuth) {
 						sendControlResponseError(
@@ -3642,8 +3683,15 @@ function runHeadlessStreaming(
 						// Inject the manual code synchronously — must happen in stdin
 						// message order so a subsequent claude_authenticate doesn't
 						// replace the service before this code lands.
-						if ((message.request as { subtype: string }).subtype === "claude_oauth_callback") {
-							const oauthReq = message.request as unknown as { subtype: string; authorizationCode: string; state: string }; // log: fix TS2339
+						if (
+							(message.request as { subtype: string }).subtype ===
+							"claude_oauth_callback"
+						) {
+							const oauthReq = message.request as unknown as {
+								subtype: string;
+								authorizationCode: string;
+								state: string;
+							}; // log: fix TS2339
 							claudeOAuth.service.handleManualAuthCodeInput({
 								authorizationCode: oauthReq.authorizationCode,
 								state: oauthReq.state,
@@ -3665,7 +3713,11 @@ function runHeadlessStreaming(
 										subscriptionType: accountInfo?.subscription,
 										tokenSource: accountInfo?.tokenSource,
 										apiKeySource: accountInfo?.apiKeySource,
-										apiProvider: getAPIProvider() as 'firstParty' | 'foundry' | 'openai' | 'fusionMlx', // log: narrow APIProvider for SDK type
+										apiProvider: getAPIProvider() as
+											| "firstParty"
+											| "foundry"
+											| "openai"
+											| "fusionMlx", // log: narrow APIProvider for SDK type
 									},
 								});
 							},
@@ -3673,8 +3725,13 @@ function runHeadlessStreaming(
 								sendControlResponseError(message, errorMessage(error)),
 						);
 					}
-				} else if ((message.request as { subtype: string }).subtype === "mcp_clear_auth") {
-					const { serverName } = message.request as unknown as { subtype: string; serverName: string }; // log: fix TS2339
+				} else if (
+					(message.request as { subtype: string }).subtype === "mcp_clear_auth"
+				) {
+					const { serverName } = message.request as unknown as {
+						subtype: string;
+						serverName: string;
+					}; // log: fix TS2339
 					const currentAppState = getAppState();
 					const config =
 						getMcpConfigByName(serverName) ??
@@ -3810,11 +3867,18 @@ function runHeadlessStreaming(
 					} catch (error) {
 						sendControlResponseError(message, errorMessage(error));
 					}
-				} else if ((message.request as { subtype: string }).subtype === "generate_session_title") {
+				} else if (
+					(message.request as { subtype: string }).subtype ===
+					"generate_session_title"
+				) {
 					// Fire-and-forget so the Haiku call does not block the stdin loop
 					// (which would delay processing of subsequent user messages /
 					// interrupts for the duration of the API roundtrip).
-					const { description, persist } = message.request as unknown as { subtype: string; description: string; persist: boolean }; // log: fix TS2339
+					const { description, persist } = message.request as unknown as {
+						subtype: string;
+						description: string;
+						persist: boolean;
+					}; // log: fix TS2339
 					// Reuse the live controller only if it has not already been aborted
 					// (e.g. by interrupt()); an aborted signal would cause queryHaiku to
 					// immediately throw APIUserAbortError → {title: null}.
@@ -3845,7 +3909,9 @@ function runHeadlessStreaming(
 							sendControlResponseError(message, errorMessage(e));
 						}
 					})();
-				} else if ((message.request as { subtype: string }).subtype === "side_question") {
+				} else if (
+					(message.request as { subtype: string }).subtype === "side_question"
+				) {
 					// Same fire-and-forget pattern as generate_session_title above —
 					// the forked agent's API roundtrip must not block the stdin loop.
 					//
@@ -3861,7 +3927,10 @@ function runHeadlessStreaming(
 					// matches in the common case. May still miss the cache for
 					// coordinator mode or memory-mechanics extras — acceptable, the
 					// alternative is the side question failing entirely.
-					const { question } = message.request as unknown as { subtype: string; question: string }; // log: fix TS2339
+					const { question } = message.request as unknown as {
+						subtype: string;
+						question: string;
+					}; // log: fix TS2339
 					void (async () => {
 						try {
 							const saved = getLastCacheSafeParams();
@@ -3924,8 +3993,13 @@ function runHeadlessStreaming(
 						proactiveModule!.deactivateProactive();
 					}
 					sendControlResponseSuccess(message);
-				} else if ((message.request as { subtype: string }).subtype === "remote_control") {
-					const remoteReq = message.request as unknown as { subtype: string; enabled: boolean }; // log: fix TS2339
+				} else if (
+					(message.request as { subtype: string }).subtype === "remote_control"
+				) {
+					const remoteReq = message.request as unknown as {
+						subtype: string;
+						enabled: boolean;
+					}; // log: fix TS2339
 					if (remoteReq.enabled) {
 						if (bridgeHandle) {
 							// Already connected
@@ -4383,7 +4457,8 @@ function runHeadlessStreaming(
 				);
 
 				// Check both historical duplicates (from file) and runtime duplicates (this session)
-				if (existsInSession || receivedMessageUuids.has(message.uuid as UUID)) { // log: widen string to UUID
+				if (existsInSession || receivedMessageUuids.has(message.uuid as UUID)) {
+					// log: widen string to UUID
 					logForDebugging(`Skipping duplicate user message: ${message.uuid}`);
 					// Send acknowledgment for duplicate message if replay mode is enabled
 					if (options.replayUserMessages) {
@@ -4418,7 +4493,10 @@ function runHeadlessStreaming(
 				mode: "prompt" as const,
 				// file_attachments rides the protobuf catchall from the web composer.
 				// Same-ref no-op when absent (no 'file_attachments' key).
-				value: await resolveAndPrepend(message, message.message.content as string | ContentBlockParam[]), // log: widen unknown to expected type
+				value: await resolveAndPrepend(
+					message,
+					message.message.content as string | ContentBlockParam[],
+				), // log: widen unknown to expected type
 				uuid: message.uuid as UUID, // log: widen string to UUID
 				priority: message.priority as QueuePriority, // log: widen unknown to QueuePriority
 			});
@@ -4794,7 +4872,11 @@ async function handleInitializeRequest(
 			// getAccountInformation() returns undefined under 3P providers, so the
 			// other fields are all absent. apiProvider disambiguates "not logged
 			// in" (firstParty + tokenSource:none) from "3P, login not applicable".
-			apiProvider: getAPIProvider() as 'firstParty' | 'foundry' | 'openai' | 'fusionMlx', // log: narrow APIProvider for SDK type
+			apiProvider: getAPIProvider() as
+				| "firstParty"
+				| "foundry"
+				| "openai"
+				| "fusionMlx", // log: narrow APIProvider for SDK type
 		},
 		pid: process.pid,
 	};

@@ -1,12 +1,14 @@
 // log: stub for TS2307 — UserCrossSessionMessage feature-gated component
 
-import React from 'react'
+import type React from "react";
 
 type UserCrossSessionMessageProps = {
-    addMargin: boolean
-    param: { text: string; [key: string]: unknown }
-}
+	addMargin: boolean;
+	param: { text: string; [key: string]: unknown };
+};
 
-export function UserCrossSessionMessage(_props: UserCrossSessionMessageProps): React.JSX.Element | null {
-    return null
+export function UserCrossSessionMessage(
+	_props: UserCrossSessionMessageProps,
+): React.JSX.Element | null {
+	return null;
 }

@@ -308,8 +308,7 @@ export async function* transformMLXStreamToAnthropic(
 			MLX_STREAM_IDLE_TIMEOUT_MS,
 		);
 		if (done) break;
-		console.error(
-		);
+		console.error();
 		chunkIdx++;
 
 		buffer += decoder.decode(value, { stream: true });

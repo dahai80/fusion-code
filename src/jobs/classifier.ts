@@ -7,52 +7,58 @@
  * gated by feature('TEMPLATES')
  */
 
-import { feature } from 'bun:bundle'
+import { feature } from "bun:bundle";
 
 export interface JobClassification {
-  matched: boolean
-  jobName?: string
-  confidence?: number
-  reason?: string
+	matched: boolean;
+	jobName?: string;
+	confidence?: number;
+	reason?: string;
 }
 
 /**
  * Classify whether a user query matches a template job pattern.
  */
 export function classifyQuery(query: string): JobClassification {
-  if (!feature('TEMPLATES')) {
-    return { matched: false }
-  }
+	if (!feature("TEMPLATES")) {
+		return { matched: false };
+	}
 
-  // Simple keyword-based classification
-  const jobKeywords = [
-    'template', 'job', 'task', 'workflow',
-    'deploy', 'review', 'test', 'release',
-  ]
+	// Simple keyword-based classification
+	const jobKeywords = [
+		"template",
+		"job",
+		"task",
+		"workflow",
+		"deploy",
+		"review",
+		"test",
+		"release",
+	];
 
-  const queryLower = query.toLowerCase()
-  const matchedKeywords = jobKeywords.filter(k => queryLower.includes(k))
+	const queryLower = query.toLowerCase();
+	const matchedKeywords = jobKeywords.filter((k) => queryLower.includes(k));
 
-  if (matchedKeywords.length >= 2) {
-    return {
-      matched: true,
-      jobName: matchedKeywords[0],
-      confidence: matchedKeywords.length / jobKeywords.length,
-      reason: `Matched keywords: ${matchedKeywords.join(', ')}`,
-    }
-  }
+	if (matchedKeywords.length >= 2) {
+		return {
+			matched: true,
+			jobName: matchedKeywords[0],
+			confidence: matchedKeywords.length / jobKeywords.length,
+			reason: `Matched keywords: ${matchedKeywords.join(", ")}`,
+		};
+	}
 
-  return { matched: false }
+	return { matched: false };
 }
 
 /**
  * Check if a job classifier module is active and should process stop hooks.
  */
 export function isJobClassifierActive(): boolean {
-  if (!feature('TEMPLATES')) {
-    return false
-  }
-  return !!process.env.CLAUDE_JOB_DIR
+	if (!feature("TEMPLATES")) {
+		return false;
+	}
+	return !!process.env.CLAUDE_JOB_DIR;
 }
 
 /**
@@ -60,11 +66,11 @@ export function isJobClassifierActive(): boolean {
  * Called when a query completes to check if the result should be saved as a job.
  */
 export function processJobStopHook(_querySource: string): void {
-  if (!isJobClassifierActive()) {
-    return
-  }
-  // Job stop hook processing happens here
-  // In the full implementation, this would save the conversation as a job template
+	if (!isJobClassifierActive()) {
+		return;
+	}
+	// Job stop hook processing happens here
+	// In the full implementation, this would save the conversation as a job template
 }
 
 /**
@@ -73,20 +79,20 @@ export function processJobStopHook(_querySource: string): void {
  * and persists classification state to <jobDir>/state.json.
  */
 export async function classifyAndWriteState(
-  jobDir: string,
-  _assistantMessages: Array<{ type: string; message?: { content?: unknown } }>,
+	jobDir: string,
+	_assistantMessages: Array<{ type: string; message?: { content?: unknown } }>,
 ): Promise<void> {
-  if (!feature('TEMPLATES')) {
-    return
-  }
-  try {
-    const { writeFileSync } = await import('fs')
-    const state = {
-      classifiedAt: new Date().toISOString(),
-      jobDir,
-    }
-    writeFileSync(`${jobDir}/state.json`, JSON.stringify(state, null, 2))
-  } catch {
-    // Silently ignore write failures
-  }
+	if (!feature("TEMPLATES")) {
+		return;
+	}
+	try {
+		const { writeFileSync } = await import("fs");
+		const state = {
+			classifiedAt: new Date().toISOString(),
+			jobDir,
+		};
+		writeFileSync(`${jobDir}/state.json`, JSON.stringify(state, null, 2));
+	} catch {
+		// Silently ignore write failures
+	}
 }

@@ -340,7 +340,7 @@ export type RemoteLaunchedOutput = {
 type InternalOutput = Output | TeammateSpawnedOutput | RemoteLaunchedOutput;
 
 import type { AgentToolProgress, ShellProgress } from "../../types/tools.js";
-import { isInternalBuild } from '../../utils/buildConstants.js'
+import { isInternalBuild } from "../../utils/buildConstants.js";
 // AgentTool forwards both its own progress events and shell progress
 // events from the sub-agent so the SDK receives tool_progress updates during bash/powershell runs.
 export type Progress = AgentToolProgress | ShellProgress;
@@ -1729,10 +1729,7 @@ export const AgentTool = buildTool({
 		// Only route through auto mode classifier when in auto mode
 		// In all other modes, auto-approve sub-agent generation
 		// Note: isInternalBuild() guard enables dead code elimination for external builds
-		if (
-			isInternalBuild() &&
-			appState.toolPermissionContext.mode === "auto"
-		) {
+		if (isInternalBuild() && appState.toolPermissionContext.mode === "auto") {
 			return {
 				behavior: "passthrough",
 				message: "Agent tool requires permission to spawn sub-agents.",

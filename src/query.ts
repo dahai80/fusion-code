@@ -185,7 +185,9 @@ const MAX_OUTPUT_TOKENS_RECOVERY_LIMIT = 3;
 function isWithheldMaxOutputTokens(
 	msg: Message | StreamEvent | undefined,
 ): msg is AssistantMessage {
-	return msg?.type === "assistant" && msg.apiError?.message === "max_output_tokens";
+	return (
+		msg?.type === "assistant" && msg.apiError?.message === "max_output_tokens"
+	);
 }
 
 export type QueryParams = {
@@ -677,7 +679,8 @@ async function* queryLoop(
 			if (isAtBlockingLimit) {
 				yield createAssistantAPIErrorMessage({
 					content: PROMPT_TOO_LONG_ERROR_MESSAGE,
-					error: "invalid_request" as unknown as SDKAssistantMessageError as unknown as SDKAssistantMessageError,
+					error:
+						"invalid_request" as unknown as SDKAssistantMessageError as unknown as SDKAssistantMessageError,
 				});
 				return { reason: "blocking_limit" };
 			}
@@ -798,7 +801,8 @@ async function* queryLoop(
 					);
 					yield createAssistantAPIErrorMessage({
 						content: ERROR_MESSAGE_MLX_MEMORY_LIMIT,
-						error: "invalid_request" as unknown as SDKAssistantMessageError as unknown as SDKAssistantMessageError,
+						error:
+							"invalid_request" as unknown as SDKAssistantMessageError as unknown as SDKAssistantMessageError,
 					});
 					return { reason: "mlx_memory_limit" };
 				}
@@ -1345,7 +1349,7 @@ async function* queryLoop(
 						stopHookActive: undefined,
 						turnCount,
 						mlxModelOomCount: mlxModelOomCount + 1,
-mlxForcedCompactDone,
+						mlxForcedCompactDone,
 						transition: { reason: "reactive_compact_retry" },
 					};
 					state = next;
@@ -1407,7 +1411,7 @@ mlxForcedCompactDone,
 						stopHookActive: undefined,
 						turnCount,
 						mlxModelOomCount,
-mlxForcedCompactDone,
+						mlxForcedCompactDone,
 						transition: { reason: "max_output_tokens_escalate" },
 					};
 					state = next;
@@ -1437,7 +1441,7 @@ mlxForcedCompactDone,
 						stopHookActive: undefined,
 						turnCount,
 						mlxModelOomCount,
-mlxForcedCompactDone,
+						mlxForcedCompactDone,
 						transition: {
 							reason: "max_output_tokens_recovery",
 							attempt: maxOutputTokensRecoveryCount + 1,
@@ -1496,7 +1500,7 @@ mlxForcedCompactDone,
 					stopHookActive: true,
 					turnCount,
 					mlxModelOomCount,
-mlxForcedCompactDone,
+					mlxForcedCompactDone,
 					transition: { reason: "stop_hook_blocking" },
 				};
 				state = next;
@@ -1534,7 +1538,7 @@ mlxForcedCompactDone,
 						stopHookActive: undefined,
 						turnCount,
 						mlxModelOomCount,
-mlxForcedCompactDone,
+						mlxForcedCompactDone,
 						transition: { reason: "token_budget_continuation" },
 					};
 					continue;

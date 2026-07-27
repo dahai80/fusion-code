@@ -280,7 +280,9 @@ const COMMANDS = memoize((): Command[] => [
 	exportCommand,
 	sandboxToggle,
 	securityReview,
-	...((!isUsing3PServices() && !isFusionMlxProvider() ? [logout, login()] : []) as Command[]),
+	...((!isUsing3PServices() && !isFusionMlxProvider()
+		? [logout, login()]
+		: []) as Command[]),
 	passes,
 	tasks,
 	usageReport,

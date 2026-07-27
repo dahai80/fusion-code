@@ -418,6 +418,7 @@ import { onChangeAppState } from "./state/onChangeAppState.js";
 import { createStore } from "./state/store.js";
 import { asSessionId } from "./types/ids.js";
 import { filterAllowedSdkBetas } from "./utils/betas.js";
+import { isInternalBuild } from "./utils/buildConstants.js";
 import { isInBundledMode, isRunningWithBun } from "./utils/bundledMode.js";
 import { logForDiagnosticsNoPII } from "./utils/diagLogs.js";
 import {
@@ -448,7 +449,6 @@ import {
 	isTmuxAvailable,
 	parsePRReference,
 } from "./utils/worktree.js";
-import { isInternalBuild } from "./utils/buildConstants.js";
 
 // eslint-disable-next-line custom-rules/no-top-level-side-effects
 profileCheckpoint("main_tsx_imports_loaded");
@@ -1875,8 +1875,7 @@ async function run(): Promise<CommanderCommand> {
 					// (max ~5s). --assistant skips the gate entirely (daemon is
 					// pre-entitled).
 					kairosEnabled =
-						assistantModule.isAssistantMode() ||
-						kairosGate.isKairosGateOpen();
+						assistantModule.isAssistantMode() || kairosGate.isKairosGateOpen();
 					if (kairosEnabled) {
 						const opts = options as {
 							brief?: boolean;
@@ -4209,9 +4208,9 @@ async function run(): Promise<CommanderCommand> {
 			logEvent("tengu_startup_manual_model_config", {
 				cli_flag:
 					options.model as AnalyticsMetadata_I_VERIFIED_THIS_IS_NOT_CODE_OR_FILEPATHS,
-				env_var:
-					(process.env.FUSION_MODEL ||
-						process.env.ANTHROPIC_MODEL) as AnalyticsMetadata_I_VERIFIED_THIS_IS_NOT_CODE_OR_FILEPATHS,
+				env_var: (process.env.FUSION_MODEL ||
+					process.env
+						.ANTHROPIC_MODEL) as AnalyticsMetadata_I_VERIFIED_THIS_IS_NOT_CODE_OR_FILEPATHS,
 				settings_file: (getInitialSettings() || {})
 					.model as AnalyticsMetadata_I_VERIFIED_THIS_IS_NOT_CODE_OR_FILEPATHS,
 				subscriptionType:
@@ -4403,7 +4402,8 @@ async function run(): Promise<CommanderCommand> {
 				// without TeamCreate. computeInitialTeamContext() is for tmux-spawned
 				// teammates reading their own identity, not the assistant-mode leader.
 				teamContext: feature("KAIROS")
-					? ((assistantTeamContext ?? computeInitialTeamContext?.()) as AppState['teamContext'])
+					? ((assistantTeamContext ??
+							computeInitialTeamContext?.()) as AppState["teamContext"])
 					: computeInitialTeamContext?.(),
 			};
 
@@ -4433,8 +4433,9 @@ async function run(): Promise<CommanderCommand> {
 			//   - Runtime: uploader checks github.com/anthropics/* remote + gcloud auth.
 			//   - Safety: CLAUDE_CODE_DISABLE_SESSION_DATA_UPLOAD=1 bypasses (tests set this).
 			// Import is dynamic + async to avoid adding startup latency.
-			const sessionUploaderPromise =
-				isInternalBuild() ? import("./utils/sessionDataUploader.js") : null;
+			const sessionUploaderPromise = isInternalBuild()
+				? import("./utils/sessionDataUploader.js")
+				: null;
 
 			// Defer session uploader resolution to the onTurnComplete callback to avoid
 			// adding a new top-level await in main.tsx (performance-critical path).
@@ -4461,7 +4462,9 @@ async function run(): Promise<CommanderCommand> {
 				thinkingConfig,
 				...(uploaderReady && {
 					onTurnComplete: (messages: MessageType[]) => {
-						void uploaderReady.then((uploader: unknown) => (uploader as (msgs: MessageType[]) => void)?.(messages));
+						void uploaderReady.then((uploader: unknown) =>
+							(uploader as (msgs: MessageType[]) => void)?.(messages),
+						);
 					},
 				}),
 			};
@@ -4621,24 +4624,22 @@ async function run(): Promise<CommanderCommand> {
 						// stderr isn't a TTY (piped/redirected) — \r would just emit noise.
 						const isTTY = process.stderr.isTTY;
 						let hadProgress = false;
-						sshSession = await createSSHSession(
-							{
-								host: _pendingSSH.host,
-								cwd: _pendingSSH.cwd,
-								localVersion: MACRO.VERSION,
-								permissionMode: _pendingSSH.permissionMode,
-								dangerouslySkipPermissions:
-									_pendingSSH.dangerouslySkipPermissions,
-								...(isTTY
-									? {
-											onProgress: (msg: string) => {
-												hadProgress = true;
-												process.stderr.write(`\r  ${msg}\x1b[K`);
-											},
-										}
-									: {}),
-							},
-						);
+						sshSession = await createSSHSession({
+							host: _pendingSSH.host,
+							cwd: _pendingSSH.cwd,
+							localVersion: MACRO.VERSION,
+							permissionMode: _pendingSSH.permissionMode,
+							dangerouslySkipPermissions:
+								_pendingSSH.dangerouslySkipPermissions,
+							...(isTTY
+								? {
+										onProgress: (msg: string) => {
+											hadProgress = true;
+											process.stderr.write(`\r  ${msg}\x1b[K`);
+										},
+									}
+								: {}),
+						});
 						if (hadProgress) process.stderr.write("\n");
 					}
 					setOriginalCwd(sshSession.remoteCwd);
@@ -5135,7 +5136,9 @@ async function run(): Promise<CommanderCommand> {
 						if (ccshareId) {
 							try {
 								const resumeStart = performance.now();
-								const logOption = (await loadCcshare(ccshareId)) as string | LogOption;
+								const logOption = (await loadCcshare(ccshareId)) as
+									| string
+									| LogOption;
 								const result = await loadConversationForResume(
 									logOption,
 									undefined,
@@ -5948,53 +5951,49 @@ async function run(): Promise<CommanderCommand> {
 				"Output format: text, json, stream-json",
 				"text",
 			)
-			.action(
-				(async (
-					ccUrl: string,
-					opts: {
-						print?: string | boolean;
-						outputFormat: string;
-					},
-				) => {
-					const { parseConnectUrl } = await import(
-						"./server/parseConnectUrl.js"
-					);
-					const { serverUrl, authToken } = parseConnectUrl(ccUrl);
-					let connectConfig;
-					try {
-						const session = await createDirectConnectSession({
-							serverUrl,
-							authToken,
-							cwd: getOriginalCwd(),
-							dangerouslySkipPermissions:
-								_pendingConnect?.dangerouslySkipPermissions,
-						});
-						if (session.workDir) {
-							setOriginalCwd(session.workDir);
-							setCwdState(session.workDir);
-						}
-						setDirectConnectServerUrl(serverUrl);
-						connectConfig = session.config;
-					} catch (err) {
-						// biome-ignore lint/suspicious/noConsole: intentional error output
-						console.error(
-							err instanceof DirectConnectError ? err.message : String(err),
-						);
-						process.exit(1);
+			.action((async (
+				ccUrl: string,
+				opts: {
+					print?: string | boolean;
+					outputFormat: string;
+				},
+			) => {
+				const { parseConnectUrl } = await import("./server/parseConnectUrl.js");
+				const { serverUrl, authToken } = parseConnectUrl(ccUrl);
+				let connectConfig;
+				try {
+					const session = await createDirectConnectSession({
+						serverUrl,
+						authToken,
+						cwd: getOriginalCwd(),
+						dangerouslySkipPermissions:
+							_pendingConnect?.dangerouslySkipPermissions,
+					});
+					if (session.workDir) {
+						setOriginalCwd(session.workDir);
+						setCwdState(session.workDir);
 					}
-					const { runConnectHeadless } = await import(
-						"./server/connectHeadless.js"
+					setDirectConnectServerUrl(serverUrl);
+					connectConfig = session.config;
+				} catch (err) {
+					// biome-ignore lint/suspicious/noConsole: intentional error output
+					console.error(
+						err instanceof DirectConnectError ? err.message : String(err),
 					);
-					const prompt = typeof opts.print === "string" ? opts.print : "";
-					const interactive = opts.print === true;
-					await runConnectHeadless(
-						connectConfig,
-						prompt,
-						opts.outputFormat,
-						interactive,
-					);
-				}) as any,
-			);
+					process.exit(1);
+				}
+				const { runConnectHeadless } = await import(
+					"./server/connectHeadless.js"
+				);
+				const prompt = typeof opts.print === "string" ? opts.print : "";
+				const interactive = opts.print === true;
+				await runConnectHeadless(
+					connectConfig,
+					prompt,
+					opts.outputFormat,
+					interactive,
+				);
+			}) as any);
 	}
 
 	// claude auth

@@ -6,7 +6,14 @@ import {
 	getSessionId,
 	isSessionPersistenceDisabled,
 } from "src/bootstrap/state.js";
-import type { PermissionMode, SDKCompactBoundaryMessage, SDKMessage, SDKPermissionDenial, SDKStatus, SDKUserMessageReplay } from 'src/entrypoints/sdk/types.js'
+import type {
+	PermissionMode,
+	SDKCompactBoundaryMessage,
+	SDKMessage,
+	SDKPermissionDenial,
+	SDKStatus,
+	SDKUserMessageReplay,
+} from "src/entrypoints/sdk/types.js";
 import { accumulateUsage, updateUsage } from "src/services/api/claude.js";
 import type { NonNullableUsage } from "src/services/api/logging.js";
 import { EMPTY_USAGE } from "src/services/api/logging.js";
@@ -256,9 +263,9 @@ export class QueryEngine {
 			// Track denials for SDK reporting
 			if (result.behavior !== "allow") {
 				this.permissionDenials.push({
-                    type: 'permission_denial' as const,
-                    toolName: sdkCompatToolName(tool.name),
-                } as SDKPermissionDenial);
+					type: "permission_denial" as const,
+					toolName: sdkCompatToolName(tool.name),
+				} as SDKPermissionDenial);
 			}
 
 			return result;
@@ -619,7 +626,9 @@ export class QueryEngine {
 					if (typeof content === "string") {
 						finalResult = content;
 					} else if (Array.isArray(content)) {
-						const textBlocks = (content as unknown as Array<Record<string, unknown>>)
+						const textBlocks = (
+							content as unknown as Array<Record<string, unknown>>
+						)
 							.filter((b) => b.type === "text")
 							.map((b) => String(b.text ?? ""));
 						finalResult = textBlocks.join("\n");

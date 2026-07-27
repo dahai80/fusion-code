@@ -1,19 +1,19 @@
-import { useEffect } from 'react'
+import { useEffect } from "react";
 
 type Props = {
-  agentType: string
-  scope: unknown
-  snapshotTimestamp: string
-  onComplete: (choice: 'merge' | 'keep' | 'replace') => void
-  onCancel: () => void
-}
+	agentType: string;
+	scope: unknown;
+	snapshotTimestamp: string;
+	onComplete: (choice: "merge" | "keep" | "replace") => void;
+	onCancel: () => void;
+};
 
 export function SnapshotUpdateDialog({ onCancel }: Props) {
-  useEffect(() => {
-    onCancel()
-  }, [onCancel])
+	useEffect(() => {
+		onCancel();
+	}, [onCancel]);
 
-  return null
+	return null;
 }
 
 /**
@@ -21,5 +21,5 @@ export function SnapshotUpdateDialog({ onCancel }: Props) {
  * log: fix TS2339
  */
 export function buildMergePrompt(agentType: string, _scope: unknown): string {
-  return `[Snapshot Update] Agent "${agentType}" has a pending snapshot update. Merge incoming changes with existing memory.`
+	return `[Snapshot Update] Agent "${agentType}" has a pending snapshot update. Merge incoming changes with existing memory.`;
 }

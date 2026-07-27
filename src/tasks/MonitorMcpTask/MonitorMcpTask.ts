@@ -1,33 +1,30 @@
 // log: created for TS2307 fix
 
-import type { SetAppState, Task, TaskStateBase } from '../../Task.js'
+import type { SetAppState, Task, TaskStateBase } from "../../Task.js";
 
 export type MonitorMcpTaskState = TaskStateBase & {
-    type: 'monitor_mcp'
-    serverName: string
-    abortController?: AbortController
-}
+	type: "monitor_mcp";
+	serverName: string;
+	abortController?: AbortController;
+};
 
 export function killMonitorMcpTasksForAgent(
-    agentId: string,
-    getAppState: () => unknown,
-    setAppState: SetAppState,
+	agentId: string,
+	getAppState: () => unknown,
+	setAppState: SetAppState,
 ): void {
-    console.log('[MonitorMcpTask] killMonitorMcpTasksForAgent called', agentId)
+	console.log("[MonitorMcpTask] killMonitorMcpTasksForAgent called", agentId);
 }
 
-export function killMonitorMcp(
-    taskId: string,
-    setAppState: SetAppState,
-): void {
-    console.log('[MonitorMcpTask] killMonitorMcp called', taskId)
+export function killMonitorMcp(taskId: string, setAppState: SetAppState): void {
+	console.log("[MonitorMcpTask] killMonitorMcp called", taskId);
 }
 
 export const MonitorMcpTask: Task = {
-    name: 'MonitorMcpTask',
-    type: 'monitor_mcp',
+	name: "MonitorMcpTask",
+	type: "monitor_mcp",
 
-    async kill(taskId, setAppState) {
-        killMonitorMcp(taskId, setAppState)
-    },
-}
+	async kill(taskId, setAppState) {
+		killMonitorMcp(taskId, setAppState);
+	},
+};

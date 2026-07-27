@@ -124,11 +124,7 @@ export async function getAnthropicClient({
 	source?: string;
 }): Promise<Anthropic> {
 	const containerId = process.env.FUSION_CODE_CONTAINER_ID;
-	console.error(
-			model +
-			" isFusionMlx=" +
-			isFusionMlxProvider(model),
-	);
+	console.error(model + " isFusionMlx=" + isFusionMlxProvider(model));
 	const remoteSessionId = process.env.FUSION_CODE_REMOTE_SESSION_ID;
 	const clientApp = process.env.CLAUDE_AGENT_SDK_CLIENT_APP;
 	const customHeaders = getCustomHeaders();

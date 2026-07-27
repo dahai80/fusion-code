@@ -5,7 +5,7 @@
  */
 
 export class DangerousBackend {
-    constructor() {
-        throw new Error('DangerousBackend is not available in this build')
-    }
+	constructor() {
+		throw new Error("DangerousBackend is not available in this build");
+	}
 }
