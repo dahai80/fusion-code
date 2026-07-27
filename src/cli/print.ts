@@ -916,9 +916,9 @@ export async function runHeadless(
 			(message as { type: string }).type !== "prompt_suggestion"
 		) {
 			if (needsFullArray) {
-				messages.push(message);
+				messages.push(message as SDKMessage);
 			}
-			lastMessage = message;
+			lastMessage = message as SDKMessage;
 		}
 	}
 
