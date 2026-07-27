@@ -105,6 +105,7 @@ export type UserMessage = {
     imagePasteIds?: number[]
     sourceToolAssistantUUID?: UUID
     permissionMode?: PermissionMode
+    planContent?: string
     origin?: MessageOrigin
 }
 

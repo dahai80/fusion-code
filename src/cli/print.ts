@@ -1648,10 +1648,11 @@ function runHeadlessStreaming(
 				connection.config.type === "stdio" ||
 				connection.config.type === undefined
 			) {
+				const stdioConfig = connection.config as import("src/services/mcp/types.js").McpStdioServerConfig; // log: fix TS2339
 				config = {
 					type: "stdio" as const,
-					command: connection.config.command,
-					args: connection.config.args,
+					command: stdioConfig.command,
+					args: stdioConfig.args,
 				};
 			}
 			const serverTools =
@@ -2853,8 +2854,9 @@ function runHeadlessStreaming(
 					suggestionState.pendingSuggestion = null;
 					sendControlResponseSuccess(message);
 				} else if (message.request.subtype === "end_session") {
+					const endSessionReq = message.request as unknown as { subtype: string; reason?: string }; // log: fix TS2339
 					logForDebugging(
-						`[print.ts] end_session received, reason=${message.request.reason ?? "unspecified"}`,
+						`[print.ts] end_session received, reason=${endSessionReq.reason ?? "unspecified"}`,
 					);
 					if (abortController) {
 						abortController.abort();
@@ -3310,10 +3312,11 @@ function runHeadlessStreaming(
 						}
 					}
 				} else if (message.request.subtype === "channel_enable") {
+					const channelReq = message.request as unknown as { subtype: string; serverName: string }; // log: fix TS2339
 					const currentAppState = getAppState();
 					handleChannelEnable(
 						message.request_id,
-						message.request.serverName,
+						channelReq.serverName,
 						// Pool spread matches mcp_status — all three client sources.
 						[
 							...currentAppState.mcp.clients,
@@ -3636,10 +3639,11 @@ function runHeadlessStreaming(
 						// Inject the manual code synchronously — must happen in stdin
 						// message order so a subsequent claude_authenticate doesn't
 						// replace the service before this code lands.
-						if (message.request.subtype === "claude_oauth_callback") {
+						if ((message.request as { subtype: string }).subtype === "claude_oauth_callback") {
+							const oauthReq = message.request as unknown as { subtype: string; authorizationCode: string; state: string }; // log: fix TS2339
 							claudeOAuth.service.handleManualAuthCodeInput({
-								authorizationCode: message.request.authorizationCode,
-								state: message.request.state,
+								authorizationCode: oauthReq.authorizationCode,
+								state: oauthReq.state,
 							});
 						}
 						// Detach the await — the stdin reader is serial and blocking
@@ -3918,7 +3922,8 @@ function runHeadlessStreaming(
 					}
 					sendControlResponseSuccess(message);
 				} else if (message.request.subtype === "remote_control") {
-					if (message.request.enabled) {
+					const remoteReq = message.request as unknown as { subtype: string; enabled: boolean }; // log: fix TS2339
+					if (remoteReq.enabled) {
 						if (bridgeHandle) {
 							// Already connected
 							sendControlResponseSuccess(message, {
@@ -4286,7 +4291,7 @@ function runHeadlessStreaming(
 							session_id,
 							artifact_id,
 						} = message.request;
-						const { getArtifactEngineUrl } = await import(
+						const { getArtifactEngineURL: getArtifactEngineUrl } = await import(
 							"src/utils/artifactConfig.js"
 						);
 						const engineUrl = getArtifactEngineUrl();

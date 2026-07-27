@@ -90,6 +90,10 @@ export class FileStateCache {
   load(entries: ReturnType<LRUCache<string, FileState>['dump']>): void {
     this.cache.load(entries)
   }
+
+  cacheKeys(): string[] {
+    return Array.from(this.cache.keys())
+  }
 }
 
 /**

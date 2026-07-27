@@ -268,7 +268,14 @@ function WriteRejectionDiff(t0) {
   }
   return t5;
 }
-function WriteRejectionBody(t0) {
+function WriteRejectionBody(t0: { // log: fix TS2339
+    promise: Promise<RejectionDiffData>; // log: fix TS2339
+    filePath: string; // log: fix TS2339
+    firstLine: string | null; // log: fix TS2339
+    createFallback: React.ReactNode; // log: fix TS2339
+    style: unknown; // log: fix TS2339
+    verbose: boolean; // log: fix TS2339
+}) {
   const $ = _c(8);
   const {
     promise,

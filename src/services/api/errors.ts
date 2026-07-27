@@ -440,7 +440,7 @@ export function getAssistantMessageFromError(
   ) {
     return createAssistantAPIErrorMessage({
       content: API_TIMEOUT_ERROR_MESSAGE,
-      error: 'unknown',
+      error: 'unknown' as SDKAssistantMessageError,
     })
   }
 
@@ -460,7 +460,7 @@ export function getAssistantMessageFromError(
   ) {
     return createAssistantAPIErrorMessage({
       content: CUSTOM_OFF_SWITCH_MESSAGE,
-      error: 'rate_limit',
+      error: 'rate_limit' as SDKAssistantMessageError,
     })
   }
 
@@ -522,7 +522,7 @@ export function getAssistantMessageFromError(
       if (specificErrorMessage) {
         return createAssistantAPIErrorMessage({
           content: specificErrorMessage,
-          error: 'rate_limit',
+          error: 'rate_limit' as SDKAssistantMessageError,
         })
       }
 
@@ -532,7 +532,7 @@ export function getAssistantMessageFromError(
       // message is still recorded in conversation history for Claude to see.
       return createAssistantAPIErrorMessage({
         content: NO_RESPONSE_REQUESTED,
-        error: 'rate_limit',
+        error: 'rate_limit' as SDKAssistantMessageError,
       })
     }
 
@@ -545,7 +545,7 @@ export function getAssistantMessageFromError(
         : 'run /extra-usage to enable, or /model to switch to standard context'
       return createAssistantAPIErrorMessage({
         content: `${API_ERROR_MESSAGE_PREFIX}: Extra usage is required for 1M context · ${hint}`,
-        error: 'rate_limit',
+        error: 'rate_limit' as SDKAssistantMessageError,
       })
     }
     // SDK's APIError.makeMessage prepends "429 " and JSON-stringifies the body
@@ -555,7 +555,7 @@ export function getAssistantMessageFromError(
     const detail = innerMessage || stripped
     return createAssistantAPIErrorMessage({
       content: `${API_ERROR_MESSAGE_PREFIX}: Request rejected (429) · ${detail || 'this may be a temporary capacity issue — check status.anthropic.com'}`,
-      error: 'rate_limit',
+      error: 'rate_limit' as SDKAssistantMessageError,
     })
   }
 
@@ -575,7 +575,7 @@ export function getAssistantMessageFromError(
     // parses the gap from there via getPromptTooLongTokenGap.
     return createAssistantAPIErrorMessage({
       content: PROMPT_TOO_LONG_ERROR_MESSAGE,
-      error: 'invalid_request',
+      error: 'invalid_request' as SDKAssistantMessageError,
       errorDetails: error.message,
     })
   }
@@ -587,7 +587,7 @@ export function getAssistantMessageFromError(
   ) {
     return createAssistantAPIErrorMessage({
       content: getPdfTooLargeErrorMessage(),
-      error: 'invalid_request',
+      error: 'invalid_request' as SDKAssistantMessageError,
       errorDetails: error.message,
     })
   }
@@ -599,7 +599,7 @@ export function getAssistantMessageFromError(
   ) {
     return createAssistantAPIErrorMessage({
       content: getPdfPasswordProtectedErrorMessage(),
-      error: 'invalid_request',
+      error: 'invalid_request' as SDKAssistantMessageError,
     })
   }
 
@@ -612,7 +612,7 @@ export function getAssistantMessageFromError(
   ) {
     return createAssistantAPIErrorMessage({
       content: getPdfInvalidErrorMessage(),
-      error: 'invalid_request',
+      error: 'invalid_request' as SDKAssistantMessageError,
     })
   }
 
@@ -640,7 +640,7 @@ export function getAssistantMessageFromError(
       content: getIsNonInteractiveSession()
         ? 'An image in the conversation exceeds the dimension limit for many-image requests (2000px). Start a new session with fewer images.'
         : 'An image in the conversation exceeds the dimension limit for many-image requests (2000px). Run /compact to remove old images from context, or start a new session.',
-      error: 'invalid_request',
+      error: 'invalid_request' as SDKAssistantMessageError,
       errorDetails: error.message,
     })
   }
@@ -657,7 +657,7 @@ export function getAssistantMessageFromError(
   ) {
     return createAssistantAPIErrorMessage({
       content: 'Auto mode is unavailable for your plan',
-      error: 'invalid_request',
+      error: 'invalid_request' as SDKAssistantMessageError,
     })
   }
 
@@ -666,7 +666,7 @@ export function getAssistantMessageFromError(
   if (error instanceof APIError && error.status === 413) {
     return createAssistantAPIErrorMessage({
       content: getRequestTooLargeErrorMessage(),
-      error: 'invalid_request',
+      error: 'invalid_request' as SDKAssistantMessageError,
     })
   }
 
@@ -698,7 +698,7 @@ export function getAssistantMessageFromError(
         : ' Then, use /rewind to recover the conversation.'
       return createAssistantAPIErrorMessage({
         content: baseMessage + rewindInstruction,
-        error: 'invalid_request',
+        error: 'invalid_request' as SDKAssistantMessageError,
       })
     } else {
       const baseMessage = 'API Error: 400 due to tool use concurrency issues.'
@@ -707,7 +707,7 @@ export function getAssistantMessageFromError(
         : ' Run /rewind to recover the conversation.'
       return createAssistantAPIErrorMessage({
         content: baseMessage + rewindInstruction,
-        error: 'invalid_request',
+        error: 'invalid_request' as SDKAssistantMessageError,
       })
     }
   }
@@ -734,7 +734,7 @@ export function getAssistantMessageFromError(
       : ' Run /rewind to recover the conversation.'
     return createAssistantAPIErrorMessage({
       content: `API Error: 400 duplicate tool_use ID in conversation history.${rewindInstruction}`,
-      error: 'invalid_request',
+      error: 'invalid_request' as SDKAssistantMessageError,
       errorDetails: error.message,
     })
   }
@@ -750,7 +750,7 @@ export function getAssistantMessageFromError(
     return createAssistantAPIErrorMessage({
       content:
         'Claude Opus is not available with the Claude Pro plan. If you have updated your subscription plan recently, run /logout and /login for the plan to take effect.',
-      error: 'invalid_request',
+      error: 'invalid_request' as SDKAssistantMessageError,
     })
   }
 
@@ -772,7 +772,7 @@ export function getAssistantMessageFromError(
 
     return createAssistantAPIErrorMessage({
       content: msg,
-      error: 'invalid_request',
+      error: 'invalid_request' as SDKAssistantMessageError,
     })
   }
 
@@ -782,7 +782,7 @@ export function getAssistantMessageFromError(
   ) {
     return createAssistantAPIErrorMessage({
       content: CREDIT_BALANCE_TOO_LOW_ERROR_MESSAGE,
-      error: 'billing_error',
+      error: 'billing_error' as SDKAssistantMessageError,
     })
   }
   // "Organization has been disabled" — commonly a stale FUSION_API_KEY
@@ -809,7 +809,7 @@ export function getAssistantMessageFromError(
       // login can't fix this (approved env var keeps overriding OAuth). The fix
       // is configuration-based (unset the var), so invalid_request is correct.
       return createAssistantAPIErrorMessage({
-        error: 'invalid_request',
+        error: 'invalid_request' as SDKAssistantMessageError,
         content: hasStoredOAuth
           ? ORG_DISABLED_ERROR_MESSAGE_ENV_KEY_WITH_OAUTH
           : ORG_DISABLED_ERROR_MESSAGE_ENV_KEY,
@@ -824,7 +824,7 @@ export function getAssistantMessageFromError(
     // In CCR mode, auth is via JWTs - this is likely a transient network issue
     if (isCCRMode()) {
       return createAssistantAPIErrorMessage({
-        error: 'authentication_failed',
+        error: 'authentication_failed' as SDKAssistantMessageError,
         content: CCR_AUTH_ERROR_MESSAGE,
       })
     }
@@ -848,7 +848,7 @@ export function getAssistantMessageFromError(
     }
 
     return createAssistantAPIErrorMessage({
-      error: 'authentication_failed',
+      error: 'authentication_failed' as SDKAssistantMessageError,
       content: authErrorContent,
     })
   }
@@ -860,7 +860,7 @@ export function getAssistantMessageFromError(
     error.message.includes('OAuth token has been revoked')
   ) {
     return createAssistantAPIErrorMessage({
-      error: 'authentication_failed',
+      error: 'authentication_failed' as SDKAssistantMessageError,
       content: getTokenRevokedErrorMessage(),
     })
   }
@@ -874,7 +874,7 @@ export function getAssistantMessageFromError(
     )
   ) {
     return createAssistantAPIErrorMessage({
-      error: 'authentication_failed',
+      error: 'authentication_failed' as SDKAssistantMessageError,
       content: getOauthOrgNotAllowedErrorMessage(),
     })
   }
@@ -887,13 +887,13 @@ export function getAssistantMessageFromError(
     // In CCR mode, auth is via JWTs - this is likely a transient network issue
     if (isCCRMode()) {
       return createAssistantAPIErrorMessage({
-        error: 'authentication_failed',
+        error: 'authentication_failed' as SDKAssistantMessageError,
         content: CCR_AUTH_ERROR_MESSAGE,
       })
     }
 
     return createAssistantAPIErrorMessage({
-      error: 'authentication_failed',
+      error: 'authentication_failed' as SDKAssistantMessageError,
       content: getIsNonInteractiveSession()
         ? `Failed to authenticate. ${API_ERROR_MESSAGE_PREFIX}: ${error.message}`
         : `Please run /login · ${API_ERROR_MESSAGE_PREFIX}: ${error.message}`,
@@ -905,15 +905,16 @@ export function getAssistantMessageFromError(
   if (
     false &&
     error instanceof Error &&
-    error.message.toLowerCase().includes('model id')
+    (error as Error).message.toLowerCase().includes('model id')
   ) {
     const switchCmd = getIsNonInteractiveSession() ? '--model' : '/model'
     const fallbackSuggestion = get3PModelFallbackSuggestion(model)
+    const errMsg = (error as Error).message
     return createAssistantAPIErrorMessage({
       content: fallbackSuggestion
-        ? `${API_ERROR_MESSAGE_PREFIX} (${model}): ${error.message}. Try ${switchCmd} to switch to ${fallbackSuggestion}.`
-        : `${API_ERROR_MESSAGE_PREFIX} (${model}): ${error.message}. Run ${switchCmd} to pick a different model.`,
-      error: 'invalid_request',
+        ? `${API_ERROR_MESSAGE_PREFIX} (${model}): ${errMsg}. Try ${switchCmd} to switch to ${fallbackSuggestion}.`
+        : `${API_ERROR_MESSAGE_PREFIX} (${model}): ${errMsg}. Run ${switchCmd} to pick a different model.`,
+      error: 'invalid_request' as SDKAssistantMessageError,
     })
   }
 
@@ -927,7 +928,7 @@ export function getAssistantMessageFromError(
       content: fallbackSuggestion
         ? `The model ${model} is not available on your ${getAPIProvider()} deployment. Try ${switchCmd} to switch to ${fallbackSuggestion}, or ask your admin to enable this model.`
         : `There's an issue with the selected model (${model}). It may not exist or you may not have access to it. Run ${switchCmd} to pick a different model.`,
-      error: 'invalid_request',
+      error: 'invalid_request' as SDKAssistantMessageError,
     })
   }
 
@@ -935,19 +936,19 @@ export function getAssistantMessageFromError(
   if (error instanceof APIConnectionError) {
     return createAssistantAPIErrorMessage({
       content: `${API_ERROR_MESSAGE_PREFIX}: ${formatAPIError(error)}`,
-      error: 'unknown',
+      error: 'unknown' as SDKAssistantMessageError,
     })
   }
 
   if (error instanceof Error) {
     return createAssistantAPIErrorMessage({
       content: `${API_ERROR_MESSAGE_PREFIX}: ${error.message}`,
-      error: 'unknown',
+      error: 'unknown' as SDKAssistantMessageError,
     })
   }
   return createAssistantAPIErrorMessage({
     content: API_ERROR_MESSAGE_PREFIX,
-    error: 'unknown',
+    error: 'unknown' as SDKAssistantMessageError,
   })
 }
 
@@ -1176,18 +1177,18 @@ export function categorizeRetryableAPIError(
     error.status === 529 ||
     error.message?.includes('"type":"overloaded_error"')
   ) {
-    return 'rate_limit'
+    return 'rate_limit' as SDKAssistantMessageError
   }
   if (error.status === 429) {
-    return 'rate_limit'
+    return 'rate_limit' as SDKAssistantMessageError
   }
   if (error.status === 401 || error.status === 403) {
-    return 'authentication_failed'
+    return 'authentication_failed' as SDKAssistantMessageError
   }
   if (error.status !== undefined && error.status >= 408) {
-    return 'server_error'
+    return 'server_error' as SDKAssistantMessageError
   }
-  return 'unknown'
+  return 'unknown' as SDKAssistantMessageError
 }
 
 export function getErrorMessageIfRefusal(
@@ -1211,6 +1212,6 @@ export function getErrorMessageIfRefusal(
 
   return createAssistantAPIErrorMessage({
     content: baseMessage + modelSuggestion,
-    error: 'invalid_request',
+    error: 'invalid_request' as SDKAssistantMessageError,
   })
 }

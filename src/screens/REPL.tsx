@@ -104,13 +104,12 @@ const VoiceKeybindingHandler: typeof import('../hooks/useVoiceIntegration.js').V
 // Frustration detection is ant-only (dogfooding). Conditional require so external
 // builds eliminate the module entirely (including its two O(n) useMemos that run
 // on every messages change, plus the GrowthBook fetch).
-const useFrustrationDetection = () => ({
+const useFrustrationDetection = (..._args: unknown[]) => ({
   state: 'closed' as const,
   handleTranscriptSelect: () => {}
 });
-// Ant-only org warning. Conditional require so the org UUID list is
-// eliminated from external builds (one UUID is on excluded-strings).
-const useAntOrgWarningNotification: typeof import('../hooks/notifs/useAntOrgWarningNotification.js').useAntOrgWarningNotification = "external" === 'ant' ? require('../hooks/notifs/useAntOrgWarningNotification.js').useAntOrgWarningNotification : () => {};
+// Ant-only org warning. Stripped from external builds.
+const useAntOrgWarningNotification = (..._args: unknown[]) => {};
 // Dead code elimination: conditional import for coordinator mode
 const getCoordinatorUserContext: (mcpClients: ReadonlyArray<{
   name: string;
@@ -190,7 +189,7 @@ import { computeStandaloneAgentContext, restoreAgentFromSession, restoreSessionS
 import { isBgSession, updateSessionName, updateSessionActivity } from '../utils/concurrentSessions.js';
 import { isInProcessTeammateTask, type InProcessTeammateTaskState } from '../tasks/InProcessTeammateTask/types.js';
 // RemoteAgentTask removed - cloud-only
-const restoreRemoteAgentTasks = async () => {}
+const restoreRemoteAgentTasks = async (..._args: unknown[]) => {}
 import { useInboxPoller } from '../hooks/useInboxPoller.js';
 // Dead code elimination: conditional import for loop mode
 /* eslint-disable @typescript-eslint/no-require-imports */
@@ -229,9 +228,9 @@ import { activityManager } from '../utils/activityManager.js';
 import { createAbortController } from '../utils/abortController.js';
 import { MCPConnectionManager } from 'src/services/mcp/MCPConnectionManager.js';
 // FeedbackSurvey removed - cloud-only feature. Stubs below.
-const useFeedbackSurvey = () => ({ state: 'closed' as const, lastResponse: null as null, handleSelect: () => false });
-const useMemorySurvey = () => ({ state: 'closed' as const, lastResponse: null as null, handleSelect: () => {}, handleTranscriptSelect: () => {} });
-const usePostCompactSurvey = () => ({ state: 'closed' as const, lastResponse: null as null, handleSelect: () => {} });
+const useFeedbackSurvey = (..._args: unknown[]) => ({ state: 'closed' as const, lastResponse: null as null, handleSelect: (..._a: unknown[]) => false });
+const useMemorySurvey = (..._args: unknown[]) => ({ state: 'closed' as const, lastResponse: null as null, handleSelect: (..._a: unknown[]) => {}, handleTranscriptSelect: (..._a: unknown[]) => {} });
+const usePostCompactSurvey = (..._args: unknown[]) => ({ state: 'closed' as const, lastResponse: null as null, handleSelect: (..._a: unknown[]) => {} });
 function FeedbackSurvey() { return null; }
 import { useInstallMessages } from 'src/hooks/notifs/useInstallMessages.js';
 import { useAwaySummary } from 'src/hooks/useAwaySummary.js';
@@ -1641,7 +1640,7 @@ export function REPL({
           autoPermissionsNotificationCount: prevCount + 1
         };
       });
-      setMessages(prev => [...prev, createSystemMessage(AUTO_MODE_DESCRIPTION, 'warning')]);
+      setMessages(prev => [...prev, createSystemMessage(AUTO_MODE_DESCRIPTION, 'warn')]);
     }, 800, safeYoloMessageShownRef, setMessages);
     return () => clearTimeout(timer);
   }, [toolPermissionContext.mode, setMessages]);
@@ -1772,7 +1771,7 @@ export function REPL({
               activeAgents: getActiveAgentsFromList(freshAgentDefs.allAgents)
             }
           }));
-          messages.push(createSystemMessage(warning, 'warning'));
+          messages.push(createSystemMessage(warning, 'warn'));
         }
       }
 
@@ -3605,6 +3604,7 @@ export function REPL({
   // Handler for when user presses 1 on survey thanks screen to share details — commands removed, cloud-only
   const handleSurveyRequestFeedback = useCallback(() => {
     return; // /issue and /feedback commands removed - cloud-only
+    const command = ''; // dead code - commands stripped
     onSubmit(command, {
       setCursorOffset: () => {},
       clearBuffer: () => {},
@@ -4892,7 +4892,7 @@ export function REPL({
               // selector still shows (REPL keeps full history for
               // scrollback). Surface why nothing happened instead
               // of silently no-oping.
-              setMessages(prev => [...prev, createSystemMessage('That message is no longer in the active context (snipped or pre-compact). Choose a more recent message.', 'warning')]);
+              setMessages(prev => [...prev, createSystemMessage('That message is no longer in the active context (snipped or pre-compact). Choose a more recent message.', 'warn')]);
               return;
             }
             const newAbortController = createAbortController();

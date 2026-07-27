@@ -23,6 +23,7 @@ import { tryRenderPlanApprovalMessage, formatTeammateMessageContent } from './Pl
 import { BLACK_CIRCLE } from '../../constants/figures.js';
 import { TeammateMessageContent } from './UserTeammateMessage.js';
 import { isShutdownApproved } from '../../utils/teammateMailbox.js';
+import { isInProcessTeammateTask } from '../../tasks/InProcessTeammateTask/types.js'; // log: fix TS2339
 import { CtrlOToExpand } from '../CtrlOToExpand.js';
 import { FilePathLink } from '../FilePathLink.js';
 import { feature } from 'bun:bundle';
@@ -452,7 +453,7 @@ function TeammateTaskStatus(t0) {
     t1 = $[1];
   }
   const task = useAppState(t1);
-  if (task?.type !== "in_process_teammate") {
+  if (!isInProcessTeammateTask(task)) {
     let t2;
     if ($[2] !== attachment) {
       t2 = <GenericTaskStatus attachment={attachment} />;

@@ -141,3 +141,6 @@ declare namespace NodeJS {
         USER_TYPE?: 'external' | 'ant'
     }
 }
+
+// Stripped Anthropic-only runtime functions
+declare function fireCompanionObserver(messages: unknown, callback: (reaction: unknown) => void): Promise<void>

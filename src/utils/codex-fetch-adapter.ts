@@ -45,41 +45,57 @@ interface OpenAIResponse {
 
 /**
  * Convert Fusion-Code message format to OpenAI format
+ * Returns null for message types that cannot be converted (system, attachment, progress)
  */
-function convertToOpenAIMessage(message: Message): OpenAIMessage {
-  if (typeof message.content === 'string') {
-    return {
-      role: message.role === 'human' ? 'user' : message.role as 'system' | 'assistant',
-      content: message.content,
-    }
-  }
-
-  // Handle multi-modal content
-  const content: Array<any> = []
-
-  for (const item of message.content) {
-    if (item.type === 'text') {
-      content.push({
-        type: 'text',
-        text: item.text,
-      })
-    } else if (item.type === 'image') {
-      // Convert Anthropic base64 image schema to OpenAI format
-      content.push({
-        type: 'image_url',
-        image_url: {
-          url: item.source.type === 'base64'
-            ? `data:${item.source.media_type};base64,${item.source.data}`
-            : item.source.data
+function convertToOpenAIMessage(message: Message): OpenAIMessage | null {
+    if (message.type === 'user') {
+        const role: 'user' = 'user' // log: fix TS2339
+        const msgContent = message.message.content
+        if (typeof msgContent === 'string') {
+            return { role, content: msgContent }
         }
-      })
+        // Handle multi-modal content blocks
+        const content: Array<{
+            type: 'text' | 'image_url'
+            text?: string
+            image_url?: { url: string }
+        }> = []
+        for (const item of msgContent) {
+            if (item.type === 'text') {
+                content.push({ type: 'text', text: item.text })
+            } else if (item.type === 'image') {
+                const src = item.source // log: fix TS2339
+                content.push({
+                    type: 'image_url',
+                    image_url: {
+                        url: src.type === 'base64'
+                            ? `data:${src.media_type};base64,${src.data}`
+                            : src.url, // log: fix TS2339
+                    },
+                })
+            }
+        }
+        return { role, content }
     }
-  }
 
-  return {
-    role: message.role === 'human' ? 'user' : message.role as 'system' | 'assistant',
-    content,
-  }
+    if (message.type === 'assistant') {
+        const role: 'assistant' = 'assistant' // log: fix TS2339
+        const msgContent = message.message.content
+        const content: Array<{
+            type: 'text' | 'image_url'
+            text?: string
+            image_url?: { url: string }
+        }> = []
+        for (const block of msgContent) {
+            if (block.type === 'text') {
+                content.push({ type: 'text', text: block.text })
+            }
+        }
+        return { role, content }
+    }
+
+    // System, attachment, and progress messages are not convertible
+    return null
 }
 
 /**
@@ -100,7 +116,7 @@ export async function fetchCodexResponse(
     throw new Error('OpenAI API key is required for Codex requests')
   }
 
-  const openAIMessages = messages.map(convertToOpenAIMessage)
+  const openAIMessages = messages.map(convertToOpenAIMessage).filter((m): m is OpenAIMessage => m !== null)
 
   const requestBody = {
     model,

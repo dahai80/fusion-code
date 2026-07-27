@@ -228,11 +228,13 @@ export async function tryReactiveCompact(params: {
         )
 
         if (!result.ok) {
-            logForDebugging(`[ReactiveCompact] Compaction failed: ${result.reason}`)
+            const failResult = result as { ok: false; reason: string }
+            logForDebugging(`[ReactiveCompact] Compaction failed: ${failResult.reason}`)
             return null
         }
 
-        return result.result
+        const okResult = result as { ok: true; result: CompactionResult }
+        return okResult.result
     } catch (err) {
         logForDebugging(`[ReactiveCompact] Error during compaction: ${err}`)
         return null
@@ -350,6 +352,7 @@ export async function reactiveCompactOnPromptTooLong(
 
             // Execute PostCompact hooks
             const postHookResult = await executePostCompactHooks(
+                { trigger: 'auto', compactSummary: result.summaryMessages.map(m => typeof m.message.content === 'string' ? m.message.content : '').join('\n') },
                 ctx.abortController.signal,
             )
             if (postHookResult.userDisplayMessage) {

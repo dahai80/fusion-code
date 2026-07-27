@@ -22,6 +22,10 @@ interface RemoteAgentTaskState { // log: fix TS2339
     todoList?: Array<{ status: string }>; // log: fix TS2339
     id: string; // log: fix TS2339
     type: 'remote_agent'; // log: fix TS2339
+    description: string; // log: fix TS2339
+    outputFile: string; // log: fix TS2339
+    outputOffset: number; // log: fix TS2339
+    notified: boolean; // log: fix TS2339
 }
 
 export type TaskState =

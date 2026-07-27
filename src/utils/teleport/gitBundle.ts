@@ -34,6 +34,8 @@ export type BundleUploadResult =
       bundleSizeBytes: number
       scope: BundleScope
       hasWip: boolean
+      error?: undefined // log: fix TS2339
+      failReason?: undefined // log: fix TS2339
     }
   | { success: false; error: string; failReason?: BundleFailReason }
 

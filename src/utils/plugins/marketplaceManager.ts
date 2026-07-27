@@ -8,6 +8,7 @@ export interface MarketplaceConfig {
     allowCrossMarketplaceDependenciesOn?: string[] // log: fix TS2339
     plugins?: import('./schemas.js').PluginMarketplaceEntry[] // log: fix TS2339
     installLocation?: string // log: fix TS2339
+    source?: import('./schemas.js').MarketplaceSource // log: fix TS2339
 }
 
 export interface MarketplacePlugin {

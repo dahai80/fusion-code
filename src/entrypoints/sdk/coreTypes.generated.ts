@@ -131,9 +131,9 @@ export type SDKSessionInfo = {
 }
 
 export type PermissionResult =
-  | { behavior: 'allow'; updatedInput?: Record<string, unknown> }
-  | { behavior: 'deny'; message?: string }
-  | { behavior: 'ask'; updatedInput?: Record<string, unknown>; message?: string }
+  | { behavior: 'allow'; updatedInput?: Record<string, unknown>; toolUseID?: string } // log: fix TS2339
+  | { behavior: 'deny'; message?: string; toolUseID?: string }
+  | { behavior: 'ask'; updatedInput?: Record<string, unknown>; message?: string; toolUseID?: string }
 
 export type HookInput = {
   session_id?: string

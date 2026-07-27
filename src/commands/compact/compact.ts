@@ -186,7 +186,8 @@ async function compactViaReactive(
       // The outer catch in `call` translates these: aborted → "Compaction
       // canceled." (via abortController.signal.aborted check), NOT_ENOUGH →
       // re-thrown as-is, everything else → "Error during compaction: …".
-      const reason = outcome.reason as string
+      const failOutcome = outcome as { ok: false; reason: string }
+      const reason = failOutcome.reason
       switch (reason) {
         case 'too_few_groups':
           throw new Error(ERROR_MESSAGE_NOT_ENOUGH_MESSAGES)

@@ -39,7 +39,7 @@ import { jsonStringify } from './slowOperations.js';
 import { asSystemPrompt } from './systemPromptType.js';
 import { fetchSession, type GitRepositoryOutcome, type GitSource, getBranchFromSession, getOAuthHeaders, type SessionResource } from './teleport/api.js';
 import { fetchEnvironments } from './teleport/environments.js';
-import { createAndUploadGitBundle } from './teleport/gitBundle.js';
+import { createAndUploadGitBundle, type BundleUploadResult } from './teleport/gitBundle.js';
 export type TeleportResult = {
   messages: Message[];
   branchName: string;
@@ -1027,9 +1027,9 @@ export async function teleportToRemote(options: {
             break;
           default:
             {
-              const _exhaustive: never = bundle.failReason;
+              const _exhaustive: never = bundle.failReason as never;
               void _exhaustive;
-              msg = `Bundle upload failed: ${bundle.error}`;
+              msg = `Bundle upload failed: unknown reason`;
             }
         }
         options.onBundleFail?.(msg);
