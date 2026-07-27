@@ -29,7 +29,7 @@ import {
 } from "src/services/analytics/index.js";
 import { ImageSizeError } from "./utils/imageValidation.js";
 import { ImageResizeError } from "./utils/imageResizer.js";
-import { findToolByName, type ToolUseContext } from "./Tool.js";
+import { findToolByName, type Tool, type ToolUseContext } from "./Tool.js";
 import { asSystemPrompt, type SystemPrompt } from "./utils/systemPromptType.js";
 import type {
 	AssistantMessage,
@@ -689,7 +689,7 @@ async function* queryLoop(
 		if (isFusionMlxProvider()) {
 			let preflight = preflightMlxQueryCheck(
 				fullSystemPrompt as unknown as string,
-				toolUseContext.options.tools,
+				toolUseContext.options.tools as Tool[],
 				messagesForQuery,
 			);
 
@@ -767,7 +767,7 @@ async function* queryLoop(
 						}
 						preflight = preflightMlxQueryCheck(
 							fullSystemPrompt as unknown as string,
-							toolUseContext.options.tools,
+							toolUseContext.options.tools as Tool[],
 							messagesForQuery,
 						);
 					}
@@ -1437,6 +1437,7 @@ mlxForcedCompactDone,
 						stopHookActive: undefined,
 						turnCount,
 						mlxModelOomCount,
+mlxForcedCompactDone,
 						transition: {
 							reason: "max_output_tokens_recovery",
 							attempt: maxOutputTokensRecoveryCount + 1,

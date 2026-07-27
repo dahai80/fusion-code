@@ -319,7 +319,7 @@ export async function pluginListHandler(options: {
           data: marketplace,
         } of marketplaces) {
           if (marketplace) {
-            for (const entry of marketplace.plugins) {
+            for (const entry of (marketplace as { plugins: Array<{ name: string; description?: string; version?: string; source: string }> }).plugins) { // log: fix TS2339
               const pluginId = createPluginId(entry.name, marketplaceName)
               // Only include plugins that are not already installed
               if (!isPluginInstalled(pluginId)) {

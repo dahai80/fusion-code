@@ -223,9 +223,10 @@ async function executeBYOCPersistence(
         file_id: result.fileId,
       })
     } else {
+      const fail = result as Extract<UploadResult, { success: false }> // log: fix TS2339
       failedFiles.push({
-        filename: result.path,
-        error: result.error,
+        filename: fail.path,
+        error: fail.error,
       })
     }
   }

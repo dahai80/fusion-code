@@ -58,7 +58,7 @@ async function handleList(cwd: string): Promise<LocalCommandResult> {
         const lines = content.trim().split('\n').filter(Boolean)
 
         if (lines.length === 0) {
-            return { display: 'No checkpoints found.' } satisfies LocalCommandResult
+            return { type: 'display', display: 'No checkpoints found.' } satisfies LocalCommandResult
         }
 
         const header = 'Timestamp           | Name             | Git Ref'
@@ -69,7 +69,7 @@ async function handleList(cwd: string): Promise<LocalCommandResult> {
             display: `Checkpoints (last 20):\n${header}\n${separator}\n${rows}`,
         } satisfies LocalCommandResult
     } catch {
-        return { display: 'No checkpoints found.' } satisfies LocalCommandResult
+        return { type: 'display', display: 'No checkpoints found.' } satisfies LocalCommandResult
     }
 }
 
@@ -82,7 +82,7 @@ async function handleVerify(name: string, cwd: string): Promise<LocalCommandResu
 
         const match = lines.find(l => l.includes(`| ${name} |`))
         if (!match) {
-            return { display: `Checkpoint "${name}" not found. Use /checkpoint list to see all.` } satisfies LocalCommandResult
+            return { type: 'display', display: `Checkpoint "${name}" not found. Use /checkpoint list to see all.` } satisfies LocalCommandResult
         }
 
         const parts = match.split(' | ').map(p => p.trim())
@@ -108,6 +108,6 @@ async function handleVerify(name: string, cwd: string): Promise<LocalCommandResu
             display: `Checkpoint: ${name}\nCreated at: ${parts[0]} (${checkpointRef})\nCurrent: ${currentRef}\n\nChanges since checkpoint:\n${diffStat || 'None'}`,
         } satisfies LocalCommandResult
     } catch {
-        return { display: 'No checkpoints found.' } satisfies LocalCommandResult
+        return { type: 'display', display: 'No checkpoints found.' } satisfies LocalCommandResult
     }
 }

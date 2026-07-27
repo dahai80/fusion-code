@@ -166,6 +166,23 @@ export type AsyncHookJSONOutput = HookJSONOutput & {
   waitMs?: number
 }
 
+export type SDKAuthStatusMessage = SDKBaseMessage & {
+  type: 'auth_status'
+}
+
+export type SDKToolUseSummaryMessage = SDKBaseMessage & {
+  type: 'tool_use_summary'
+}
+
+export type SDKRateLimitEventMessage = SDKBaseMessage & {
+  type: 'rate_limit_event'
+}
+
+export type SDKStreamEventMessage = SDKBaseMessage & {
+  type: 'stream_event'
+  event?: unknown
+}
+
 export type SDKMessage =
   | SDKAssistantMessage
   | SDKAssistantMessageError
@@ -178,3 +195,7 @@ export type SDKMessage =
   | SDKToolProgressMessage
   | SDKUserMessage
   | SDKUserMessageReplay
+  | SDKAuthStatusMessage
+  | SDKToolUseSummaryMessage
+  | SDKRateLimitEventMessage
+  | SDKStreamEventMessage

@@ -57,3 +57,9 @@ export type ForkSessionResult = {
 export type SDKSession = {
   id: string
 }
+
+// log: fix TS2305 - SessionMessage needed by agentSdkTypes
+export type SessionMessage = {
+  role: string
+  content: unknown
+}

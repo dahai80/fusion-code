@@ -21,7 +21,7 @@ export type LocalCommandResult =
       displayText?: string
     }
   | { type: 'skip' } // Skip messages
-  | { display: string }
+  | { type: 'display'; display: string } // log: fix TS2339
 
 export type PromptCommand = {
   type: 'prompt'

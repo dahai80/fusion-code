@@ -34,9 +34,10 @@ export function validateInputForSettingsFileEdit(
   const afterValidation = validateSettingsFileContent(updatedContent)
 
   if (!afterValidation.isValid) {
+    const failed = afterValidation as { isValid: false; error: string; fullSchema: string } // log: fix TS2339
     return {
       result: false,
-      message: `Fusion-Code settings.json validation failed after edit:\n${afterValidation.error}\n\nFull schema:\n${afterValidation.fullSchema}\nIMPORTANT: Do not update the env unless explicitly instructed to do so.`,
+      message: `Fusion-Code settings.json validation failed after edit:\n${failed.error}\n\nFull schema:\n${failed.fullSchema}\nIMPORTANT: Do not update the env unless explicitly instructed to do so.`,
       errorCode: 10,
     }
   }

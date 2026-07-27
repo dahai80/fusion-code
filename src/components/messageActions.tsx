@@ -433,7 +433,7 @@ export function copyTextOf(msg: NavigableMessage): string {
         const a = msg.attachment;
         if (a.type === 'queued_command') {
           const p = a.prompt;
-          return typeof p === 'string' ? p : p.flatMap(b => b.type === 'text' ? [b.text] : []).join('\n');
+          return typeof p === 'string' ? p : (p as Array<{ type: string; text: string }>).flatMap(b => b.type === 'text' ? [b.text] : []).join('\n'); // log: fix TS2339
         }
         return `[${a.type}]`;
       }

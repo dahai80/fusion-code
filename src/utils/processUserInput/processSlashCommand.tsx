@@ -709,11 +709,19 @@ async function getMessagesForSlashCommand(commandName: string, args: string, set
             }
 
             // Text result — use system message so it doesn't render as a user bubble
+            if (result.type === 'text') {
+              return {
+                messages: [userMessage, createCommandInputMessage(`<local-command-stdout>${result.value}</local-command-stdout>`)],
+                shouldQuery: false,
+                command,
+                resultText: result.value
+              };
+            }
+            // Fallback for display-only results
             return {
-              messages: [userMessage, createCommandInputMessage(`<local-command-stdout>${result.value}</local-command-stdout>`)],
+              messages: [userMessage, createCommandInputMessage(`<local-command-stdout>${'display' in result ? result.display : ''}</local-command-stdout>`)],
               shouldQuery: false,
               command,
-              resultText: result.value
             };
           } catch (e) {
             logError(e);
