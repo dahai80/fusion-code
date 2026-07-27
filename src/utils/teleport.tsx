@@ -65,9 +65,7 @@ import {
 	type SessionResource,
 } from "./teleport/api.js";
 import { fetchEnvironments } from "./teleport/environments.js";
-import {
-	type BundleUploadResult,
-	createAndUploadGitBundle,
+import { createAndUploadGitBundle,
 } from "./teleport/gitBundle.js";
 export type TeleportResult = {
 	messages: Message[];

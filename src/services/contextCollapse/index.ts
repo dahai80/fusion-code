@@ -155,9 +155,8 @@ export function subscribe(callback: () => void): () => void {
 	};
 }
 
-function findMessageIndexByUuid(messages: unknown[], uuid: string): number {
-	return messages.findIndex((m) => getUuid(m) === uuid);
-}
+// findMessageIndexByUuid removed (unused)
+
 
 function findCollapsibleSpan(messages: unknown[]): {
 	startIdx: number;

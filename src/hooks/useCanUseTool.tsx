@@ -5,7 +5,6 @@ import {
 	type AnalyticsMetadata_I_VERIFIED_THIS_IS_NOT_CODE_OR_FILEPATHS,
 	logEvent,
 } from "src/services/analytics/index.js";
-import type { ToolUseConfirm } from "../components/permissions/PermissionRequest.js";
 import { Text } from "../ink.js";
 import type {
 	ToolPermissionContext,

@@ -90,7 +90,6 @@ import { installAsciicastRecorder } from "./utils/asciicast.js";
 import {
 	getSubscriptionType,
 	isClaudeAISubscriber,
-	prefetchGcpCredentialsIfSafe,
 	validateForceLoginOrg,
 } from "./utils/auth.js";
 import {

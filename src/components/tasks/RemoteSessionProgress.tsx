@@ -25,7 +25,6 @@ interface RemoteAgentTaskState {
 	todoList?: Array<{ status: string }>; // log: fix TS2339
 } // log: fix TS2339
 
-import type { DeepImmutable } from "src/types/utils.js";
 import { DIAMOND_FILLED, DIAMOND_OPEN } from "../../constants/figures.js";
 import { useSettings } from "../../hooks/useSettings.js";
 import { Text, useAnimationFrame } from "../../ink.js";

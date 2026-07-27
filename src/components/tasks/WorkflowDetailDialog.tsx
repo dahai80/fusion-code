@@ -1,7 +1,6 @@
 // log: created for TS2307 fix
 
 import type React from "react";
-import type { SetAppState } from "../../Task.js";
 import type { LocalWorkflowTaskState } from "../../tasks/LocalWorkflowTask/LocalWorkflowTask.js";
 
 type Props = {

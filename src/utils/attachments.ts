@@ -36,10 +36,7 @@ import {
 } from "./tasks.js";
 import { getPlanFilePath, getPlan } from "./plans.js";
 import { getConnectedIdeName } from "./ide.js";
-import {
-	filterInjectedMemoryFiles,
-	getManagedAndUserConditionalRules,
-	getMemoryFiles,
+import { getManagedAndUserConditionalRules,
 	getMemoryFilesForNestedDirectory,
 	getConditionalRulesForCwdLevelDirectory,
 	type MemoryFileInfo,

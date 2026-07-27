@@ -15,12 +15,9 @@ import type { CommandResultDisplay } from "../../../commands.js";
 import { Select } from "../../../components/CustomSelect/select.js";
 import { useExitOnCtrlCDWithKeybindings } from "../../../hooks/useExitOnCtrlCDWithKeybindings.js";
 import { useSearchInput } from "../../../hooks/useSearchInput.js";
-import type { KeyboardEvent } from "../../../ink/events/keyboard-event.js";
 import { Box, Text, useTerminalFocus } from "../../../ink.js";
 import { useKeybinding } from "../../../keybindings/useKeybinding.js";
-import {
-	type AutoModeDenial,
-	getAutoModeDenials,
+import { getAutoModeDenials,
 } from "../../../utils/autoModeDenials.js";
 import type {
 	PermissionBehavior,
@@ -35,7 +32,6 @@ import {
 	getDenyRules,
 	permissionRuleSourceDisplayString,
 } from "../../../utils/permissions/permissions.js";
-import type { UnreachableRule } from "../../../utils/permissions/shadowedRuleDetection.js";
 import { jsonStringify } from "../../../utils/slowOperations.js";
 import { Pane } from "../../design-system/Pane.js";
 import {

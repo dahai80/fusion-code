@@ -134,7 +134,6 @@ import {
 import { groupMessagesByApiRound } from "./grouping.js";
 import {
 	getHardCompactTokenBudget,
-	type HardCompactResult,
 	hardCompactMessages,
 	shouldUseHardCompact,
 } from "./hardCompact.js";

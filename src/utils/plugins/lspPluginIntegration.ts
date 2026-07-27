@@ -85,7 +85,8 @@ export async function loadPluginLspServers(
 	} catch (error) {
 		// .lsp.json is optional, ignore if it doesn't exist
 		if (!isENOENT(error)) {
-			const _errorMsg =
+			void 0; // errorMsg // unused
+	// const _errorMsg =
 				error instanceof Error
 					? `Failed to read/parse .lsp.json in plugin ${plugin.name}: ${error.message}`
 					: `Failed to read/parse .lsp.json file in plugin ${plugin.name}`;
@@ -179,7 +180,8 @@ async function loadLspServersFromManifest(
 					});
 				}
 			} catch (error) {
-				const _errorMsg =
+				void 0; // errorMsg // unused
+	// const _errorMsg =
 					error instanceof Error
 						? `Failed to read/parse LSP config from ${decl} in plugin ${pluginName}: ${error.message}`
 						: `Failed to read/parse LSP config file ${decl} in plugin ${pluginName}`;

@@ -16,19 +16,8 @@ const UIPRO_CLAUDE_DIR = join(
     'ui-ux-pro-max',
 )
 
-function findUiproAssetsSource(): string | null {
-    if (existsSync(join(UIPRO_CLAUDE_DIR, 'SKILL.md'))) {
-        return UIPRO_CLAUDE_DIR
-    }
-    try {
-        const npmRoot = execFileSync('npm', ['root', '-g'], { encoding: 'utf-8' }).trim()
-        const npmAssets = join(npmRoot, 'uipro-cli', 'assets')
-        if (existsSync(join(npmAssets, 'templates'))) {
-            return 'npm'
-        }
-    } catch {}
-    return null
-}
+// findUiproAssetsSource removed (unused)
+
 
 export function isUiproInstalled(): boolean {
     return existsSync(join(UIPRO_SKILL_DIR, 'SKILL.md'))

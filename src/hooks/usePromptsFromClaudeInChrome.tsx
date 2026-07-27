@@ -1,25 +1,10 @@
 import { c as _c } from "react/compiler-runtime";
-import type { ContentBlockParam } from '@anthropic-ai/sdk/resources/messages.mjs';
 import { useEffect, useRef } from 'react';
-import { z } from 'zod/v4';
 import { callIdeRpc } from '../services/mcp/client.js';
 import type { ConnectedMCPServer, MCPServerConnection } from '../services/mcp/types.js';
-import type { PermissionMode } from '../types/permissions.js';
 import { CLAUDE_IN_CHROME_MCP_SERVER_NAME } from '../utils/claudeInChrome/common.js';
-import { lazySchema } from '../utils/lazySchema.js';
 // Schema for the prompt notification from Chrome extension (JSON-RPC 2.0 format)
-const ClaudeInChromePromptNotificationSchema = lazySchema(() => z.object({
-  method: z.literal('notifications/message'),
-  params: z.object({
-    prompt: z.string(),
-    image: z.object({
-      type: z.literal('base64'),
-      media_type: z.enum(['image/jpeg', 'image/png', 'image/gif', 'image/webp']),
-      data: z.string()
-    }).optional(),
-    tabId: z.number().optional()
-  })
-}));
+// ClaudeInChromePromptNotificationSchema removed (unused)
 
 /**
  * A hook that listens for prompt notifications from the Claude for Chrome extension,

@@ -3,7 +3,6 @@
 import { getFeatureValue_CACHED_MAY_BE_STALE } from '../services/analytics/growthbook.js'
 import { logForDebugging } from '../utils/debug.js'
 import { isEnvDefinedFalsy } from '../utils/envUtils.js'
-import { getAPIProvider } from '../utils/model/providers.js'
 import { getWorkload } from '../utils/workloadContext.js'
 
 const DEFAULT_PREFIX = `You are Fusion-Code, a local AI coding agent powered by MLX inference.`
@@ -30,7 +29,7 @@ export function getCLISyspromptPrefix(options?: {
   isNonInteractive: boolean
   hasAppendSystemPrompt: boolean
 }): CLISyspromptPrefix {
-  const apiProvider = getAPIProvider()
+  // apiProvider = getAPIProvider() // unused
 
   if (options?.isNonInteractive) {
     if (options.hasAppendSystemPrompt) {

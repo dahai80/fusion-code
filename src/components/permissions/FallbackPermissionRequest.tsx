@@ -7,10 +7,9 @@ import { env } from '../../utils/env.js';
 import { shouldShowAlwaysAllowOptions } from '../../utils/permissions/permissionsLoader.js';
 import { truncateToLines } from '../../utils/stringUtils.js';
 import { logUnaryEvent } from '../../utils/unaryLogging.js';
-import { type UnaryEvent, usePermissionRequestLogging } from './hooks.js';
+import { usePermissionRequestLogging } from './hooks.js';
 import { PermissionDialog } from './PermissionDialog.js';
-import { PermissionPrompt, type PermissionPromptOption, type ToolAnalyticsContext } from './PermissionPrompt.js';
-import type { PermissionRequestProps } from './PermissionRequest.js';
+import { PermissionPrompt } from './PermissionPrompt.js';
 import { PermissionRuleExplanation } from './PermissionRuleExplanation.js';
 export function FallbackPermissionRequest(t0) {
   const $ = _c(58);

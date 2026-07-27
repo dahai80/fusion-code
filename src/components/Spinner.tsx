@@ -32,7 +32,6 @@ import { isInProcessTeammateTask } from "../tasks/InProcessTeammateTask/types.js
 import { isBackgroundTask } from "../tasks/types.js";
 import { activityManager } from "../utils/activityManager.js";
 import { count } from "../utils/array.js";
-import { isInternalBuild } from "../utils/buildConstants.js";
 import { getGlobalConfig } from "../utils/config.js";
 import { getEffortSuffix } from "../utils/effort.js";
 import { isEnvTruthy } from "../utils/envUtils.js";
@@ -44,8 +43,6 @@ import { getDefaultCharacters, type SpinnerMode } from "./Spinner/index.js";
 import { SpinnerAnimationRow } from "./Spinner/SpinnerAnimationRow.js";
 import { TeammateSpinnerTree } from "./Spinner/TeammateSpinnerTree.js";
 import { TaskListV2 } from "./TaskListV2.js";
-import { computeTtftText } from "../utils/computeTtftText.js";
-
 export type { SpinnerMode } from "./Spinner/index.js";
 
 const DEFAULT_CHARACTERS = getDefaultCharacters();
@@ -265,14 +262,7 @@ function SpinnerWithVerbInner({
 	// line instead of taking a separate row. apiMetricsRef is a ref so this
 	// doesn't trigger re-renders; we pick up updates on the parent's ~25x/turn
 	// re-render cadence, same as the old ApiMetricsLine did.
-	let ttftText: string | null = null;
-	if (
-		isInternalBuild() &&
-		apiMetricsRef?.current &&
-		apiMetricsRef.current.length > 0
-	) {
-		ttftText = computeTtftText(apiMetricsRef.current);
-	}
+	// ttftText block removed (write-only, never read)
 
 	// When leader is idle but teammates are running (and we're viewing the leader),
 	// show a static dim idle display instead of the animated spinner — otherwise

@@ -3,7 +3,6 @@ import { c as _c } from "react/compiler-runtime";
 import type { DeepImmutable } from "src/types/utils.js";
 import type { CommandResultDisplay } from "../../commands.js";
 import { useTerminalSize } from "../../hooks/useTerminalSize.js";
-import type { KeyboardEvent } from "../../ink/events/keyboard-event.js";
 import { Box, Text } from "../../ink.js";
 import { useKeybindings } from "../../keybindings/useKeybinding.js";
 import type { LocalShellTaskState } from "../../tasks/LocalShellTask/guards.js";

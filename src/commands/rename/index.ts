@@ -1,4 +1,3 @@
-import type { UUID } from "crypto";
 import type { Command } from "../../types/command.js";
 import {
 	getTranscriptPath,

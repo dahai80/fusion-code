@@ -16,7 +16,6 @@ import type { CanUseToolFn } from "../../hooks/useCanUseTool.js";
 import {
 	buildTool,
 	type ToolCallProgress,
-	type ToolDef,
 	type ToolProgressData,
 	type ToolUseContext,
 } from "../../Tool.js";
@@ -125,16 +124,7 @@ let session: BrowserSession = {
 	pageTitle: null,
 };
 
-function resetSession(): void {
-	session = {
-		currentUrl: null,
-		history: [],
-		historyIndex: -1,
-		pageContent: null,
-		pageTitle: null,
-	};
-}
-
+// resetSession removed (unused)
 function pushHistory(url: string): void {
 	// Truncate forward history
 	session.history = session.history.slice(0, session.historyIndex + 1);

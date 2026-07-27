@@ -643,15 +643,8 @@ function handleAwsCredentialError(_error: unknown): boolean {
 
 // google-auth-library throws plain Error (no typed name like AWS's
 // CredentialsProviderError). Match common SDK-level credential-failure messages.
-function isGoogleAuthLibraryCredentialError(error: unknown): boolean {
-	if (!(error instanceof Error)) return false;
-	const msg = error.message;
-	return (
-		msg.includes("Could not load the default credentials") ||
-		msg.includes("Could not refresh access token") ||
-		msg.includes("invalid_grant")
-	);
-}
+// isGoogleAuthLibraryCredentialError removed (unused)
+
 
 function isVertexAuthError(_error: unknown): boolean {
 	return false;

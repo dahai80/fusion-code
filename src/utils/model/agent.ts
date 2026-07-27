@@ -6,15 +6,7 @@ import {
 	getRuntimeMainLoopModel,
 	parseUserSpecifiedModel,
 } from "./model.js";
-import { getAPIProvider } from "./providers.js";
-
-// log: stub for ANT-ONLY Bedrock region prefix extraction
-function getBedrockRegionPrefix(_model: string): string {
-	if (getAPIProvider() !== "bedrock") return "";
-	const match = _model.match(/^([a-z]{2}\.)/);
-	return match ? match[1] : "";
-}
-
+// getBedrockRegionPrefix removed (unused)
 export const AGENT_MODEL_OPTIONS = [...MODEL_ALIASES, "inherit"] as const;
 export type AgentModelAlias = (typeof AGENT_MODEL_OPTIONS)[number];
 
@@ -53,7 +45,8 @@ export function getAgentModel(
 	// Extract Bedrock region prefix from parent model to inherit for subagents.
 	// This ensures subagents use the same cross-region inference profile (e.g., "eu.", "us.")
 	// as the parent, which is required when IAM permissions only allow specific regions.
-	const parentRegionPrefix = getBedrockRegionPrefix(parentModel);
+	// parentRegionPrefix // unused
+// parentRegionPrefix removed (unused)
 
 	// Helper to apply parent region prefix for Bedrock models.
 	// `originalSpec` is the raw model string before resolution (alias or full ID).

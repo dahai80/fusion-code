@@ -18,9 +18,7 @@ import {
 	getTotalInputTokens,
 	getTotalOutputTokens,
 } from "../../cost-tracker.js";
-import {
-	getPromptTooLongTokenGap,
-	isMediaSizeError,
+import { isMediaSizeError,
 	isPromptTooLongMessage,
 } from "../../services/api/errors.js";
 import type { AssistantMessage, Message } from "../../types/message.js";
@@ -40,7 +38,6 @@ import {
 	ERROR_MESSAGE_INCOMPLETE_RESPONSE,
 	ERROR_MESSAGE_NOT_ENOUGH_MESSAGES,
 	ERROR_MESSAGE_PROMPT_TOO_LONG,
-	ERROR_MESSAGE_USER_ABORT,
 	mergeHookInstructions,
 	stripImagesFromMessages,
 } from "./compact.js";

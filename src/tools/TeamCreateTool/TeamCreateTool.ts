@@ -2,7 +2,7 @@ import { z } from "zod/v4";
 import { getSessionId } from "../../bootstrap/state.js";
 import { logEvent } from "../../services/analytics/index.js";
 import type { Tool } from "../../Tool.js";
-import { buildTool, type ToolDef } from "../../Tool.js";
+import { buildTool } from "../../Tool.js";
 import { formatAgentId } from "../../utils/agentId.js";
 import { isAgentSwarmsEnabled } from "../../utils/agentSwarmsEnabled.js";
 import { getCwd } from "../../utils/cwd.js";

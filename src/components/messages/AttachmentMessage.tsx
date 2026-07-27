@@ -7,7 +7,6 @@ import type { Attachment } from "src/utils/attachments.js";
 import { getDisplayPath } from "src/utils/file.js";
 import { formatFileSize } from "src/utils/format.js";
 import { getContentText } from "src/utils/messages.js";
-import type { Theme } from "src/utils/theme.js";
 import { BLACK_CIRCLE } from "../../constants/figures.js";
 import { Ansi, Box, Text } from "../../ink.js";
 import { useAppState } from "../../state/AppState.js";

@@ -4224,7 +4224,6 @@ function runHeadlessStreaming(
 							original,
 							modified,
 							path: filePath,
-							language,
 						} = message.request;
 						const { createTwoFilesPatch } = await import("diff");
 						const patch = createTwoFilesPatch(

@@ -36,7 +36,7 @@ const DEFAULT_WARMUP_TIMEOUT_MS = 60_000; // 60s for first inference (model load
 const DEFAULT_STREAM_TIMEOUT_MS = 300_000; // 5 min for streaming
 const DEFAULT_QUERY_TIMEOUT_MS = 120_000; // 2 min for non-streaming
 const MAX_RETRIES = 1; // retry once on connection failure
-const MLX_MAX_TOKENS_ESCALATION_RETRIES = 1; // retry once when max_tokens hit
+// MLX_MAX_TOKENS_ESCALATION_RETRIES // unused // retry once when max_tokens hit
 const MLX_MAX_TOKENS_ESCALATION_FACTOR = 2; // double max_tokens on escalation
 
 // ─── Circuit Breaker ──────────────────────────────────────────
@@ -1320,7 +1320,8 @@ export function createFusionMlxFetch(model: string): typeof globalThis.fetch {
 						);
 					}
 				}
-				const errText = await resp.text().catch(() => "");
+				// errText // unused
+			// const errText = await resp.text().catch(() => "");
 				logForDebugging(
 					`[Fusion-MLX] count_tokens endpoint failed (${resp.status}), trying chat completions`,
 				);

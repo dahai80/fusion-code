@@ -4,9 +4,8 @@
  * Note: The flag is only shown in help for ant users, but if external users
  * pass it anyway, it will work (subject to the killswitch).
  */
-function isAgentTeamsFlagSet(): boolean {
-  return process.argv.includes('--agent-teams')
-}
+// isAgentTeamsFlagSet removed (unused)
+
 
 /**
  * Centralized runtime check for agent teams/teammate features.

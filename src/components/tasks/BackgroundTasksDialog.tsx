@@ -1,7 +1,6 @@
 import { feature } from "bun:bundle";
 import figures from "figures";
 import React, {
-	type ReactNode,
 	useEffect,
 	useEffectEvent,
 	useMemo,

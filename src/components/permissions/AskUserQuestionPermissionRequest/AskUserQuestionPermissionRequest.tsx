@@ -14,21 +14,16 @@ import {
 	logEvent,
 } from "../../../services/analytics/index.js";
 import { useAppState } from "../../../state/AppState.js";
-import type { Question } from "../../../tools/AskUserQuestionTool/AskUserQuestionTool.js";
 import { AskUserQuestionTool } from "../../../tools/AskUserQuestionTool/AskUserQuestionTool.js";
-import {
-	type CliHighlight,
-	getCliHighlightPromise,
+import { getCliHighlightPromise,
 } from "../../../utils/cliHighlight.js";
 import type { PastedContent } from "../../../utils/config.js";
-import type { ImageDimensions } from "../../../utils/imageResizer.js";
 import { maybeResizeAndDownsampleImageBlock } from "../../../utils/imageResizer.js";
 import { cacheImagePath, storeImage } from "../../../utils/imageStore.js";
 import { logError } from "../../../utils/log.js";
 import { applyMarkdown } from "../../../utils/markdown.js";
 import { isPlanModeInterviewPhaseEnabled } from "../../../utils/planModeV2.js";
 import { getPlanFilePath } from "../../../utils/plans.js";
-import type { PermissionRequestProps } from "../PermissionRequest.js";
 import { QuestionView } from "./QuestionView.js";
 import { SubmitQuestionsView } from "./SubmitQuestionsView.js";
 import { useMultipleChoiceState } from "./use-multiple-choice-state.js";

@@ -1,7 +1,7 @@
 import { z } from "zod/v4";
 import { logEvent } from "../../services/analytics/index.js";
 import type { Tool } from "../../Tool.js";
-import { buildTool, type ToolDef } from "../../Tool.js";
+import { buildTool } from "../../Tool.js";
 import { isAgentSwarmsEnabled } from "../../utils/agentSwarmsEnabled.js";
 import { lazySchema } from "../../utils/lazySchema.js";
 import { jsonStringify } from "../../utils/slowOperations.js";

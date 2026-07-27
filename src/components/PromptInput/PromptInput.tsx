@@ -693,7 +693,7 @@ function PromptInput({
 	}, [rawFooterSelection, footerItemSelected, setAppState]);
 	const tasksSelected = footerItemSelected === "tasks";
 	const tmuxSelected = footerItemSelected === "tmux";
-	const bagelSelected = footerItemSelected === "bagel";
+	// bagelSelected // unused
 	const teamsSelected = footerItemSelected === "teams";
 	const bridgeSelected = footerItemSelected === "bridge";
 	function selectFooterItem(item: FooterItem | null): void {

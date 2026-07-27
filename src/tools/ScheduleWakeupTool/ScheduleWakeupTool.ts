@@ -1,5 +1,5 @@
 import { z } from "zod/v4";
-import { buildTool, type ToolDef } from "../../Tool.js";
+import { buildTool } from "../../Tool.js";
 import { addCronTask } from "../../utils/cronTasks.js";
 import { lazySchema } from "../../utils/lazySchema.js";
 import { SCHEDULE_WAKEUP_TOOL_NAME } from "./constants.js";

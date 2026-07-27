@@ -79,7 +79,6 @@ export async function createSSHSession(
 	const {
 		host,
 		cwd,
-		localVersion,
 		permissionMode,
 		dangerouslySkipPermissions,
 		onProgress,

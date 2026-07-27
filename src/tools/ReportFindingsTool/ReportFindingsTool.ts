@@ -1,5 +1,5 @@
 import { z } from "zod/v4";
-import { buildTool, type ToolDef } from "../../Tool.js";
+import { buildTool } from "../../Tool.js";
 import { lazySchema } from "../../utils/lazySchema.js";
 import { REPORT_FINDINGS_TOOL_NAME } from "./constants.js";
 import { DESCRIPTION, getPrompt } from "./prompt.js";

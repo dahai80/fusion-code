@@ -46,7 +46,6 @@ import { loadPluginMcpServers } from "../../utils/plugins/mcpPluginIntegration.j
 import { parseMarketplaceInput } from "../../utils/plugins/parseMarketplaceInput.js";
 import {
 	parsePluginIdentifier,
-	scopeToSettingSource,
 } from "../../utils/plugins/pluginIdentifier.js";
 import { loadAllPlugins } from "../../utils/plugins/pluginLoader.js";
 import type { PluginSource } from "../../utils/plugins/schemas.js";
@@ -308,7 +307,7 @@ export async function pluginListHandler(options: {
 			}> = [];
 
 			try {
-				const [config, installCounts] = await Promise.all([
+				const [, installCounts] = await Promise.all([
 					loadKnownMarketplacesConfig(),
 					getInstallCounts(),
 				]);
@@ -481,7 +480,7 @@ export async function marketplaceAddHandler(
 				`${figures.cross} Invalid scope '${scope}'. Use: user, project, or local`,
 			);
 		}
-		const settingSource = scopeToSettingSource(scope);
+		// scopeToSettingSource(scope) // unused
 
 		let marketplaceSource = parsed;
 
@@ -504,7 +503,7 @@ export async function marketplaceAddHandler(
 		// biome-ignore lint/suspicious/noConsole:: intentional console output
 		console.log("Adding marketplace...");
 
-		const { name, alreadyMaterialized, resolvedSource } =
+		const { name, alreadyMaterialized } =
 			await addMarketplaceSource(marketplaceSource as any as string); // log: widen type to match stub signature
 
 		// Write intent to settings at the requested scope

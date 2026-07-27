@@ -68,10 +68,10 @@ const PARENT_PREFIX_WIDTH = 2; // '▼ ' or '▶ '
 const CHILD_PREFIX_WIDTH = 4; // '  ▸ '
 
 // Deep search constants
-const DEEP_SEARCH_MAX_MESSAGES = 2000;
-const DEEP_SEARCH_CROP_SIZE = 1000;
-const DEEP_SEARCH_MAX_TEXT_LENGTH = 50000; // Cap searchable text per session
-const FUSE_THRESHOLD = 0.3;
+// DEEP_SEARCH_MAX_MESSAGES removed (unused)
+// DEEP_SEARCH_CROP_SIZE removed (unused)
+// DEEP_SEARCH_MAX_TEXT_LENGTH removed (unused)
+// FUSE_THRESHOLD = 0.3 // unused
 const DATE_TIE_THRESHOLD_MS = 60 * 1000; // 1 minute - use relevance as tie-breaker within this window
 const SNIPPET_CONTEXT_CHARS = 50; // Characters to show before/after match
 
@@ -168,7 +168,7 @@ export function LogSelector(t0) {
     t3 = $[0];
   }
   const isResumeWithRenameEnabled = t3;
-  const isDeepSearchEnabled = false;
+  // isDeepSearchEnabled removed
   const [themeName] = useTheme();
   let t4;
   if ($[1] !== themeName) {
@@ -188,7 +188,7 @@ export function LogSelector(t0) {
     t5 = $[4];
   }
   const highlightColor = t5;
-  const isAgenticSearchEnabled = false;
+  // isAgenticSearchEnabled removed
   const [currentBranch, setCurrentBranch] = React.useState(null);
   const [branchFilterEnabled, setBranchFilterEnabled] = React.useState(false);
   const [showAllWorktrees, setShowAllWorktrees] = React.useState(false);
@@ -317,9 +317,8 @@ export function LogSelector(t0) {
     t18 = $[18];
   }
   React.useEffect(t17, t18);
-  const searchableTextByLog = new Map(logs.map(_temp));
-  let t19;
-  t19 = null;
+  // searchableTextByLog removed
+  void null; // t19 removed (write-only)
   let t20;
   if ($[19] !== logs) {
     t20 = getUniqueTags(logs);
@@ -1500,46 +1499,16 @@ function _temp2(log_1) {
   }
   return false;
 }
-function _temp(log) {
-  return [log, buildSearchableText(log)];
-}
-function extractSearchableText(message: SerializedMessage): string {
-  // Only extract from user and assistant messages that have content
-  if (message.type !== 'user' && message.type !== 'assistant') {
-    return '';
-  }
-  const content = 'message' in message ? message.message?.content : undefined;
-  if (!content) return '';
+// _temp removed
+// extractSearchableText removed (unused)
 
-  // Handle string content (simple messages)
-  if (typeof content === 'string') {
-    return content;
-  }
-
-  // Handle array of content blocks
-  if (Array.isArray(content)) {
-    return content.map(block => {
-      if (typeof block === 'string') return block;
-      if ('text' in block && typeof block.text === 'string') return block.text;
-      return '';
-      // we don't return thinking blocks and tool names here;
-      // they're not useful for search, as they can add noise to the fuzzy matching
-    }).filter(Boolean).join(' ');
-  }
-  return '';
-}
 
 /**
  * Builds searchable text for a log including messages, titles, summaries, and metadata.
  * Crops long transcripts to first/last N messages for performance.
  */
-function buildSearchableText(log: LogOption): string {
-  const searchableMessages = log.messages.length <= DEEP_SEARCH_MAX_MESSAGES ? log.messages : [...log.messages.slice(0, DEEP_SEARCH_CROP_SIZE), ...log.messages.slice(-DEEP_SEARCH_CROP_SIZE)];
-  const messageText = searchableMessages.map(extractSearchableText).filter(Boolean).join(' ');
-  const metadata = [log.customTitle, log.summary, log.firstPrompt, log.gitBranch, log.tag, log.prNumber ? `PR #${log.prNumber}` : undefined, log.prRepository].filter(Boolean).join(' ');
-  const fullText = `${metadata} ${messageText}`.trim();
-  return fullText.length > DEEP_SEARCH_MAX_TEXT_LENGTH ? fullText.slice(0, DEEP_SEARCH_MAX_TEXT_LENGTH) : fullText;
-}
+// buildSearchableText removed (unused)
+
 function groupLogsBySessionId(filteredLogs: LogOption[]): Map<string, LogOption[]> {
   const groups = new Map<string, LogOption[]>();
   for (const log of filteredLogs) {

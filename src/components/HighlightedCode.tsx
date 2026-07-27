@@ -4,7 +4,6 @@ import { useSettings } from "../hooks/useSettings.js";
 import {
 	Ansi,
 	Box,
-	type DOMElement,
 	measureElement,
 	NoSelect,
 	Text,

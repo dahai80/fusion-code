@@ -9,10 +9,9 @@ import { SkillTool } from '../../../tools/SkillTool/SkillTool.js';
 import { env } from '../../../utils/env.js';
 import { shouldShowAlwaysAllowOptions } from '../../../utils/permissions/permissionsLoader.js';
 import { logUnaryEvent } from '../../../utils/unaryLogging.js';
-import { type UnaryEvent, usePermissionRequestLogging } from '../hooks.js';
+import { usePermissionRequestLogging } from '../hooks.js';
 import { PermissionDialog } from '../PermissionDialog.js';
-import { PermissionPrompt, type PermissionPromptOption, type ToolAnalyticsContext } from '../PermissionPrompt.js';
-import type { PermissionRequestProps } from '../PermissionRequest.js';
+import { PermissionPrompt } from '../PermissionPrompt.js';
 import { PermissionRuleExplanation } from '../PermissionRuleExplanation.js';
 export function SkillPermissionRequest(props) {
   const $ = _c(51);

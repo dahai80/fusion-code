@@ -49,7 +49,6 @@ import {
 } from "../../utils/swarm/teamHelpers.js";
 import {
 	listTasks,
-	type Task,
 	unassignTeammateTasks,
 } from "../../utils/tasks.js";
 import {

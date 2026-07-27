@@ -387,7 +387,8 @@ function saveInstalledPluginsV2(data: InstalledPluginsFileV2): void {
       `Saved ${Object.keys(data.plugins).length} installed plugins to ${filePath}`,
     )
   } catch (error) {
-    const _errorMsg = errorMessage(error)
+    void 0; // errorMsg // unused
+	// const _errorMsg = errorMessage(error)
     logError(toError(error))
     throw error
   }

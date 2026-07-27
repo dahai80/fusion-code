@@ -33,12 +33,9 @@ export function projectView<T>(
 
     for (const commit of commits) {
         firstOfSpan.set(commit.firstArchivedUuid, commit)
-        let inside = false
         for (const msg of commit.archived) {
             const uuid = getUuid(msg)
-            if (uuid === commit.firstArchivedUuid) inside = true
             if (uuid) archivedUuids.add(uuid)
-            if (uuid === commit.lastArchivedUuid) inside = false
         }
     }
 

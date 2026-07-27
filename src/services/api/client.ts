@@ -1,17 +1,12 @@
 import Anthropic, { type ClientOptions } from "@anthropic-ai/sdk";
 
 import { randomUUID } from "crypto";
-import type { GoogleAuth } from "google-auth-library";
 import {
 	checkAndRefreshOAuthTokenIfNeeded,
 	getAnthropicApiKey,
 	getApiKeyFromApiKeyHelper,
 	getClaudeAIOAuthTokens,
-	getCodexOAuthTokens,
 	isClaudeAISubscriber,
-	isCodexSubscriber,
-	refreshAndGetAwsCredentials,
-	refreshGcpCredentialsIfNeeded,
 } from "src/utils/auth.js";
 import {
 	computeCch,

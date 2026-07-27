@@ -1,5 +1,5 @@
 import { c as _c } from "react/compiler-runtime";
-import { type ReactNode, useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Box, Text } from '../../ink.js';
 import { useShortcutDisplay } from '../../keybindings/useShortcutDisplay.js';
 import { SandboxManager } from '../../utils/sandbox/sandbox-adapter.js';

@@ -434,10 +434,7 @@ const externalTips: Tip[] = [
 	{
 		id: "desktop-shortcut",
 		content: async (ctx) => {
-			const blue = color(
-				"suggestion",
-				ctx.theme as import("../../utils/theme.js").ThemeName,
-			);
+			// blue removed (unused in this scope)
 			return `Continue your session in Fusion-Code Desktop`;
 		},
 		cooldownSessions: 15,

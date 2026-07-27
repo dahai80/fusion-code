@@ -6,7 +6,6 @@ import { useAppState } from '../../../state/AppState.js';
 import { isPlanModeInterviewPhaseEnabled } from '../../../utils/planModeV2.js';
 import { Select } from '../../CustomSelect/index.js';
 import { PermissionDialog } from '../PermissionDialog.js';
-import type { PermissionRequestProps } from '../PermissionRequest.js';
 export function EnterPlanModePermissionRequest(t0) {
   const $ = _c(18);
   const {

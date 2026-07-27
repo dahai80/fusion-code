@@ -1,5 +1,4 @@
 import { logEvent } from "../../services/analytics/index.js";
-import type { ToolUseContext } from "../../Tool.js";
 import type { LocalJSXCommandCall } from "../../types/command.js";
 import { logForDebugging } from "../../utils/debug.js";
 

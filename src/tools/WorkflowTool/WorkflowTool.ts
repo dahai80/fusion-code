@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { readFile } from "node:fs/promises";
 import { z } from "zod/v4";
-import { buildTool, type ToolDef } from "../../Tool.js";
+import { buildTool } from "../../Tool.js";
 import { logForDebugging } from "../../utils/debug.js";
 import { lazySchema } from "../../utils/lazySchema.js";
 import { WORKFLOW_TOOL_NAME } from "./constants.js";

@@ -216,7 +216,7 @@ function BashPermissionRequestInner({
 	command: string;
 	description?: string;
 }): React.ReactNode {
-	const [theme] = useTheme();
+	const [_theme] = useTheme();
 	const toolPermissionContext = useAppState((s) => s.toolPermissionContext);
 	const explainerState = usePermissionExplainerUI({
 		toolName: toolUseConfirm.tool.name,

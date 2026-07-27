@@ -1,5 +1,5 @@
 import figures from "figures";
-import React, { useCallback, useState } from "react";
+import React, { useState } from "react";
 import { c as _c } from "react/compiler-runtime";
 import { mcpInfoFromString } from "src/services/mcp/mcpStringUtils.js";
 import { isMcpTool } from "src/services/mcp/utils.js";
@@ -25,7 +25,6 @@ const TungstenTool = { name: "Tungsten" };
 
 import { WebFetchTool } from "src/tools/WebFetchTool/WebFetchTool.js";
 import { WebSearchTool } from "src/tools/WebSearchTool/WebSearchTool.js";
-import type { KeyboardEvent } from "../../ink/events/keyboard-event.js";
 import { Box, Text } from "../../ink.js";
 import { useKeybinding } from "../../keybindings/useKeybinding.js";
 import { count } from "../../utils/array.js";
