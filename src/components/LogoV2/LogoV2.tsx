@@ -224,7 +224,9 @@ export function LogoV2() {
     if ($[25] === Symbol.for("react.memo_cache_sentinel")) {
       t19 = false && !process.env.DEMO_VERSION && <Box paddingLeft={2} flexDirection="column"><Text dimColor={true}>Use /issue to report model behavior issues</Text></Box>;
       t20 = false && !process.env.DEMO_VERSION && <Box paddingLeft={2} flexDirection="column"><Text color="warning">[ANT-ONLY] Logs:</Text><Text dimColor={true}>API calls: {getDisplayPath(getDumpPromptsPath())}</Text><Text dimColor={true}>Debug logs: {getDisplayPath(getDebugLogPath())}</Text>{isDetailedProfilingEnabled() && <Text dimColor={true}>Startup Perf: {getDisplayPath(getStartupPerfLogPath())}</Text>}</Box>;
+      // @ts-ignore log: ANT-ONLY dead-code reference
       t21 = false && <GateOverridesWarning />;
+      // @ts-ignore log: ANT-ONLY dead-code reference
       t22 = false && <ExperimentEnrollmentNotice />;
       $[25] = t19;
       $[26] = t20;
@@ -318,7 +320,9 @@ export function LogoV2() {
     let t18;
     let t19;
     if ($[42] === Symbol.for("react.memo_cache_sentinel")) {
+      // @ts-ignore log: ANT-ONLY dead-code reference
       t18 = false && <GateOverridesWarning />;
+      // @ts-ignore log: ANT-ONLY dead-code reference
       t19 = false && <ExperimentEnrollmentNotice />;
       $[42] = t18;
       $[43] = t19;
@@ -501,7 +505,9 @@ export function LogoV2() {
   if ($[86] === Symbol.for("react.memo_cache_sentinel")) {
     t37 = false && !process.env.DEMO_VERSION && <Box paddingLeft={2} flexDirection="column"><Text dimColor={true}>Use /issue to report model behavior issues</Text></Box>;
     t38 = false && !process.env.DEMO_VERSION && <Box paddingLeft={2} flexDirection="column"><Text color="warning">[ANT-ONLY] Logs:</Text><Text dimColor={true}>API calls: {getDisplayPath(getDumpPromptsPath())}</Text><Text dimColor={true}>Debug logs: {getDisplayPath(getDebugLogPath())}</Text>{isDetailedProfilingEnabled() && <Text dimColor={true}>Startup Perf: {getDisplayPath(getStartupPerfLogPath())}</Text>}</Box>;
+    // @ts-ignore log: ANT-ONLY dead-code reference
     t39 = false && <GateOverridesWarning />;
+    // @ts-ignore log: ANT-ONLY dead-code reference
     t40 = false && <ExperimentEnrollmentNotice />;
     $[86] = t37;
     $[87] = t38;

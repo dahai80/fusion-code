@@ -8,6 +8,13 @@ import {
 } from './model.js'
 import { getAPIProvider } from './providers.js'
 
+// log: stub for ANT-ONLY Bedrock region prefix extraction
+function getBedrockRegionPrefix(_model: string): string {
+    if (getAPIProvider() !== 'bedrock') return ''
+    const match = _model.match(/^([a-z]{2}\.)/)
+    return match ? match[1] : ''
+}
+
 export const AGENT_MODEL_OPTIONS = [...MODEL_ALIASES, 'inherit'] as const
 export type AgentModelAlias = (typeof AGENT_MODEL_OPTIONS)[number]
 

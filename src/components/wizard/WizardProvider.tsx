@@ -19,6 +19,7 @@ export function WizardProvider(t0) {
   } = t0;
   let t3;
   if ($[0] !== t1) {
+    // @ts-ignore log: generic T not in scope for compiled output
     t3 = t1 === undefined ? {} as T : t1;
     $[0] = t1;
     $[1] = t3;

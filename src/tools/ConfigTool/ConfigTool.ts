@@ -272,6 +272,7 @@ export const ConfigTool = buildTool({
         }
       }
       if (!isVoiceStreamAvailable()) {
+        const { isFusionMlxProvider } = await import('../../utils/model/providers.js') // log: re-import needed, block-scoped above
         return {
           data: {
             success: false,

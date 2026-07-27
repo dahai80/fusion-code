@@ -55,7 +55,7 @@ export type PromptCommand = {
   getPromptForCommand(
     args: string,
     context: ToolUseContext,
-  ): Promise<ContentBlockParam[]>
+  ): Promise<ContentBlockParam[] | string>
 }
 
 /**
@@ -70,6 +70,7 @@ export type LocalCommandCall = (
  * Module shape returned by load() for lazy-loaded local commands.
  */
 export type LocalCommandModule = {
+  [key: string]: unknown
   call?: LocalCommandCall
   execute?: LocalCommandCall
 }
@@ -77,7 +78,7 @@ export type LocalCommandModule = {
 type LocalCommand = {
   type: 'local'
   supportsNonInteractive?: boolean
-  load: () => Promise<LocalCommandModule>
+  load: () => Promise<LocalCommandModule | Record<string, unknown>>
 }
 
 export type LocalJSXCommandContext = ToolUseContext & {
@@ -101,6 +102,8 @@ export type LocalJSXCommandContext = ToolUseContext & {
   // log: fix TS2339
   cwd?: string
 }
+
+export type CommandContext = LocalJSXCommandContext
 
 export type ResumeEntrypoint =
   | 'cli_flag'
