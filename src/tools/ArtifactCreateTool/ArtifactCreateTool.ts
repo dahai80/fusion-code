@@ -27,6 +27,7 @@ const outputSchema = lazySchema(() =>
     }),
 )
 type OutputSchema = ReturnType<typeof outputSchema>
+type Output = z.infer<OutputSchema> // log: fix TS2339
 
 async function artifactsRPC(method: string, params: Record<string, unknown> = {}): Promise<Record<string, unknown>> {
     const body = JSON.stringify({ jsonrpc: '2.0', id: Date.now(), method, params })
@@ -109,7 +110,8 @@ When you need to show or modify the content later, use the UpdateArtifact tool w
             },
         }
     },
-    mapToolResultToToolResultBlockParam({ ref_text, artifact_id, name, version, token_count }, toolUseID) {
+    mapToolResultToToolResultBlockParam(content, toolUseID) {
+        const { ref_text, artifact_id, name, version, token_count } = content as Output;
         return {
             tool_use_id: toolUseID,
             type: 'tool_result',

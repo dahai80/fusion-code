@@ -610,7 +610,7 @@ async function getMessagesForSlashCommand(commandName: string, args: string, set
                 submitNextInput: options?.submitNextInput
               });
             };
-            void command.load().then(mod => mod.call(onDone, {
+            void command.load().then(mod => (mod.call || mod.execute)!(onDone, {
               ...context,
               canUseTool
             }, args)).then(jsx => {

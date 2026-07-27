@@ -178,9 +178,11 @@ export async function mcpListHandler(): Promise<void> {
         // biome-ignore lint/suspicious/noConsole:: intentional console output
         console.log(`${name}: ${server.url} - ${status}`);
       } else if (!server.type || server.type === 'stdio') {
+        if ('command' in server) { // log: fix TS2339
         const args = Array.isArray(server.args) ? server.args : [];
         // biome-ignore lint/suspicious/noConsole:: intentional console output
         console.log(`${name}: ${server.command} ${args.join(' ')} - ${status}`);
+        }
       }
     }
   }
@@ -375,14 +377,10 @@ export async function mcpLoginHandler(name: string): Promise<void> {
     }
     try {
         const { performMCPOAuthFlow } = await import('../../services/mcp/auth.js');
-        const result = await performMCPOAuthFlow(name, serverConfig as any, { skipBrowserOpen: false });
-        if (result.status === 'success') {
-            cliOk(`Successfully authenticated with MCP server "${name}".`);
-        } else if (result.status === 'auth_url') {
-            cliOk(`Authorization URL opened for "${name}". Complete the flow in your browser.`);
-        } else {
-            cliError(`Authentication failed for "${name}": ${result.message || 'Unknown error'}`);
-        }
+        await performMCPOAuthFlow(name, serverConfig as any, (url: string) => {
+            cliOk(`Authorization URL opened for "${name}": ${url}`);
+        });
+        cliOk(`Successfully authenticated with MCP server "${name}".`);
     } catch (error) {
         cliError(`Login failed for "${name}": ${(error as Error).message}`);
     }

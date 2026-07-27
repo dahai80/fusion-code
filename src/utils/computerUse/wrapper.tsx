@@ -265,16 +265,20 @@ export function getComputerUseMCPToolOverrides(toolName: string): ComputerUseMCP
     // shape just maps to the API's base64-source shape. The package's result
     // type admits audio/resource too, but CU's handleToolCall never emits
     // those; the fallthrough coerces them to empty text.
-    const data = Array.isArray(result.content) ? result.content.map(item => item.type === 'image' ? {
+    type McpContentBlock = { type: string; mimeType?: string; data?: string; text?: string } // log: fix TS2339
+    const data = Array.isArray(result.content) ? result.content.map((raw): { type: 'image' | 'text'; source?: { type: 'base64'; media_type: string; data: string }; text?: string } => {
+      const item = raw as McpContentBlock
+      return item.type === 'image' ? {
       type: 'image' as const,
       source: {
         type: 'base64' as const,
         media_type: item.mimeType ?? 'image/jpeg',
-        data: item.data
+        data: item.data ?? ''
       }
     } : {
       type: 'text' as const,
       text: item.type === 'text' ? item.text : ''
+    }
     }) : result.content;
     return {
       data

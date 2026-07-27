@@ -921,7 +921,7 @@ export const connectToServer = memoize(
         )
         logMCPDebug(name, `claude.ai proxy transport created successfully`)
       } else if (
-        (serverRef.type === 'stdio' || !serverRef.type) &&
+        ((serverRef as ScopedMcpServerConfig).type === 'stdio' || !(serverRef as ScopedMcpServerConfig).type) &&
         isClaudeInChromeMCPServer(name)
       ) {
         // Run the Chrome MCP server in-process to avoid spawning a ~325 MB subprocess
@@ -936,7 +936,7 @@ export const connectToServer = memoize(
         const { createLinkedTransportPair } = await import(
           './InProcessTransport.js'
         )
-        const context = createChromeContext(serverRef.env)
+        const context = createChromeContext((serverRef as ScopedMcpServerConfig).env)
         inProcessServer = createClaudeForChromeMcpServer(context)
         const [clientTransport, serverTransport] = createLinkedTransportPair()
         await inProcessServer.connect(serverTransport)
@@ -944,7 +944,7 @@ export const connectToServer = memoize(
         logMCPDebug(name, `In-process Chrome MCP server started`)
       } else if (
         feature('CHICAGO_MCP') &&
-        (serverRef.type === 'stdio' || !serverRef.type) &&
+        ((serverRef as ScopedMcpServerConfig).type === 'stdio' || !(serverRef as ScopedMcpServerConfig).type) &&
         isComputerUseMCPServer!(name)
       ) {
         // Run the Computer Use MCP server in-process — same rationale as
@@ -961,23 +961,23 @@ export const connectToServer = memoize(
         await inProcessServer.connect(serverTransport)
         transport = clientTransport
         logMCPDebug(name, `In-process Computer Use MCP server started`)
-      } else if (serverRef.type === 'stdio' || !serverRef.type) {
+      } else if ((serverRef as ScopedMcpServerConfig).type === 'stdio' || !(serverRef as ScopedMcpServerConfig).type) {
         const finalCommand =
-          process.env.FUSION_CODE_SHELL_PREFIX || serverRef.command
+          process.env.FUSION_CODE_SHELL_PREFIX || (serverRef as ScopedMcpServerConfig).command
         const finalArgs = process.env.FUSION_CODE_SHELL_PREFIX
-          ? [[serverRef.command, ...serverRef.args].join(' ')]
-          : serverRef.args
+          ? [[(serverRef as ScopedMcpServerConfig).command, ...(serverRef as ScopedMcpServerConfig).args].join(' ')]
+          : (serverRef as ScopedMcpServerConfig).args
         transport = new StdioClientTransport({
           command: finalCommand,
           args: finalArgs,
           env: {
             ...subprocessEnv(),
-            ...serverRef.env,
+            ...(serverRef as ScopedMcpServerConfig).env,
           } as Record<string, string>,
           stderr: 'pipe', // prevents error output from the MCP server from printing to the UI
         })
       } else {
-        throw new Error(`Unsupported server type: ${serverRef.type}`)
+        throw new Error(`Unsupported server type: ${(serverRef as ScopedMcpServerConfig).type}`)
       }
 
       // Set up stderr logging for stdio transport before connecting in case there are any stderr

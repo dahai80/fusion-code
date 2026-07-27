@@ -93,3 +93,13 @@ export function unregisterMCPServerSkills(serverName: string): void {
   }
   logForDebugging(`[MCPSkills] Unregistered skills for server: ${serverName}`)
 }
+
+export function fetchMcpSkillsForClient(
+  _clientName: string,
+): Promise<MCPSkill[]> { // log: fix TS2339
+  if (!isMcpSkillsEnabled()) {
+    return Promise.resolve([])
+  }
+  logForDebugging('[MCPSkills] fetchMcpSkillsForClient called')
+  return discoverMCPSkills()
+}

@@ -623,7 +623,7 @@ export class QueryEngine {
 					.reverse()
 					.find((m) => m.type === "assistant");
 				if (lastAssistantMsg) {
-					const content = lastAssistantMsg.content;
+					const content = lastAssistantMsg.message.content;
 					if (typeof content === "string") {
 						finalResult = content;
 					} else if (Array.isArray(content)) {

@@ -54,6 +54,7 @@ type CacheEntry = {
   code: number
   codeText: string
   content: string
+  markdown?: string // log: fix TS2339
   contentType: string
   persistedPath?: string
   persistedSize?: number
@@ -300,6 +301,8 @@ type RedirectInfo = {
   originalUrl: string
   redirectUrl: string
   statusCode: number
+  markdown?: string // log: fix TS2339
+  error?: string // log: fix TS2339
 }
 
 export async function getWithPermittedRedirects(
@@ -385,6 +388,8 @@ export type FetchedContent = {
   contentType: string
   persistedPath?: string
   persistedSize?: number
+  markdown?: string // log: fix TS2339
+  error?: string // log: fix TS2339
 }
 
 export async function getURLMarkdownContent(
@@ -403,6 +408,7 @@ export async function getURLMarkdownContent(
       code: cachedEntry.code,
       codeText: cachedEntry.codeText,
       content: cachedEntry.content,
+      markdown: cachedEntry.content,
       contentType: cachedEntry.contentType,
       persistedPath: cachedEntry.persistedPath,
       persistedSize: cachedEntry.persistedSize,
@@ -552,6 +558,7 @@ export async function getURLMarkdownContent(
     code: response.status,
     codeText: response.statusText,
     content: markdownContent,
+    markdown: markdownContent,
     contentType,
     persistedPath,
     persistedSize,

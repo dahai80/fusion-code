@@ -11,7 +11,7 @@ import type { MonitorMcpTaskState } from './MonitorMcpTask/MonitorMcpTask.js'
 interface RemoteAgentTaskState { // log: fix TS2339
     sessionId: string; // log: fix TS2339
     title: string; // log: fix TS2339
-    status: string; // log: fix TS2339
+    status: 'pending' | 'running' | 'completed' | 'failed' | 'killed'; // log: fix TS2339
     startTime: number; // log: fix TS2339
     endTime: number | null; // log: fix TS2339
     log: unknown[]; // log: fix TS2339
@@ -23,6 +23,7 @@ interface RemoteAgentTaskState { // log: fix TS2339
     id: string; // log: fix TS2339
     type: 'remote_agent'; // log: fix TS2339
     description: string; // log: fix TS2339
+    toolUseId?: string; // log: fix TS2339
     outputFile: string; // log: fix TS2339
     outputOffset: number; // log: fix TS2339
     notified: boolean; // log: fix TS2339

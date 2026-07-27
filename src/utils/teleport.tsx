@@ -1011,8 +1011,10 @@ export async function teleportToRemote(options: {
         logError(new Error(`Bundle upload failed: ${bundle.error}`));
         // Only steer users to GitHub setup when there's a remote to clone from.
         const setup = repoInfo ? '. Please setup GitHub on https://claude.ai/code' : '';
+        const failReason = bundle.failReason;
+        const bundleError = bundle.error;
         let msg: string;
-        switch (bundle.failReason) {
+        switch (failReason) {
           case 'empty_repo':
             msg = 'Repository has no commits — run `git add . && git commit -m "initial"` then retry';
             break;
@@ -1020,14 +1022,14 @@ export async function teleportToRemote(options: {
             msg = `Repo is too large to teleport${setup}`;
             break;
           case 'git_error':
-            msg = `Failed to create git bundle (${bundle.error})${setup}`;
+            msg = `Failed to create git bundle (${bundleError})${setup}`;
             break;
           case undefined:
-            msg = `Bundle upload failed: ${bundle.error}${setup}`;
+            msg = `Bundle upload failed: ${bundleError}${setup}`;
             break;
           default:
             {
-              const _exhaustive: never = bundle.failReason as never;
+              const _exhaustive: never = failReason;
               void _exhaustive;
               msg = `Bundle upload failed: unknown reason`;
             }

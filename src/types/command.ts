@@ -69,12 +69,13 @@ export type LocalCommandCall = (
  * Module shape returned by load() for lazy-loaded local commands.
  */
 export type LocalCommandModule = {
-  call: LocalCommandCall
+  call?: LocalCommandCall
+  execute?: LocalCommandCall
 }
 
 type LocalCommand = {
   type: 'local'
-  supportsNonInteractive: boolean
+  supportsNonInteractive?: boolean
   load: () => Promise<LocalCommandModule>
 }
 

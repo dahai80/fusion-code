@@ -109,15 +109,16 @@ import { registerCleanup } from "src/utils/cleanupRegistry.js";
 import { createIdleTimeoutManager } from "src/utils/idleTimeout.js";
 import type {
 	SDKStatus,
-	ModelInfo,
 	SDKMessage,
 	SDKUserMessage,
 	SDKUserMessageReplay,
 	PermissionResult,
+} from "src/entrypoints/agentSdkTypes.js";
+import type {
+	ModelInfo,
 	McpServerConfigForProcessTransport,
 	McpServerStatus,
-	RewindFilesResult,
-} from "src/entrypoints/agentSdkTypes.js";
+} from "src/entrypoints/sdk/controlTypes.js";
 import type {
 	StdoutMessage,
 	SDKControlInitializeRequest,
@@ -352,6 +353,14 @@ import { initializeGrowthBook } from "../services/analytics/growthbook.js";
 import { errorMessage, toError } from "../utils/errors.js";
 import { sleep } from "../utils/sleep.js";
 import { isExtractModeActive } from "../memdir/paths.js";
+
+type RewindFilesResult = {
+    canRewind: boolean
+    error?: string
+    filesChanged?: string[]
+    insertions?: number
+    deletions?: number
+}
 
 // Dead code elimination: conditional imports
 /* eslint-disable @typescript-eslint/no-require-imports */
@@ -900,11 +909,11 @@ export async function runHeadless(
 					message.subtype === "task_progress" ||
 					message.subtype === "post_turn_summary")
 			) &&
-			message.type !== "stream_event" &&
+			(message as { type: string }).type !== "stream_event" &&
 			message.type !== "keep_alive" &&
-			message.type !== "streamlined_text" &&
-			message.type !== "streamlined_tool_use_summary" &&
-			message.type !== "prompt_suggestion"
+			(message as { type: string }).type !== "streamlined_text" &&
+			(message as { type: string }).type !== "streamlined_tool_use_summary" &&
+			(message as { type: string }).type !== "prompt_suggestion"
 		) {
 			if (needsFullArray) {
 				messages.push(message);
@@ -1112,13 +1121,13 @@ function runHeadlessStreaming(
 		const authStatusManager = AwsAuthStatusManager.getInstance();
 		unsubscribeAuthStatus = authStatusManager.subscribe((status) => {
 			output.enqueue({
-				type: "auth_status",
+				type: "auth_status" as StdoutMessage["type"],
 				isAuthenticating: status.isAuthenticating,
 				output: status.output,
 				error: status.error,
 				uuid: randomUUID(),
 				session_id: getSessionId(),
-			});
+			} as StdoutMessage);
 		});
 	}
 
@@ -1129,11 +1138,11 @@ function runHeadlessStreaming(
 		const rateLimitInfo = toSDKRateLimitInfo(limits);
 		if (rateLimitInfo) {
 			output.enqueue({
-				type: "rate_limit_event",
+				type: "rate_limit_event" as StdoutMessage["type"],
 				rate_limit_info: rateLimitInfo,
 				uuid: randomUUID(),
 				session_id: getSessionId(),
-			});
+			} as StdoutMessage);
 		}
 	};
 	statusListeners.add(rateLimitListener);

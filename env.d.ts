@@ -19,7 +19,7 @@ declare module '@ant/computer-use-mcp' {
     export function buildComputerUseTools(): unknown[]
     export function bindSessionContext(ctx: unknown): unknown
     export type ComputerUseSessionContext = Record<string, unknown>
-    export type CuCallToolResult = { content: unknown[]; isError?: boolean }
+    export type CuCallToolResult = { content: unknown[]; isError?: boolean; telemetry?: { error_kind?: string } } // log: fix TS2339
     export type CuPermissionRequest = { toolName: string; input: Record<string, unknown> }
     export type CuPermissionResponse = { granted: boolean; flags?: number }
     export const DEFAULT_GRANT_FLAGS: number

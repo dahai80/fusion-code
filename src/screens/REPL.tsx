@@ -228,7 +228,7 @@ import { activityManager } from '../utils/activityManager.js';
 import { createAbortController } from '../utils/abortController.js';
 import { MCPConnectionManager } from 'src/services/mcp/MCPConnectionManager.js';
 // FeedbackSurvey removed - cloud-only feature. Stubs below.
-const useFeedbackSurvey = (..._args: unknown[]) => ({ state: 'closed' as const, lastResponse: null as null, handleSelect: (..._a: unknown[]) => false });
+const useFeedbackSurvey = (..._args: unknown[]) => ({ state: 'closed' as const, lastResponse: null as null, handleSelect: (..._a: unknown[]) => false, handleTranscriptSelect: (..._a: unknown[]) => {} });
 const useMemorySurvey = (..._args: unknown[]) => ({ state: 'closed' as const, lastResponse: null as null, handleSelect: (..._a: unknown[]) => {}, handleTranscriptSelect: (..._a: unknown[]) => {} });
 const usePostCompactSurvey = (..._args: unknown[]) => ({ state: 'closed' as const, lastResponse: null as null, handleSelect: (..._a: unknown[]) => {} });
 function FeedbackSurvey() { return null; }

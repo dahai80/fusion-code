@@ -227,7 +227,7 @@ export function useVoiceIntegration({
   useVoiceState(s => s.voiceState) : 'idle' as const;
   const voiceInterimTranscript = feature('VOICE_MODE') ?
   // biome-ignore lint/correctness/useHookAtTopLevel: feature() is a compile-time constant
-  useVoiceState(s_0 => s_0.voiceInterimTranscript) : '';
+  useVoiceState(s_0 => s_0.voiceInterimTranscript) as string : '';
 
   // Set the voice anchor for focus mode (where recording starts via terminal
   // focus, not key hold). Key-hold sets the anchor in stripTrailing.

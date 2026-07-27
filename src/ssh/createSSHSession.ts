@@ -17,6 +17,9 @@ import { existsSync, mkdirSync, unlinkSync } from 'fs'
 import { logForDebugging } from '../utils/debug.js'
 import { startAuthProxy } from './sshAuthProxy.js'
 import { getAnthropicApiKey } from '../utils/auth.js'
+import type { SSHSessionManager } from './SSHSessionManager.js'
+import type { SDKMessage } from '../entrypoints/sdk/coreTypes.generated.js'
+import type { SDKControlPermissionRequest } from '../entrypoints/sdk/controlTypes.js'
 
 export class SSHSessionError extends Error {
   constructor(message: string) {
@@ -44,6 +47,17 @@ export interface SSHSession {
   remoteCwd: string
   process: ChildProcess
   cleanup: () => Promise<void>
+  createManager: (callbacks: {
+    onMessage: (msg: SDKMessage) => void
+    onPermissionRequest: (request: SDKControlPermissionRequest, requestId: string) => void
+    onConnected: () => void
+    onReconnecting: (attempt: number, max: number) => void
+    onDisconnected: () => void
+    onError: (error: Error) => void
+  }) => SSHSessionManager // log: fix TS2339
+  getStderrTail: () => string // log: fix TS2339
+  proc: ChildProcess // log: fix TS2339
+  proxy: { stop: () => void } // log: fix TS2339
 }
 
 export interface SSHSessionType {
@@ -163,6 +177,12 @@ export async function createSSHSession(
         // Socket file may already be gone
       }
     },
+    createManager: () => {
+      throw new SSHSessionError('createManager not implemented for remote SSH session')
+    },
+    getStderrTail: () => '',
+    proc: sshProcess,
+    proxy: authProxy,
   }
 }
 
@@ -210,6 +230,12 @@ export function createLocalSSHSession(
     cleanup: async () => {
       childProcess.kill()
     },
+    createManager: () => {
+      throw new SSHSessionError('createManager not implemented for local SSH session')
+    },
+    getStderrTail: () => '',
+    proc: childProcess,
+    proxy: { stop: () => {} },
   }
 }
 

@@ -50,7 +50,7 @@ const call: LocalCommandCall = async (args: string) => {
             const cmd = createWorkflowCommand(target)
             const loaded = await cmd.load()
             const runArgs = parts.slice(2).join(' ')
-            return loaded.call(runArgs, {} as any)
+            return (loaded.call || loaded.execute)!(runArgs, {} as any)
         }
         default:
             return {

@@ -474,7 +474,7 @@ export type CollapsedReadSearchGroup = {
     memoryReadCount: number
     memoryWriteCount: number
     readFilePaths: string[]
-    searchArgs: unknown
+    searchArgs: unknown[] // log: fix TS2339
     latestDisplayHint: string
     messages: CollapsibleMessage[]
     displayMessage: CollapsibleMessage
@@ -487,15 +487,15 @@ export type CollapsedReadSearchGroup = {
     mcpServerNames?: string[]
     bashCount?: number
     gitOpBashCount?: number
-    commits?: unknown[]
-    pushes?: unknown[]
+    commits?: Array<{ kind: string; sha: string }> // log: fix TS2339
+    pushes?: Array<{ branch: string }> // log: fix TS2339
     hookInfos?: Array<{ command: string; durationMs?: number }>
     hookCount?: number
     hookTotalMs?: number
     relevantMemories?: Array<{ path: string; content?: string }>
     preCompactDiscoveredTools?: unknown
-    branches?: unknown
-    prs?: unknown
+    branches?: Array<{ action: string; ref: string }> // log: fix TS2339
+    prs?: Array<{ action: string; number: number; url?: string }> // log: fix TS2339
 }
 
 // ============================================================================

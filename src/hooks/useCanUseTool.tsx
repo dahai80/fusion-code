@@ -17,6 +17,7 @@ import { logForDebugging } from '../utils/debug.js';
 import { AbortError } from '../utils/errors.js';
 import { logError } from '../utils/log.js';
 import type { PermissionDecision } from '../utils/permissions/PermissionResult.js';
+import type { ClassifierResult } from '../utils/permissions/bashClassifier.js';
 import { hasPermissionsToUseTool } from '../utils/permissions/permissions.js';
 import { jsonStringify } from '../utils/slowOperations.js';
 import { handleCoordinatorPermission } from './toolPermission/handlers/coordinatorHandler.js';
@@ -128,7 +129,7 @@ function useCanUseTool(setToolUseConfirmQueue, setToolPermissionContext) {
                   command: string;
                 }).command);
                 if (speculativePromise) {
-                  const raceResult = await Promise.race([speculativePromise.then(_temp), new Promise(_temp2)]);
+                  const raceResult = await Promise.race([speculativePromise.then(_temp), new Promise(_temp2)]) as { type: "result"; result: ClassifierResult } | { type: "timeout" };
                   if (ctx.resolveIfAborted(resolve)) {
                     return;
                   }
