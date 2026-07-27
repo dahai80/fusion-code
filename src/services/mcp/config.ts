@@ -1237,6 +1237,17 @@ export async function getClaudeCodeMcpConfigs(
     localServers,
   )
 
+  // Auto-register chub-mcp if chub CLI is available
+  try {
+    const { getChubMcpConfig } = await import('../../utils/swarm/gitContextInjection.js')
+    const chubConfig = getChubMcpConfig()
+    if (chubConfig && !configs['chub-mcp']) {
+      configs['chub-mcp'] = chubConfig
+    }
+  } catch {
+    // chub not available — skip silently
+  }
+
   // Apply policy filtering to merged configs
   const filtered: Record<string, ScopedMcpServerConfig> = {}
 

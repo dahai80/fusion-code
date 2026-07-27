@@ -1,5 +1,6 @@
 import { execFileSync } from "child_process";
 import { logEvent } from "../../services/analytics/index.js";
+import type { ScopedMcpServerConfig } from "../../services/mcp/config.js";
 import { logForDebugging } from "../debug.js";
 
 const AGENT_TYPES_THAT_NEED_GIT_CONTEXT = new Set([
@@ -159,4 +160,14 @@ When you need API documentation for a library or framework, use the CLI tool "ch
 Example: chub get openai/chat --lang py
 This reduces API hallucination by providing verified, up-to-date documentation.
 </context_hub_hint>`;
+}
+
+export function getChubMcpConfig(): ScopedMcpServerConfig | null {
+	if (!isChubAvailable()) return null;
+	return {
+		type: "stdio" as const,
+		command: "chub",
+		args: ["mcp"],
+		scope: "dynamic" as const,
+	};
 }
