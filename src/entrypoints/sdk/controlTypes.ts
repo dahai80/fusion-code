@@ -67,7 +67,7 @@ export type PermissionUpdateDestination =
     | 'projectSettings'
     | 'localSettings'
     | 'session'
-    | 'cliArg'
+    | 'cliArg' | 'flagSettings' | 'policySettings' | 'built-in' | 'effort'
 
 export type PermissionUpdate =
     | {

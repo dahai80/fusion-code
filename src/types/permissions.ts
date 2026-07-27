@@ -56,7 +56,7 @@ export type PermissionRuleSource =
   | 'localSettings'
   | 'flagSettings'
   | 'policySettings'
-  | 'cliArg'
+  | 'cliArg' | 'flagSettings' | 'policySettings' | 'built-in' | 'effort'
   | 'command'
   | 'session'
 
@@ -91,7 +91,7 @@ export type PermissionUpdateDestination =
   | 'projectSettings'
   | 'localSettings'
   | 'session'
-  | 'cliArg'
+  | 'cliArg' | 'flagSettings' | 'policySettings' | 'built-in' | 'effort'
 
 /**
  * Update operations for permission configuration

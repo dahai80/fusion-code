@@ -16,6 +16,7 @@ import {
 import { getInitialSettings } from '../settings/settings.js'
 import { checkOpus1mAccess, checkSonnet1mAccess } from './check1mAccess.js'
 import { getAPIProvider } from './providers.js'
+import { getAntModels } from './antModels.js'
 import { isModelAllowed } from './modelAllowlist.js'
 import {
   getCanonicalName,

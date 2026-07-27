@@ -10,7 +10,7 @@ export type NotebookOutputImage = {
 export type NotebookCellOutput = {
     output_type: 'stream' | 'execute_result' | 'display_data' | 'error'
     text?: string | string[]
-    data?: Record<string, unknown>
+    data?: Record<string, string | string[]>
     ename?: string
     evalue?: string
     traceback?: string[]
@@ -39,9 +39,30 @@ export type NotebookCell = {
     outputs?: NotebookCellOutput[]
 }
 
+export type NotebookKernelSpec = {
+    name?: string
+    display_name?: string
+    language?: string
+}
+
+export type NotebookLanguageInfo = {
+    name?: string
+    version?: string
+    codemirror_mode?: string | Record<string, unknown>
+    file_extension?: string
+    mimetype?: string
+    pygments_lexer?: string
+}
+
+export type NotebookMetadata = {
+    kernelspec?: NotebookKernelSpec
+    language_info?: NotebookLanguageInfo
+    [key: string]: unknown
+}
+
 export type NotebookContent = {
     nbformat: number
     nbformat_minor: number
-    metadata?: Record<string, unknown>
+    metadata?: NotebookMetadata
     cells: NotebookCell[]
 }
