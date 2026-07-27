@@ -628,6 +628,35 @@ src/
 
 ---
 
+## Development
+
+### Build & Lint Status
+
+| Check | Status |
+|---|---|
+| `tsc --noEmit` | ✅ Zero errors |
+| `bun run build` | ✅ Passes |
+| `bun run build:dev` | ✅ Passes |
+
+### Build-Time Constants
+
+The bundler replaces `process.env.USER_TYPE` with `"external"` and `process.env.NODE_ENV` with `"production"`. Internal-only code paths use helper functions from `src/utils/buildConstants.ts`:
+
+- `isInternalBuild()` — returns `true` only in Anthropic employee builds
+- `isTestEnv()` — returns `true` when `NODE_ENV === "test"`
+- `isDevEnv()` — returns `true` when `NODE_ENV === "development"`
+
+### Internal Module Stubs
+
+Some modules only exist in the internal Anthropic repo. The external repo provides no-op stubs:
+
+- `src/utils/ccshareResume.ts`
+- `src/utils/eventLoopStallDetector.ts`
+- `src/utils/sdkHeapDumpMonitor.ts`
+- `src/utils/sessionDataUploader.ts`
+- `src/components/AntModelSwitchCallout.tsx`
+- `src/components/UndercoverAutoCallout.tsx`
+
 ## Contributing
 
 1. Fork the repository
