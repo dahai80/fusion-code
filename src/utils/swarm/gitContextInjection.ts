@@ -1,5 +1,6 @@
 import { execFileSync } from "child_process";
 import { logEvent } from "../../services/analytics/index.js";
+import { logForDebugging } from "../debug.js";
 
 const AGENT_TYPES_THAT_NEED_GIT_CONTEXT = new Set([
 	"researcher",
@@ -120,4 +121,39 @@ export function getGitContextInjection(
 		changed_file_count: ctx.changedFiles.length,
 	});
 	return formatGitContext(ctx);
+}
+
+const CHUB_AGENT_TYPES = new Set([
+	"researcher",
+	"explorer",
+	"code-reviewer",
+	"general-purpose",
+]);
+
+let _chubAvailable: boolean | null = null;
+
+function isChubAvailable(): boolean {
+	if (_chubAvailable !== null) return _chubAvailable;
+	try {
+		execFileSync("chub", ["--version"], { timeout: 3000, stdio: "pipe" });
+		_chubAvailable = true;
+	} catch {
+		_chubAvailable = false;
+		logForDebugging("[chub-hint] chub CLI not found, skipping hint injection");
+	}
+	return _chubAvailable;
+}
+
+export function getChubHint(): string | null {
+	if (!isChubAvailable()) return null;
+	if (typeof globalThis._currentAgentType === "string" && !CHUB_AGENT_TYPES.has(globalThis._currentAgentType)) {
+		return null;
+	}
+	return `<context_hub_hint>
+When you need API documentation for a library or framework, use the CLI tool "chub" to fetch current, versioned docs:
+- chub search "query" — find relevant docs
+- chub get <id> --lang <py|js|go> — fetch docs by ID and language
+Example: chub get openai/chat --lang py
+This reduces API hallucination by providing verified, up-to-date documentation.
+</context_hub_hint>`;
 }

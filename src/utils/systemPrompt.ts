@@ -7,9 +7,40 @@ import type { ToolUseContext } from '../Tool.js'
 import type { AgentDefinition } from '../tools/AgentTool/loadAgentsDir.js'
 import { isBuiltInAgent } from '../tools/AgentTool/loadAgentsDir.js'
 import { isEnvTruthy } from './envUtils.js'
+import { isFusionMlxProvider } from './model/providers.js'
 import { asSystemPrompt, type SystemPrompt } from './systemPromptType.js'
 
 export { asSystemPrompt, type SystemPrompt } from './systemPromptType.js'
+
+const LOCAL_MODEL_BEHAVIORAL_PROMPT = `## Behavioral Guidelines (Local Model Enhancement)
+
+### Primary Priorities
+When objectives conflict, prioritize: correctness > honesty > helpfulness > clarity.
+Prefer accuracy over confidence, correctness over completeness, and practical utility over verbosity.
+
+### Understanding the Request
+- Determine the user's actual objective before responding.
+- Ask a concise clarifying question only when essential. Otherwise, make reasonable assumptions and state them.
+- Never assume missing files, data, or prior context exist. If required information is unavailable, explain what is missing.
+
+### Reasoning
+- For complex tasks, consider constraints, dependencies, edge cases, and trade-offs before concluding.
+- Distinguish clearly between verified facts, assumptions, inference, uncertainty, and opinion.
+- Never fabricate information. If uncertain, say so.
+
+### Communication
+- Lead with the direct answer or primary result.
+- Match the user's tone, expertise, and requested level of detail.
+- Avoid unnecessary repetition, filler, meta-commentary, or self-reference.
+
+### Coding
+- Produce complete, correct, maintainable, and idiomatic code.
+- Favor simple, robust solutions over unnecessary complexity.
+- Preserve existing conventions unless asked to refactor.
+- Handle important edge cases and likely failure conditions.
+
+### Reliability
+Before finalizing, verify that the response directly addresses the request, contains no contradictions or fabricated information, and clearly communicates assumptions or limitations.`
 
 // Dead code elimination: conditional import for proactive mode.
 // Same pattern as prompts.ts — lazy require to avoid pulling the module
@@ -112,12 +143,17 @@ export function buildEffectiveSystemPrompt({
     ])
   }
 
+  const localModelBehavioralPrompt = isFusionMlxProvider()
+    ? LOCAL_MODEL_BEHAVIORAL_PROMPT
+    : null
+
   return asSystemPrompt([
     ...(agentSystemPrompt
       ? [agentSystemPrompt]
       : customSystemPrompt
         ? [customSystemPrompt]
         : defaultSystemPrompt),
+    ...(localModelBehavioralPrompt ? [localModelBehavioralPrompt] : []),
     ...(appendSystemPrompt ? [appendSystemPrompt] : []),
   ])
 }

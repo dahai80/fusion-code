@@ -77,7 +77,7 @@ import {
 import { enqueueSdkEvent } from "../../utils/sdkEventQueue.js";
 import { writeAgentMetadata } from "../../utils/sessionStorage.js";
 import { sleep } from "../../utils/sleep.js";
-import { getGitContextInjection } from "../../utils/swarm/gitContextInjection.js";
+import { getGitContextInjection, getChubHint } from "../../utils/swarm/gitContextInjection.js";
 import { buildEffectiveSystemPrompt } from "../../utils/systemPrompt.js";
 import { asSystemPrompt } from "../../utils/systemPromptType.js";
 import { getTaskOutputPath } from "../../utils/task/diskOutput.js";
@@ -796,6 +796,11 @@ export const AgentTool = buildTool({
 				const gitContext = getGitContextInjection(selectedAgent.agentType);
 				if (gitContext) {
 					enhancedSystemPrompt = [...enhancedSystemPrompt, gitContext];
+				}
+				// Hint sub-agents to use chub for API docs when available
+				const chubHint = getChubHint();
+				if (chubHint) {
+					enhancedSystemPrompt = [...enhancedSystemPrompt, chubHint];
 				}
 			} catch (error) {
 				logForDebugging(
