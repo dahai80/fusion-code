@@ -486,6 +486,13 @@ export type CollapsedReadSearchGroup = {
     gitOpBashCount?: number
     commits?: unknown[]
     pushes?: unknown[]
+    hookInfos?: Array<{ command: string; durationMs?: number }>
+    hookCount?: number
+    hookTotalMs?: number
+    relevantMemories?: Array<{ path: string; content?: string }>
+    preCompactDiscoveredTools?: unknown
+    branches?: unknown
+    prs?: unknown
 }
 
 // ============================================================================
