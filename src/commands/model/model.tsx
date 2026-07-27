@@ -16,6 +16,7 @@ import { getDefaultMainLoopModelSetting, isOpus1mMergeEnabled, renderDefaultMode
 import { isModelAllowed } from '../../utils/model/modelAllowlist.js';
 import { updateSettingsForSource } from '../../utils/settings/settings.js';
 import { validateModel } from '../../utils/model/validateModel.js';
+import { logForDebugging } from '../../utils/debug.js';
 function ModelPickerWrapper(t0) {
   const $ = _c(17);
   const {
@@ -56,6 +57,8 @@ function ModelPickerWrapper(t0) {
         mainLoopModel: model,
         mainLoopModelForSession: null
       }));
+      updateSettingsForSource('userSettings', { model: model || undefined });
+      logForDebugging(`[model] persisted model selection: ${model}`);
       let message = `Set model to ${chalk.bold(renderModelLabel(model))}`;
       if (effort !== undefined) {
         message = message + ` with ${chalk.bold(effort)} effort`;

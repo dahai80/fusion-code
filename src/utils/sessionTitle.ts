@@ -26,6 +26,19 @@ import { asSystemPrompt } from './systemPromptType.js'
 const MAX_CONVERSATION_TEXT = 1000
 
 /**
+ * Deterministic fallback title from first user message.
+ * Extracts the first line, trims to 60 chars, strips common prefixes.
+ * Used when Haiku is unavailable (local MLX without cloud API).
+ */
+export function extractFallbackTitle(text: string): string {
+    const firstLine = text.split('\n')[0]?.trim() || ''
+    const stripped = firstLine
+        .replace(/^(please |can you |help me |i need |i want to |let's )/i, '')
+        .replace(/[.!?]+$/, '')
+    return stripped.length > 60 ? stripped.slice(0, 57) + '...' : stripped
+}
+
+/**
  * Flatten a message array into a single text string for Haiku title input.
  * Skips meta/non-human messages. Tail-slices to the last 1000 chars so
  * recent context wins when the conversation is long.
@@ -53,15 +66,16 @@ export function extractConversationText(messages: Message[]): string {
     : text
 }
 
-const SESSION_TITLE_PROMPT = `Generate a concise, sentence-case title (3-7 words) that captures the main topic or goal of this coding session. The title should be clear enough that the user recognizes the session in a list. Use sentence case: capitalize only the first word and proper nouns.
+const SESSION_TITLE_PROMPT = `Generate a concise title (3-7 words) that captures the main topic or goal of this coding session. The title should be clear enough that the user recognizes the session in a list. Use the same language as the user's first message — if the user writes in Chinese, respond in Chinese; if in English, respond in English; etc. Use sentence case: capitalize only the first word and proper nouns.
 
 Return JSON with a single "title" field.
 
 Good examples:
 {"title": "Fix login button on mobile"}
 {"title": "Add OAuth authentication"}
+{"title": "修复移动端登录按钮"}
+{"title": "添加OAuth认证"}
 {"title": "Debug failing CI tests"}
-{"title": "Refactor API client error handling"}
 
 Bad (too vague): {"title": "Code changes"}
 Bad (too long): {"title": "Investigate and fix the issue where the login button does not respond on mobile devices"}

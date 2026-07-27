@@ -60,6 +60,7 @@ import type {
 import { count } from '../../utils/array.js'
 import { createAttachmentMessage } from '../../utils/attachments.js'
 import { logForDebugging } from '../../utils/debug.js'
+import { redactCredentials, shouldRedactToolOutput } from '../../utils/credentialSandbox.js'
 import {
   AbortError,
   errorMessage,
@@ -1558,6 +1559,14 @@ async function checkPermissionsAndCallTool(
         `Slow PostToolUse hooks: ${postToolHookDurationMs}ms for ${tool.name} (${postToolHookInfos.length} hooks)`,
         { level: 'info' },
       )
+    }
+
+    // Credential sandbox: redact secrets from tool output before sending to model
+    if (typeof toolOutput === 'string' && shouldRedactToolOutput(tool.name)) {
+      const { redacted, redactionCount } = redactCredentials(toolOutput)
+      if (redactionCount > 0) {
+        toolOutput = redacted
+      }
     }
 
     if (isMcpTool(tool)) {

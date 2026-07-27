@@ -13,9 +13,11 @@ import { isChannelsEnabled } from '../../services/mcp/channelAllowlist.js';
 import { getEffectiveChannelAllowlist } from '../../services/mcp/channelNotification.js';
 import { getMcpConfigsByScope } from '../../services/mcp/config.js';
 import { getClaudeAIOAuthTokens, getSubscriptionType } from '../../utils/auth.js';
+import { isFusionMlxProvider } from '../../utils/model/providers.js';
 import { loadInstalledPluginsV2 } from '../../utils/plugins/installedPluginsManager.js';
 import { getSettingsForSource } from '../../utils/settings/settings.js';
 export function ChannelsNotice() {
+  if (isFusionMlxProvider()) return null;
   const $ = _c(32);
   const [t0] = useState(_temp);
   const {

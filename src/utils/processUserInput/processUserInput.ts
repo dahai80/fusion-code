@@ -71,6 +71,7 @@ export type ProcessUserInputBaseResult = {
   )[]
   shouldQuery: boolean
   allowedTools?: string[]
+  disallowedTools?: string[]
   model?: string
   effort?: EffortValue
   // Output text for non-interactive mode (e.g., forked commands)

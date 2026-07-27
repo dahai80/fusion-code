@@ -6,6 +6,7 @@ import { DESCRIPTION, getPrompt } from './prompt.js'
 import { logForDebugging } from '../../utils/debug.js'
 import { randomUUID } from 'node:crypto'
 import { readFile } from 'node:fs/promises'
+import { parseYamlWorkflow } from './yamlLoader.js'
 
 const inputSchema = lazySchema(() =>
     z.strictObject({
@@ -59,7 +60,16 @@ async function resolveScriptSource(input: {
 
     if (input.scriptPath) {
         try {
-            return await readFile(input.scriptPath, 'utf-8')
+            const content = await readFile(input.scriptPath, 'utf-8')
+            if (input.scriptPath.endsWith('.yaml') || input.scriptPath.endsWith('.yml')) {
+                const converted = parseYamlWorkflow(content, input.scriptPath)
+                if (!converted) {
+                    logForDebugging(`[Workflow] failed to parse YAML script: ${input.scriptPath}`)
+                    return null
+                }
+                return converted
+            }
+            return content
         } catch (err) {
             logForDebugging(`[Workflow] failed to read script file: ${(err as Error).message}`)
             return null
@@ -71,11 +81,21 @@ async function resolveScriptSource(input: {
         const { join } = await import('node:path')
         const { access } = await import('node:fs/promises')
         const dir = join(homedir(), '.claude', 'workflows')
-        for (const ext of ['.js', '.ts', '.mjs']) {
+        for (const ext of ['.js', '.ts', '.mjs', '.yaml', '.yml']) {
             const filePath = join(dir, input.name + ext)
             try {
                 await access(filePath)
-                return await readFile(filePath, 'utf-8')
+                const content = await readFile(filePath, 'utf-8')
+                if (ext === '.yaml' || ext === '.yml') {
+                    const converted = parseYamlWorkflow(content, input.name)
+                    if (!converted) {
+                        logForDebugging(`[Workflow] failed to parse YAML workflow: ${filePath}`)
+                        return null
+                    }
+                    logForDebugging(`[Workflow] converted YAML workflow: ${input.name}`)
+                    return converted
+                }
+                return content
             } catch {
                 continue
             }

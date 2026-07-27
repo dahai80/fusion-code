@@ -3,18 +3,28 @@ import { isEnvTruthy } from '../envUtils.js'
 
 export type APIProvider =
   | 'firstParty'
+  | 'bedrock'
+  | 'vertex'
   | 'foundry'
   | 'openai'
   | 'fusionMlx'
 
 export function getAPIProvider(): APIProvider {
     if (isEnvTruthy(process.env.FUSION_MLX_DISABLED)) {
+        if (isEnvTruthy(process.env.FUSION_CODE_USE_BEDROCK)) return 'bedrock'
+        if (isEnvTruthy(process.env.FUSION_CODE_USE_VERTEX)) return 'vertex'
         if (isEnvTruthy(process.env.FUSION_CODE_USE_FOUNDRY)) return 'foundry'
         if (isEnvTruthy(process.env.FUSION_CODE_USE_OPENAI)) return 'openai'
         return 'firstParty'
     }
     if (isEnvTruthy(process.env.FUSION_MLX_ENABLED)) {
         return 'fusionMlx'
+    }
+    if (isEnvTruthy(process.env.FUSION_CODE_USE_BEDROCK)) {
+        return 'bedrock'
+    }
+    if (isEnvTruthy(process.env.FUSION_CODE_USE_VERTEX)) {
+        return 'vertex'
     }
     if (isEnvTruthy(process.env.FUSION_CODE_USE_FOUNDRY)) {
         return 'foundry'

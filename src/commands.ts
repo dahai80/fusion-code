@@ -1,6 +1,10 @@
 // biome-ignore-all assist/source/organizeImports: imports must match registration order
 import addDir from './commands/add-dir/index.js'
+import act from './commands/act/index.js'
+import agentsMd from './commands/agents-md/index.js'
+import aside from './commands/aside/index.js'
 import cd from './commands/cd/index.js'
+import checkpoint from './commands/checkpoint/index.js'
 import clear from './commands/clear/index.js'
 import color from './commands/color/index.js'
 import commit from './commands/commit.js'
@@ -23,10 +27,17 @@ import ast from './commands/ast/index.js'
 import fastpath from './commands/fastpath/index.js'
 import search from './commands/search/index.js'
 import loopTest from './commands/loop-test/index.js'
+import loopStatus from './commands/loop-status/index.js'
 import logout from './commands/logout/index.js'
+import resumeSession from './commands/resume-session/index.js'
 import breakCache from './commands/break-cache/index.js'
 import mcp from './commands/mcp/index.js'
 import resume from './commands/resume/index.js'
+import saveSession from './commands/save-session/index.js'
+import skillCreate from './commands/skill-create/index.js'
+import updateCodemaps from './commands/update-codemaps/index.js'
+import updateDocs from './commands/update-docs/index.js'
+import projectInit from './commands/project-init/index.js'
 import session from './commands/session/index.js'
 import status from './commands/status/index.js'
 import tasks from './commands/tasks/index.js'
@@ -41,14 +52,35 @@ import passes from './commands/passes/index.js'
 import privacySettings from './commands/privacy-settings/index.js'
 import hooks from './commands/hooks/index.js'
 import files from './commands/files/index.js'
+import fork from './commands/fork/index.js'
 import branch from './commands/branch/index.js'
 import agents from './commands/agents/index.js'
+import subtask from './commands/subtask/index.js'
 import reloadPlugins from './commands/reload-plugins/index.js'
 import reloadSkills from './commands/reload-skills/index.js'
 import rewind from './commands/rewind/index.js'
 import heapDump from './commands/heapdump/index.js'
 import version from './commands/version.js'
 import summary from './commands/summary/index.js'
+import recap from './commands/recap/index.js'
+import plugins from './commands/plugins/index.js'
+import remind from './commands/remind/index.js'
+import style from './commands/style/index.js'
+import lessPermissionPrompts from './commands/less-permission-prompts/index.js'
+import memorySearch from './commands/memory-search/index.js'
+import historySearch from './commands/history-search/index.js'
+import suggest from './commands/suggest/index.js'
+import progress from './commands/progress/index.js'
+import deploy from './commands/deploy/index.js'
+import preview from './commands/preview/index.js'
+import scaffold from './commands/scaffold/index.js'
+import research from './commands/research/index.js'
+import run from './commands/run/index.js'
+import tour from './commands/tour/index.js'
+import integrations from './commands/integrations/index.js'
+import diagram from './commands/diagram/index.js'
+import toolDiscovery from './commands/tool-discovery/index.js'
+import agentOrchestrator from './commands/agent-orchestrator/index.js'
 import {
     resetLimits,
     resetLimitsNonInteractive,
@@ -74,6 +106,7 @@ import {
 import memoize from 'lodash-es/memoize.js'
 import { asyncMemoize } from './utils/asyncMemoize.js'
 import { isUsing3PServices, isClaudeAISubscriber } from './utils/auth.js'
+import { isFusionMlxProvider } from './utils/model/providers.js'
 import { isFirstPartyAnthropicBaseUrl } from './utils/model/providers.js'
 import env from './commands/env/index.js'
 import exit from './commands/exit/index.js'
@@ -90,8 +123,12 @@ import review from './commands/review/index.js'
 import commitPushPr from './commands/commit-push-pr/index.js'
 import securityReview from './commands/security-review/index.js'
 import rename from './commands/rename/index.js'
+import goal from './commands/goal/index.js'
+import focus from './commands/focus/index.js'
+import tui from './commands/tui/index.js'
 import feedback from './commands/feedback/index.jsx'
 import skills from './commands/skills/index.jsx'
+import screenReader from './commands/screen-reader/index.js'
 // insights.ts is 113KB (3200 lines, includes diffLines/html rendering). Lazy
 // shim defers the heavy module until /insights is actually invoked.
 const usageReport: Command = {
@@ -139,7 +176,11 @@ export const INTERNAL_ONLY_COMMANDS = [
 // since underlying functions read from config, which can't be read at module initialization time
 const COMMANDS = memoize((): Command[] => [
     addDir,
+    act,
+    agentsMd,
+    aside,
     cd,
+    checkpoint,
     advisor,
     agents,
     branch,
@@ -160,7 +201,10 @@ const COMMANDS = memoize((): Command[] => [
     exit,
     fast,
     feedback,
+    focus,
+    goal,
     files,
+    fork,
     heapDump,
     help,
     ide,
@@ -170,6 +214,7 @@ const COMMANDS = memoize((): Command[] => [
     fastpath,
     search,
     loopTest,
+    loopStatus,
     mcp,
     memory,
     model,
@@ -180,16 +225,44 @@ const COMMANDS = memoize((): Command[] => [
     rename,
     review,
     resume,
+    resumeSession,
+    saveSession,
+    skillCreate,
+    updateCodemaps,
+    updateDocs,
+    projectInit,
     session,
     skills,
+    screenReader,
     stats,
     status,
+    subtask,
     summary,
+    recap,
+    plugins,
+    remind,
+    style,
+    lessPermissionPrompts,
+    memorySearch,
+    historySearch,
+    suggest,
+    progress,
+    deploy,
+    preview,
+    scaffold,
+    research,
+    run,
+    tour,
+    integrations,
+    diagram,
+    toolDiscovery,
+    agentOrchestrator,
     statusline,
     tag,
     theme,
     rewind,
     terminalSetup,
+    tui,
     upgrade,
     vim,
     permissions,
@@ -199,7 +272,7 @@ const COMMANDS = memoize((): Command[] => [
     exportCommand,
     sandboxToggle,
     securityReview,
-    ...(!isUsing3PServices() ? [logout, login()] : []),
+    ...(!isUsing3PServices() && !isFusionMlxProvider() ? [logout, login()] : []),
     passes,
     tasks,
     usageReport,

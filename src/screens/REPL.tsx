@@ -134,7 +134,7 @@ import { hasConsoleBillingAccess } from '../utils/billing.js';
 import { logEvent, type AnalyticsMetadata_I_VERIFIED_THIS_IS_NOT_CODE_OR_FILEPATHS } from 'src/services/analytics/index.js';
 import { getFeatureValue_CACHED_MAY_BE_STALE } from 'src/services/analytics/growthbook.js';
 import { textForResubmit, handleMessageFromStream, type StreamingToolUse, type StreamingThinking, isCompactBoundaryMessage, getMessagesAfterCompactBoundary, getContentText, createUserMessage, createAssistantMessage, createTurnDurationMessage, createAgentsKilledMessage, createApiMetricsMessage, createSystemMessage, createCommandInputMessage, formatCommandInputTags } from '../utils/messages.js';
-import { generateSessionTitle } from '../utils/sessionTitle.js';
+import { generateSessionTitle, extractFallbackTitle } from '../utils/sessionTitle.js';
 import { BASH_INPUT_TAG, COMMAND_MESSAGE_TAG, COMMAND_NAME_TAG, LOCAL_COMMAND_STDOUT_TAG } from '../constants/xml.js';
 import { escapeXml } from '../utils/xml.js';
 import type { ThinkingConfig } from '../utils/thinking.js';
@@ -620,7 +620,7 @@ export function REPL({
   // Agent definition is state so /resume can update it mid-session
   const [mainThreadAgentDefinition, setMainThreadAgentDefinition] = useState(initialMainThreadAgentDefinition);
   const toolPermissionContext = useAppState(s => s.toolPermissionContext);
-  const verbose = useAppState(s => s.verbose);
+  const verbose = useAppState(s => s.verbose) && process.env.FUSION_CODE_FOCUS_VIEW !== '1';
   const mcp = useAppState(s => s.mcp);
   const plugins = useAppState(s => s.plugins);
   const agentDefinitions = useAppState(s => s.agentDefinitions);
@@ -2699,9 +2699,10 @@ export function REPL({
       if (text && !text.startsWith(`<${LOCAL_COMMAND_STDOUT_TAG}>`) && !text.startsWith(`<${COMMAND_MESSAGE_TAG}>`) && !text.startsWith(`<${COMMAND_NAME_TAG}>`) && !text.startsWith(`<${BASH_INPUT_TAG}>`)) {
         haikuTitleAttemptedRef.current = true;
         void generateSessionTitle(text, new AbortController().signal).then(title => {
-          if (title) setHaikuTitle(title);else haikuTitleAttemptedRef.current = false;
+          if (title) setHaikuTitle(title);
+          else { setHaikuTitle(extractFallbackTitle(text)); }
         }, () => {
-          haikuTitleAttemptedRef.current = false;
+          setHaikuTitle(extractFallbackTitle(text));
         });
       }
     }

@@ -1,12 +1,23 @@
 import { feature } from 'bun:bundle'
 import { shouldAutoEnableClaudeInChrome } from 'src/utils/claudeInChrome/setup.js'
 import { registerBatchSkill } from './batch.js'
+import { registerBrainstormSkill } from './brainstorm.js'
+import { registerCodeReviewSkill } from './codeReview.js'
+import { registerFinishingBranchSkill } from './finishingBranch.js'
+import { registerSantaLoopSkill } from './santaLoop.js'
+import { registerSystematicDebuggingSkill } from './systematicDebugging.js'
+import { registerTddSkill } from './tdd.js'
+import { registerWritingPlansSkill } from './writingPlans.js'
+import { registerVerifyCompleteSkill } from './verifyComplete.js'
+import { registerMemorySaveSkill } from './memorySave.js'
 import { registerClaudeInChromeSkill } from './claudeInChrome.js'
+import { registerDatavizSkill } from './dataviz.js'
 import { registerDebugSkill } from './debug.js'
 import { registerKeybindingsSkill } from './keybindings.js'
 import { registerLoremIpsumSkill } from './loremIpsum.js'
 import { registerRememberSkill } from './remember.js'
 import { registerSimplifySkill } from './simplify.js'
+import { registerSddSkill } from './sdd.js'
 import { registerSkillifySkill } from './skillify.js'
 import { registerStuckSkill } from './stuck.js'
 import { registerUpdateConfigSkill } from './updateConfig.js'
@@ -30,8 +41,19 @@ export function initBundledSkills(): void {
   registerSkillifySkill()
   registerRememberSkill()
   registerSimplifySkill()
+  registerSddSkill()
   registerBatchSkill()
+  registerBrainstormSkill()
+  registerWritingPlansSkill()
+  registerDatavizSkill()
   registerStuckSkill()
+  registerSystematicDebuggingSkill()
+  registerTddSkill()
+  registerFinishingBranchSkill()
+  registerCodeReviewSkill()
+  registerSantaLoopSkill()
+  registerVerifyCompleteSkill()
+  registerMemorySaveSkill()
   if (feature('KAIROS') || feature('KAIROS_DREAM')) {
     /* eslint-disable @typescript-eslint/no-require-imports */
     const { registerDreamSkill } = require('./dream.js')

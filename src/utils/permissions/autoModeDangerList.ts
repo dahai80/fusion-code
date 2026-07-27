@@ -62,6 +62,16 @@ const AUTO_MODE_HARD_DENY_PATTERNS: RegExp[] = [
     /\bterraform\s+destroy\b/,
     /\b(DROP|TRUNCATE)\s+(TABLE|DATABASE|SCHEMA)\b/i,
     /\bDELETE\s+FROM\s+\w+[ \t]*(;|"|'|\n|$)/i,
+    /\brm\s+(-[a-zA-Z]*f[a-zA-Z]*\s+|-[a-zA-Z]*r[a-zA-Z]*\s+)\/\s*$/,
+    /\brm\s+--recursive\b[^;&|\n]*\s\/\s*$/,
+    /\bdd\s+.*of=\/dev\//,
+    /\bchmod\s+(-R\s+)?000\s+\//,
+    /\bchown\s+(-R\s+)?\w+\s+\//,
+    /\b(nohup\s+)?disown\b/,
+    /\bshutdown\b/,
+    /\breboot\b/,
+    /\bhalt\b/,
+    /\bpoweroff\b/,
 ]
 
 const AUTO_MODE_ALLOW_PREFIXES = [

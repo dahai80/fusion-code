@@ -1,6 +1,7 @@
 import React, { useCallback, useState } from 'react';
 import { useTerminalSize } from 'src/hooks/useTerminalSize.js';
 import { type CodeSession, fetchCodeSessionsFromSessionsAPI } from 'src/utils/teleport/api.js';
+import { isFusionMlxProvider } from 'src/utils/model/providers.js';
 // eslint-disable-next-line custom-rules/prefer-use-keybindings -- raw j/k/arrow list navigation
 import { Box, Text, useInput } from '../ink.js';
 import { useKeybinding } from '../keybindings/useKeybinding.js';
@@ -248,13 +249,20 @@ function renderErrorSpecificGuidance(errorType: LoadErrorType): React.ReactNode 
           <Text dimColor>Check your internet connection</Text>
         </Box>;
     case 'auth':
-      return <Box marginY={1} flexDirection="column">
-          <Text dimColor>Teleport requires a Claude account</Text>
-          <Text dimColor>
-            Run <Text bold>/login</Text> and select &quot;Claude account with
-            subscription&quot;
-          </Text>
-        </Box>;
+      return isFusionMlxProvider()
+        ? <Box marginY={1} flexDirection="column">
+            <Text dimColor>fusion-mlx service not available</Text>
+            <Text dimColor>
+              Run <Text bold>`fusion service start mlx`</Text> or set <Text bold>FUSION_API_KEY</Text>
+            </Text>
+          </Box>
+        : <Box marginY={1} flexDirection="column">
+            <Text dimColor>Teleport requires a Claude account</Text>
+            <Text dimColor>
+              Run <Text bold>/login</Text> and select &quot;Claude account with
+              subscription&quot;
+            </Text>
+          </Box>;
     case 'api':
       return <Box marginY={1} flexDirection="column">
           <Text dimColor>Sorry, Claude encountered an error</Text>

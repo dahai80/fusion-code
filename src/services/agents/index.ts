@@ -1,0 +1,15 @@
+export {
+    type AgentRole,
+    type AgentConfig,
+    type AgentInstance,
+    createAgentConfig,
+    spawnAgent,
+    assignTask,
+    updateAgentStatus,
+    getAgent,
+    listAgents,
+    removeAgent,
+    mergeResults,
+    getAgentBus,
+    formatAgentReport,
+} from './agentOrchestrator.js'

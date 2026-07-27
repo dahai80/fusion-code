@@ -19,12 +19,12 @@
 | | |
 |---|---|
 | 🖥️ **Local MLX Inference** | Deep [fusion-mlx](https://github.com/fusion-mlxs/fusion-mlx) integration at `127.0.0.1:11434`. Auto-detects local models, zero cloud dependency. |
-| ☁️ **Cloud LLM Backends** | Anthropic (direct or proxy/LiteLLM), OpenAI Codex, Azure Foundry — plug in an API key and go. |
+| ☁️ **Cloud LLM Backends** | Anthropic (direct or proxy/LiteLLM), OpenAI Codex, Azure Foundry — plug in an API key and go. Fallback model chain on 429/529 errors. |
 | 🔒 **Zero Telemetry** | No outbound analytics, crash reporting, or usage tracking. Everything stays on your machine. |
 | 🧩 **Builtin Plugins** | GitHub integration, UI/UX Pro Max design assistant, Chrome DevTools — all bundled, user-toggleable. |
 | ⚡ **88 Feature Flags** | ULTRAPLAN multi-agent, ULTRATHINK deep reasoning, voice input, IDE bridge, and 80+ more. |
-| 🛡️ **Smart Permissions** | Auto mode auto-approves safe ops, prompts only for dangerous commands. No LLM classifier needed. |
-| 🧠 **Context Management** | Auto-compact, hard compact (deterministic, zero token cost), MLX memory safety — handles 32K windows. |
+| 🛡️ **Smart Permissions** | Auto mode auto-approves safe ops, prompts only for dangerous commands. Skill-level `disallowed-tools` for fine-grained control. No LLM classifier needed. |
+| 🧠 **Context Management** | Auto-compact, hard compact (deterministic, zero token cost), MLX memory safety — handles 32K windows. Compaction preserves sensitive instructions. |
 
 ---
 
@@ -121,6 +121,8 @@ fusion-code supports multiple API backends. The provider is selected automatical
 
 > The first matching provider wins. If none match, local MLX is auto-detected on port 11434.
 
+**Fallback model**: When the primary model is overloaded (529) or rate-limited (429), fusion-code automatically falls back to a smaller model. The default chain is opus→sonnet→haiku. Override with `FUSION_FALLBACK_MODEL` or the `/config fallbackModel` setting.
+
 ### Provider Configuration Summary
 
 | Provider | Required Env | Auth Method | Notes |
@@ -150,6 +152,12 @@ Session override (`/model`) > `--model` CLI flag > `FUSION_MODEL` / `FUSION_MLX_
 | `FUSION_MLX_BASE_URL` | — | `http://192.168.1.10:11434` |
 | `FUSION_CUSTOM_HEADERS` | — | `{"X-Key":"val"}` |
 | `FUSION_BETAS` | `ANTHROPIC_BETAS` | `max-tokens-3-5-sonnet-2024-07-15` |
+| `FUSION_FALLBACK_MODEL` | — | `claude-sonnet-5` (auto-derived if unset) |
+| `FUSION_CREDENTIAL_SANDBOX` | — | `1` to redact secrets from tool output |
+| `FUSION_CODE_USE_BEDROCK` | — | `1` to use AWS Bedrock as provider |
+| `FUSION_CODE_USE_VERTEX` | — | `1` to use Google Vertex AI as provider |
+| `FUSION_SAFE_MODE` | — | `1` for read-only + no shell + no network |
+| `FUSION_CODE_FOCUS_VIEW` | — | `1` to hide verbose tool output (focus mode) |
 
 ### Tuning Environment Variables
 
@@ -157,6 +165,16 @@ Session override (`/model`) > `--model` CLI flag > `FUSION_MODEL` / `FUSION_MLX_
 |---|---|---|
 | `CLAUDE_DISABLE_STREAM_WATCHDOG` | unset | Set to `1` to disable the stream idle watchdog (auto-aborts hung connections) |
 | `CLAUDE_STREAM_IDLE_TIMEOUT_MS` | `300000` (5 min) | Milliseconds before the watchdog aborts an idle stream |
+| `FUSION_CODE_FOCUS_VIEW` | unset | Set to `1` to collapse verbose tool output (focus mode) |
+
+### Keyboard Shortcuts
+
+| Shortcut | Action |
+|---|---|
+| `Ctrl+Shift+↑` | Increase effort level |
+| `Ctrl+Shift+↓` | Decrease effort level |
+| `/effort <level>` | Set effort level (low/medium/high/max) |
+| `/focus on\|off` | Toggle focus view (collapse verbose output) |
 
 ### Cloud Configuration Details
 
@@ -203,6 +221,54 @@ export FUSION_FOUNDRY_API_KEY="..."
 ```
 
 Azure AD `DefaultAzureCredential` is used if no key is set. Set `FUSION_CODE_SKIP_FOUNDRY_AUTH=1` for unauthenticated test endpoints.
+
+#### AWS Bedrock
+
+```bash
+export FUSION_CODE_USE_BEDROCK=1
+export AWS_REGION="us-east-1"
+# AWS credentials via environment, profile, or IAM role
+./fusion-code
+```
+
+Requires `@anthropic-ai/bedrock-sdk` (`bun add @anthropic-ai/bedrock-sdk`). Set `AWS_PROFILE` for named profiles, `AWS_BEDROCK_MODEL` for model ID.
+
+#### Google Vertex AI
+
+```bash
+export FUSION_CODE_USE_VERTEX=1
+export GOOGLE_CLOUD_PROJECT="my-project"
+export CLOUD_ML_REGION="us-east5"
+# ADC or service account credentials
+./fusion-code
+```
+
+Requires `@anthropic-ai/vertex-sdk` (`bun add @anthropic-ai/vertex-sdk`). Set `VERTEX_MODEL` for model ID.
+
+#### Safe Mode
+
+```bash
+./fusion-code --safe-mode
+# Equivalent to: FUSION_SAFE_MODE=1 FUSION_CREDENTIAL_SANDBOX=1
+```
+
+Read-only mode: Write, Edit, Bash, WebFetch, and network tools are disabled. Credential sandbox auto-enabled.
+
+#### Screen Reader Mode
+
+```bash
+./fusion-code --ax-screen-reader
+# Equivalent to: FUSION_SCREEN_READER=1
+```
+
+Disables animations and spinner effects for screen reader compatibility. Toggle at runtime with `/screen-reader` (alias: `/ax`).
+
+#### MCP Authentication
+
+```bash
+fusion-code mcp login <server-name>   # Start OAuth flow for an MCP server
+fusion-code mcp logout <server-name>  # Clear stored authentication
+```
 
 #### Remote fusion-mlx
 
@@ -271,6 +337,19 @@ Tool tiers:
 
 AutoCompact triggers at 60% of the effective context window. On 32K windows, hard compact uses deterministic truncation (zero LLM call, zero token cost) instead of summarization.
 
+### MLX User Experience
+
+When using fusion-mlx as the provider, claude.ai-dependent features are automatically hidden or adapted:
+
+- **`/login` and `/logout`** — hidden (MLX doesn't require claude.ai authentication)
+- **Voice mode** — hidden (requires claude.ai audio streaming)
+- **Channels** — hidden (requires claude.ai infrastructure)
+- **Teleport / remote-env** — hidden (requires claude.ai sessions)
+- **Remote agent scheduling** — hidden (requires claude.ai infrastructure)
+- **Auth error messages** — show "fusion-mlx not available · Run `fusion service start mlx` or set FUSION_API_KEY" instead of "Not logged in · Run /login"
+
+This ensures MLX users never encounter confusing claude.ai login prompts.
+
 ---
 
 ## Build
@@ -316,6 +395,31 @@ Press **Shift+Tab** to cycle modes:
 
 **Auto mode** uses `classifyAllShell` — a deterministic classifier for every shell command. Safe commands (`ls`, `cat`, `git status`, `npm install`, `make`, etc.) are auto-approved. Dangerous commands (`rm -rf`, `sudo`, `git push`, `docker rm`, `python`, `node -e`) require confirmation. Irreversible commands (`git push --force`, `terraform destroy`, `kubectl delete`, `DROP TABLE`) are hard-denied even in auto mode. Unknown commands default to requiring confirmation.
 
+### Dynamic Workflows (YAML + JS)
+
+Workflows can be defined in YAML or JavaScript. YAML workflows are auto-converted to JS scripts at runtime:
+
+```yaml
+# .claude/workflows/review.yaml
+name: review-changes
+description: Review changed files across dimensions
+phases:
+  - title: Review
+  - title: Verify
+steps:
+  - agent: Review code for bugs and security issues
+    phase: Review
+    label: review-bugs
+  - agent: Review code for performance problems
+    phase: Review
+    label: review-perf
+  - agent: Verify findings with adversarial checks
+    phase: Verify
+    label: verify
+```
+
+JS workflows use `agent()`, `phase()`, `pipeline()`, and `parallel()` directly (see [Workflow docs](src/tools/WorkflowTool/)).
+
 ### Notable Slash Commands
 
 | Command | Description |
@@ -330,8 +434,32 @@ Press **Shift+Tab** to cycle modes:
 | `/env` | Display provider, model, and key environment variables |
 | `/ctx_viz` | Visualize context window usage |
 | `/summary` | Generate a summary of the current conversation |
-| `/workflows` | List and run workflow scripts |
+| `/workflows` | List and run workflow scripts (supports YAML and JS) |
+| `/subtask` | Spawn an inline sub-agent to handle a specific task |
+| `/fork` | Create a sub-agent fork in the current conversation context |
 | `/break-cache` | Reset prompt cache break detection |
+| `/goal` | Set or view the session goal (`/goal <text>`, `/goal clear`) |
+| `/focus` | Toggle focus view — hide verbose tool output (`/focus on\|off`) |
+| `/tui` | Toggle flicker-free fullscreen rendering (`/tui on\|off`) |
+| `/dataviz` | Generate terminal data visualizations (bar charts, sparklines, tables) |
+| `/recap` | Show a recap of the current session (useful when returning after a break) |
+| `/plugins` | List installed plugins with scope, version, and install date |
+| `/less-permission-prompts` | Suggest allow rules for read-only tools; `--apply` to persist |
+| `/screen-reader` (`/ax`) | Toggle screen reader mode (disable animations, plain text status) |
+| `/memory-search` | Search saved memories and project context files |
+| `/history-search` | Search conversation transcripts with privacy sanitization |
+| `/suggest` | Get next-action suggestions based on recent tool usage |
+| `/deploy` | Detect project deployment platform and show deploy commands |
+| `/preview` | Detect dev server config and show connection info |
+| `/scaffold` | Generate framework-specific project scaffolding instructions |
+| `/progress` | Show event stream history (checkpoints, actions, plans) |
+| `/research` | Deep research mode with multi-step search and synthesis |
+| `/run` | Execute code snippets via Bash tool |
+| `/tour` | Interactive feature walkthrough and project onboarding |
+| `/integrations` | Integration marketplace — list, search, add MCP integrations |
+| `/diagram` | Generate diagrams (flowchart, sequence, architecture) from descriptions |
+| `/tool-discovery` | Show tool tier classification, deferred tools, and usage metrics |
+| `/agent-orchestrator` | Multi-agent orchestrator: spawn, list, merge, and manage agents |
 
 ### Builtin Plugins
 
@@ -346,6 +474,10 @@ Toggle with `/plugin` inside the REPL.
 ### Project Instructions (CLAUDE.md)
 
 Place a `CLAUDE.md` file in your project root to give fusion-code project-specific instructions — coding standards, architecture notes, preferred libraries. It is automatically loaded on startup and committed to version control so your whole team shares the same AI behavior.
+
+### Multilingual Session Titles
+
+Session titles are auto-generated in the same language as your first message. Chinese input → Chinese title, English → English, etc.
 
 ---
 
@@ -413,7 +545,18 @@ src/
     oauth/                # OAuth flows (Anthropic + OpenAI)
     mcp/                  # Model Context Protocol integration
     lsp/                  # Language Server Protocol integration
-    compact/              # Context compaction (auto/reactive/micro + hardCompact)
+    compact/              # Context compaction (auto/reactive/micro + hardCompact + smartCompactV2)
+    privacy/              # Privacy sanitizer (password/secret/token redaction)
+    model-router/         # Multi-tier model routing (trivial/standard/complex/safety)
+    search-first/         # Search policy engine (when to search the web)
+    suggestions/          # Context-aware next-action suggestion engine
+    events/               # Event stream (action/progress/checkpoint/plan)
+    deploy/               # Deploy platform detection (Netlify/Vercel/CF/GitHub)
+    dev-server/           # Dev server detection (Vite/Next/Nuxt/SvelteKit etc.)
+    research/             # Deep research engine (plan + multi-step search + synthesize)
+    license-check/        # License detection and copyright awareness
+    visualizer/           # Diagram generation (Mermaid + ASCII prompts)
+    onboarding/           # Project profile detection and feature suggestions
   state/                  # App state store
   utils/
     model/providers.ts    # Provider selection (getAPIProvider)

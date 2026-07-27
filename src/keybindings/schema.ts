@@ -90,6 +90,8 @@ export const KEYBINDING_ACTIONS = [
   'chat:externalEditor',
   'chat:stash',
   'chat:imagePaste',
+  'chat:effortUp',
+  'chat:effortDown',
   'chat:messageActions',
   // Autocomplete menu actions
   'autocomplete:accept',

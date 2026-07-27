@@ -10,6 +10,9 @@ import { queryModelWithStreaming } from '../../services/api/claude.js'
 import { buildTool, type ToolDef } from '../../Tool.js'
 import { lazySchema } from '../../utils/lazySchema.js'
 import { logError } from '../../utils/log.js'
+import { logForDebugging } from '../../utils/debug.js'
+import { SandboxManager } from '../../utils/sandbox/sandbox-adapter.js'
+import { isDeniedDomain } from '../networkDomainCheck.js'
 import { createUserMessage } from '../../utils/messages.js'
 import { getMainLoopModel, getSmallFastModel } from '../../utils/model/model.js'
 import { jsonParse, jsonStringify } from '../../utils/slowOperations.js'
@@ -248,6 +251,14 @@ export const WebSearchTool = buildTool({
   async call(input, context, _canUseTool, _parentMessage, onProgress) {
     const startTime = performance.now()
     const { query } = input
+
+    const sandboxDenied = SandboxManager.getNetworkRestrictionConfig().deniedHosts
+    if (sandboxDenied && sandboxDenied.length > 0 && !input.allowed_domains?.length) {
+      const existing = input.blocked_domains ?? []
+      const merged = [...new Set([...existing, ...sandboxDenied])]
+      input = { ...input, blocked_domains: merged }
+      logForDebugging(`[websearch] injected ${sandboxDenied.length} denied domains into blocked_domains`)
+    }
     const userMessage = createUserMessage({
       content: 'Perform a web search for the query: ' + query,
     })
