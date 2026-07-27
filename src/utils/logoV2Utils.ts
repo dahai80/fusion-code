@@ -13,7 +13,6 @@ import {
   getRecentReleaseNotes,
   getStoredChangelogFromMemory,
 } from './releaseNotes.js'
-import { gt } from './semver.js'
 import { loadMessageLogs } from './sessionStorage.js'
 import { getInitialSettings } from './settings/settings.js'
 

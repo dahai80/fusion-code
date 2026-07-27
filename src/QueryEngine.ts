@@ -13,7 +13,7 @@ import type {
 	SDKPermissionDenial,
 	SDKStatus,
 	SDKUserMessageReplay,
-} from "src/entrypoints/agentSdkTypes.js";
+} from "src/entrypoints/sdk/types.js";
 import { accumulateUsage, updateUsage } from "src/services/api/claude.js";
 import type { NonNullableUsage } from "src/services/api/logging.js";
 import { EMPTY_USAGE } from "src/services/api/logging.js";
@@ -263,10 +263,9 @@ export class QueryEngine {
 			// Track denials for SDK reporting
 			if (result.behavior !== "allow") {
 				this.permissionDenials.push({
-					tool_name: sdkCompatToolName(tool.name),
-					tool_use_id: toolUseID,
-					tool_input: input,
-				});
+					type: "permission_denial" as const,
+					toolName: sdkCompatToolName(tool.name),
+				} as SDKPermissionDenial);
 			}
 
 			return result;
@@ -623,11 +622,13 @@ export class QueryEngine {
 					.reverse()
 					.find((m) => m.type === "assistant");
 				if (lastAssistantMsg) {
-					const content = lastAssistantMsg.content;
+					const content = lastAssistantMsg.message.content;
 					if (typeof content === "string") {
 						finalResult = content;
 					} else if (Array.isArray(content)) {
-						const textBlocks = (content as Array<Record<string, unknown>>)
+						const textBlocks = (
+							content as unknown as Array<Record<string, unknown>>
+						)
 							.filter((b) => b.type === "text")
 							.map((b) => String(b.text ?? ""));
 						finalResult = textBlocks.join("\n");

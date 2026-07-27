@@ -1,8 +1,6 @@
 import { c as _c } from "react/compiler-runtime";
-import React, { useMemo } from 'react';
 import type { DeepImmutable } from 'src/types/utils.js';
 import { useElapsedTime } from '../../hooks/useElapsedTime.js';
-import type { KeyboardEvent } from '../../ink/events/keyboard-event.js';
 import { Box, Text, useTheme } from '../../ink.js';
 import { useKeybindings } from '../../keybindings/useKeybinding.js';
 import { getEmptyToolPermissionContext } from '../../Tool.js';

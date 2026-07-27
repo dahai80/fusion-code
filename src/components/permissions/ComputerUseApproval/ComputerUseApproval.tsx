@@ -3,12 +3,10 @@ import { getSentinelCategory } from '@ant/computer-use-mcp/sentinelApps';
 import type { CuPermissionRequest, CuPermissionResponse } from '@ant/computer-use-mcp/types';
 import { DEFAULT_GRANT_FLAGS } from '@ant/computer-use-mcp/types';
 import figures from 'figures';
-import * as React from 'react';
-import { useMemo, useState } from 'react';
+import { useState } from 'react';
 import { Box, Text } from '../../../ink.js';
 import { execFileNoThrow } from '../../../utils/execFileNoThrow.js';
 import { plural } from '../../../utils/stringUtils.js';
-import type { OptionWithDescription } from '../../CustomSelect/select.js';
 import { Select } from '../../CustomSelect/select.js';
 import { Dialog } from '../../design-system/Dialog.js';
 type ComputerUseApprovalProps = {
@@ -47,7 +45,6 @@ export function ComputerUseApproval(t0) {
 
 // ── TCC panel ─────────────────────────────────────────────────────────────
 
-type TccOption = 'open_accessibility' | 'open_screen_recording' | 'retry';
 function ComputerUseTccPanel(t0) {
   const $ = _c(26);
   const {
@@ -199,7 +196,6 @@ function ComputerUseTccPanel(t0) {
 
 // ── App allowlist panel ───────────────────────────────────────────────────
 
-type AppListOption = 'allow_all' | 'deny';
 const SENTINEL_WARNING: Record<NonNullable<ReturnType<typeof getSentinelCategory>>, string> = {
   shell: 'equivalent to shell access',
   filesystem: 'can read/write any file',

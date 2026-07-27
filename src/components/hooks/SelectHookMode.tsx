@@ -6,8 +6,7 @@ import { c as _c } from "react/compiler-runtime";
  * and selecting a hook shows its read-only details instead of a delete
  * confirmation.
  */
-import * as React from 'react';
-import type { HookEvent } from 'src/entrypoints/agentSdkTypes.js';
+import type { HookEvent } from 'src/entrypoints/sdk/types.js'
 import type { HookEventMetadata } from 'src/utils/hooks/hooksConfigManager.js';
 import { Box, Text } from '../../ink.js';
 import { getHookDisplayText, hookSourceHeaderDisplayString, type IndividualHookConfig } from '../../utils/hooks/hooksSettings.js';

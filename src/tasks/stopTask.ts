@@ -108,7 +108,7 @@ export async function killAllActive(
   context: StopTaskContext,
   reason = 'CLI session ended',
 ): Promise<string[]> {
-  const { getAppState, setAppState } = context
+  const { getAppState } = context
   const appState = getAppState()
   const tasks = appState.tasks ?? {}
   const terminalStatuses = new Set(['completed', 'failed', 'killed', 'lost', 'stopped', 'exited'])

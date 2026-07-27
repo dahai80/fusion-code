@@ -1,5 +1,4 @@
 import { c as _c } from "react/compiler-runtime";
-import React from 'react';
 import { Box, Text, useTheme } from '../../../ink.js';
 import { FallbackPermissionRequest } from '../FallbackPermissionRequest.js';
 import { FilePermissionDialog } from '../FilePermissionDialog/FilePermissionDialog.js';

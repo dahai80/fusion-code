@@ -31,7 +31,6 @@ import {
 	isFastModeEnabled,
 	triggerFastModeCooldown,
 } from "../../utils/fastMode.js";
-import { isNonCustomOpusModel } from "../../utils/model/model.js";
 import { disableKeepAlive } from "../../utils/proxy.js";
 import { sleep } from "../../utils/sleep.js";
 import type { ThinkingConfig } from "../../utils/thinking.js";
@@ -644,23 +643,10 @@ function handleAwsCredentialError(_error: unknown): boolean {
 
 // google-auth-library throws plain Error (no typed name like AWS's
 // CredentialsProviderError). Match common SDK-level credential-failure messages.
-function isGoogleAuthLibraryCredentialError(error: unknown): boolean {
-	if (!(error instanceof Error)) return false;
-	const msg = error.message;
-	return (
-		msg.includes("Could not load the default credentials") ||
-		msg.includes("Could not refresh access token") ||
-		msg.includes("invalid_grant")
-	);
-}
+// isGoogleAuthLibraryCredentialError removed (unused)
+
 
 function isVertexAuthError(_error: unknown): boolean {
-	return false;
-}
-
-// google-auth-library throws plain Error (no typed name like AWS's
-// CredentialsProviderError). Match common SDK-level credential-failure messages.
-function isGoogleAuthLibraryCredentialError(_error: unknown): boolean {
 	return false;
 }
 

@@ -1,9 +1,9 @@
 import type {
-  ComputerUseInput,
-  ComputerUseInputAPI,
-} from '@ant/computer-use-input'
+	ComputerUseInput,
+	ComputerUseInputAPI,
+} from "@ant/computer-use-input";
 
-let cached: ComputerUseInputAPI | undefined
+let cached: ComputerUseInputAPI | undefined;
 
 /**
  * Package's js/index.js reads COMPUTER_USE_INPUT_NODE_PATH (baked by
@@ -20,11 +20,13 @@ let cached: ComputerUseInputAPI | undefined
  * calls these inside drainRunLoop().
  */
 export function requireComputerUseInput(): ComputerUseInputAPI {
-  if (cached) return cached
-  // eslint-disable-next-line @typescript-eslint/no-require-imports
-  const input = require('@ant/computer-use-input') as ComputerUseInput
-  if (!input.isSupported) {
-    throw new Error('@ant/computer-use-input is not supported on this platform')
-  }
-  return (cached = input)
+	if (cached) return cached;
+	// eslint-disable-next-line @typescript-eslint/no-require-imports
+	const input = require("@ant/computer-use-input") as ComputerUseInput;
+	if (!input.isSupported) {
+		throw new Error(
+			"@ant/computer-use-input is not supported on this platform",
+		);
+	}
+	return (cached = input);
 }

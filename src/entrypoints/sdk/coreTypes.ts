@@ -10,53 +10,81 @@
 
 // Re-export sandbox types for SDK consumers
 export type {
-  SandboxFilesystemConfig,
-  SandboxIgnoreViolations,
-  SandboxNetworkConfig,
-  SandboxSettings,
-} from '../sandboxTypes.js'
+	SandboxFilesystemConfig,
+	SandboxIgnoreViolations,
+	SandboxNetworkConfig,
+	SandboxSettings,
+} from "../sandboxTypes.js";
 // Re-export all generated types
-export * from './coreTypes.generated.js'
+// log: export * doesn't propagate through src/* path alias, must list explicitly
+export {
+	AsyncHookJSONOutput,
+	ExitReason,
+	HookEvent,
+	HookInput,
+	HookJSONOutput,
+	ModelUsage,
+	PermissionMode,
+	PermissionResult,
+	SDKAssistantMessage,
+	SDKAssistantMessageError,
+	SDKBaseMessage,
+	SDKCompactBoundaryMessage,
+	SDKCompactMetadata,
+	SDKMessage,
+	SDKPartialAssistantMessage,
+	SDKPermissionDenial,
+	SDKRateLimitInfo,
+	SDKResultMessage,
+	SDKSessionInfo,
+	SDKStatus,
+	SDKStatusMessage,
+	SDKSystemMessage,
+	SDKToolProgressMessage,
+	SDKUserMessage,
+	SDKUserMessageReplay,
+	SyncHookJSONOutput,
+} from "./coreTypes.generated.js";
 
 // Re-export utility types that can't be expressed as Zod schemas
-export type { NonNullableUsage } from './sdkUtilityTypes.js'
+export type { NonNullableUsage } from "./sdkUtilityTypes.js";
 
 // Const arrays for runtime usage
 export const HOOK_EVENTS = [
-  'PreToolUse',
-  'PostToolUse',
-  'PostToolUseFailure',
-  'Notification',
-  'UserPromptSubmit',
-  'SessionStart',
-  'SessionEnd',
-  'Stop',
-  'StopFailure',
-  'SubagentStart',
-  'SubagentStop',
-  'PreCompact',
-  'PostCompact',
-  'PermissionRequest',
-  'PermissionDenied',
-  'Setup',
-  'TeammateIdle',
-  'TaskCreated',
-  'TaskCompleted',
-  'Elicitation',
-  'ElicitationResult',
-  'ConfigChange',
-  'WorktreeCreate',
-  'WorktreeRemove',
-  'InstructionsLoaded',
-  'CwdChanged',
-  'FileChanged',
-] as const
+	"PreToolUse",
+	"PostToolUse",
+	"PostToolUseFailure",
+	"Notification",
+	"UserPromptSubmit",
+	"SessionStart",
+	"SessionEnd",
+	"Stop",
+	"StopFailure",
+	"SubagentStart",
+	"SubagentStop",
+	"PreCompact",
+	"PostCompact",
+	"PermissionRequest",
+	"PermissionDenied",
+	"Setup",
+	"TeammateIdle",
+	"TaskCreated",
+	"TaskCompleted",
+	"Elicitation",
+	"ElicitationResult",
+	"ConfigChange",
+	"WorktreeCreate",
+	"WorktreeRemove",
+	"InstructionsLoaded",
+	"CwdChanged",
+	"FileChanged",
+] as const;
 
 export const EXIT_REASONS = [
-  'clear',
-  'resume',
-  'logout',
-  'prompt_input_exit',
-  'other',
-  'bypass_permissions_disabled',
-] as const
+	"clear",
+	"resume",
+	"logout",
+	"prompt_input_exit",
+	"other",
+	"bypass_permissions_disabled",
+] as const;

@@ -1,16 +1,14 @@
 import { c as _c } from "react/compiler-runtime";
 import chalk from 'chalk';
 import figures from 'figures';
-import * as React from 'react';
 import { useEffect, useState } from 'react';
 import { Text } from '../ink.js';
 import { useKeybinding } from '../keybindings/useKeybinding.js';
 import { toError } from '../utils/errors.js';
 import { logError } from '../utils/log.js';
-import { getSettingSourceName, type SettingSource } from '../utils/settings/constants.js';
+import { getSettingSourceName } from '../utils/settings/constants.js';
 import { updateSettingsForSource } from '../utils/settings/settings.js';
 import { getEnvironmentSelectionInfo } from '../utils/teleport/environmentSelection.js';
-import type { EnvironmentResource } from '../utils/teleport/environments.js';
 import { ConfigurableShortcutHint } from './ConfigurableShortcutHint.js';
 import { Select } from './CustomSelect/select.js';
 import { Byline } from './design-system/Byline.js';

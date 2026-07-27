@@ -9,7 +9,7 @@
 import type { Command } from '../../types/command.js'
 import { getGlobalConfig, saveGlobalConfig } from '../../utils/config.js'
 import { getCompanion, companionUserId, roll } from '../../buddy/companion.js'
-import { RARITY_STARS, RARITY_COLORS, type Companion } from '../../buddy/types.js'
+import { RARITY_STARS, type Companion } from '../../buddy/types.js'
 
 const command: Command = {
   name: 'buddy',
@@ -96,7 +96,7 @@ function formatCompanion(
   detailed = false,
 ): string {
   const stars = RARITY_STARS[companion.rarity]
-  const color = RARITY_COLORS[companion.rarity]
+  // RARITY_COLORS[companion.rarity] // unused
 
   let output = `**${companion.name}** ${stars} (${companion.rarity})\n`
   output += `Species: ${companion.species} | Eyes: ${companion.eye} | Hat: ${companion.hat}`

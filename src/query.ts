@@ -3,6 +3,7 @@ import type {
 	ToolResultBlockParam,
 	ToolUseBlock,
 } from "@anthropic-ai/sdk/resources/index.mjs";
+import type { SDKAssistantMessageError } from "./entrypoints/agentSdkTypes.js";
 import type { CanUseToolFn } from "./hooks/useCanUseTool.js";
 import { FallbackTriggeredError } from "./services/api/withRetry.js";
 import {
@@ -28,7 +29,7 @@ import {
 } from "src/services/analytics/index.js";
 import { ImageSizeError } from "./utils/imageValidation.js";
 import { ImageResizeError } from "./utils/imageResizer.js";
-import { findToolByName, type ToolUseContext } from "./Tool.js";
+import { findToolByName, type Tool, type ToolUseContext } from "./Tool.js";
 import { asSystemPrompt, type SystemPrompt } from "./utils/systemPromptType.js";
 import type {
 	AssistantMessage,
@@ -70,9 +71,7 @@ import {
 const skillPrefetch = feature("EXPERIMENTAL_SKILL_SEARCH")
 	? (require("./services/skillSearch/prefetch.js") as typeof import("./services/skillSearch/prefetch.js"))
 	: null;
-const jobClassifier = feature("TEMPLATES")
-	? (require("./jobs/classifier.js") as typeof import("./jobs/classifier.js"))
-	: null;
+// jobClassifier removed (unused)
 /* eslint-enable @typescript-eslint/no-require-imports */
 import {
 	remove as removeFromQueue,
@@ -184,7 +183,9 @@ const MAX_OUTPUT_TOKENS_RECOVERY_LIMIT = 3;
 function isWithheldMaxOutputTokens(
 	msg: Message | StreamEvent | undefined,
 ): msg is AssistantMessage {
-	return msg?.type === "assistant" && msg.apiError === "max_output_tokens";
+	return (
+		msg?.type === "assistant" && msg.apiError?.message === "max_output_tokens"
+	);
 }
 
 export type QueryParams = {
@@ -676,7 +677,8 @@ async function* queryLoop(
 			if (isAtBlockingLimit) {
 				yield createAssistantAPIErrorMessage({
 					content: PROMPT_TOO_LONG_ERROR_MESSAGE,
-					error: "invalid_request",
+					error:
+						"invalid_request" as unknown as SDKAssistantMessageError as unknown as SDKAssistantMessageError,
 				});
 				return { reason: "blocking_limit" };
 			}
@@ -687,8 +689,8 @@ async function* queryLoop(
 		// call still exceeds local model memory, causing infinite retry loop.
 		if (isFusionMlxProvider()) {
 			let preflight = preflightMlxQueryCheck(
-				fullSystemPrompt,
-				toolUseContext.options.tools,
+				fullSystemPrompt as unknown as string,
+				toolUseContext.options.tools as Tool[],
 				messagesForQuery,
 			);
 
@@ -705,7 +707,7 @@ async function* queryLoop(
 				);
 				yield createAssistantAPIErrorMessage({
 					content: ERROR_MESSAGE_MLX_MEMORY_LIMIT,
-					error: "invalid_request",
+					error: "invalid_request" as unknown as SDKAssistantMessageError,
 				});
 				return { reason: "mlx_memory_limit" };
 			}
@@ -765,8 +767,8 @@ async function* queryLoop(
 							);
 						}
 						preflight = preflightMlxQueryCheck(
-							fullSystemPrompt,
-							toolUseContext.options.tools,
+							fullSystemPrompt as unknown as string,
+							toolUseContext.options.tools as Tool[],
 							messagesForQuery,
 						);
 					}
@@ -797,7 +799,8 @@ async function* queryLoop(
 					);
 					yield createAssistantAPIErrorMessage({
 						content: ERROR_MESSAGE_MLX_MEMORY_LIMIT,
-						error: "invalid_request",
+						error:
+							"invalid_request" as unknown as SDKAssistantMessageError as unknown as SDKAssistantMessageError,
 					});
 					return { reason: "mlx_memory_limit" };
 				}
@@ -1126,7 +1129,7 @@ async function* queryLoop(
 						// users see the notification without needing verbose mode
 						yield createSystemMessage(
 							`Switched to ${renderModelName(innerError.fallbackModel)} due to high demand for ${renderModelName(innerError.originalModel)}`,
-							"warning",
+							"warn",
 						);
 
 						continue;
@@ -1344,6 +1347,7 @@ async function* queryLoop(
 						stopHookActive: undefined,
 						turnCount,
 						mlxModelOomCount: mlxModelOomCount + 1,
+						mlxForcedCompactDone,
 						transition: { reason: "reactive_compact_retry" },
 					};
 					state = next;
@@ -1405,6 +1409,7 @@ async function* queryLoop(
 						stopHookActive: undefined,
 						turnCount,
 						mlxModelOomCount,
+						mlxForcedCompactDone,
 						transition: { reason: "max_output_tokens_escalate" },
 					};
 					state = next;
@@ -1434,6 +1439,7 @@ async function* queryLoop(
 						stopHookActive: undefined,
 						turnCount,
 						mlxModelOomCount,
+						mlxForcedCompactDone,
 						transition: {
 							reason: "max_output_tokens_recovery",
 							attempt: maxOutputTokensRecoveryCount + 1,
@@ -1492,6 +1498,7 @@ async function* queryLoop(
 					stopHookActive: true,
 					turnCount,
 					mlxModelOomCount,
+					mlxForcedCompactDone,
 					transition: { reason: "stop_hook_blocking" },
 				};
 				state = next;
@@ -1529,6 +1536,7 @@ async function* queryLoop(
 						stopHookActive: undefined,
 						turnCount,
 						mlxModelOomCount,
+						mlxForcedCompactDone,
 						transition: { reason: "token_budget_continuation" },
 					};
 					continue;

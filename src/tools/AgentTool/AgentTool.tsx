@@ -1,5 +1,4 @@
 import { feature } from "bun:bundle";
-import * as React from "react";
 import { buildTool, type ToolDef, toolMatchesName } from "src/Tool.js";
 import type {
 	Message as MessageType,
@@ -221,13 +220,13 @@ const fullInputSchema = lazySchema(() => {
 	return baseInputSchema()
 		.merge(multiAgentInputSchema)
 		.extend({
-			isolation: ("external" === "ant"
+			isolation: (isInternalBuild()
 				? z.enum(["worktree", "remote"])
 				: z.enum(["worktree"])
 			)
 				.optional()
 				.describe(
-					"external" === "ant"
+					isInternalBuild()
 						? 'Isolation mode. "worktree" creates a temporary git worktree so the agent works on an isolated copy of the repo. "remote" launches the agent in a remote CCR environment (always runs in background).'
 						: 'Isolation mode. "worktree" creates a temporary git worktree so the agent works on an isolated copy of the repo.',
 				),
@@ -341,6 +340,7 @@ export type RemoteLaunchedOutput = {
 type InternalOutput = Output | TeammateSpawnedOutput | RemoteLaunchedOutput;
 
 import type { AgentToolProgress, ShellProgress } from "../../types/tools.js";
+import { isInternalBuild } from "../../utils/buildConstants.js";
 // AgentTool forwards both its own progress events and shell progress
 // events from the sub-agent so the SDK receives tool_progress updates during bash/powershell runs.
 export type Progress = AgentToolProgress | ShellProgress;
@@ -673,7 +673,7 @@ export const AgentTool = buildTool({
 
 		// Remote isolation: delegate to CCR. Gated ant-only — the guard enables
 		// dead code elimination of the entire block for external builds.
-		if ("external" === "ant" && effectiveIsolation === "remote") {
+		if (isInternalBuild() && effectiveIsolation === "remote") {
 			const eligibility = await checkRemoteAgentEligibility();
 			if (!eligibility.eligible) {
 				const reasons = eligibility.errors
@@ -778,7 +778,7 @@ export const AgentTool = buildTool({
 				// Log agent memory loaded event for subagents
 				if (selectedAgent.memory) {
 					logEvent("tengu_agent_memory_loaded", {
-						...("external" === "ant" && {
+						...(isInternalBuild() && {
 							agent_type:
 								selectedAgent.agentType as AnalyticsMetadata_I_VERIFIED_THIS_IS_NOT_CODE_OR_FILEPATHS,
 						}),
@@ -1453,7 +1453,7 @@ export const AgentTool = buildTool({
 							}
 							const { result } = raceResult;
 							if (result.done) break;
-							const message = result.value;
+							const message = result.value as MessageType;
 							agentMessages.push(message);
 
 							// Emit task_progress for the VS Code subagent panel
@@ -1497,7 +1497,7 @@ export const AgentTool = buildTool({
 							) {
 								onProgress({
 									toolUseID: message.toolUseID,
-									data: message.data,
+									data: message.data as unknown as Progress, // log: cast ProgressMessage data to Progress
 								});
 							}
 							if (message.type !== "assistant" && message.type !== "user") {
@@ -1728,11 +1728,8 @@ export const AgentTool = buildTool({
 
 		// Only route through auto mode classifier when in auto mode
 		// In all other modes, auto-approve sub-agent generation
-		// Note: "external" === 'ant' guard enables dead code elimination for external builds
-		if (
-			"external" === "ant" &&
-			appState.toolPermissionContext.mode === "auto"
-		) {
+		// Note: isInternalBuild() guard enables dead code elimination for external builds
+		if (isInternalBuild() && appState.toolPermissionContext.mode === "auto") {
 			return {
 				behavior: "passthrough",
 				message: "Agent tool requires permission to spawn sub-agents.",

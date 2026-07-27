@@ -133,7 +133,7 @@ export function startAuthProxy(config: AuthProxyConfig): Promise<AuthProxyInstan
  * The remote CLI sets FUSION_UNIX_SOCKET to the socket path,
  * and all API requests go through this proxy.
  */
-export function createProxyFetch(socketPath: string): typeof globalThis.fetch {
+export function createProxyFetch(socketPath: string): ((input: RequestInfo | URL, init?: RequestInit) => Promise<Response>) {
   return async (input, init) => {
     const url = input instanceof Request ? input.url : String(input)
     const urlObj = new URL(url)

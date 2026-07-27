@@ -44,7 +44,7 @@ import {
   getScratchpadDir,
 } from '../utils/permissions/filesystem.js'
 import { isEnvTruthy } from '../utils/envUtils.js'
-import { getCompactProjectContext, getProjectContextSection } from '../utils/projectContext.js'
+import { getProjectContextSection } from '../utils/projectContext.js'
 import { buildMlxSystemPrompt } from './mlx-system-prompt.js'
 import { getContextWindowForModel } from '../utils/context.js'
 import { isReplModeEnabled } from '../tools/REPLTool/constants.js'
@@ -118,7 +118,7 @@ export const SYSTEM_PROMPT_DYNAMIC_BOUNDARY =
   '__SYSTEM_PROMPT_DYNAMIC_BOUNDARY__'
 
 // @[MODEL LAUNCH]: Update the latest frontier model.
-const FRONTIER_MODEL_NAME = 'Local MLX Model'
+// FRONTIER_MODEL_NAME removed (unused)
 
 // @[MODEL LAUNCH]: Update the model family IDs below to the latest in each tier.
 const FUSION_MLX_MODEL_IDS = {
@@ -392,18 +392,8 @@ function getSimpleToneAndStyleSection(): string {
   return [`# Tone and style`, ...prependBullets(items)].join(`\n`)
 }
 
-function estimateModelParamCount(modelId: string): number {
-  const id = modelId.toLowerCase()
-  if (id.includes('0.5b') || id.includes('1b')) return 1
-  if (id.includes('1.5b') || id.includes('2b')) return 2
-  if (id.includes('3b')) return 3
-  if (id.includes('7b')) return 7
-  if (id.includes('9b') || id.includes('8b')) return 9
-  if (id.includes('14b') || id.includes('13b')) return 14
-  if (id.includes('27b') || id.includes('32b')) return 32
-  if (id.includes('70b') || id.includes('72b')) return 70
-  return 7 // default to small
-}
+// estimateModelParamCount removed (unused)
+
 
 async function getMlxSystemPrompt(
   tools: Tools,

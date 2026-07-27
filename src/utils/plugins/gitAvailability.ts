@@ -5,9 +5,8 @@
  * provides a memoized check to determine if git is available on the system.
  */
 
-import memoize from 'lodash-es/memoize.js'
-import { asyncMemoize } from '../asyncMemoize.js'
-import { which } from '../which.js'
+import { asyncMemoize } from "../asyncMemoize.js";
+import { which } from "../which.js";
 
 /**
  * Check if a command is available in PATH.
@@ -20,11 +19,11 @@ import { which } from '../which.js'
  * @returns True if the command exists and is executable
  */
 async function isCommandAvailable(command: string): Promise<boolean> {
-  try {
-    return !!(await which(command))
-  } catch {
-    return false
-  }
+	try {
+		return !!(await which(command));
+	} catch {
+		return false;
+	}
 }
 
 /**
@@ -41,8 +40,8 @@ async function isCommandAvailable(command: string): Promise<boolean> {
  * @returns True if git is installed and executable
  */
 export const checkGitAvailable = asyncMemoize(async (): Promise<boolean> => {
-  return isCommandAvailable('git')
-})
+	return isCommandAvailable("git");
+});
 
 /**
  * Force the memoized git-availability check to return false for the rest of
@@ -58,7 +57,11 @@ export const checkGitAvailable = asyncMemoize(async (): Promise<boolean> => {
  * lodash memoize uses a no-arg cache key of undefined.
  */
 export function markGitUnavailable(): void {
-  checkGitAvailable.cache?.set?.(undefined, Promise.resolve(false))
+	// log: fix TS2345 - asyncMemoize cache type is Map<unknown, Promise<Promise<boolean>>>, need cast
+	checkGitAvailable.cache?.set?.(
+		undefined,
+		Promise.resolve(false) as unknown as Promise<Promise<boolean>>,
+	);
 }
 
 /**
@@ -66,5 +69,5 @@ export function markGitUnavailable(): void {
  * Used for testing purposes.
  */
 export function clearGitAvailabilityCache(): void {
-  checkGitAvailable.cache?.clear?.()
+	checkGitAvailable.cache?.clear?.();
 }

@@ -1,4 +1,4 @@
-import { HOOK_EVENTS } from 'src/entrypoints/agentSdkTypes.js'
+import { HOOK_EVENTS } from 'src/entrypoints/sdk/coreTypes.js'
 import type { AppState } from 'src/state/AppState.js'
 import { logForDebugging } from '../debug.js'
 import type { HooksSettings } from '../settings/types.js'

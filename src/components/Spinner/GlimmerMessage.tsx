@@ -1,5 +1,4 @@
 import { c as _c } from "react/compiler-runtime";
-import * as React from 'react';
 import { stringWidth } from '../../ink/stringWidth.js';
 import { Text, useTheme } from '../../ink.js';
 import { getGraphemeSegmenter } from '../../utils/intl.js';

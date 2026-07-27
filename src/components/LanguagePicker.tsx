@@ -1,6 +1,6 @@
 import { c as _c } from "react/compiler-runtime";
 import figures from 'figures';
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { Box, Text } from '../ink.js';
 import { useKeybinding } from '../keybindings/useKeybinding.js';
 import TextInput from './TextInput.js';

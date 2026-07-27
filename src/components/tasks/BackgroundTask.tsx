@@ -1,5 +1,4 @@
 import { c as _c } from "react/compiler-runtime";
-import * as React from 'react';
 import { Text } from 'src/ink.js';
 import type { BackgroundTaskState } from 'src/tasks/types.js';
 import type { DeepImmutable } from 'src/types/utils.js';

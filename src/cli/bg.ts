@@ -11,7 +11,6 @@ import { spawnSync } from 'child_process'
 import { existsSync, readFileSync, readdirSync, unlinkSync, writeFileSync, mkdirSync } from 'fs'
 import { join } from 'path'
 import { getClaudeConfigHomeDir } from '../utils/envUtils.js'
-import { logForDebugging } from '../utils/debug.js'
 import { writeToStdout } from '../utils/process.js'
 
 const SESSIONS_DIR = 'sessions'

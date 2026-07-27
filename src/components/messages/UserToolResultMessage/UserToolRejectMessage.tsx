@@ -1,5 +1,4 @@
 import { c as _c } from "react/compiler-runtime";
-import * as React from 'react';
 import { useTerminalSize } from '../../../hooks/useTerminalSize.js';
 import { useTheme } from '../../../ink.js';
 import { filterToolProgressMessages, type Tool, type Tools } from '../../../Tool.js';

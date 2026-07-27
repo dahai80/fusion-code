@@ -1,17 +1,12 @@
 import Anthropic, { type ClientOptions } from "@anthropic-ai/sdk";
 
 import { randomUUID } from "crypto";
-import type { GoogleAuth } from "google-auth-library";
 import {
 	checkAndRefreshOAuthTokenIfNeeded,
 	getAnthropicApiKey,
 	getApiKeyFromApiKeyHelper,
 	getClaudeAIOAuthTokens,
-	getCodexOAuthTokens,
 	isClaudeAISubscriber,
-	isCodexSubscriber,
-	refreshAndGetAwsCredentials,
-	refreshGcpCredentialsIfNeeded,
 } from "src/utils/auth.js";
 import {
 	computeCch,
@@ -19,7 +14,6 @@ import {
 	replaceCchPlaceholder,
 } from "src/utils/cch.js";
 import { getUserAgent } from "src/utils/http.js";
-import { getSmallFastModel } from "src/utils/model/model.js";
 import {
 	getAPIProvider,
 	isFirstPartyAnthropicBaseUrl,
@@ -32,7 +26,7 @@ import {
 } from "../../bootstrap/state.js";
 import { getOauthConfig } from "../../constants/oauth.js";
 import { isDebugToStdErr, logForDebugging } from "../../utils/debug.js";
-import { getVertexRegionForModel, isEnvTruthy } from "../../utils/envUtils.js";
+import { isEnvTruthy } from "../../utils/envUtils.js";
 import {
 	getBedrockConfig,
 	isBedrockProvider,
@@ -125,11 +119,7 @@ export async function getAnthropicClient({
 	source?: string;
 }): Promise<Anthropic> {
 	const containerId = process.env.FUSION_CODE_CONTAINER_ID;
-	console.error(
-			model +
-			" isFusionMlx=" +
-			isFusionMlxProvider(model),
-	);
+	console.error(model + " isFusionMlx=" + isFusionMlxProvider(model));
 	const remoteSessionId = process.env.FUSION_CODE_REMOTE_SESSION_ID;
 	const clientApp = process.env.CLAUDE_AGENT_SDK_CLIENT_APP;
 	const customHeaders = getCustomHeaders();
@@ -273,7 +263,7 @@ export async function getAnthropicClient({
 		try {
 			const { AnthropicBedrock } = await import("@anthropic-ai/bedrock-sdk");
 			const bedrockArgs: ConstructorParameters<typeof AnthropicBedrock>[0] = {
-				...ARGS,
+				...(ARGS as any), // log: widen ARGS type for bedrock constructor compat
 				...(bedrockConfig.profile && { awsProfile: bedrockConfig.profile }),
 				...(isDebugToStdErr() && { logger: createStderrLogger() }),
 			};

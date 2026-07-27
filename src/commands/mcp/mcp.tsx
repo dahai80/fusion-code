@@ -5,6 +5,7 @@ import { MCPReconnect } from '../../components/mcp/MCPReconnect.js';
 import { useMcpToggleEnabled } from '../../services/mcp/MCPConnectionManager.js';
 import { useAppState } from '../../state/AppState.js';
 import type { LocalJSXCommandOnDone } from '../../types/command.js';
+import { isInternalBuild } from '../../utils/buildConstants.js'
 // PluginSettings removed - cloud-only. Stub for ant-only branch that never runs:
 const PluginSettings = (_props: any) => null as any;
 
@@ -78,7 +79,7 @@ export async function call(onDone: LocalJSXCommandOnDone, _context: unknown, arg
   }
 
   // Redirect base /mcp command to /plugins installed tab for ant users
-  if ("external" === 'ant') {
+  if (isInternalBuild()) {
     return <PluginSettings onComplete={onDone} args="manage" showMcpRedirectMessage />;
   }
   return <MCPSettings onComplete={onDone} />;

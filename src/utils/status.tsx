@@ -6,7 +6,7 @@ import type { MCPServerConnection } from '../services/mcp/types.js';
 import { getAccountInformation, isClaudeAISubscriber } from './auth.js';
 import { getLargeMemoryFiles, getMemoryFiles, MAX_MEMORY_CHARACTER_COUNT } from './claudemd.js';
 import { getDoctorDiagnostic } from './doctorDiagnostic.js';
-import { getAWSRegion, getDefaultVertexRegion, isEnvTruthy } from './envUtils.js';
+import { isEnvTruthy } from './envUtils.js';
 import { getDisplayPath } from './file.js';
 import { formatNumber } from './format.js';
 import { getIdeClientName, type IDEExtensionInstallationStatus, isJetBrainsIde, toIDEDisplayName } from './ide.js';
@@ -20,13 +20,14 @@ import { getSettingsWithAllErrors } from './settings/allErrors.js';
 import { getEnabledSettingSources, getSettingSourceDisplayNameCapitalized } from './settings/constants.js';
 import { getManagedFileSettingsPresence, getPolicySettingsOrigin, getSettingsForSource } from './settings/settings.js';
 import type { ThemeName } from './theme.js';
+import { isInternalBuild } from '../utils/buildConstants.js'
 export type Property = {
   label?: string;
   value: React.ReactNode | Array<string>;
 };
 export type Diagnostic = React.ReactNode;
 export function buildSandboxProperties(): Property[] {
-  if ("external" !== 'ant') {
+  if (!isInternalBuild()) {
     return [];
   }
   const isSandboxed = SandboxManager.isSandboxingEnabled();

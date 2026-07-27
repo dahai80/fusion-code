@@ -1,5 +1,5 @@
 import { c as _c } from "react/compiler-runtime";
-import React, { useEffect, useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 // extra-usage command removed - cloud-only. Stub for type compat:
 const extraUsage = { isEnabled: () => false };
 import { Box, Text } from 'src/ink.js';

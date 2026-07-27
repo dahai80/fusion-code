@@ -51,7 +51,14 @@ export const GoalCreateTool = buildTool({
 	get outputSchema(): OutputSchema {
 		return outputSchema();
 	},
-	async execute({ objective, turns, tokens, wallMs }, context) {
+	// log: execute signature expanded to match Tool type (5 params)
+	async execute(
+		{ objective, turns, tokens, wallMs },
+		_context,
+		_canUseTool?,
+		_parentMessage?,
+		_onProgress?,
+	) {
 		const sessionId = getSessionId();
 		const budget = { turns, tokens, wallMs };
 		const hasBudget = turns != null || tokens != null || wallMs != null;

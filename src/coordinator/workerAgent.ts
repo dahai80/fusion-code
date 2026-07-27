@@ -57,6 +57,7 @@ const COORDINATOR_MAIN_AGENT: AgentDefinition = {
   agentType: 'coordinator',
   source: 'built-in',
   name: 'Coordinator',
+  whenToUse: 'Coordinate multi-agent workflows',
   getSystemPrompt: () => `You are the Coordinator agent. Your role is to:
 1. Analyze the user's request and break it down into subtasks
 2. Delegate subtasks to worker agents
@@ -80,6 +81,7 @@ const COORDINATOR_WORKER_AGENT: AgentDefinition = {
   agentType: 'coordinator-worker',
   source: 'built-in',
   name: 'Coordinator Worker',
+  whenToUse: 'Execute delegated subtasks',
   getSystemPrompt: () => `You are a Coordinator Worker agent. You have been assigned a specific subtask by the Coordinator.
 
 Focus on your assigned task and complete it efficiently.

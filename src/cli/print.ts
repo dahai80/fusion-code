@@ -39,7 +39,7 @@ import {
 	parseAgentsFromJson,
 } from "src/tools/AgentTool/loadAgentsDir.js";
 import type { Message, NormalizedUserMessage } from "src/types/message.js";
-import type { QueuedCommand } from "src/types/textInputTypes.js";
+import type { QueuedCommand, QueuePriority } from "src/types/textInputTypes.js";
 import {
 	dequeue,
 	dequeueAllMatching,
@@ -109,15 +109,17 @@ import { registerCleanup } from "src/utils/cleanupRegistry.js";
 import { createIdleTimeoutManager } from "src/utils/idleTimeout.js";
 import type {
 	SDKStatus,
-	ModelInfo,
 	SDKMessage,
 	SDKUserMessage,
 	SDKUserMessageReplay,
 	PermissionResult,
+	HookEvent,
+} from "src/entrypoints/sdk/types.js";
+import type {
+	ModelInfo,
 	McpServerConfigForProcessTransport,
 	McpServerStatus,
-	RewindFilesResult,
-} from "src/entrypoints/agentSdkTypes.js";
+} from "src/entrypoints/sdk/controlTypes.js";
 import type {
 	StdoutMessage,
 	SDKControlInitializeRequest,
@@ -193,7 +195,7 @@ import { installOAuthTokens } from "src/cli/handlers/auth.js";
 import { getAPIProvider } from "src/utils/model/providers.js";
 import type { HookCallbackMatcher } from "src/types/hooks.js";
 import { AwsAuthStatusManager } from "src/utils/awsAuthStatusManager.js";
-import type { HookEvent } from "src/entrypoints/agentSdkTypes.js";
+
 import {
 	registerHookCallbacks,
 	setInitJsonSchema,
@@ -352,6 +354,14 @@ import { initializeGrowthBook } from "../services/analytics/growthbook.js";
 import { errorMessage, toError } from "../utils/errors.js";
 import { sleep } from "../utils/sleep.js";
 import { isExtractModeActive } from "../memdir/paths.js";
+
+type RewindFilesResult = {
+	canRewind: boolean;
+	error?: string;
+	filesChanged?: string[];
+	insertions?: number;
+	deletions?: number;
+};
 
 // Dead code elimination: conditional imports
 /* eslint-disable @typescript-eslint/no-require-imports */
@@ -900,16 +910,16 @@ export async function runHeadless(
 					message.subtype === "task_progress" ||
 					message.subtype === "post_turn_summary")
 			) &&
-			message.type !== "stream_event" &&
+			(message as { type: string }).type !== "stream_event" &&
 			message.type !== "keep_alive" &&
-			message.type !== "streamlined_text" &&
-			message.type !== "streamlined_tool_use_summary" &&
-			message.type !== "prompt_suggestion"
+			(message as { type: string }).type !== "streamlined_text" &&
+			(message as { type: string }).type !== "streamlined_tool_use_summary" &&
+			(message as { type: string }).type !== "prompt_suggestion"
 		) {
 			if (needsFullArray) {
-				messages.push(message);
+				messages.push(message as SDKMessage);
 			}
-			lastMessage = message;
+			lastMessage = message as SDKMessage;
 		}
 	}
 
@@ -1112,13 +1122,13 @@ function runHeadlessStreaming(
 		const authStatusManager = AwsAuthStatusManager.getInstance();
 		unsubscribeAuthStatus = authStatusManager.subscribe((status) => {
 			output.enqueue({
-				type: "auth_status",
+				type: "auth_status" as StdoutMessage["type"],
 				isAuthenticating: status.isAuthenticating,
 				output: status.output,
 				error: status.error,
 				uuid: randomUUID(),
 				session_id: getSessionId(),
-			});
+			} as StdoutMessage);
 		});
 	}
 
@@ -1129,11 +1139,11 @@ function runHeadlessStreaming(
 		const rateLimitInfo = toSDKRateLimitInfo(limits);
 		if (rateLimitInfo) {
 			output.enqueue({
-				type: "rate_limit_event",
+				type: "rate_limit_event" as StdoutMessage["type"],
 				rate_limit_info: rateLimitInfo,
 				uuid: randomUUID(),
 				session_id: getSessionId(),
-			});
+			} as StdoutMessage);
 		}
 	};
 	statusListeners.add(rateLimitListener);
@@ -1648,10 +1658,12 @@ function runHeadlessStreaming(
 				connection.config.type === "stdio" ||
 				connection.config.type === undefined
 			) {
+				const stdioConfig =
+					connection.config as import("src/services/mcp/types.js").McpStdioServerConfig; // log: fix TS2339
 				config = {
 					type: "stdio" as const,
-					command: connection.config.command,
-					args: connection.config.args,
+					command: stdioConfig.command,
+					args: stdioConfig.args,
 				};
 			}
 			const serverTools =
@@ -1804,12 +1816,12 @@ function runHeadlessStreaming(
 				type === "http" ||
 				type === "sdk"
 			) {
-				supportedConfigs[name] = config;
+				supportedConfigs[name] = config as McpServerConfigForProcessTransport;
 			}
 		}
 		for (const [name, config] of Object.entries(sdkMcpConfigs)) {
 			if (config.type === "sdk" && !(name in supportedConfigs)) {
-				supportedConfigs[name] = config;
+				supportedConfigs[name] = config as McpServerConfigForProcessTransport;
 			}
 		}
 		const { response, sdkServersChanged } =
@@ -1975,7 +1987,7 @@ function runHeadlessStreaming(
 							if (c.uuid && c.uuid !== command.uuid) {
 								output.enqueue({
 									type: "user",
-									message: { role: "user", content: c.value },
+									message: { content: c.value },
 									session_id: getSessionId(),
 									parent_tool_use_id: null,
 									uuid: c.uuid,
@@ -2255,7 +2267,7 @@ function runHeadlessStreaming(
 
 					// Forward messages to bridge after each turn
 					forwardMessagesToBridge();
-					bridgeHandle?.sendResult();
+					bridgeHandle?.sendResult(undefined);
 
 					if (feature("FILE_PERSISTENCE") && turnStartTime !== undefined) {
 						void executeFilePersistence(
@@ -2335,7 +2347,7 @@ function runHeadlessStreaming(
 										};
 									} else {
 										suggestionState.lastEmitted = lastEmittedEntry;
-										output.enqueue(suggestionMsg);
+										output.enqueue(suggestionMsg as unknown as StdoutMessage); // log: prompt_suggestion not in StdoutMessage union
 									}
 								} catch (error) {
 									if (
@@ -2413,7 +2425,9 @@ function runHeadlessStreaming(
 				output.enqueue(heldBackResult);
 				heldBackResult = null;
 				if (suggestionState.pendingSuggestion) {
-					output.enqueue(suggestionState.pendingSuggestion);
+					output.enqueue(
+						suggestionState.pendingSuggestion as unknown as StdoutMessage,
+					); // log: prompt_suggestion not in StdoutMessage union
 					// Now that the suggestion is actually delivered, record it for acceptance tracking
 					if (suggestionState.pendingLastEmittedEntry) {
 						suggestionState.lastEmitted = {
@@ -2852,9 +2866,15 @@ function runHeadlessStreaming(
 					suggestionState.lastEmitted = null;
 					suggestionState.pendingSuggestion = null;
 					sendControlResponseSuccess(message);
-				} else if (message.request.subtype === "end_session") {
+				} else if (
+					(message.request as { subtype: string }).subtype === "end_session"
+				) {
+					const endSessionReq = message.request as unknown as {
+						subtype: string;
+						reason?: string;
+					}; // log: fix TS2339
 					logForDebugging(
-						`[print.ts] end_session received, reason=${message.request.reason ?? "unspecified"}`,
+						`[print.ts] end_session received, reason=${endSessionReq.reason ?? "unspecified"}`,
 					);
 					if (abortController) {
 						abortController.abort();
@@ -2994,7 +3014,7 @@ function runHeadlessStreaming(
 						sdkClient.type === "connected" &&
 						sdkClient.client?.transport?.onmessage
 					) {
-						sdkClient.client.transport.onmessage(mcpRequest.message);
+						sdkClient.client.transport.onmessage(mcpRequest.message as any);
 					}
 					sendControlResponseSuccess(message);
 				} else if (message.request.subtype === "rewind_files") {
@@ -3309,11 +3329,17 @@ function runHeadlessStreaming(
 							sendControlResponseError(message, errorMessage);
 						}
 					}
-				} else if (message.request.subtype === "channel_enable") {
+				} else if (
+					(message.request as { subtype: string }).subtype === "channel_enable"
+				) {
+					const channelReq = message.request as unknown as {
+						subtype: string;
+						serverName: string;
+					}; // log: fix TS2339
 					const currentAppState = getAppState();
 					handleChannelEnable(
 						message.request_id,
-						message.request.serverName,
+						channelReq.serverName,
 						// Pool spread matches mcp_status — all three client sources.
 						[
 							...currentAppState.mcp.clients,
@@ -3322,8 +3348,14 @@ function runHeadlessStreaming(
 						],
 						output,
 					);
-				} else if (message.request.subtype === "mcp_authenticate") {
-					const { serverName } = message.request;
+				} else if (
+					(message.request as { subtype: string }).subtype ===
+					"mcp_authenticate"
+				) {
+					const { serverName } = message.request as unknown as {
+						subtype: string;
+						serverName: string;
+					}; // log: fix TS2339
 					const currentAppState = getAppState();
 					const config =
 						getMcpConfigByName(serverName) ??
@@ -3478,8 +3510,15 @@ function runHeadlessStreaming(
 							sendControlResponseError(message, errorMessage(error));
 						}
 					}
-				} else if (message.request.subtype === "mcp_oauth_callback_url") {
-					const { serverName, callbackUrl } = message.request;
+				} else if (
+					(message.request as { subtype: string }).subtype ===
+					"mcp_oauth_callback_url"
+				) {
+					const { serverName, callbackUrl } = message.request as unknown as {
+						subtype: string;
+						serverName: string;
+						callbackUrl: string;
+					}; // log: fix TS2339
 					const submit = oauthCallbackSubmitters.get(serverName);
 					if (submit) {
 						// Validate the callback URL before submitting. The submit
@@ -3529,13 +3568,19 @@ function runHeadlessStreaming(
 							`No active OAuth flow for server: ${serverName}`,
 						);
 					}
-				} else if (message.request.subtype === "claude_authenticate") {
+				} else if (
+					(message.request as { subtype: string }).subtype ===
+					"claude_authenticate"
+				) {
 					// Anthropic OAuth over the control channel. The SDK client owns
 					// the user's browser (we're headless in -p mode); we hand back
 					// both URLs and wait. Automatic URL → localhost listener catches
 					// the redirect if the browser is on this host; manual URL → the
 					// success page shows "code#state" for claude_oauth_callback.
-					const { loginWithClaudeAi } = message.request;
+					const { loginWithClaudeAi } = message.request as unknown as {
+						subtype: string;
+						loginWithClaudeAi: boolean;
+					}; // log: fix TS2339
 
 					// Clean up any prior flow. cleanup() closes the localhost listener
 					// and nulls the manual resolver. The prior `flow` promise is left
@@ -3624,8 +3669,10 @@ function runHeadlessStreaming(
 						sendControlResponseError(message, errorMessage(error));
 					}
 				} else if (
-					message.request.subtype === "claude_oauth_callback" ||
-					message.request.subtype === "claude_oauth_wait_for_completion"
+					(message.request as { subtype: string }).subtype ===
+						"claude_oauth_callback" ||
+					(message.request as { subtype: string }).subtype ===
+						"claude_oauth_wait_for_completion"
 				) {
 					if (!claudeOAuth) {
 						sendControlResponseError(
@@ -3636,10 +3683,18 @@ function runHeadlessStreaming(
 						// Inject the manual code synchronously — must happen in stdin
 						// message order so a subsequent claude_authenticate doesn't
 						// replace the service before this code lands.
-						if (message.request.subtype === "claude_oauth_callback") {
+						if (
+							(message.request as { subtype: string }).subtype ===
+							"claude_oauth_callback"
+						) {
+							const oauthReq = message.request as unknown as {
+								subtype: string;
+								authorizationCode: string;
+								state: string;
+							}; // log: fix TS2339
 							claudeOAuth.service.handleManualAuthCodeInput({
-								authorizationCode: message.request.authorizationCode,
-								state: message.request.state,
+								authorizationCode: oauthReq.authorizationCode,
+								state: oauthReq.state,
 							});
 						}
 						// Detach the await — the stdin reader is serial and blocking
@@ -3658,7 +3713,11 @@ function runHeadlessStreaming(
 										subscriptionType: accountInfo?.subscription,
 										tokenSource: accountInfo?.tokenSource,
 										apiKeySource: accountInfo?.apiKeySource,
-										apiProvider: getAPIProvider(),
+										apiProvider: getAPIProvider() as
+											| "firstParty"
+											| "foundry"
+											| "openai"
+											| "fusionMlx", // log: narrow APIProvider for SDK type
 									},
 								});
 							},
@@ -3666,8 +3725,13 @@ function runHeadlessStreaming(
 								sendControlResponseError(message, errorMessage(error)),
 						);
 					}
-				} else if (message.request.subtype === "mcp_clear_auth") {
-					const { serverName } = message.request;
+				} else if (
+					(message.request as { subtype: string }).subtype === "mcp_clear_auth"
+				) {
+					const { serverName } = message.request as unknown as {
+						subtype: string;
+						serverName: string;
+					}; // log: fix TS2339
 					const currentAppState = getAppState();
 					const config =
 						getMcpConfigByName(serverName) ??
@@ -3803,11 +3867,18 @@ function runHeadlessStreaming(
 					} catch (error) {
 						sendControlResponseError(message, errorMessage(error));
 					}
-				} else if (message.request.subtype === "generate_session_title") {
+				} else if (
+					(message.request as { subtype: string }).subtype ===
+					"generate_session_title"
+				) {
 					// Fire-and-forget so the Haiku call does not block the stdin loop
 					// (which would delay processing of subsequent user messages /
 					// interrupts for the duration of the API roundtrip).
-					const { description, persist } = message.request;
+					const { description, persist } = message.request as unknown as {
+						subtype: string;
+						description: string;
+						persist: boolean;
+					}; // log: fix TS2339
 					// Reuse the live controller only if it has not already been aborted
 					// (e.g. by interrupt()); an aborted signal would cause queryHaiku to
 					// immediately throw APIUserAbortError → {title: null}.
@@ -3838,7 +3909,9 @@ function runHeadlessStreaming(
 							sendControlResponseError(message, errorMessage(e));
 						}
 					})();
-				} else if (message.request.subtype === "side_question") {
+				} else if (
+					(message.request as { subtype: string }).subtype === "side_question"
+				) {
 					// Same fire-and-forget pattern as generate_session_title above —
 					// the forked agent's API roundtrip must not block the stdin loop.
 					//
@@ -3854,7 +3927,10 @@ function runHeadlessStreaming(
 					// matches in the common case. May still miss the cache for
 					// coordinator mode or memory-mechanics extras — acceptable, the
 					// alternative is the side question failing entirely.
-					const { question } = message.request;
+					const { question } = message.request as unknown as {
+						subtype: string;
+						question: string;
+					}; // log: fix TS2339
 					void (async () => {
 						try {
 							const saved = getLastCacheSafeParams();
@@ -3917,8 +3993,14 @@ function runHeadlessStreaming(
 						proactiveModule!.deactivateProactive();
 					}
 					sendControlResponseSuccess(message);
-				} else if (message.request.subtype === "remote_control") {
-					if (message.request.enabled) {
+				} else if (
+					(message.request as { subtype: string }).subtype === "remote_control"
+				) {
+					const remoteReq = message.request as unknown as {
+						subtype: string;
+						enabled: boolean;
+					}; // log: fix TS2339
+					if (remoteReq.enabled) {
 						if (bridgeHandle) {
 							// Already connected
 							sendControlResponseSuccess(message, {
@@ -3926,10 +4008,7 @@ function runHeadlessStreaming(
 									bridgeHandle.bridgeSessionId,
 									bridgeHandle.sessionIngressUrl,
 								),
-								connect_url: buildBridgeConnectUrl(
-									bridgeHandle.environmentId,
-									bridgeHandle.sessionIngressUrl,
-								),
+								connect_url: buildBridgeConnectUrl(), // log: fixed arg count - takes 0 args
 								environment_id: bridgeHandle.environmentId,
 							});
 						} else {
@@ -3943,15 +4022,15 @@ function runHeadlessStreaming(
 								const { initReplBridge } = await import(
 									"src/bridge/initReplBridge.js"
 								);
-								const handle = await initReplBridge({
+								const handle = await (initReplBridge as any)({
 									onInboundMessage(msg) {
 										const fields = extractInboundMessageFields(msg);
 										if (!fields) return;
 										const { content, uuid } = fields;
 										enqueue({
-											value: content,
+											value: content as string | ContentBlockParam[],
 											mode: "prompt" as const,
-											uuid,
+											uuid: uuid as `${string}-${string}-${string}-${string}-${string}`,
 											skipSlashCommands: true,
 										});
 										void run();
@@ -3960,7 +4039,7 @@ function runHeadlessStreaming(
 										// Forward bridge permission responses into the
 										// stdin processing loop so they resolve pending
 										// permission requests from the SDK consumer.
-										structuredIO.injectControlResponse(response);
+										structuredIO.injectControlResponse(response as any);
 									},
 									onInterrupt() {
 										abortController?.abort();
@@ -4025,10 +4104,7 @@ function runHeadlessStreaming(
 											handle.bridgeSessionId,
 											handle.sessionIngressUrl,
 										),
-										connect_url: buildBridgeConnectUrl(
-											handle.environmentId,
-											handle.sessionIngressUrl,
-										),
+										connect_url: buildBridgeConnectUrl(), // log: fixed arg count - takes 0 args
 										environment_id: handle.environmentId,
 									});
 								}
@@ -4065,8 +4141,12 @@ function runHeadlessStreaming(
 							});
 							let stdout = "";
 							let stderr = "";
-							proc.stdout.on("data", (d: Buffer) => { stdout += d.toString(); });
-							proc.stderr.on("data", (d: Buffer) => { stderr += d.toString(); });
+							proc.stdout.on("data", (d: Buffer) => {
+								stdout += d.toString();
+							});
+							proc.stderr.on("data", (d: Buffer) => {
+								stderr += d.toString();
+							});
 							const timer = setTimeout(() => {
 								proc.kill("SIGKILL");
 								resolve({ pid: proc.pid!, exitCode: null, stdout, stderr });
@@ -4119,7 +4199,12 @@ function runHeadlessStreaming(
 					}
 				} else if (message.request.subtype === "code_file_write") {
 					try {
-						const { path: filePath, content, create_dirs, encoding } = message.request;
+						const {
+							path: filePath,
+							content,
+							create_dirs,
+							encoding,
+						} = message.request;
 						const { writeFile, mkdir } = await import("node:fs/promises");
 						if (create_dirs) {
 							await mkdir(dirname(filePath), { recursive: true });
@@ -4135,7 +4220,11 @@ function runHeadlessStreaming(
 					}
 				} else if (message.request.subtype === "code_diff") {
 					try {
-						const { original, modified, path: filePath, language } = message.request;
+						const {
+							original,
+							modified,
+							path: filePath,
+						} = message.request;
 						const { createTwoFilesPatch } = await import("diff");
 						const patch = createTwoFilesPatch(
 							filePath || "original",
@@ -4159,7 +4248,11 @@ function runHeadlessStreaming(
 				} else if (message.request.subtype === "code_apply_patch") {
 					try {
 						const { path: filePath, patch, backup } = message.request;
-						const { readFile: readFs, writeFile: writeFs, copyFile } = await import("node:fs/promises");
+						const {
+							readFile: readFs,
+							writeFile: writeFs,
+							copyFile,
+						} = await import("node:fs/promises");
 						const shouldBackup = backup !== false;
 						if (shouldBackup) {
 							await copyFile(filePath, filePath + ".bak");
@@ -4168,7 +4261,10 @@ function runHeadlessStreaming(
 						const { applyPatch } = await import("diff");
 						const result = applyPatch(original, patch);
 						if (result === false) {
-							sendControlResponseError(message, "Failed to apply patch — patch may not match the file content");
+							sendControlResponseError(
+								message,
+								"Failed to apply patch — patch may not match the file content",
+							);
 						} else {
 							await writeFs(filePath, result);
 							sendControlResponseSuccess(message, {
@@ -4181,27 +4277,50 @@ function runHeadlessStreaming(
 					}
 				} else if (message.request.subtype === "code_search_files") {
 					try {
-						const { pattern, path: searchPath, type: searchType, max_results } = message.request;
+						const {
+							pattern,
+							path: searchPath,
+							type: searchType,
+							max_results,
+						} = message.request;
 						const { spawnSync } = await import("node:child_process");
 						const dir = searchPath || process.cwd();
 						const limit = max_results ?? 20;
-						let results: Array<{ path: string; line?: number; content?: string }> = [];
+						let results: Array<{
+							path: string;
+							line?: number;
+							content?: string;
+						}> = [];
 						if (searchType === "filename") {
-							const proc = spawnSync("find", [dir, "-name", pattern, "-type", "f"], {
-								encoding: "utf-8",
-								timeout: 30000,
-								stdio: ["pipe", "pipe", "ignore"],
-							});
+							const proc = spawnSync(
+								"find",
+								[dir, "-name", pattern, "-type", "f"],
+								{
+									encoding: "utf-8",
+									timeout: 30000,
+									stdio: ["pipe", "pipe", "ignore"],
+								},
+							);
 							if (proc.stdout) {
-								results = proc.stdout.trim().split("\n").filter(Boolean)
-									.slice(0, limit).map(p => ({ path: p }));
+								results = proc.stdout
+									.trim()
+									.split("\n")
+									.filter(Boolean)
+									.slice(0, limit)
+									.map((p) => ({ path: p }));
 							}
 						} else {
 							const grepArgs = [
-								"-rn", pattern, dir,
-								"--include=*.ts", "--include=*.tsx",
-								"--include=*.js", "--include=*.jsx",
-								"--include=*.json", "--include=*.md", "--include=*.py",
+								"-rn",
+								pattern,
+								dir,
+								"--include=*.ts",
+								"--include=*.tsx",
+								"--include=*.js",
+								"--include=*.jsx",
+								"--include=*.json",
+								"--include=*.md",
+								"--include=*.py",
 							];
 							const proc = spawnSync("grep", grepArgs, {
 								encoding: "utf-8",
@@ -4209,26 +4328,42 @@ function runHeadlessStreaming(
 								stdio: ["pipe", "pipe", "ignore"],
 							});
 							if (proc.stdout) {
-								results = proc.stdout.trim().split("\n").filter(Boolean)
-									.slice(0, limit).map(line => {
+								results = proc.stdout
+									.trim()
+									.split("\n")
+									.filter(Boolean)
+									.slice(0, limit)
+									.map((line) => {
 										const colonIdx = line.indexOf(":");
 										const numIdx = line.indexOf(":", colonIdx + 1);
 										return {
 											path: line.slice(0, colonIdx),
-											line: parseInt(line.slice(colonIdx + 1, numIdx), 10) || undefined,
+											line:
+												parseInt(line.slice(colonIdx + 1, numIdx), 10) ||
+												undefined,
 											content: line.slice(numIdx + 1),
 										};
 									});
 							}
 						}
-						sendControlResponseSuccess(message, { results, total: results.length });
+						sendControlResponseSuccess(message, {
+							results,
+							total: results.length,
+						});
 					} catch (err) {
 						sendControlResponseError(message, errorMessage(err));
 					}
 				} else if (message.request.subtype === "artifact_chat") {
 					try {
-						const { kind, message: chatMessage, session_id, artifact_id } = message.request;
-						const { getArtifactEngineUrl } = await import("src/utils/artifactConfig.js");
+						const {
+							kind,
+							message: chatMessage,
+							session_id,
+							artifact_id,
+						} = message.request;
+						const { getArtifactEngineURL: getArtifactEngineUrl } = await import(
+							"src/utils/artifactConfig.js"
+						);
 						const engineUrl = getArtifactEngineUrl();
 						const rpcPayload = {
 							jsonrpc: "2.0",
@@ -4247,9 +4382,14 @@ function runHeadlessStreaming(
 							body: JSON.stringify(rpcPayload),
 						});
 						if (!resp.ok) {
-							throw new Error(`Artifact engine returned ${resp.status}: ${await resp.text()}`);
+							throw new Error(
+								`Artifact engine returned ${resp.status}: ${await resp.text()}`,
+							);
 						}
-						const rpcResult = await resp.json() as { result?: Record<string, unknown>; error?: { message: string } };
+						const rpcResult = (await resp.json()) as {
+							result?: Record<string, unknown>;
+							error?: { message: string };
+						};
 						if (rpcResult.error) {
 							throw new Error(rpcResult.error.message);
 						}
@@ -4259,7 +4399,9 @@ function runHeadlessStreaming(
 							name: r.name ?? "",
 							version: r.version ?? 1,
 							type: r.type ?? kind,
-							ref_text: r.ref_text ?? `<artifact id="${r.artifact_id ?? r.id ?? ""}" />`,
+							ref_text:
+								r.ref_text ??
+								`<artifact id="${r.artifact_id ?? r.id ?? ""}" />`,
 						});
 					} catch (err) {
 						sendControlResponseError(message, errorMessage(err));
@@ -4310,11 +4452,12 @@ function runHeadlessStreaming(
 				const sessionId = getSessionId() as UUID;
 				const existsInSession = await doesMessageExistInSession(
 					sessionId,
-					message.uuid,
+					message.uuid as UUID, // log: widen string to UUID template type
 				);
 
 				// Check both historical duplicates (from file) and runtime duplicates (this session)
-				if (existsInSession || receivedMessageUuids.has(message.uuid)) {
+				if (existsInSession || receivedMessageUuids.has(message.uuid as UUID)) {
+					// log: widen string to UUID
 					logForDebugging(`Skipping duplicate user message: ${message.uuid}`);
 					// Send acknowledgment for duplicate message if replay mode is enabled
 					if (options.replayUserMessages) {
@@ -4342,16 +4485,19 @@ function runHeadlessStreaming(
 				}
 
 				// Track this UUID to prevent runtime duplicates
-				trackReceivedMessageUuid(message.uuid);
+				trackReceivedMessageUuid(message.uuid as UUID); // log: widen string to UUID
 			}
 
 			enqueue({
 				mode: "prompt" as const,
 				// file_attachments rides the protobuf catchall from the web composer.
 				// Same-ref no-op when absent (no 'file_attachments' key).
-				value: await resolveAndPrepend(message, message.message.content),
-				uuid: message.uuid,
-				priority: message.priority,
+				value: await resolveAndPrepend(
+					message,
+					message.message.content as string | ContentBlockParam[],
+				), // log: widen unknown to expected type
+				uuid: message.uuid as UUID, // log: widen string to UUID
+				priority: message.priority as QueuePriority, // log: widen unknown to QueuePriority
 			});
 			// Increment prompt count for attribution tracking and save snapshot
 			// The snapshot persists promptCount so it survives compaction
@@ -4725,7 +4871,11 @@ async function handleInitializeRequest(
 			// getAccountInformation() returns undefined under 3P providers, so the
 			// other fields are all absent. apiProvider disambiguates "not logged
 			// in" (firstParty + tokenSource:none) from "3P, login not applicable".
-			apiProvider: getAPIProvider(),
+			apiProvider: getAPIProvider() as
+				| "firstParty"
+				| "foundry"
+				| "openai"
+				| "fusionMlx", // log: narrow APIProvider for SDK type
 		},
 		pid: process.pid,
 	};

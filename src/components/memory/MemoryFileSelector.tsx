@@ -3,7 +3,6 @@ import { feature } from 'bun:bundle';
 import chalk from 'chalk';
 import { mkdir } from 'fs/promises';
 import { join } from 'path';
-import * as React from 'react';
 import { use, useEffect, useState } from 'react';
 import { getOriginalCwd } from '../../bootstrap/state.js';
 import { useExitOnCtrlCDWithKeybindings } from '../../hooks/useExitOnCtrlCDWithKeybindings.js';

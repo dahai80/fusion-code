@@ -3,8 +3,6 @@
  * Populated from useCanUseTool.ts, read from RecentDenialsTab.tsx in /permissions.
  */
 
-import { feature } from 'bun:bundle'
-
 export type AutoModeDenial = {
   toolName: string
   /** Human-readable description of the denied command (e.g. bash command string) */

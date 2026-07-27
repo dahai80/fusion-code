@@ -3,14 +3,12 @@ import { mkdir, writeFile } from 'fs/promises';
 import { marked, type Tokens } from 'marked';
 import { tmpdir } from 'os';
 import { join } from 'path';
-import React, { useRef } from 'react';
+import { useRef } from 'react';
 import type { CommandResultDisplay } from '../../commands.js';
-import type { OptionWithDescription } from '../../components/CustomSelect/select.js';
 import { Select } from '../../components/CustomSelect/select.js';
 import { Byline } from '../../components/design-system/Byline.js';
 import { KeyboardShortcutHint } from '../../components/design-system/KeyboardShortcutHint.js';
 import { Pane } from '../../components/design-system/Pane.js';
-import type { KeyboardEvent } from '../../ink/events/keyboard-event.js';
 import { stringWidth } from '../../ink/stringWidth.js';
 import { setClipboard } from '../../ink/termio/osc.js';
 import { Box, Text } from '../../ink.js';
@@ -116,7 +114,6 @@ type PickerProps = {
     display?: CommandResultDisplay;
   }) => void;
 };
-type PickerSelection = number | 'full' | 'always';
 function CopyPicker(t0) {
   const $ = _c(33);
   const {

@@ -1,5 +1,5 @@
 import { c as _c } from "react/compiler-runtime";
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import type { CommandResultDisplay } from '../commands.js';
 // eslint-disable-next-line custom-rules/prefer-use-keybindings -- raw input for "any key" dismiss and y/n prompt
 import { Box, Text, useInput } from '../ink.js';
@@ -18,7 +18,6 @@ export function getDownloadUrl(): string {
       return 'https://claude.ai/api/desktop/darwin/universal/dmg/latest/redirect';
   }
 }
-type DesktopHandoffState = 'checking' | 'prompt-download' | 'flushing' | 'opening' | 'success' | 'error';
 type Props = {
   onDone: (result?: string, options?: {
     display?: CommandResultDisplay;

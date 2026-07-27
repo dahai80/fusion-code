@@ -1,5 +1,4 @@
 import { c as _c } from "react/compiler-runtime";
-import * as React from 'react';
 import { pathToFileURL } from 'url';
 import Link from '../ink/components/Link.js';
 import { supportsHyperlinks } from '../ink/supports-hyperlinks.js';

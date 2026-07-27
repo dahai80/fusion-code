@@ -54,7 +54,14 @@ export const GoalSetBudgetTool = buildTool({
 	get outputSchema(): OutputSchema {
 		return outputSchema();
 	},
-	async execute({ goalId, turns, tokens, wallMs }, context) {
+	// log: execute signature expanded to match Tool type (5 params)
+	async execute(
+		{ goalId, turns, tokens, wallMs },
+		_context,
+		_canUseTool?,
+		_parentMessage?,
+		_onProgress?,
+	) {
 		const sessionId = getSessionId();
 		let targetId = goalId;
 		if (!targetId) {

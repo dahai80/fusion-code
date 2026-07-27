@@ -1,7 +1,7 @@
 import { c as _c } from "react/compiler-runtime";
 import { feature } from 'bun:bundle';
 import * as React from 'react';
-import { type ReactNode, useEffect, useMemo, useState } from 'react';
+import { type ReactNode, useEffect, useState } from 'react';
 import { type Notification, useNotifications } from 'src/context/notifications.js';
 import { logEvent } from 'src/services/analytics/index.js';
 import { useAppState } from 'src/state/AppState.js';
@@ -17,7 +17,7 @@ import { calculateTokenWarningState } from '../../services/compact/autoCompact.j
 import type { MCPServerConnection } from '../../services/mcp/types.js';
 import type { Message } from '../../types/message.js';
 import { getApiKeyHelperElapsedMs, getConfiguredApiKeyHelper, getSubscriptionType, isAnthropicAuthEnabled } from '../../utils/auth.js';
-import { isFusionMlxProvider, getAPIProvider } from '../../utils/model/providers.js';
+import { isFusionMlxProvider } from '../../utils/model/providers.js';
 import type { AutoUpdaterResult } from '../../utils/autoUpdater.js';
 import { getExternalEditor } from '../../utils/editor.js';
 import { isEnvTruthy } from '../../utils/envUtils.js';

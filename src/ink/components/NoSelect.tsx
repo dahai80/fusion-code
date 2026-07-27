@@ -1,5 +1,4 @@
 import { c as _c } from "react/compiler-runtime";
-import React, { type PropsWithChildren } from 'react';
 import Box, { type Props as BoxProps } from './Box.js';
 type Props = Omit<BoxProps, 'noSelect'> & {
   /**

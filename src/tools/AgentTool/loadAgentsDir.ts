@@ -105,9 +105,12 @@ const AgentsJsonSchema = lazySchema(() =>
 // Base type with common fields for all agents
 export type BaseAgentDefinition = {
   agentType: string
+  name?: string
   whenToUse: string
   tools?: string[]
   disallowedTools?: string[]
+  userFacingName?: string | (() => string)
+  allowedTools?: string[]
   skills?: string[] // Skill names to preload (parsed from comma-separated frontmatter)
   mcpServers?: AgentMcpServerSpec[] // MCP servers specific to this agent
   hooks?: HooksSettings // Session-scoped hooks registered when agent starts
@@ -135,11 +138,11 @@ export type BaseAgentDefinition = {
 // Built-in agents - dynamic prompts only, no static systemPrompt field
 export type BuiltInAgentDefinition = BaseAgentDefinition & {
   source: 'built-in'
-  baseDir: 'built-in'
+  baseDir?: 'built-in'
   callback?: () => void
-  getSystemPrompt: (params: {
+  getSystemPrompt: ((params: {
     toolUseContext: Pick<ToolUseContext, 'options'>
-  }) => string
+  }) => string) | (() => string)
 }
 
 // Custom agents from user/project/policy settings - prompt stored via closure
@@ -424,6 +427,7 @@ function getParseError(frontmatter: Record<string, unknown>): string {
 function parseHooksFromFrontmatter(
   frontmatter: Record<string, unknown>,
   agentType: string,
+  name?: string
 ): HooksSettings | undefined {
   if (!frontmatter.hooks) {
     return undefined

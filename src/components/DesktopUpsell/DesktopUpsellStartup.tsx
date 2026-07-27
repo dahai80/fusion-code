@@ -1,5 +1,4 @@
 import { c as _c } from "react/compiler-runtime";
-import * as React from 'react';
 import { useEffect, useState } from 'react';
 import { Box, Text } from '../../ink.js';
 import { getDynamicConfig_CACHED_MAY_BE_STALE } from '../../services/analytics/growthbook.js';
@@ -30,7 +29,6 @@ export function shouldShowDesktopUpsellStartup(): boolean {
   if ((config.desktopUpsellSeenCount ?? 0) >= 3) return false;
   return true;
 }
-type DesktopUpsellSelection = 'try' | 'not-now' | 'never';
 type Props = {
   onDone: () => void;
 };

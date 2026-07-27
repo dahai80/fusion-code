@@ -12,9 +12,8 @@ import { lazySchema } from '../../utils/lazySchema.js'
 import { logError } from '../../utils/log.js'
 import { logForDebugging } from '../../utils/debug.js'
 import { SandboxManager } from '../../utils/sandbox/sandbox-adapter.js'
-import { isDeniedDomain } from '../networkDomainCheck.js'
 import { createUserMessage } from '../../utils/messages.js'
-import { getMainLoopModel, getSmallFastModel } from '../../utils/model/model.js'
+import { getSmallFastModel } from '../../utils/model/model.js'
 import { jsonParse, jsonStringify } from '../../utils/slowOperations.js'
 import { asSystemPrompt } from '../../utils/systemPromptType.js'
 import { getWebSearchPrompt, WEB_SEARCH_TOOL_NAME } from './prompt.js'
@@ -170,7 +169,7 @@ export const WebSearchTool = buildTool({
   },
   isEnabled() {
     const provider = getAPIProvider()
-    const model = getMainLoopModel()
+    // model = getMainLoopModel() // unused
 
     // Enable for firstParty
     if (provider === 'firstParty') {

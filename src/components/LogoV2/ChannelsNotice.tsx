@@ -5,7 +5,6 @@ import { c as _c } from "react/compiler-runtime";
 // docs/feature-gating.md). Do NOT import this module statically from
 // unguarded code.
 
-import * as React from 'react';
 import { useState } from 'react';
 import { type ChannelEntry, getAllowedChannels, getHasDevChannels } from '../../bootstrap/state.js';
 import { Box, Text } from '../../ink.js';

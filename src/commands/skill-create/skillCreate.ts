@@ -73,6 +73,7 @@ export const call: LocalCommandCall = async (args, context) => {
     console.log(`[skill-create] analyzing last ${commits} commits for patterns`)
 
     return {
+            type: 'display',
         display: SKILL_CREATE_PROMPT,
     } satisfies LocalCommandResult
 }

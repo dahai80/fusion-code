@@ -23,6 +23,7 @@ import { Notifications } from './Notifications.js';
 import { PromptInputFooterLeftSide } from './PromptInputFooterLeftSide.js';
 import { PromptInputFooterSuggestions, type SuggestionItem } from './PromptInputFooterSuggestions.js';
 import { PromptInputHelpMenu } from './PromptInputHelpMenu.js';
+import { isInternalBuild } from '../../utils/buildConstants.js'
 type Props = {
   apiKeyStatus: VerificationStatus;
   debug: boolean;
@@ -143,11 +144,11 @@ function PromptInputFooter({
         </Box>
         <Box flexShrink={1} gap={1}>
           {isFullscreen ? null : <Notifications apiKeyStatus={apiKeyStatus} autoUpdaterResult={autoUpdaterResult} debug={debug} isAutoUpdating={isAutoUpdating} verbose={verbose} messages={messages} onAutoUpdaterResult={onAutoUpdaterResult} onChangeIsUpdating={onChangeIsUpdating} ideSelection={ideSelection} mcpClients={mcpClients} isInputWrapped={isInputWrapped} isNarrow={isNarrow} />}
-          {"external" === 'ant' && isUndercover() && <Text dimColor>undercover</Text>}
+          {isInternalBuild() && isUndercover() && <Text dimColor>undercover</Text>}
           <BridgeStatusIndicator bridgeSelected={bridgeSelected} />
         </Box>
       </Box>
-      {"external" === 'ant' && <CoordinatorTaskPanel />}
+      {isInternalBuild() && <CoordinatorTaskPanel />}
     </>;
 }
 export default memo(PromptInputFooter);

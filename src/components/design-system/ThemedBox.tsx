@@ -1,5 +1,5 @@
 import { c as _c } from "react/compiler-runtime";
-import React, { type PropsWithChildren, type Ref } from 'react';
+import { type Ref } from 'react';
 import Box from '../../ink/components/Box.js';
 import type { DOMElement } from '../../ink/dom.js';
 import type { ClickEvent } from '../../ink/events/click-event.js';

@@ -1,6 +1,5 @@
 import { c as _c } from "react/compiler-runtime";
 import figures from 'figures';
-import * as React from 'react';
 import { Box, Text } from 'src/ink.js';
 import { AGENT_COLOR_TO_THEME_COLOR, AGENT_COLORS, type AgentColorName } from 'src/tools/AgentTool/agentColorManager.js';
 import type { PromptInputMode } from 'src/types/textInputTypes.js';

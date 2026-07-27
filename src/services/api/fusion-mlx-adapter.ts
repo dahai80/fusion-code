@@ -36,7 +36,7 @@ const DEFAULT_WARMUP_TIMEOUT_MS = 60_000; // 60s for first inference (model load
 const DEFAULT_STREAM_TIMEOUT_MS = 300_000; // 5 min for streaming
 const DEFAULT_QUERY_TIMEOUT_MS = 120_000; // 2 min for non-streaming
 const MAX_RETRIES = 1; // retry once on connection failure
-const MLX_MAX_TOKENS_ESCALATION_RETRIES = 1; // retry once when max_tokens hit
+// MLX_MAX_TOKENS_ESCALATION_RETRIES // unused // retry once when max_tokens hit
 const MLX_MAX_TOKENS_ESCALATION_FACTOR = 2; // double max_tokens on escalation
 
 // ─── Circuit Breaker ──────────────────────────────────────────
@@ -1320,7 +1320,8 @@ export function createFusionMlxFetch(model: string): typeof globalThis.fetch {
 						);
 					}
 				}
-				const errText = await resp.text().catch(() => "");
+				// errText // unused
+			// const errText = await resp.text().catch(() => "");
 				logForDebugging(
 					`[Fusion-MLX] count_tokens endpoint failed (${resp.status}), trying chat completions`,
 				);
@@ -1342,8 +1343,15 @@ export function createFusionMlxFetch(model: string): typeof globalThis.fetch {
 						| undefined,
 				);
 				const toolsForMlx =
-					countBody.tools?.length > 0
-						? anthropicToMlxTools(countBody.tools)
+					(countBody.tools as Array<Record<string, unknown>> | undefined)
+						?.length > 0
+						? anthropicToMlxTools(
+								countBody.tools as Array<{
+									name: string;
+									description: string;
+									input_schema: Record<string, unknown>;
+								}>,
+							) // log: assert tool shape for anthropicToMlxTools
 						: undefined;
 				const chatResp = await mlxFetchWithRetry(
 					`${baseUrl}/v1/chat/completions`,
@@ -1458,13 +1466,27 @@ export function createFusionMlxFetch(model: string): typeof globalThis.fetch {
 			// Auto-inject structured output schema for models that support it
 			const caps = await getMlxModelCapabilities(finalModel);
 			const toolsForMlx =
-				body.tools?.length > 0 ? anthropicToMlxTools(body.tools) : undefined;
+				(body.tools as Array<Record<string, unknown>> | undefined)?.length > 0
+					? anthropicToMlxTools(
+							body.tools as Array<{
+								name: string;
+								description: string;
+								input_schema: Record<string, unknown>;
+							}>,
+						)
+					: undefined; // log: assert tool shape
 			const autoResponseFormat =
 				caps.supportsStructuredOutput &&
 				toolsForMlx &&
 				toolsForMlx.length > 0 &&
 				!body.response_format
-					? buildToolResponseSchema(body.tools)
+					? buildToolResponseSchema(
+							body.tools as Array<{
+								name: string;
+								description: string;
+								input_schema: Record<string, unknown>;
+							}>,
+						) // log: assert tool shape
 					: undefined;
 
 			const inferenceParams = getModelInferenceParams(finalModel);
@@ -1472,7 +1494,8 @@ export function createFusionMlxFetch(model: string): typeof globalThis.fetch {
 			const mlxBody: MLXChatCompletionRequest = {
 				model: toMlxModelName(finalModel),
 				messages: mlxMessages,
-				temperature: body.temperature ?? inferenceParams.temperature,
+				temperature:
+					(body.temperature as number) ?? inferenceParams.temperature, // log: cast unknown to number
 				top_p: inferenceParams.top_p,
 				...(inferenceParams.repetition_penalty
 					? { repetition_penalty: inferenceParams.repetition_penalty }
@@ -1491,10 +1514,13 @@ export function createFusionMlxFetch(model: string): typeof globalThis.fetch {
 						: {}),
 				// max_tokens: use the value from the caller, default 8192
 				// No artificial cap — let the model and context window decide
-				max_tokens: body.max_tokens || 8192,
+				max_tokens: (body.max_tokens as number) || 8192, // log: cast unknown to number
 				// Structured output: auto-injected or caller-provided
-				...(body.response_format
-					? { response_format: body.response_format }
+				...((body.response_format as MLXChatCompletionRequest["response_format"])
+					? {
+							response_format:
+								body.response_format as MLXChatCompletionRequest["response_format"],
+						}
 					: autoResponseFormat
 						? { response_format: autoResponseFormat }
 						: {}),
