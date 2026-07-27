@@ -200,13 +200,13 @@ export function useReplBridge(messages: Message[], setMessages: (action: React.S
                 /* eslint-enable @typescript-eslint/no-require-imports */
                 sanitized = sanitizeInboundWebhookContent(fields.content);
               }
-              const content = await resolveAndPrepend(msg, sanitized);
+              const content = await resolveAndPrepend(msg, sanitized as string);
               const preview = typeof content === 'string' ? content.slice(0, 80) : `[${content.length} content blocks]`;
               logForDebugging(`[bridge:repl] Injecting inbound user message: ${preview}${uuid ? ` uuid=${uuid}` : ''}`);
               enqueue({
                 value: content,
                 mode: 'prompt' as const,
-                uuid,
+                uuid: uuid as string,
                 // skipSlashCommands stays true as defense-in-depth —
                 // processUserInputBase overrides it internally when bridgeOrigin
                 // is set AND the resolved command passes isBridgeSafeCommand.
@@ -229,7 +229,7 @@ export function useReplBridge(messages: Message[], setMessages: (action: React.S
               logForDebugging(`[bridge:repl] Mirror state=${state}${detail_0 ? ` detail=${detail_0}` : ''}`);
               // Sync replBridgeConnected so the forwarding effect starts/stops
               // writing as the transport comes up or dies.
-              if (state === 'failed') {
+              if ((state as string) === 'failed') {
                 setAppState(prev_3 => {
                   if (!prev_3.replBridgeConnected) return prev_3;
                   return {
@@ -237,7 +237,7 @@ export function useReplBridge(messages: Message[], setMessages: (action: React.S
                     replBridgeConnected: false
                   };
                 });
-              } else if (state === 'ready' || state === 'connected') {
+              } else if ((state as string) === 'ready' || state === 'connected') {
                 setAppState(prev_4 => {
                   if (prev_4.replBridgeConnected) return prev_4;
                   return {
@@ -250,7 +250,7 @@ export function useReplBridge(messages: Message[], setMessages: (action: React.S
             }
             const handle = handleRef.current;
             switch (state) {
-              case 'ready':
+              case 'ready' as string as BridgeState:
                 setAppState(prev_9 => {
                   const connectUrl = handle && handle.environmentId !== '' ? buildBridgeConnectUrl(handle.environmentId, handle.sessionIngressUrl) : prev_9.replBridgeConnectUrl;
                   const sessionUrl = handle ? getRemoteSessionUrl(handle.bridgeSessionId, handle.sessionIngressUrl) : prev_9.replBridgeSessionUrl;

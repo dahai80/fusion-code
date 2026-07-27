@@ -72,7 +72,7 @@ function convertResultMessage(msg: SDKResultMessage): SystemMessage {
 /**
  * Convert an SDKSystemMessage (init) to a SystemMessage
  */
-function convertInitMessage(msg: SDKSystemMessage): SystemMessage {
+function convertInitMessage(msg: SDKSystemMessage & { subtype?: string; model?: string }): SystemMessage {
   return {
     type: 'system',
     subtype: 'informational',
@@ -170,12 +170,14 @@ export function convertSDKMessage(
   msg: SDKMessage,
   opts?: ConvertOptions,
 ): ConvertedMessage {
-  switch (msg.type) {
+  const msgType = (msg as SDKMessage & { type: string }).type
+  switch (msgType) {
     case 'assistant':
-      return { type: 'message', message: convertAssistantMessage(msg) }
+      return { type: 'message', message: convertAssistantMessage(msg as SDKAssistantMessage) }
 
     case 'user': {
-      const content = msg.message?.content
+      const userMsg = msg as SDKMessage & { message?: { content?: unknown }; tool_use_result?: unknown; uuid?: string; timestamp?: string }
+      const content = userMsg.message?.content
       // Tool result messages from the remote server need to be converted so
       // they render and collapse like local tool results. Detect via content
       // shape (tool_result blocks) — parent_tool_use_id is NOT reliable: the
@@ -187,10 +189,10 @@ export function convertSDKMessage(
         return {
           type: 'message',
           message: createUserMessage({
-            content,
-            toolUseResult: msg.tool_use_result,
-            uuid: msg.uuid,
-            timestamp: msg.timestamp,
+            content: content as import('@anthropic-ai/sdk/resources/messages/messages.mjs').ContentBlockParam[],
+            toolUseResult: userMsg.tool_use_result,
+            uuid: userMsg.uuid as string | undefined,
+            timestamp: userMsg.timestamp as string | undefined,
           }),
         }
       }
@@ -202,10 +204,10 @@ export function convertSDKMessage(
           return {
             type: 'message',
             message: createUserMessage({
-              content,
-              toolUseResult: msg.tool_use_result,
-              uuid: msg.uuid,
-              timestamp: msg.timestamp,
+              content: content as string | import('@anthropic-ai/sdk/resources/messages/messages.mjs').ContentBlockParam[],
+              toolUseResult: userMsg.tool_use_result,
+              uuid: userMsg.uuid as string | undefined,
+              timestamp: userMsg.timestamp as string | undefined,
             }),
           }
         }
@@ -216,40 +218,42 @@ export function convertSDKMessage(
     }
 
     case 'stream_event':
-      return { type: 'stream_event', event: convertStreamEvent(msg) }
+      return { type: 'stream_event', event: convertStreamEvent(msg as SDKPartialAssistantMessage) }
 
     case 'result':
       // Only show result messages for errors. Success results are noise
       // in multi-turn sessions (isLoading=false is sufficient signal).
-      if (msg.subtype !== 'success') {
-        return { type: 'message', message: convertResultMessage(msg) }
+      if ((msg as SDKResultMessage).subtype !== 'success') {
+        return { type: 'message', message: convertResultMessage(msg as SDKResultMessage) }
       }
       return { type: 'ignored' }
 
-    case 'system':
-      if (msg.subtype === 'init') {
-        return { type: 'message', message: convertInitMessage(msg) }
+    case 'system': {
+      const sysMsg = msg as SDKSystemMessage & { subtype?: string; model?: string }
+      if (sysMsg.subtype === 'init') {
+        return { type: 'message', message: convertInitMessage(sysMsg) }
       }
-      if (msg.subtype === 'status') {
-        const statusMsg = convertStatusMessage(msg)
+      if (sysMsg.subtype === 'status') {
+        const statusMsg = convertStatusMessage(msg as SDKStatusMessage)
         return statusMsg
           ? { type: 'message', message: statusMsg }
           : { type: 'ignored' }
       }
-      if (msg.subtype === 'compact_boundary') {
+      if (sysMsg.subtype === 'compact_boundary') {
         return {
           type: 'message',
-          message: convertCompactBoundaryMessage(msg),
+          message: convertCompactBoundaryMessage(msg as SDKCompactBoundaryMessage),
         }
       }
       // hook_response and other subtypes
       logForDebugging(
-        `[sdkMessageAdapter] Ignoring system message subtype: ${msg.subtype}`,
+        `[sdkMessageAdapter] Ignoring system message subtype: ${sysMsg.subtype}`,
       )
       return { type: 'ignored' }
+    }
 
     case 'tool_progress':
-      return { type: 'message', message: convertToolProgressMessage(msg) }
+      return { type: 'message', message: convertToolProgressMessage(msg as SDKToolProgressMessage) }
 
     case 'auth_status':
       // Auth status is handled separately, not converted to a display message

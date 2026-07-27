@@ -4,14 +4,14 @@ import { generateAwaySummary } from '../../services/awaySummary.js'
 
 const call: LocalCommandCall = async (_args, context) => {
     try {
-        const mutableMessages = context.options.mutableMessages
+        const mutableMessages = context.messages
         if (!mutableMessages || mutableMessages.length === 0) {
             return { type: 'text', value: 'No conversation history to recap.' }
         }
 
         const summary = await generateAwaySummary(
             mutableMessages,
-            context.options.abortController?.signal,
+            context.abortController.signal,
         )
         logForDebugging('[recap] Generated session recap')
         return { type: 'text', value: summary || 'Unable to generate recap.' }

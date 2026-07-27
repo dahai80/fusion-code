@@ -22,6 +22,7 @@ export interface MarketplacePlugin {
 export interface DeclaredMarketplace {
     source: string
     enabled: boolean
+    sourceIsFallback?: boolean // log: fix TS2339
 }
 
 export const getPluginById = (_pluginId: string): MarketplacePlugin | null => null

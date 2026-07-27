@@ -199,9 +199,9 @@ export function useRemoteSession({
           onInit
         ) {
           logForDebugging(
-            `[useRemoteSession] Init received with ${sdkMessage.slash_commands.length} slash commands`,
+            `[useRemoteSession] Init received with ${(sdkMessage.slash_commands as unknown[])?.length ?? 0} slash commands`,
           )
-          onInit(sdkMessage.slash_commands)
+          onInit(sdkMessage.slash_commands as string[])
         }
 
         // Track remote subagent lifecycle for the "N in background" counter.

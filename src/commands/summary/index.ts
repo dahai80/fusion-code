@@ -3,7 +3,7 @@ import { logForDebugging } from '../../utils/debug.js'
 
 const call: LocalCommandCall = async (args, context) => {
     try {
-        const mutableMessages = context.options.mutableMessages
+        const mutableMessages = context.messages
         if (!mutableMessages || mutableMessages.length === 0) {
             return { type: 'text', value: 'No conversation history to summarize.' }
         }
@@ -13,7 +13,7 @@ const call: LocalCommandCall = async (args, context) => {
         )
         const summary = await generateAwaySummary(
             mutableMessages,
-            context.options.abortController?.signal,
+            context.abortController.signal,
         )
         logForDebugging('[summary] Generated session summary')
         return { type: 'text', value: summary || 'Unable to generate summary.' }

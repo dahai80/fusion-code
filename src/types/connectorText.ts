@@ -1,6 +1,7 @@
 export type ConnectorTextBlock = {
   type: 'connector_text'
   connector_text: string
+  signature?: string // log: fix TS2339
 }
 
 export type ConnectorTextDelta = {

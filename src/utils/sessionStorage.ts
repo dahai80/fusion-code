@@ -3859,7 +3859,7 @@ const SESSION_MESSAGES_CACHE_MAX = 100;
 const getSessionMessages = memoize(
   async (sessionId: UUID): Promise<Set<UUID>> => {
     // Prune memoize cache when it exceeds the max size
-    if (getSessionMessages.cache && typeof getSessionMessages.cache.size === 'number' && getSessionMessages.cache.size > SESSION_MESSAGES_CACHE_MAX) {
+    if (getSessionMessages.cache && typeof (getSessionMessages.cache as { size?: number }).size === 'number' && (getSessionMessages.cache as { size?: number }).size! > SESSION_MESSAGES_CACHE_MAX) {
       getSessionMessages.cache.clear?.()
     }
     const { messages } = await loadSessionFile(sessionId)

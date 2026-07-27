@@ -17,6 +17,7 @@ import { TOOL_SEARCH_TOOL_NAME } from '../tools/ToolSearchTool/prompt.js'
 import type {
   CollapsedReadSearchGroup,
   CollapsibleMessage,
+  NormalizedUserMessage, // log: fix TS2339
   RenderableMessage,
   StopHookInfo,
   SystemStopHookSummaryMessage,

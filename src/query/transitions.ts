@@ -16,13 +16,13 @@ export type Terminal =
     | { reason: 'hook_stopped' }
     | { reason: 'prompt_too_long' }
     | { reason: 'stop_hook_prevented' }
-    | { reason: 'max_turns' }
+    | { reason: 'max_turns'; turnCount: number }
 
 export type Continue =
     | { reason: 'next_turn' }
-    | { reason: 'collapse_drain_retry' }
+    | { reason: 'collapse_drain_retry'; committed: number }
     | { reason: 'reactive_compact_retry' }
     | { reason: 'max_output_tokens_escalate' }
-    | { reason: 'max_output_tokens_recovery' }
+    | { reason: 'max_output_tokens_recovery'; attempt: number }
     | { reason: 'stop_hook_blocking' }
     | { reason: 'token_budget_continuation' }

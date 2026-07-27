@@ -1,5 +1,13 @@
 import { c as _c } from "react/compiler-runtime";
 import React from 'react';
+declare global {
+  namespace JSX {
+    // log: fix TS2339
+    interface IntrinsicElements {
+      'ink-raw-ansi': { rawText: string; rawWidth: number; rawHeight: number };
+    }
+  }
+}
 type Props = {
   /**
    * Pre-rendered ANSI lines. Each element must be exactly one terminal row

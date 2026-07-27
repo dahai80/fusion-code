@@ -132,6 +132,7 @@ export type AssistantMessage = {
     isVirtual?: true
     advisorModel?: string
     isMeta?: boolean // log: fix TS2339
+    research?: unknown // log: fix TS2339
 }
 
 // ============================================================================

@@ -18,8 +18,8 @@ export function PromptStep() {
     updateWizardData,
     wizardData
   } = useWizard();
-  const [systemPrompt, setSystemPrompt] = useState(wizardData.systemPrompt || "");
-  const [cursorOffset, setCursorOffset] = useState(systemPrompt.length);
+  const [systemPrompt, setSystemPrompt] = useState((wizardData.systemPrompt as string) || "");
+  const [cursorOffset, setCursorOffset] = useState((systemPrompt as string).length);
   const [error, setError] = useState(null);
   let t0;
   if ($[0] === Symbol.for("react.memo_cache_sentinel")) {
@@ -59,7 +59,7 @@ export function PromptStep() {
   let t3;
   if ($[4] !== goNext || $[5] !== systemPrompt || $[6] !== updateWizardData) {
     t3 = () => {
-      const trimmedPrompt = systemPrompt.trim();
+      const trimmedPrompt = (systemPrompt as string).trim();
       if (!trimmedPrompt) {
         setError("System prompt is required");
         return;

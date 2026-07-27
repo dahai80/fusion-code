@@ -33,6 +33,26 @@ let messageHandlers: Array<(msg: UDSMessage) => void> = []
 
 /**
  * Start a UDS messaging server on the given socket path.
+ * Wrapper that matches the `startUdsMessaging` signature used by setup.ts.
+ */
+export async function startUdsMessaging(
+    socketPath: string,
+    _options?: { isExplicit?: boolean }, // log: fix TS2339
+): Promise<void> {
+    return startMessagingServer(socketPath)
+}
+
+/**
+ * Get the default UDS socket path for this user.
+ */
+export function getDefaultUdsSocketPath(): string { // log: fix TS2339
+    const os = require('os')
+    const path = require('path')
+    return path.join(os.tmpdir(), `fusion-code-uds-${process.env.USER ?? 'default'}.sock`)
+}
+
+/**
+ * Start a UDS messaging server on the given socket path.
  */
 export function startMessagingServer(socketPath: string): Promise<void> {
   return new Promise((resolve, reject) => {

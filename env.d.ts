@@ -146,20 +146,31 @@ declare namespace NodeJS {
 declare function fireCompanionObserver(messages: unknown, callback: (reaction: unknown) => void): Promise<void>
 
 // Missing module stubs for src/main.tsx
-declare module 'src/utils/eventLoopStallDetector.js' {
+// These use relative paths matching the import site (src/main.tsx -> ./utils/... -> src/utils/...)
+declare module './utils/eventLoopStallDetector.js' {
     export function startEventLoopStallDetector(): void
 }
-declare module 'src/utils/sdkHeapDumpMonitor.js' {
+declare module './utils/sdkHeapDumpMonitor.js' {
     export function startSdkMemoryMonitor(): void
 }
-declare module 'src/utils/sessionDataUploader.js' {
+declare module './utils/sessionDataUploader.js' {
     const _default: unknown
     export default _default
 }
-declare module 'src/bridge/bridgeMain.js' {
+declare module './bridge/bridgeMain.js' {
     export function bridgeMain(args: string[]): Promise<void>
 }
-declare module 'src/utils/ccshareResume.js' {
+declare module './utils/ccshareResume.js' {
     export function parseCcshareId(input: string): string | undefined
     export function loadCcshare(id: string, opts?: { print?: string | boolean; outputFormat: string }): Promise<void>
+}
+declare module '../bridge/envLessBridgeConfig.js' {
+    export function shouldShowAppUpgradeMessage(): Promise<boolean>
+}
+declare module '../bridge/webhookSanitizer.js' {
+    export function sanitizeInboundWebhookContent(content: unknown): string
+}
+declare module './services/skillSearch/prefetch.js' {
+    export function startSkillDiscoveryPrefetch(_arg: null, messages: unknown[], ctx: unknown): unknown
+    export function collectSkillDiscoveryPrefetch(prefetch: unknown): Promise<unknown[]>
 }

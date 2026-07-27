@@ -15,3 +15,9 @@ export async function getBridgeDisabledReason(): Promise<string | null> {
  * log: fix TS2339
  */
 export const isCcrMirrorEnabled = (): boolean => false
+
+/**
+ * No-op stub for bridge version check (cloud-only).
+ * log: fix TS2339
+ */
+export async function checkBridgeMinVersion(): Promise<void> {}

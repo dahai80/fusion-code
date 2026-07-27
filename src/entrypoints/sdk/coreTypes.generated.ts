@@ -126,7 +126,7 @@ export type SDKRateLimitInfo = {
 
 export type SDKUserMessage = SDKBaseMessage & {
   type: 'user'
-  message?: { content?: unknown }
+  message?: { content?: unknown; role?: string } // log: fix TS2339
 }
 
 export type SDKUserMessageReplay = SDKUserMessage & {

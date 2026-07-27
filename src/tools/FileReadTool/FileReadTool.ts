@@ -899,7 +899,7 @@ async function callInner(
         parsedRange ?? undefined,
       )
       if (!extractResult.success) {
-        throw new Error(extractResult.error.message)
+        throw new Error((extractResult as { success: false; error: { message: string } }).error.message)
       }
       logEvent('tengu_pdf_page_extraction', {
         success: true,
@@ -970,7 +970,7 @@ async function callInner(
       } else {
         logEvent('tengu_pdf_page_extraction', {
           success: false,
-          available: extractResult.error.reason !== 'unavailable',
+          available: (extractResult as { success: false; error: { reason: string } }).error.reason !== 'unavailable',
           fileSize: stats.size,
         })
       }
@@ -986,7 +986,7 @@ async function callInner(
 
     const readResult = await readPDF(resolvedFilePath)
     if (!readResult.success) {
-      throw new Error(readResult.error.message)
+      throw new Error((readResult as { success: false; error: { message: string } }).error.message)
     }
     const pdfData = readResult.data
     logFileOperation({

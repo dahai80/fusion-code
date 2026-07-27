@@ -5993,7 +5993,7 @@ async function run(): Promise<CommanderCommand> {
 						opts.outputFormat,
 						interactive,
 					);
-				,
+				},
 			);
 	}
 
