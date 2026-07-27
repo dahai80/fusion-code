@@ -8,7 +8,7 @@
  * gated by feature('REVIEW_ARTIFACT')
  */
 
-import { logForDebugging } from '../utils/debug.js'
+import { logForDebugging } from './utils/debug.js'
 
 export interface ReviewArtifact {
   id: string

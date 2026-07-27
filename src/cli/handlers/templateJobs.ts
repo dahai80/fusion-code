@@ -11,7 +11,7 @@
 import { feature } from 'bun:bundle'
 import { existsSync, readFileSync, readdirSync, mkdirSync, writeFileSync } from 'fs'
 import { join } from 'path'
-import { getClaudeConfigHomeDir } from '../utils/envUtils.js'
+import { getClaudeConfigHomeDir } from '../../utils/envUtils.js'
 
 export interface TemplateJob {
   id: string

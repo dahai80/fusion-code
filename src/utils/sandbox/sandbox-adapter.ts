@@ -37,7 +37,6 @@ import { SETTING_SOURCES, type SettingSource } from '../settings/constants.js'
 import { getManagedSettingsDropInDir } from '../settings/managedPath.js'
 import {
   getInitialSettings,
-  getInitialSettings,
   getSettingsFilePathForSource,
   getSettingsForSource,
   getSettingsRootPathForSource,
