@@ -17,6 +17,9 @@ export type SecureStorageData = {
         discoveryState?: {
             authorizationServerUrl: string
             resourceMetadataUrl: string
+            // log: fix TS2339
+            authorizationServerMetadata?: unknown
+            resourceMetadata?: unknown
         }
     }>
     mcpOAuthClientConfig?: Record<string, unknown>

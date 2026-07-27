@@ -1,3 +1,4 @@
+import type { UUID } from 'crypto'
 import type {
   SDKAssistantMessage,
   SDKCompactBoundaryMessage,
@@ -31,11 +32,11 @@ import { createUserMessage } from '../utils/messages.js'
 function convertAssistantMessage(msg: SDKAssistantMessage): AssistantMessage {
   return {
     type: 'assistant',
-    message: msg.message,
-    uuid: msg.uuid,
+    message: msg.message as AssistantMessage['message'],
+    uuid: (msg.uuid ?? '') as UUID,
     requestId: undefined,
     timestamp: new Date().toISOString(),
-    error: msg.error,
+    error: msg.error as AssistantMessage['error'],
   }
 }
 
@@ -45,7 +46,7 @@ function convertAssistantMessage(msg: SDKAssistantMessage): AssistantMessage {
 function convertStreamEvent(msg: SDKPartialAssistantMessage): StreamEvent {
   return {
     type: 'stream_event',
-    event: msg.event,
+    event: msg.event as StreamEvent['event'],
   }
 }
 
@@ -55,15 +56,15 @@ function convertStreamEvent(msg: SDKPartialAssistantMessage): StreamEvent {
 function convertResultMessage(msg: SDKResultMessage): SystemMessage {
   const isError = msg.subtype !== 'success'
   const content = isError
-    ? msg.errors?.join(', ') || 'Unknown error'
+    ? (msg.errors as string[] | undefined)?.join(', ') || 'Unknown error'
     : 'Session completed successfully'
 
   return {
     type: 'system',
     subtype: 'informational',
     content,
-    level: isError ? 'warning' : 'info',
-    uuid: msg.uuid,
+    level: isError ? 'warn' : 'info',
+    uuid: (msg.uuid ?? '') as UUID,
     timestamp: new Date().toISOString(),
   }
 }
@@ -75,9 +76,9 @@ function convertInitMessage(msg: SDKSystemMessage): SystemMessage {
   return {
     type: 'system',
     subtype: 'informational',
-    content: `Remote session initialized (model: ${msg.model})`,
+    content: `Remote session initialized (model: ${msg.model as string})`,
     level: 'info',
-    uuid: msg.uuid,
+    uuid: (msg.uuid ?? '') as UUID,
     timestamp: new Date().toISOString(),
   }
 }
@@ -98,7 +99,7 @@ function convertStatusMessage(msg: SDKStatusMessage): SystemMessage | null {
         ? 'Compacting conversation…'
         : `Status: ${msg.status}`,
     level: 'info',
-    uuid: msg.uuid,
+    uuid: (msg.uuid ?? '') as UUID,
     timestamp: new Date().toISOString(),
   }
 }

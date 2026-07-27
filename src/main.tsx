@@ -4629,16 +4629,15 @@ async function run(): Promise<CommanderCommand> {
 								permissionMode: _pendingSSH.permissionMode,
 								dangerouslySkipPermissions:
 									_pendingSSH.dangerouslySkipPermissions,
-								extraCliArgs: _pendingSSH.extraCliArgs,
+								...(isTTY
+									? {
+											onProgress: (msg: string) => {
+												hadProgress = true;
+												process.stderr.write(`\r  ${msg}\x1b[K`);
+											},
+										}
+									: {}),
 							},
-							isTTY
-								? {
-										onProgress: (msg) => {
-											hadProgress = true;
-											process.stderr.write(`\r  ${msg}\x1b[K`);
-										},
-									}
-								: {},
 						);
 						if (hadProgress) process.stderr.write("\n");
 					}
@@ -5994,7 +5993,7 @@ async function run(): Promise<CommanderCommand> {
 						opts.outputFormat,
 						interactive,
 					);
-				},
+				,
 			);
 	}
 

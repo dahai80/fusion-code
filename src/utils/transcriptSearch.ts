@@ -84,7 +84,7 @@ function computeSearchText(msg: RenderableMessage): string {
       // (AttachmentMessage.tsx <Ansi>{m.content}</Ansi>). Visible but
       // unsearchable without this — [ dump finds it, / doesn't.
       if (msg.attachment.type === 'relevant_memories') {
-        raw = msg.attachment.memories.map(m => m.content).join('\n')
+        raw = (msg.attachment.memories as Array<{ content: string }>).map(m => m.content).join('\n')
       } else if (
         // Mid-turn prompts — queued while an agent is running. Render via
         // UserTextMessage (AttachmentMessage.tsx:~348). stickyPromptText
@@ -93,7 +93,7 @@ function computeSearchText(msg: RenderableMessage): string {
         msg.attachment.commandMode !== 'task-notification' &&
         !msg.attachment.isMeta
       ) {
-        const p = msg.attachment.prompt
+        const p = msg.attachment.prompt as string | Array<{ type: string; text: string }>
         raw =
           typeof p === 'string'
             ? p

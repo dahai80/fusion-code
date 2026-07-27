@@ -51,7 +51,7 @@ export function toInternalMessages(
       case 'system':
         // Handle compact boundary messages
         if (message.subtype === 'compact_boundary') {
-          const compactMsg = message
+          const compactMsg = message as SDKCompactBoundaryMessage
           return [
             {
               type: 'system',

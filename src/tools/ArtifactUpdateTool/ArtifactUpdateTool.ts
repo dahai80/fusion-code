@@ -23,6 +23,12 @@ const outputSchema = lazySchema(() =>
         ref_text: z.string(),
     }),
 )
+type ArtifactUpdateOutput = {
+    artifact_id: string // log: fix TS2339
+    version: number // log: fix TS2339
+    token_count: number // log: fix TS2339
+    ref_text: string // log: fix TS2339
+}
 type OutputSchema = ReturnType<typeof outputSchema>
 
 async function artifactsRPC(method: string, params: Record<string, unknown> = {}): Promise<Record<string, unknown>> {
@@ -100,4 +106,4 @@ The tool returns an updated reference tag with the new version number and token 
             content: `Artifact updated successfully.\n\nReference: ${ref_text}\n\nID: ${artifact_id} | Version: v${version} | Tokens: ${token_count}`,
         }
     },
-} satisfies ToolDef<InputSchema, OutputSchema>)
+} satisfies ToolDef<InputSchema, ArtifactUpdateOutput>)

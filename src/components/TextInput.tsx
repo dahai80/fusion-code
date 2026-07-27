@@ -45,7 +45,7 @@ export default function TextInput(props: Props): React.ReactNode {
   // biome-ignore lint/correctness/useHookAtTopLevel: feature() is a compile-time constant
   useVoiceState(s => s.voiceState) : 'idle' as const;
   const isVoiceRecording = voiceState === 'recording';
-  const audioLevels = feature('VOICE_MODE') ?
+  const audioLevels: number[] = feature('VOICE_MODE') ?
   // biome-ignore lint/correctness/useHookAtTopLevel: feature() is a compile-time constant
   useVoiceState(s_0 => s_0.voiceAudioLevels) : [];
   const smoothedRef = useRef<number[]>(new Array(CURSOR_WAVEFORM_WIDTH).fill(0));

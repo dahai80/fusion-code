@@ -3957,15 +3957,15 @@ function runHeadlessStreaming(
 								const { initReplBridge } = await import(
 									"src/bridge/initReplBridge.js"
 								);
-								const handle = await initReplBridge({
+								const handle = await (initReplBridge as any)({
 									onInboundMessage(msg) {
 										const fields = extractInboundMessageFields(msg);
 										if (!fields) return;
 										const { content, uuid } = fields;
 										enqueue({
-											value: content,
+											value: content as string | ContentBlockParam[],
 											mode: "prompt" as const,
-											uuid,
+											uuid: uuid as `${string}-${string}-${string}-${string}-${string}`,
 											skipSlashCommands: true,
 										});
 										void run();
@@ -3974,7 +3974,7 @@ function runHeadlessStreaming(
 										// Forward bridge permission responses into the
 										// stdin processing loop so they resolve pending
 										// permission requests from the SDK consumer.
-										structuredIO.injectControlResponse(response);
+										structuredIO.injectControlResponse(response as any);
 									},
 									onInterrupt() {
 										abortController?.abort();

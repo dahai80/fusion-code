@@ -222,7 +222,7 @@ export function clearStreamAccumulatorForMessage(
   }
 }
 
-type RequestResult = { ok: true } | { ok: false; retryAfterMs?: number } // log: fix TS2339
+type RequestResult = { ok: true } | { ok: false; retryAfterMs?: number }
 
 type WorkerEvent = {
   payload: EventPayload
@@ -375,7 +375,7 @@ export class CCRClient {
         if (!result.ok) {
           throw new RetryableError(
             'client event POST failed',
-            result.retryAfterMs,
+            (result as { ok: false; retryAfterMs?: number }).retryAfterMs,
           )
         }
       },
@@ -398,7 +398,7 @@ export class CCRClient {
         if (!result.ok) {
           throw new RetryableError(
             'internal event POST failed',
-            result.retryAfterMs,
+            (result as { ok: false; retryAfterMs?: number }).retryAfterMs,
           )
         }
       },
@@ -427,7 +427,7 @@ export class CCRClient {
           'delivery batch',
         )
         if (!result.ok) {
-          throw new RetryableError('delivery POST failed', result.retryAfterMs)
+          throw new RetryableError('delivery POST failed', (result as { ok: false; retryAfterMs?: number }).retryAfterMs)
         }
       },
       baseDelayMs: 500,

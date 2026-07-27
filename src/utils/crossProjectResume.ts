@@ -12,6 +12,8 @@ export type CrossProjectResumeResult =
       isCrossProject: true
       isSameRepoWorktree: true
       projectPath: string
+      // log: fix TS2339
+      command?: string
     }
   | {
       isCrossProject: true

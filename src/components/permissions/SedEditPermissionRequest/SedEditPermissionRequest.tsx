@@ -100,9 +100,9 @@ function SedEditPermissionRequestInner(t0) {
     filePath
   } = sedInfo;
   const {
-    oldContent,
-    fileExists
-  } = use(contentPromise);
+    oldContent, // log: fix TS2339
+    fileExists // log: fix TS2339
+  } = use(contentPromise) as FileReadResult;
   let t1;
   if ($[4] !== oldContent || $[5] !== sedInfo) {
     t1 = applySedSubstitution(oldContent, sedInfo);

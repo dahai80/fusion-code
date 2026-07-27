@@ -1325,14 +1325,15 @@ export function checkWritePermissionForTool<Input extends AnyObject>(
           },
         ]
       : generateSuggestions(path, 'write', toolPermissionContext, pathsToCheck)
+    const unsafeInfo = safetyCheck as { safe: false; message: string; classifierApprovable: boolean }
     return {
       behavior: 'ask',
-      message: !safetyCheck.safe ? safetyCheck.message : '',
+      message: unsafeInfo.message,
       suggestions: safetySuggestions,
       decisionReason: {
         type: 'safetyCheck',
-        reason: !safetyCheck.safe ? safetyCheck.message : '',
-        classifierApprovable: !safetyCheck.safe ? safetyCheck.classifierApprovable : false,
+        reason: unsafeInfo.message,
+        classifierApprovable: unsafeInfo.classifierApprovable,
       },
     }
   }

@@ -1497,7 +1497,7 @@ export class ClaudeAuthProvider implements OAuthClientProvider {
     // Fallback: pre-configured client ID from server config
     const configClientId = this.serverConfig.oauth?.clientId
     if (configClientId) {
-      const clientConfig = data?.mcpOAuthClientConfig?.[serverKey]
+      const clientConfig = data?.mcpOAuthClientConfig?.[serverKey] as { clientSecret?: string } | undefined
       logMCPDebug(this.serverName, `Using pre-configured client ID`)
       return {
         client_id: configClientId,

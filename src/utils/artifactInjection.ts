@@ -108,8 +108,8 @@ export async function injectArtifactsIntoMessages(messages: Message[]): Promise<
 
             if (newContent === content) return msg
 
-            if (msg.type === 'user' && Array.isArray(msg.content)) {
-                const blocks = msg.content.map(block => {
+            if (msg.type === 'user' && Array.isArray(msg.message.content)) {
+                const blocks = msg.message.content.map(block => {
                     if (block.type === 'text' && typeof block.text === 'string') {
                         const ids = extractArtifactIds(block.text)
                         if (ids.length === 0) return block
@@ -128,10 +128,10 @@ export async function injectArtifactsIntoMessages(messages: Message[]): Promise<
                     }
                     return block
                 })
-                return { ...msg, content: blocks } as Message
+                return { ...msg, message: { ...msg.message, content: blocks } } as Message
             }
 
-            return { ...msg, content: newContent } as Message
+            return { ...msg, message: { ...msg.message, content: newContent } } as Message
         }),
     )
 

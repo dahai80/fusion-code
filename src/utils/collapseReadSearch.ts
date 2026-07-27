@@ -553,17 +553,18 @@ function getFilePathsFromReadMessage(msg: RenderableMessage): string[] {
  * in bashCommands (non-search/read bash).
  */
 function scanBashResultForGitOps(
-  msg: CollapsibleMessage,
+  msg: RenderableMessage,
   group: GroupAccumulator,
 ): void {
   if (msg.type !== 'user') return
-  const out = msg.toolUseResult as
+  const userMsg = msg as NormalizedUserMessage
+  const out = userMsg.toolUseResult as
     | { stdout?: string; stderr?: string }
     | undefined
   if (!out?.stdout && !out?.stderr) return
   // git push writes the ref update to stderr — scan both streams.
   const combined = (out.stdout ?? '') + '\n' + (out.stderr ?? '')
-  for (const c of msg.message.content) {
+  for (const c of userMsg.message.content) {
     if (c.type !== 'tool_result') continue
     const command = group.bashCommands?.get(c.tool_use_id)
     if (!command) continue

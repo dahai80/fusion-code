@@ -1342,8 +1342,8 @@ export function createFusionMlxFetch(model: string): typeof globalThis.fetch {
 						| undefined,
 				);
 				const toolsForMlx =
-					countBody.tools?.length > 0
-						? anthropicToMlxTools(countBody.tools)
+					(countBody.tools as Array<Record<string, unknown>> | undefined)?.length > 0
+						? anthropicToMlxTools(countBody.tools as Array<Record<string, unknown>>)
 						: undefined;
 				const chatResp = await mlxFetchWithRetry(
 					`${baseUrl}/v1/chat/completions`,
@@ -1458,7 +1458,7 @@ export function createFusionMlxFetch(model: string): typeof globalThis.fetch {
 			// Auto-inject structured output schema for models that support it
 			const caps = await getMlxModelCapabilities(finalModel);
 			const toolsForMlx =
-				body.tools?.length > 0 ? anthropicToMlxTools(body.tools) : undefined;
+				(body.tools as Array<Record<string, unknown>> | undefined)?.length > 0 ? anthropicToMlxTools(body.tools as Array<Record<string, unknown>>) : undefined;
 			const autoResponseFormat =
 				caps.supportsStructuredOutput &&
 				toolsForMlx &&
