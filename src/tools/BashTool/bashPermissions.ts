@@ -18,10 +18,10 @@ import {
 	type SimpleCommand,
 } from "../../utils/bash/ast.js";
 import {
+	splitCommand as _splitCommand,
 	type CommandPrefixResult,
 	extractOutputRedirections,
 	getCommandSubcommandPrefix,
-	splitCommand,
 } from "../../utils/bash/commands.js";
 import { parseCommandRaw } from "../../utils/bash/parser.js";
 import { tryParseShellCommand } from "../../utils/bash/shellQuote.js";
@@ -70,7 +70,7 @@ import { windowsPathToPosixPath } from "../../utils/windowsPaths.js";
 import { BashTool } from "./BashTool.js";
 import { checkCommandOperatorPermissions } from "./bashCommandHelpers.js";
 import {
-	bashCommandIsSafeAsync,
+	bashCommandIsSafeAsync as _bashCommandIsSafeAsync,
 	stripSafeHeredocSubstitutions,
 } from "./bashSecurity.js";
 import { checkPermissionMode } from "./modeValidation.js";
@@ -85,8 +85,10 @@ import { shouldUseSandbox } from "./shouldUseSandbox.js";
 // constant and silently evaluates the ternaries to `false`, dropping every
 // pendingClassifierCheck spread. Keep aliases as top-level const rebindings
 // instead. (See also the comment on checkSemanticsDeny below.)
-const bashCommandIsSafeAsync = bashCommandIsSafeAsync;
-const splitCommand = splitCommand;
+// NOTE: Self-referencing `const x = x` causes TDZ violation at runtime.
+// Use renamed imports + const assignment to avoid TDZ while preserving DCE cliff.
+const bashCommandIsSafeAsync = _bashCommandIsSafeAsync;
+const splitCommand = _splitCommand;
 
 // Capture the spawn-time value of FUSION_CODE_DISABLE_COMMAND_INJECTION_CHECK
 // before any project-scoped settings can inject it. This env var controls a

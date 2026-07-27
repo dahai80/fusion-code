@@ -77,7 +77,10 @@ import {
 import { enqueueSdkEvent } from "../../utils/sdkEventQueue.js";
 import { writeAgentMetadata } from "../../utils/sessionStorage.js";
 import { sleep } from "../../utils/sleep.js";
-import { getGitContextInjection, getChubHint } from "../../utils/swarm/gitContextInjection.js";
+import {
+	getChubHint,
+	getGitContextInjection,
+} from "../../utils/swarm/gitContextInjection.js";
 import { buildEffectiveSystemPrompt } from "../../utils/systemPrompt.js";
 import { asSystemPrompt } from "../../utils/systemPromptType.js";
 import { getTaskOutputPath } from "../../utils/task/diskOutput.js";

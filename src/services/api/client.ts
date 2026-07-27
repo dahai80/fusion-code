@@ -1,43 +1,43 @@
-import Anthropic, { type ClientOptions } from '@anthropic-ai/sdk'
+import Anthropic, { type ClientOptions } from "@anthropic-ai/sdk";
 
-import { randomUUID } from 'crypto'
+import { randomUUID } from "crypto";
+import type { GoogleAuth } from "google-auth-library";
 import {
-  computeCch,
-  hasCchPlaceholder,
-  replaceCchPlaceholder,
-} from 'src/utils/cch.js'
-import type { GoogleAuth } from 'google-auth-library'
+	checkAndRefreshOAuthTokenIfNeeded,
+	getAnthropicApiKey,
+	getApiKeyFromApiKeyHelper,
+	getClaudeAIOAuthTokens,
+	getCodexOAuthTokens,
+	isClaudeAISubscriber,
+	isCodexSubscriber,
+	refreshAndGetAwsCredentials,
+	refreshGcpCredentialsIfNeeded,
+} from "src/utils/auth.js";
 import {
-  checkAndRefreshOAuthTokenIfNeeded,
-  getAnthropicApiKey,
-  getApiKeyFromApiKeyHelper,
-  getClaudeAIOAuthTokens,
-  getCodexOAuthTokens,
-  isClaudeAISubscriber,
-  isCodexSubscriber,
-  refreshAndGetAwsCredentials,
-  refreshGcpCredentialsIfNeeded,
-} from 'src/utils/auth.js'
-import { getUserAgent } from 'src/utils/http.js'
-import { getSmallFastModel } from 'src/utils/model/model.js'
+	computeCch,
+	hasCchPlaceholder,
+	replaceCchPlaceholder,
+} from "src/utils/cch.js";
+import { getUserAgent } from "src/utils/http.js";
+import { getSmallFastModel } from "src/utils/model/model.js";
 import {
-  getAPIProvider,
-  isFirstPartyAnthropicBaseUrl,
-  isFusionMlxProvider,
-} from 'src/utils/model/providers.js'
-import { getBedrockConfig, isBedrockProvider } from '../../utils/model/bedrock.js'
-import { getVertexConfig, isVertexProvider } from '../../utils/model/vertex.js'
-import { getProxyFetchOptions } from 'src/utils/proxy.js'
+	getAPIProvider,
+	isFirstPartyAnthropicBaseUrl,
+	isFusionMlxProvider,
+} from "src/utils/model/providers.js";
+import { getProxyFetchOptions } from "src/utils/proxy.js";
 import {
-  getIsNonInteractiveSession,
-  getSessionId,
-} from '../../bootstrap/state.js'
-import { getOauthConfig } from '../../constants/oauth.js'
-import { isDebugToStdErr, logForDebugging } from '../../utils/debug.js'
+	getIsNonInteractiveSession,
+	getSessionId,
+} from "../../bootstrap/state.js";
+import { getOauthConfig } from "../../constants/oauth.js";
+import { isDebugToStdErr, logForDebugging } from "../../utils/debug.js";
+import { getVertexRegionForModel, isEnvTruthy } from "../../utils/envUtils.js";
 import {
-  getVertexRegionForModel,
-  isEnvTruthy,
-} from '../../utils/envUtils.js'
+	getBedrockConfig,
+	isBedrockProvider,
+} from "../../utils/model/bedrock.js";
+import { getVertexConfig, isVertexProvider } from "../../utils/model/vertex.js";
 // codex-fetch-adapter removed - cloud-only
 
 /**
@@ -45,10 +45,14 @@ import {
  * 当使用 fusion-mlx 提供商时，返回一个兼容的客户端对象。
  */
 export interface FusionMlxClient {
-  type: 'fusionMlx'
-  baseUrl: string
-  defaultModel: string | null
-  availableModels: Array<{ id: string; max_input_tokens?: number; max_output_tokens?: number }>
+	type: "fusionMlx";
+	baseUrl: string;
+	defaultModel: string | null;
+	availableModels: Array<{
+		id: string;
+		max_input_tokens?: number;
+		max_output_tokens?: number;
+	}>;
 }
 
 /**
@@ -92,297 +96,325 @@ export interface FusionMlxClient {
  * 4. Fallback region (us-east5)
  */
 
-function createStderrLogger(): ClientOptions['logger'] {
-  return {
-    error: (msg, ...args) =>
-      // biome-ignore lint/suspicious/noConsole:: intentional console output -- SDK logger must use console
-      console.error('[Anthropic SDK ERROR]', msg, ...args),
-    // biome-ignore lint/suspicious/noConsole:: intentional console output -- SDK logger must use console
-    warn: (msg, ...args) => console.error('[Anthropic SDK WARN]', msg, ...args),
-    // biome-ignore lint/suspicious/noConsole:: intentional console output -- SDK logger must use console
-    info: (msg, ...args) => console.error('[Anthropic SDK INFO]', msg, ...args),
-    debug: (msg, ...args) =>
-      // biome-ignore lint/suspicious/noConsole:: intentional console output -- SDK logger must use console
-      console.error('[Anthropic SDK DEBUG]', msg, ...args),
-  }
+function createStderrLogger(): ClientOptions["logger"] {
+	return {
+		error: (msg, ...args) =>
+			// biome-ignore lint/suspicious/noConsole:: intentional console output -- SDK logger must use console
+			console.error("[Anthropic SDK ERROR]", msg, ...args),
+		// biome-ignore lint/suspicious/noConsole:: intentional console output -- SDK logger must use console
+		warn: (msg, ...args) => console.error("[Anthropic SDK WARN]", msg, ...args),
+		// biome-ignore lint/suspicious/noConsole:: intentional console output -- SDK logger must use console
+		info: (msg, ...args) => console.error("[Anthropic SDK INFO]", msg, ...args),
+		debug: (msg, ...args) =>
+			// biome-ignore lint/suspicious/noConsole:: intentional console output -- SDK logger must use console
+			console.error("[Anthropic SDK DEBUG]", msg, ...args),
+	};
 }
 
 export async function getAnthropicClient({
-  apiKey,
-  maxRetries,
-  model,
-  fetchOverride,
-  source,
+	apiKey,
+	maxRetries,
+	model,
+	fetchOverride,
+	source,
 }: {
-  apiKey?: string
-  maxRetries: number
-  model?: string
-  fetchOverride?: ClientOptions['fetch']
-  source?: string
+	apiKey?: string;
+	maxRetries: number;
+	model?: string;
+	fetchOverride?: ClientOptions["fetch"];
+	source?: string;
 }): Promise<Anthropic> {
-  const containerId = process.env.FUSION_CODE_CONTAINER_ID
-  const remoteSessionId = process.env.FUSION_CODE_REMOTE_SESSION_ID
-  const clientApp = process.env.CLAUDE_AGENT_SDK_CLIENT_APP
-  const customHeaders = getCustomHeaders()
-  const defaultHeaders: { [key: string]: string } = {
-    'x-app': 'cli',
-    'User-Agent': getUserAgent(),
-    'X-Claude-Code-Session-Id': getSessionId(),
-    ...customHeaders,
-    ...(containerId ? { 'x-claude-remote-container-id': containerId } : {}),
-    ...(remoteSessionId
-      ? { 'x-claude-remote-session-id': remoteSessionId }
-      : {}),
-    // SDK consumers can identify their app/library for backend analytics
-    ...(clientApp ? { 'x-client-app': clientApp } : {}),
-  }
+	const containerId = process.env.FUSION_CODE_CONTAINER_ID;
+	console.error(
+			model +
+			" isFusionMlx=" +
+			isFusionMlxProvider(model),
+	);
+	const remoteSessionId = process.env.FUSION_CODE_REMOTE_SESSION_ID;
+	const clientApp = process.env.CLAUDE_AGENT_SDK_CLIENT_APP;
+	const customHeaders = getCustomHeaders();
+	const defaultHeaders: { [key: string]: string } = {
+		"x-app": "cli",
+		"User-Agent": getUserAgent(),
+		"X-Claude-Code-Session-Id": getSessionId(),
+		...customHeaders,
+		...(containerId ? { "x-claude-remote-container-id": containerId } : {}),
+		...(remoteSessionId
+			? { "x-claude-remote-session-id": remoteSessionId }
+			: {}),
+		// SDK consumers can identify their app/library for backend analytics
+		...(clientApp ? { "x-client-app": clientApp } : {}),
+	};
 
-  // Log API client configuration for HFI debugging
-  logForDebugging(
-    `[API:request] Creating client, FUSION_CUSTOM_HEADERS present: ${!!process.env.FUSION_CUSTOM_HEADERS}, has Authorization header: ${!!customHeaders['Authorization']}`,
-  )
+	// Log API client configuration for HFI debugging
+	logForDebugging(
+		`[API:request] Creating client, FUSION_CUSTOM_HEADERS present: ${!!process.env.FUSION_CUSTOM_HEADERS}, has Authorization header: ${!!customHeaders["Authorization"]}`,
+	);
 
-  // Add additional protection header if enabled via env var
-  const additionalProtectionEnabled = isEnvTruthy(
-    process.env.FUSION_CODE_ADDITIONAL_PROTECTION,
-  )
-  if (additionalProtectionEnabled) {
-    defaultHeaders['x-anthropic-additional-protection'] = 'true'
-  }
+	// Add additional protection header if enabled via env var
+	const additionalProtectionEnabled = isEnvTruthy(
+		process.env.FUSION_CODE_ADDITIONAL_PROTECTION,
+	);
+	if (additionalProtectionEnabled) {
+		defaultHeaders["x-anthropic-additional-protection"] = "true";
+	}
 
-  // ── Fusion-MLX (local) provider — skip all cloud auth ──
-  if (isFusionMlxProvider()) {
-    // 等待启动时的 fire-and-forget MLX 检测完成
-    const mlxReady = (globalThis as any).__fusionMlxReady as Promise<boolean> | undefined
-    if (mlxReady) await mlxReady
+	// ── Fusion-MLX (local) provider — skip all cloud auth ──
+	if (isFusionMlxProvider(model)) {
+		// 等待启动时的 fire-and-forget MLX 检测完成
+		const mlxReady = (globalThis as any).__fusionMlxReady as
+			| Promise<boolean>
+			| undefined;
+		if (mlxReady) {
+			await mlxReady;
+		}
+		const { checkFusionMlxHealth, getRecommendedCodeModel } = await import(
+			"./fusion-mlx-adapter.js"
+		);
+		const status = await checkFusionMlxHealth();
+		if (!status.available) {
+			throw new Error(
+				"Fusion-MLX service unavailable. Ensure fusion-mlx is running (default: http://127.0.0.1:11434)\n" +
+					"Set FUSION_MLX_DISABLED=1 to disable.",
+			);
+		}
 
-    const { checkFusionMlxHealth, getRecommendedCodeModel } = await import(
-      './fusion-mlx-adapter.js'
-    )
-    const status = await checkFusionMlxHealth()
-    if (!status.available) {
-      throw new Error(
-        'Fusion-MLX service unavailable. Ensure fusion-mlx is running (default: http://127.0.0.1:11434)\n' +
-          'Set FUSION_MLX_DISABLED=1 to disable.',
-      )
-    }
+		const fusionMlxModel =
+			process.env.FUSION_MLX_MODEL ||
+			(await getRecommendedCodeModel()) ||
+			"default";
 
-    const fusionMlxModel = process.env.FUSION_MLX_MODEL || (await getRecommendedCodeModel()) || 'default'
+		const { createFusionMlxFetch, getMlxModelCapabilities } = await import(
+			"./fusion-mlx-adapter.js"
+		);
 
-    const { createFusionMlxFetch } = await import('./fusion-mlx-adapter.js')
-    const mlxFetch = createFusionMlxFetch(fusionMlxModel)
+		// Pre-cache model capabilities before creating fetch interceptor
+		try {
+			await getMlxModelCapabilities(fusionMlxModel);
+		} catch (_e) {
+			/* best effort */
+		}
+		const mlxFetch = createFusionMlxFetch(fusionMlxModel);
 
-    const clientConfig: ConstructorParameters<typeof Anthropic>[0] = {
-      apiKey: 'fusion-mlx-local',
-      defaultHeaders,
-      maxRetries,
-      timeout: parseInt(process.env.API_TIMEOUT_MS || String(600 * 1000), 10),
-      dangerouslyAllowBrowser: true,
-      fetch: mlxFetch as unknown as typeof globalThis.fetch,
-      ...(isDebugToStdErr() && { logger: createStderrLogger() }),
-    }
-    return new Anthropic(clientConfig)
-  }
+		const clientConfig: ConstructorParameters<typeof Anthropic>[0] = {
+			apiKey: "fusion-mlx-local",
+			defaultHeaders,
+			maxRetries,
+			timeout: parseInt(process.env.API_TIMEOUT_MS || String(600 * 1000), 10),
+			dangerouslyAllowBrowser: true,
+			fetch: mlxFetch as unknown as typeof globalThis.fetch,
+			...(isDebugToStdErr() && { logger: createStderrLogger() }),
+		};
+		return new Anthropic(clientConfig);
+	}
 
-  // ── 云端提供商：需要 OAuth / API Key 认证 ──
-  logForDebugging('[API:auth] OAuth token check starting')
-  await checkAndRefreshOAuthTokenIfNeeded()
-  logForDebugging('[API:auth] OAuth token check complete')
+	// ── 云端提供商：需要 OAuth / API Key 认证 ──
+	logForDebugging("[API:auth] OAuth token check starting");
+	await checkAndRefreshOAuthTokenIfNeeded();
+	logForDebugging("[API:auth] OAuth token check complete");
 
-  if (!isClaudeAISubscriber()) {
-    await configureApiKeyHeaders(defaultHeaders, getIsNonInteractiveSession())
-  }
+	if (!isClaudeAISubscriber()) {
+		await configureApiKeyHeaders(defaultHeaders, getIsNonInteractiveSession());
+	}
 
-  const resolvedFetch = buildFetch(fetchOverride, source)
+	const resolvedFetch = buildFetch(fetchOverride, source);
 
-  const ARGS = {
-    defaultHeaders,
-    maxRetries,
-    timeout: parseInt(process.env.API_TIMEOUT_MS || String(600 * 1000), 10),
-    dangerouslyAllowBrowser: true,
-    fetchOptions: getProxyFetchOptions({
-      forAnthropicAPI: true,
-    }) as ClientOptions['fetchOptions'],
-    ...(resolvedFetch && {
-      fetch: resolvedFetch,
-    }),
-  }
-  if (isEnvTruthy(process.env.FUSION_CODE_USE_FOUNDRY)) {
-    const { AnthropicFoundry } = await import('@anthropic-ai/foundry-sdk')
-    // Determine Azure AD token provider based on configuration
-    // SDK reads FUSION_FOUNDRY_API_KEY by default
-    let azureADTokenProvider: (() => Promise<string>) | undefined
-    if (!process.env.FUSION_FOUNDRY_API_KEY) {
-      if (isEnvTruthy(process.env.FUSION_CODE_SKIP_FOUNDRY_AUTH)) {
-        // Mock token provider for testing/proxy scenarios (similar to Vertex mock GoogleAuth)
-        azureADTokenProvider = () => Promise.resolve('')
-      } else {
-        // Use real Azure AD authentication with DefaultAzureCredential
-        const {
-          DefaultAzureCredential: AzureCredential,
-          getBearerTokenProvider,
-        } = await import('@azure/identity')
-        azureADTokenProvider = getBearerTokenProvider(
-          new AzureCredential(),
-          'https://cognitiveservices.azure.com/.default',
-        )
-      }
-    }
+	const ARGS = {
+		defaultHeaders,
+		maxRetries,
+		timeout: parseInt(process.env.API_TIMEOUT_MS || String(600 * 1000), 10),
+		dangerouslyAllowBrowser: true,
+		fetchOptions: getProxyFetchOptions({
+			forAnthropicAPI: true,
+		}) as ClientOptions["fetchOptions"],
+		...(resolvedFetch && {
+			fetch: resolvedFetch,
+		}),
+	};
+	if (isEnvTruthy(process.env.FUSION_CODE_USE_FOUNDRY)) {
+		const { AnthropicFoundry } = await import("@anthropic-ai/foundry-sdk");
+		// Determine Azure AD token provider based on configuration
+		// SDK reads FUSION_FOUNDRY_API_KEY by default
+		let azureADTokenProvider: (() => Promise<string>) | undefined;
+		if (!process.env.FUSION_FOUNDRY_API_KEY) {
+			if (isEnvTruthy(process.env.FUSION_CODE_SKIP_FOUNDRY_AUTH)) {
+				// Mock token provider for testing/proxy scenarios (similar to Vertex mock GoogleAuth)
+				azureADTokenProvider = () => Promise.resolve("");
+			} else {
+				// Use real Azure AD authentication with DefaultAzureCredential
+				const {
+					DefaultAzureCredential: AzureCredential,
+					getBearerTokenProvider,
+				} = await import("@azure/identity");
+				azureADTokenProvider = getBearerTokenProvider(
+					new AzureCredential(),
+					"https://cognitiveservices.azure.com/.default",
+				);
+			}
+		}
 
-    const foundryArgs: ConstructorParameters<typeof AnthropicFoundry>[0] = {
-      ...ARGS,
-      ...(azureADTokenProvider && { azureADTokenProvider }),
-      ...(isDebugToStdErr() && { logger: createStderrLogger() }),
-    }
-    // we have always been lying about the return type - this doesn't support batching or models
-    return new AnthropicFoundry(foundryArgs) as unknown as Anthropic
-  }
+		const foundryArgs: ConstructorParameters<typeof AnthropicFoundry>[0] = {
+			...ARGS,
+			...(azureADTokenProvider && { azureADTokenProvider }),
+			...(isDebugToStdErr() && { logger: createStderrLogger() }),
+		};
+		// we have always been lying about the return type - this doesn't support batching or models
+		return new AnthropicFoundry(foundryArgs) as unknown as Anthropic;
+	}
 
-  // ── Bedrock provider ──
-  if (isBedrockProvider()) {
-    const bedrockConfig = getBedrockConfig()
-    if (!bedrockConfig) {
-      throw new Error('Bedrock provider selected but configuration is missing. Set AWS_REGION and ensure AWS credentials are available.')
-    }
-    try {
-      const { AnthropicBedrock } = await import('@anthropic-ai/bedrock-sdk')
-      const bedrockArgs: ConstructorParameters<typeof AnthropicBedrock>[0] = {
-        ...ARGS,
-        ...(bedrockConfig.profile && { awsProfile: bedrockConfig.profile }),
-        ...(isDebugToStdErr() && { logger: createStderrLogger() }),
-      }
-      logForDebugging(`[API:bedrock] Creating Bedrock client: region=${bedrockConfig.region}, model=${bedrockConfig.modelId}`)
-      return new AnthropicBedrock(bedrockArgs) as unknown as Anthropic
-    } catch (importError) {
-      throw new Error(
-        'Bedrock SDK not installed. Run: bun add @anthropic-ai/bedrock-sdk\n' +
-        'Or set FUSION_CODE_USE_BEDROCK=0 to disable.',
-      )
-    }
-  }
+	// ── Bedrock provider ──
+	if (isBedrockProvider()) {
+		const bedrockConfig = getBedrockConfig();
+		if (!bedrockConfig) {
+			throw new Error(
+				"Bedrock provider selected but configuration is missing. Set AWS_REGION and ensure AWS credentials are available.",
+			);
+		}
+		try {
+			const { AnthropicBedrock } = await import("@anthropic-ai/bedrock-sdk");
+			const bedrockArgs: ConstructorParameters<typeof AnthropicBedrock>[0] = {
+				...ARGS,
+				...(bedrockConfig.profile && { awsProfile: bedrockConfig.profile }),
+				...(isDebugToStdErr() && { logger: createStderrLogger() }),
+			};
+			logForDebugging(
+				`[API:bedrock] Creating Bedrock client: region=${bedrockConfig.region}, model=${bedrockConfig.modelId}`,
+			);
+			return new AnthropicBedrock(bedrockArgs) as unknown as Anthropic;
+		} catch (importError) {
+			throw new Error(
+				"Bedrock SDK not installed. Run: bun add @anthropic-ai/bedrock-sdk\n" +
+					"Or set FUSION_CODE_USE_BEDROCK=0 to disable.",
+			);
+		}
+	}
 
-  // ── Vertex provider ──
-  if (isVertexProvider()) {
-    const vertexConfig = getVertexConfig()
-    if (!vertexConfig || !vertexConfig.projectId) {
-      throw new Error('Vertex provider selected but project ID is missing. Set GOOGLE_CLOUD_PROJECT.')
-    }
-    try {
-      const { AnthropicVertex } = await import('@anthropic-ai/vertex-sdk')
-      const vertexArgs: ConstructorParameters<typeof AnthropicVertex>[0] = {
-        ...ARGS,
-        projectId: vertexConfig.projectId,
-        region: vertexConfig.region,
-        ...(isDebugToStdErr() && { logger: createStderrLogger() }),
-      }
-      logForDebugging(`[API:vertex] Creating Vertex client: project=${vertexConfig.projectId}, region=${vertexConfig.region}`)
-      return new AnthropicVertex(vertexArgs) as unknown as Anthropic
-    } catch (importError) {
-      throw new Error(
-        'Vertex SDK not installed. Run: bun add @anthropic-ai/vertex-sdk\n' +
-        'Or set FUSION_CODE_USE_VERTEX=0 to disable.',
-      )
-    }
-  }
-  // Codex provider removed - cloud-only
+	// ── Vertex provider ──
+	if (isVertexProvider()) {
+		const vertexConfig = getVertexConfig();
+		if (!vertexConfig || !vertexConfig.projectId) {
+			throw new Error(
+				"Vertex provider selected but project ID is missing. Set GOOGLE_CLOUD_PROJECT.",
+			);
+		}
+		try {
+			const { AnthropicVertex } = await import("@anthropic-ai/vertex-sdk");
+			const vertexArgs: ConstructorParameters<typeof AnthropicVertex>[0] = {
+				...ARGS,
+				projectId: vertexConfig.projectId,
+				region: vertexConfig.region,
+				...(isDebugToStdErr() && { logger: createStderrLogger() }),
+			};
+			logForDebugging(
+				`[API:vertex] Creating Vertex client: project=${vertexConfig.projectId}, region=${vertexConfig.region}`,
+			);
+			return new AnthropicVertex(vertexArgs) as unknown as Anthropic;
+		} catch (importError) {
+			throw new Error(
+				"Vertex SDK not installed. Run: bun add @anthropic-ai/vertex-sdk\n" +
+					"Or set FUSION_CODE_USE_VERTEX=0 to disable.",
+			);
+		}
+	}
+	// Codex provider removed - cloud-only
 
-  // Determine authentication method based on available tokens
-  const clientConfig: ConstructorParameters<typeof Anthropic>[0] = {
-    apiKey: isClaudeAISubscriber() ? null : apiKey || getAnthropicApiKey(),
-    authToken: isClaudeAISubscriber()
-      ? getClaudeAIOAuthTokens()?.accessToken
-      : undefined,
-    // Set baseURL from OAuth config when using staging OAuth
-    ...(process.env.USER_TYPE === 'ant' &&
-    isEnvTruthy(process.env.USE_STAGING_OAUTH)
-      ? { baseURL: getOauthConfig().BASE_API_URL }
-      : {}),
-    ...ARGS,
-    ...(isDebugToStdErr() && { logger: createStderrLogger() }),
-  }
+	// Determine authentication method based on available tokens
+	const clientConfig: ConstructorParameters<typeof Anthropic>[0] = {
+		apiKey: isClaudeAISubscriber() ? null : apiKey || getAnthropicApiKey(),
+		authToken: isClaudeAISubscriber()
+			? getClaudeAIOAuthTokens()?.accessToken
+			: undefined,
+		// Set baseURL from OAuth config when using staging OAuth
+		...(process.env.USER_TYPE === "ant" &&
+		isEnvTruthy(process.env.USE_STAGING_OAUTH)
+			? { baseURL: getOauthConfig().BASE_API_URL }
+			: {}),
+		...ARGS,
+		...(isDebugToStdErr() && { logger: createStderrLogger() }),
+	};
 
-  return new Anthropic(clientConfig)
+	return new Anthropic(clientConfig);
 }
 
 async function configureApiKeyHeaders(
-  headers: Record<string, string>,
-  isNonInteractiveSession: boolean,
+	headers: Record<string, string>,
+	isNonInteractiveSession: boolean,
 ): Promise<void> {
-  const token =
-    process.env.FUSION_AUTH_TOKEN ||
-    (await getApiKeyFromApiKeyHelper(isNonInteractiveSession))
-  if (token) {
-    headers['Authorization'] = `Bearer ${token}`
-  }
+	const token =
+		process.env.FUSION_AUTH_TOKEN ||
+		(await getApiKeyFromApiKeyHelper(isNonInteractiveSession));
+	if (token) {
+		headers["Authorization"] = `Bearer ${token}`;
+	}
 }
 
 function getCustomHeaders(): Record<string, string> {
-  const customHeaders: Record<string, string> = {}
-  const customHeadersEnv = process.env.FUSION_CUSTOM_HEADERS
+	const customHeaders: Record<string, string> = {};
+	const customHeadersEnv = process.env.FUSION_CUSTOM_HEADERS;
 
-  if (!customHeadersEnv) return customHeaders
+	if (!customHeadersEnv) return customHeaders;
 
-  // Split by newlines to support multiple headers
-  const headerStrings = customHeadersEnv.split(/\n|\r\n/)
+	// Split by newlines to support multiple headers
+	const headerStrings = customHeadersEnv.split(/\n|\r\n/);
 
-  for (const headerString of headerStrings) {
-    if (!headerString.trim()) continue
+	for (const headerString of headerStrings) {
+		if (!headerString.trim()) continue;
 
-    // Parse header in format "Name: Value" (curl style). Split on first `:`
-    // then trim — avoids regex backtracking on malformed long header lines.
-    const colonIdx = headerString.indexOf(':')
-    if (colonIdx === -1) continue
-    const name = headerString.slice(0, colonIdx).trim()
-    const value = headerString.slice(colonIdx + 1).trim()
-    if (name) {
-      customHeaders[name] = value
-    }
-  }
+		// Parse header in format "Name: Value" (curl style). Split on first `:`
+		// then trim — avoids regex backtracking on malformed long header lines.
+		const colonIdx = headerString.indexOf(":");
+		if (colonIdx === -1) continue;
+		const name = headerString.slice(0, colonIdx).trim();
+		const value = headerString.slice(colonIdx + 1).trim();
+		if (name) {
+			customHeaders[name] = value;
+		}
+	}
 
-  return customHeaders
+	return customHeaders;
 }
 
-export const CLIENT_REQUEST_ID_HEADER = 'x-client-request-id'
+export const CLIENT_REQUEST_ID_HEADER = "x-client-request-id";
 
 function buildFetch(
-  fetchOverride: ClientOptions['fetch'],
-  source: string | undefined,
-): ClientOptions['fetch'] {
-  // eslint-disable-next-line eslint-plugin-n/no-unsupported-features/node-builtins
-  const inner = fetchOverride ?? globalThis.fetch
-  // Only send to the first-party API — Bedrock/Vertex/Foundry don't log it
-  // and unknown headers risk rejection by strict proxies (inc-4029 class).
-  const injectClientRequestId =
-    getAPIProvider() === 'firstParty' && isFirstPartyAnthropicBaseUrl()
-  return async (input, init) => {
-    // eslint-disable-next-line eslint-plugin-n/no-unsupported-features/node-builtins
-    const headers = new Headers(init?.headers)
-    if (injectClientRequestId && !headers.has(CLIENT_REQUEST_ID_HEADER)) {
-      headers.set(CLIENT_REQUEST_ID_HEADER, randomUUID())
-    }
+	fetchOverride: ClientOptions["fetch"],
+	source: string | undefined,
+): ClientOptions["fetch"] {
+	// eslint-disable-next-line eslint-plugin-n/no-unsupported-features/node-builtins
+	const inner = fetchOverride ?? globalThis.fetch;
+	// Only send to the first-party API — Bedrock/Vertex/Foundry don't log it
+	// and unknown headers risk rejection by strict proxies (inc-4029 class).
+	const injectClientRequestId =
+		getAPIProvider() === "firstParty" && isFirstPartyAnthropicBaseUrl();
+	return async (input, init) => {
+		// eslint-disable-next-line eslint-plugin-n/no-unsupported-features/node-builtins
+		const headers = new Headers(init?.headers);
+		if (injectClientRequestId && !headers.has(CLIENT_REQUEST_ID_HEADER)) {
+			headers.set(CLIENT_REQUEST_ID_HEADER, randomUUID());
+		}
 
-    let body = init?.body
-    try {
-      // eslint-disable-next-line eslint-plugin-n/no-unsupported-features/node-builtins
-      const url = input instanceof Request ? input.url : String(input)
-      const id = headers.get(CLIENT_REQUEST_ID_HEADER)
-      logForDebugging(
-        `[API REQUEST] ${new URL(url).pathname}${id ? ` ${CLIENT_REQUEST_ID_HEADER}=${id}` : ''} source=${source ?? 'unknown'}`,
-      )
+		let body = init?.body;
+		try {
+			// eslint-disable-next-line eslint-plugin-n/no-unsupported-features/node-builtins
+			const url = input instanceof Request ? input.url : String(input);
+			const id = headers.get(CLIENT_REQUEST_ID_HEADER);
+			logForDebugging(
+				`[API REQUEST] ${new URL(url).pathname}${id ? ` ${CLIENT_REQUEST_ID_HEADER}=${id}` : ""} source=${source ?? "unknown"}`,
+			);
 
-      if (
-        url.includes('/v1/messages') &&
-        headers.has('anthropic-version') &&
-        typeof body === 'string' &&
-        hasCchPlaceholder(body)
-      ) {
-        const cch = await computeCch(body)
-        body = replaceCchPlaceholder(body, cch)
-        logForDebugging(`[CCH] signed request cch=${cch}`)
-      }
-    } catch {
-      // never let logging crash the fetch
-    }
-    return inner(input, { ...init, headers, body })
-  }
+			if (
+				url.includes("/v1/messages") &&
+				headers.has("anthropic-version") &&
+				typeof body === "string" &&
+				hasCchPlaceholder(body)
+			) {
+				const cch = await computeCch(body);
+				body = replaceCchPlaceholder(body, cch);
+				logForDebugging(`[CCH] signed request cch=${cch}`);
+			}
+		} catch {
+			// never let logging crash the fetch
+		}
+		return inner(input, { ...init, headers, body });
+	};
 }

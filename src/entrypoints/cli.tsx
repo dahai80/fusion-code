@@ -1,75 +1,77 @@
-import { feature } from 'bun:bundle';
-import { join } from 'path';
-import { homedir } from 'os';
-import { gracefulShutdownSync } from '../utils/gracefulShutdown.js';
+import { feature } from "bun:bundle";
+import { homedir } from "os";
+import { join } from "path";
+import { gracefulShutdownSync } from "../utils/gracefulShutdown.js";
 
 // 设置 Fusion-Code 配置目录为 ~/.fusion-code，避免与 Claude Code 冲突
-process.env.FUSION_CODE_CONFIG_DIR = join(homedir(), '.fusion-code');
+process.env.FUSION_CODE_CONFIG_DIR = join(homedir(), ".fusion-code");
 
 // 仅在未设置 NO_COLOR 时强制 FORCE_COLOR=1（尊重 NO_COLOR 通用标准，避免与 FORCE_COLOR 冲突触发 Bun 警告）
-if (!process.env.NO_COLOR) process.env.FORCE_COLOR = '1';
+if (!process.env.NO_COLOR) process.env.FORCE_COLOR = "1";
 
 // 确保 stdout 为 TTY 模式，使 Ink 库能正确渲染
 // 使用 Object.defineProperty 替代直接赋值，避免在 strict mode 下静默失败
 // 同时保留原始 isTTY 值，以便需要时恢复
 try {
-    const originalIsTTY = (process.stdout as any).isTTY;
-    Object.defineProperty(process.stdout, 'isTTY', {
-        value: true,
-        writable: true,
-        configurable: true,
-        enumerable: true,
-    });
-    (process.stdout as any)._originalIsTTY = originalIsTTY;
+	const originalIsTTY = (process.stdout as any).isTTY;
+	Object.defineProperty(process.stdout, "isTTY", {
+		value: true,
+		writable: true,
+		configurable: true,
+		enumerable: true,
+	});
+	(process.stdout as any)._originalIsTTY = originalIsTTY;
 } catch (e) {
-    // 非关键：某些环境下 stdout 不可修改（如 worker thread），Ink 会降级处理
+	// 非关键：某些环境下 stdout 不可修改（如 worker thread），Ink 会降级处理
 }
 
 // 将 FUSION_* 环境变量映射到 ANTHROPIC_*（SDK 兼容性）
 // @anthropic-ai/sdk 内部读取 ANTHROPIC_API_KEY 等环境变量
 if (process.env.FUSION_API_KEY && !process.env.ANTHROPIC_API_KEY) {
-  process.env.ANTHROPIC_API_KEY = process.env.FUSION_API_KEY
+	process.env.ANTHROPIC_API_KEY = process.env.FUSION_API_KEY;
 }
 // FUSION_BASE_URL 仅在 ANTHROPIC_BASE_URL 未设置时映射（与其他变量一致）
 // 如需强制覆盖，请直接设置 ANTHROPIC_BASE_URL
 if (process.env.FUSION_BASE_URL && !process.env.ANTHROPIC_BASE_URL) {
-  process.env.ANTHROPIC_BASE_URL = process.env.FUSION_BASE_URL
+	process.env.ANTHROPIC_BASE_URL = process.env.FUSION_BASE_URL;
 }
 if (process.env.FUSION_AUTH_TOKEN && !process.env.ANTHROPIC_AUTH_TOKEN) {
-  process.env.ANTHROPIC_AUTH_TOKEN = process.env.FUSION_AUTH_TOKEN
+	process.env.ANTHROPIC_AUTH_TOKEN = process.env.FUSION_AUTH_TOKEN;
 }
 if (process.env.FUSION_BETAS && !process.env.ANTHROPIC_BETAS) {
-  process.env.ANTHROPIC_BETAS = process.env.FUSION_BETAS
+	process.env.ANTHROPIC_BETAS = process.env.FUSION_BETAS;
 }
 if (process.env.FUSION_LOG && !process.env.ANTHROPIC_LOG) {
-  process.env.ANTHROPIC_LOG = process.env.FUSION_LOG
+	process.env.ANTHROPIC_LOG = process.env.FUSION_LOG;
 }
 if (process.env.FUSION_MODEL && !process.env.ANTHROPIC_MODEL) {
-  process.env.ANTHROPIC_MODEL = process.env.FUSION_MODEL
+	process.env.ANTHROPIC_MODEL = process.env.FUSION_MODEL;
 }
 // FUSION_FALLBACK_MODEL is resolved in main.tsx via resolveFallbackModel()
 
 // Define MACRO global for development (normally injected by bun build --define)
-if (typeof MACRO === 'undefined') {
-  (globalThis as any).MACRO = {
-    VERSION: '2.1.87-dev',
-    BUILD_TIME: new Date().toISOString(),
-    PACKAGE_URL: 'claude-code-source-snapshot',
-    FEEDBACK_CHANNEL: 'github',
-  };
+if (typeof MACRO === "undefined") {
+	(globalThis as any).MACRO = {
+		VERSION: "2.1.87-dev",
+		BUILD_TIME: new Date().toISOString(),
+		PACKAGE_URL: "claude-code-source-snapshot",
+		FEEDBACK_CHANNEL: "github",
+	};
 }
 
 // Bugfix for corepack auto-pinning, which adds yarnpkg to peoples' package.jsons
 // eslint-disable-next-line custom-rules/no-top-level-side-effects
-process.env.COREPACK_ENABLE_AUTO_PIN = '0';
+process.env.COREPACK_ENABLE_AUTO_PIN = "0";
 
 // Set max heap size for child processes in CCR environments (containers have 16GB)
 // eslint-disable-next-line custom-rules/no-top-level-side-effects, custom-rules/no-process-env-top-level, custom-rules/safe-env-boolean-check
-if (process.env.CLAUDE_CODE_REMOTE === 'true') {
-  // eslint-disable-next-line custom-rules/no-top-level-side-effects, custom-rules/no-process-env-top-level
-  const existing = process.env.NODE_OPTIONS || '';
-  // eslint-disable-next-line custom-rules/no-top-level-side-effects, custom-rules/no-process-env-top-level
-  process.env.NODE_OPTIONS = existing ? `${existing} --max-old-space-size=8192` : '--max-old-space-size=8192';
+if (process.env.CLAUDE_CODE_REMOTE === "true") {
+	// eslint-disable-next-line custom-rules/no-top-level-side-effects, custom-rules/no-process-env-top-level
+	const existing = process.env.NODE_OPTIONS || "";
+	// eslint-disable-next-line custom-rules/no-top-level-side-effects, custom-rules/no-process-env-top-level
+	process.env.NODE_OPTIONS = existing
+		? `${existing} --max-old-space-size=8192`
+		: "--max-old-space-size=8192";
 }
 
 // Harness-science L0 ablation baseline. Inlined here (not init.ts) because
@@ -77,11 +79,19 @@ if (process.env.CLAUDE_CODE_REMOTE === 'true') {
 // module-level consts at import time — init() runs too late. feature() gate
 // DCEs this entire block from external builds.
 // eslint-disable-next-line custom-rules/no-top-level-side-effects, custom-rules/no-process-env-top-level
-if (feature('ABLATION_BASELINE') && process.env.CLAUDE_CODE_ABLATION_BASELINE) {
-  for (const k of ['CLAUDE_CODE_SIMPLE', 'CLAUDE_CODE_DISABLE_THINKING', 'DISABLE_INTERLEAVED_THINKING', 'DISABLE_COMPACT', 'DISABLE_AUTO_COMPACT', 'CLAUDE_CODE_DISABLE_AUTO_MEMORY', 'CLAUDE_CODE_DISABLE_BACKGROUND_TASKS']) {
-    // eslint-disable-next-line custom-rules/no-top-level-side-effects, custom-rules/no-process-env-top-level
-    process.env[k] ??= '1';
-  }
+if (feature("ABLATION_BASELINE") && process.env.CLAUDE_CODE_ABLATION_BASELINE) {
+	for (const k of [
+		"CLAUDE_CODE_SIMPLE",
+		"CLAUDE_CODE_DISABLE_THINKING",
+		"DISABLE_INTERLEAVED_THINKING",
+		"DISABLE_COMPACT",
+		"DISABLE_AUTO_COMPACT",
+		"CLAUDE_CODE_DISABLE_AUTO_MEMORY",
+		"CLAUDE_CODE_DISABLE_BACKGROUND_TASKS",
+	]) {
+		// eslint-disable-next-line custom-rules/no-top-level-side-effects, custom-rules/no-process-env-top-level
+		process.env[k] ??= "1";
+	}
 }
 
 /**
@@ -90,333 +100,369 @@ if (feature('ABLATION_BASELINE') && process.env.CLAUDE_CODE_ABLATION_BASELINE) {
  * Fast-path for --version has zero imports beyond this file.
  */
 async function main(): Promise<void> {
-  const args = process.argv.slice(2);
+	const args = process.argv.slice(2);
 
-  // Fast-path for --version/-v: zero module loading needed
-  if (args.length === 1 && (args[0] === '--version' || args[0] === '-v' || args[0] === '-V')) {
-    // MACRO.VERSION is inlined at build time
-    // biome-ignore lint/suspicious/noConsole:: intentional console output
-    console.log(`${MACRO.VERSION} (Fusion-Code)`);
-    return;
-  }
+	// Fast-path for --version/-v: zero module loading needed
+	if (
+		args.length === 1 &&
+		(args[0] === "--version" || args[0] === "-v" || args[0] === "-V")
+	) {
+		// MACRO.VERSION is inlined at build time
+		// biome-ignore lint/suspicious/noConsole:: intentional console output
+		console.log(`${MACRO.VERSION} (Fusion-Code)`);
+		return;
+	}
 
-  // For all other paths, load the startup profiler
-  const {
-    profileCheckpoint
-  } = await import('../utils/startupProfiler.js');
-  profileCheckpoint('cli_entry');
+	// For all other paths, load the startup profiler
+	const { profileCheckpoint } = await import("../utils/startupProfiler.js");
+	profileCheckpoint("cli_entry");
 
-  // Fast-path for --dump-system-prompt: output the rendered system prompt and exit.
-  // Used by prompt sensitivity evals to extract the system prompt at a specific commit.
-  // Ant-only: eliminated from external builds via feature flag.
-  if (feature('DUMP_SYSTEM_PROMPT') && args[0] === '--dump-system-prompt') {
-    profileCheckpoint('cli_dump_system_prompt_path');
-    const {
-      enableConfigs
-    } = await import('../utils/config.js');
-    enableConfigs();
-    const {
-      getMainLoopModel
-    } = await import('../utils/model/model.js');
-    const modelIdx = args.indexOf('--model');
-    const model = modelIdx !== -1 && args[modelIdx + 1] || getMainLoopModel();
-    const {
-      getSystemPrompt
-    } = await import('../constants/prompts.js');
-    const prompt = await getSystemPrompt([], model);
-    // biome-ignore lint/suspicious/noConsole:: intentional console output
-    console.log(prompt.join('\n'));
-    return;
-  }
-  if (process.argv[2] === '--claude-in-chrome-mcp') {
-    profileCheckpoint('cli_claude_in_chrome_mcp_path');
-    const {
-      runClaudeInChromeMcpServer
-    } = await import('../utils/claudeInChrome/mcpServer.js');
-    await runClaudeInChromeMcpServer();
-    return;
-  } else if (process.argv[2] === '--chrome-native-host') {
-    profileCheckpoint('cli_chrome_native_host_path');
-    const {
-      runChromeNativeHost
-    } = await import('../utils/claudeInChrome/chromeNativeHost.js');
-    await runChromeNativeHost();
-    return;
-  } else if (feature('CHICAGO_MCP') && process.argv[2] === '--computer-use-mcp') {
-    profileCheckpoint('cli_computer_use_mcp_path');
-    const {
-      runComputerUseMcpServer
-    } = await import('../utils/computerUse/mcpServer.js');
-    await runComputerUseMcpServer();
-    return;
-  }
+	// Fast-path for --dump-system-prompt: output the rendered system prompt and exit.
+	// Used by prompt sensitivity evals to extract the system prompt at a specific commit.
+	// Ant-only: eliminated from external builds via feature flag.
+	if (feature("DUMP_SYSTEM_PROMPT") && args[0] === "--dump-system-prompt") {
+		profileCheckpoint("cli_dump_system_prompt_path");
+		const { enableConfigs } = await import("../utils/config.js");
+		enableConfigs();
+		const { getMainLoopModel } = await import("../utils/model/model.js");
+		const modelIdx = args.indexOf("--model");
+		const model = (modelIdx !== -1 && args[modelIdx + 1]) || getMainLoopModel();
+		const { getSystemPrompt } = await import("../constants/prompts.js");
+		const prompt = await getSystemPrompt([], model);
+		// biome-ignore lint/suspicious/noConsole:: intentional console output
+		console.log(prompt.join("\n"));
+		return;
+	}
+	if (process.argv[2] === "--claude-in-chrome-mcp") {
+		profileCheckpoint("cli_claude_in_chrome_mcp_path");
+		const { runClaudeInChromeMcpServer } = await import(
+			"../utils/claudeInChrome/mcpServer.js"
+		);
+		await runClaudeInChromeMcpServer();
+		return;
+	} else if (process.argv[2] === "--chrome-native-host") {
+		profileCheckpoint("cli_chrome_native_host_path");
+		const { runChromeNativeHost } = await import(
+			"../utils/claudeInChrome/chromeNativeHost.js"
+		);
+		await runChromeNativeHost();
+		return;
+	} else if (
+		feature("CHICAGO_MCP") &&
+		process.argv[2] === "--computer-use-mcp"
+	) {
+		profileCheckpoint("cli_computer_use_mcp_path");
+		const { runComputerUseMcpServer } = await import(
+			"../utils/computerUse/mcpServer.js"
+		);
+		await runComputerUseMcpServer();
+		return;
+	}
 
-  // Fast-path for `--daemon-worker=<kind>` (internal — supervisor spawns this).
-  // Must come before the daemon subcommand check: spawned per-worker, so
-  // perf-sensitive. No enableConfigs(), no analytics sinks at this layer —
-  // workers are lean. If a worker kind needs configs/auth (assistant will),
-  // it calls them inside its run() fn.
-  if (feature('DAEMON') && args[0] === '--daemon-worker') {
-    const {
-      runDaemonWorker
-    } = await import('../daemon/workerRegistry.js');
-    await runDaemonWorker(args[1]);
-    return;
-  }
+	// Fast-path for `--daemon-worker=<kind>` (internal — supervisor spawns this).
+	// Must come before the daemon subcommand check: spawned per-worker, so
+	// perf-sensitive. No enableConfigs(), no analytics sinks at this layer —
+	// workers are lean. If a worker kind needs configs/auth (assistant will),
+	// it calls them inside its run() fn.
+	if (feature("DAEMON") && args[0] === "--daemon-worker") {
+		const { runDaemonWorker } = await import("../daemon/workerRegistry.js");
+		await runDaemonWorker(args[1]);
+		return;
+	}
 
-  // Fast-path for `claude remote-control` (also accepts legacy `claude remote` / `claude sync` / `claude bridge`):
-  // serve local machine as bridge environment.
-  // feature() must stay inline for build-time dead code elimination;
-  // isBridgeEnabled() checks the runtime GrowthBook gate.
-  if (feature('BRIDGE_MODE') && (args[0] === 'remote-control' || args[0] === 'rc' || args[0] === 'remote' || args[0] === 'sync' || args[0] === 'bridge')) {
-    profileCheckpoint('cli_bridge_path');
-    const {
-      enableConfigs
-    } = await import('../utils/config.js');
-    enableConfigs();
-    const {
-      getBridgeDisabledReason,
-      checkBridgeMinVersion
-    } = await import('../bridge/bridgeEnabled.js');
-    const {
-      BRIDGE_LOGIN_ERROR
-    } = await import('../bridge/types.js');
-    const {
-      bridgeMain
-    } = await import('../bridge/bridgeMain.js');
-    const {
-      exitWithError
-    } = await import('../utils/process.js');
+	// Fast-path for `claude remote-control` (also accepts legacy `claude remote` / `claude sync` / `claude bridge`):
+	// serve local machine as bridge environment.
+	// feature() must stay inline for build-time dead code elimination;
+	// isBridgeEnabled() checks the runtime GrowthBook gate.
+	if (
+		feature("BRIDGE_MODE") &&
+		(args[0] === "remote-control" ||
+			args[0] === "rc" ||
+			args[0] === "remote" ||
+			args[0] === "sync" ||
+			args[0] === "bridge")
+	) {
+		profileCheckpoint("cli_bridge_path");
+		const { enableConfigs } = await import("../utils/config.js");
+		enableConfigs();
+		const { getBridgeDisabledReason, checkBridgeMinVersion } = await import(
+			"../bridge/bridgeEnabled.js"
+		);
+		const { BRIDGE_LOGIN_ERROR } = await import("../bridge/types.js");
+		const { bridgeMain } = await import("../bridge/bridgeMain.js");
+		const { exitWithError } = await import("../utils/process.js");
 
-    // Auth check must come before the GrowthBook gate check — without auth,
-    // GrowthBook has no user context and would return a stale/default false.
-    // getBridgeDisabledReason awaits GB init, so the returned value is fresh
-    // (not the stale disk cache), but init still needs auth headers to work.
-    const {
-      getClaudeAIOAuthTokens
-    } = await import('../utils/auth.js');
-    if (!getClaudeAIOAuthTokens()?.accessToken) {
-      exitWithError(BRIDGE_LOGIN_ERROR);
-    }
-    const disabledReason = await getBridgeDisabledReason();
-    if (disabledReason) {
-      exitWithError(`Error: ${disabledReason}`);
-    }
-    const versionError = checkBridgeMinVersion();
-    if (versionError) {
-      exitWithError(versionError);
-    }
+		// Auth check must come before the GrowthBook gate check — without auth,
+		// GrowthBook has no user context and would return a stale/default false.
+		// getBridgeDisabledReason awaits GB init, so the returned value is fresh
+		// (not the stale disk cache), but init still needs auth headers to work.
+		const { getClaudeAIOAuthTokens } = await import("../utils/auth.js");
+		if (!getClaudeAIOAuthTokens()?.accessToken) {
+			exitWithError(BRIDGE_LOGIN_ERROR);
+		}
+		const disabledReason = await getBridgeDisabledReason();
+		if (disabledReason) {
+			exitWithError(`Error: ${disabledReason}`);
+		}
+		const versionError = checkBridgeMinVersion();
+		if (versionError) {
+			exitWithError(versionError);
+		}
 
-    // Bridge is a remote control feature - check policy limits
-    const {
-      waitForPolicyLimitsToLoad,
-      isPolicyAllowed
-    } = await import('../services/policyLimits/index.js');
-    await waitForPolicyLimitsToLoad();
-    if (!isPolicyAllowed('allow_remote_control')) {
-      exitWithError("Error: Remote Control is disabled by your organization's policy.");
-    }
-    await bridgeMain(args.slice(1));
-    return;
-  }
+		// Bridge is a remote control feature - check policy limits
+		const { waitForPolicyLimitsToLoad, isPolicyAllowed } = await import(
+			"../services/policyLimits/index.js"
+		);
+		await waitForPolicyLimitsToLoad();
+		if (!isPolicyAllowed("allow_remote_control")) {
+			exitWithError(
+				"Error: Remote Control is disabled by your organization's policy.",
+			);
+		}
+		await bridgeMain(args.slice(1));
+		return;
+	}
 
-  // Fast-path for `claude daemon [subcommand]`: long-running supervisor.
-  if (feature('DAEMON') && args[0] === 'daemon') {
-    profileCheckpoint('cli_daemon_path');
-    const {
-      enableConfigs
-    } = await import('../utils/config.js');
-    enableConfigs();
-    const {
-      initSinks
-    } = await import('../utils/sinks.js');
-    initSinks();
-    const {
-      daemonMain
-    } = await import('../daemon/main.js');
-    await daemonMain(args.slice(1));
-    return;
-  }
+	// Fast-path for `claude daemon [subcommand]`: long-running supervisor.
+	if (feature("DAEMON") && args[0] === "daemon") {
+		profileCheckpoint("cli_daemon_path");
+		const { enableConfigs } = await import("../utils/config.js");
+		enableConfigs();
+		const { initSinks } = await import("../utils/sinks.js");
+		initSinks();
+		const { daemonMain } = await import("../daemon/main.js");
+		await daemonMain(args.slice(1));
+		return;
+	}
 
-  // Fast-path for `claude ps|logs|attach|kill` and `--bg`/`--background`.
-  // Session management against the ~/.claude/sessions/ registry. Flag
-  // literals are inlined so bg.js only loads when actually dispatching.
-  if (feature('BG_SESSIONS') && (args[0] === 'ps' || args[0] === 'logs' || args[0] === 'attach' || args[0] === 'kill' || args.includes('--bg') || args.includes('--background'))) {
-    profileCheckpoint('cli_bg_path');
-    const {
-      enableConfigs
-    } = await import('../utils/config.js');
-    enableConfigs();
-    const bg = await import('../cli/bg.js');
-    switch (args[0]) {
-      case 'ps':
-        await bg.psHandler(args.slice(1));
-        break;
-      case 'logs':
-        await bg.logsHandler(args[1]);
-        break;
-      case 'attach':
-        await bg.attachHandler(args[1]);
-        break;
-      case 'kill':
-        await bg.killHandler(args[1]);
-        break;
-      default:
-        await bg.handleBgFlag(args);
-    }
-    return;
-  }
+	// Fast-path for `claude ps|logs|attach|kill` and `--bg`/`--background`.
+	// Session management against the ~/.claude/sessions/ registry. Flag
+	// literals are inlined so bg.js only loads when actually dispatching.
+	if (
+		feature("BG_SESSIONS") &&
+		(args[0] === "ps" ||
+			args[0] === "logs" ||
+			args[0] === "attach" ||
+			args[0] === "kill" ||
+			args.includes("--bg") ||
+			args.includes("--background"))
+	) {
+		profileCheckpoint("cli_bg_path");
+		const { enableConfigs } = await import("../utils/config.js");
+		enableConfigs();
+		const bg = await import("../cli/bg.js");
+		switch (args[0]) {
+			case "ps":
+				await bg.psHandler(args.slice(1));
+				break;
+			case "logs":
+				await bg.logsHandler(args[1]);
+				break;
+			case "attach":
+				await bg.attachHandler(args[1]);
+				break;
+			case "kill":
+				await bg.killHandler(args[1]);
+				break;
+			default:
+				await bg.handleBgFlag(args);
+		}
+		return;
+	}
 
-  // Fast-path for template job commands.
-  if (feature('TEMPLATES') && (args[0] === 'new' || args[0] === 'list' || args[0] === 'reply')) {
-    profileCheckpoint('cli_templates_path');
-    const {
-      templatesMain
-    } = await import('../cli/handlers/templateJobs.js');
-    await templatesMain(args);
-    // gracefulShutdownSync (not process.exit) — mountFleetView's Ink TUI can leave event
-    // loop handles that prevent natural exit. gracefulShutdownSync runs cleanup
-    // registry (LSP, tmux, terminal mode) before exiting.
-    gracefulShutdownSync(0);
-  }
+	// Fast-path for template job commands.
+	if (
+		feature("TEMPLATES") &&
+		(args[0] === "new" || args[0] === "list" || args[0] === "reply")
+	) {
+		profileCheckpoint("cli_templates_path");
+		const { templatesMain } = await import("../cli/handlers/templateJobs.js");
+		await templatesMain(args);
+		// gracefulShutdownSync (not process.exit) — mountFleetView's Ink TUI can leave event
+		// loop handles that prevent natural exit. gracefulShutdownSync runs cleanup
+		// registry (LSP, tmux, terminal mode) before exiting.
+		gracefulShutdownSync(0);
+	}
 
-  // Fast-path for `claude environment-runner`: headless BYOC runner.
-  // feature() must stay inline for build-time dead code elimination.
-  if (feature('BYOC_ENVIRONMENT_RUNNER') && args[0] === 'environment-runner') {
-    profileCheckpoint('cli_environment_runner_path');
-    const {
-      environmentRunnerMain
-    } = await import('../environment-runner/main.js');
-    await environmentRunnerMain(args.slice(1));
-    return;
-  }
+	// Fast-path for `claude environment-runner`: headless BYOC runner.
+	// feature() must stay inline for build-time dead code elimination.
+	if (feature("BYOC_ENVIRONMENT_RUNNER") && args[0] === "environment-runner") {
+		profileCheckpoint("cli_environment_runner_path");
+		const { environmentRunnerMain } = await import(
+			"../environment-runner/main.js"
+		);
+		await environmentRunnerMain(args.slice(1));
+		return;
+	}
 
-  // Fast-path for `claude self-hosted-runner`: headless self-hosted-runner
-  // targeting the SelfHostedRunnerWorkerService API (register + poll; poll IS
-  // heartbeat). feature() must stay inline for build-time dead code elimination.
-  if (feature('SELF_HOSTED_RUNNER') && args[0] === 'self-hosted-runner') {
-    profileCheckpoint('cli_self_hosted_runner_path');
-    const {
-      selfHostedRunnerMain
-    } = await import('../self-hosted-runner/main.js');
-    await selfHostedRunnerMain(args.slice(1));
-    return;
-  }
+	// Fast-path for `claude self-hosted-runner`: headless self-hosted-runner
+	// targeting the SelfHostedRunnerWorkerService API (register + poll; poll IS
+	// heartbeat). feature() must stay inline for build-time dead code elimination.
+	if (feature("SELF_HOSTED_RUNNER") && args[0] === "self-hosted-runner") {
+		profileCheckpoint("cli_self_hosted_runner_path");
+		const { selfHostedRunnerMain } = await import(
+			"../self-hosted-runner/main.js"
+		);
+		await selfHostedRunnerMain(args.slice(1));
+		return;
+	}
 
-  // Fast-path for --worktree --tmux: exec into tmux before loading full CLI
-  const hasTmuxFlag = args.includes('--tmux') || args.includes('--tmux=classic');
-  if (hasTmuxFlag && (args.includes('-w') || args.includes('--worktree') || args.some(a => a.startsWith('--worktree=')))) {
-    profileCheckpoint('cli_tmux_worktree_fast_path');
-    const {
-      enableConfigs
-    } = await import('../utils/config.js');
-    enableConfigs();
-    const {
-      isWorktreeModeEnabled
-    } = await import('../utils/worktreeModeEnabled.js');
-    if (isWorktreeModeEnabled()) {
-      const {
-        execIntoTmuxWorktree
-      } = await import('../utils/worktree.js');
-      const result = await execIntoTmuxWorktree(args);
-      if (result.handled) {
-        return;
-      }
-      // If not handled (e.g., error), fall through to normal CLI
-      if (result.error) {
-        const {
-          exitWithError
-        } = await import('../utils/process.js');
-        exitWithError(result.error);
-      }
-    }
-  }
+	// Fast-path for --worktree --tmux: exec into tmux before loading full CLI
+	const hasTmuxFlag =
+		args.includes("--tmux") || args.includes("--tmux=classic");
+	if (
+		hasTmuxFlag &&
+		(args.includes("-w") ||
+			args.includes("--worktree") ||
+			args.some((a) => a.startsWith("--worktree=")))
+	) {
+		profileCheckpoint("cli_tmux_worktree_fast_path");
+		const { enableConfigs } = await import("../utils/config.js");
+		enableConfigs();
+		const { isWorktreeModeEnabled } = await import(
+			"../utils/worktreeModeEnabled.js"
+		);
+		if (isWorktreeModeEnabled()) {
+			const { execIntoTmuxWorktree } = await import("../utils/worktree.js");
+			const result = await execIntoTmuxWorktree(args);
+			if (result.handled) {
+				return;
+			}
+			// If not handled (e.g., error), fall through to normal CLI
+			if (result.error) {
+				const { exitWithError } = await import("../utils/process.js");
+				exitWithError(result.error);
+			}
+		}
+	}
 
-  // Redirect common update flag mistakes to the update subcommand
-  if (args.length === 1 && (args[0] === '--update' || args[0] === '--upgrade')) {
-    process.argv = [process.argv[0]!, process.argv[1]!, 'update'];
-  }
+	// Redirect common update flag mistakes to the update subcommand
+	if (
+		args.length === 1 &&
+		(args[0] === "--update" || args[0] === "--upgrade")
+	) {
+		process.argv = [process.argv[0]!, process.argv[1]!, "update"];
+	}
 
-  // --bare: set SIMPLE early so gates fire during module eval / commander
-  // option building (not just inside the action handler).
-  if (args.includes('--bare')) {
-    process.env.CLAUDE_CODE_SIMPLE = '1';
-  }
+	// --bare: set SIMPLE early so gates fire during module eval / commander
+	// option building (not just inside the action handler).
+	if (args.includes("--bare")) {
+		process.env.CLAUDE_CODE_SIMPLE = "1";
+	}
 
-  // No special flags detected, load and run the full CLI
-  const {
-    startCapturingEarlyInput
-  } = await import('../utils/earlyInput.js');
-  startCapturingEarlyInput();
+	// No special flags detected, load and run the full CLI
+	const { startCapturingEarlyInput } = await import("../utils/earlyInput.js");
+	startCapturingEarlyInput();
 
-  // ── Fusion-MLX 启动检测 ─────────────────────────────────
-  // 当没有设置云 API 密钥时，自动检测本地 fusion-mlx 服务
-  // 仅在未设置 NO_COLOR 时强制 FORCE_COLOR=1（尊重 NO_COLOR，避免 Bun 冲突警告）
-  if (!process.env.NO_COLOR) process.env.FORCE_COLOR = '1';
-  const { shouldAutoUseFusionMlx } = await import('../utils/model/providers.js');
-  // 防御性检查：已配置云 API 时不应触发 MLX 检测
-  // 即使 shouldAutoUseFusionMlx() 误返回 true，有 FUSION_API_KEY 就不需要 MLX
-  const hasCloudProvider = !!process.env.FUSION_API_KEY || !!process.env.FUSION_AUTH_TOKEN
-  // Fire-and-forget: 不阻塞启动流程，MLX 状态在首次 API 调用前按需 await
-  // 结果存入 globalThis 供后续消费
-  let mlxReady: Promise<boolean> | null = null
-  if (shouldAutoUseFusionMlx() && !hasCloudProvider) {
-    mlxReady = (async () => {
-      const { checkFusionMlxHealth } = await import('../services/api/fusion-mlx-adapter.js');
-      const mlxStatus = await checkFusionMlxHealth();
-      if (mlxStatus.available) {
-        process.env.FUSION_MLX_ENABLED = '1';
-        const models = mlxStatus.models;
-        if (models.length > 0 && !process.env.FUSION_MLX_MODEL) {
-          const excludeKeywords = ['flux', 'skyreels', 'image', 'video', 'ltx', 'a2v', 'v2v', 'r2v', 'klein', 'txt2vid', 'img2vid', 'tts', 'whisper', 'embed', 'bge', 'deepseek_v4', 'dspark', 'claude-']
-          const knownTextModels = ['llama', 'qwen', 'mistral', 'gemma', 'phi', 'deepseek', 'codestral']
-          const textModels = models.filter((m: string) => !excludeKeywords.some(k => m.toLowerCase().includes(k)))
-          let selectedModel: string | null = null
-          for (const keyword of knownTextModels) {
-            selectedModel = textModels.find((m: string) => m.toLowerCase().includes(keyword)) || null
-            if (selectedModel) break
-          }
-          if (!selectedModel && textModels.length > 0) {
-            selectedModel = textModels[0]
-          }
-          if (selectedModel) {
-            process.env.FUSION_MLX_MODEL = selectedModel;
-          }
-        }
-        // Prefetch local model options for the ModelPicker
-        const { prefetchLocalModelOptions } = await import('../utils/model/modelOptions.js');
-        await prefetchLocalModelOptions();
-        return true;
-      } else {
-        // 后端不可用时的降级提示：让用户立刻知道"该起 fusion-mlx"而不是闷头敲第一句话后挂死。
-        // 走 stderr 不污染 stdout，不带 ANSI 色避免在非真终端炸；FUSION_MLX_QUIET=1 可静默。
-        if (!process.env.FUSION_MLX_QUIET) {
-          const baseUrl = process.env.FUSION_MLX_BASE_URL || 'http://127.0.0.1:11434';
-          process.stderr.write(
-            `\n⚠ fusion-mlx backend not reachable at ${baseUrl}\n` +
-            `  AI features will fail until it is running. Start it with:\n` +
-            `  fusion service start mlx     (or launch your fusion-mlx process)\n\n`
-          );
-        }
-        return false;
-      }
-    })().catch(e => {
-      if (!process.env.FUSION_MLX_QUIET) {
-        process.stderr.write(`\n⚠ fusion-mlx health check failed: ${e}\n\n`);
-      }
-      return false;
-    });
-    // 存储到 globalThis 供首次 API 调用前 await
-    (globalThis as any).__fusionMlxReady = mlxReady;
-  }
+	// ── Fusion-MLX 启动检测 ─────────────────────────────────
+	// 当没有设置云 API 密钥时，自动检测本地 fusion-mlx 服务
+	// 仅在未设置 NO_COLOR 时强制 FORCE_COLOR=1（尊重 NO_COLOR，避免 Bun 冲突警告）
+	if (!process.env.NO_COLOR) process.env.FORCE_COLOR = "1";
+	const { shouldAutoUseFusionMlx } = await import(
+		"../utils/model/providers.js"
+	);
+	// 防御性检查：已配置云 API 时不应触发 MLX 检测
+	// 即使 shouldAutoUseFusionMlx() 误返回 true，有 API key 就不需要 MLX
+	const hasCloudProvider =
+		!!process.env.FUSION_API_KEY ||
+		!!process.env.ANTHROPIC_API_KEY ||
+		!!process.env.FUSION_AUTH_TOKEN;
+	// Fire-and-forget: 不阻塞启动流程，MLX 状态在首次 API 调用前按需 await
+	// 结果存入 globalThis 供后续消费
+	let mlxReady: Promise<boolean> | null = null;
+	if (shouldAutoUseFusionMlx() && !hasCloudProvider) {
+		mlxReady = (async () => {
+			const { checkFusionMlxHealth } = await import(
+				"../services/api/fusion-mlx-adapter.js"
+			);
+			const mlxStatus = await checkFusionMlxHealth();
+			if (mlxStatus.available) {
+				process.env.FUSION_MLX_ENABLED = "1";
+				const models = mlxStatus.models;
+				if (models.length > 0 && !process.env.FUSION_MLX_MODEL) {
+					const excludeKeywords = [
+						"flux",
+						"skyreels",
+						"image",
+						"video",
+						"ltx",
+						"a2v",
+						"v2v",
+						"r2v",
+						"klein",
+						"txt2vid",
+						"img2vid",
+						"tts",
+						"whisper",
+						"embed",
+						"bge",
+						"deepseek_v4",
+						"dspark",
+						"claude-",
+					];
+					const knownTextModels = [
+						"llama",
+						"qwen",
+						"mistral",
+						"gemma",
+						"phi",
+						"deepseek",
+						"codestral",
+					];
+					const textModels = models.filter(
+						(m: string) =>
+							!excludeKeywords.some((k) => m.toLowerCase().includes(k)),
+					);
+					let selectedModel: string | null = null;
+					for (const keyword of knownTextModels) {
+						selectedModel =
+							textModels.find((m: string) =>
+								m.toLowerCase().includes(keyword),
+							) || null;
+						if (selectedModel) break;
+					}
+					if (!selectedModel && textModels.length > 0) {
+						selectedModel = textModels[0];
+					}
+					if (selectedModel) {
+						process.env.FUSION_MLX_MODEL = selectedModel;
+					}
+				}
+				// Prefetch local model options for the ModelPicker
+				const { prefetchLocalModelOptions } = await import(
+					"../utils/model/modelOptions.js"
+				);
+				await prefetchLocalModelOptions();
+				return true;
+			} else {
+				// 后端不可用时的降级提示：让用户立刻知道"该起 fusion-mlx"而不是闷头敲第一句话后挂死。
+				// 走 stderr 不污染 stdout，不带 ANSI 色避免在非真终端炸；FUSION_MLX_QUIET=1 可静默。
+				if (!process.env.FUSION_MLX_QUIET) {
+					const baseUrl =
+						process.env.FUSION_MLX_BASE_URL || "http://127.0.0.1:11434";
+					process.stderr.write(
+						`\n⚠ fusion-mlx backend not reachable at ${baseUrl}\n` +
+							`  AI features will fail until it is running. Start it with:\n` +
+							`  fusion service start mlx     (or launch your fusion-mlx process)\n\n`,
+					);
+				}
+				return false;
+			}
+		})().catch((e) => {
+			if (!process.env.FUSION_MLX_QUIET) {
+				process.stderr.write(`\n⚠ fusion-mlx health check failed: ${e}\n\n`);
+			}
+			return false;
+		});
+		// 存储到 globalThis 供首次 API 调用前 await
+		(globalThis as any).__fusionMlxReady = mlxReady;
+	}
 
-  profileCheckpoint('cli_before_main_import');
-  const {
-    main: cliMain
-  } = await import('../main.js');
-  profileCheckpoint('cli_after_main_import');
-  await cliMain();
-  profileCheckpoint('cli_after_main_complete');
+	profileCheckpoint("cli_before_main_import");
+	const { main: cliMain } = await import("../main.js");
+	profileCheckpoint("cli_after_main_import");
+	await cliMain();
+	profileCheckpoint("cli_after_main_complete");
 }
 
 // eslint-disable-next-line custom-rules/no-top-level-side-effects

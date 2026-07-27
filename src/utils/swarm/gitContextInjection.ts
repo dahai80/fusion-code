@@ -146,7 +146,10 @@ function isChubAvailable(): boolean {
 
 export function getChubHint(): string | null {
 	if (!isChubAvailable()) return null;
-	if (typeof globalThis._currentAgentType === "string" && !CHUB_AGENT_TYPES.has(globalThis._currentAgentType)) {
+	if (
+		typeof globalThis._currentAgentType === "string" &&
+		!CHUB_AGENT_TYPES.has(globalThis._currentAgentType)
+	) {
 		return null;
 	}
 	return `<context_hub_hint>
