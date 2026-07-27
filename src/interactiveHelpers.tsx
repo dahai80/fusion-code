@@ -29,6 +29,7 @@ import type { PermissionMode } from './utils/permissions/PermissionMode.js';
 import { getBaseRenderOptions } from './utils/renderOptions.js';
 import { getSettingsWithAllErrors } from './utils/settings/allErrors.js';
 import { hasAutoModeOptIn, hasSkipDangerousModePermissionPrompt } from './utils/settings/settings.js';
+import { isTestEnv } from './utils/buildConstants.js'
 export function completeOnboarding(): void {
   saveGlobalConfig(current => ({
     ...current,
@@ -102,7 +103,7 @@ export async function renderAndRun(root: Root, element: React.ReactNode): Promis
   await gracefulShutdown(0);
 }
 export async function showSetupScreens(root: Root, permissionMode: PermissionMode, allowDangerouslySkipPermissions: boolean, commands?: Command[], claudeInChrome?: boolean, devChannels?: ChannelEntry[]): Promise<boolean> {
-  if ("production" === 'test' || isEnvTruthy(false) || process.env.IS_DEMO // Skip onboarding in demo mode
+  if (isTestEnv() || isEnvTruthy(false) || process.env.IS_DEMO // Skip onboarding in demo mode
   ) {
     return false;
   }

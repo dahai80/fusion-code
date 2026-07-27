@@ -4,6 +4,7 @@ import { stringWidth } from '../../ink/stringWidth.js';
 import { Text } from '../../ink.js';
 import { truncateToWidthNoEllipsis } from '../../utils/format.js';
 import type { Output } from './TaskStopTool.js';
+import { isInternalBuild } from '../../utils/buildConstants.js'
 export function renderToolUseMessage(): React.ReactNode {
   return '';
 }
@@ -25,7 +26,7 @@ export function renderToolResultMessage(output: Output, _progressMessagesForMess
 }: {
   verbose: boolean;
 }): React.ReactNode {
-  if ("external" === 'ant') {
+  if (isInternalBuild()) {
     return null;
   }
   const rawCommand = output.command ?? '';

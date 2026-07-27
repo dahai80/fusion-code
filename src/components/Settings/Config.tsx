@@ -48,6 +48,7 @@ import { useSearchInput } from '../../hooks/useSearchInput.js';
 import { useTerminalSize } from '../../hooks/useTerminalSize.js';
 import { clearFastModeCooldown, FAST_MODE_MODEL_DISPLAY, isFastModeAvailable, isFastModeEnabled, getFastModeModel, isFastModeSupportedByModel } from '../../utils/fastMode.js';
 import { isFullscreenEnvEnabled } from '../../utils/fullscreen.js';
+import { isInternalBuild } from '../../utils/buildConstants.js'
 type Props = {
   onClose: (result?: string, options?: {
     display?: CommandResultDisplay;
@@ -392,7 +393,7 @@ export function Config({
     }
   }] : []),
   // Speculation toggle (ant-only)
-  ...("external" === 'ant' ? [{
+  ...(isInternalBuild() ? [{
     id: 'speculationEnabled',
     label: 'Speculative execution',
     value: globalConfig.speculationEnabled ?? true,

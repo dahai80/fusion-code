@@ -156,7 +156,7 @@ export type HookJSONOutput = {
   continue?: boolean
   stopReason?: string
   message?: string
-  decision?: 'allow' | 'deny' | 'ask'
+  decision?: 'allow' | 'deny' | 'ask' | 'block' | 'approve'
   [key: string]: unknown
 }
 

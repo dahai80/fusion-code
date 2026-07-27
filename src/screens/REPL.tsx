@@ -220,9 +220,9 @@ import { EffortCallout, shouldShowEffortCallout } from '../components/EffortCall
 import type { EffortValue } from '../utils/effort.js';
 import { RemoteCallout } from '../components/RemoteCallout.js';
 /* eslint-disable custom-rules/no-process-env-top-level, @typescript-eslint/no-require-imports */
-const AntModelSwitchCallout = "external" === 'ant' ? require('../components/AntModelSwitchCallout.js').AntModelSwitchCallout : null;
-const shouldShowAntModelSwitch = "external" === 'ant' ? require('../components/AntModelSwitchCallout.js').shouldShowModelSwitchCallout : (): boolean => false;
-const UndercoverAutoCallout = "external" === 'ant' ? require('../components/UndercoverAutoCallout.js').UndercoverAutoCallout : null;
+const AntModelSwitchCallout = isInternalBuild() ? require('../components/AntModelSwitchCallout.js').AntModelSwitchCallout : null;
+const shouldShowAntModelSwitch = isInternalBuild() ? require('../components/AntModelSwitchCallout.js').shouldShowModelSwitchCallout : (): boolean => false;
+const UndercoverAutoCallout = isInternalBuild() ? require('../components/UndercoverAutoCallout.js').UndercoverAutoCallout : null;
 /* eslint-enable custom-rules/no-process-env-top-level, @typescript-eslint/no-require-imports */
 import { activityManager } from '../utils/activityManager.js';
 import { createAbortController } from '../utils/abortController.js';
@@ -290,6 +290,7 @@ import { useMessageActions, MessageActionsKeybindings, MessageActionsBar, type M
 import { setClipboard } from '../ink/termio/osc.js';
 import type { ScrollBoxHandle } from '../ink/components/ScrollBox.js';
 import { createAttachmentMessage, getQueuedCommandAttachments } from '../utils/attachments.js';
+import { isInternalBuild } from '../utils/buildConstants.js'
 
 // Stable empty array for hooks that accept MCPServerConnection[] — avoids
 // creating a new [] literal on every render in remote mode, which would
@@ -604,7 +605,7 @@ export function REPL({
   // Env-var gates hoisted to mount-time — isEnvTruthy does toLowerCase+trim+
   // includes, and these were on the render path (hot during PageUp spam).
   const titleDisabled = useMemo(() => isEnvTruthy(process.env.CLAUDE_CODE_DISABLE_TERMINAL_TITLE), []);
-  const moreRightEnabled = useMemo(() => "external" === 'ant' && isEnvTruthy(process.env.CLAUDE_MORERIGHT), []);
+  const moreRightEnabled = useMemo(() => isInternalBuild() && isEnvTruthy(process.env.CLAUDE_MORERIGHT), []);
   const disableVirtualScroll = useMemo(() => isEnvTruthy(process.env.CLAUDE_CODE_DISABLE_VIRTUAL_SCROLL), []);
   const disableMessageActions = feature('MESSAGE_ACTIONS') ?
   // biome-ignore lint/correctness/useHookAtTopLevel: feature() is a compile-time constant
@@ -736,7 +737,7 @@ export function REPL({
   const [showIdeOnboarding, setShowIdeOnboarding] = useState(false);
   // Dead code elimination: model switch callout state (ant-only)
   const [showModelSwitchCallout, setShowModelSwitchCallout] = useState(() => {
-    if ("external" === 'ant') {
+    if (isInternalBuild()) {
       return shouldShowAntModelSwitch();
     }
     return false;
@@ -1015,7 +1016,7 @@ export function REPL({
   }, []);
   const [showUndercoverCallout, setShowUndercoverCallout] = useState(false);
   useEffect(() => {
-    if ("external" === 'ant') {
+    if (isInternalBuild()) {
       void (async () => {
         // Wait for repo classification to settle (memoized, no-op if primed).
         const {
@@ -2048,10 +2049,10 @@ export function REPL({
     if (allowDialogsWithAnimation && showIdeOnboarding) return 'ide-onboarding';
 
     // Model switch callout (ant-only, eliminated from external builds)
-    if ("external" === 'ant' && allowDialogsWithAnimation && showModelSwitchCallout) return 'model-switch';
+    if (isInternalBuild() && allowDialogsWithAnimation && showModelSwitchCallout) return 'model-switch';
 
     // Undercover auto-enable explainer (ant-only, eliminated from external builds)
-    if ("external" === 'ant' && allowDialogsWithAnimation && showUndercoverCallout) return 'undercover-callout';
+    if (isInternalBuild() && allowDialogsWithAnimation && showUndercoverCallout) return 'undercover-callout';
 
     // Effort callout (shown once for Opus 4.6 users when effort is enabled)
     if (allowDialogsWithAnimation && showEffortCallout) return 'effort-callout';
@@ -2489,7 +2490,7 @@ export function REPL({
       dynamicSkillDirTriggers: new Set<string>(),
       discoveredSkillNames: discoveredSkillNamesRef.current,
       setResponseLength,
-      pushApiMetricsEntry: "external" === 'ant' ? (ttftMs: number) => {
+      pushApiMetricsEntry: isInternalBuild() ? (ttftMs: number) => {
         const now = Date.now();
         const baseline = responseLengthRef.current;
         apiMetricsRef.current.push({
@@ -2819,7 +2820,7 @@ export function REPL({
 
     // Capture ant-only API metrics before resetLoadingState clears the ref.
     // For multi-request turns (tool use loops), compute P50 across all requests.
-    if ("external" === 'ant' && apiMetricsRef.current.length > 0) {
+    if (isInternalBuild() && apiMetricsRef.current.length > 0) {
       const entries = apiMetricsRef.current;
       const ttfts = entries.map(e => e.ttftMs);
       // Compute per-request OTPS using only active streaming time and
@@ -2947,7 +2948,7 @@ export function REPL({
         // minutes — wiping the session made the pill disappear entirely, forcing
         // the user to re-invoke Tmux just to peek. Skip on abort so the panel
         // stays open for inspection (matches the turn-duration guard below).
-        if ("external" === 'ant' && !abortController.signal.aborted) {
+        if (isInternalBuild() && !abortController.signal.aborted) {
           setAppState(prev => {
             if (prev.tungstenActiveSession === undefined) return prev;
             if (prev.tungstenPanelAutoHidden === true) return prev;
@@ -3070,7 +3071,7 @@ export function REPL({
       }
 
       // Atomically: clear initial message, set permission mode and rules, and store plan for verification
-      const shouldStorePlanForVerification = initialMsg.message.planContent && "external" === 'ant' && isEnvTruthy(undefined);
+      const shouldStorePlanForVerification = initialMsg.message.planContent && isInternalBuild() && isEnvTruthy(undefined);
       setAppState(prev => {
         // Build and apply permission updates (mode + allowedPrompts rules)
         let updatedToolPermissionContext = initialMsg.mode ? applyPermissionUpdates(prev.toolPermissionContext, buildPermissionUpdates(initialMsg.mode, initialMsg.allowedPrompts)) : prev.toolPermissionContext;
@@ -4068,7 +4069,7 @@ export function REPL({
   // - Workers receive permission responses via mailbox messages
   // - Leaders receive permission requests via mailbox messages
 
-  if ("external" === 'ant') {
+  if (isInternalBuild()) {
     // Tasks mode: watch for tasks and auto-process them
     // eslint-disable-next-line react-hooks/rules-of-hooks
     // biome-ignore lint/correctness/useHookAtTopLevel: conditional for dead code elimination in external builds
@@ -4177,7 +4178,7 @@ export function REPL({
 
     // Fall back to default behavior
     const hookType = currentHooks[0]?.data.hookEvent === 'SubagentStop' ? 'subagent stop' : 'stop';
-    if ("external" === 'ant') {
+    if (isInternalBuild()) {
       const cmd = currentHooks[completedCount]?.data.command;
       const label = cmd ? ` '${truncateToWidth(cmd, 40)}'` : '';
       return total === 1 ? `running ${hookType} hook${label}` : `running ${hookType} hook${label}\u2026 ${completedCount}/${total}`;
@@ -4586,7 +4587,7 @@ export function REPL({
               {toolJSX && !(toolJSX.isLocalJSXCommand && toolJSX.isImmediate) && !toolJsxCentered && <Box flexDirection="column" width="100%">
                     {toolJSX.jsx}
                   </Box>}
-              {"external" === 'ant' && <TungstenLiveMonitor />}
+              {isInternalBuild() && <TungstenLiveMonitor />}
               {feature('WEB_BROWSER_TOOL') ? WebBrowserPanelModule && <WebBrowserPanelModule.WebBrowserPanel /> : null}
               <Box flexGrow={1} />
               {showSpinner && <SpinnerWithVerb mode={streamMode} spinnerTip={spinnerTip} responseLengthRef={responseLengthRef} overrideMessage={spinnerMessage} spinnerSuffix={stopHookSpinnerSuffix} verbose={verbose} loadingStartTimeRef={loadingStartTimeRef} totalPausedMsRef={totalPausedMsRef} pauseStartTimeRef={pauseStartTimeRef} overrideColor={spinnerColor} overrideShimmerColor={spinnerShimmerColor} hasActiveTools={inProgressToolUseIDs.size > 0} leaderIsIdle={!isLoading} />} {/* log: removed apiMetricsRef - not in Spinner Props */}
@@ -4809,7 +4810,7 @@ export function REPL({
             });
           }} />}
                 {focusedInputDialog === 'ide-onboarding' && <IdeOnboardingDialog onDone={() => setShowIdeOnboarding(false)} installationStatus={ideInstallationStatus} />}
-                {"external" === 'ant' && focusedInputDialog === 'model-switch' && AntModelSwitchCallout && <AntModelSwitchCallout onDone={(selection: string, modelAlias?: string) => {
+                {isInternalBuild() && focusedInputDialog === 'model-switch' && AntModelSwitchCallout && <AntModelSwitchCallout onDone={(selection: string, modelAlias?: string) => {
             setShowModelSwitchCallout(false);
             if (selection === 'switch' && modelAlias) {
               setAppState(prev => ({
@@ -4819,7 +4820,7 @@ export function REPL({
               }));
             }
           }} />}
-                {"external" === 'ant' && focusedInputDialog === 'undercover-callout' && UndercoverAutoCallout && <UndercoverAutoCallout onDone={() => setShowUndercoverCallout(false)} />}
+                {isInternalBuild() && focusedInputDialog === 'undercover-callout' && UndercoverAutoCallout && <UndercoverAutoCallout onDone={() => setShowUndercoverCallout(false)} />}
                 {focusedInputDialog === 'effort-callout' && <EffortCallout model={mainLoopModel} onDone={selection => {
             setShowEffortCallout(false);
             if (selection !== 'dismiss') {
@@ -4864,7 +4865,7 @@ export function REPL({
                       {/* Frustration-triggered transcript sharing prompt */}
                       {frustrationDetection.state !== 'closed' && <FeedbackSurvey state={frustrationDetection.state} lastResponse={null} handleSelect={() => {}} handleTranscriptSelect={frustrationDetection.handleTranscriptSelect} inputValue={inputValue} setInputValue={setInputValue} />}
                       {/* Skill improvement survey - appears when improvements detected (ant-only) */}
-                      {"external" === 'ant' && skillImprovementSurvey.suggestion && <SkillImprovementSurvey isOpen={skillImprovementSurvey.isOpen} skillName={skillImprovementSurvey.suggestion.skillName} updates={skillImprovementSurvey.suggestion.updates} handleSelect={skillImprovementSurvey.handleSelect} inputValue={inputValue} setInputValue={setInputValue} />}
+                      {isInternalBuild() && skillImprovementSurvey.suggestion && <SkillImprovementSurvey isOpen={skillImprovementSurvey.isOpen} skillName={skillImprovementSurvey.suggestion.skillName} updates={skillImprovementSurvey.suggestion.updates} handleSelect={skillImprovementSurvey.handleSelect} inputValue={inputValue} setInputValue={setInputValue} />}
                       {showIssueFlagBanner && <IssueFlagBanner />}
                       {}
                       <PromptInput debug={debug} ideSelection={ideSelection} hasSuppressedDialogs={!!hasSuppressedDialogs} isLocalJSXCommandActive={isShowingLocalJSXCommand} getToolUseContext={getToolUseContext} toolPermissionContext={toolPermissionContext} setToolPermissionContext={setToolPermissionContext} apiKeyStatus={apiKeyStatus} commands={commands} agents={agentDefinitions.activeAgents} isLoading={isLoading} onExit={handleExit} verbose={verbose} messages={messages} onAutoUpdaterResult={setAutoUpdaterResult} autoUpdaterResult={autoUpdaterResult} input={inputValue} onInputChange={setInputValue} mode={inputMode} onModeChange={setInputMode} stashedPrompt={stashedPrompt} setStashedPrompt={setStashedPrompt} submitCount={submitCount} onShowMessageSelector={handleShowMessageSelector} onMessageActionsEnter={
@@ -4960,7 +4961,7 @@ export function REPL({
             setIsMessageSelectorVisible(false);
             setMessageSelectorPreselect(undefined);
           }} />}
-                {"external" === 'ant' && <DevBar />}
+                {isInternalBuild() && <DevBar />}
               </Box>
               {feature('BUDDY') && !(companionNarrow && isFullscreenEnvEnabled()) && companionVisible ? <CompanionSprite /> : null}
             </Box>} />

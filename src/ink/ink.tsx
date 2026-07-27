@@ -38,6 +38,7 @@ import { CURSOR_HOME, cursorMove, cursorPosition, DISABLE_KITTY_KEYBOARD, DISABL
 import { DBP, DFE, DISABLE_MOUSE_TRACKING, ENABLE_MOUSE_TRACKING, ENTER_ALT_SCREEN, EXIT_ALT_SCREEN, SHOW_CURSOR } from './termio/dec.js';
 import { CLEAR_ITERM2_PROGRESS, CLEAR_TAB_STATUS, setClipboard, supportsTabStatus, wrapForMultiplexer } from './termio/osc.js';
 import { TerminalWriteProvider } from './useTerminalNotification.js';
+import { isDevEnv } from '../utils/buildConstants.js'
 
 // Alt-screen: renderer.ts sets cursor.visible = !isTTY || screen.height===0,
 // which is always false in alt-screen (TTY + content fills screen).
@@ -267,7 +268,7 @@ export default class Ink {
     // onRecoverableError
     noop // onDefaultTransitionIndicator
     );
-    if ("production" === 'development') {
+    if (isDevEnv()) {
       reconciler.injectIntoDevTools({
         bundleType: 0,
         // Reporting React DOM's version, not Ink's

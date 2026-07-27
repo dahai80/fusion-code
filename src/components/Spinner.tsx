@@ -36,6 +36,7 @@ import { getCurrentTurnTokenBudget, getTurnOutputTokens } from '../bootstrap/sta
 import { TeammateSpinnerTree } from './Spinner/TeammateSpinnerTree.js';
 import { useAnimationFrame } from '../ink.js';
 import { getGlobalConfig } from '../utils/config.js';
+import { isInternalBuild } from '../utils/buildConstants.js'
 export type { SpinnerMode } from './Spinner/index.js';
 const DEFAULT_CHARACTERS = getDefaultCharacters();
 const SPINNER_FRAMES = [...DEFAULT_CHARACTERS, ...[...DEFAULT_CHARACTERS].reverse()];
@@ -220,7 +221,7 @@ function SpinnerWithVerbInner({
   // re-render cadence, same as the old ApiMetricsLine did.
   let ttftText: string | null = null;
   // @ts-ignore log: ANT-ONLY dead-code reference
-  if ("external" === 'ant' && apiMetricsRef?.current && apiMetricsRef.current.length > 0) {
+  if (isInternalBuild() && apiMetricsRef?.current && apiMetricsRef.current.length > 0) {
     // @ts-ignore log: ANT-ONLY dead-code reference
     ttftText = computeTtftText(apiMetricsRef.current);
   }

@@ -185,7 +185,7 @@ const MAX_OUTPUT_TOKENS_RECOVERY_LIMIT = 3;
 function isWithheldMaxOutputTokens(
 	msg: Message | StreamEvent | undefined,
 ): msg is AssistantMessage {
-	return msg?.type === "assistant" && msg.apiError === "max_output_tokens";
+	return msg?.type === "assistant" && msg.apiError?.message === "max_output_tokens";
 }
 
 export type QueryParams = {

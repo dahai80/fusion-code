@@ -220,3 +220,15 @@ declare module '@anthropic-ai/mcpb' {
 declare module '@anthropic-ai/mcpb/dist/types.js' {
     export type McpbManifestAny = import('@anthropic-ai/mcpb').McpbManifest & { [key: string]: unknown }
 }
+
+// Widen process.env.USER_TYPE from literal "external" (set by build.ts define)
+// to string so that comparisons like process.env.USER_TYPE === "ant" don't trigger TS2367.
+// The build always sets it to "external", making those branches dead code — but the
+// comparison is intentional for the internal build where USER_TYPE is "ant".
+declare global {
+    namespace NodeJS {
+        interface ProcessEnv {
+            USER_TYPE?: string
+        }
+    }
+}

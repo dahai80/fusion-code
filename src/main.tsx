@@ -449,6 +449,7 @@ import {
 	isTmuxAvailable,
 	parsePRReference,
 } from "./utils/worktree.js";
+import { isInternalBuild } from "./utils/buildConstants.js";
 
 // eslint-disable-next-line custom-rules/no-top-level-side-effects
 profileCheckpoint("main_tsx_imports_loaded");
@@ -514,7 +515,7 @@ function isBeingDebugged() {
 }
 
 // Exit if we detect node debugging or inspection
-if ("external" !== "ant" && isBeingDebugged()) {
+if (!isInternalBuild() && isBeingDebugged()) {
 	// Use process.exit directly here since we're in the top-level code before imports
 	// and gracefulShutdown is not yet available
 	// eslint-disable-next-line custom-rules/no-top-level-side-effects
@@ -597,7 +598,7 @@ function runMigrations(): void {
 		migrateOpusToOpus1m();
 		migrateReplBridgeEnabledToRemoteControlAtStartup();
 		resetAutoModeOptInForDefaultOffer();
-		if ("external" === "ant") {
+		if (isInternalBuild()) {
 			migrateFennecToOpus();
 		}
 		saveGlobalConfig((prev) =>
@@ -688,7 +689,7 @@ export function startDeferredPrefetches(): void {
 	}
 
 	// Event loop stall detector — logs when the main thread is blocked >500ms
-	if ("external" === "ant") {
+	if (isInternalBuild()) {
 		void import("./utils/eventLoopStallDetector.js").then((m) =>
 			m.startEventLoopStallDetector(),
 		);
@@ -1965,7 +1966,7 @@ async function run(): Promise<CommanderCommand> {
 
 			// Extract tasks mode options (ant-only)
 			const tasksOption =
-				"external" === "ant" &&
+				isInternalBuild() &&
 				(
 					options as {
 						tasks?: boolean | string;
@@ -1976,7 +1977,7 @@ async function run(): Promise<CommanderCommand> {
 					? tasksOption
 					: DEFAULT_TASKS_MODE_TASK_LIST_ID
 				: undefined;
-			if ("external" === "ant" && taskListId) {
+			if (isInternalBuild() && taskListId) {
 				process.env.CLAUDE_CODE_TASK_LIST_ID = taskListId;
 			}
 
@@ -2511,7 +2512,7 @@ async function run(): Promise<CommanderCommand> {
 			setChromeFlagOverride(chromeOpts.chrome);
 			const enableClaudeInChrome =
 				shouldEnableClaudeInChrome(chromeOpts.chrome) &&
-				("external" === "ant" || isClaudeAISubscriber());
+				(isInternalBuild() || isClaudeAISubscriber());
 			const autoEnableClaudeInChrome =
 				!enableClaudeInChrome && shouldAutoEnableClaudeInChrome();
 			if (enableClaudeInChrome) {
@@ -2793,7 +2794,7 @@ async function run(): Promise<CommanderCommand> {
 				initResult;
 
 			// Handle overly broad shell allow rules for ant users (Bash(*), PowerShell(*))
-			if ("external" === "ant" && overlyBroadBashPermissions.length > 0) {
+			if (isInternalBuild() && overlyBroadBashPermissions.length > 0) {
 				for (const permission of overlyBroadBashPermissions) {
 					logForDebugging(
 						`Ignoring overly broad shell permission ${permission.ruleDisplay} from ${permission.sourceDisplay}`,
@@ -3116,7 +3117,7 @@ async function run(): Promise<CommanderCommand> {
 				process.env.FUSION_MODEL ||
 				process.env.ANTHROPIC_MODEL;
 			if (
-				"external" === "ant" &&
+				isInternalBuild() &&
 				explicitModel &&
 				explicitModel !== "default" &&
 				!hasGrowthBookEnvOverride("tengu_ant_model_override") &&
@@ -3339,7 +3340,7 @@ async function run(): Promise<CommanderCommand> {
 					// Log agent memory loaded event for tmux teammates
 					if (customAgent.memory) {
 						logEvent("tengu_agent_memory_loaded", {
-							...("external" === "ant" && {
+							...(isInternalBuild() && {
 								agent_type:
 									customAgent.agentType as AnalyticsMetadata_I_VERIFIED_THIS_IS_NOT_CODE_OR_FILEPATHS,
 							}),
@@ -3433,7 +3434,7 @@ async function run(): Promise<CommanderCommand> {
 				getFpsMetrics = ctx.getFpsMetrics;
 				stats = ctx.stats;
 				// Install asciicast recorder before Ink mounts (ant-only, opt-in via CLAUDE_CODE_TERMINAL_RECORDING=1)
-				if ("external" === "ant") {
+				if (isInternalBuild()) {
 					installAsciicastRecorder();
 				}
 				const { createRoot } = await import("./ink.js");
@@ -4150,7 +4151,7 @@ async function run(): Promise<CommanderCommand> {
 					void import("./utils/backgroundHousekeeping.js").then((m) =>
 						m.startBackgroundHousekeeping(),
 					);
-					if ("external" === "ant") {
+					if (isInternalBuild()) {
 						void import("./utils/sdkHeapDumpMonitor.js").then((m) =>
 							m.startSdkMemoryMonitor(),
 						);
@@ -4434,7 +4435,7 @@ async function run(): Promise<CommanderCommand> {
 			//   - Safety: CLAUDE_CODE_DISABLE_SESSION_DATA_UPLOAD=1 bypasses (tests set this).
 			// Import is dynamic + async to avoid adding startup latency.
 			const sessionUploaderPromise =
-				"external" === "ant" ? import("./utils/sessionDataUploader.js") : null;
+				isInternalBuild() ? import("./utils/sessionDataUploader.js") : null;
 
 			// Defer session uploader resolution to the onTurnComplete callback to avoid
 			// adding a new top-level await in main.tsx (performance-critical path).
@@ -5121,7 +5122,7 @@ async function run(): Promise<CommanderCommand> {
 						}
 					}
 				}
-				if ("external" === "ant") {
+				if (isInternalBuild()) {
 					if (
 						options.resume &&
 						typeof options.resume === "string" &&
@@ -5468,7 +5469,7 @@ async function run(): Promise<CommanderCommand> {
 			).hideHelp(),
 		);
 	}
-	if ("external" === "ant") {
+	if (isInternalBuild()) {
 		program.addOption(
 			new Option(
 				"--delegate-permissions",
@@ -6472,7 +6473,7 @@ async function run(): Promise<CommanderCommand> {
 		});
 
 	// claude up — run the project's CLAUDE.md "# claude up" setup instructions.
-	if ("external" === "ant") {
+	if (isInternalBuild()) {
 		program
 			.command("up")
 			.description(
@@ -6486,7 +6487,7 @@ async function run(): Promise<CommanderCommand> {
 
 	// claude rollback (ant-only)
 	// Rolls back to previous releases
-	if ("external" === "ant") {
+	if (isInternalBuild()) {
 		program
 			.command("rollback [target]")
 			.description(
@@ -6533,7 +6534,7 @@ async function run(): Promise<CommanderCommand> {
 		);
 
 	// ant-only commands
-	if ("external" === "ant") {
+	if (isInternalBuild()) {
 		const validateLogId = (value: string) => {
 			const maybeSessionId = validateUuid(value);
 			if (maybeSessionId) return maybeSessionId;
@@ -6592,7 +6593,7 @@ Examples:
 				const { exportHandler } = await import("./cli/handlers/ant.js");
 				await exportHandler(source, outputFile);
 			});
-		if ("external" === "ant") {
+		if (isInternalBuild()) {
 			const taskCmd = program
 				.command("task")
 				.description("[ANT-ONLY] Manage task list tasks");
@@ -6813,7 +6814,7 @@ async function logTenguInit({
 			}),
 			autoUpdatesChannel: (getInitialSettings().autoUpdatesChannel ??
 				"latest") as AnalyticsMetadata_I_VERIFIED_THIS_IS_NOT_CODE_OR_FILEPATHS,
-			...("external" === "ant"
+			...(isInternalBuild()
 				? (() => {
 						const cwd = getCwd();
 						const gitRoot = findGitRoot(cwd);

@@ -28,6 +28,7 @@ import type { ThemeName } from '../../utils/theme.js';
 import { AgentPromptDisplay, AgentResponseDisplay } from '../AgentTool/UI.js';
 import BashToolResultMessage from '../BashTool/BashToolResultMessage.js';
 import { TASK_OUTPUT_TOOL_NAME } from './constants.js';
+import { isInternalBuild } from '../../utils/buildConstants.js'
 const inputSchema = lazySchema(() => z.strictObject({
   task_id: z.string().describe('The task ID to get output from'),
   block: semanticBoolean(z.boolean().default(true)).describe('Whether to wait for completion'),
@@ -171,7 +172,7 @@ export const TaskOutputTool: Tool<InputSchema, TaskOutputToolOutput> = buildTool
     return this.isReadOnly?.(_input) ?? false;
   },
   isEnabled() {
-    return "external" !== 'ant';
+    return !isInternalBuild();
   },
   isReadOnly(_input) {
     return true;

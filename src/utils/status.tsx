@@ -20,13 +20,14 @@ import { getSettingsWithAllErrors } from './settings/allErrors.js';
 import { getEnabledSettingSources, getSettingSourceDisplayNameCapitalized } from './settings/constants.js';
 import { getManagedFileSettingsPresence, getPolicySettingsOrigin, getSettingsForSource } from './settings/settings.js';
 import type { ThemeName } from './theme.js';
+import { isInternalBuild } from '../utils/buildConstants.js'
 export type Property = {
   label?: string;
   value: React.ReactNode | Array<string>;
 };
 export type Diagnostic = React.ReactNode;
 export function buildSandboxProperties(): Property[] {
-  if ("external" !== 'ant') {
+  if (!isInternalBuild()) {
     return [];
   }
   const isSandboxed = SandboxManager.isSandboxingEnabled();
