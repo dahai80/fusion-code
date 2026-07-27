@@ -634,9 +634,20 @@ src/
 
 | Check | Status |
 |---|---|
-| `tsc --noEmit` | ✅ Zero errors |
+| `tsc --noEmit` | ✅ Zero errors (was 511) |
+| `tsc --noEmit --noUnusedLocals` | ✅ Zero real errors (TS6196/TS6192 type warnings remain) |
 | `bun run build` | ✅ Passes |
 | `bun run build:dev` | ✅ Passes |
+
+### Lint Zeroing History
+
+The `chore/ci-lint-zero` branch fixed all 511 TypeScript errors through:
+
+1. **Build-constant helpers** (`src/utils/buildConstants.ts`) — 91 TS2367 "unreachable comparison" errors replaced with `isInternalBuild()`, `isTestEnv()`, `isDevEnv()` across 27 files
+2. **Internal module stubs** — 10 no-op stubs for Anthropic-internal modules that don't exist in the external repo
+3. **Unused React imports** — 245+ `import React from 'react'` removed (project uses `jsx: "react-jsx"`)
+4. **Unused imports & dead code** — 400+ unused import removals across 329 files, dead functions/constants removed
+5. **ProcessEnv widening** — `USER_TYPE?: string` added to `env.d.ts` to prevent future TS2367 errors
 
 ### Build-Time Constants
 
@@ -654,8 +665,11 @@ Some modules only exist in the internal Anthropic repo. The external repo provid
 - `src/utils/eventLoopStallDetector.ts`
 - `src/utils/sdkHeapDumpMonitor.ts`
 - `src/utils/sessionDataUploader.ts`
+- `src/utils/computeTtftText.ts`
 - `src/components/AntModelSwitchCallout.tsx`
 - `src/components/UndercoverAutoCallout.tsx`
+- `src/components/TungstenPill.tsx`
+- `src/components/Gates.tsx`
 
 ## Contributing
 
