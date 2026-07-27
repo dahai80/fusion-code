@@ -75,3 +75,63 @@ declare module '@ant/computer-use-mcp/sentinelApps' {
 declare module 'react/compiler-runtime' {
     export function c(size: number): any[]
 }
+
+declare module '@ant/computer-use-swift' {
+    export function execute(args: Record<string, unknown>): Promise<unknown>
+}
+
+declare module '@ant/computer-use-input' {
+    export function sendInput(input: Record<string, unknown>): Promise<void>
+}
+
+declare module '@ant/claude-for-chrome-mcp' {
+    export const tools: unknown[]
+}
+
+declare module '@ant/computer-use-mcp/sentinelApps' {
+    export const SENTINEL_APPS: string[]
+}
+
+declare module 'audio-capture-napi' {
+    export function startCapture(options?: Record<string, unknown>): Promise<unknown>
+    export function stopCapture(): Promise<Buffer>
+}
+
+// Stripped internal modules from Anthropic fork
+declare module './utils/debug.js' {
+    export function logForDebugging(message: string, options?: { level?: string }): void
+}
+declare module '../utils/debug.js' {
+    export function logForDebugging(message: string, options?: { level?: string }): void
+}
+declare module '../utils/envUtils.js' {
+    export function getClaudeConfigHomeDir(): string
+    export function isEnvTruthy(key: string): boolean
+}
+declare module './sdk/settingsTypes.generated.js' {
+    export type Settings = Record<string, unknown>
+}
+
+// Anthropic documentation stubs (stripped from fork)
+declare module './claude-api/*' {
+    const content: string
+    export default content
+}
+declare module '../claude-api/*' {
+    const content: string
+    export default content
+}
+
+// Stripped server infrastructure
+declare module './server/*' {
+    export default undefined
+}
+declare module './server/*.js' {
+    export default undefined
+}
+
+// Stripped Anthropic-only modules (1-2 references each)
+declare module '*.md' {
+    const content: string
+    export default content
+}

@@ -4065,8 +4065,12 @@ function runHeadlessStreaming(
 							});
 							let stdout = "";
 							let stderr = "";
-							proc.stdout.on("data", (d: Buffer) => { stdout += d.toString(); });
-							proc.stderr.on("data", (d: Buffer) => { stderr += d.toString(); });
+							proc.stdout.on("data", (d: Buffer) => {
+								stdout += d.toString();
+							});
+							proc.stderr.on("data", (d: Buffer) => {
+								stderr += d.toString();
+							});
 							const timer = setTimeout(() => {
 								proc.kill("SIGKILL");
 								resolve({ pid: proc.pid!, exitCode: null, stdout, stderr });
@@ -4119,7 +4123,12 @@ function runHeadlessStreaming(
 					}
 				} else if (message.request.subtype === "code_file_write") {
 					try {
-						const { path: filePath, content, create_dirs, encoding } = message.request;
+						const {
+							path: filePath,
+							content,
+							create_dirs,
+							encoding,
+						} = message.request;
 						const { writeFile, mkdir } = await import("node:fs/promises");
 						if (create_dirs) {
 							await mkdir(dirname(filePath), { recursive: true });
@@ -4135,7 +4144,12 @@ function runHeadlessStreaming(
 					}
 				} else if (message.request.subtype === "code_diff") {
 					try {
-						const { original, modified, path: filePath, language } = message.request;
+						const {
+							original,
+							modified,
+							path: filePath,
+							language,
+						} = message.request;
 						const { createTwoFilesPatch } = await import("diff");
 						const patch = createTwoFilesPatch(
 							filePath || "original",
@@ -4159,7 +4173,11 @@ function runHeadlessStreaming(
 				} else if (message.request.subtype === "code_apply_patch") {
 					try {
 						const { path: filePath, patch, backup } = message.request;
-						const { readFile: readFs, writeFile: writeFs, copyFile } = await import("node:fs/promises");
+						const {
+							readFile: readFs,
+							writeFile: writeFs,
+							copyFile,
+						} = await import("node:fs/promises");
 						const shouldBackup = backup !== false;
 						if (shouldBackup) {
 							await copyFile(filePath, filePath + ".bak");
@@ -4168,7 +4186,10 @@ function runHeadlessStreaming(
 						const { applyPatch } = await import("diff");
 						const result = applyPatch(original, patch);
 						if (result === false) {
-							sendControlResponseError(message, "Failed to apply patch — patch may not match the file content");
+							sendControlResponseError(
+								message,
+								"Failed to apply patch — patch may not match the file content",
+							);
 						} else {
 							await writeFs(filePath, result);
 							sendControlResponseSuccess(message, {
@@ -4181,27 +4202,50 @@ function runHeadlessStreaming(
 					}
 				} else if (message.request.subtype === "code_search_files") {
 					try {
-						const { pattern, path: searchPath, type: searchType, max_results } = message.request;
+						const {
+							pattern,
+							path: searchPath,
+							type: searchType,
+							max_results,
+						} = message.request;
 						const { spawnSync } = await import("node:child_process");
 						const dir = searchPath || process.cwd();
 						const limit = max_results ?? 20;
-						let results: Array<{ path: string; line?: number; content?: string }> = [];
+						let results: Array<{
+							path: string;
+							line?: number;
+							content?: string;
+						}> = [];
 						if (searchType === "filename") {
-							const proc = spawnSync("find", [dir, "-name", pattern, "-type", "f"], {
-								encoding: "utf-8",
-								timeout: 30000,
-								stdio: ["pipe", "pipe", "ignore"],
-							});
+							const proc = spawnSync(
+								"find",
+								[dir, "-name", pattern, "-type", "f"],
+								{
+									encoding: "utf-8",
+									timeout: 30000,
+									stdio: ["pipe", "pipe", "ignore"],
+								},
+							);
 							if (proc.stdout) {
-								results = proc.stdout.trim().split("\n").filter(Boolean)
-									.slice(0, limit).map(p => ({ path: p }));
+								results = proc.stdout
+									.trim()
+									.split("\n")
+									.filter(Boolean)
+									.slice(0, limit)
+									.map((p) => ({ path: p }));
 							}
 						} else {
 							const grepArgs = [
-								"-rn", pattern, dir,
-								"--include=*.ts", "--include=*.tsx",
-								"--include=*.js", "--include=*.jsx",
-								"--include=*.json", "--include=*.md", "--include=*.py",
+								"-rn",
+								pattern,
+								dir,
+								"--include=*.ts",
+								"--include=*.tsx",
+								"--include=*.js",
+								"--include=*.jsx",
+								"--include=*.json",
+								"--include=*.md",
+								"--include=*.py",
 							];
 							const proc = spawnSync("grep", grepArgs, {
 								encoding: "utf-8",
@@ -4209,26 +4253,42 @@ function runHeadlessStreaming(
 								stdio: ["pipe", "pipe", "ignore"],
 							});
 							if (proc.stdout) {
-								results = proc.stdout.trim().split("\n").filter(Boolean)
-									.slice(0, limit).map(line => {
+								results = proc.stdout
+									.trim()
+									.split("\n")
+									.filter(Boolean)
+									.slice(0, limit)
+									.map((line) => {
 										const colonIdx = line.indexOf(":");
 										const numIdx = line.indexOf(":", colonIdx + 1);
 										return {
 											path: line.slice(0, colonIdx),
-											line: parseInt(line.slice(colonIdx + 1, numIdx), 10) || undefined,
+											line:
+												parseInt(line.slice(colonIdx + 1, numIdx), 10) ||
+												undefined,
 											content: line.slice(numIdx + 1),
 										};
 									});
 							}
 						}
-						sendControlResponseSuccess(message, { results, total: results.length });
+						sendControlResponseSuccess(message, {
+							results,
+							total: results.length,
+						});
 					} catch (err) {
 						sendControlResponseError(message, errorMessage(err));
 					}
 				} else if (message.request.subtype === "artifact_chat") {
 					try {
-						const { kind, message: chatMessage, session_id, artifact_id } = message.request;
-						const { getArtifactEngineUrl } = await import("src/utils/artifactConfig.js");
+						const {
+							kind,
+							message: chatMessage,
+							session_id,
+							artifact_id,
+						} = message.request;
+						const { getArtifactEngineUrl } = await import(
+							"src/utils/artifactConfig.js"
+						);
 						const engineUrl = getArtifactEngineUrl();
 						const rpcPayload = {
 							jsonrpc: "2.0",
@@ -4247,9 +4307,14 @@ function runHeadlessStreaming(
 							body: JSON.stringify(rpcPayload),
 						});
 						if (!resp.ok) {
-							throw new Error(`Artifact engine returned ${resp.status}: ${await resp.text()}`);
+							throw new Error(
+								`Artifact engine returned ${resp.status}: ${await resp.text()}`,
+							);
 						}
-						const rpcResult = await resp.json() as { result?: Record<string, unknown>; error?: { message: string } };
+						const rpcResult = (await resp.json()) as {
+							result?: Record<string, unknown>;
+							error?: { message: string };
+						};
 						if (rpcResult.error) {
 							throw new Error(rpcResult.error.message);
 						}
@@ -4259,7 +4324,9 @@ function runHeadlessStreaming(
 							name: r.name ?? "",
 							version: r.version ?? 1,
 							type: r.type ?? kind,
-							ref_text: r.ref_text ?? `<artifact id="${r.artifact_id ?? r.id ?? ""}" />`,
+							ref_text:
+								r.ref_text ??
+								`<artifact id="${r.artifact_id ?? r.id ?? ""}" />`,
 						});
 					} catch (err) {
 						sendControlResponseError(message, errorMessage(err));
