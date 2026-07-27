@@ -31,3 +31,9 @@ Thumbs.db
 *.key
 *.p12
 *.pfx
+
+# Local analysis files (not for repo)
+CLAUDE.md
+self-improve.md
+kimi-analysis.md
+analysis-prompt.md
