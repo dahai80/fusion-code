@@ -65,7 +65,7 @@ export function evaluateSearchFirst(input: string): SearchFirstResult {
     }
 
     const searchQuery = extractSearchQuery(input)
-    const shouldSearch = policy !== 'never_search'
+    const shouldSearch = true // log: never_search already handled above
 
     const reasons: Record<SearchPolicy, string> = {
         never_search: 'Code/local operation detected',

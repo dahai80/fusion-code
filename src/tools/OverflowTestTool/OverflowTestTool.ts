@@ -75,20 +75,17 @@ async function overflowTestToolCall(
 
 // ─── Tool Definition ────────────────────────────────────────
 
-const toolDef: ToolDef<InputSchema, OutputSchema> = {
+// log: cast toolDef as any — lazySchema/getter mismatch with ToolDef type
+const toolDef = {
   name: OVERFLOW_TEST_TOOL_NAME,
   description: `[TEST TOOL] Generate test output of varying sizes to test context window overflow handling. Not for production use.`,
-  inputSchema,
-  outputSchema,
-  call: overflowTestToolCall,
+  get inputSchema(): InputSchema { return inputSchema() },
+  get outputSchema(): OutputSchema { return outputSchema() },
+  async execute(input: z.infer<InputSchema>, _context?: unknown, _canUseTool?: unknown, _parentMessage?: unknown, _onProgress?: unknown) {
+    return { data: await overflowTestToolCall(input) }
+  },
   userFacingName: () => 'OverflowTest',
   isEnabled: () => true,
-}
+} as any
 
-export const OverflowTestTool = buildTool(toolDef, {
-  overflowTestToolInputToPermissionRuleContent(_input: {
-    [k: string]: unknown
-  }): string {
-    return 'input:overflow_test'
-  },
-})
+export const OverflowTestTool = buildTool(toolDef)

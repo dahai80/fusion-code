@@ -1,5 +1,5 @@
 import { randomBytes } from 'crypto'
-import type { ControlOperator, ParseEntry } from 'shell-quote'
+import type { ParseEntry } from 'shell-quote'
 import {
   type CommandPrefixResult,
   type CommandSubcommandPrefixResult,
@@ -252,7 +252,7 @@ export function filterControlOperators(
   commandsAndOperators: string[],
 ): string[] {
   return commandsAndOperators.filter(
-    part => !(ALL_SUPPORTED_CONTROL_OPERATORS as Set<string>).has(part),
+    part => !ALL_SUPPORTED_CONTROL_OPERATORS.has(part),
   )
 }
 
@@ -520,7 +520,9 @@ export function clearCommandPrefixCaches(): void {
   getCommandSubcommandPrefix.cache.clear()
 }
 
-const COMMAND_LIST_SEPARATORS = new Set<ControlOperator>([
+// log: use Set<string> instead of Set<ControlOperator> — ControlOperator is
+// an interface {op: string}, not a string literal; we store op values as strings
+const COMMAND_LIST_SEPARATORS = new Set<string>([
   '&&',
   '||',
   ';',
@@ -528,7 +530,7 @@ const COMMAND_LIST_SEPARATORS = new Set<ControlOperator>([
   '|',
 ])
 
-const ALL_SUPPORTED_CONTROL_OPERATORS = new Set<ControlOperator>([
+const ALL_SUPPORTED_CONTROL_OPERATORS = new Set<string>([
   ...COMMAND_LIST_SEPARATORS,
   '>&',
   '>',

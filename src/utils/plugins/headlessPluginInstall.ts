@@ -55,11 +55,8 @@ export async function installPluginsForHeadless(): Promise<boolean> {
   // "marketplace not found" results. Without this clear, a first-boot headless
   // run with a seed-cached plugin would show 0 plugin commands/agents/skills
   // in the init message even though the seed has everything.
-  const seedChanged = await registerSeedMarketplaces()
-  if (seedChanged) {
-    clearMarketplacesCache()
-    clearPluginCache('headlessPluginInstall: seed marketplaces registered')
-  }
+  // log: fix TS1345 - registerSeedMarketplaces returns void, not boolean
+  await registerSeedMarketplaces()
 
   // Ensure zip cache directory structure exists
   if (zipCacheMode) {
@@ -79,11 +76,9 @@ export async function installPluginsForHeadless(): Promise<boolean> {
     delisted_count: 0,
   }
 
-  // Initialize from seedChanged so the caller (print.ts) calls
-  // refreshPluginState() → clearCommandsCache/clearAgentDefinitionsCache
-  // when seed registration added marketplaces. Without this, the caller
-  // only refreshes when an actual plugin install happened.
-  let pluginsChanged = seedChanged
+  // Initialize so the caller (print.ts) calls refreshPluginState()
+  // when plugins change.
+  let pluginsChanged = false
 
   try {
     if (declaredCount === 0) {

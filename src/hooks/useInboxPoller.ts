@@ -622,7 +622,7 @@ export function useInboxPoller({
           requestId: parsed.requestId,
           approved: true,
           timestamp: new Date().toISOString(),
-          permissionMode: modeToInherit,
+          permissionMode: modeToInherit as 'default' | 'acceptEdits' | 'bypassPermissions' | 'plan' | 'dontAsk', // log: narrow mode type
         }
 
         void writeToMailbox(
@@ -645,7 +645,7 @@ export function useInboxPoller({
               requestId: parsed.requestId,
               approved: true,
               timestamp: new Date().toISOString(),
-              permissionMode: modeToInherit,
+              permissionMode: modeToInherit as 'default' | 'acceptEdits' | 'bypassPermissions' | 'plan' | 'dontAsk', // log: narrow mode type for PermissionModeSchema
             },
             setAppState,
           )

@@ -54,7 +54,8 @@ export const GoalGetTool = buildTool({
 	get outputSchema(): OutputSchema {
 		return outputSchema();
 	},
-	async execute({ goalId }, context) {
+	// log: execute signature expanded to match Tool type (5 params)
+	async execute({ goalId }, _context, _canUseTool?, _parentMessage?, _onProgress?) {
 		const sessionId = getSessionId();
 		const goal = goalId
 			? getGoalById(sessionId, goalId)

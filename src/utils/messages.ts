@@ -1227,7 +1227,7 @@ export function buildMessageLookups(
           byHookEvent = new Map()
           inProgressHookCounts.set(toolUseID, byHookEvent)
         }
-        byHookEvent.set(hookEvent, (byHookEvent.get(hookEvent) ?? 0) + 1)
+        byHookEvent.set(hookEvent as HookEvent, (byHookEvent.get(hookEvent as HookEvent) ?? 0) + 1) // log: cast for TS2345
       }
     }
 
@@ -2265,7 +2265,7 @@ export function normalizeMessagesForAPI(
         }
         case 'attachment': {
           const rawAttachmentMessage = normalizeAttachmentForAPI(
-            message.attachment,
+            message.attachment as Attachment, // log: cast for TS2345
           )
           const attachmentMessage = checkStatsigFeatureGate_CACHED_MAY_BE_STALE(
             'tengu_chair_sermon',
@@ -4029,21 +4029,22 @@ You have exited auto mode. The user may now want to interact more directly. You 
       if (response.systemMessage) {
         messages.push(
           createUserMessage({
-            content: response.systemMessage,
+            content: response.systemMessage as string | ContentBlockParam[], // log: cast for TS2322
             isMeta: true,
           }),
         )
       }
 
       // Handle additionalContext
+      const hookOutput = response.hookSpecificOutput as Record<string, unknown> | undefined // log: narrow unknown for property access
       if (
-        response.hookSpecificOutput &&
-        'additionalContext' in response.hookSpecificOutput &&
-        response.hookSpecificOutput.additionalContext
+        hookOutput &&
+        'additionalContext' in hookOutput &&
+        hookOutput.additionalContext
       ) {
         messages.push(
           createUserMessage({
-            content: response.hookSpecificOutput.additionalContext,
+            content: hookOutput.additionalContext as string | ContentBlockParam[], // log: cast for TS2322
             isMeta: true,
           }),
         )

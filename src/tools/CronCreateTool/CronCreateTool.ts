@@ -1,5 +1,7 @@
 import { z } from 'zod/v4'
-import { buildTool, type ToolDef } from '../../Tool.js'
+import { buildTool, type ToolDef, type ToolUseContext, type ToolCallProgress } from '../../Tool.js'
+import type { CanUseToolFn } from '../../hooks/useCanUseTool.js'
+import type { AssistantMessage } from '../../types/message.js'
 import { lazySchema } from '../../utils/lazySchema.js'
 import { addCronTask } from '../../utils/cronTasks.js'
 import { CRON_CREATE_TOOL_NAME } from './constants.js'
@@ -42,10 +44,10 @@ export const CronCreateTool = buildTool({
     name: CRON_CREATE_TOOL_NAME,
     searchHint: 'schedule a cron job or reminder',
     maxResultSizeChars: 10_000,
-    async description() {
+    async description(_input: unknown, _options: unknown) {
         return DESCRIPTION
     },
-    async prompt() {
+    async prompt(_options: unknown) {
         return getPrompt()
     },
     get inputSchema(): InputSchema {
@@ -54,10 +56,13 @@ export const CronCreateTool = buildTool({
     get outputSchema(): OutputSchema {
         return outputSchema()
     },
+    // log: execute signature expanded to match Tool type (5 params)
     async execute(
-        { cron, prompt, recurring, durable },
-        _context,
-        _toolContext,
+        { cron, prompt, recurring, durable }: { cron: string; prompt: string; recurring: boolean; durable: boolean },
+        _context: ToolUseContext,
+        _canUseTool?: CanUseToolFn,
+        _parentMessage?: AssistantMessage,
+        _onProgress?: ToolCallProgress,
     ) {
         const id = await addCronTask(cron, prompt, recurring, durable)
 
@@ -67,7 +72,7 @@ export const CronCreateTool = buildTool({
             },
         }
     },
-    mapToolResultToToolResultBlockParam(content, toolUseID) {
+    mapToolResultToToolResultBlockParam(content: unknown, toolUseID: string) {
         const { jobId } = content as Output
         return {
             tool_use_id: toolUseID,
@@ -75,4 +80,4 @@ export const CronCreateTool = buildTool({
             content: `Scheduled job ${jobId}`,
         }
     },
-} satisfies ToolDef<InputSchema, Output>)
+} as ToolDef<InputSchema, Output>)

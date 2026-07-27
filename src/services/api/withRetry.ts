@@ -658,12 +658,6 @@ function isVertexAuthError(_error: unknown): boolean {
 	return false;
 }
 
-// google-auth-library throws plain Error (no typed name like AWS's
-// CredentialsProviderError). Match common SDK-level credential-failure messages.
-function isGoogleAuthLibraryCredentialError(_error: unknown): boolean {
-	return false;
-}
-
 /**
  * Clear GCP auth caches if appropriate.
  * @returns true if action was taken.

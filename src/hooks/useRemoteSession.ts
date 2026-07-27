@@ -137,7 +137,7 @@ export function useRemoteSession({
   // faster than echoes arrive.
   // NOTE: this does NOT dedup history-vs-live overlap at attach time (nothing
   // seeds the set from history UUIDs; only sendMessage populates it).
-  const sentUUIDsRef = useRef(new BoundedUUIDSet(50))
+  const sentUUIDsRef = useRef(new BoundedUUIDSet()) // log: BoundedUUIDSet takes 0 args
 
   // Keep a ref to tools so the WebSocket callback doesn't go stale
   const toolsRef = useRef(tools)
@@ -210,12 +210,12 @@ export function useRemoteSession({
         // Return early — these are status signals, not renderable messages.
         if (sdkMessage.type === 'system') {
           if (sdkMessage.subtype === 'task_started') {
-            runningTaskIdsRef.current.add(sdkMessage.task_id)
+            runningTaskIdsRef.current.add(sdkMessage.task_id as string) // log: widen unknown to string
             writeTaskCount()
             return
           }
           if (sdkMessage.subtype === 'task_notification') {
-            runningTaskIdsRef.current.delete(sdkMessage.task_id)
+            runningTaskIdsRef.current.delete(sdkMessage.task_id as string) // log: widen unknown to string
             writeTaskCount()
             return
           }
@@ -554,7 +554,7 @@ export function useRemoteSession({
             // Add a warning message to the conversation
             const warningMessage = createSystemMessage(
               'Remote session may be unresponsive. Attempting to reconnect…',
-              'warning',
+              'warn', // log: fixed 'warning' → 'warn' for SystemMessageLevel
             )
             setMessages(prev => [...prev, warningMessage])
 

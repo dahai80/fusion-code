@@ -1,8 +1,6 @@
 import { randomUUID } from 'crypto'
-import type {
-  SDKPartialAssistantMessage,
-  StdoutMessage,
-} from 'src/entrypoints/sdk/controlTypes.js'
+import type { SDKPartialAssistantMessage } from 'src/entrypoints/sdk/types.js'
+import type { StdoutMessage } from 'src/entrypoints/sdk/controlTypes.js'
 import { decodeJwtExpiry } from '../../bridge/jwtUtils.js'
 import { logForDebugging } from '../../utils/debug.js'
 import { logForDiagnosticsNoPII } from '../../utils/diagLogs.js'
@@ -138,6 +136,20 @@ function scopeKey(m: {
  * Cleanup happens in writeEvent when the complete assistant message arrives
  * (reliable), not here on stop events (abort/error paths skip those).
  */
+// log: StreamEventMsg widens SDKPartialAssistantMessage to expose event/session_id/uuid/parent_tool_use_id
+type StreamEventMsg = SDKPartialAssistantMessage & {
+  uuid: string
+  session_id: string
+  parent_tool_use_id: string | null
+  event: {
+    type: string
+    message?: { id: string }
+    index?: number
+    delta?: { type: string; text?: string }
+    [key: string]: unknown
+  }
+}
+
 export function accumulateStreamEvents(
   buffer: SDKPartialAssistantMessage[],
   state: StreamAccumulatorState,
@@ -147,34 +159,31 @@ export function accumulateStreamEvents(
   // array reference (stable per {messageId, index}) so subsequent deltas
   // rewrite the same entry instead of emitting one event per delta.
   const touched = new Map<string[], CoalescedStreamEvent>()
-  for (const msg of buffer) {
+  for (const _msg of buffer) {
+    const msg = _msg as StreamEventMsg // log: widen for stream event access
     switch (msg.event.type) {
       case 'message_start': {
-        const id = msg.event.message.id
+        const id = msg.event.message!.id
         const prevId = state.scopeToMessage.get(scopeKey(msg))
         if (prevId) state.byMessage.delete(prevId)
         state.scopeToMessage.set(scopeKey(msg), id)
         state.byMessage.set(id, [])
-        out.push(msg)
+        out.push(msg as EventPayload)
         break
       }
       case 'content_block_delta': {
-        if (msg.event.delta.type !== 'text_delta') {
-          out.push(msg)
+        if (msg.event.delta!.type !== 'text_delta') {
+          out.push(msg as EventPayload)
           break
         }
         const messageId = state.scopeToMessage.get(scopeKey(msg))
         const blocks = messageId ? state.byMessage.get(messageId) : undefined
         if (!blocks) {
-          // Delta without a preceding message_start (reconnect mid-stream,
-          // or message_start was in a prior buffer that got dropped). Pass
-          // through raw — can't produce a full-so-far snapshot without the
-          // prior chunks anyway.
-          out.push(msg)
+          out.push(msg as EventPayload)
           break
         }
-        const chunks = (blocks[msg.event.index] ??= [])
-        chunks.push(msg.event.delta.text)
+        const chunks = (blocks[msg.event.index!] ??= [])
+        chunks.push(msg.event.delta!.text!)
         const existing = touched.get(chunks)
         if (existing) {
           existing.event.delta.text = chunks.join('')
@@ -187,7 +196,7 @@ export function accumulateStreamEvents(
           parent_tool_use_id: msg.parent_tool_use_id,
           event: {
             type: 'content_block_delta',
-            index: msg.event.index,
+            index: msg.event.index!,
             delta: { type: 'text_delta', text: chunks.join('') },
           },
         }
@@ -196,7 +205,7 @@ export function accumulateStreamEvents(
         break
       }
       default:
-        out.push(msg)
+        out.push(msg as EventPayload)
     }
   }
   return out
@@ -734,7 +743,7 @@ export class CCRClient {
    */
   async writeEvent(message: StdoutMessage): Promise<void> {
     if (message.type === 'stream_event') {
-      this.streamEventBuffer.push(message)
+      this.streamEventBuffer.push(message as unknown as SDKPartialAssistantMessage) // log: StdoutMessage stream_event widen to SDKPartial
       if (!this.streamEventTimer) {
         this.streamEventTimer = setTimeout(
           () => void this.flushStreamEventBuffer(),
@@ -745,7 +754,7 @@ export class CCRClient {
     }
     await this.flushStreamEventBuffer()
     if (message.type === 'assistant') {
-      clearStreamAccumulatorForMessage(this.streamTextAccumulator, message)
+      clearStreamAccumulatorForMessage(this.streamTextAccumulator, message as unknown as { session_id: string; parent_tool_use_id: string | null; message: { id: string } }) // log: widen SDKAssistantMessage for accumulator
     }
     await this.eventUploader.enqueue(this.toClientEvent(message))
   }

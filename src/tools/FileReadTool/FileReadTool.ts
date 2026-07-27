@@ -1157,11 +1157,11 @@ export async function readImageWithTokenBudget(
       try {
         const sharpModule = await import('sharp')
         const sharp =
-          (
-            sharpModule as {
+          ((
+            sharpModule as unknown as {
               default?: typeof sharpModule
             } & typeof sharpModule
-          ).default || sharpModule
+          ).default || sharpModule) as unknown as typeof import('sharp') // log: cast through unknown for TS2349
 
         const fallbackBuffer = await sharp(imageBuffer)
           .resize(400, 400, {

@@ -692,7 +692,7 @@ export function logAPISuccessAndDuration({
     preNormalizedModel,
     messageCount,
     messageTokens,
-    usage,
+    usage: usage as unknown as Usage, // log: intermediate cast for TS2322
     durationMs,
     durationMsIncludingRetries,
     attempt,

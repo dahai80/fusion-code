@@ -1,7 +1,6 @@
-import type {
-  McpbManifest,
-  McpbUserConfigurationOption,
-} from '@anthropic-ai/mcpb'
+// log: fix TS2724 - McpbManifestAny not resolvable from @anthropic-ai/mcpb due to zod inference
+type McpbManifestAny = Record<string, any>
+type McpbUserConfigurationOption = Record<string, any>
 import axios from 'axios'
 import { createHash } from 'crypto'
 import { chmod, writeFile } from 'fs/promises'
@@ -38,7 +37,7 @@ export type UserConfigSchema = Record<string, McpbUserConfigurationOption>
  * Result of loading an MCPB file (success case)
  */
 export type McpbLoadResult = {
-  manifest: McpbManifest
+  manifest: McpbManifestAny
   mcpConfig: McpServerConfig
   extractedPath: string
   contentHash: string
@@ -49,7 +48,7 @@ export type McpbLoadResult = {
  */
 export type McpbNeedsConfigResult = {
   status: 'needs-config'
-  manifest: McpbManifest
+  manifest: McpbManifestAny
   extractedPath: string
   contentHash: string
   configSchema: UserConfigSchema
@@ -411,7 +410,7 @@ export function validateUserConfig(
  * Generate MCP server configuration from DXT manifest
  */
 async function generateMcpConfig(
-  manifest: McpbManifest,
+  manifest: McpbManifestAny,
   extractedPath: string,
   userConfig: UserConfigValues = {},
 ): Promise<McpServerConfig> {
@@ -419,7 +418,7 @@ async function generateMcpConfig(
   // bound closures). See dxt/helpers.ts for details.
   const { getMcpConfigForManifest } = await import('@anthropic-ai/mcpb')
   const mcpConfig = await getMcpConfigForManifest({
-    manifest,
+    manifest: manifest as any, // log: cast for McpbManifestAny type mismatch
     extensionPath: extractedPath,
     systemDirs: getSystemDirectories(),
     userConfig,
@@ -759,7 +758,7 @@ export async function loadMcpbFile(
       if (forceConfigDialog || !validation.valid) {
         return {
           status: 'needs-config',
-          manifest,
+          manifest: manifest as McpbManifestAny,
           extractedPath: metadata.extractedPath,
           contentHash: metadata.contentHash,
           configSchema: manifest.user_config,
@@ -780,13 +779,13 @@ export async function loadMcpbFile(
 
       // Generate MCP config WITH user config
       const mcpConfig = await generateMcpConfig(
-        manifest,
+        manifest as McpbManifestAny,
         metadata.extractedPath,
         userConfig,
       )
 
       return {
-        manifest,
+        manifest: manifest as McpbManifestAny,
         mcpConfig,
         extractedPath: metadata.extractedPath,
         contentHash: metadata.contentHash,
@@ -794,10 +793,10 @@ export async function loadMcpbFile(
     }
 
     // No user_config required - generate config without it
-    const mcpConfig = await generateMcpConfig(manifest, metadata.extractedPath)
+    const mcpConfig = await generateMcpConfig(manifest as McpbManifestAny, metadata.extractedPath)
 
     return {
-      manifest,
+      manifest: manifest as McpbManifestAny,
       mcpConfig,
       extractedPath: metadata.extractedPath,
       contentHash: metadata.contentHash,
@@ -904,7 +903,7 @@ export async function loadMcpbFile(
       // Return "needs configuration" status
       return {
         status: 'needs-config',
-        manifest,
+        manifest: manifest as McpbManifestAny,
         extractedPath: extractPath,
         contentHash,
         configSchema: manifest.user_config,
@@ -928,7 +927,7 @@ export async function loadMcpbFile(
       onProgress('Generating MCP server configuration...')
     }
 
-    const mcpConfig = await generateMcpConfig(manifest, extractPath, userConfig)
+    const mcpConfig = await generateMcpConfig(manifest as McpbManifestAny, extractPath, userConfig)
 
     // Save cache metadata
     const newMetadata: McpbCacheMetadata = {
@@ -941,7 +940,7 @@ export async function loadMcpbFile(
     await saveCacheMetadata(cacheDir, source, newMetadata)
 
     return {
-      manifest,
+      manifest: manifest as McpbManifestAny,
       mcpConfig,
       extractedPath: extractPath,
       contentHash,
@@ -953,7 +952,7 @@ export async function loadMcpbFile(
     onProgress('Generating MCP server configuration...')
   }
 
-  const mcpConfig = await generateMcpConfig(manifest, extractPath)
+  const mcpConfig = await generateMcpConfig(manifest as McpbManifestAny, extractPath)
 
   // Save cache metadata
   const newMetadata: McpbCacheMetadata = {
@@ -970,7 +969,7 @@ export async function loadMcpbFile(
   )
 
   return {
-    manifest,
+    manifest: manifest as McpbManifestAny,
     mcpConfig: mcpConfig as McpServerConfig,
     extractedPath: extractPath,
     contentHash,

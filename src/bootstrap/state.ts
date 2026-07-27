@@ -1756,3 +1756,8 @@ export function setPromptId(id: string | null): void {
   STATE.promptId = id
 }
 
+// Imported by SendMessageTool, ToolSearchTool/prompt — bridge is stubbed so always false
+export function isReplBridgeActive(): boolean {
+    return false
+}
+

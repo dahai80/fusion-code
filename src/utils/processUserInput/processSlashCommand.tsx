@@ -2,10 +2,10 @@ import { feature } from 'bun:bundle';
 import type { ContentBlockParam, TextBlockParam } from '@anthropic-ai/sdk/resources';
 import { randomUUID } from 'crypto';
 import { setPromptId } from 'src/bootstrap/state.js';
-import { builtInCommandNames, type Command, type CommandBase, findCommand, getCommand, getCommandName, hasCommand, type PromptCommand } from 'src/commands.js';
+import { builtInCommandNames, type Command, type CommandBase, findCommand, getCommand, getCommandName, hasCommand, type LocalCommandResult, type PromptCommand } from 'src/commands.js';
 import { NO_CONTENT_MESSAGE } from 'src/constants/messages.js';
 import type { SetToolJSXFn, ToolUseContext } from 'src/Tool.js';
-import type { AssistantMessage, AttachmentMessage, Message, NormalizedUserMessage, ProgressMessage, UserMessage } from 'src/types/message.js';
+import type { AssistantMessage, AttachmentMessage, Message, NormalizedAssistantMessage, NormalizedUserMessage, ProgressMessage, UserMessage } from 'src/types/message.js';
 import { addInvokedSkill, getSessionId } from '../../bootstrap/state.js';
 import { COMMAND_MESSAGE_TAG, COMMAND_NAME_TAG } from '../../constants/xml.js';
 import type { CanUseToolFn } from '../../hooks/useCanUseTool.js';
@@ -196,7 +196,7 @@ async function executeForkedSlashCommand(command: CommandBase & PromptCommand, a
     return {
       type: 'progress',
       data: {
-        message,
+        message: message as NormalizedUserMessage | NormalizedAssistantMessage, // log: cast for TS2322
         type: 'agent_progress',
         prompt: skillContent,
         agentId
@@ -354,7 +354,7 @@ export async function processSlashCommand(inputString: string, precedingInputBlo
         }),
         // gh-32591: preserve args so the user can copy/resubmit without
         // retyping. System warning is UI-only (filtered before API).
-        ...(parsedArgs ? [createSystemMessage(`Args from unknown skill: ${parsedArgs}`, 'warning')] : [])],
+        ...(parsedArgs ? [createSystemMessage(`Args from unknown skill: ${parsedArgs}`, 'warn')] : [])], // log: fix TS2345 warning->warn
         shouldQuery: false,
         resultText: unknownMessage
       };
@@ -670,7 +670,7 @@ async function getMessagesForSlashCommand(commandName: string, args: string, set
           try {
             const syntheticCaveatMessage = createSyntheticUserCaveatMessage();
             const mod = await command.load();
-            const result = await mod.call(args, context);
+            const result = await (mod as { call: (args: string, ctx: typeof context) => Promise<LocalCommandResult> }).call(args, context); // log: fix TS2349 cast mod.call
             if (result.type === 'skip') {
               return {
                 messages: [],
@@ -880,7 +880,8 @@ async function getMessagesForPromptSlashCommand(command: CommandBase & PromptCom
       command
     };
   }
-  const result = await command.getPromptForCommand(args, context);
+  const resultRaw = await command.getPromptForCommand(args, context);
+  const result: ContentBlockParam[] = typeof resultRaw === 'string' ? [{ type: 'text', text: resultRaw }] : resultRaw; // log: normalize string|ContentBlockParam[] to ContentBlockParam[]
 
   // Register skill hooks if defined. Under ["hooks"]-only (skills not locked),
   // user skills still load and reach this point — block hook REGISTRATION here

@@ -4,10 +4,7 @@ const skills: Command = {
     type: 'local-jsx',
     name: 'skills',
     description: 'List available skills',
-    async call(onDone, context) {
-        const { SkillsMenu } = await import('../../components/skills/SkillsMenu.js')
-        return <SkillsMenu onExit={onDone} commands={context.options.commands} />
-    },
+    load: () => import('./skills.js'), // log: moved call to module via load()
 }
 
 export default skills

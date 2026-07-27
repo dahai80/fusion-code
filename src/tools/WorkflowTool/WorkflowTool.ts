@@ -123,7 +123,7 @@ export const WorkflowTool = buildTool({
     get outputSchema(): OutputSchema {
         return outputSchema()
     },
-    async execute(input, _context, _toolContext) {
+    async execute(input, _context, _canUseTool?, _parentMessage?, _onProgress?) { // log: fixed execute signature
         const runId = `wf_${randomUUID().slice(0, 8)}`
         logForDebugging(`[Workflow] executing: ${input.name || input.scriptPath || 'inline script'}`)
 
@@ -185,4 +185,4 @@ export const WorkflowTool = buildTool({
             content: parts.join(' | '),
         }
     },
-} satisfies ToolDef<InputSchema, Output>)
+})

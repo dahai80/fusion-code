@@ -1528,8 +1528,9 @@ export function getAgentListingDeltaAttachment(
   for (const msg of messages ?? []) {
     if (msg.type !== 'attachment') continue
     if (msg.attachment.type !== 'agent_listing_delta') continue
-    for (const t of msg.attachment.addedTypes) announced.add(t)
-    for (const t of msg.attachment.removedTypes) announced.delete(t)
+    // log: cast addedTypes/removedTypes from unknown[] to string[] for TS2488
+    for (const t of (msg.attachment.addedTypes as string[])) announced.add(t)
+    for (const t of (msg.attachment.removedTypes as string[])) announced.delete(t)
   }
 
   const currentTypes = new Set(filtered.map(a => a.agentType))
@@ -2104,7 +2105,7 @@ export async function getChangedFiles(
           return null
         }
 
-        const result = await FileReadTool.call(fileInput, toolUseContext)
+        const result = await FileReadTool.call(fileInput, toolUseContext) as any // log: cast to resolve never inference
         // Extract only the changed section
         if (result.data.type === 'text') {
           const snippet = getSnippetForTwoFileDiff(
@@ -2259,7 +2260,8 @@ export function collectSurfacedMemories(messages: ReadonlyArray<Message>): {
   let totalBytes = 0
   for (const m of messages) {
     if (m.type === 'attachment' && m.attachment.type === 'relevant_memories') {
-      for (const mem of m.attachment.memories) {
+      // log: cast memories from unknown[] for TS2488
+      for (const mem of (m.attachment.memories as Array<{ path: string; content: string }>)) {
         paths.add(mem.path)
         totalBytes += mem.content.length
       }
@@ -3155,7 +3157,7 @@ export async function generateFileAttachment(
           offset: offset ?? 1,
           limit: MAX_LINES_TO_READ,
         }
-        const result = await FileReadTool.call(truncatedInput, toolUseContext)
+        const result = await FileReadTool.call(truncatedInput, toolUseContext) as any // log: cast to any to resolve never inference
         logEvent(successEventName, {})
 
         return {
@@ -3178,7 +3180,7 @@ export async function generateFileAttachment(
     }
 
     try {
-      const result = await FileReadTool.call(fileInput, toolUseContext)
+      const result = await FileReadTool.call(fileInput, toolUseContext) as any // log: cast to resolve never inference
       logEvent(successEventName, {})
       return {
         type: 'file',

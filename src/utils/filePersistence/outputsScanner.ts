@@ -8,6 +8,7 @@
  */
 
 import * as fs from 'fs/promises'
+import type { Dirent } from 'fs' // log: fix TS2694 Dirent not in fs/promises namespace
 import * as path from 'path'
 import { logForDebugging } from '../debug.js'
 import type { EnvironmentKind } from '../teleport/environments.js'
@@ -64,12 +65,12 @@ export async function findModifiedFiles(
   outputsDir: string,
 ): Promise<string[]> {
   // Use recursive flag to get all entries in one call
-  let entries: Awaited<ReturnType<typeof fs.readdir>>
+  let entries: Dirent[] // log: fix TS2694 use Dirent from 'fs' not 'fs/promises'
   try {
     entries = await fs.readdir(outputsDir, {
       withFileTypes: true,
       recursive: true,
-    })
+    }) as Dirent[] // log: fix TS2322
   } catch {
     // Directory doesn't exist or is not accessible
     return []
@@ -83,7 +84,7 @@ export async function findModifiedFiles(
     }
     if (entry.isFile()) {
       // entry.parentPath is available in Node 20+, fallback to entry.path for older versions
-      const parentPath = getEntryParentPath(entry, outputsDir)
+      const parentPath = getEntryParentPath(entry as object, outputsDir) // log: fix TS2345
       filePaths.push(path.join(parentPath, entry.name))
     }
   }

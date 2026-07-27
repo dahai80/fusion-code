@@ -58,7 +58,7 @@ export function toInternalMessages(
               ),
               uuid: message.uuid,
               timestamp: new Date().toISOString(),
-            },
+            } as Message, // log: cast for TS2345 flatMap return type
           ]
         }
         return []
@@ -243,7 +243,7 @@ export function toSDKRateLimitInfo(
     ...(limits.surpassedThreshold !== undefined && {
       surpassedThreshold: limits.surpassedThreshold,
     }),
-  }
+  } as SDKRateLimitInfo // log: cast for TS2353 - internal fields not in SDK type
 }
 
 /**

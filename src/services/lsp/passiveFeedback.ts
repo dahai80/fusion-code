@@ -4,7 +4,7 @@ import { logForDebugging } from '../../utils/debug.js'
 import { toError } from '../../utils/errors.js'
 import { logError } from '../../utils/log.js'
 import { jsonStringify } from '../../utils/slowOperations.js'
-import type { DiagnosticFile } from '../diagnosticTracking.js'
+import type { DiagnosticFile, Diagnostic } from '../diagnosticTracking.js' // log: import Diagnostic for cast
 import { registerPendingLSPDiagnostic } from './LSPDiagnosticRegistry.js'
 import type { LSPServerManager } from './LSPServerManager.js'
 
@@ -61,17 +61,8 @@ export function formatDiagnosticsForAttachment(
   }
 
   const diagnostics = params.diagnostics.map(
-    (diag: {
-      message: string
-      severity?: number
-      range: {
-        start: { line: number; character: number }
-        end: { line: number; character: number }
-      }
-      source?: string
-      code?: string | number
-    }) => ({
-      message: diag.message,
+    (diag): Diagnostic => ({
+      message: typeof diag.message === 'string' ? diag.message : (diag.message as { value?: string })?.value ?? '', // log: handle string | MarkupContent
       severity: mapLSPSeverity(diag.severity),
       range: {
         start: {
@@ -83,7 +74,7 @@ export function formatDiagnosticsForAttachment(
           character: diag.range.end.character,
         },
       },
-      source: diag.source,
+      source: diag.source ?? '', // log: default empty string for optional source
       code:
         diag.code !== undefined && diag.code !== null
           ? String(diag.code)

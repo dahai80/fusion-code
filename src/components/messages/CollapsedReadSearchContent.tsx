@@ -190,7 +190,7 @@ export function CollapsedReadSearchContent({
   const hasNonMemoryOps = searchCount > 0 || readCount > 0 || listCount > 0 || replCount > 0 || mcpCallCount > 0 || bashCount > 0 || gitOpBashCount > 0;
   const readPaths = message.readFilePaths;
   const searchArgs = message.searchArgs;
-  let incomingHint = message.latestDisplayHint;
+  let incomingHint: string | undefined = message.latestDisplayHint;
   if (incomingHint === undefined) {
     const lastSearchRaw = searchArgs?.at(-1);
     const lastSearch = lastSearchRaw !== undefined ? `"${lastSearchRaw}"` : undefined;
@@ -204,14 +204,10 @@ export function CollapsedReadSearchContent({
   if (isActiveGroup) {
     for (const id_0 of toolUseIds) {
       if (!inProgressToolUseIDs.has(id_0)) continue;
-      const latest = lookups.progressMessagesByToolUseID.get(id_0)?.at(-1)?.data;
+      const latest = lookups.progressMessagesByToolUseID.get(id_0)?.at(-1)?.data as Record<string, unknown> | undefined;
       if (latest?.type === 'repl_tool_call' && latest.phase === 'start') {
-        const input = latest.toolInput as {
-          command?: string;
-          pattern?: string;
-          file_path?: string;
-        };
-        incomingHint = input.file_path ?? (input.pattern ? `"${input.pattern}"` : undefined) ?? input.command ?? latest.toolName;
+        const input = (latest.toolInput ?? {}) as Record<string, string | undefined>;
+        incomingHint = input.file_path ?? (input.pattern ? `"${input.pattern}"` : undefined) ?? input.command ?? (latest.toolName as string); // log: fix TS2322 — data is unknown
       }
     }
   }
@@ -280,9 +276,9 @@ export function CollapsedReadSearchContent({
       if (data?.type !== 'bash_progress' && data?.type !== 'powershell_progress') {
         continue;
       }
-      if (elapsed === undefined || data.elapsedTimeSeconds > elapsed) {
-        elapsed = data.elapsedTimeSeconds;
-        lines = data.totalLines;
+      if (elapsed === undefined || (data.elapsedTimeSeconds as number) > elapsed) { // log: fix TS2365 — unknown vs number
+        elapsed = data.elapsedTimeSeconds as number;
+        lines = data.totalLines as number;
       }
     }
     if (elapsed !== undefined && elapsed >= 2) {

@@ -65,8 +65,8 @@ export function getMcpInstructionsDelta(
     attachmentCount++
     if (msg.attachment.type !== 'mcp_instructions_delta') continue
     midCount++
-    for (const n of msg.attachment.addedNames) announced.add(n)
-    for (const n of msg.attachment.removedNames) announced.delete(n)
+    for (const n of (msg.attachment as unknown as { addedNames: string[] }).addedNames) announced.add(n) // log: fix TS2488
+    for (const n of (msg.attachment as unknown as { removedNames: string[] }).removedNames) announced.delete(n) // log: fix TS2488
   }
 
   const connected = mcpClients.filter(

@@ -39,7 +39,7 @@ import {
 	parseAgentsFromJson,
 } from "src/tools/AgentTool/loadAgentsDir.js";
 import type { Message, NormalizedUserMessage } from "src/types/message.js";
-import type { QueuedCommand } from "src/types/textInputTypes.js";
+import type { QueuedCommand, QueuePriority } from "src/types/textInputTypes.js";
 import {
 	dequeue,
 	dequeueAllMatching,
@@ -2339,7 +2339,7 @@ function runHeadlessStreaming(
 										};
 									} else {
 										suggestionState.lastEmitted = lastEmittedEntry;
-										output.enqueue(suggestionMsg as StdoutMessage);
+										output.enqueue(suggestionMsg as unknown as StdoutMessage); // log: prompt_suggestion not in StdoutMessage union
 									}
 								} catch (error) {
 									if (
@@ -2417,7 +2417,7 @@ function runHeadlessStreaming(
 				output.enqueue(heldBackResult);
 				heldBackResult = null;
 				if (suggestionState.pendingSuggestion) {
-					output.enqueue(suggestionState.pendingSuggestion as StdoutMessage);
+					output.enqueue(suggestionState.pendingSuggestion as unknown as StdoutMessage); // log: prompt_suggestion not in StdoutMessage union
 					// Now that the suggestion is actually delivered, record it for acceptance tracking
 					if (suggestionState.pendingLastEmittedEntry) {
 						suggestionState.lastEmitted = {
@@ -3665,7 +3665,7 @@ function runHeadlessStreaming(
 										subscriptionType: accountInfo?.subscription,
 										tokenSource: accountInfo?.tokenSource,
 										apiKeySource: accountInfo?.apiKeySource,
-										apiProvider: getAPIProvider(),
+										apiProvider: getAPIProvider() as 'firstParty' | 'foundry' | 'openai' | 'fusionMlx', // log: narrow APIProvider for SDK type
 									},
 								});
 							},
@@ -3934,10 +3934,7 @@ function runHeadlessStreaming(
 									bridgeHandle.bridgeSessionId,
 									bridgeHandle.sessionIngressUrl,
 								),
-								connect_url: buildBridgeConnectUrl(
-									bridgeHandle.environmentId,
-									bridgeHandle.sessionIngressUrl,
-								),
+								connect_url: buildBridgeConnectUrl(), // log: fixed arg count - takes 0 args
 								environment_id: bridgeHandle.environmentId,
 							});
 						} else {
@@ -4033,10 +4030,7 @@ function runHeadlessStreaming(
 											handle.bridgeSessionId,
 											handle.sessionIngressUrl,
 										),
-										connect_url: buildBridgeConnectUrl(
-											handle.environmentId,
-											handle.sessionIngressUrl,
-										),
+										connect_url: buildBridgeConnectUrl(), // log: fixed arg count - takes 0 args
 										environment_id: handle.environmentId,
 									});
 								}
@@ -4385,11 +4379,11 @@ function runHeadlessStreaming(
 				const sessionId = getSessionId() as UUID;
 				const existsInSession = await doesMessageExistInSession(
 					sessionId,
-					message.uuid,
+					message.uuid as UUID, // log: widen string to UUID template type
 				);
 
 				// Check both historical duplicates (from file) and runtime duplicates (this session)
-				if (existsInSession || receivedMessageUuids.has(message.uuid)) {
+				if (existsInSession || receivedMessageUuids.has(message.uuid as UUID)) { // log: widen string to UUID
 					logForDebugging(`Skipping duplicate user message: ${message.uuid}`);
 					// Send acknowledgment for duplicate message if replay mode is enabled
 					if (options.replayUserMessages) {
@@ -4417,16 +4411,16 @@ function runHeadlessStreaming(
 				}
 
 				// Track this UUID to prevent runtime duplicates
-				trackReceivedMessageUuid(message.uuid);
+				trackReceivedMessageUuid(message.uuid as UUID); // log: widen string to UUID
 			}
 
 			enqueue({
 				mode: "prompt" as const,
 				// file_attachments rides the protobuf catchall from the web composer.
 				// Same-ref no-op when absent (no 'file_attachments' key).
-				value: await resolveAndPrepend(message, message.message.content),
-				uuid: message.uuid,
-				priority: message.priority,
+				value: await resolveAndPrepend(message, message.message.content as string | ContentBlockParam[]), // log: widen unknown to expected type
+				uuid: message.uuid as UUID, // log: widen string to UUID
+				priority: message.priority as QueuePriority, // log: widen unknown to QueuePriority
 			});
 			// Increment prompt count for attribution tracking and save snapshot
 			// The snapshot persists promptCount so it survives compaction
@@ -4800,7 +4794,7 @@ async function handleInitializeRequest(
 			// getAccountInformation() returns undefined under 3P providers, so the
 			// other fields are all absent. apiProvider disambiguates "not logged
 			// in" (firstParty + tokenSource:none) from "3P, login not applicable".
-			apiProvider: getAPIProvider(),
+			apiProvider: getAPIProvider() as 'firstParty' | 'foundry' | 'openai' | 'fusionMlx', // log: narrow APIProvider for SDK type
 		},
 		pid: process.pid,
 	};

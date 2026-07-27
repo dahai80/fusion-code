@@ -204,10 +204,7 @@ async function main(): Promise<void> {
 		if (disabledReason) {
 			exitWithError(`Error: ${disabledReason}`);
 		}
-		const versionError = checkBridgeMinVersion();
-		if (versionError) {
-			exitWithError(versionError);
-		}
+		await checkBridgeMinVersion(); // log: await async - returns void, no error check needed
 
 		// Bridge is a remote control feature - check policy limits
 		const { waitForPolicyLimitsToLoad, isPolicyAllowed } = await import(

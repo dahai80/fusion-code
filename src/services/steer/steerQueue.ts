@@ -8,18 +8,18 @@ export class SteerQueue {
 
     enqueue(content: SteerContent): void {
         if (this.queue.length >= this.maxQueueSize) {
-            logForDebugging('steer-queue-overflow', { dropped: content.slice(0, 100) })
+            logForDebugging(`steer-queue-overflow dropped=${content.slice(0, 100)}`) // log: inline data into message string
             return
         }
         this.queue.push(content)
-        logForDebugging('steer-enqueued', { queueSize: this.queue.length })
+        logForDebugging(`steer-enqueued queueSize=${this.queue.length}`) // log: inline data into message string
     }
 
     drain(): SteerContent[] {
         const items = [...this.queue]
         this.queue = []
         if (items.length > 0) {
-            logForDebugging('steer-drained', { count: items.length })
+            logForDebugging(`steer-drained count=${items.length}`) // log: inline data into message string
         }
         return items
     }

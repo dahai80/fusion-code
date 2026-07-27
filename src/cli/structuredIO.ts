@@ -587,7 +587,7 @@ export class StructuredIO {
             subtype: 'can_use_tool',
             tool_name: tool.name,
             input,
-            permission_suggestions: mainPermissionResult.suggestions,
+            permission_suggestions: mainPermissionResult.suggestions as import('../entrypoints/sdk/controlTypes.js').PermissionUpdate[], // log: widen PermissionUpdate for SDK type
             blocked_path: mainPermissionResult.blockedPath,
             decision_reason: serializeDecisionReason(
               mainPermissionResult.decisionReason,

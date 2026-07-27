@@ -28,11 +28,11 @@ const SAFE_BRIDGE_STRING_KEYS = new Set([
   'tool_name',
 ])
 
-const PERMISSION_MODES: readonly PermissionMode[] = [
+const PERMISSION_MODES = [
   'ask',
   'skip_all_permission_checks',
   'follow_a_plan',
-]
+] as const // log: fix TS2502/TS2456 circular reference
 
 type PermissionMode = (typeof PERMISSION_MODES)[number]
 

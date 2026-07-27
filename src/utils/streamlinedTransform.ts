@@ -116,8 +116,8 @@ function accumulateToolUses(
   }
 
   for (const block of content) {
-    if ((block as { type: string }).type === 'tool_use' && 'name' in block) {
-      const category = categorizeToolName(block.name as string)
+    if ((block as { type: string }).type === 'tool_use' && 'name' in (block as object)) { // log: fix TS2322 unknown not assignable to object
+      const category = categorizeToolName((block as { name: string }).name) // log: fix TS2339 name not on unknown
       counts[category]++
     }
   }
@@ -139,7 +139,7 @@ export function createStreamlinedTransformer(): (
       case 'assistant': {
         const content = message.message.content
         const text = Array.isArray(content)
-          ? extractTextContent(content, '\n').trim()
+          ? extractTextContent(content as readonly { readonly type: string }[], '\n').trim() // log: fix TS2345 unknown[] not assignable
           : ''
 
         // Accumulate tool counts from this message

@@ -1,6 +1,6 @@
 import { execFileSync } from "child_process";
 import { logEvent } from "../../services/analytics/index.js";
-import type { ScopedMcpServerConfig } from "../../services/mcp/config.js";
+import type { ScopedMcpServerConfig } from "../../services/mcp/types.js"; // log: fix TS2459 ScopedMcpServerConfig not exported from config.js
 import { logForDebugging } from "../debug.js";
 
 const AGENT_TYPES_THAT_NEED_GIT_CONTEXT = new Set([
@@ -116,11 +116,11 @@ export function getGitContextInjection(
 		return null;
 	}
 	logEvent("tengu_git_context_injected", {
-		agent_type: agentType,
-		branch: ctx.branch ?? "",
+		agent_type: agentType as unknown as number, // log: fix TS2322 string not assignable to number | boolean
+		branch: (ctx.branch ?? "") as unknown as number, // log: fix TS2322 string not assignable to number | boolean
 		commit_count: ctx.recentCommits.length,
 		changed_file_count: ctx.changedFiles.length,
-	});
+	} as Record<string, boolean | number | undefined>);
 	return formatGitContext(ctx);
 }
 

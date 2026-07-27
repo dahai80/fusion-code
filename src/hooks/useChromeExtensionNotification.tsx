@@ -14,7 +14,7 @@ function getChromeFlag(): boolean | undefined {
   return undefined;
 }
 export function useChromeExtensionNotification() {
-  useStartupNotification(_temp);
+  useStartupNotification(_temp as () => Promise<import('../context/notifications.js').Notification | null>); // log: widen return type
 }
 async function _temp() {
   const chromeFlag = getChromeFlag();

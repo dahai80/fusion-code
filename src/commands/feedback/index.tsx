@@ -16,19 +16,7 @@ const feedback: Command = {
             isEnvTruthy(process.env.DISABLE_BUG_COMMAND) ||
             process.env.USER_TYPE === 'ant'
         ),
-    async call(onDone, context, args) {
-        const { Feedback } = await import('../../components/Feedback.js')
-        const initialDescription = args || ''
-        return (
-            <Feedback
-                abortSignal={context.abortController.signal}
-                messages={context.messages}
-                initialDescription={initialDescription}
-                onDone={onDone}
-                backgroundTasks={{}}
-            />
-        )
-    },
+    load: () => import('./feedback.js'), // log: moved call to module via load()
 }
 
 export default feedback

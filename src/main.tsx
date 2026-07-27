@@ -4461,7 +4461,7 @@ async function run(): Promise<CommanderCommand> {
 				thinkingConfig,
 				...(uploaderReady && {
 					onTurnComplete: (messages: MessageType[]) => {
-						void uploaderReady.then((uploader) => uploader?.(messages));
+						void uploaderReady.then((uploader: unknown) => (uploader as (msgs: MessageType[]) => void)?.(messages));
 					},
 				}),
 			};
@@ -5135,7 +5135,7 @@ async function run(): Promise<CommanderCommand> {
 						if (ccshareId) {
 							try {
 								const resumeStart = performance.now();
-								const logOption = await loadCcshare(ccshareId);
+								const logOption = (await loadCcshare(ccshareId)) as string | LogOption;
 								const result = await loadConversationForResume(
 									logOption,
 									undefined,

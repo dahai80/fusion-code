@@ -273,7 +273,7 @@ export async function getAnthropicClient({
 		try {
 			const { AnthropicBedrock } = await import("@anthropic-ai/bedrock-sdk");
 			const bedrockArgs: ConstructorParameters<typeof AnthropicBedrock>[0] = {
-				...ARGS,
+				...(ARGS as any), // log: widen ARGS type for bedrock constructor compat
 				...(bedrockConfig.profile && { awsProfile: bedrockConfig.profile }),
 				...(isDebugToStdErr() && { logger: createStderrLogger() }),
 			};

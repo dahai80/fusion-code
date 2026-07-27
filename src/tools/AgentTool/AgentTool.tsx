@@ -1497,7 +1497,7 @@ export const AgentTool = buildTool({
 							) {
 								onProgress({
 									toolUseID: message.toolUseID,
-									data: message.data,
+									data: message.data as unknown as Progress, // log: cast ProgressMessage data to Progress
 								});
 							}
 							if (message.type !== "assistant" && message.type !== "user") {

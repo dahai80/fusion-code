@@ -31,7 +31,7 @@ export function QuickOpenDialog(t0) {
     onDone,
     onInsert
   } = t0;
-  useRegisterOverlay("quick-open");
+  useRegisterOverlay("quick-open", true); // log: add default second arg for compiled output
   const {
     columns,
     rows

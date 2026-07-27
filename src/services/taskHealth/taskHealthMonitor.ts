@@ -91,7 +91,7 @@ export function markStaleTask(
     description: string,
     reason: string,
 ): void {
-    logForDebugging('task-stale', { taskId, reason })
+    logForDebugging(`task-stale taskId=${taskId} reason=${reason}`) // log: inline data into message string
     getNotificationManager().publish({
         taskId,
         taskType,
@@ -106,7 +106,7 @@ export function markLostTask(
     description: string,
     reason: string,
 ): void {
-    logForDebugging('task-lost', { taskId, reason })
+    logForDebugging(`task-lost taskId=${taskId} reason=${reason}`) // log: inline data into message string
     getNotificationManager().publish({
         taskId,
         taskType,

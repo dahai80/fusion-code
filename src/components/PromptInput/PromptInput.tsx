@@ -81,6 +81,7 @@ import type { ProcessUserInputContext } from '../../utils/processUserInput/proce
 import { editPromptInEditor } from '../../utils/promptEditor.js';
 import { hasAutoModeOptIn } from '../../utils/settings/settings.js';
 import { applySettingsChange } from '../../utils/settings/applySettingsChange.js';
+import type { SettingSource } from '../../utils/settings/constants.js'; // log: needed for 'effort' cast
 import { findBtwTriggerPositions } from '../../utils/sideQuestion.js';
 import { findSlashCommandPositions } from '../../utils/suggestions/commandSuggestions.js';
 import { findSlackChannelPositions, getKnownChannelsVersion, hasSlackMcpServer, subscribeKnownChannels } from '../../utils/suggestions/slackChannelSuggestions.js';
@@ -1419,7 +1420,7 @@ function PromptInput({
     const persistable = toPersistableEffort(nextLevel)
     setAppState(prev => ({ ...prev, effortValue: nextLevel }))
     if (persistable) {
-      void applySettingsChange('effort', setAppState)
+      void applySettingsChange('effort' as SettingSource, setAppState) // log: fix TS2345 — 'effort' not in SettingSource union
     }
     logForDebugging(`[effort] up: ${currentLevel} → ${nextLevel}`)
   }, [mainLoopModel, effortValue])
@@ -1435,7 +1436,7 @@ function PromptInput({
     const persistable = toPersistableEffort(nextLevel)
     setAppState(prev => ({ ...prev, effortValue: nextLevel }))
     if (persistable) {
-      void applySettingsChange('effort', setAppState)
+      void applySettingsChange('effort' as SettingSource, setAppState) // log: fix TS2345 — 'effort' not in SettingSource union
     }
     logForDebugging(`[effort] down: ${currentLevel} → ${nextLevel}`)
   }, [mainLoopModel, effortValue])

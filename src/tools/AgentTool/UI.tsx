@@ -1,4 +1,5 @@
 import { c as _c } from "react/compiler-runtime";
+import type { BetaUsage } from '@anthropic-ai/sdk/resources/beta/messages/messages.mjs';
 import type { ToolResultBlockParam, ToolUseBlockParam } from '@anthropic-ai/sdk/resources/index.mjs';
 import * as React from 'react';
 import { ConfigurableShortcutHint } from 'src/components/ConfigurableShortcutHint.js';
@@ -382,7 +383,7 @@ export function renderToolResultMessage(data: Output, progressMessagesForMessage
       inference_geo: null,
       iterations: null,
       speed: null
-    }
+    } as BetaUsage, // log: cast null fields to BetaUsage
   });
   return <Box flexDirection="column">
       {"external" === 'ant' && <MessageResponse>

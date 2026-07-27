@@ -195,7 +195,7 @@ function ripGrepRaw(
       } else {
         const error: ExecFileException = new Error(
           `ripgrep exited with code ${code}`,
-        )
+        ) as ExecFileException // log: fix TS2741 missing 'cmd'
         error.code = code ?? undefined
         error.signal = signal ?? undefined
         callback(error, stdout, stderr)
@@ -207,7 +207,7 @@ function ripGrepRaw(
       settled = true
       clearTimeout(timeoutId)
       clearTimeout(killTimeoutId)
-      const error: ExecFileException = err
+      const error: ExecFileException = err as ExecFileException // log: fix TS2741 missing 'cmd'
       callback(error, stdout, stderr)
     })
 

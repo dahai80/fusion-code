@@ -14,6 +14,7 @@ import {
   getDeclaredMarketplaces,
   loadKnownMarketplacesConfig,
 } from '../../utils/plugins/marketplaceManager.js'
+import type { KnownMarketplacesFile } from '../../utils/plugins/schemas.js' // log: import for diffMarketplaces param
 import { clearPluginCache } from '../../utils/plugins/pluginLoader.js'
 import {
   diffMarketplaces,
@@ -64,9 +65,9 @@ export async function performBackgroundPluginInstallations(
 
   try {
     // Compute diff upfront for initial UI status (pending spinners)
-    const declared = getDeclaredMarketplaces()
-    const materialized = await loadKnownMarketplacesConfig().catch(() => ({}))
-    const diff = diffMarketplaces(declared, materialized)
+    const declared = getDeclaredMarketplaces() // log: already returns Record<string, DeclaredMarketplace>
+    const materialized = await loadKnownMarketplacesConfig().catch(() => ({})) as KnownMarketplacesFile // log: cast to KnownMarketplacesFile for diffMarketplaces
+    const diff = diffMarketplaces(declared, materialized as any) // log: cast KnownMarketplacesFile type mismatch
 
     const pendingNames = [
       ...diff.missing,

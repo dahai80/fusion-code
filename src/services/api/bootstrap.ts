@@ -18,7 +18,7 @@ import { getClaudeCodeUserAgent } from '../../utils/userAgent.js'
 
 const bootstrapResponseSchema = lazySchema(() =>
   z.object({
-    client_data: z.record(z.unknown()).nullish(),
+    client_data: z.record(z.string(), z.unknown()).nullish(), // log: zod v4 record requires key+value args
     additional_model_options: z
       .array(
         z

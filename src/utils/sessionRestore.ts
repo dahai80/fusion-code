@@ -428,7 +428,7 @@ export async function processResumedConversation(
   if (feature('COORDINATOR_MODE')) {
     modeWarning = context.modeApi?.matchSessionMode(result.mode)
     if (modeWarning) {
-      result.messages.push(createSystemMessage(modeWarning, 'warning'))
+      result.messages.push(createSystemMessage(modeWarning, 'warn')) // log: fix TS2345 'warning' not assignable to SystemMessageLevel
     }
   }
 

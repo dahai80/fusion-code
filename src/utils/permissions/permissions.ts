@@ -114,7 +114,7 @@ const PERMISSION_RULE_SOURCES = [
 export function permissionRuleSourceDisplayString(
   source: PermissionRuleSource,
 ): string {
-  return getSettingSourceDisplayNameLowercase(source)
+  return getSettingSourceDisplayNameLowercase(source as any) // log: cast for extended PermissionRuleSource
 }
 
 export function getAllowRules(

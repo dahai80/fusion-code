@@ -43,7 +43,7 @@ export async function getImageProcessor(): Promise<SharpFunction> {
     // Try to load the native image processor first
     try {
       // Use the native image processor module
-      const imageProcessor = (await import('image-processor-napi')) as typeof import('image-processor-napi') & { sharp?: SharpFunction; default?: SharpFunction } // log: fix TS2339
+      const imageProcessor = (await import('image-processor-napi')) as unknown as typeof import('image-processor-napi') & { sharp?: SharpFunction; default?: SharpFunction } // log: cast through unknown
       const sharp = imageProcessor.sharp || imageProcessor.default
       imageProcessorModule = { default: sharp }
       return sharp

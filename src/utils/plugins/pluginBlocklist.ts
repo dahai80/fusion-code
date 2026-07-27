@@ -69,18 +69,20 @@ export async function detectAndUninstallDelistedPlugins(): Promise<string[]> {
   // Read-only iteration — Safe variant so a corrupted config doesn't throw
   // out of this function (it's called in the same try-block as loadAllPlugins
   // in useManagePlugins, so a throw here would void loadAllPlugins' resilience).
+  // log: fix TS2345 - loadKnownMarketplacesConfigSafe returns KnownMarketplacesFile
   const knownMarketplaces = await loadKnownMarketplacesConfigSafe()
   const newlyFlagged: string[] = []
 
   for (const marketplaceName of Object.keys(knownMarketplaces)) {
     try {
       const marketplace = await getMarketplace(marketplaceName)
-
+      if (!marketplace) continue
       if (!marketplace.forceRemoveDeletedPlugins) continue
 
+      // log: fix TS2345 - cast MarketplaceConfig to PluginMarketplace
       const delisted = detectDelistedPlugins(
         installedPlugins,
-        marketplace,
+        marketplace as unknown as PluginMarketplace,
         marketplaceName,
       )
 

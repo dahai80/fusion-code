@@ -712,6 +712,9 @@ export type Tools = readonly Tool[]
  * the resulting `Tool` always has them.
  */
 type DefaultableToolKeys =
+  | 'call'
+  | 'renderToolUseMessage'
+  | 'prompt'
   | 'isEnabled'
   | 'isConcurrencySafe'
   | 'isReadOnly'
@@ -762,6 +765,11 @@ type BuiltTool<D> = Omit<D, DefaultableToolKeys> & {
  * - `userFacingName` → `name`
  */
 const TOOL_DEFAULTS = {
+  call: (_args?: unknown, _ctx?: unknown, _canUseTool?: unknown, _parentMessage?: unknown, _onProgress?: unknown): Promise<never> => {
+    throw new Error('Tool must implement call or execute')
+  },
+  renderToolUseMessage: (_input?: unknown): React.ReactNode => null,
+  prompt: async (_options?: unknown): Promise<string> => '',
   isEnabled: () => true,
   isConcurrencySafe: (_input?: unknown) => false,
   isReadOnly: (_input?: unknown) => false,

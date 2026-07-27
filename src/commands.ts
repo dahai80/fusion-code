@@ -168,13 +168,13 @@ export type {
 export { getCommandName, isCommandEnabled } from "./types/command.js";
 
 // Commands that get eliminated from the external build
-export const INTERNAL_ONLY_COMMANDS = [
+export const INTERNAL_ONLY_COMMANDS: Command[] = [
 	commit,
 	initVerifiers,
 	version,
 	resetLimits,
 	resetLimitsNonInteractive,
-].filter(Boolean);
+].filter(Boolean) as Command[];
 
 // Declared as a function so that we don't run this until getCommands is called,
 // since underlying functions read from config, which can't be read at module initialization time
@@ -280,7 +280,7 @@ const COMMANDS = memoize((): Command[] => [
 	exportCommand,
 	sandboxToggle,
 	securityReview,
-	...(!isUsing3PServices() && !isFusionMlxProvider() ? [logout, login()] : []),
+	...((!isUsing3PServices() && !isFusionMlxProvider() ? [logout, login()] : []) as Command[]),
 	passes,
 	tasks,
 	usageReport,

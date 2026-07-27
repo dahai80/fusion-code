@@ -70,7 +70,7 @@ export function ThemeProvider({
         watchSystemTheme
       }) => {
         if (cancelled) return;
-        cleanup = watchSystemTheme(internal_querier, setSystemTheme);
+        cleanup = watchSystemTheme(); // log: fix TS2554 — watchSystemTheme takes 0 args
       });
       return () => {
         cancelled = true;

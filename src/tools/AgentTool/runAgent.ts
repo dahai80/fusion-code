@@ -31,6 +31,7 @@ import type { Command } from '../../types/command.js'
 import type { AgentId } from '../../types/ids.js'
 import type {
   AssistantMessage,
+  ContentBlockParam,
   Message,
   ProgressMessage,
   RequestStartEvent,
@@ -638,7 +639,7 @@ export async function* runAgent({
 
       initialMessages.push(
         createUserMessage({
-          content: [{ type: 'text', text: metadata }, ...content],
+          content: [{ type: 'text', text: metadata }, ...content] as ContentBlockParam[], // log: cast spread array to ContentBlockParam[]
           isMeta: true,
         }),
       )

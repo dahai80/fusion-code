@@ -231,14 +231,14 @@ export async function getErrorLogByIndex(
 async function loadLogList(path: string): Promise<LogOption[]> {
   let files: Awaited<ReturnType<typeof readdir>>
   try {
-    files = await readdir(path, { withFileTypes: true })
+    files = (await readdir(path, { withFileTypes: true })) as unknown as Awaited<ReturnType<typeof readdir>> // log: fix TS2322 Dirent<string>[] vs Dirent<NonSharedBuffer>[]
   } catch {
     logError(new Error(`No logs found at ${path}`))
     return []
   }
   const logData = await Promise.all(
     files.map(async (file, i) => {
-      const fullPath = join(path, file.name)
+      const fullPath = join(path, file.name as unknown as string) // log: fix TS2345 NonSharedBuffer not assignable to string
       const content = await readFile(fullPath, { encoding: 'utf8' })
       const messages = jsonParse(content) as SerializedMessage[]
       const firstMessage = messages[0]

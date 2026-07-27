@@ -35,10 +35,7 @@ export function recoverTasks(tasks: TaskState[]): RecoveryReport {
 
         if (task.status === 'running') {
             report.lost++
-            logForDebugging('task-crash-recovery-lost', {
-                taskId: task.taskId,
-                taskType: task.taskType,
-            })
+            logForDebugging(`task-crash-recovery-lost taskId=${task.taskId} taskType=${task.taskType}`) // log: inline data into message string
             getNotificationManager().publish({
                 taskId: task.taskId,
                 taskType: task.taskType,
@@ -47,13 +44,10 @@ export function recoverTasks(tasks: TaskState[]): RecoveryReport {
             })
         } else if (task.status === 'pending') {
             report.recovered++
-            logForDebugging('task-crash-recovery-recovered', {
-                taskId: task.taskId,
-                taskType: task.taskType,
-            })
+            logForDebugging(`task-crash-recovery-recovered taskId=${task.taskId} taskType=${task.taskType}`) // log: inline data into message string
         }
     }
 
-    logForDebugging('task-crash-recovery-complete', report)
+    logForDebugging(`task-crash-recovery-complete ${JSON.stringify(report)}`) // log: inline data into message string
     return report
 }

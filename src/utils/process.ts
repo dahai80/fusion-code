@@ -66,3 +66,8 @@ export function peekForStdinData(
     stream.once('data', onFirstData)
   })
 }
+
+// Imported by daemon/main — synchronous graceful shutdown
+export function gracefulShutdownSync(code?: number): void {
+    process.exit(code ?? 0)
+}

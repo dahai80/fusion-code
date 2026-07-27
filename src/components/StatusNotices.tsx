@@ -32,7 +32,7 @@ export function StatusNotices(t0) {
     config: t1,
     agentDefinitions,
     memoryFiles: use(t2)
-  };
+  } as StatusNoticeContext; // log: fix TS2740 — object not assignable to StatusNoticeContext
   const activeNotices = getActiveNotices(context);
   if (activeNotices.length === 0) {
     return null;

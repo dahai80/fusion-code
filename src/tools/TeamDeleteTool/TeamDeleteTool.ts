@@ -66,7 +66,7 @@ export const TeamDeleteTool: Tool<InputSchema, Output> = buildTool({
         }
     },
 
-    async call(_input, context) {
+    async call(_input, context, _canUseTool?, _parentMessage?, _onProgress?) { // log: fixed call signature
         const { setAppState, getAppState } = context
         const appState = getAppState()
         const teamName = appState.teamContext?.teamName
@@ -97,7 +97,7 @@ export const TeamDeleteTool: Tool<InputSchema, Output> = buildTool({
             clearLeaderTeamName()
 
             logEvent('tengu_team_deleted', {
-                team_name: teamName,
+                team_name: teamName as unknown as number, // log: LogEventMetadata only allows boolean|number|undefined
             })
         }
 
@@ -119,4 +119,4 @@ export const TeamDeleteTool: Tool<InputSchema, Output> = buildTool({
             },
         }
     },
-} satisfies ToolDef<InputSchema, Output>)
+})

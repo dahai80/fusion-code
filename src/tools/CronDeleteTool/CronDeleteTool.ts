@@ -39,7 +39,8 @@ export const CronDeleteTool = buildTool({
     get outputSchema(): OutputSchema {
         return outputSchema()
     },
-    async execute({ id }, _context, _toolContext) {
+    // log: execute signature expanded to match Tool type (5 params)
+    async execute({ id }, _context, _canUseTool?, _parentMessage?, _onProgress?) {
         await removeCronTasks([id])
         return {
             data: {

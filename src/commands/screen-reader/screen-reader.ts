@@ -35,7 +35,7 @@ export async function call(
         next
             ? 'Screen reader mode ON: animations disabled, plain text status'
             : 'Screen reader mode OFF: animations restored',
-        { type: 'display', display: 'system' },
+        { display: 'system' }, // log: removed 'type' - not in LocalJSXCommandOnDone options
     )
     return null
 }

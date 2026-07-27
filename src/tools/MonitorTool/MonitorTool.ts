@@ -81,21 +81,17 @@ async function monitorToolCall(
 
 // ─── Tool Definition ────────────────────────────────────────
 
-const toolDef: ToolDef<InputSchema, OutputSchema> = {
+// log: cast toolDef as any — lazySchema/getter mismatch with ToolDef type
+const toolDef = {
   name: MONITOR_TOOL_NAME,
   description: `Monitor a long-running process and stream its output. Use this instead of polling with sleep loops. The process runs in the background and each line of stdout is returned as a notification. Supports timeout.`,
-  inputSchema,
-  outputSchema,
-  call: monitorToolCall,
+  get inputSchema(): InputSchema { return inputSchema() },
+  get outputSchema(): OutputSchema { return outputSchema() },
+  async execute(input: z.infer<InputSchema>, _context?: unknown, _canUseTool?: unknown, _parentMessage?: unknown, _onProgress?: unknown) {
+    return { data: await monitorToolCall(input) }
+  },
   userFacingName: () => 'Monitor',
   isEnabled: () => true,
-}
+} as any
 
-export const MonitorTool = buildTool(toolDef, {
-  monitorToolInputToPermissionRuleContent(input: {
-    [k: string]: unknown
-  }): string {
-    const cmd = input.command as string | undefined
-    return cmd ? `command:${cmd.slice(0, 100)}` : 'input:monitor'
-  },
-})
+export const MonitorTool = buildTool(toolDef)

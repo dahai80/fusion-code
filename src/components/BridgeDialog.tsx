@@ -22,7 +22,7 @@ export function BridgeDialog(t0) {
   const {
     onDone
   } = t0;
-  useRegisterOverlay("bridge-dialog");
+  useRegisterOverlay("bridge-dialog", true); // log: add default second arg for compiled output
   const connected = useAppState(_temp);
   const sessionActive = useAppState(_temp2);
   const reconnecting = useAppState(_temp3);
@@ -183,7 +183,7 @@ export function BridgeDialog(t0) {
     const contextSuffix = contextParts.length > 0 ? " \xB7 " + contextParts.join(" \xB7 ") : "";
     let t18;
     if ($[45] !== displayUrl || $[46] !== error || $[47] !== sessionActive) {
-      t18 = error ? FAILED_FOOTER_TEXT : displayUrl ? sessionActive ? buildActiveFooterText(displayUrl) : buildIdleFooterText(displayUrl) : undefined;
+      t18 = error ? FAILED_FOOTER_TEXT : displayUrl ? sessionActive ? buildActiveFooterText() : buildIdleFooterText() : undefined; // log: fix TS2554 — these functions take 0 args
       $[45] = displayUrl;
       $[46] = error;
       $[47] = sessionActive;

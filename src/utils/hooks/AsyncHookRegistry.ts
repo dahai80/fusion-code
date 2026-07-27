@@ -44,7 +44,7 @@ export function registerPendingAsyncHook({
   toolName?: string
   pluginId?: string
 }): void {
-  const timeout = asyncResponse.asyncTimeout || 15000 // Default 15s
+  const timeout = (asyncResponse.asyncTimeout as number) || 15000 // Default 15s // log: fix TS2322 unknown->number
   logForDebugging(
     `Hooks: Registering async hook ${processId} (${hookName}) with timeout ${timeout}ms`,
   )

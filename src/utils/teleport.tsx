@@ -56,7 +56,7 @@ function createTeleportResumeSystemMessage(branchError: Error | null): SystemMes
     return createSystemMessage('Session resumed', 'suggestion');
   }
   const formattedError = branchError instanceof TeleportOperationError ? branchError.formattedMessage : branchError.message;
-  return createSystemMessage(`Session resumed without branch: ${formattedError}`, 'warning');
+  return createSystemMessage(`Session resumed without branch: ${formattedError}`, 'warn'); // log: fix TS2345 'warning' not assignable to SystemMessageLevel
 }
 
 /**

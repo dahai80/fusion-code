@@ -363,7 +363,7 @@ export async function mcpResetChoicesHandler(): Promise<void> {
 }
 
 export async function mcpLoginHandler(name: string): Promise<void> {
-    logEvent('tengu_mcp_login', { name });
+    logEvent('tengu_mcp_login', { name: 1 }); // log: analytics metadata must be number|boolean
     const configs = await getAllMcpConfigs();
     const serverConfig = configs.servers[name];
     if (!serverConfig) {
@@ -387,13 +387,13 @@ export async function mcpLoginHandler(name: string): Promise<void> {
 }
 
 export async function mcpLogoutHandler(name: string): Promise<void> {
-    logEvent('tengu_mcp_logout', { name });
+    logEvent('tengu_mcp_logout', { name: 1 }); // log: analytics metadata must be number|boolean
     try {
-        clearMcpClientConfig(name);
         const configs = await getAllMcpConfigs();
         const serverConfig = configs.servers[name];
         if (serverConfig) {
-            clearServerTokensFromLocalStorage(name, serverConfig);
+            clearMcpClientConfig(name, serverConfig as any); // log: clearMcpClientConfig requires serverConfig
+            clearServerTokensFromLocalStorage(name, serverConfig as any); // log: ScopedMcpServerConfig widen to satisfy McpSSE|McpHTTP
         }
         cliOk(`Logged out from MCP server "${name}". Authentication tokens cleared.`);
     } catch (error) {

@@ -195,9 +195,9 @@ export async function prepareForkedCommandContext(
 ): Promise<PreparedForkedContext> {
   // Get skill content with $ARGUMENTS replaced
   const skillPrompt = await command.getPromptForCommand(args, context)
-  const skillContent = skillPrompt
-    .map(block => (block.type === 'text' ? block.text : ''))
-    .join('\n')
+  const skillContent = typeof skillPrompt === 'string'
+    ? skillPrompt
+    : skillPrompt.map(block => (block.type === 'text' ? block.text : '')).join('\n') // log: fix TS2339 narrow string|ContentBlockParam[]
 
   // Parse and prepare allowed tools
   const allowedTools = parseToolListFromCLI(command.allowedTools ?? [])

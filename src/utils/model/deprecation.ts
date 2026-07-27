@@ -38,6 +38,8 @@ const DEPRECATED_MODELS: Record<string, DeprecationEntry> = {
       foundry: 'January 5, 2026',
       openai: null,
       fusionMlx: null,
+      bedrock: null, // log: fix TS2739
+      vertex: null,
     },
   },
   'claude-3-7-sonnet': {
@@ -47,6 +49,8 @@ const DEPRECATED_MODELS: Record<string, DeprecationEntry> = {
       foundry: 'February 19, 2026',
       openai: null,
       fusionMlx: null,
+      bedrock: null,
+      vertex: null,
     },
   },
   'claude-3-5-haiku': {
@@ -56,6 +60,8 @@ const DEPRECATED_MODELS: Record<string, DeprecationEntry> = {
       foundry: null,
       openai: null,
       fusionMlx: null,
+      bedrock: null,
+      vertex: null,
     },
   },
 }

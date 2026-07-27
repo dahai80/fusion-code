@@ -2228,15 +2228,15 @@ async function* queryModel(
 
             const lastMsg = newMessages.at(-1)
             if (lastMsg) {
-              lastMsg.message.usage = usage
+              lastMsg.message.usage = usage as BetaUsage // log: cast NonNullableUsage to BetaUsage
               lastMsg.message.stop_reason = stopReason
             }
 
             // Update cost
-            const costUSDForPart = calculateUSDCost(resolvedModel, usage)
+            const costUSDForPart = calculateUSDCost(resolvedModel, usage as BetaUsage) // log: cast NonNullableUsage to BetaUsage
             costUSD += addToTotalSessionCost(
               costUSDForPart,
-              usage,
+              usage as BetaUsage, // log: cast NonNullableUsage to BetaUsage
               options.model,
             )
 
@@ -2256,8 +2256,8 @@ async function* queryModel(
                 content: `${API_ERROR_MESSAGE_PREFIX}: Claude's response exceeded the ${
                   maxOutputTokens
                 } output token maximum. To configure this behavior, set the FUSION_CODE_MAX_OUTPUT_TOKENS environment variable.`,
-                apiError: 'max_output_tokens',
-                error: 'max_output_tokens',
+                apiError: { status: 400, message: 'max_output_tokens' }, // log: wrap string in proper apiError object
+                error: { type: 'assistant_error', message: 'max_output_tokens' }, // log: wrap string in proper SDKAssistantMessageError
               })
             }
 
@@ -2271,8 +2271,8 @@ async function* queryModel(
               // where you left off."
               yield createAssistantAPIErrorMessage({
                 content: `${API_ERROR_MESSAGE_PREFIX}: The model has reached its context window limit.`,
-                apiError: 'max_output_tokens',
-                error: 'max_output_tokens',
+                apiError: { status: 400, message: 'max_output_tokens' }, // log: wrap string in proper apiError object
+                error: { type: 'assistant_error', message: 'max_output_tokens' }, // log: wrap string in proper SDKAssistantMessageError
               })
             }
             break

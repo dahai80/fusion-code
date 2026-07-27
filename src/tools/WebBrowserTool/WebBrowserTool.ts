@@ -12,7 +12,9 @@
  */
 
 import { z } from 'zod/v4'
-import { buildTool, type ToolDef } from '../../Tool.js'
+import { buildTool, type ToolDef, type ToolUseContext, type ToolCallProgress, type ToolProgressData } from '../../Tool.js'
+import type { CanUseToolFn } from '../../hooks/useCanUseTool.js'
+import type { AssistantMessage } from '../../types/message.js'
 import { lazySchema } from '../../utils/lazySchema.js'
 import { logForDebugging } from '../../utils/debug.js'
 import { MAX_MARKDOWN_LENGTH } from '../WebFetchTool/utils.js'
@@ -182,9 +184,8 @@ async function handleNavigate(
   logForDebugging(`[WebBrowser] Navigating to: ${url}`)
 
   try {
-    const content = await getURLMarkdownContent(url, {
-      maxContentLength: MAX_MARKDOWN_LENGTH,
-    })
+    // log: fix getURLMarkdownContent call — second arg is AbortController not options
+    const content = await getURLMarkdownContent(url, new AbortController())
 
     pushHistory(url)
     session.pageContent = content.markdown
@@ -337,32 +338,39 @@ function extractTitle(markdown: string): string | null {
 
 // ─── Tool Definition ────────────────────────────────────────
 
-const toolDef: ToolDef<InputSchema, OutputSchema> = {
+// log: removed ToolDef type annotation — lazySchema/getter mismatch
+const toolDef = {
   name: WEB_BROWSER_TOOL_NAME,
-  description: `Fetch and interact with web pages. Supports navigate (fetch and render page content), get_content (retrieve current page text), back/forward (history navigation), and refresh. For interactive actions (click, type, submit, scroll, screenshot), use navigate with the target URL directly or use the WebFetchTool.`,
-  inputSchema,
-  outputSchema,
-  call: browserToolCall,
+  async description() {
+    return `Fetch and interact with web pages. Supports navigate (fetch and render page content), get_content (retrieve current page text), back/forward (history navigation), and refresh. For interactive actions (click, type, submit, scroll, screenshot), use navigate with the target URL directly or use the WebFetchTool.`
+  },
+  maxResultSizeChars: 100_000,
+  get inputSchema(): InputSchema { return inputSchema() },
+  get outputSchema(): OutputSchema { return outputSchema() },
+  async execute(input: z.infer<InputSchema>, _context: ToolUseContext, _canUseTool?: CanUseToolFn, _parentMessage?: AssistantMessage, _onProgress?: ToolCallProgress<ToolProgressData>): Promise<{ data: z.infer<OutputSchema> }> {
+    return { data: await browserToolCall(input) }
+  },
   userFacingName: () => 'WebBrowser',
   isEnabled: () => true,
+  isReadOnly: () => true,
+  isConcurrencySafe: () => false,
+  toAutoClassifierInput: (_input?: unknown) => '',
+  mapToolResultToToolResultBlockParam(content: z.infer<OutputSchema>, toolUseID: string) {
+    const parts = [`URL: ${content.url}`]
+    if (content.title) parts.push(`Title: ${content.title}`)
+    if (content.error) parts.push(`Error: ${content.error}`)
+    parts.push(`Duration: ${content.durationMs}ms`)
+    return {
+      tool_use_id: toolUseID,
+      type: 'tool_result' as const,
+      content: parts.join(' | '),
+    }
+  },
+  renderToolUseMessage(input: Partial<z.infer<InputSchema>>) {
+    return `WebBrowser ${input.action}${input.url ? ` ${input.url}` : ''}`
+  },
+  prompt: async () => 'Navigate and interact with web pages.',
+  checkPermissions: async (input: { [key: string]: unknown }) => ({ behavior: 'allow' as const, updatedInput: input }),
 }
 
-export const WebBrowserTool = buildTool(toolDef, {
-  /**
-   * Permission rule content for the tool.
-   * Extracts the domain from the URL for permission matching.
-   */
-  webBrowserToolInputToPermissionRuleContent(input: {
-    [k: string]: unknown
-  }): string {
-    const url = input.url as string | undefined
-    if (url) {
-      try {
-        return `domain:${new URL(url).hostname}`
-      } catch {
-        return `input:${url}`
-      }
-    }
-    return 'input:browser'
-  },
-})
+export const WebBrowserTool = buildTool(toolDef)

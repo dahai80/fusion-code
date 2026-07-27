@@ -198,10 +198,7 @@ export function PowerShellPermissionRequest(props: PermissionRequestProps): Reac
           {PowerShellTool.renderToolUseMessage({
           command,
           description
-        }, {
-          theme,
-          verbose: true
-        } // always show the full command
+        }// always show the full command
         )}
         </Text>
         {!explainerState.visible && <Text dimColor>{toolUseConfirm.description}</Text>}

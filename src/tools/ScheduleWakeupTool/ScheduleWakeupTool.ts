@@ -75,8 +75,10 @@ export const ScheduleWakeupTool = buildTool({
     async execute(
         { delaySeconds, prompt, reason, stop },
         _context,
-        _toolContext,
-    ) {
+        _canUseTool?,
+        _parentMessage?,
+        _onProgress?,
+    ) { // log: fixed execute signature
         if (stop) {
             return {
                 data: { stopped: true },
@@ -114,4 +116,4 @@ export const ScheduleWakeupTool = buildTool({
             content: `Scheduled dynamic loop wakeup → job ${result.jobId}`,
         }
     },
-} satisfies ToolDef<InputSchema, Output>)
+})

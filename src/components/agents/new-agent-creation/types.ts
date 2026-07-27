@@ -29,4 +29,5 @@ export type AgentWizardData = {
     selectedMemory?: AgentMemoryScope
     isGenerating?: boolean
     finalAgent?: FinalAgentData
+    generatedAgent?: FinalAgentData // log: fix TS2339 — used in GenerateStep
 }

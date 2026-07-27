@@ -812,14 +812,28 @@ async function performMCPXaaAuth(
           scope: tokens.scope,
           clientId,
           clientSecret,
-          // Persist the AS URL so _doRefresh and revokeServerTokens can locate
-          // the token/revocation endpoints when MCP URL ≠ AS URL (the common
-          // XAA topology).
           discoveryState: {
             authorizationServerUrl: tokens.authorizationServerUrl,
+            resourceMetadataUrl: prev?.discoveryState?.resourceMetadataUrl ?? '', // log: preserve existing or default
           },
         },
-      },
+      } as Record<string, { // log: cast to fix index signature mismatch
+        serverName: string
+        serverUrl: string
+        clientId?: string
+        clientSecret?: string
+        accessToken?: string
+        refreshToken?: string
+        expiresAt?: number
+        scope?: string
+        stepUpScope?: string
+        discoveryState?: {
+          authorizationServerUrl: string
+          resourceMetadataUrl: string
+          authorizationServerMetadata?: unknown
+          resourceMetadata?: unknown
+        }
+      }>,
     })
 
     logMCPDebug(serverName, 'XAA: tokens saved')
@@ -1826,9 +1840,26 @@ export class ClaudeAuthProvider implements OAuthClientProvider {
             clientSecret: clientConfig.clientSecret,
             discoveryState: {
               authorizationServerUrl: tokens.authorizationServerUrl,
+              resourceMetadataUrl: prev?.discoveryState?.resourceMetadataUrl ?? '', // log: preserve existing or default
             },
           },
-        },
+        } as Record<string, { // log: cast to fix index signature mismatch
+          serverName: string
+          serverUrl: string
+          clientId?: string
+          clientSecret?: string
+          accessToken?: string
+          refreshToken?: string
+          expiresAt?: number
+          scope?: string
+          stepUpScope?: string
+          discoveryState?: {
+            authorizationServerUrl: string
+            resourceMetadataUrl: string
+            authorizationServerMetadata?: unknown
+            resourceMetadata?: unknown
+          }
+        }>,
       })
       return {
         access_token: tokens.access_token,

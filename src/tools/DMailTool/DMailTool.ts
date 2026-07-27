@@ -48,7 +48,8 @@ export const DMailTool = buildTool({
 	get outputSchema(): OutputSchema {
 		return outputSchema();
 	},
-	async execute({ subject, summary }, _context) {
+	// log: execute signature expanded to match Tool type (5 params)
+	async execute({ subject, summary }, _context, _canUseTool?, _parentMessage?, _onProgress?) {
 		const sessionId = getSessionId();
 
 		const activeGoal = getActiveGoal(sessionId);

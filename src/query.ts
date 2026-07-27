@@ -677,7 +677,7 @@ async function* queryLoop(
 			if (isAtBlockingLimit) {
 				yield createAssistantAPIErrorMessage({
 					content: PROMPT_TOO_LONG_ERROR_MESSAGE,
-					error: "invalid_request" as unknown as SDKAssistantMessageError,
+					error: "invalid_request" as unknown as SDKAssistantMessageError as unknown as SDKAssistantMessageError,
 				});
 				return { reason: "blocking_limit" };
 			}
@@ -706,7 +706,7 @@ async function* queryLoop(
 				);
 				yield createAssistantAPIErrorMessage({
 					content: ERROR_MESSAGE_MLX_MEMORY_LIMIT,
-					error: "invalid_request",
+					error: "invalid_request" as unknown as SDKAssistantMessageError,
 				});
 				return { reason: "mlx_memory_limit" };
 			}
@@ -798,7 +798,7 @@ async function* queryLoop(
 					);
 					yield createAssistantAPIErrorMessage({
 						content: ERROR_MESSAGE_MLX_MEMORY_LIMIT,
-						error: "invalid_request" as unknown as SDKAssistantMessageError,
+						error: "invalid_request" as unknown as SDKAssistantMessageError as unknown as SDKAssistantMessageError,
 					});
 					return { reason: "mlx_memory_limit" };
 				}

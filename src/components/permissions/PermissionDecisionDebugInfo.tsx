@@ -26,7 +26,7 @@ function decisionReasonDisplayString(decisionReason: PermissionDecisionReason & 
   }
   switch (decisionReason.type) {
     case 'rule':
-      return `${chalk.bold(permissionRuleValueToString(decisionReason.rule.ruleValue))} rule from ${getSettingSourceDisplayNameLowercase(decisionReason.rule.source)}`;
+      return `${chalk.bold(permissionRuleValueToString(decisionReason.rule.ruleValue))} rule from ${getSettingSourceDisplayNameLowercase(decisionReason.rule.source as Parameters<typeof getSettingSourceDisplayNameLowercase>[0])}`; // log: fix TS2345 — PermissionRuleSource wider than display func param
     case 'mode':
       return `${permissionModeTitle(decisionReason.mode)} mode`;
     case 'sandboxOverride':
@@ -59,7 +59,7 @@ function PermissionDecisionInfoItem(t0) {
       switch (decisionReason.type) {
         case "subcommandResults":
           {
-            return <Box flexDirection="column">{Array.from(decisionReason.reasons.entries()).map(t2 => {
+            return <Box flexDirection="column">{Array.from((decisionReason.reasons as Map<string, {behavior: string; decisionReason?: any; suggestions?: any}>).entries()).map(t2 => { // log: fix TS2488 — unknown needs Symbol.iterator
                 const [subcommand, result] = t2;
                 const icon = result.behavior === "allow" ? color("success", theme)(figures.tick) : color("error", theme)(figures.cross);
                 return <Box flexDirection="column" key={subcommand}><Text>{icon} {subcommand}</Text>{result.decisionReason !== undefined && result.decisionReason.type !== "subcommandResults" && <Text><Text dimColor={true}>{"  "}⎿{"  "}</Text><Ansi>{decisionReasonDisplayString(result.decisionReason)}</Ansi></Text>}{result.behavior === "ask" && <SuggestedRules suggestions={result.suggestions} />}</Box>;

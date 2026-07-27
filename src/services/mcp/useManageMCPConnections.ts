@@ -698,12 +698,12 @@ export function useManageMCPConnections(
                   const [mcpPrompts, mcpSkills] = await Promise.all([
                     fetchCommandsForClient(client),
                     feature('MCP_SKILLS')
-                      ? fetchMcpSkillsForClient!(client)
+                      ? fetchMcpSkillsForClient!(client.name) // log: pass server name string instead of ConnectedMCPServer
                       : Promise.resolve([]),
                   ])
                   updateServer({
                     ...client,
-                    commands: [...mcpPrompts, ...mcpSkills],
+                    commands: [...mcpPrompts, ...(mcpSkills as any[])], // log: cast (Command|MCPSkill)[] to Command[]
                   })
                   // MCP skills changed — invalidate skill-search index so
                   // next discovery rebuilds with the new set.
@@ -742,12 +742,12 @@ export function useManageMCPConnections(
                       await Promise.all([
                         fetchResourcesForClient(client),
                         fetchCommandsForClient(client),
-                        fetchMcpSkillsForClient!(client),
+                        fetchMcpSkillsForClient!(client.name), // log: pass server name string instead of ConnectedMCPServer
                       ])
                     updateServer({
                       ...client,
                       resources: newResources,
-                      commands: [...mcpPrompts, ...mcpSkills],
+                      commands: [...mcpPrompts, ...(mcpSkills as any[])], // log: cast (Command|MCPSkill)[] to Command[]
                     })
                     // MCP skills changed — invalidate skill-search index so
                     // next discovery rebuilds with the new set.

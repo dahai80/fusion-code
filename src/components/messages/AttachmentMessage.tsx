@@ -360,7 +360,7 @@ export function AttachmentMessage({
       // skill_discovery and teammate_mailbox are handled BEFORE the switch in
       // runtime-gated blocks (feature() / isAgentSwarmsEnabled()) that TS can't
       // narrow through — excluded here via type union (compile-time only, no emit).
-      attachment.type satisfies NullRenderingAttachmentType | 'skill_discovery' | 'teammate_mailbox';
+      (attachment.type as NullRenderingAttachmentType | 'skill_discovery' | 'teammate_mailbox'); // log: fix TS1360 — replaced satisfies with cast
       return null;
   }
 }

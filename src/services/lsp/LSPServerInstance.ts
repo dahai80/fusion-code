@@ -272,12 +272,12 @@ export function createLSPServerInstance(
    * @throws {Error} If server fails to stop
    */
   async function stop(): Promise<void> {
-    if (state === 'stopped' || state === 'stopping') {
+    if (state === 'stopped' || (state as string) === 'stopping') { // log: cast for extended state check
       return
     }
 
     try {
-      state = 'stopping'
+      state = 'stopping' as LspServerState // log: cast intermediate state
       await client.stop()
       state = 'stopped'
       logForDebugging(`LSP server instance stopped: ${name}`)

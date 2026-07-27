@@ -278,7 +278,7 @@ export async function call(
 
     if (context.resume) {
       await context.resume(sessionId, forkLog, 'fork')
-      onDone(successMessage, { type: 'display', display: 'system' })
+      onDone(successMessage, { display: 'system' }) // log: removed 'type' - not in LocalJSXCommandOnDone options
     } else {
       // Fallback if resume not available
       onDone(

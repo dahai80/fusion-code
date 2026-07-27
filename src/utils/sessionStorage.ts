@@ -1923,7 +1923,7 @@ function applyPreservedSegmentRelinks(
     if (head) {
       messages.set(lastSeg.headUuid as UUID, {
         ...head,
-        parentUuid: lastSeg.anchorUuid,
+        parentUuid: lastSeg.anchorUuid as UUID, // log: fix TS2322 string not assignable to UUID
       })
     }
     // Tail-splice: anchor's other children → tail. No-op if already pointing

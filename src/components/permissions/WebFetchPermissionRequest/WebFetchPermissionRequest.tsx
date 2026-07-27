@@ -165,10 +165,8 @@ export function WebFetchPermissionRequest(t0) {
     t6 = WebFetchTool.renderToolUseMessage(toolUseConfirm.input as {
       url: string;
       prompt: string;
-    }, {
-      theme,
-      verbose
-    });
+    }// log: fix TS2554 — renderToolUseMessage takes 1 arg
+    );
     $[14] = theme;
     $[15] = toolUseConfirm.input;
     $[16] = verbose;

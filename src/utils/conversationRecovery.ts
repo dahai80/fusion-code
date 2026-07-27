@@ -90,7 +90,7 @@ function migrateLegacyAttachmentTypes(message: Message): Message {
         type: 'file',
         displayPath: relative(getCwd(), attachment.filename as string),
       },
-    } as SerializedMessage // Cast entire message since we know the structure is correct
+    } as unknown as SerializedMessage // log: double assertion for TS2352
   }
 
   if (attachment.type === 'new_directory') {
@@ -101,7 +101,7 @@ function migrateLegacyAttachmentTypes(message: Message): Message {
         type: 'directory',
         displayPath: relative(getCwd(), attachment.path as string),
       },
-    } as SerializedMessage // Cast entire message since we know the structure is correct
+    } as unknown as SerializedMessage // log: double assertion for TS2352
   }
 
   // Backfill displayPath for attachments from old sessions
@@ -382,7 +382,7 @@ export function restoreSkillStateFromMessages(messages: Message[]): void {
       continue
     }
     if (message.attachment.type === 'invoked_skills') {
-      for (const skill of message.attachment.skills) {
+      for (const skill of message.attachment.skills as Array<{ name: string; path: string; content: string }>) { // log: cast for TS2488
         if (skill.name && skill.path && skill.content) {
           // Resume only happens for the main session, so agentId is null
           addInvokedSkill(skill.name, skill.path, skill.content, null)
@@ -491,11 +491,12 @@ export async function loadConversationForResume(
           const { listAllLiveSessions } = await import('./udsClient.js')
           const live = await listAllLiveSessions()
           skip = new Set(
-            live.flatMap(s =>
-              s.kind && s.kind !== 'interactive' && s.sessionId
-                ? [s.sessionId]
-                : [],
-            ),
+            live.flatMap((s) => {
+                const liveS = s as unknown as { kind?: string; sessionId?: string } // log: cast for TS2339
+                return liveS.kind && liveS.kind !== 'interactive' && liveS.sessionId
+                    ? [liveS.sessionId]
+                    : []
+            }),
           )
         } catch {
           // UDS unavailable — treat all sessions as continuable

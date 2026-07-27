@@ -158,7 +158,7 @@ export class FastPathEngine {
                         )
 
                         logEvent('fast_path_hit', {
-                            rule: rule.name,
+                            rule: rule.name as unknown as number, // log: cast string to number for LogEventMetadata
                             duration_ms: durationMs,
                         })
 

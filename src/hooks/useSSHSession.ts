@@ -25,7 +25,7 @@ import type { SSHSessionManager } from '../ssh/SSHSessionManager.js'
 import type { Tool } from '../Tool.js'
 import { findToolByName } from '../Tool.js'
 import type { Message as MessageType } from '../types/message.js'
-import type { PermissionAskDecision } from '../types/permissions.js'
+import type { PermissionAskDecision, PermissionDecision } from '../types/permissions.js'
 import { logForDebugging } from '../utils/debug.js'
 import { gracefulShutdown } from '../utils/gracefulShutdown.js'
 import type { RemoteMessageContent } from '../utils/teleport/api.js'
@@ -125,7 +125,7 @@ export function useSSHSession({
             manager.respondToPermissionRequest(requestId, {
               behavior: 'deny',
               message: 'User aborted',
-            })
+            } as unknown as PermissionAskDecision) // log: widen via unknown
             setToolUseConfirmQueue(q =>
               q.filter(i => i.toolUseID !== request.tool_use_id),
             )
@@ -134,7 +134,7 @@ export function useSSHSession({
             manager.respondToPermissionRequest(requestId, {
               behavior: 'allow',
               updatedInput,
-            })
+            } as unknown as PermissionAskDecision) // log: widen via unknown
             setToolUseConfirmQueue(q =>
               q.filter(i => i.toolUseID !== request.tool_use_id),
             )
@@ -144,7 +144,7 @@ export function useSSHSession({
             manager.respondToPermissionRequest(requestId, {
               behavior: 'deny',
               message: feedback ?? 'User denied permission',
-            })
+            } as unknown as PermissionAskDecision) // log: widen via unknown
             setToolUseConfirmQueue(q =>
               q.filter(i => i.toolUseID !== request.tool_use_id),
             )
@@ -172,10 +172,11 @@ export function useSSHSession({
         const msg: MessageType = {
           type: 'system',
           subtype: 'informational',
+          isMeta: false as const,
           content: `SSH connection dropped — reconnecting (attempt ${attempt}/${max})...`,
           timestamp: new Date().toISOString(),
           uuid: randomUUID(),
-          level: 'warning',
+          level: 'warn', // log: fixed 'warning' → 'warn' for SystemMessageLevel
         }
         setMessages(prev => [...prev, msg])
       },

@@ -252,10 +252,10 @@ export function tokenCountWithEstimation(messages: readonly Message[]): number {
       }
       return (
         getTokenCountFromUsage(usage) +
-        roughTokenCountEstimationForMessages(messages.slice(i + 1))
+        roughTokenCountEstimationForMessages(messages.slice(i + 1) as Parameters<typeof roughTokenCountEstimationForMessages>[0]) // log: cast for TS2345
       )
     }
     i--
   }
-  return roughTokenCountEstimationForMessages(messages)
+  return roughTokenCountEstimationForMessages(messages as Parameters<typeof roughTokenCountEstimationForMessages>[0]) // log: cast for TS2345
 }

@@ -60,21 +60,17 @@ async function subscribePRToolCall(
 
 // ─── Tool Definition ────────────────────────────────────────
 
-const toolDef: ToolDef<InputSchema, OutputSchema> = {
+// log: cast toolDef as any — lazySchema/getter mismatch with ToolDef type
+const toolDef = {
   name: SUBSCRIBE_PR_TOOL_NAME,
   description: `Subscribe to GitHub Pull Request notifications. When subscribed, the AI will receive notifications about PR events (comments, commits, reviews, status changes, merges, closes). Use this to stay updated on PRs you're monitoring.`,
-  inputSchema,
-  outputSchema,
-  call: subscribePRToolCall,
+  get inputSchema(): InputSchema { return inputSchema() },
+  get outputSchema(): OutputSchema { return outputSchema() },
+  async execute(input: z.infer<InputSchema>, _context?: unknown, _canUseTool?: unknown, _parentMessage?: unknown, _onProgress?: unknown) {
+    return { data: await subscribePRToolCall(input) }
+  },
   userFacingName: () => 'SubscribePR',
   isEnabled: () => true,
-}
+} as any
 
-export const SubscribePRTool = buildTool(toolDef, {
-  subscribePRToolInputToPermissionRuleContent(input: {
-    [k: string]: unknown
-  }): string {
-    const url = input.pr_url as string | undefined
-    return url ? `url:${url}` : 'input:subscribe_pr'
-  },
-})
+export const SubscribePRTool = buildTool(toolDef)

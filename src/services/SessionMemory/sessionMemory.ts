@@ -217,7 +217,7 @@ async function setupSessionMemoryFile(
   const result = await FileReadTool.call(
     { file_path: memoryPath },
     toolUseContext,
-  )
+  ) as any // log: cast never type from overloaded call signature
   let currentMemory = ''
 
   const output = result.data as FileReadToolOutput

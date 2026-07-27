@@ -41,7 +41,7 @@ export function GlobalSearchDialog(t0) {
     onDone,
     onInsert
   } = t0;
-  useRegisterOverlay("global-search");
+  useRegisterOverlay("global-search", true); // log: add default second arg for compiled output
   const {
     columns,
     rows

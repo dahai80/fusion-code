@@ -146,7 +146,7 @@ export function selfCorrectLoop(config: SelfCorrectConfig): SelfCorrectResult {
             console.log(`${LOG_PREFIX} PASSED on iteration ${iteration}`)
             logEvent('self_correct_success', {
                 iterations: iteration,
-                test_command: testCommand,
+                test_command: testCommand as unknown as number, // log: cast string to number for LogEventMetadata
                 is_mlx: isFusionMlxProvider(),
             })
             return {
@@ -170,7 +170,7 @@ export function selfCorrectLoop(config: SelfCorrectConfig): SelfCorrectResult {
     console.log(`${LOG_PREFIX} FAILED after ${maxIterations} iterations`)
     logEvent('self_correct_exhausted', {
         iterations: maxIterations,
-        test_command: testCommand,
+        test_command: testCommand as unknown as number, // log: cast string to number for LogEventMetadata
         is_mlx: isFusionMlxProvider(),
     })
 

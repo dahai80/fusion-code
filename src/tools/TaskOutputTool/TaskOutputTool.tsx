@@ -115,7 +115,7 @@ async function getTaskOutputData(task: TaskState): Promise<TaskOutput> {
     };
   }
   if (task.type === 'remote_agent') {
-    const remoteTask = task as Record<string, unknown>; // log: fix TS2339
+    const remoteTask = task as unknown as Record<string, unknown>; // log: fix TS2352 double assertion
     return {
       ...baseOutput,
       prompt: String(remoteTask.description ?? '') // log: fix TS2339

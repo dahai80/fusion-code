@@ -122,7 +122,7 @@ export function preflightMlxQueryCheck(
         (contextWindow - COMPACT_MAX_OUTPUT_TOKENS) * MLX_QUERY_TOKEN_SAFETY_FACTOR,
     )
 
-    const systemTokens = estimateSystemPromptTokens(systemPrompt)
+    const systemTokens = estimateSystemPromptTokens([systemPrompt]) // log: wrap string in array for TS2345
     const toolsTokens = estimateToolsTokens(tools)
     const messagesTokens = tokenCountWithEstimation(messages)
     const total = systemTokens + toolsTokens + messagesTokens

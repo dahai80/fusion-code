@@ -96,7 +96,7 @@ export function GenerateStep(): ReactNode {
         agentType: generated.identifier,
         whenToUse: generated.whenToUse,
         systemPrompt: generated.systemPrompt,
-        generatedAgent: generated,
+        generatedAgent: generated as any, // log: GeneratedAgent -> FinalAgentData mismatch
         isGenerating: false,
         wasGenerated: true
       });

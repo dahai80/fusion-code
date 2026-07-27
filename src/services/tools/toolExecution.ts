@@ -848,8 +848,8 @@ async function checkPermissionsAndCallTool(
             att.durationMs !== undefined
           ) {
             preToolHookInfos.push({
-              command: att.command,
-              durationMs: att.durationMs,
+              command: att.command as string, // log: type assertion for unknown
+              durationMs: att.durationMs as number, // log: type assertion for unknown
             })
           }
         }
@@ -1530,8 +1530,8 @@ async function checkPermissionsAndCallTool(
             att.durationMs !== undefined
           ) {
             postToolHookInfos.push({
-              command: att.command,
-              durationMs: att.durationMs,
+              command: att.command as string, // log: type assertion for unknown
+              durationMs: att.durationMs as number, // log: type assertion for unknown
             })
           }
         }
@@ -1546,8 +1546,8 @@ async function checkPermissionsAndCallTool(
             att.durationMs !== undefined
           ) {
             postToolHookInfos.push({
-              command: att.command,
-              durationMs: att.durationMs,
+              command: att.command as string, // log: type assertion for unknown
+              durationMs: att.durationMs as number, // log: type assertion for unknown
             })
           }
         }

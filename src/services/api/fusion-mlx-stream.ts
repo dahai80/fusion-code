@@ -331,7 +331,7 @@ export async function* transformMLXStreamToAnthropic(
 					continue;
 				}
 				// 检测 MLX 流式 error chunk(fusion-mlx 生成中错误时可能发 {error:...}),fail visibly 而非静默跳过
-				const errField = (parsed as Record<string, unknown>).error;
+				const errField = (parsed as unknown as Record<string, unknown>).error; // log: intermediate unknown cast
 				if (errField) {
 					const errObj = errField as { message?: string };
 					const errMsg = (errObj && errObj.message) || JSON.stringify(errField);

@@ -37,6 +37,7 @@ export type NotebookCell = {
     id?: string
     execution_count?: number
     outputs?: NotebookCellOutput[]
+    metadata?: Record<string, unknown> // log: added for NotebookEditTool
 }
 
 export type NotebookKernelSpec = {

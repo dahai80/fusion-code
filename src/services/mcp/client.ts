@@ -957,7 +957,7 @@ export const connectToServer = memoize(
         const { createLinkedTransportPair } = await import(
           './InProcessTransport.js'
         )
-        inProcessServer = await createComputerUseMcpServerForCli()
+        inProcessServer = await createComputerUseMcpServerForCli() as typeof inProcessServer // log: cast unknown to in-process server type
         const [clientTransport, serverTransport] = createLinkedTransportPair()
         await inProcessServer.connect(serverTransport)
         transport = clientTransport
@@ -2243,7 +2243,7 @@ export async function reconnectMcpServerImpl(
       fetchToolsForClient(client),
       fetchCommandsForClient(client),
       feature('MCP_SKILLS') && supportsResources
-        ? fetchMcpSkillsForClient!(client)
+        ? fetchMcpSkillsForClient!(name) // log: pass name (string) not client (ConnectedMCPServer)
         : Promise.resolve([]),
       supportsResources ? fetchResourcesForClient(client) : Promise.resolve([]),
     ])
@@ -2417,7 +2417,7 @@ export async function getMcpToolsCommandsAndResources(
         fetchCommandsForClient(client),
         // Discover skills from skill:// resources
         feature('MCP_SKILLS') && supportsResources
-          ? fetchMcpSkillsForClient!(client)
+          ? fetchMcpSkillsForClient!(name) // log: pass name (string) not client (ConnectedMCPServer)
           : Promise.resolve([]),
         // Fetch resources if supported
         supportsResources

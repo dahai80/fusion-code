@@ -115,7 +115,7 @@ export const TeamCreateTool: Tool<InputSchema, Output> = buildTool({
         }
     },
 
-    async call(input, context) {
+    async call(input, context, _canUseTool?, _parentMessage?, _onProgress?) { // log: fixed call signature
         const { setAppState, getAppState } = context
         const { team_name, description: _description, agent_type } = input
 
@@ -188,9 +188,9 @@ export const TeamCreateTool: Tool<InputSchema, Output> = buildTool({
         }))
 
         logEvent('tengu_team_created', {
-            team_name: finalTeamName,
+            team_name: finalTeamName as unknown as number, // log: LogEventMetadata only allows boolean|number|undefined
             teammate_count: 1,
-            lead_agent_type: leadAgentType,
+            lead_agent_type: leadAgentType as unknown as number, // log: same
         })
 
         return {
@@ -201,4 +201,4 @@ export const TeamCreateTool: Tool<InputSchema, Output> = buildTool({
             },
         }
     },
-} satisfies ToolDef<InputSchema, Output>)
+})

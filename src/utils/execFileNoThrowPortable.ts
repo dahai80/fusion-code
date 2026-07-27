@@ -1,4 +1,4 @@
-import { type Options as ExecaOptions, execaSync } from 'execa'
+import { type SyncOptions as ExecaSyncOptions, execaSync } from 'execa' // log: fix TS2769 use SyncOptions for execaSync
 import { getCwd } from '../utils/cwd.js'
 import { slowLogging } from './slowOperations.js'
 
@@ -9,7 +9,7 @@ type ExecSyncOptions = {
   abortSignal?: AbortSignal
   timeout?: number
   input?: string
-  stdio?: ExecaOptions['stdio']
+  stdio?: ExecaSyncOptions['stdio']
 }
 
 /**
@@ -74,7 +74,7 @@ export function execSyncWithDefaults(
       maxBuffer: 1_000_000,
       timeout: finalTimeout,
       cwd: getCwd(),
-      stdio,
+      stdio: stdio as ExecaSyncOptions['stdio'], // log: fix TS2769 cast stdio type
       shell: true, // execSync typically runs shell commands
       reject: false, // Don't throw on non-zero exit codes
       input,
@@ -82,7 +82,7 @@ export function execSyncWithDefaults(
     if (!result.stdout) {
       return null
     }
-    return result.stdout.trim() || null
+    return (result.stdout as string).trim() || null // log: fix TS2339 trim not on string|unknown[]
   } catch {
     return null
   }

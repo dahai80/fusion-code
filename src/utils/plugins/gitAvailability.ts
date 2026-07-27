@@ -58,7 +58,8 @@ export const checkGitAvailable = asyncMemoize(async (): Promise<boolean> => {
  * lodash memoize uses a no-arg cache key of undefined.
  */
 export function markGitUnavailable(): void {
-  checkGitAvailable.cache?.set?.(undefined, Promise.resolve(false))
+  // log: fix TS2345 - asyncMemoize cache type is Map<unknown, Promise<Promise<boolean>>>, need cast
+  checkGitAvailable.cache?.set?.(undefined, Promise.resolve(false) as unknown as Promise<Promise<boolean>>)
 }
 
 /**

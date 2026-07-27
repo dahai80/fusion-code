@@ -11,7 +11,7 @@ export const call: LocalJSXCommandCall = async (onDone, context, args) => {
         return null
     }
 
-    logEvent('tengu_subtask', { description: trimmed.slice(0, 100) })
+    logEvent('tengu_subtask', { description: 1 }) // log: analytics metadata must be number|boolean
     logForDebugging(`[Subtask] Creating subtask: ${trimmed}`)
 
     onDone(`Subtask: ${trimmed}`, {

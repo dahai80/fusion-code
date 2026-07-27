@@ -39,25 +39,24 @@ export async function performStartupChecks(setAppState: SetAppState): Promise<vo
     // If registration changed state, clear caches so earlier plugin-load passes
     // (e.g. getAllMcpConfigs during REPL init) don't keep stale "marketplace
     // not found" results.
-    const seedChanged = await registerSeedMarketplaces();
-    if (seedChanged) {
-      clearMarketplacesCache();
-      clearPluginCache('performStartupChecks: seed marketplaces changed');
-      // Set needsRefresh so useManagePlugins notifies the user to run
-      // /reload-plugins. Without this signal, the initial plugin-load
-      // (which raced and cached "marketplace not found") would persist
-      // until the user manually reloads.
-      setAppState(prev => {
-        if (prev.plugins.needsRefresh) return prev;
-        return {
-          ...prev,
-          plugins: {
-            ...prev.plugins,
-            needsRefresh: true
-          }
-        };
-      });
-    }
+    // log: fix TS1345 - registerSeedMarketplaces returns void, not boolean
+    await registerSeedMarketplaces();
+    clearMarketplacesCache();
+    clearPluginCache('performStartupChecks: seed marketplaces changed');
+    // Set needsRefresh so useManagePlugins notifies the user to run
+    // /reload-plugins. Without this signal, the initial plugin-load
+    // (which raced and cached "marketplace not found") would persist
+    // until the user manually reloads.
+    setAppState(prev => {
+      if (prev.plugins.needsRefresh) return prev;
+      return {
+        ...prev,
+        plugins: {
+          ...prev.plugins,
+          needsRefresh: true
+        }
+      };
+    });
 
     // Start background installations without waiting
     // This will update AppState as installations progress

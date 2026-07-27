@@ -303,7 +303,7 @@ function createSpeculationFeedbackMessage(
 
   return createSystemMessage(
     `[ANT-ONLY] ${parts.join(' · ')} · ${savedText}${sessionSuffix}`,
-    'warning',
+    'warn', // log: fix 'warning' -> 'warn' to match SystemMessageLevel
   )
 }
 

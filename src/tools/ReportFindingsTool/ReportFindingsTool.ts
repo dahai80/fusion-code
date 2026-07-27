@@ -72,7 +72,7 @@ export const ReportFindingsTool = buildTool({
     get outputSchema(): OutputSchema {
         return outputSchema()
     },
-    async execute({ level, findings }, _context, _toolContext) {
+    async execute({ level, findings }, _context, _canUseTool?, _parentMessage?, _onProgress?) { // log: fixed execute signature
         return {
             data: {
                 count: findings.length,
@@ -90,4 +90,4 @@ export const ReportFindingsTool = buildTool({
                 : `${count} finding(s) reported (level: ${level}).`,
         }
     },
-} satisfies ToolDef<InputSchema, Output>)
+})

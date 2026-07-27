@@ -182,9 +182,9 @@ function AskUserQuestionPermissionRequestBody(t0) {
         mediaType: mediaType || "image/png",
         filename: filename || "Pasted image",
         dimensions
-      };
-      cacheImagePath(newContent);
-      storeImage(newContent);
+      } as PastedContent; // log: fix TS2322 — object not assignable to PastedContent
+      cacheImagePath(newContent as PastedContent); // log: fix TS2345 — object literal to PastedContent
+      storeImage(newContent as PastedContent);
       setPastedContentsByQuestion(prev => ({
         ...prev,
         [questionText]: {

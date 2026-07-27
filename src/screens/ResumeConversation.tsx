@@ -214,7 +214,7 @@ export function ResumeConversation({
               activeAgents: getActiveAgentsFromList(freshAgentDefs.allAgents)
             }
           }));
-          result_3.messages.push(createSystemMessage(warning, 'warning'));
+          result_3.messages.push(createSystemMessage(warning, 'warn')); // log: fixed 'warning' → 'warn' for SystemMessageLevel
         }
       }
       if (result_3.sessionId && !forkSession) {

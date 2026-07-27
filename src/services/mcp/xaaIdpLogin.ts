@@ -116,7 +116,7 @@ function saveIdpIdToken(
   storage.update({
     ...existing,
     mcpXaaIdp: {
-      ...existing.mcpXaaIdp,
+      ...(existing.mcpXaaIdp as object), // log: cast to object for spread
       [issuerKey(idpIssuer)]: { idToken, expiresAt },
     },
   })
@@ -165,7 +165,7 @@ export function saveIdpClientSecret(
   return storage.update({
     ...existing,
     mcpXaaIdpConfig: {
-      ...existing.mcpXaaIdpConfig,
+      ...(existing.mcpXaaIdpConfig as object), // log: cast to object for spread
       [issuerKey(idpIssuer)]: { clientSecret },
     },
   })

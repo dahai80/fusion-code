@@ -49,48 +49,59 @@ const outputSchema = lazySchema(() =>
 )
 type OutputSchema = ReturnType<typeof outputSchema>
 
-// ─── Tool Implementation ────────────────────────────────────
-
-function ctxInspectToolCall(
-  input: z.infer<InputSchema>,
-): Promise<z.infer<OutputSchema>> {
-  const contextWindow = getContextWindowForModel('default')
-  const totalInput = getTotalInputTokens()
-  const totalOutput = getTotalOutputTokens()
-
-  // Estimate used tokens (simplified: input + output tokens)
-  const usedTokens = totalInput + totalOutput
-  const availableTokens = Math.max(0, contextWindow - usedTokens)
-  const utilizationPct = Math.min(100, Math.round((usedTokens / contextWindow) * 100))
-
-  return Promise.resolve({
-    context_window: contextWindow,
-    used_tokens: usedTokens,
-    available_tokens: availableTokens,
-    utilization_pct: utilizationPct,
-    total_input_tokens: totalInput,
-    total_output_tokens: totalOutput,
-    message_count: 0,
-    scope: input.scope || 'current',
-  })
-}
-
 // ─── Tool Definition ────────────────────────────────────────
 
-const toolDef: ToolDef<InputSchema, OutputSchema> = {
-  name: CTX_INSPECT_TOOL_NAME,
-  description: `Inspect the current conversation context: view token usage, context window utilization, and message statistics. Useful for monitoring context limits and deciding when to compact or summarize.`,
-  inputSchema,
-  outputSchema,
-  call: ctxInspectToolCall,
-  userFacingName: () => 'CtxInspect',
-  isEnabled: () => true,
-}
+const DESCRIPTION = `Inspect the current conversation context: view token usage, context window utilization, and message statistics. Useful for monitoring context limits and deciding when to compact or summarize.`
 
-export const CtxInspectTool = buildTool(toolDef, {
-  ctxInspectToolInputToPermissionRuleContent(_input: {
-    [k: string]: unknown
-  }): string {
-    return 'input:ctx_inspect'
-  },
-})
+export type Output = z.infer<OutputSchema>
+
+// log: restructured to match ToolDef pattern (buildTool single-arg, proper schemas)
+export const CtxInspectTool = buildTool({
+    name: CTX_INSPECT_TOOL_NAME,
+    searchHint: 'inspect context window and token usage',
+    maxResultSizeChars: 10_000,
+    async description() {
+        return DESCRIPTION
+    },
+    async prompt() {
+        return DESCRIPTION
+    },
+    get inputSchema(): InputSchema {
+        return inputSchema()
+    },
+    get outputSchema(): OutputSchema {
+        return outputSchema()
+    },
+    // log: execute signature expanded to match Tool type (5 params)
+    async execute(input, _context, _canUseTool?, _parentMessage?, _onProgress?) {
+        const contextWindow = getContextWindowForModel('default')
+        const totalInput = getTotalInputTokens()
+        const totalOutput = getTotalOutputTokens()
+
+        // Estimate used tokens (simplified: input + output tokens)
+        const usedTokens = totalInput + totalOutput
+        const availableTokens = Math.max(0, contextWindow - usedTokens)
+        const utilizationPct = Math.min(100, Math.round((usedTokens / contextWindow) * 100))
+
+        return {
+            data: {
+                context_window: contextWindow,
+                used_tokens: usedTokens,
+                available_tokens: availableTokens,
+                utilization_pct: utilizationPct,
+                total_input_tokens: totalInput,
+                total_output_tokens: totalOutput,
+                message_count: 0,
+                scope: input.scope || 'current',
+            },
+        }
+    },
+    mapToolResultToToolResultBlockParam(content, toolUseID) {
+        const data = content as Output
+        return {
+            tool_use_id: toolUseID,
+            type: 'tool_result',
+            content: `Context: ${data.utilization_pct}% used (${data.used_tokens}/${data.context_window} tokens, ${data.available_tokens} available). Scope: ${data.scope}`,
+        }
+    },
+} satisfies ToolDef<InputSchema, Output>)

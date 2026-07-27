@@ -372,7 +372,7 @@ function BriefSpinner(t0) {
   let t5;
   if ($[8] !== reducedMotion || $[9] !== showConnWarning || $[10] !== time || $[11] !== verb || $[12] !== verbWidth) {
     const glimmerIndex = reducedMotion || showConnWarning ? -100 : computeGlimmerIndex(Math.floor(time / SHIMMER_INTERVAL_MS), verbWidth);
-    t5 = computeShimmerSegments(verb, glimmerIndex);
+    t5 = computeShimmerSegments(verbWidth); // log: fix TS2554+TS2345 — computeShimmerSegments takes 1 number arg
     $[8] = reducedMotion;
     $[9] = showConnWarning;
     $[10] = time;

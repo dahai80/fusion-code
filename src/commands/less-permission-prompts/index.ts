@@ -25,11 +25,9 @@ const call: LocalCommandCall = async (args, context) => {
 
         if (args.trim() === '--apply') {
             const newRules = missingReadOnly.map(tool => ({
-                tool,
-                rule: 'allow' as const,
-                source: 'userSettings' as const,
+                toolName: tool, // log: fixed property name for PermissionRuleValue
             }))
-            addPermissionRulesToSettings('userSettings', newRules)
+            addPermissionRulesToSettings({ ruleValues: newRules, ruleBehavior: 'allow' }, 'userSettings') // log: fixed arg shape for addPermissionRulesToSettings
             logForDebugging(`[less-permission] Added ${newRules.length} allow rules for read-only tools`)
             return {
                 type: 'text',

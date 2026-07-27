@@ -1,6 +1,8 @@
 import { z } from 'zod/v4'
 import { getSessionId } from '../../bootstrap/state.js'
-import { buildTool, type ToolDef } from '../../Tool.js'
+import { buildTool, type ToolDef, type ToolUseContext, type ToolCallProgress } from '../../Tool.js'
+import type { CanUseToolFn } from '../../hooks/useCanUseTool.js'
+import type { AssistantMessage } from '../../types/message.js'
 import { lazySchema } from '../../utils/lazySchema.js'
 
 export const ARTIFACT_CREATE_TOOL_NAME = 'CreateArtifact'
@@ -91,7 +93,7 @@ When you need to show or modify the content later, use the UpdateArtifact tool w
     renderToolUseMessage(input) {
         return `${input.type}/${input.name} (${input.content.length} chars)`
     },
-    async call({ name, type, content, summary }, _context) {
+    async call({ name, type, content, summary }: z.infer<InputSchema>, _context: ToolUseContext, _canUseTool: CanUseToolFn, _parentMessage: AssistantMessage, _onProgress?: ToolCallProgress) {
         const sessionId = getSessionId()
         const result = await artifactsRPC('artifact.create', {
             session_id: sessionId,
@@ -111,11 +113,12 @@ When you need to show or modify the content later, use the UpdateArtifact tool w
         }
     },
     mapToolResultToToolResultBlockParam(content, toolUseID) {
-        const { ref_text, artifact_id, name, version, token_count } = content as Output;
+        const { ref_text, artifact_id, name, version, token_count } = content as unknown as Output; // log: cast through unknown
         return {
             tool_use_id: toolUseID,
             type: 'tool_result',
             content: `Artifact created successfully.\n\nReference: ${ref_text}\n\nID: ${artifact_id} | Name: ${name} | Version: v${version} | Tokens saved: ${token_count}\n\nUse UpdateArtifact to modify this artifact in future turns.`,
         }
     },
-} satisfies ToolDef<InputSchema, OutputSchema>)
+// log: fix ToolDef Output param — use inferred type not ZodSchema type
+} satisfies ToolDef<InputSchema, Output>)

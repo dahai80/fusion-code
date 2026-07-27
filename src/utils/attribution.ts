@@ -383,7 +383,8 @@ export async function getEnhancedPRAttribution(
   if (feature('COMMIT_ATTRIBUTION') && isInternal && attributionData) {
     const { buildPRTrailers } = await import('./attributionTrailer.js')
     const trailers = buildPRTrailers(attributionData, appState.attribution)
-    const result = `${summary}\n\n${trailers.join('\n')}`
+    // log: buildPRTrailers returns string, not string[] — TS2339 fix
+    const result = `${summary}\n\n${trailers}`
     logForDebugging(`PR Attribution: returning with trailers: ${result}`)
     return result
   }

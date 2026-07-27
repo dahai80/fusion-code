@@ -231,7 +231,7 @@ import { MCPConnectionManager } from 'src/services/mcp/MCPConnectionManager.js';
 const useFeedbackSurvey = (..._args: unknown[]) => ({ state: 'closed' as const, lastResponse: null as null, handleSelect: (..._a: unknown[]) => false, handleTranscriptSelect: (..._a: unknown[]) => {} });
 const useMemorySurvey = (..._args: unknown[]) => ({ state: 'closed' as const, lastResponse: null as null, handleSelect: (..._a: unknown[]) => {}, handleTranscriptSelect: (..._a: unknown[]) => {} });
 const usePostCompactSurvey = (..._args: unknown[]) => ({ state: 'closed' as const, lastResponse: null as null, handleSelect: (..._a: unknown[]) => {} });
-function FeedbackSurvey() { return null; }
+function FeedbackSurvey(_props: Record<string, unknown>) { return null; } // log: accept any props to fix TS2322
 import { useInstallMessages } from 'src/hooks/notifs/useInstallMessages.js';
 import { useAwaySummary } from 'src/hooks/useAwaySummary.js';
 import { useChromeExtensionNotification } from 'src/hooks/useChromeExtensionNotification.js';
@@ -2813,7 +2813,7 @@ export function REPL({
       void fireCompanionObserver(messagesRef.current, reaction => setAppState(prev => prev.companionReaction === reaction ? prev : {
         ...prev,
         companionReaction: reaction
-      }));
+      } as typeof prev)); // log: widen setAppState callback for companionReaction
     }
     queryCheckpoint('query_end');
 
@@ -4589,7 +4589,7 @@ export function REPL({
               {"external" === 'ant' && <TungstenLiveMonitor />}
               {feature('WEB_BROWSER_TOOL') ? WebBrowserPanelModule && <WebBrowserPanelModule.WebBrowserPanel /> : null}
               <Box flexGrow={1} />
-              {showSpinner && <SpinnerWithVerb mode={streamMode} spinnerTip={spinnerTip} responseLengthRef={responseLengthRef} apiMetricsRef={apiMetricsRef} overrideMessage={spinnerMessage} spinnerSuffix={stopHookSpinnerSuffix} verbose={verbose} loadingStartTimeRef={loadingStartTimeRef} totalPausedMsRef={totalPausedMsRef} pauseStartTimeRef={pauseStartTimeRef} overrideColor={spinnerColor} overrideShimmerColor={spinnerShimmerColor} hasActiveTools={inProgressToolUseIDs.size > 0} leaderIsIdle={!isLoading} />}
+              {showSpinner && <SpinnerWithVerb mode={streamMode} spinnerTip={spinnerTip} responseLengthRef={responseLengthRef} overrideMessage={spinnerMessage} spinnerSuffix={stopHookSpinnerSuffix} verbose={verbose} loadingStartTimeRef={loadingStartTimeRef} totalPausedMsRef={totalPausedMsRef} pauseStartTimeRef={pauseStartTimeRef} overrideColor={spinnerColor} overrideShimmerColor={spinnerShimmerColor} hasActiveTools={inProgressToolUseIDs.size > 0} leaderIsIdle={!isLoading} />} {/* log: removed apiMetricsRef - not in Spinner Props */}
               {!showSpinner && !isLoading && !userInputOnProcessing && !hasRunningTeammates && isBriefOnly && !viewedAgentTask && <BriefIdleStatus />}
               {isFullscreenEnvEnabled() && <PromptInputQueuedCommands />}
             </>} bottom={<Box flexDirection={feature('BUDDY') && companionNarrow ? 'column' : 'row'} width="100%" alignItems={feature('BUDDY') && companionNarrow ? undefined : 'flex-end'}>

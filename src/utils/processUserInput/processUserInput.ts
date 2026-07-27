@@ -201,7 +201,7 @@ export async function processUserInput({
           // TODO: Make this an attachment message
           createSystemMessage(
             `${blockingMessage}\n\nOriginal prompt: ${input}`,
-            'warning',
+            'warn',
           ),
         ],
         shouldQuery: false,
@@ -252,7 +252,7 @@ export async function processUserInput({
             ...hookResult.message,
             attachment: {
               ...hookResult.message.attachment,
-              content: applyTruncation(hookResult.message.attachment.content),
+              content: applyTruncation(hookResult.message.attachment.content as string), // log: cast unknown to string
             },
           })
           break

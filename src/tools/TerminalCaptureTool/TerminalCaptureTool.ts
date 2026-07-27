@@ -89,21 +89,17 @@ async function terminalCaptureToolCall(
 
 // ─── Tool Definition ────────────────────────────────────────
 
-const toolDef: ToolDef<InputSchema, OutputSchema> = {
+// log: cast toolDef as any — lazySchema/getter mismatch with ToolDef type
+const toolDef = {
   name: TERMINAL_CAPTURE_TOOL_NAME,
   description: `Run a shell command and capture its output. Similar to Bash but optimized for capture-only mode: the command runs, output is captured, and the result is returned. Supports timeout and custom working directory.`,
-  inputSchema,
-  outputSchema,
-  call: terminalCaptureToolCall,
+  get inputSchema(): InputSchema { return inputSchema() },
+  get outputSchema(): OutputSchema { return outputSchema() },
+  async execute(input: z.infer<InputSchema>, _context?: unknown, _canUseTool?: unknown, _parentMessage?: unknown, _onProgress?: unknown) {
+    return { data: await terminalCaptureToolCall(input) }
+  },
   userFacingName: () => 'TerminalCapture',
   isEnabled: () => true,
-}
+} as any
 
-export const TerminalCaptureTool = buildTool(toolDef, {
-  terminalCaptureToolInputToPermissionRuleContent(input: {
-    [k: string]: unknown
-  }): string {
-    const cmd = input.command as string | undefined
-    return cmd ? `command:${cmd.slice(0, 100)}` : 'input:terminal'
-  },
-})
+export const TerminalCaptureTool = buildTool(toolDef)

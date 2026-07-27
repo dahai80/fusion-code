@@ -1,5 +1,5 @@
 import type { RemoteMessageContent } from '../utils/teleport/api.js'
-import type { PermissionAskDecision } from '../types/permissions.js'
+import type { PermissionDecision } from '../types/permissions.js'
 
 export interface SSHSessionManager {
     connect: () => void
@@ -8,6 +8,6 @@ export interface SSHSessionManager {
     sendInterrupt: () => void
     respondToPermissionRequest: (
         requestId: string,
-        decision: PermissionAskDecision,
+        decision: PermissionDecision,
     ) => void
 }

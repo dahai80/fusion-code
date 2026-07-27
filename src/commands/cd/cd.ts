@@ -25,7 +25,7 @@ export const call: LocalCommandModule['call'] = async (args) => {
         const home = homedir()
         setCwd(home)
         process.chdir(home)
-        logEvent('tengu_cd', { target: home })
+        logEvent('tengu_cd', { target: 1 }) // log: analytics metadata must be number|boolean
         return { type: 'text', value: `Changed directory to ${home}` }
     }
 
@@ -38,7 +38,7 @@ export const call: LocalCommandModule['call'] = async (args) => {
     try {
         setCwd(target)
         process.chdir(target)
-        logEvent('tengu_cd', { target })
+        logEvent('tengu_cd', { target: 1 }) // log: analytics metadata must be number|boolean
 
         const suggestions = await listDirSuggestions(target)
         const dirName = basename(target)

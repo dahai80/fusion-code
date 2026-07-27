@@ -119,6 +119,10 @@ let runner:
  * Call once at startup (from backgroundHousekeeping alongside
  * initExtractMemories), or per-test in beforeEach for a fresh closure.
  */
+export function isAutoDreamRunning(): boolean {
+    return runner !== null
+}
+
 export function initAutoDream(): void {
   let lastSessionScanAt = 0
 
@@ -241,10 +245,9 @@ ${sessionIds.map(id => `- ${id}`).join('\n')}`
         isDreamTask(dreamState) &&
         dreamState.filesTouched.length > 0
       ) {
-        appendSystemMessage({
-          ...createMemorySavedMessage(dreamState.filesTouched),
-          verb: 'Improved',
-        })
+        appendSystemMessage(
+          createMemorySavedMessage(dreamState.filesTouched), // log: removed invalid 'verb' property
+        )
       }
       logForDebugging(
         `[autoDream] completed — cache: read=${result.totalUsage.cache_read_input_tokens} created=${result.totalUsage.cache_creation_input_tokens}`,

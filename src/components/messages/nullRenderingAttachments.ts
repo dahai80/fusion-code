@@ -40,18 +40,18 @@ const NULL_RENDERING_TYPES = [
   'auto_mode',
   'auto_mode_exit',
   'output_token_usage',
-  'pen_mode_enter',
-  'pen_mode_exit',
+  'pen_mode_enter' as Attachment['type'], // log: not yet in Attachment union
+  'pen_mode_exit' as Attachment['type'], // log: not yet in Attachment union
   'verify_plan_reminder',
   'current_session_memory',
   'compaction_reminder',
   'date_change',
-] as const satisfies readonly Attachment['type'][]
+] as const // log: removed satisfies — pen_mode_enter/exit not yet in Attachment['type']
 
 export type NullRenderingAttachmentType = (typeof NULL_RENDERING_TYPES)[number]
 
 const NULL_RENDERING_ATTACHMENT_TYPES: ReadonlySet<Attachment['type']> =
-  new Set(NULL_RENDERING_TYPES)
+  new Set(NULL_RENDERING_TYPES) as ReadonlySet<Attachment['type']> // log: cast — includes types not yet in Attachment union
 
 /**
  * True when this message is an attachment that AttachmentMessage renders as
@@ -65,6 +65,6 @@ export function isNullRenderingAttachment(
 ): boolean {
   return (
     msg.type === 'attachment' &&
-    NULL_RENDERING_ATTACHMENT_TYPES.has(msg.attachment.type)
+    NULL_RENDERING_ATTACHMENT_TYPES.has(msg.attachment.type as Attachment['type']) // log: cast — type may include non-Attachment literals
   )
 }

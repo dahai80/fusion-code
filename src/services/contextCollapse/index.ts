@@ -2,6 +2,7 @@ import { logForDebugging } from '../../utils/debug.js'
 import { getContextWindowForModel } from '../../utils/context.js'
 import { tokenCountWithEstimation } from '../../utils/tokens.js'
 import { getMainLoopModel } from '../../utils/model/model.js'
+import type { Message } from '../../types/message.js' // log: import Message for tokenCountWithEstimation cast
 import { projectView } from './operations.js'
 import { restoreFromEntries } from './persist.js'
 import {
@@ -231,7 +232,7 @@ export async function applyCollapsesIfNeeded<T>(
 
     const model = getMainLoopModel() ?? 'default'
     const ctxWindow = getContextWindowForModel(model)
-    const usedTokens = tokenCountWithEstimation(projected as unknown[])
+    const usedTokens = tokenCountWithEstimation(projected as Message[]) // log: cast for tokenCountWithEstimation
     const usagePct = usedTokens / ctxWindow
 
     if (usagePct >= COLLAPSE_THRESHOLD_PCT) {
@@ -258,7 +259,7 @@ export async function applyCollapsesIfNeeded<T>(
         }
     }
 
-    const currentTokens = tokenCountWithEstimation(projected as unknown[])
+    const currentTokens = tokenCountWithEstimation(projected as Message[]) // log: cast for tokenCountWithEstimation
     if (spawnArmed && currentTokens - lastSpawnTokens >= SPAWN_INTERVAL_TOKENS) {
         try {
             await recordContextCollapseSnapshot({
@@ -292,7 +293,7 @@ export function recoverFromOverflow<T>(
     for (let attempt = 0; attempt < maxAttempts; attempt++) {
         const model = getMainLoopModel() ?? 'default'
         const ctxWindow = getContextWindowForModel(model)
-        const usedTokens = tokenCountWithEstimation(projected as unknown[])
+        const usedTokens = tokenCountWithEstimation(projected as Message[]) // log: cast for tokenCountWithEstimation
 
         if (usedTokens < ctxWindow) break
 

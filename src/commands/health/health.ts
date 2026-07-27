@@ -72,7 +72,7 @@ async function executeStatus(context: CommandContext): Promise<LocalCommandResul
     lines.push('')
     lines.push('Commands: /health recover  /health kill-all')
 
-    return { output: lines.join('\n') }
+    return { type: 'text', value: lines.join('\n') } as LocalCommandResult // log: fixed output→type/value for LocalCommandResult
 }
 
 async function executeRecover(context: CommandContext): Promise<LocalCommandResult> {
@@ -102,7 +102,7 @@ async function executeRecover(context: CommandContext): Promise<LocalCommandResu
         lines.push(`📬 ${nm.unreadCount()} new notifications from recovery`)
     }
 
-    return { output: lines.join('\n') }
+    return { type: 'text', value: lines.join('\n') } as LocalCommandResult // log: fixed output→type/value for LocalCommandResult
 }
 
 async function executeKillAll(context: CommandContext): Promise<LocalCommandResult> {
@@ -124,5 +124,5 @@ async function executeKillAll(context: CommandContext): Promise<LocalCommandResu
         }
     }
 
-    return { output: lines.join('\n') }
+    return { type: 'text', value: lines.join('\n') } as LocalCommandResult // log: fixed output→type/value for LocalCommandResult
 }

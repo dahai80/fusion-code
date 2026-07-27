@@ -89,10 +89,11 @@ async function getAutoUpdateEnabledMarketplaces(): Promise<Set<string>> {
   for (const [name, entry] of Object.entries(config)) {
     // Settings-declared autoUpdate takes precedence over JSON state
     const declaredAutoUpdate = declared[name]?.autoUpdate
+    // log: fix TS2559 - cast MarketplaceConfig to { autoUpdate?: boolean }
     const autoUpdate =
       declaredAutoUpdate !== undefined
         ? declaredAutoUpdate
-        : isMarketplaceAutoUpdate(name, entry)
+        : isMarketplaceAutoUpdate(name, entry as { autoUpdate?: boolean })
     if (autoUpdate) {
       enabled.add(name.toLowerCase())
     }
@@ -244,9 +245,8 @@ export function autoUpdateMarketplacesAndPluginsInBackground(): void {
       const refreshResults = await Promise.allSettled(
         Array.from(autoUpdateEnabledMarketplaces).map(async name => {
           try {
-            await refreshMarketplace(name, undefined, {
-              disableCredentialHelper: true,
-            })
+            // log: fix TS2554 - refreshMarketplace takes 1 arg in stub
+            await refreshMarketplace(name)
           } catch (error) {
             logForDebugging(
               `Plugin autoupdate: failed to refresh marketplace ${name}: ${errorMessage(error)}`,

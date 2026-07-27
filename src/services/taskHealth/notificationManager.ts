@@ -47,7 +47,7 @@ export class TaskNotificationManager {
         const key = makeKey(params.taskId, params.event)
         const existing = this.notifications.get(key)
         if (existing) {
-            logForDebugging('task-notification-dedup', { taskId: params.taskId, event: params.event })
+            logForDebugging(`task-notification-dedup taskId=${params.taskId} event=${params.event}`) // log: inline data into message string
             return existing
         }
 
@@ -70,7 +70,7 @@ export class TaskNotificationManager {
             }
         }
 
-        logForDebugging('task-notification-published', { taskId: params.taskId, event: params.event })
+        logForDebugging(`task-notification-published taskId=${params.taskId} event=${params.event}`) // log: inline data into message string
         return notification
     }
 

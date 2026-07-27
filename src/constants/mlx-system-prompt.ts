@@ -669,7 +669,7 @@ export async function buildMlxSystemPrompt(
     }
     sections.push(projectContext)
     if (tier === 'full') {
-        sections.push(getProjectContextSection(cwd))
+        sections.push(await getProjectContextSection(cwd))
     }
 
     return sections.filter((s): s is string => s !== null && s.length > 0)

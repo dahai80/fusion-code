@@ -1,18 +1,10 @@
-import type { McpbManifest } from '@anthropic-ai/mcpb'
+import type { McpbManifestAny } from '@anthropic-ai/mcpb/dist/types.js' // log: fix TS2724 McpbManifest -> McpbManifestAny from types.js
 import { errorMessage } from '../errors.js'
 import { jsonParse } from '../slowOperations.js'
 
-/**
- * Parses and validates a DXT manifest from a JSON object.
- *
- * Lazy-imports @anthropic-ai/mcpb: that package uses zod v3 which eagerly
- * creates 24 .bind(this) closures per schema instance (~300 instances between
- * schemas.js and schemas-loose.js). Deferring the import keeps ~700KB of bound
- * closures out of the startup heap for sessions that never touch .dxt/.mcpb.
- */
 export async function validateManifest(
   manifestJson: unknown,
-): Promise<McpbManifest> {
+): Promise<McpbManifestAny> {
   const { McpbManifestSchema } = await import('@anthropic-ai/mcpb/dist/schemas/any.js')
   const parseResult = McpbManifestSchema.safeParse(manifestJson)
 
@@ -30,15 +22,12 @@ export async function validateManifest(
     throw new Error(`Invalid manifest: ${errorMessages}`)
   }
 
-  return parseResult.data
+  return parseResult.data as McpbManifestAny // log: cast zod parse result
 }
 
-/**
- * Parses and validates a DXT manifest from raw text data.
- */
 export async function parseAndValidateManifestFromText(
   manifestText: string,
-): Promise<McpbManifest> {
+): Promise<McpbManifestAny> {
   let manifestJson: unknown
 
   try {
@@ -50,22 +39,15 @@ export async function parseAndValidateManifestFromText(
   return validateManifest(manifestJson)
 }
 
-/**
- * Parses and validates a DXT manifest from raw binary data.
- */
 export async function parseAndValidateManifestFromBytes(
   manifestData: Uint8Array,
-): Promise<McpbManifest> {
+): Promise<McpbManifestAny> {
   const manifestText = new TextDecoder().decode(manifestData)
   return parseAndValidateManifestFromText(manifestText)
 }
 
-/**
- * Generates an extension ID from author name and extension name.
- * Uses the same algorithm as the directory backend for consistency.
- */
 export function generateExtensionId(
-  manifest: McpbManifest,
+  manifest: McpbManifestAny,
   prefix?: 'local.unpacked' | 'local.dxt',
 ): string {
   const sanitize = (str: string) =>
@@ -76,8 +58,8 @@ export function generateExtensionId(
       .replace(/-+/g, '-')
       .replace(/^-+|-+$/g, '')
 
-  const authorName = manifest.author.name
-  const extensionName = manifest.name
+  const authorName = (manifest as any).author.name // log: cast for nested access
+  const extensionName = (manifest as any).name // log: cast for property access
 
   const sanitizedAuthor = sanitize(authorName)
   const sanitizedName = sanitize(extensionName)

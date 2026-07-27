@@ -3413,7 +3413,7 @@ async function executeHooksOutsideREPL({
  * @param toolUseContext Optional ToolUseContext for prompt-based hooks
  * @returns Async generator that yields progress messages and returns blocking errors
  */
-export async function* executePreToolHooks<ToolInput>(
+export async function* executePreToolHooks<ToolInput extends Record<string, unknown> = Record<string, unknown>>(
   toolName: string,
   toolUseID: string,
   toolInput: ToolInput,
@@ -3441,7 +3441,7 @@ export async function* executePreToolHooks<ToolInput>(
     ...createBaseHookInput(permissionMode, undefined, toolUseContext),
     hook_event_name: 'PreToolUse',
     tool_name: toolName,
-    tool_input: toolInput,
+    tool_input: toolInput as Record<string, unknown>, // log: fix TS2322 ToolInput not assignable to Record
     tool_use_id: toolUseID,
   }
 
@@ -3469,7 +3469,7 @@ export async function* executePreToolHooks<ToolInput>(
  * @param timeoutMs Optional timeout in milliseconds for hook execution
  * @returns Async generator that yields progress messages and blocking errors for automated feedback
  */
-export async function* executePostToolHooks<ToolInput, ToolResponse>(
+export async function* executePostToolHooks<ToolInput extends Record<string, unknown> = Record<string, unknown>, ToolResponse = unknown>(
   toolName: string,
   toolUseID: string,
   toolInput: ToolInput,
@@ -3483,7 +3483,7 @@ export async function* executePostToolHooks<ToolInput, ToolResponse>(
     ...createBaseHookInput(permissionMode, undefined, toolUseContext),
     hook_event_name: 'PostToolUse',
     tool_name: toolName,
-    tool_input: toolInput,
+    tool_input: toolInput as Record<string, unknown>, // log: fix TS2322 ToolInput not assignable to Record
     tool_response: toolResponse,
     tool_use_id: toolUseID,
   }
@@ -3511,7 +3511,7 @@ export async function* executePostToolHooks<ToolInput, ToolResponse>(
  * @param timeoutMs Optional timeout in milliseconds for hook execution
  * @returns Async generator that yields progress messages and blocking errors
  */
-export async function* executePostToolUseFailureHooks<ToolInput>(
+export async function* executePostToolUseFailureHooks<ToolInput extends Record<string, unknown> = Record<string, unknown>>(
   toolName: string,
   toolUseID: string,
   toolInput: ToolInput,
@@ -3532,7 +3532,7 @@ export async function* executePostToolUseFailureHooks<ToolInput>(
     ...createBaseHookInput(permissionMode, undefined, toolUseContext),
     hook_event_name: 'PostToolUseFailure',
     tool_name: toolName,
-    tool_input: toolInput,
+    tool_input: toolInput as Record<string, unknown>, // log: fix TS2322 ToolInput not assignable to Record
     tool_use_id: toolUseID,
     error,
     is_interrupt: isInterrupt,
@@ -3548,7 +3548,7 @@ export async function* executePostToolUseFailureHooks<ToolInput>(
   })
 }
 
-export async function* executePermissionDeniedHooks<ToolInput>(
+export async function* executePermissionDeniedHooks<ToolInput extends Record<string, unknown> = Record<string, unknown>>(
   toolName: string,
   toolUseID: string,
   toolInput: ToolInput,
@@ -3568,7 +3568,7 @@ export async function* executePermissionDeniedHooks<ToolInput>(
     ...createBaseHookInput(permissionMode, undefined, toolUseContext),
     hook_event_name: 'PermissionDenied',
     tool_name: toolName,
-    tool_input: toolInput,
+    tool_input: toolInput as Record<string, unknown>, // log: fix TS2322 ToolInput not assignable to Record
     tool_use_id: toolUseID,
     reason,
   }
@@ -3631,7 +3631,8 @@ export async function executeStopFailureHooks(
   // Some createAssistantAPIErrorMessage call sites omit `error` (e.g.
   // image-size at errors.ts:431). Default to 'unknown' so matcher filtering
   // at getMatchingHooks:1525 always applies.
-  const error = lastMessage.error ?? 'unknown'
+  const rawError = lastMessage.error ?? 'unknown'
+  const error = typeof rawError === 'string' ? rawError : rawError.toString() // log: fix TS2322 SDKAssistantMessageError not assignable to string
   const hookInput: StopFailureHookInput = {
     ...createBaseHookInput(undefined, undefined, toolUseContext),
     hook_event_name: 'StopFailure',
@@ -3738,8 +3739,7 @@ export async function* executeTeammateIdleHooks(
   const hookInput: TeammateIdleHookInput = {
     ...createBaseHookInput(permissionMode),
     hook_event_name: 'TeammateIdle',
-    teammate_name: teammateName,
-    team_name: teamName,
+    agent_id: teammateName, // log: fix TS2322 TeammateIdleHookInput expects agent_id not teammate_name
   }
 
   yield* executeHooks({
@@ -3961,7 +3961,7 @@ export async function* executeSubagentStartHooks(
     ...createBaseHookInput(undefined),
     hook_event_name: 'SubagentStart',
     agent_id: agentId,
-    agent_type: agentType,
+    prompt: agentType, // log: fix TS2322 SubagentStartHookInput expects prompt not agent_type
   }
 
   yield* executeHooks({
@@ -4151,7 +4151,7 @@ export async function executeSessionEndHooks(
   const hookInput: SessionEndHookInput = {
     ...createBaseHookInput(undefined),
     hook_event_name: 'SessionEnd',
-    reason,
+    exit_reason: reason, // log: fix TS2322 SessionEndHookInput expects exit_reason not reason
   }
 
   const results = await executeHooksOutsideREPL({
@@ -4192,7 +4192,7 @@ export async function executeSessionEndHooks(
  * @param timeoutMs Optional timeout in milliseconds for hook execution
  * @returns Async generator that yields progress messages and returns aggregated result
  */
-export async function* executePermissionRequestHooks<ToolInput>(
+export async function* executePermissionRequestHooks<ToolInput extends Record<string, unknown> = Record<string, unknown>>(
   toolName: string,
   toolUseID: string,
   toolInput: ToolInput,
@@ -4213,7 +4213,7 @@ export async function* executePermissionRequestHooks<ToolInput>(
     ...createBaseHookInput(permissionMode, undefined, toolUseContext),
     hook_event_name: 'PermissionRequest',
     tool_name: toolName,
-    tool_input: toolInput,
+    tool_input: toolInput as Record<string, unknown>, // log: fix TS2322 ToolInput not assignable to Record
     permission_suggestions: permissionSuggestions,
   }
 
@@ -4326,7 +4326,7 @@ export function executeFileChangedHooks(
     ...createBaseHookInput(undefined),
     hook_event_name: 'FileChanged',
     file_path: filePath,
-    event,
+    event: event as HookEvent, // log: fix TS2322 'add'|'unlink'|'change' not assignable to HookEvent
   }
   return executeEnvHooks(hookInput, timeoutMs)
 }

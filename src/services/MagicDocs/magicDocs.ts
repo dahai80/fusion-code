@@ -134,7 +134,7 @@ async function updateMagicDoc(
     const result = await FileReadTool.call(
       { file_path: docInfo.path },
       clonedToolUseContext,
-    )
+    ) as any // log: cast never type from overloaded call signature
     const output = result.data as FileReadToolOutput
     if (output.type === 'text') {
       currentDoc = output.file.content

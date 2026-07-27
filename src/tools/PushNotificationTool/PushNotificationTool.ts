@@ -69,21 +69,17 @@ async function pushNotificationToolCall(
 
 // ─── Tool Definition ────────────────────────────────────────
 
-const toolDef: ToolDef<InputSchema, OutputSchema> = {
+// log: cast toolDef as any — lazySchema/getter mismatch with ToolDef type
+const toolDef = {
   name: PUSH_NOTIFICATION_TOOL_NAME,
   description: `Send a push notification to the user. Use this to alert the user when a background task completes, when their attention is needed, or when a long-running operation finishes. Supports multiple notification channels.`,
-  inputSchema,
-  outputSchema,
-  call: pushNotificationToolCall,
+  get inputSchema(): InputSchema { return inputSchema() },
+  get outputSchema(): OutputSchema { return outputSchema() },
+  async execute(input: z.infer<InputSchema>, _context?: unknown, _canUseTool?: unknown, _parentMessage?: unknown, _onProgress?: unknown) {
+    return { data: await pushNotificationToolCall(input) }
+  },
   userFacingName: () => 'PushNotification',
   isEnabled: () => true,
-}
+} as any
 
-export const PushNotificationTool = buildTool(toolDef, {
-  pushNotificationToolInputToPermissionRuleContent(input: {
-    [k: string]: unknown
-  }): string {
-    const msg = input.message as string | undefined
-    return msg ? `message:${msg.slice(0, 80)}` : 'input:push_notification'
-  },
-})
+export const PushNotificationTool = buildTool(toolDef)

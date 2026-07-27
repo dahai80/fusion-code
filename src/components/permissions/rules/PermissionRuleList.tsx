@@ -6,6 +6,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useAppState, useSetAppState } from 'src/state/AppState.js';
 import { applyPermissionUpdate, persistPermissionUpdate } from 'src/utils/permissions/PermissionUpdate.js';
 import type { PermissionUpdateDestination } from 'src/utils/permissions/PermissionUpdateSchema.js';
+import type { PermissionUpdate } from 'src/utils/permissions/PermissionUpdateSchema.js'; // log: needed for cast
 import type { CommandResultDisplay } from '../../../commands.js';
 import { Select } from '../../../components/CustomSelect/select.js';
 import { useExitOnCtrlCDWithKeybindings } from '../../../hooks/useExitOnCtrlCDWithKeybindings.js';
@@ -795,7 +796,7 @@ export function PermissionRuleList(t0) {
   if ($[30] !== changes || $[31] !== onExit || $[32] !== onRetryDenials) {
     t18 = () => {
       const s_1 = denialStateRef.current;
-      const denialsFor = set => Array.from(set).map(idx => s_1.denials[idx]).filter(_temp2);
+      const denialsFor = set => Array.from(set).map(idx => s_1.denials[idx as number]).filter(_temp2); // log: fix TS2538 — unknown cannot be used as index
       const retryDenials = denialsFor(s_1.retry);
       if (retryDenials.length > 0) {
         const commands = retryDenials.map(_temp3);
@@ -956,7 +957,7 @@ export function PermissionRuleList(t0) {
           type: "addDirectories" as const,
           directories: [path_0],
           destination
-        };
+        } as PermissionUpdate; // log: fix TS2345 — object not assignable to PermissionUpdate union
         const updatedContext = applyPermissionUpdate(toolPermissionContext, permissionUpdate);
         setAppState(prev_4 => ({
           ...prev_4,

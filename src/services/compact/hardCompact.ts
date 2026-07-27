@@ -95,7 +95,7 @@ export function hardCompactMessages(
     messages: Message[],
     keepRecentRounds: number = DEFAULT_KEEP_RECENT_ROUNDS,
 ): HardCompactResult {
-    const preCompactTokens = roughTokenCountEstimationForMessages(messages)
+    const preCompactTokens = roughTokenCountEstimationForMessages(messages as Parameters<typeof roughTokenCountEstimationForMessages>[0]) // log: cast Message[] for param type
     let truncatedToolResults = 0
     let truncatedAssistantTexts = 0
 
@@ -150,7 +150,7 @@ export function hardCompactMessages(
                     if (didTruncate) {
                         result.push({
                             ...userMsg,
-                            message: { ...userMsg.message, content: newContent },
+                            message: { ...userMsg.message, content: newContent as typeof userMsg.message.content }, // log: cast ContentBlockParam[]
                         })
                         continue
                     }
@@ -164,7 +164,7 @@ export function hardCompactMessages(
                     if (truncatedText !== textContent) {
                         truncatedAssistantTexts++
                         const newContent = asstMsg.message.content.map(block => {
-                            if (block.type === 'text' && typeof (block as Record<string, unknown>).text === 'string') {
+                            if (block.type === 'text' && typeof (block as unknown as Record<string, unknown>).text === 'string') { // log: intermediate as unknown
                                 const textBlock = block as { type: 'text'; text: string }
                                 if (textBlock.text === textContent) {
                                     return { ...textBlock, text: truncatedText }
@@ -174,7 +174,7 @@ export function hardCompactMessages(
                         })
                         result.push({
                             ...asstMsg,
-                            message: { ...asstMsg.message, content: newContent },
+                            message: { ...asstMsg.message, content: newContent as typeof asstMsg.message.content }, // log: cast BetaContentBlock[]
                         })
                         continue
                     }
@@ -186,7 +186,7 @@ export function hardCompactMessages(
         }
     }
 
-    const postCompactTokens = roughTokenCountEstimationForMessages(result)
+    const postCompactTokens = roughTokenCountEstimationForMessages(result as Parameters<typeof roughTokenCountEstimationForMessages>[0]) // log: cast Message[]
     logForDebugging(
         `[HardCompact] Processed ${roundsToProcess}/${groups.length} rounds, `
         + `truncated ${truncatedToolResults} tool_results, ${truncatedAssistantTexts} assistant texts, `

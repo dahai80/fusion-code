@@ -55,7 +55,7 @@ export const SleepTool = buildTool({
     async prompt() {
         return SLEEP_TOOL_PROMPT
     },
-    async call(input: Input, context) {
+    async call(input: Input, context, _canUseTool?, _parentMessage?, _onProgress?) { // log: fixed call signature
         const ms = input.duration * 1000
         await new Promise<void>(resolve => {
             const timer = setTimeout(resolve, ms)
@@ -82,4 +82,4 @@ export const SleepTool = buildTool({
             content: `Slept ${output.Duration}s`,
         }
     },
-} satisfies ToolDef<InputSchema, Output>)
+})

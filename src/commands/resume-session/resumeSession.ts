@@ -48,10 +48,8 @@ export const call: LocalCommandCall = async (args, _context) => {
     return {
             type: 'display',
         display: `Resuming session "${name}" (${bookmark.sessionId})...\nSwitch to project dir: ${bookmark.projectPath}\nThen run: /resume ${bookmark.sessionId}`,
-        shouldQuery: false,
-        nextInput: `/resume ${bookmark.sessionId}`,
         submitNextInput: true,
-    } satisfies LocalCommandResult
+    } satisfies LocalCommandResult // log: removed shouldQuery/nextInput - not in display variant
 }
 
 function formatTimeAgo(isoDate: string): string {

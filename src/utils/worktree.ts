@@ -244,6 +244,7 @@ async function getOrCreateWorktree(
       worktreePath,
       worktreeBranch,
       headCommit: existingHead,
+      baseBranch: '', // log: fix TS2741 Property 'baseBranch' missing
       existed: true,
     }
   }
@@ -599,8 +600,8 @@ async function performPostCreationSetup(
       hooksPath === huskyPath ? join(worktreePath, '.husky') : undefined
     void import('./postCommitAttribution.js')
       .then(m =>
-        m
-          .installPrepareCommitMsgHook(worktreePath, worktreeHooksDir)
+        Promise.resolve(m
+          .installPrepareCommitMsgHook(worktreePath, worktreeHooksDir)) // log: fix TS2339 .catch not on void
           .catch(error => {
             logForDebugging(
               `Failed to install attribution hook in worktree: ${error}`,

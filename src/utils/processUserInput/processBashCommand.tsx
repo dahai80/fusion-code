@@ -86,7 +86,7 @@ export async function processBashCommand(inputString: string, precedingInputBloc
       command: inputString,
       dangerouslyDisableSandbox: true
     }, bashModeContext, undefined, undefined, onProgress);
-    const data = response.data;
+    const data = (response as any).data; // log: cast to any to resolve never inference
     if (!data) {
       throw new Error('No result received from shell command');
     }

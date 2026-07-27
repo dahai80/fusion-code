@@ -61,7 +61,7 @@ export async function* all<A>(
       promises.add(next(generator))
       // TODO: Clean this up
       if (value !== undefined) {
-        yield value
+        yield value as A // log: fix TS2322 void|Awaited<A> not assignable to Awaited<A>
       }
     } else if (waiting.length > 0) {
       // Start a new generator when one finishes

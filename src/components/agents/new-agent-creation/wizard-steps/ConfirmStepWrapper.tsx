@@ -9,6 +9,7 @@ import { editFileInEditor } from '../../../../utils/promptEditor.js';
 import { useWizard } from '../../../wizard/index.js';
 import { getNewAgentFilePath, saveAgentToFile } from '../../agentFileUtils.js';
 import type { AgentWizardData } from '../types.js';
+import type { SettingSource } from '../../../../utils/settings/constants.js';
 import { ConfirmStep } from './ConfirmStep.js';
 type Props = {
   tools: Tools;
@@ -28,7 +29,7 @@ export function ConfirmStepWrapper({
   const saveAgent = useCallback(async (openInEditor: boolean): Promise<void> => {
     if (!wizardData?.finalAgent) return;
     try {
-      await saveAgentToFile(wizardData.location!, wizardData.finalAgent.agentType, wizardData.finalAgent.whenToUse, wizardData.finalAgent.tools, wizardData.finalAgent.getSystemPrompt(), true, wizardData.finalAgent.color, wizardData.finalAgent.model, wizardData.finalAgent.memory);
+      await saveAgentToFile(wizardData.location! as SettingSource | 'built-in', wizardData.finalAgent.agentType, wizardData.finalAgent.whenToUse, wizardData.finalAgent.tools, wizardData.finalAgent.getSystemPrompt(), true, wizardData.finalAgent.color, wizardData.finalAgent.model, wizardData.finalAgent.memory);
       setAppState(state => {
         if (!wizardData.finalAgent) return state;
         const allAgents = state.agentDefinitions.allAgents.concat(wizardData.finalAgent);
@@ -43,7 +44,7 @@ export function ConfirmStepWrapper({
       });
       if (openInEditor) {
         const filePath = getNewAgentFilePath({
-          source: wizardData.location!,
+          source: wizardData.location! as SettingSource,
           agentType: wizardData.finalAgent.agentType
         });
         await editFileInEditor(filePath);
@@ -51,7 +52,7 @@ export function ConfirmStepWrapper({
       logEvent('tengu_agent_created', {
         agent_type: wizardData.finalAgent.agentType,
         generation_method: wizardData.wasGenerated ? 'generated' : 'manual',
-        source: wizardData.location!,
+        source: wizardData.location! as SettingSource,
         tool_count: wizardData.finalAgent.tools?.length ?? 'all',
         has_custom_model: !!wizardData.finalAgent.model,
         has_custom_color: !!wizardData.finalAgent.color,

@@ -27,7 +27,7 @@ export function setupComputerUseMCP(): {
   const allowedTools = buildComputerUseTools(
     CLI_CU_CAPABILITIES,
     getChicagoCoordinateMode(),
-  ).map((t: { name: string }) => buildMcpToolName(COMPUTER_USE_MCP_SERVER_NAME, t.name)) // log: fix TS2339
+  ).map((t: { name: string }) => buildMcpToolName(COMPUTER_USE_MCP_SERVER_NAME, t.name))
 
   // command/args are never spawned — client.ts intercepts by name and
   // uses the in-process server. The config just needs to exist with
