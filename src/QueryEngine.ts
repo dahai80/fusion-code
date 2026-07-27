@@ -15,6 +15,8 @@ import type {
   SDKUserMessageReplay,
 } from 'src/entrypoints/agentSdkTypes.js'
 import { accumulateUsage, updateUsage } from 'src/services/api/claude.js'
+import { checkBudget } from 'src/services/goal/budgetEnforcer.js'
+import { updateBudgetUsed } from 'src/services/goal/goalState.js'
 import type { NonNullableUsage } from 'src/services/api/logging.js'
 import { EMPTY_USAGE } from 'src/services/api/logging.js'
 import stripAnsi from 'strip-ansi'
@@ -840,6 +842,18 @@ export class QueryEngine {
               this.totalUsage,
               currentMessageUsage,
             )
+            // Goal budget tracking: update usage and check limits
+            try {
+              const _sessionId = getSessionId()
+              const _tokenDelta = (currentMessageUsage.input_tokens ?? 0) + (currentMessageUsage.output_tokens ?? 0)
+              updateBudgetUsed(_sessionId, { turns: 1, tokens: _tokenDelta })
+              const _budgetCheck = checkBudget(_sessionId)
+              if (_budgetCheck.exceeded) {
+                console.error('[goal] budget exceeded', _budgetCheck.goalId)
+              }
+            } catch (_budgetErr) {
+              // budget tracking skipped
+            }
           }
 
           if (includePartialMessages) {

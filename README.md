@@ -438,7 +438,12 @@ JS workflows use `agent()`, `phase()`, `pipeline()`, and `parallel()` directly (
 | `/subtask` | Spawn an inline sub-agent to handle a specific task |
 | `/fork` | Create a sub-agent fork in the current conversation context |
 | `/break-cache` | Reset prompt cache break detection |
-| `/goal` | Set or view the session goal (`/goal <text>`, `/goal clear`) |
+| `/goal` | Goal management with budget tracking (`/goal <text> [--budget turns=N,tokens=N]`, `/goal status`, `/goal pause`, `/goal resume`, `/goal cancel`, `/goal replace <text>`, `/goal next <text>`, `/goal clear`) |
+| `/undo` (`/rewind`) | Undo N anchor points (`/undo [N]`) with compaction-boundary awareness |
+| `/health` | Task health overview and recovery (`/health`, `/health recover`, `/health kill-all`) |
+| `/steer` | Inject follow-up input into the current turn (`/steer <text>`) |
+| `/btw` | Ask a side question without interrupting the main workflow (`/btw <question>`) |
+| `/approve-session` | Auto-approve a tool for the session (`/approve-session <tool>`, `--clear`, `--list`) |
 | `/focus` | Toggle focus view — hide verbose tool output (`/focus on\|off`) |
 | `/tui` | Toggle flicker-free fullscreen rendering (`/tui on\|off`) |
 | `/dataviz` | Generate terminal data visualizations (bar charts, sparklines, tables) |
@@ -493,6 +498,8 @@ The `bun run build:dev:full` build enables all working feature flags. The defaul
 | `ULTRATHINK` | Deep thinking mode — type "ultrathink" to boost reasoning effort |
 | `VOICE_MODE` | Push-to-talk voice input and dictation ✅ (default) |
 | `TOKEN_BUDGET` | Token budget tracking and usage warnings |
+| `D_MAIL` | Agent-driven context compression (D-Mail checkpoint/revert) |
+| `APPROVE_SESSION` | Session-scoped permission approvals with cancel-by-source |
 | `HISTORY_PICKER` | Interactive prompt history picker |
 | `MESSAGE_ACTIONS` | Message action entrypoints in the UI |
 | `QUICK_SEARCH` | Prompt quick-search |

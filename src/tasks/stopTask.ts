@@ -98,3 +98,32 @@ export async function stopTask(
 
   return { taskId, taskType: task.type, command }
 }
+
+
+/**
+ * Kill all non-terminal background tasks. Used during session shutdown
+ * and /health kill-all.
+ */
+export async function killAllActive(
+  context: StopTaskContext,
+  reason = 'CLI session ended',
+): Promise<string[]> {
+  const { getAppState, setAppState } = context
+  const appState = getAppState()
+  const tasks = appState.tasks ?? {}
+  const terminalStatuses = new Set(['completed', 'failed', 'killed', 'lost', 'stopped', 'exited'])
+  const killed: string[] = []
+
+  for (const [taskId, task] of Object.entries(tasks)) {
+    const base = task as TaskStateBase
+    if (terminalStatuses.has(base.status)) continue
+    try {
+      await stopTask(taskId, context)
+      killed.push(taskId)
+    } catch (err) {
+      console.error('[taskHealth] failed to kill task', taskId, String(err))
+    }
+  }
+
+  return killed
+}

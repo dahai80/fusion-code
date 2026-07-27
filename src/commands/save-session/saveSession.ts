@@ -1,6 +1,7 @@
 import { readFile, writeFile, mkdir, rename } from 'fs/promises'
 import { join, dirname } from 'path'
 import type { LocalCommandCall, LocalCommandResult } from '../../types/command.js'
+import { getSessionId } from '../../bootstrap/state.js'
 import { getClaudeConfigHomeDir } from '../../utils/envUtils.js'
 import { logForDebugging } from '../../utils/debug.js'
 import type { SessionBookmark } from '../../types/sessionBookmark.js'
@@ -39,7 +40,7 @@ export const call: LocalCommandCall = async (args, context) => {
         } satisfies LocalCommandResult
     }
 
-    const sessionId = context.sessionId || 'unknown'
+    const sessionId = getSessionId()
     const projectPath = context.cwd || process.cwd()
 
     const bookmarks = await loadBookmarks()

@@ -43,6 +43,7 @@ type TaskOutput = {
   status: string;
   description: string;
   output: string;
+  outputTruncated?: boolean;
   exitCode?: number | null;
   error?: string;
   // For agents
@@ -56,6 +57,8 @@ type TaskOutputToolOutput = {
 
 // Re-export Progress from centralized types to break import cycles
 export type { TaskOutputProgress as Progress } from '../../types/tools.js';
+
+const MAX_INLINE_OUTPUT_BYTES = 32 * 1024 // 32KB
 
 // Get output for any task type
 async function getTaskOutputData(task: TaskState): Promise<TaskOutput> {
@@ -73,12 +76,18 @@ async function getTaskOutputData(task: TaskState): Promise<TaskOutput> {
   } else {
     output = await getTaskOutput(task.id);
   }
+  let outputTruncated = false
+  if (output.length > MAX_INLINE_OUTPUT_BYTES) {
+    output = output.slice(0, MAX_INLINE_OUTPUT_BYTES) + '\n\n... [output truncated at 32KB, use Read on the output file for full content]';
+    outputTruncated = true
+  }
   const baseOutput: TaskOutput = {
     task_id: task.id,
     task_type: task.type,
     status: task.status,
     description: task.description,
-    output
+    output,
+    outputTruncated,
   };
 
   // Add type-specific fields
