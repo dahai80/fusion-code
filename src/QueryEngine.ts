@@ -6,14 +6,7 @@ import {
 	getSessionId,
 	isSessionPersistenceDisabled,
 } from "src/bootstrap/state.js";
-import type {
-	PermissionMode,
-	SDKCompactBoundaryMessage,
-	SDKMessage,
-	SDKPermissionDenial,
-	SDKStatus,
-	SDKUserMessageReplay,
-} from "src/entrypoints/agentSdkTypes.js";
+import type { PermissionMode, SDKCompactBoundaryMessage, SDKMessage, SDKPermissionDenial, SDKStatus, SDKUserMessageReplay } from 'src/entrypoints/sdk/types.js'
 import { accumulateUsage, updateUsage } from "src/services/api/claude.js";
 import type { NonNullableUsage } from "src/services/api/logging.js";
 import { EMPTY_USAGE } from "src/services/api/logging.js";

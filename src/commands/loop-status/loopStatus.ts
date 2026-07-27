@@ -20,6 +20,7 @@ export const call: LocalCommandCall = async (_args, _context) => {
 
     if (tasks.length === 0) {
         return {
+            type: 'display',
             display: 'No active loops or scheduled jobs.',
         } satisfies LocalCommandResult
     }
@@ -61,6 +62,7 @@ export const call: LocalCommandCall = async (_args, _context) => {
     lines.push(`Total: ${tasks.length} job(s) (${recurring.length} recurring, ${oneShot.length} one-shot)`)
 
     return {
+            type: 'display',
         display: lines.join('\n'),
     } satisfies LocalCommandResult
 }

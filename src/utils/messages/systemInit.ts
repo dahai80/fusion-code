@@ -2,11 +2,11 @@ import { feature } from 'bun:bundle'
 import { randomUUID } from 'crypto'
 import { getSdkBetas, getSessionId } from 'src/bootstrap/state.js'
 import { DEFAULT_OUTPUT_STYLE_NAME } from 'src/constants/outputStyles.js'
+import type { ApiKeySource } from '../../utils/auth.js'
 import type {
-  ApiKeySource,
   PermissionMode,
   SDKMessage,
-} from 'src/entrypoints/agentSdkTypes.js'
+} from 'src/entrypoints/sdk/types.js'
 import {
   AGENT_TOOL_NAME,
   LEGACY_AGENT_TOOL_NAME,

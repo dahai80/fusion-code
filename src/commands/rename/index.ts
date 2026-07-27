@@ -18,7 +18,7 @@ const rename: Command = {
         if (!trimmedArgs) {
             onDone(
                 'Usage: /rename <name> — provide a name for the session',
-                { display: 'system' },
+                { type: 'display', display: 'system' },
             )
             return null
         }
@@ -38,7 +38,7 @@ const rename: Command = {
             },
         }))
 
-        onDone(`Session renamed to: ${newName}`, { display: 'system' })
+        onDone(`Session renamed to: ${newName}`, { type: 'display', display: 'system' })
         return null
     },
 }

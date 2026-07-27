@@ -21,6 +21,7 @@ export const call: LocalCommandCall = async (args, _context) => {
     if (!name) {
         if (bookmarks.length === 0) {
             return {
+            type: 'display',
                 display: 'No saved sessions. Use /save-session <name> to save one.',
             } satisfies LocalCommandResult
         }
@@ -29,6 +30,7 @@ export const call: LocalCommandCall = async (args, _context) => {
             return `  ${b.name} | ${b.sessionId.slice(0, 8)}… | ${b.projectPath.split('/').slice(-2).join('/')} | saved ${ago}`
         })
         return {
+            type: 'display',
             display: `Saved sessions:\n${lines.join('\n')}\n\nResume with /resume-session <name>`,
         } satisfies LocalCommandResult
     }
@@ -36,6 +38,7 @@ export const call: LocalCommandCall = async (args, _context) => {
     const bookmark = bookmarks.find(b => b.name === name)
     if (!bookmark) {
         return {
+            type: 'display',
             display: `No saved session named "${name}". Use /resume-session (no args) to list available sessions.`,
         } satisfies LocalCommandResult
     }
@@ -43,6 +46,7 @@ export const call: LocalCommandCall = async (args, _context) => {
     console.log(`[resume-session] resuming "${name}" → session ${bookmark.sessionId}`)
 
     return {
+            type: 'display',
         display: `Resuming session "${name}" (${bookmark.sessionId})...\nSwitch to project dir: ${bookmark.projectPath}\nThen run: /resume ${bookmark.sessionId}`,
         shouldQuery: false,
         nextInput: `/resume ${bookmark.sessionId}`,

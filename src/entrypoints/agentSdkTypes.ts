@@ -21,16 +21,82 @@ export type {
   SDKControlResponse,
 } from './sdk/controlTypes.js'
 // Re-export core types (common serializable types)
-export * from './sdk/coreTypes.js'
+// log: export * doesn't propagate through src/* path alias (TS limitation)
+// Must use export type { ... } from for each type explicitly
+export type {
+  PermissionMode,
+  ExitReason,
+  HookEvent,
+  ModelUsage,
+  SDKStatus,
+  SDKBaseMessage,
+  SDKAssistantMessage,
+  SDKAssistantMessageError,
+  SDKPartialAssistantMessage,
+  SDKResultMessage,
+  SDKStatusMessage,
+  SDKSystemMessage,
+  SDKCompactMetadata,
+  SDKCompactBoundaryMessage,
+  SDKToolProgressMessage,
+  SDKPermissionDenial,
+  SDKRateLimitInfo,
+  SDKUserMessage,
+  SDKUserMessageReplay,
+  SDKSessionInfo,
+  PermissionResult,
+  HookInput,
+  HookJSONOutput,
+  SyncHookJSONOutput,
+  AsyncHookJSONOutput,
+  SDKAuthStatusMessage,
+  SDKToolUseSummaryMessage,
+  SDKRateLimitEventMessage,
+  SDKStreamEventMessage,
+  SDKMessage,
+} from './sdk/types.js'
+// log: re-export runtime values (HOOK_EVENTS, EXIT_REASONS)
+export { HOOK_EVENTS, EXIT_REASONS } from './sdk/coreTypes.js'
+// log: re-export sandbox types
+export type {
+  SandboxFilesystemConfig,
+  SandboxIgnoreViolations,
+  SandboxNetworkConfig,
+  SandboxSettings,
+} from './sandboxTypes.js'
+export type { NonNullableUsage } from './sdk/sdkUtilityTypes.js'
+// log: re-export control types
+export type { PermissionUpdate } from './sdk/controlTypes.js'
+// log: ApiKeySource lives in utils/auth, not controlTypes
+export type { ApiKeySource } from '../utils/auth.js'
 // Re-export runtime types (callbacks, interfaces with methods)
-export * from './sdk/runtimeTypes.js'
+export type {
+  AnyZodRawShape,
+  InferShape,
+  SdkMcpToolDefinition,
+  McpSdkServerConfigWithInstance,
+  Options,
+  InternalOptions,
+  SDKSessionOptions,
+  Query,
+  InternalQuery,
+  SessionMutationOptions,
+  ListSessionsOptions,
+  GetSessionInfoOptions,
+  GetSessionMessagesOptions,
+  ForkSessionOptions,
+  ForkSessionResult,
+  SDKSession,
+  SessionMessage,
+  EffortLevel,
+} from './sdk/runtimeTypes.js'
 
 // Re-export settings types (generated from settings JSON schema)
 // log: settingsTypes.generated not yet generated, stub Settings as empty
 // export type { Settings } from './sdk/settingsTypes.generated.js'
 export type Settings = Record<string, unknown>
 // Re-export tool types (all marked @internal until SDK API stabilizes)
-export * from './sdk/toolTypes.js'
+export type * from './sdk/toolTypes.js'
 
 // ============================================================================
 // Functions
@@ -62,15 +128,6 @@ import type {
   SessionMessage,
   SessionMutationOptions,
 } from './sdk/runtimeTypes.js'
-
-export type {
-  ListSessionsOptions,
-  GetSessionInfoOptions,
-  SessionMutationOptions,
-  ForkSessionOptions,
-  ForkSessionResult,
-  SDKSessionInfo,
-}
 
 export function tool<Schema extends AnyZodRawShape>(
   _name: string,

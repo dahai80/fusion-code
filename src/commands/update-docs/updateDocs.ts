@@ -50,6 +50,7 @@ export const call: LocalCommandCall = async (_args, context) => {
     console.log(`[update-docs] scanning ${cwd} for documentation sync targets`)
 
     return {
+            type: 'display',
         display: UPDATE_DOCS_PROMPT,
     } satisfies LocalCommandResult
 }

@@ -39,6 +39,7 @@ export const call: LocalCommandCall = async (args, context) => {
 	const name = args.trim();
 	if (!name) {
 		return {
+            type: 'display',
 			display:
 				"Usage: /save-session <name>\n\nGive the current session a name so you can resume it later with /resume-session <name>.",
 		} satisfies LocalCommandResult;
@@ -69,6 +70,7 @@ export const call: LocalCommandCall = async (args, context) => {
 	console.log(`[save-session] saved "${name}" → session ${sessionId}`);
 
 	return {
+            type: 'display',
 		display: `Session saved as "${name}". Resume with /resume-session ${name}`,
 	} satisfies LocalCommandResult;
 };

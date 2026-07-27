@@ -46,6 +46,7 @@ async function handleCreate(name: string, cwd: string): Promise<LocalCommandResu
     console.log(`[checkpoint] created "${name}" at ${gitRef}`)
 
     return {
+            type: 'display',
         display: `Checkpoint "${name}" created at ${gitRef} (${timestamp})\nLog: ${logPath}`,
     } satisfies LocalCommandResult
 }
@@ -66,6 +67,7 @@ async function handleList(cwd: string): Promise<LocalCommandResult> {
         const rows = lines.reverse().slice(0, 20).join('\n')
 
         return {
+            type: 'display',
             display: `Checkpoints (last 20):\n${header}\n${separator}\n${rows}`,
         } satisfies LocalCommandResult
     } catch {
@@ -105,6 +107,7 @@ async function handleVerify(name: string, cwd: string): Promise<LocalCommandResu
         console.log(`[checkpoint] verifying "${name}" (${checkpointRef} → ${currentRef})`)
 
         return {
+            type: 'display',
             display: `Checkpoint: ${name}\nCreated at: ${parts[0]} (${checkpointRef})\nCurrent: ${currentRef}\n\nChanges since checkpoint:\n${diffStat || 'None'}`,
         } satisfies LocalCommandResult
     } catch {

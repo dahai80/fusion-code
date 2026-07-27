@@ -1,17 +1,17 @@
 // biome-ignore-all assist/source/organizeImports: ANT-ONLY import markers must not be reordered
 import { z } from 'zod/v4'
 import { lazySchema } from '../utils/lazySchema.js'
-import {
-  type HookEvent,
-  HOOK_EVENTS,
-  type HookInput,
-  type PermissionUpdate,
-} from 'src/entrypoints/agentSdkTypes.js'
+import { HOOK_EVENTS } from 'src/entrypoints/sdk/coreTypes.js'
+import type {
+  HookEvent,
+  HookInput,
+} from 'src/entrypoints/sdk/types.js'
+import type { PermissionUpdate } from 'src/entrypoints/sdk/controlTypes.js'
 import type {
   HookJSONOutput,
   AsyncHookJSONOutput,
   SyncHookJSONOutput,
-} from 'src/entrypoints/agentSdkTypes.js'
+} from 'src/entrypoints/sdk/types.js'
 
 export type { HookJSONOutput, AsyncHookJSONOutput, SyncHookJSONOutput }
 import type { Message } from 'src/types/message.js'

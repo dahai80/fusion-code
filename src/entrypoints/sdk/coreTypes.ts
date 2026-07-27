@@ -16,7 +16,35 @@ export type {
   SandboxSettings,
 } from '../sandboxTypes.js'
 // Re-export all generated types
-export * from './coreTypes.generated.js'
+// log: export * doesn't propagate through src/* path alias, must list explicitly
+export {
+  PermissionMode,
+  ExitReason,
+  HookEvent,
+  ModelUsage,
+  SDKStatus,
+  SDKBaseMessage,
+  SDKAssistantMessage,
+  SDKAssistantMessageError,
+  SDKPartialAssistantMessage,
+  SDKResultMessage,
+  SDKStatusMessage,
+  SDKSystemMessage,
+  SDKCompactMetadata,
+  SDKCompactBoundaryMessage,
+  SDKToolProgressMessage,
+  SDKPermissionDenial,
+  SDKRateLimitInfo,
+  SDKUserMessage,
+  SDKUserMessageReplay,
+  SDKSessionInfo,
+  PermissionResult,
+  HookInput,
+  HookJSONOutput,
+  SyncHookJSONOutput,
+  AsyncHookJSONOutput,
+  SDKMessage,
+} from './coreTypes.generated.js'
 
 // Re-export utility types that can't be expressed as Zod schemas
 export type { NonNullableUsage } from './sdkUtilityTypes.js'

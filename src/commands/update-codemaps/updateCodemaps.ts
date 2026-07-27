@@ -51,6 +51,7 @@ export const call: LocalCommandCall = async (args, context) => {
     console.log(`[update-codemaps] generating ${section} codemaps`)
 
     return {
+            type: 'display',
         display: UPDATE_CODEMAPS_PROMPT,
     } satisfies LocalCommandResult
 }

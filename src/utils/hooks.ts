@@ -73,37 +73,7 @@ import {
   isSyncHookJSONOutput,
   type PermissionRequestResult,
 } from '../types/hooks.js'
-import type {
-  HookEvent,
-  HookInput,
-  NotificationHookInput,
-  PostToolUseHookInput,
-  PostToolUseFailureHookInput,
-  PermissionDeniedHookInput,
-  PreCompactHookInput,
-  PostCompactHookInput,
-  PreToolUseHookInput,
-  SessionStartHookInput,
-  SessionEndHookInput,
-  SetupHookInput,
-  StopFailureHookInput,
-  SubagentStartHookInput,
-  SubagentStopHookInput,
-  TeammateIdleHookInput,
-  TaskCreatedHookInput,
-  TaskCompletedHookInput,
-  ConfigChangeHookInput,
-  CwdChangedHookInput,
-  FileChangedHookInput,
-  InstructionsLoadedHookInput,
-  UserPromptSubmitHookInput,
-  PermissionRequestHookInput,
-  ElicitationHookInput,
-  ElicitationResultHookInput,
-  ExitReason,
-  SyncHookJSONOutput,
-  AsyncHookJSONOutput,
-} from 'src/entrypoints/agentSdkTypes.js'
+import type { HookEvent, HookInput, NotificationHookInput, PostToolUseHookInput, PostToolUseFailureHookInput, PermissionDeniedHookInput, PreCompactHookInput, PostCompactHookInput, PreToolUseHookInput, SessionStartHookInput, SessionEndHookInput, SetupHookInput, StopFailureHookInput, SubagentStartHookInput, SubagentStopHookInput, TeammateIdleHookInput, TaskCreatedHookInput, TaskCompletedHookInput, ConfigChangeHookInput, CwdChangedHookInput, FileChangedHookInput, InstructionsLoadedHookInput, UserPromptSubmitHookInput, PermissionRequestHookInput, ElicitationHookInput, ElicitationResultHookInput, ExitReason, SyncHookJSONOutput, AsyncHookJSONOutput } from 'src/entrypoints/sdk/types.js'
 import type { PermissionUpdate } from 'src/types/permissions.js'
 import type { HookJSONOutput } from '../types/hooks.js'
 import type { StatusLineCommandInput } from '../types/statusLine.js'

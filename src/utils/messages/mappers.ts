@@ -5,12 +5,7 @@ import {
   LOCAL_COMMAND_STDERR_TAG,
   LOCAL_COMMAND_STDOUT_TAG,
 } from 'src/constants/xml.js'
-import type {
-  SDKAssistantMessage,
-  SDKCompactBoundaryMessage,
-  SDKMessage,
-  SDKRateLimitInfo,
-} from 'src/entrypoints/agentSdkTypes.js'
+import type { SDKAssistantMessage, SDKCompactBoundaryMessage, SDKMessage, SDKRateLimitInfo } from 'src/entrypoints/sdk/types.js'
 import type { ClaudeAILimits } from 'src/services/claudeAiLimits.js'
 import { EXIT_PLAN_MODE_V2_TOOL_NAME } from 'src/tools/ExitPlanModeTool/constants.js'
 import type {

@@ -278,7 +278,7 @@ export async function call(
 
     if (context.resume) {
       await context.resume(sessionId, forkLog, 'fork')
-      onDone(successMessage, { display: 'system' })
+      onDone(successMessage, { type: 'display', display: 'system' })
     } else {
       // Fallback if resume not available
       onDone(

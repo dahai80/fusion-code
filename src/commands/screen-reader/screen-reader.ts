@@ -35,7 +35,7 @@ export async function call(
         next
             ? 'Screen reader mode ON: animations disabled, plain text status'
             : 'Screen reader mode OFF: animations restored',
-        { display: 'system' },
+        { type: 'display', display: 'system' },
     )
     return null
 }

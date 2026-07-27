@@ -51,6 +51,7 @@ export const call: LocalCommandCall = async (args, context) => {
     console.log(`[project-init] detecting stack for ${target} onboarding`)
 
     return {
+            type: 'display',
         display: PROJECT_INIT_PROMPT,
     } satisfies LocalCommandResult
 }

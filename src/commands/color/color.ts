@@ -26,7 +26,7 @@ export async function call(
   if (isTeammate()) {
     onDone(
       'Cannot set color: This session is a swarm teammate. Teammate colors are assigned by the team leader.',
-      { display: 'system' },
+      { type: 'display', display: 'system' },
     )
     return null
   }
@@ -59,7 +59,7 @@ export async function call(
       },
     }))
 
-    onDone('Session color reset to default', { display: 'system' })
+    onDone('Session color reset to default', { type: 'display', display: 'system' })
     return null
   }
 
@@ -67,7 +67,7 @@ export async function call(
     const colorList = AGENT_COLORS.join(', ')
     onDone(
       `Invalid color "${colorArg}". Available colors: ${colorList}, default`,
-      { display: 'system' },
+      { type: 'display', display: 'system' },
     )
     return null
   }
@@ -88,6 +88,6 @@ export async function call(
     },
   }))
 
-  onDone(`Session color set to: ${colorArg}`, { display: 'system' })
+  onDone(`Session color set to: ${colorArg}`, { type: 'display', display: 'system' })
   return null
 }

@@ -107,13 +107,7 @@ import {
 } from "src/utils/gracefulShutdown.js";
 import { registerCleanup } from "src/utils/cleanupRegistry.js";
 import { createIdleTimeoutManager } from "src/utils/idleTimeout.js";
-import type {
-	SDKStatus,
-	SDKMessage,
-	SDKUserMessage,
-	SDKUserMessageReplay,
-	PermissionResult,
-} from "src/entrypoints/agentSdkTypes.js";
+import type { SDKStatus, SDKMessage, SDKUserMessage, SDKUserMessageReplay, PermissionResult, HookEvent } from 'src/entrypoints/sdk/types.js'
 import type {
 	ModelInfo,
 	McpServerConfigForProcessTransport,
@@ -194,7 +188,7 @@ import { installOAuthTokens } from "src/cli/handlers/auth.js";
 import { getAPIProvider } from "src/utils/model/providers.js";
 import type { HookCallbackMatcher } from "src/types/hooks.js";
 import { AwsAuthStatusManager } from "src/utils/awsAuthStatusManager.js";
-import type { HookEvent } from "src/entrypoints/agentSdkTypes.js";
+
 import {
 	registerHookCallbacks,
 	setInitJsonSchema,

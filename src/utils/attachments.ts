@@ -173,10 +173,7 @@ import {
 import { CLAUDE_IN_CHROME_MCP_SERVER_NAME } from './claudeInChrome/common.js'
 import { CHROME_TOOL_SEARCH_INSTRUCTIONS } from './claudeInChrome/prompt.js'
 import type { MCPServerConnection } from '../services/mcp/types.js'
-import type {
-  HookEvent,
-  SyncHookJSONOutput,
-} from 'src/entrypoints/agentSdkTypes.js'
+import type { HookEvent, SyncHookJSONOutput } from 'src/entrypoints/sdk/types.js'
 import {
   checkForAsyncHookResponses,
   removeDeliveredAsyncHooks,

@@ -5,13 +5,8 @@ import type {
 } from '@modelcontextprotocol/sdk/types.js'
 import { randomUUID } from 'crypto'
 import type { AssistantMessage } from 'src//types/message.js'
-import type {
-  HookInput,
-  HookJSONOutput,
-  PermissionUpdate,
-  SDKMessage,
-  SDKUserMessage,
-} from 'src/entrypoints/agentSdkTypes.js'
+import type { HookInput, HookJSONOutput, SDKMessage, SDKUserMessage } from 'src/entrypoints/sdk/types.js'
+import type { PermissionUpdate } from '../utils/permissions/PermissionUpdateSchema.js'
 import { SDKControlElicitationResponseSchema } from 'src/entrypoints/sdk/controlSchemas.js'
 import type {
   SDKControlRequest,
