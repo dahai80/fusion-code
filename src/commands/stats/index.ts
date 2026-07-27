@@ -1,6 +1,4 @@
 import type { Command } from '../../commands.js'
-import { isClaudeAISubscriber } from '../../utils/auth.js'
-
 const usage = {
     type: 'local-jsx',
     name: 'usage',

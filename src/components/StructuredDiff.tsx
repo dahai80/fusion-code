@@ -1,6 +1,5 @@
 import { c as _c } from "react/compiler-runtime";
 import type { StructuredPatchHunk } from 'diff';
-import * as React from 'react';
 import { memo } from 'react';
 import { useSettings } from '../hooks/useSettings.js';
 import { Box, NoSelect, RawAnsi, useTheme } from '../ink.js';

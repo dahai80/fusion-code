@@ -1,7 +1,6 @@
 import { c as _c } from "react/compiler-runtime";
 import { basename } from 'path';
 import { toString as qrToString } from 'qrcode';
-import * as React from 'react';
 import { useEffect, useState } from 'react';
 import { getOriginalCwd } from '../bootstrap/state.js';
 import { buildActiveFooterText, buildIdleFooterText, FAILED_FOOTER_TEXT, getBridgeStatus } from '../bridge/bridgeStatusUtil.js';

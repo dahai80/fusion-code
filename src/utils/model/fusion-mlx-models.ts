@@ -6,7 +6,6 @@
  * 同时也提供静态配置作为回退。
  */
 
-import { logForDebugging } from '../debug.js'
 import type { MLXModelInfo } from '../../services/api/fusion-mlx-types.js'
 import { getFusionMlxModels } from '../../services/api/fusion-mlx-adapter.js'
 

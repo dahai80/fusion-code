@@ -1,6 +1,5 @@
 import { c as _c } from "react/compiler-runtime";
 import { resolve as resolvePath } from 'path';
-import * as React from 'react';
 import { useEffect, useRef, useState } from 'react';
 import { useRegisterOverlay } from '../context/overlayContext.js';
 import { useTerminalSize } from '../hooks/useTerminalSize.js';

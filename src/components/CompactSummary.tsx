@@ -1,5 +1,4 @@
 import { c as _c } from "react/compiler-runtime";
-import * as React from 'react';
 import { BLACK_CIRCLE } from '../constants/figures.js';
 import { Box, Text } from '../ink.js';
 import type { Screen } from '../screens/REPL.js';

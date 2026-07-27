@@ -1,5 +1,4 @@
 import { c as _c } from "react/compiler-runtime";
-import * as React from 'react';
 import { useState } from 'react';
 import { Box, Text } from 'src/ink.js';
 import { formatAPIError } from 'src/services/api/errorUtils.js';

@@ -1,7 +1,6 @@
 import { profileCheckpoint } from '../utils/startupProfiler.js'
 import '../bootstrap/state.js'
 import '../utils/config.js'
-import memoize from 'lodash-es/memoize.js'
 import { asyncMemoize } from '../utils/asyncMemoize.js'
 import { getIsNonInteractiveSession } from 'src/bootstrap/state.js'
 import { shutdownLspServerManager } from '../services/lsp/manager.js'

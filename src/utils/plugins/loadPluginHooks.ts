@@ -1,4 +1,3 @@
-import memoize from 'lodash-es/memoize.js'
 import { asyncMemoize } from '../asyncMemoize.js'
 import type { HookEvent } from 'src/entrypoints/sdk/types.js'
 import {

@@ -73,7 +73,6 @@ import {
 } from '../../utils/messages.js'
 import { isFusionMlxProvider } from '../../utils/model/providers.js'
 import { getMainLoopModel } from '../../utils/model/model.js'
-import { getMlxReducedTools } from '../../utils/model/mlxPreflight.js'
 import { expandPath } from '../../utils/path.js'
 import { getPlan, getPlanFilePath } from '../../utils/plans.js'
 import {

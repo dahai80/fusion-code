@@ -11,8 +11,7 @@ import { c as _c } from "react/compiler-runtime";
  * command-type hooks and duplicating the settings.json editing surface
  * in-menu for all four types would be a maintenance burden.
  */
-import * as React from 'react';
-import { useCallback, useMemo, useState } from 'react';
+import { useState } from 'react';
 import type { HookEvent } from 'src/entrypoints/sdk/types.js'
 import { useAppState, useAppStateStore } from 'src/state/AppState.js';
 import type { CommandResultDisplay } from '../../commands.js';

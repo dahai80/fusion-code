@@ -524,7 +524,6 @@ function reviewCountsLine(session: DeepImmutable<RemoteAgentTaskState>): string 
   }
   return formatReviewStageCounts(p.stage, p.bugsFound, verified, refuted);
 }
-type MenuAction = 'open' | 'stop' | 'back' | 'dismiss';
 function ReviewSessionDetail(t0) {
   const $ = _c(56);
   const {

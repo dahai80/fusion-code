@@ -44,7 +44,7 @@ import {
   getScratchpadDir,
 } from '../utils/permissions/filesystem.js'
 import { isEnvTruthy } from '../utils/envUtils.js'
-import { getCompactProjectContext, getProjectContextSection } from '../utils/projectContext.js'
+import { getProjectContextSection } from '../utils/projectContext.js'
 import { buildMlxSystemPrompt } from './mlx-system-prompt.js'
 import { getContextWindowForModel } from '../utils/context.js'
 import { isReplModeEnabled } from '../tools/REPLTool/constants.js'

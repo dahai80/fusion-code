@@ -1,5 +1,4 @@
 import { c as _c } from "react/compiler-runtime";
-import React from 'react';
 import { Box, Text } from '../../ink.js';
 import { SandboxManager } from '../../utils/sandbox/sandbox-adapter.js';
 export function SandboxDoctorSection() {

@@ -1,6 +1,4 @@
 import type { Message } from '../../types/message.js'
-import { logForDebugging } from '../../utils/debug.js'
-
 export type UndoAnchor = {
     messageId: string
     type: 'user' | 'skill' | 'plugin_command'

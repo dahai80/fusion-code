@@ -3,7 +3,7 @@ import { mkdir, writeFile } from 'fs/promises';
 import { marked, type Tokens } from 'marked';
 import { tmpdir } from 'os';
 import { join } from 'path';
-import React, { useRef } from 'react';
+import { useRef } from 'react';
 import type { CommandResultDisplay } from '../../commands.js';
 import type { OptionWithDescription } from '../../components/CustomSelect/select.js';
 import { Select } from '../../components/CustomSelect/select.js';
@@ -116,7 +116,6 @@ type PickerProps = {
     display?: CommandResultDisplay;
   }) => void;
 };
-type PickerSelection = number | 'full' | 'always';
 function CopyPicker(t0) {
   const $ = _c(33);
   const {

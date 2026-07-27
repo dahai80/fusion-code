@@ -1,6 +1,5 @@
 import { c as _c } from "react/compiler-runtime";
 import { basename, relative } from 'path';
-import React from 'react';
 import { FileEditToolDiff } from 'src/components/FileEditToolDiff.js';
 import { getCwd } from 'src/utils/cwd.js';
 import type { z } from 'zod/v4';

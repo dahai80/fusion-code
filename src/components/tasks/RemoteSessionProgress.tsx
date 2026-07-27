@@ -1,5 +1,5 @@
 import { c as _c } from "react/compiler-runtime";
-import React, { useRef } from 'react';
+import { useRef } from 'react';
 // RemoteAgentTask removed - cloud-only
 // log: fix TS2339 - define local interface for remote session state
 type ReviewProgress = { // log: fix TS2339

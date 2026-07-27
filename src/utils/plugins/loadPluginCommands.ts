@@ -1,4 +1,3 @@
-import memoize from 'lodash-es/memoize.js'
 import { asyncMemoize } from '../asyncMemoize.js'
 import { basename, dirname, join } from 'path'
 import { getInlinePlugins, getSessionId } from '../../bootstrap/state.js'

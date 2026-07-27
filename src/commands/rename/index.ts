@@ -1,5 +1,4 @@
 import type { UUID } from 'crypto'
-import { getSessionId } from '../../bootstrap/state.js'
 import type { Command } from '../../types/command.js'
 import {
     getTranscriptPath,

@@ -17,7 +17,6 @@ import type { CanUseToolFn } from '../../hooks/useCanUseTool.js'
 import type { AssistantMessage } from '../../types/message.js'
 import { lazySchema } from '../../utils/lazySchema.js'
 import { logForDebugging } from '../../utils/debug.js'
-import { MAX_MARKDOWN_LENGTH } from '../WebFetchTool/utils.js'
 import { getURLMarkdownContent } from '../WebFetchTool/utils.js'
 
 export const WEB_BROWSER_TOOL_NAME = 'WebBrowser'

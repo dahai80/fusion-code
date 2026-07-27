@@ -31,7 +31,6 @@ import {
 	isFastModeEnabled,
 	triggerFastModeCooldown,
 } from "../../utils/fastMode.js";
-import { isNonCustomOpusModel } from "../../utils/model/model.js";
 import { disableKeepAlive } from "../../utils/proxy.js";
 import { sleep } from "../../utils/sleep.js";
 import type { ThinkingConfig } from "../../utils/thinking.js";

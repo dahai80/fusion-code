@@ -9,7 +9,6 @@ import { c as _c } from "react/compiler-runtime";
  */
 
 import figures from 'figures';
-import * as React from 'react';
 import type { HookEvent } from 'src/entrypoints/sdk/types.js'
 import type { HookEventMetadata } from 'src/utils/hooks/hooksConfigManager.js';
 import { Box, Link, Text } from '../../ink.js';

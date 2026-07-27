@@ -9,8 +9,6 @@
 
 import type { Command, LocalCommandCall } from '../../types/command.js'
 import { getWorkflowCommands, createWorkflowCommand } from '../../tools/WorkflowTool/createWorkflowCommand.js'
-import { logForDebugging } from '../../utils/debug.js'
-
 const call: LocalCommandCall = async (args: string) => {
     const parts = args.trim().split(/\s+/)
     const subcommand = parts[0]?.toLowerCase()

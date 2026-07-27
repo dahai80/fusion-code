@@ -1,6 +1,5 @@
 import { c as _c } from "react/compiler-runtime";
 import { feature } from 'bun:bundle';
-import * as React from 'react';
 import { Box, Text } from '../ink.js';
 import type { ContextData } from '../utils/analyzeContext.js';
 import { generateContextSuggestions } from '../utils/contextSuggestions.js';

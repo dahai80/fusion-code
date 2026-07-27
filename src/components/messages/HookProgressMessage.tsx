@@ -1,5 +1,4 @@
 import { c as _c } from "react/compiler-runtime";
-import * as React from 'react';
 import type { HookEvent } from 'src/entrypoints/sdk/types.js'
 import type { buildMessageLookups } from 'src/utils/messages.js';
 import { Box, Text } from '../../ink.js';

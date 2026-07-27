@@ -19,7 +19,6 @@ import {
 	replaceCchPlaceholder,
 } from "src/utils/cch.js";
 import { getUserAgent } from "src/utils/http.js";
-import { getSmallFastModel } from "src/utils/model/model.js";
 import {
 	getAPIProvider,
 	isFirstPartyAnthropicBaseUrl,
@@ -32,7 +31,7 @@ import {
 } from "../../bootstrap/state.js";
 import { getOauthConfig } from "../../constants/oauth.js";
 import { isDebugToStdErr, logForDebugging } from "../../utils/debug.js";
-import { getVertexRegionForModel, isEnvTruthy } from "../../utils/envUtils.js";
+import { isEnvTruthy } from "../../utils/envUtils.js";
 import {
 	getBedrockConfig,
 	isBedrockProvider,

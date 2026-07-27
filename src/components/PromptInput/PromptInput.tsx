@@ -60,7 +60,7 @@ import { Cursor } from '../../utils/Cursor.js';
 import { getGlobalConfig, type PastedContent, saveGlobalConfig } from '../../utils/config.js';
 import { logForDebugging } from '../../utils/debug.js';
 import { parseDirectMemberMessage, sendDirectMemberMessage } from '../../utils/directMemberMessage.js';
-import { EFFORT_LEVELS, type EffortLevel, convertEffortValueToLevel, getDisplayedEffortLevel, modelSupportsEffort, toPersistableEffort } from '../../utils/effort.js';
+import { EFFORT_LEVELS, type EffortLevel, getDisplayedEffortLevel, modelSupportsEffort, toPersistableEffort } from '../../utils/effort.js';
 import { env } from '../../utils/env.js';
 import { errorMessage } from '../../utils/errors.js';
 import { isBilledAsExtraUsage } from '../../utils/extraUsage.js';
