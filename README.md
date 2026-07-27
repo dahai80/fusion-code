@@ -350,6 +350,42 @@ When using fusion-mlx as the provider, claude.ai-dependent features are automati
 
 This ensures MLX users never encounter confusing claude.ai login prompts.
 
+### Local Model Behavioral Prompt
+
+When `provider=fusionMlx`, fusion-code automatically appends a **behavioral prompt** (~2.9K tokens) to the system prompt. This prompt covers:
+
+- **Primary priorities** — correctness, usefulness, honesty, clarity
+- **Understanding requests** — distinguish facts, assumptions, uncertainty, opinion
+- **Reasoning** — think step-by-step, consider edge cases, verify conclusions
+- **Communication** — be concise, structure complex answers, admit knowledge limits
+- **Coding** — read before writing, match existing style, test what you change
+- **Reliability** — never fabricate information, flag contradictions, fail visibly
+
+The prompt is derived from the vendor-neutral Fable 5 system prompt (balanced tier). It only activates for local models — cloud providers already have strong behavioral training. The corresponding **core tier** (~1.4K, 13 principles) is injected by fusion-mlx on the inference side when no system message exists, ensuring even bare API calls get baseline guidance.
+
+### Context Hub Integration
+
+fusion-code auto-detects the [Context Hub](https://github.com/anthropics/context-hub) (`chub`) CLI and injects a hint into researcher, explorer, code-reviewer, and general-purpose sub-agents. When available, agents will:
+
+1. Use `chub search "query"` to find relevant API documentation
+2. Use `chub get <id> --lang <py|js|go>` to fetch versioned docs
+3. Reduce hallucination by referencing verified, up-to-date documentation
+
+Install Context Hub separately: `npm install -g @aisuite/chub`. No configuration needed — fusion-code detects it automatically.
+
+For MCP-based integration (all agent types, not just sub-agents), add to `~/.fusion-code/settings.json`:
+
+```json
+{
+  "mcpServers": {
+    "chub-mcp": {
+      "command": "npx",
+      "args": ["-y", "@aisuite/chub-mcp"]
+    }
+  }
+}
+```
+
 ---
 
 ## Build
