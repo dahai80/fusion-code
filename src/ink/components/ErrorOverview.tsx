@@ -82,17 +82,17 @@ export default function ErrorOverview({
         </Box>}
 
       {error.stack && <Box marginTop={1} flexDirection="column">
-          {error.stack.split('\n').slice(1).map(line_1 => {
+          {error.stack.split('\n').slice(1).map((line_1, idx) => {
         const parsedLine = getStackUtils().parseLine(line_1);
 
         // If the line from the stack cannot be parsed, we print out the unparsed line.
         if (!parsedLine) {
-          return <Box key={line_1}>
+          return <Box key={idx}>
                     <Text dim>- </Text>
                     <Text bold>{line_1}</Text>
                   </Box>;
         }
-        return <Box key={line_1}>
+        return <Box key={idx}>
                   <Text dim>- </Text>
                   <Text bold>{parsedLine.function}</Text>
                   <Text dim>
