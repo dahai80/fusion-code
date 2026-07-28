@@ -21,11 +21,16 @@ import {
   shouldUseFusionMlx,
   getDefaultMlxModel,
   createFusionMlxFetch,
+  _resetOriginalFetch,
 } from '../../../src/services/api/fusion-mlx-adapter.js'
 
 // ─── Helpers ──────────────────────────────────────────────────
 
 const DEFAULT_MLX_URL = 'http://127.0.0.1:11434'
+
+beforeEach(() => {
+    _resetOriginalFetch()
+})
 
 /**
  * Create a mock fetch response.
