@@ -659,6 +659,15 @@ The lint-zero merge (`4710056`) introduced a startup regression against local ML
 
 Verified: `bun run dev` against a live fusion-mlx (port 11434) no longer prints `function` and no longer crashes on first paint.
 
+### v0.3.4 Patch Fixes
+
+Two regressions from the permission-prompt refactor, fixed in this patch:
+
+1. **renderToolUseMessage crash** (`src/Tool.ts`, `src/tools/BashTool/UI.tsx`, `src/tools/PowerShellTool/UI.tsx`) - permission prompts called `BashTool.renderToolUseMessage(input, {theme, verbose})` with 2 args, but the `BuiltTool` type resolved the method signature from `TOOL_DEFAULTS` (0-1 params) because `renderToolUseMessage` sits in `DefaultableToolKeys` and `ToolDef` marks it optional. At runtime the implementation destructured `undefined` for the 2nd param, crashing with `Cannot destructure property 'verbose'`. Added an optional `_opts` to the default implementation so the `ToolDefaults` type allows 0-2 params, and made `{verbose, theme}` optional in the UI with `verbose` defaulting to `false`.
+2. **Mode hint overlap** (`src/components/PromptInput/PromptInputFooterLeftSide.tsx`) - the `⏵⏵ auto mode on (shift+tab to cycle)` hint rendered beside a 2-item footer and overlapped the input box while typing. Gated it on `showHint` so it hides while the user is typing.
+
+Verified: `bun run typecheck` clean; `bun run build` and `bun run build:dev` pass; `./fusion-code-dev --version` reports `0.3.4-dev`.
+
 ### Build-Time Constants
 
 The bundler replaces `process.env.USER_TYPE` with `"external"` and `process.env.NODE_ENV` with `"production"`. Internal-only code paths use helper functions from `src/utils/buildConstants.ts`:
