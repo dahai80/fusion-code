@@ -668,6 +668,12 @@ Two regressions from the permission-prompt refactor, fixed in this patch:
 
 Verified: `bun run typecheck` clean; `bun run build` and `bun run build:dev` pass; `./fusion-code-dev --version` reports `0.3.4-dev`.
 
+### v0.3.5 Patch Fixes
+
+1. **SessionEnd hook crash** (`src/utils/hooks.ts`) - when a SessionEnd hook script exits 0 with no JSON stdout, `parseHookOutput` returns `json=null`. The code `(json as TypedHookJSON).hookSpecificOutput` accessed `.hookSpecificOutput` on `null`, crashing with `undefined is not an object (evaluating 'R.hookSpecificOutput')`. Added null guard so `hso2` is `undefined` when `json` is null. Fixes #9, PR #10.
+
+Verified: `bun run typecheck` clean; `bun run build:dev` passes; exiting fusion-code no longer crashes.
+
 ### Build-Time Constants
 
 The bundler replaces `process.env.USER_TYPE` with `"external"` and `process.env.NODE_ENV` with `"production"`. Internal-only code paths use helper functions from `src/utils/buildConstants.ts`:
