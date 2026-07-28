@@ -448,7 +448,6 @@ export interface FusionMlxStatus {
  */
 export async function checkFusionMlxHealth(): Promise<FusionMlxStatus> {
 	try {
-		console.error(typeof getOriginalFetch());
 		const response = await getOriginalFetch()(getMlxApiUrl("/v1/models"), {
 			method: "GET",
 			headers: { ...getMlxAuthHeaders() },
