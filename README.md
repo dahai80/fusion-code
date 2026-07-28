@@ -649,6 +649,16 @@ The `chore/ci-lint-zero` branch fixed all 511 TypeScript errors through:
 4. **Unused imports & dead code** — 400+ unused import removals across 329 files, dead functions/constants removed
 5. **ProcessEnv widening** — `USER_TYPE?: string` added to `env.d.ts` to prevent future TS2367 errors
 
+### Post-Lint Regression Fixes
+
+The lint-zero merge (`4710056`) introduced a startup regression against local MLX. Fixed in this patch:
+
+1. **REPL first-paint crash** (`src/screens/REPL.tsx`) - the lint rewrite left a bare `{" "}` space string inside a `<>` fragment between `SpinnerWithVerb` and `BriefIdleStatus`. Ink's `createTextInstance` rejects bare strings outside `<Text>`, crashing startup with `Text string " " must be rendered inside <Text> component`. Removed the stray space, restoring the v0.3.2 layout.
+2. **Stray `function` stdout** (`src/services/api/fusion-mlx-adapter.ts`) - `checkFusionMlxHealth()` carried a leftover debug `console.error(typeof getOriginalFetch())` that printed `function` to stderr on every MLX health check. Removed.
+3. **Dev-mode SDK export** (`src/entrypoints/sdk/coreTypes.ts`) - type-only re-exports were emitted as value exports, causing "export not found" in dev mode. Changed `export {` to `export type {`.
+
+Verified: `bun run dev` against a live fusion-mlx (port 11434) no longer prints `function` and no longer crashes on first paint.
+
 ### Build-Time Constants
 
 The bundler replaces `process.env.USER_TYPE` with `"external"` and `process.env.NODE_ENV` with `"production"`. Internal-only code paths use helper functions from `src/utils/buildConstants.ts`:

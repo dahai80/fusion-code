@@ -17,7 +17,9 @@ export type {
 } from "../sandboxTypes.js";
 // Re-export all generated types
 // log: export * doesn't propagate through src/* path alias, must list explicitly
-export {
+// NOTE: generated exports are type-only (export type); use `export type` so the
+// re-export stays type-only and doesn't trigger runtime "export not found" in dev.
+export type {
 	AsyncHookJSONOutput,
 	ExitReason,
 	HookEvent,

@@ -6313,7 +6313,7 @@ export function REPL({
 									hasActiveTools={inProgressToolUseIDs.size > 0}
 									leaderIsIdle={!isLoading}
 								/>
-							)}{" "}
+							)}
 							{/* log: removed apiMetricsRef - not in Spinner Props */}
 							{!showSpinner &&
 								!isLoading &&
