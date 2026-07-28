@@ -674,6 +674,18 @@ Verified: `bun run typecheck` clean; `bun run build` and `bun run build:dev` pas
 
 Verified: `bun run typecheck` clean; `bun run build:dev` passes; exiting fusion-code no longer crashes.
 
+### v0.3.6 Test Coverage
+
+Added regression tests for the 3 bugs fixed in v0.3.4/v0.3.5. Closes #11, PR #12.
+
+| Test file | Tests | Coverage |
+|---|---|---|
+| `tests/utils/tool.test.ts` | 6 | buildTool renderToolUseMessage 0-2 arg calls, custom impl, TOOL_DEFAULTS spread |
+| `tests/hooks/hook-specific-output.test.ts` | 8 | hookSpecificOutput null guard (v0.3.5 SessionEnd crash) |
+| `tests/components/PromptInput/mode-hint-visibility.test.ts` | 8 | shouldShowModeHint logic (v0.3.4 mode hint overlap) |
+
+Verified: 22 pass, 0 fail across 3 test files.
+
 ### Build-Time Constants
 
 The bundler replaces `process.env.USER_TYPE` with `"external"` and `process.env.NODE_ENV` with `"production"`. Internal-only code paths use helper functions from `src/utils/buildConstants.ts`:
