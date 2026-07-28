@@ -1265,9 +1265,14 @@ function getOriginalFetch(): typeof globalThis.fetch {
 	if (!_originalFetch) _originalFetch = globalThis.fetch;
 	return _originalFetch;
 }
+export function _resetOriginalFetch(): void {
+	_originalFetch = null;
+}
 
 export function createFusionMlxFetch(model: string): typeof globalThis.fetch {
-	_originalFetch = globalThis.fetch; // Ensure we capture original fetch
+	// Let getOriginalFetch() lazy-init so tests can mock globalThis.fetch
+	// before the first actual call. The eager assignment would cache the
+	// real fetch before spyOn takes effect.
 	const fn = async (
 		input: RequestInfo | URL,
 		init?: RequestInit,
