@@ -34,7 +34,7 @@ export function PowerShellPermissionRequest(
 	const { command, description } = PowerShellTool.inputSchema.parse(
 		toolUseConfirm.input,
 	);
-	const [_theme] = useTheme();
+	const [theme] = useTheme();
 	const explainerState = usePermissionExplainerUI({
 		toolName: toolUseConfirm.tool.name,
 		toolInput: toolUseConfirm.input,
@@ -241,6 +241,10 @@ export function PowerShellPermissionRequest(
 							command,
 							description,
 						}, // always show the full command
+						{
+							theme,
+							verbose: true,
+						},
 					)}
 				</Text>
 				{!explainerState.visible && (

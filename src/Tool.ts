@@ -774,7 +774,7 @@ const TOOL_DEFAULTS = {
 	): Promise<never> => {
 		throw new Error("Tool must implement call or execute");
 	},
-	renderToolUseMessage: (_input?: unknown): React.ReactNode => null,
+	renderToolUseMessage: (_input?: unknown, _opts?: unknown): React.ReactNode => null,
 	prompt: async (_options?: unknown): Promise<string> => "",
 	isEnabled: () => true,
 	isConcurrencySafe: (_input?: unknown) => false,

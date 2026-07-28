@@ -472,8 +472,9 @@ function ModeIndicator({
 		primaryItemCount < 2 &&
 		(primaryItemCount === 0 || columns >= 80);
 
-	// Hide the shift+tab hint when there are 2 primary items
-	const shouldShowModeHint = primaryItemCount < 2;
+	// Hide the shift+tab hint when there are 2 primary items, or while the
+	// user is typing (showHint=false via suppressHint={input.length>0}).
+	const shouldShowModeHint = primaryItemCount < 2 && showHint;
 
 	// Check if we have in-process teammates (showing pills)
 	// In spinner-tree mode, pills are disabled - teammates appear in the spinner tree instead
