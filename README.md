@@ -686,6 +686,12 @@ Added regression tests for the 3 bugs fixed in v0.3.4/v0.3.5. Closes #11, PR #12
 
 Verified: 22 pass, 0 fail across 3 test files.
 
+### v0.3.7 Test Fix
+
+1. **fusion-mlx-adapter test mock bypass** (`src/services/api/fusion-mlx-adapter.ts`, `tests/services/api/fusion-mlx-adapter.test.ts`) — `getOriginalFetch()` cached the real `globalThis.fetch` before `spyOn` replaced it, so 14 tests hit the live MLX service instead of the mock. Fixed by exporting `_resetOriginalFetch()` (called in `beforeEach`) and removing the eager `_originalFetch = globalThis.fetch` in `createFusionMlxFetch()` so the lazy-init captures the mock. Fixes #13, PR #14.
+
+Verified: 297 pass, 0 fail across all 16 test files.
+
 ### Build-Time Constants
 
 The bundler replaces `process.env.USER_TYPE` with `"external"` and `process.env.NODE_ENV` with `"production"`. Internal-only code paths use helper functions from `src/utils/buildConstants.ts`:
