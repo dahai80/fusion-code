@@ -3385,7 +3385,9 @@ async function executeHooksOutsideREPL({
 				const output =
 					result.status === 0 ? result.stdout || "" : result.stderr || "";
 
-				const hso2 = (json as TypedHookJSON).hookSpecificOutput;
+				const hso2 = json
+					? (json as TypedHookJSON).hookSpecificOutput
+					: undefined;
 				const watchPaths =
 					json && isSyncHookJSONOutput(json) && hso2 && "watchPaths" in hso2
 						? hso2.watchPaths
