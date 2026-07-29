@@ -232,6 +232,36 @@ async function main(): Promise<void> {
 		return;
 	}
 
+	// Fast-path for `claude --serve`: start project-level API server.
+	if (args[0] === "--serve" || args[0] === "--api") {
+		profileCheckpoint("cli_serve_path");
+		const { startServer } = await import("../server/server.js");
+		const port = parseInt(
+			args.find(a => a.startsWith("--port="))?.slice(7) ?? "4827",
+			10,
+		);
+		const authToken =
+			args.find(a => a.startsWith("--auth="))?.slice(7) ??
+			process.env.FUSION_API_KEY ??
+			"";
+		const instance = startServer(
+			{ port, host: "127.0.0.1", authToken },
+			null,
+			null,
+		);
+		console.log(
+			`Fusion-Code API server listening on http://127.0.0.1:${instance.port}`,
+		);
+		// Keep process alive until SIGINT
+		await new Promise<void>(resolve => {
+			process.on("SIGINT", () => {
+				instance.stop();
+				resolve();
+			});
+		});
+		return;
+	}
+
 	// Fast-path for `claude ps|logs|attach|kill` and `--bg`/`--background`.
 	// Session management against the ~/.claude/sessions/ registry. Flag
 	// literals are inlined so bg.js only loads when actually dispatching.

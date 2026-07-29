@@ -692,6 +692,45 @@ Verified: 22 pass, 0 fail across 3 test files.
 
 Verified: 297 pass, 0 fail across all 16 test files.
 
+### v0.4.0 Project-Level API + CLAUDE.md Parser Module
+
+**New Features:**
+
+1. **Project-Level API Server** (`src/server/projectApiServer.ts`) — HTTP server for Fusion Studio integration. Start with `./fusion-code --serve` (default port 4827). Endpoints:
+   - `GET /api/project/context?cwd=<path>` — returns CLAUDE.md + project instructions
+   - `GET /api/sessions?cwd=<path>` — list session history
+   - `GET /api/sessions/:id?cwd=<path>` — get session detail
+   - `GET /api/memory?cwd=<path>` — scan project memory files
+   - `POST /api/memory?cwd=<path>` — write memory file (body: `{filename, content, type}`)
+   - CORS enabled for cross-origin access; optional Bearer token auth via `--auth=` or `FUSION_API_KEY`
+   - Fixes #6
+
+2. **Portable CLAUDE.md Parser** (`src/utils/claudemdPortable.ts`) — dependency-injected version of `claudemd.ts` that accepts `cwd` as parameter. No bootstrap/state, no analytics, no hooks. Functions:
+   - `getMemoryFilesPortable(cwd)` — walk directory hierarchy for instruction files
+   - `getProjectContextPortable(cwd)` — combined content + file list
+
+3. **CLAUDE.md Parser Module** (`src/lib/claudemd-parser/`) — standalone re-export barrel for external consumers. Import via `@fusion-mlx/fusion-code/claudemd-parser`. Exports:
+   - `parseFrontmatter`, `FrontmatterData`, `ParsedMarkdown` — from `frontmatterParser.ts`
+   - `MEMORY_TYPES`, `parseMemoryType`, `MemoryType` — from `memoryTypes.ts`
+   - `scanMemoryFiles`, `formatMemoryManifest`, `MemoryHeader` — from `memoryScan.ts`
+   - `getMemoryFilesPortable`, `getProjectContextPortable`, `PortableMemoryFileInfo`, `PortableProjectContext` — from `claudemdPortable.ts`
+   - Fixes #7
+
+**Files Changed:**
+
+| File | Change |
+|---|---|
+| `src/server/projectApiServer.ts` | NEW — HTTP API server with 5 endpoints |
+| `src/server/server.ts` | MODIFIED — stub → real `startServer()` delegating to projectApiServer |
+| `src/entrypoints/cli.tsx` | MODIFIED — added `--serve`/`--api` fast-path dispatch |
+| `src/utils/claudemdPortable.ts` | NEW — portable CLAUDE.md parsing (no CLI deps) |
+| `src/lib/claudemd-parser/index.ts` | NEW — re-export barrel for external consumers |
+| `package.json` | MODIFIED — added `exports["./claudemd-parser"]`, version → 0.4.0 |
+| `tests/server/projectApiServer.test.ts` | NEW — 10 endpoint tests |
+| `tests/lib/claudemd-parser.test.ts` | NEW — 7 module re-export tests |
+
+Verified: 312 pass, 2 flaky (pre-existing fusion-mlx-adapter test isolation issue).
+
 ### Build-Time Constants
 
 The bundler replaces `process.env.USER_TYPE` with `"external"` and `process.env.NODE_ENV` with `"production"`. Internal-only code paths use helper functions from `src/utils/buildConstants.ts`:

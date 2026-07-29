@@ -1,6 +1,6 @@
 {
   "name": "@fusion-mlx/fusion-code",
-  "version": "0.3.7",
+  "version": "0.4.0",
   "private": true,
   "description": "Fusion-Code - AI coding assistant in the terminal.",
   "type": "module",
@@ -8,6 +8,9 @@
   "bin": {
     "fusion-code": "./fusion-code",
     "fusion-code-source": "./fusion-code"
+  },
+  "exports": {
+    "./claudemd-parser": "./src/lib/claudemd-parser/index.ts"
   },
   "engines": {
     "bun": ">=1.3.11"
