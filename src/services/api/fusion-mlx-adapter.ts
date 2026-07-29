@@ -1325,7 +1325,7 @@ export function createFusionMlxFetch(model: string): typeof globalThis.fetch {
 					}
 				}
 				// errText // unused
-			// const errText = await resp.text().catch(() => "");
+				// const errText = await resp.text().catch(() => "");
 				logForDebugging(
 					`[Fusion-MLX] count_tokens endpoint failed (${resp.status}), trying chat completions`,
 				);
