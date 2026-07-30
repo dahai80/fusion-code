@@ -192,17 +192,24 @@ const wsSessions = new Map<WebSocket, WsChatState>();
 
 function findFusionCodeBinary(): string {
 	const candidates = [
+		process.execPath,
 		resolve(import.meta.dir, "../../fusion-code"),
 		resolve(import.meta.dir, "../../fusion-code-dev"),
+		resolve(process.cwd(), "fusion-code"),
+		resolve(process.cwd(), "fusion-code-dev"),
 	];
 	for (const c of candidates) {
 		try {
 			const s = Bun.file(c);
-			if (s.size > 0) return c;
+			if (s.size > 0) {
+				logForDebugging(`projectApiServer WS: found binary at ${c}`);
+				return c;
+			}
 		} catch {
 			/* skip */
 		}
 	}
+	logForDebugging("projectApiServer WS: no binary found, falling back to PATH");
 	return "fusion-code";
 }
 
@@ -233,7 +240,15 @@ function handleChatStream(ws: WebSocket, data: Record<string, unknown>) {
 	}
 
 	const binary = findFusionCodeBinary();
-	const args = ["-p", message, "--output-format", "stream-json", "--verbose", "--cwd", cwd];
+	const args = [
+		"-p",
+		message,
+		"--output-format",
+		"stream-json",
+		"--verbose",
+		"--cwd",
+		cwd,
+	];
 	if (model) {
 		args.push("--model", model);
 	}
@@ -353,7 +368,11 @@ export function startProjectApiServer(config: ServerConfig): {
 			},
 			message(ws, message) {
 				try {
-					const data = JSON.parse(message as string) as Record<string, unknown>;
+					const raw =
+						typeof message === "string"
+							? message
+							: new TextDecoder().decode(message as Uint8Array);
+					const data = JSON.parse(raw) as Record<string, unknown>;
 					switch (data.action) {
 						case "chat.stream":
 							handleChatStream(ws, data);
@@ -370,7 +389,13 @@ export function startProjectApiServer(config: ServerConfig): {
 							);
 					}
 				} catch (e) {
-					ws.send(JSON.stringify({ type: "error", message: "Invalid JSON" }));
+					logForDebugging(`projectApiServer WS: parse error: ${e}`);
+					ws.send(
+						JSON.stringify({
+							type: "error",
+							message: `Parse error: ${e instanceof Error ? e.message : String(e)}`,
+						}),
+					);
 				}
 			},
 			close(ws) {

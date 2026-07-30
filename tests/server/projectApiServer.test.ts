@@ -156,7 +156,7 @@ describe("projectApiServer", () => {
 					ws.onmessage = (ev) => {
 						const data = JSON.parse(ev.data as string);
 						expect(data.type).toBe("error");
-						expect(data.message).toContain("Invalid JSON");
+						expect(data.message).toContain("Parse error");
 						ws.close();
 						resolve();
 					};
