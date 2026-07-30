@@ -18,10 +18,10 @@ import { dirname, join, resolve } from "path";
 import { scanMemoryFiles } from "../memdir/memoryScan.js";
 import { getProjectContextPortable } from "../utils/claudemdPortable.js";
 import { logForDebugging } from "../utils/debug.js";
-import { listSessionsImpl } from "../utils/listSessionsImpl.js";
+import { listSessionsImpl, parseSessionInfoFromLite } from "../utils/listSessionsImpl.js";
 import {
-	getProjectsDir,
 	readSessionLite,
+	resolveSessionFilePath,
 	sanitizePath,
 	validateUuid,
 } from "../utils/sessionStoragePortable.js";
@@ -88,13 +88,19 @@ routes.set("/api/sessions/:id", async (url, _body, pathParams) => {
 	}
 	const cwd = getCwdFromUrl(url);
 	try {
-		const projectsDir = getProjectsDir();
-		const projectDir = join(projectsDir, sanitizePath(cwd));
-		const lite = await readSessionLite(projectDir, sessionId);
+		const resolved = await resolveSessionFilePath(sessionId, cwd || undefined);
+		if (!resolved) {
+			return errorResponse("Session not found", 404);
+		}
+		const lite = await readSessionLite(resolved.filePath);
 		if (!lite) {
 			return errorResponse("Session not found", 404);
 		}
-		return jsonResponse(lite);
+		const info = parseSessionInfoFromLite(sessionId, lite, resolved.projectPath);
+		if (!info) {
+			return errorResponse("Session not found", 404);
+		}
+		return jsonResponse(info);
 	} catch (e) {
 		logForDebugging(`projectApiServer: /api/sessions/:id error: ${e}`);
 		return errorResponse("Failed to read session", 500);
