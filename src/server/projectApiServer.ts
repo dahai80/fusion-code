@@ -233,7 +233,7 @@ function handleChatStream(ws: WebSocket, data: Record<string, unknown>) {
 	}
 
 	const binary = findFusionCodeBinary();
-	const args = ["-p", message, "--output-format", "stream-json", "--cwd", cwd];
+	const args = ["-p", message, "--output-format", "stream-json", "--verbose", "--cwd", cwd];
 	if (model) {
 		args.push("--model", model);
 	}
