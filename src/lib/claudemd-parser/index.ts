@@ -8,45 +8,43 @@
  *   import { parseFrontmatter, getProjectContextPortable, scanMemoryFiles } from '@fusion-code/claudemd-parser'
  */
 
-// Frontmatter parsing
+// Memory scanning
 export {
-    parseFrontmatter,
-    splitPathInFrontmatter,
-    parsePositiveIntFromFrontmatter,
-    coerceDescriptionToString,
-    parseBooleanFrontmatter,
-    parseShellFrontmatter,
-    FRONTMATTER_REGEX,
-    type FrontmatterData,
-    type ParsedMarkdown,
-    type FrontmatterShell,
-} from '../../utils/frontmatterParser.js'
+	formatMemoryManifest,
+	type MemoryHeader,
+	scanMemoryFiles,
+} from "../../memdir/memoryScan.js";
 
 // Memory types
 export {
-    MEMORY_TYPES,
-    parseMemoryType,
-    TYPES_SECTION_COMBINED,
-    TYPES_SECTION_INDIVIDUAL,
-    WHAT_NOT_TO_SAVE_SECTION,
-    MEMORY_DRIFT_CAVEAT,
-    WHEN_TO_ACCESS_SECTION,
-    TRUSTING_RECALL_SECTION,
-    MEMORY_FRONTMATTER_EXAMPLE,
-    type MemoryType,
-} from '../../memdir/memoryTypes.js'
-
-// Memory scanning
-export {
-    scanMemoryFiles,
-    formatMemoryManifest,
-    type MemoryHeader,
-} from '../../memdir/memoryScan.js'
-
+	MEMORY_DRIFT_CAVEAT,
+	MEMORY_FRONTMATTER_EXAMPLE,
+	MEMORY_TYPES,
+	type MemoryType,
+	parseMemoryType,
+	TRUSTING_RECALL_SECTION,
+	TYPES_SECTION_COMBINED,
+	TYPES_SECTION_INDIVIDUAL,
+	WHAT_NOT_TO_SAVE_SECTION,
+	WHEN_TO_ACCESS_SECTION,
+} from "../../memdir/memoryTypes.js";
 // Portable project context
 export {
-    getMemoryFilesPortable,
-    getProjectContextPortable,
-    type PortableMemoryFileInfo,
-    type PortableProjectContext,
-} from '../../utils/claudemdPortable.js'
+	getMemoryFilesPortable,
+	getProjectContextPortable,
+	type PortableMemoryFileInfo,
+	type PortableProjectContext,
+} from "../../utils/claudemdPortable.js";
+// Frontmatter parsing
+export {
+	coerceDescriptionToString,
+	FRONTMATTER_REGEX,
+	type FrontmatterData,
+	type FrontmatterShell,
+	type ParsedMarkdown,
+	parseBooleanFrontmatter,
+	parseFrontmatter,
+	parsePositiveIntFromFrontmatter,
+	parseShellFrontmatter,
+	splitPathInFrontmatter,
+} from "../../utils/frontmatterParser.js";

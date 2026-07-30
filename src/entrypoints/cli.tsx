@@ -237,11 +237,11 @@ async function main(): Promise<void> {
 		profileCheckpoint("cli_serve_path");
 		const { startServer } = await import("../server/server.js");
 		const port = parseInt(
-			args.find(a => a.startsWith("--port="))?.slice(7) ?? "4827",
+			args.find((a) => a.startsWith("--port="))?.slice(7) ?? "4827",
 			10,
 		);
 		const authToken =
-			args.find(a => a.startsWith("--auth="))?.slice(7) ??
+			args.find((a) => a.startsWith("--auth="))?.slice(7) ??
 			process.env.FUSION_API_KEY ??
 			"";
 		const instance = startServer(
@@ -253,7 +253,7 @@ async function main(): Promise<void> {
 			`Fusion-Code API server listening on http://127.0.0.1:${instance.port}`,
 		);
 		// Keep process alive until SIGINT
-		await new Promise<void>(resolve => {
+		await new Promise<void>((resolve) => {
 			process.on("SIGINT", () => {
 				instance.stop();
 				resolve();

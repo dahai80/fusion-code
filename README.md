@@ -696,12 +696,16 @@ Verified: 297 pass, 0 fail across all 16 test files.
 
 **New Features:**
 
-1. **Project-Level API Server** (`src/server/projectApiServer.ts`) — HTTP server for Fusion Studio integration. Start with `./fusion-code --serve` (default port 4827). Endpoints:
+1. **Project-Level API Server** (`src/server/projectApiServer.ts`) — HTTP + WebSocket server for Fusion Studio integration. Start with `./fusion-code --serve` (default port 4827). Endpoints:
    - `GET /api/project/context?cwd=<path>` — returns CLAUDE.md + project instructions
    - `GET /api/sessions?cwd=<path>` — list session history
    - `GET /api/sessions/:id?cwd=<path>` — get session detail
    - `GET /api/memory?cwd=<path>` — scan project memory files
    - `POST /api/memory?cwd=<path>` — write memory file (body: `{filename, content, type}`)
+   - `WS /ws/chat` — streaming chat via subprocess `--output-format=stream-json`
+     - Client → Server: `{ "action": "chat.stream", "session_id": "...", "message": "...", "cwd": "..." }`
+     - Server → Client: `{ "type": "chat_event", ... }` / `{ "type": "chat_done", ... }`
+     - Cancel: `{ "action": "chat.cancel" }`
    - CORS enabled for cross-origin access; optional Bearer token auth via `--auth=` or `FUSION_API_KEY`
    - Fixes #6
 
@@ -726,7 +730,7 @@ Verified: 297 pass, 0 fail across all 16 test files.
 | `src/utils/claudemdPortable.ts` | NEW — portable CLAUDE.md parsing (no CLI deps) |
 | `src/lib/claudemd-parser/index.ts` | NEW — re-export barrel for external consumers |
 | `package.json` | MODIFIED — added `exports["./claudemd-parser"]`, version → 0.4.0 |
-| `tests/server/projectApiServer.test.ts` | NEW — 10 endpoint tests |
+| `tests/server/projectApiServer.test.ts` | NEW — 15 endpoint tests (10 HTTP + 5 WebSocket) |
 | `tests/lib/claudemd-parser.test.ts` | NEW — 7 module re-export tests |
 
 Verified: 312 pass, 2 flaky (pre-existing fusion-mlx-adapter test isolation issue).
