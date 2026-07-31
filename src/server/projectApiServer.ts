@@ -18,7 +18,10 @@ import { dirname, join, resolve } from "path";
 import { scanMemoryFiles } from "../memdir/memoryScan.js";
 import { getProjectContextPortable } from "../utils/claudemdPortable.js";
 import { logForDebugging } from "../utils/debug.js";
-import { listSessionsImpl, parseSessionInfoFromLite } from "../utils/listSessionsImpl.js";
+import {
+	listSessionsImpl,
+	parseSessionInfoFromLite,
+} from "../utils/listSessionsImpl.js";
 import {
 	readSessionLite,
 	resolveSessionFilePath,
@@ -96,7 +99,11 @@ routes.set("/api/sessions/:id", async (url, _body, pathParams) => {
 		if (!lite) {
 			return errorResponse("Session not found", 404);
 		}
-		const info = parseSessionInfoFromLite(sessionId, lite, resolved.projectPath);
+		const info = parseSessionInfoFromLite(
+			sessionId,
+			lite,
+			resolved.projectPath,
+		);
 		if (!info) {
 			return errorResponse("Session not found", 404);
 		}
