@@ -163,225 +163,313 @@ routes.set("/api/sessions/:id", async (url, _body, pathParams) => {
 
 // POST /api/code/generate — code generation via fusion-code subprocess
 routes.set("POST /api/code/generate", async (_url, body) => {
-    if (!body || typeof body !== "object") {
-        return errorResponse("Request body required", 400);
-    }
-    const { prompt, language, context, max_tokens } = body as Record<string, unknown>;
-    if (!prompt || typeof prompt !== "string") {
-        return errorResponse("prompt is required", 400);
-    }
-    if (!language || typeof language !== "string") {
-        return errorResponse("language is required", 400);
-    }
+	if (!body || typeof body !== "object") {
+		return errorResponse("Request body required", 400);
+	}
+	const { prompt, language, context, max_tokens } = body as Record<
+		string,
+		unknown
+	>;
+	if (!prompt || typeof prompt !== "string") {
+		return errorResponse("prompt is required", 400);
+	}
+	if (!language || typeof language !== "string") {
+		return errorResponse("language is required", 400);
+	}
 
-    const allowedLangs = ["python", "bash", "javascript", "typescript", "swift", "rust", "go", "java", "c", "cpp"];
-    if (!allowedLangs.includes((language as string).toLowerCase())) {
-        return errorResponse(`language must be one of: ${allowedLangs.join(", ")}`, 400);
-    }
+	const allowedLangs = [
+		"python",
+		"bash",
+		"javascript",
+		"typescript",
+		"swift",
+		"rust",
+		"go",
+		"java",
+		"c",
+		"cpp",
+	];
+	if (!allowedLangs.includes((language as string).toLowerCase())) {
+		return errorResponse(
+			`language must be one of: ${allowedLangs.join(", ")}`,
+			400,
+		);
+	}
 
-    const sysPrompt = [
-        `You are a code generator. Generate ONLY ${language} code.`,
-        "Do NOT include markdown fences, explanations, or comments outside the code.",
-        "Output raw code only, ready to execute.",
-        context && typeof context === "string" ? `\nContext:\n${context}` : "",
-    ].filter(Boolean).join("\n");
+	const sysPrompt = [
+		`You are a code generator. Generate ONLY ${language} code.`,
+		"Do NOT include markdown fences, explanations, or comments outside the code.",
+		"Output raw code only, ready to execute.",
+		context && typeof context === "string" ? `\nContext:\n${context}` : "",
+	]
+		.filter(Boolean)
+		.join("\n");
 
-    const userPrompt = (max_tokens && typeof max_tokens === "number")
-        ? `${prompt}\n\n(Keep response under ${max_tokens} tokens)`
-        : String(prompt);
+	const userPrompt =
+		max_tokens && typeof max_tokens === "number"
+			? `${prompt}\n\n(Keep response under ${max_tokens} tokens)`
+			: String(prompt);
 
-    const binary = findFusionCodeBinary();
-    const args = [
-        "-p", userPrompt,
-        "--output-format", "stream-json",
-        "--append-system-prompt", sysPrompt,
-    ];
-    if (config_global.authToken) {
-        args.push("--auth", config_global.authToken);
-    }
+	const binary = findFusionCodeBinary();
+	const args = [
+		"-p",
+		userPrompt,
+		"--output-format",
+		"stream-json",
+		"--append-system-prompt",
+		sysPrompt,
+	];
+	if (config_global.authToken) {
+		args.push("--auth", config_global.authToken);
+	}
 
-    logForDebugging(`projectApiServer: /api/code/generate spawning ${binary}`);
+	logForDebugging(`projectApiServer: /api/code/generate spawning ${binary}`);
 
-    try {
-        const proc = Bun.spawn([binary, ...args], {
-            stdout: "pipe",
-            stderr: "pipe",
-            env: {
-                ...process.env,
-                FUSION_CODE_CONFIG_DIR: process.env.FUSION_CODE_CONFIG_DIR,
-            },
-        });
+	try {
+		const proc = Bun.spawn([binary, ...args], {
+			stdout: "pipe",
+			stderr: "pipe",
+			env: {
+				...process.env,
+				FUSION_CODE_CONFIG_DIR: process.env.FUSION_CODE_CONFIG_DIR,
+			},
+		});
 
-        const chunks: string[] = [];
-        const reader = proc.stdout.getReader();
-        const decoder = new TextDecoder();
-        let totalTokens = 0;
+		const chunks: string[] = [];
+		const reader = proc.stdout.getReader();
+		const decoder = new TextDecoder();
+		let totalTokens = 0;
 
-        while (true) {
-            const { done, value } = await reader.read();
-            if (done) break;
-            const text = decoder.decode(value, { stream: true });
-            for (const line of text.split("\n")) {
-                if (!line.trim()) continue;
-                try {
-                    const msg = JSON.parse(line);
-                    const content = msg.delta
-                        || msg.result
-                        || (msg.message?.content?.map((b: Record<string, unknown>) => b.text).filter(Boolean).join(""))
-                        || "";
-                    if (content) {
-                        chunks.push(content);
-                        totalTokens += 1;
-                    }
-                } catch {
-                    chunks.push(line);
-                }
-            }
-        }
+		while (true) {
+			const { done, value } = await reader.read();
+			if (done) break;
+			const text = decoder.decode(value, { stream: true });
+			for (const line of text.split("\n")) {
+				if (!line.trim()) continue;
+				try {
+					const msg = JSON.parse(line);
+					const content =
+						msg.delta ||
+						msg.result ||
+						msg.message?.content
+							?.map((b: Record<string, unknown>) => b.text)
+							.filter(Boolean)
+							.join("") ||
+						"";
+					if (content) {
+						chunks.push(content);
+						totalTokens += 1;
+					}
+				} catch {
+					chunks.push(line);
+				}
+			}
+		}
 
-        const exitCode = await proc.exited;
-        if (exitCode !== 0) {
-            logForDebugging(`projectApiServer: /api/code/generate exited ${exitCode}`);
-        }
+		const exitCode = await proc.exited;
+		if (exitCode !== 0) {
+			logForDebugging(
+				`projectApiServer: /api/code/generate exited ${exitCode}`,
+			);
+		}
 
-        const code = chunks.join("");
-        return jsonResponse({
-            code,
-            language,
-            explanation: "",
-            tokens_used: totalTokens,
-        });
-    } catch (e) {
-        logForDebugging(`projectApiServer: /api/code/generate error: ${e}`);
-        return errorResponse("Code generation failed", 500);
-    }
+		const code = chunks.join("");
+		return jsonResponse({
+			code,
+			language,
+			explanation: "",
+			tokens_used: totalTokens,
+		});
+	} catch (e) {
+		logForDebugging(`projectApiServer: /api/code/generate error: ${e}`);
+		return errorResponse("Code generation failed", 500);
+	}
 });
 
 // POST /api/lsp/operation — LSP code intelligence
 routes.set("POST /api/lsp/operation", async (_url, body) => {
-    if (!body || typeof body !== "object") {
-        return errorResponse("Request body required", 400);
-    }
-    const { operation, file_path, line, character, query } = body as Record<string, unknown>;
+	if (!body || typeof body !== "object") {
+		return errorResponse("Request body required", 400);
+	}
+	const { operation, file_path, line, character, query } = body as Record<
+		string,
+		unknown
+	>;
 
-    const validOps = ["goToDefinition", "findReferences", "hover", "documentSymbol", "workspaceSymbol"];
-    if (!operation || !validOps.includes(operation as string)) {
-        return errorResponse(`operation must be one of: ${validOps.join(", ")}`, 400);
-    }
-    if (!file_path || typeof file_path !== "string") {
-        return errorResponse("file_path is required", 400);
-    }
+	const validOps = [
+		"goToDefinition",
+		"findReferences",
+		"hover",
+		"documentSymbol",
+		"workspaceSymbol",
+	];
+	if (!operation || !validOps.includes(operation as string)) {
+		return errorResponse(
+			`operation must be one of: ${validOps.join(", ")}`,
+			400,
+		);
+	}
+	if (!file_path || typeof file_path !== "string") {
+		return errorResponse("file_path is required", 400);
+	}
 
-    const op = operation as string;
-    const needsPosition = ["goToDefinition", "findReferences", "hover"].includes(op);
-    if (needsPosition) {
-        if (typeof line !== "number" || typeof character !== "number") {
-            return errorResponse("line and character are required for this operation", 400);
-        }
-    }
+	const op = operation as string;
+	const needsPosition = ["goToDefinition", "findReferences", "hover"].includes(
+		op,
+	);
+	if (needsPosition) {
+		if (typeof line !== "number" || typeof character !== "number") {
+			return errorResponse(
+				"line and character are required for this operation",
+				400,
+			);
+		}
+	}
 
-    try {
-        const { getLspServerManager, waitForInitialization, getInitializationStatus } = await import("../services/lsp/manager.js");
-        const { pathToFileURL } = await import("url");
-        const { resolve: resolvePath } = await import("path");
+	try {
+		const {
+			getLspServerManager,
+			waitForInitialization,
+			getInitializationStatus,
+		} = await import("../services/lsp/manager.js");
+		const { pathToFileURL } = await import("url");
+		const { resolve: resolvePath } = await import("path");
 
-        const status = getInitializationStatus();
-        if (status.status === "pending") {
-            await waitForInitialization();
-        }
+		const status = getInitializationStatus();
+		if (status.status === "pending") {
+			await waitForInitialization();
+		}
 
-        const manager = getLspServerManager();
-        if (!manager) {
-            return errorResponse("LSP server manager not initialized", 503);
-        }
+		const manager = getLspServerManager();
+		if (!manager) {
+			return errorResponse("LSP server manager not initialized", 503);
+		}
 
-        const absolutePath = resolvePath(String(file_path));
-        const uri = pathToFileURL(absolutePath).href;
+		const absolutePath = resolvePath(String(file_path));
+		const uri = pathToFileURL(absolutePath).href;
 
-        let method: string;
-        let params: Record<string, unknown>;
+		let method: string;
+		let params: Record<string, unknown>;
 
-        switch (op) {
-            case "goToDefinition":
-                method = "textDocument/definition";
-                params = { textDocument: { uri }, position: { line: (line as number) - 1, character: (character as number) - 1 } };
-                break;
-            case "findReferences":
-                method = "textDocument/references";
-                params = { textDocument: { uri }, position: { line: (line as number) - 1, character: (character as number) - 1 }, context: { includeDeclaration: true } };
-                break;
-            case "hover":
-                method = "textDocument/hover";
-                params = { textDocument: { uri }, position: { line: (line as number) - 1, character: (character as number) - 1 } };
-                break;
-            case "documentSymbol":
-                method = "textDocument/documentSymbol";
-                params = { textDocument: { uri } };
-                break;
-            case "workspaceSymbol":
-                method = "workspace/symbol";
-                params = { query: (query as string) || "" };
-                break;
-            default:
-                return errorResponse(`Unsupported operation: ${op}`, 400);
-        }
+		switch (op) {
+			case "goToDefinition":
+				method = "textDocument/definition";
+				params = {
+					textDocument: { uri },
+					position: {
+						line: (line as number) - 1,
+						character: (character as number) - 1,
+					},
+				};
+				break;
+			case "findReferences":
+				method = "textDocument/references";
+				params = {
+					textDocument: { uri },
+					position: {
+						line: (line as number) - 1,
+						character: (character as number) - 1,
+					},
+					context: { includeDeclaration: true },
+				};
+				break;
+			case "hover":
+				method = "textDocument/hover";
+				params = {
+					textDocument: { uri },
+					position: {
+						line: (line as number) - 1,
+						character: (character as number) - 1,
+					},
+				};
+				break;
+			case "documentSymbol":
+				method = "textDocument/documentSymbol";
+				params = { textDocument: { uri } };
+				break;
+			case "workspaceSymbol":
+				method = "workspace/symbol";
+				params = { query: (query as string) || "" };
+				break;
+			default:
+				return errorResponse(`Unsupported operation: ${op}`, 400);
+		}
 
-        // Open file in LSP if not already open
-        if (!manager.isFileOpen(absolutePath)) {
-            try {
-                const { readFile } = await import("fs/promises");
-                const content = await readFile(absolutePath, "utf-8");
-                await manager.openFile(absolutePath, content);
-            } catch {
-                logForDebugging(`projectApiServer LSP: could not open file ${absolutePath}`);
-            }
-        }
+		// Open file in LSP if not already open
+		if (!manager.isFileOpen(absolutePath)) {
+			try {
+				const { readFile } = await import("fs/promises");
+				const content = await readFile(absolutePath, "utf-8");
+				await manager.openFile(absolutePath, content);
+			} catch {
+				logForDebugging(
+					`projectApiServer LSP: could not open file ${absolutePath}`,
+				);
+			}
+		}
 
-        const result = await manager.sendRequest(absolutePath, method, params);
-        if (result === undefined) {
-            return errorResponse("No LSP server available for file type", 404);
-        }
+		const result = await manager.sendRequest(absolutePath, method, params);
+		if (result === undefined) {
+			return errorResponse("No LSP server available for file type", 404);
+		}
 
-        const results = formatLspResult(op, result);
-        return jsonResponse({ operation: op, results });
-    } catch (e) {
-        logForDebugging(`projectApiServer: /api/lsp/operation error: ${e}`);
-        return errorResponse("LSP operation failed", 500);
-    }
+		const results = formatLspResult(op, result);
+		return jsonResponse({ operation: op, results });
+	} catch (e) {
+		logForDebugging(`projectApiServer: /api/lsp/operation error: ${e}`);
+		return errorResponse("LSP operation failed", 500);
+	}
 });
 
-function formatLspResult(operation: string, result: unknown): Array<Record<string, unknown>> {
-    if (!result) return [];
-    if (Array.isArray(result)) {
-        return result.map((item: Record<string, unknown>) => extractLspLocation(item)).filter(Boolean) as Array<Record<string, unknown>>;
-    }
-    if (typeof result === "object" && result !== null) {
-        const r = result as Record<string, unknown>;
-        if (operation === "hover" && typeof r.contents === "object") {
-            const contents = r.contents as Record<string, unknown>;
-            return [{ text: String(contents.value || JSON.stringify(r.contents)), kind: "hover" }];
-        }
-        if (operation === "hover" && typeof r.contents === "string") {
-            return [{ text: r.contents, kind: "hover" }];
-        }
-        const loc = extractLspLocation(r);
-        return loc ? [loc] : [];
-    }
-    return [{ text: String(result), kind: "raw" }];
+function formatLspResult(
+	operation: string,
+	result: unknown,
+): Array<Record<string, unknown>> {
+	if (!result) return [];
+	if (Array.isArray(result)) {
+		return result
+			.map((item: Record<string, unknown>) => extractLspLocation(item))
+			.filter(Boolean) as Array<Record<string, unknown>>;
+	}
+	if (typeof result === "object" && result !== null) {
+		const r = result as Record<string, unknown>;
+		if (operation === "hover" && typeof r.contents === "object") {
+			const contents = r.contents as Record<string, unknown>;
+			return [
+				{
+					text: String(contents.value || JSON.stringify(r.contents)),
+					kind: "hover",
+				},
+			];
+		}
+		if (operation === "hover" && typeof r.contents === "string") {
+			return [{ text: r.contents, kind: "hover" }];
+		}
+		const loc = extractLspLocation(r);
+		return loc ? [loc] : [];
+	}
+	return [{ text: String(result), kind: "raw" }];
 }
 
-function extractLspLocation(item: Record<string, unknown>): Record<string, unknown> | null {
-    if (!item || typeof item !== "object") return null;
-    const uri = (item.uri as string) || (item.targetUri as string) || "";
-    const range = (item.range as Record<string, unknown>) || (item.targetRange as Record<string, unknown>);
-    const start = range && typeof range === "object" ? (range as Record<string, unknown>).start as Record<string, number> : undefined;
-    return {
-        file_path: uri.replace("file://", ""),
-        line: start?.line != null ? start.line + 1 : 0,
-        character: start?.character != null ? start.character + 1 : 0,
-        text: String(item.name || item.message || ""),
-        kind: String(item.kind || ""),
-    };
+function extractLspLocation(
+	item: Record<string, unknown>,
+): Record<string, unknown> | null {
+	if (!item || typeof item !== "object") return null;
+	const uri = (item.uri as string) || (item.targetUri as string) || "";
+	const range =
+		(item.range as Record<string, unknown>) ||
+		(item.targetRange as Record<string, unknown>);
+	const start =
+		range && typeof range === "object"
+			? ((range as Record<string, unknown>).start as Record<string, number>)
+			: undefined;
+	return {
+		file_path: uri.replace("file://", ""),
+		line: start?.line != null ? start.line + 1 : 0,
+		character: start?.character != null ? start.character + 1 : 0,
+		text: String(item.name || item.message || ""),
+		kind: String(item.kind || ""),
+	};
 }
 
 // GET /api/memory
