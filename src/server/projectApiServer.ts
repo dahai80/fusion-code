@@ -12,6 +12,7 @@
  *   Server → Client: { "type": "chat_done", "session_id": "..." }
  */
 
+import type { ServerWebSocket } from "bun";
 import { mkdir, readdir, writeFile } from "fs/promises";
 import { homedir } from "os";
 import { dirname, join, resolve } from "path";
@@ -560,7 +561,7 @@ type WsChatState = {
 	proc: ReturnType<typeof Bun.spawn> | null;
 };
 
-const wsSessions = new Map<WebSocket, WsChatState>();
+const wsSessions = new Map<ServerWebSocket<undefined>, WsChatState>();
 
 function findFusionCodeBinary(): string {
 	const candidates = [
@@ -585,7 +586,7 @@ function findFusionCodeBinary(): string {
 	return "fusion-code";
 }
 
-async function handleChatStream(ws: WebSocket, data: Record<string, unknown>) {
+async function handleChatStream(ws: ServerWebSocket<undefined>, data: Record<string, unknown>) {
 	const sessionId = (data.session_id as string) || crypto.randomUUID();
 	const message = data.message as string;
 	const cwd = (data.cwd as string) || process.cwd();
@@ -727,7 +728,7 @@ async function handleChatStream(ws: WebSocket, data: Record<string, unknown>) {
 	})();
 }
 
-function handleChatCancel(ws: WebSocket, data: Record<string, unknown>) {
+function handleChatCancel(ws: ServerWebSocket<undefined>, data: Record<string, unknown>) {
 	const state = wsSessions.get(ws);
 	if (state?.proc) {
 		try {
