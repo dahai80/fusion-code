@@ -12,16 +12,20 @@
  *   Server → Client: { "type": "chat_done", "session_id": "..." }
  */
 
-import { mkdir, writeFile } from "fs/promises";
+import { mkdir, readdir, writeFile } from "fs/promises";
 import { homedir } from "os";
 import { dirname, join, resolve } from "path";
 import { scanMemoryFiles } from "../memdir/memoryScan.js";
 import { getProjectContextPortable } from "../utils/claudemdPortable.js";
 import { logForDebugging } from "../utils/debug.js";
-import { listSessionsImpl, parseSessionInfoFromLite } from "../utils/listSessionsImpl.js";
+import {
+	listSessionsImpl,
+	parseSessionInfoFromLite,
+} from "../utils/listSessionsImpl.js";
 import {
 	readSessionLite,
 	resolveSessionFilePath,
+	getProjectsDir,
 	sanitizePath,
 	validateUuid,
 } from "../utils/sessionStoragePortable.js";
@@ -62,14 +66,62 @@ routes.set("/api/project/context", async (url) => {
 	}
 });
 
+// GET /api/projects — list all known projects
+routes.set("/api/projects", async () => {
+	const projectsDir = getProjectsDir();
+	try {
+		const entries = await readdir(projectsDir, { withFileTypes: true });
+		const projects = entries
+			.filter((e) => e.isDirectory())
+			.map((e) => ({
+				id: e.name,
+				name: e.name.replace(/^-/, "").replace(/-/g, "/"),
+				path: join(projectsDir, e.name),
+			}));
+		return jsonResponse({ projects, total: projects.length });
+	} catch (e) {
+		logForDebugging(`projectApiServer: /api/projects error: ${e}`);
+		return errorResponse("Failed to list projects", 500);
+	}
+});
+
+// GET /api/projects/:id/context — project knowledge-base context
+routes.set("/api/projects/:id/context", async (url, _body, pathParams) => {
+	const projectId = pathParams?.get("id");
+	if (!projectId) {
+		return errorResponse("Missing project id", 400);
+	}
+	const projectsDir = getProjectsDir();
+	const projectDir = join(projectsDir, projectId);
+	try {
+		const { stat } = await import("fs/promises");
+		const s = await stat(projectDir);
+		if (!s.isDirectory()) {
+			return errorResponse("Project not found", 404);
+		}
+		const decodedName = projectId.replace(/^-/, "").replace(/-/g, "/");
+		const context = await getProjectContextPortable(decodedName);
+		return jsonResponse({ id: projectId, ...context });
+	} catch (e) {
+		logForDebugging(
+			`projectApiServer: /api/projects/:id/context error: ${e}`,
+		);
+		return errorResponse("Project not found", 404);
+	}
+});
+
 // GET /api/sessions
 routes.set("/api/sessions", async (url) => {
 	const cwd = getCwdFromUrl(url);
+	const projectId = url.searchParams.get("project_id");
 	const limit = parseInt(url.searchParams.get("limit") ?? "50", 10);
 	const offset = parseInt(url.searchParams.get("offset") ?? "0", 10);
 	try {
+		const dir = projectId
+			? projectId.replace(/^-/, "").replace(/-/g, "/")
+			: cwd;
 		const sessions = await listSessionsImpl({
-			dir: cwd,
+			dir,
 			limit: Math.min(limit, 200),
 			offset,
 		});
@@ -96,7 +148,11 @@ routes.set("/api/sessions/:id", async (url, _body, pathParams) => {
 		if (!lite) {
 			return errorResponse("Session not found", 404);
 		}
-		const info = parseSessionInfoFromLite(sessionId, lite, resolved.projectPath);
+		const info = parseSessionInfoFromLite(
+			sessionId,
+			lite,
+			resolved.projectPath,
+		);
 		if (!info) {
 			return errorResponse("Session not found", 404);
 		}
@@ -191,6 +247,7 @@ function matchRoute(
 type WsChatState = {
 	sessionId: string;
 	cwd: string;
+	projectId?: string;
 	proc: ReturnType<typeof Bun.spawn> | null;
 };
 
@@ -219,11 +276,12 @@ function findFusionCodeBinary(): string {
 	return "fusion-code";
 }
 
-function handleChatStream(ws: WebSocket, data: Record<string, unknown>) {
+async function handleChatStream(ws: WebSocket, data: Record<string, unknown>) {
 	const sessionId = (data.session_id as string) || crypto.randomUUID();
 	const message = data.message as string;
 	const cwd = (data.cwd as string) || process.cwd();
 	const model = data.model as string | undefined;
+	const projectId = data.project_id as string | undefined;
 
 	if (!message || typeof message !== "string") {
 		ws.send(
@@ -245,6 +303,25 @@ function handleChatStream(ws: WebSocket, data: Record<string, unknown>) {
 		}
 	}
 
+	// Load project knowledge-base context if project_id is specified
+	let projectContext = "";
+	if (projectId) {
+		try {
+			const decodedName = projectId.replace(/^-/, "").replace(/-/g, "/");
+			const ctx = await getProjectContextPortable(decodedName);
+			if (ctx.combinedContent) {
+				projectContext = ctx.combinedContent;
+				logForDebugging(
+					`projectApiServer WS: injected project context for ${projectId} (${projectContext.length} chars)`,
+				);
+			}
+		} catch (e) {
+			logForDebugging(
+				`projectApiServer WS: failed to load project context for ${projectId}: ${e}`,
+			);
+		}
+	}
+
 	const binary = findFusionCodeBinary();
 	const args = [
 		"-p",
@@ -261,6 +338,9 @@ function handleChatStream(ws: WebSocket, data: Record<string, unknown>) {
 	if (config_global.authToken) {
 		args.push("--auth", config_global.authToken);
 	}
+	if (projectContext) {
+		args.push("--append-system-prompt", projectContext);
+	}
 
 	logForDebugging(`projectApiServer WS: spawning ${binary} ${args.join(" ")}`);
 
@@ -274,7 +354,7 @@ function handleChatStream(ws: WebSocket, data: Record<string, unknown>) {
 		cwd,
 	});
 
-	wsSessions.set(ws, { sessionId, cwd, proc });
+	wsSessions.set(ws, { sessionId, cwd, projectId, proc });
 
 	const reader = proc.stdout.getReader();
 	const decoder = new TextDecoder();

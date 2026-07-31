@@ -42,6 +42,8 @@ export type SessionInfo = {
   tag?: string
   /** Epoch ms — from first entry's ISO timestamp. Undefined if unparseable. */
   createdAt?: number
+  /** Associated project ID for knowledge-base context injection. */
+  projectId?: string
 }
 
 export type ListSessionsOptions = {
@@ -133,6 +135,8 @@ export function parseSessionInfoFromLite(
   const tag = tagLine
     ? extractLastJsonStringField(tagLine, 'tag') || undefined
     : undefined
+  const projectId =
+    extractJsonStringField(head, 'projectId') || undefined
 
   return {
     sessionId,
@@ -145,6 +149,7 @@ export function parseSessionInfoFromLite(
     cwd: sessionCwd,
     tag,
     createdAt,
+    projectId,
   }
 }
 
