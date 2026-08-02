@@ -47,7 +47,8 @@ export function getFusionRulesConfig(): FusionRulesConfig {
 }
 
 export function isToolDenied(toolName: string): boolean {
-	return mergedConfig.deniedTools.includes(toolName);
+	const lower = toolName.toLowerCase();
+	return mergedConfig.deniedTools.some((t) => t.toLowerCase() === lower);
 }
 
 export function getDeniedTools(): string[] {

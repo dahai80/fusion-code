@@ -11,6 +11,7 @@ import { normalize } from "path";
 const SENSITIVE_PATTERNS: RegExp[] = [
 	/\.env$/i,
 	/\.env\./i,
+	/\.env~/i,
 	/\.env_local$/i,
 	/\.env_production$/i,
 	/\.env_staging$/i,
@@ -35,13 +36,24 @@ const SENSITIVE_PATTERNS: RegExp[] = [
 	/\.npmrc$/i,
 	/\.pypirc$/i,
 	/\/\.gitconfig$/i,
+	/\.netrc$/i,
+	/\.kube\/config$/i,
+	/\.docker\/config\.json$/i,
+	/\.git-credentials$/i,
+	/\.github-token$/i,
 ];
 
 const SENSITIVE_DIR_PATTERNS: RegExp[] = [
 	/\/\.ssh$/i,
+	/\/\.ssh\//i,
 	/\/\.gnupg$/i,
+	/\/\.gnupg\//i,
 	/\/\.aws$/i,
+	/\/\.aws\//i,
 	/\/\.kube$/i,
+	/\/\.kube\//i,
+	/\/\.fusion-code\/audit$/i,
+	/\/\.fusion-code\/audit\//i,
 ];
 
 export function isSensitiveFilePath(filePath: string): boolean {

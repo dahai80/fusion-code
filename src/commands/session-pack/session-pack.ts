@@ -1,6 +1,6 @@
 import { mkdir, readdir, readFile, writeFile } from "fs/promises";
 import { homedir } from "os";
-import { basename, isAbsolute, join, normalize } from "path";
+import { basename, isAbsolute, join } from "path";
 import { logForDebugging } from "../../utils/debug.js";
 
 type SessionPack = {

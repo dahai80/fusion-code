@@ -4,7 +4,7 @@ let offlineMode = false;
 let savedFusionMlxEnabled: string | undefined;
 
 export function isOfflineMode(): boolean {
-	return offlineMode;
+	return offlineMode || process.env.FUSION_CODE_OFFLINE === "1";
 }
 
 export function setOfflineMode(enabled: boolean): void {
