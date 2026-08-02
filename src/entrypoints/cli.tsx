@@ -237,7 +237,7 @@ async function main(): Promise<void> {
 		profileCheckpoint("cli_serve_path");
 		const { startServer } = await import("../server/server.js");
 		const port = parseInt(
-			args.find((a) => a.startsWith("--port="))?.slice(7) ?? "4827",
+			args.find((a) => a.startsWith("--port="))?.slice(7) ?? "11441",
 			10,
 		);
 		const authToken =

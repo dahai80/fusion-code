@@ -8,7 +8,7 @@ import { homedir } from "os";
 import { join } from "path";
 import { startProjectApiServer } from "../../src/server/projectApiServer.js";
 
-const TEST_PORT = 14827;
+const TEST_PORT = 11442;
 const TEST_CWD = "/tmp/fusion-api-test-" + Date.now();
 
 let baseUrl: string;

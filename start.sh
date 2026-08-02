@@ -6,7 +6,7 @@ set -e
 DIR="$(cd "$(dirname "$0")" && pwd)"
 cd "$DIR"
 
-PORT="${FUSION_CODE_PORT:-4827}"
+PORT="${FUSION_CODE_PORT:-11441}"
 AUTH="${FUSION_API_KEY:-}"
 
 if [ ! -f ./fusion-code ]; then

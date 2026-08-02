@@ -885,7 +885,7 @@ function handleChatCancel(
 
 // Store config globally so WS handlers can access authToken
 let config_global: ServerConfig = {
-	port: 4827,
+	port: 11441,
 	host: "127.0.0.1",
 	authToken: "",
 };
