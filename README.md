@@ -696,7 +696,7 @@ Verified: 297 pass, 0 fail across all 16 test files.
 
 **New Features:**
 
-1. **Project-Level API Server** (`src/server/projectApiServer.ts`) — HTTP + WebSocket server for Fusion Studio integration. Start with `./fusion-code --serve` (default port 4827). Endpoints:
+1. **Project-Level API Server** (`src/server/projectApiServer.ts`) — HTTP + WebSocket server for Fusion Studio integration. Start with `./fusion-code --serve` (default port 11441). Endpoints:
    - `GET /api/project/context?cwd=<path>` — returns CLAUDE.md + project instructions
    - `GET /api/sessions?cwd=<path>` — list session history
    - `GET /api/sessions/:id?cwd=<path>` — get session detail

@@ -586,7 +586,10 @@ function findFusionCodeBinary(): string {
 	return "fusion-code";
 }
 
-async function handleChatStream(ws: ServerWebSocket<undefined>, data: Record<string, unknown>) {
+async function handleChatStream(
+	ws: ServerWebSocket<undefined>,
+	data: Record<string, unknown>,
+) {
 	const sessionId = (data.session_id as string) || crypto.randomUUID();
 	const message = data.message as string;
 	const cwd = (data.cwd as string) || process.cwd();
@@ -728,7 +731,10 @@ async function handleChatStream(ws: ServerWebSocket<undefined>, data: Record<str
 	})();
 }
 
-function handleChatCancel(ws: ServerWebSocket<undefined>, data: Record<string, unknown>) {
+function handleChatCancel(
+	ws: ServerWebSocket<undefined>,
+	data: Record<string, unknown>,
+) {
 	const state = wsSessions.get(ws);
 	if (state?.proc) {
 		try {
@@ -744,7 +750,7 @@ function handleChatCancel(ws: ServerWebSocket<undefined>, data: Record<string, u
 
 // Store config globally so WS handlers can access authToken
 let config_global: ServerConfig = {
-	port: 4827,
+	port: 11441,
 	host: "127.0.0.1",
 	authToken: "",
 };
