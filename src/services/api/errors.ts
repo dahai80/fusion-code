@@ -6,7 +6,7 @@ import {
 import type {
 	BetaMessage,
 	BetaStopReason,
-} from "@anthropic-ai/sdk/resources/beta/messages/messages.mjs";
+} from "src/types/anthropic-protocol.js";
 import { AFK_MODE_BETA_HEADER } from "src/constants/betas.js";
 import type { SDKAssistantMessageError } from "src/entrypoints/sdk/types.js";
 import type {

@@ -1,0 +1,41 @@
+---
+description: "Fusion Code enhanced project rules"
+denied_tools:
+  - WebSearch
+  - WebFetch
+default_template: null
+---
+
+# FUSION.rules — Enhanced Project Rules
+
+This file has higher priority than CLAUDE.md. Use it to define
+project-level constraints that the AI must follow unconditionally.
+
+## Supported Frontmatter Fields
+
+- `denied_tools`: List of tool names that are blocked for this project
+  (e.g., WebSearch, WebFetch, Bash)
+- `default_template`: Workflow template name auto-assigned to new sessions
+
+## Rule Priority
+
+1. Global `~/.fusion-code/FUSION.rules`
+2. Project `FUSION.rules` (this file)
+3. Project `CLAUDE.md`
+4. `.fusion-code/rules/*.md`
+5. `CLAUDE.local.md`
+
+## Usage
+
+Place this file at your project root as `FUSION.rules`.
+For global rules, place at `~/.fusion-code/FUSION.rules`.
+
+Example:
+
+```yaml
+---
+denied_tools:
+  - WebSearch
+default_template: bug-fix
+---
+```

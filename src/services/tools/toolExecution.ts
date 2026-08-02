@@ -3,7 +3,7 @@ import type {
 	ContentBlockParam,
 	ToolResultBlockParam,
 	ToolUseBlock,
-} from "@anthropic-ai/sdk/resources/index.mjs";
+} from "src/types/anthropic-protocol.js";
 import {
 	type AnalyticsMetadata_I_VERIFIED_THIS_IS_NOT_CODE_OR_FILEPATHS,
 	logEvent,
@@ -21,6 +21,7 @@ import {
 import {
 	addToToolDuration,
 	getCodeEditToolDecisionCounter,
+	getSessionId,
 	getStatsStore,
 } from "../../bootstrap/state.js";
 import {
@@ -41,6 +42,7 @@ import { BASH_TOOL_NAME } from "../../tools/BashTool/toolName.js";
 import { FILE_EDIT_TOOL_NAME } from "../../tools/FileEditTool/constants.js";
 import { FILE_READ_TOOL_NAME } from "../../tools/FileReadTool/prompt.js";
 import { FILE_WRITE_TOOL_NAME } from "../../tools/FileWriteTool/prompt.js";
+import { MULTI_EDIT_TOOL_NAME } from "../../tools/MultiEditTool/constants.js";
 import { NOTEBOOK_EDIT_TOOL_NAME } from "../../tools/NotebookEditTool/constants.js";
 import { POWERSHELL_TOOL_NAME } from "../../tools/PowerShellTool/toolName.js";
 import { parseGitCommitId } from "../../tools/shared/gitOperationTracking.js";
@@ -336,6 +338,26 @@ function getMcpServerBaseUrlFromToolName(
 		return undefined;
 	}
 	return getLoggingSafeMcpBaseUrl(serverConnection.config);
+}
+
+function getToolOperationCategory(
+	toolName: string,
+): "write" | "execute" | "read" | "mcp_call" {
+	if (
+		toolName === FILE_WRITE_TOOL_NAME ||
+		toolName === FILE_EDIT_TOOL_NAME ||
+		toolName === MULTI_EDIT_TOOL_NAME ||
+		toolName === NOTEBOOK_EDIT_TOOL_NAME
+	) {
+		return "write";
+	}
+	if (toolName === BASH_TOOL_NAME || toolName === POWERSHELL_TOOL_NAME) {
+		return "execute";
+	}
+	if (toolName === FILE_READ_TOOL_NAME) {
+		return "read";
+	}
+	return "mcp_call";
 }
 
 export async function* runToolUse(
@@ -701,6 +723,138 @@ async function checkPermissionsAndCallTool(
 						},
 					],
 					toolUseResult: `InputValidationError: ${parsedInput.error.message}`,
+					sourceToolAssistantUUID: assistantMessage.uuid,
+				}),
+			},
+		];
+	}
+
+	// Offline mode: block network tools
+	const { isOfflineMode } = await import("../../commands/offline/offline.js");
+	if (
+		isOfflineMode() &&
+		(tool.name === "WebSearch" || tool.name === "WebFetch")
+	) {
+		logForDebugging(`${tool.name} blocked by offline mode`);
+		return [
+			{
+				message: createUserMessage({
+					content: [
+						{
+							type: "tool_result",
+							content: `Tool "${tool.name}" is disabled in offline mode. Run /offline to re-enable network tools.`,
+							is_error: true,
+							tool_use_id: toolUseID,
+						},
+					],
+					toolUseResult: `offline: ${tool.name} blocked`,
+					sourceToolAssistantUUID: assistantMessage.uuid,
+				}),
+			},
+		];
+	}
+
+	// FUSION.rules denied tools check
+	const { isToolDenied } = await import("../../utils/fusionRules.js");
+	if (isToolDenied(tool.name)) {
+		logForDebugging(`${tool.name} blocked by FUSION.rules denied_tools`);
+		// Audit log: denied tool
+		const { appendAuditLog, createAuditEntry } = await import(
+			"../audit/auditLog.js"
+		);
+		await appendAuditLog(
+			createAuditEntry(getSessionId(), tool.name, "denied", "FUSION.rules", {
+				success: false,
+				error: "denied by FUSION.rules",
+			}),
+		);
+		return [
+			{
+				message: createUserMessage({
+					content: [
+						{
+							type: "tool_result",
+							content: `Tool "${tool.name}" is denied by FUSION.rules configuration and cannot be used in this project.`,
+							is_error: true,
+							tool_use_id: toolUseID,
+						},
+					],
+					toolUseResult: `FUSION.rules: ${tool.name} denied`,
+					sourceToolAssistantUUID: assistantMessage.uuid,
+				}),
+			},
+		];
+	}
+
+	// Sensitive file protection — block reads/writes to secrets/keys
+	const { isSensitiveFilePath, getSensitiveFileDenialMessage } = await import(
+		"../../utils/sensitiveFiles.js"
+	);
+	const sensitivePaths: string[] = [];
+	if ("file_path" in parsedInput.data && parsedInput.data.file_path) {
+		sensitivePaths.push(String(parsedInput.data.file_path));
+	}
+	if ("edits" in parsedInput.data && Array.isArray(parsedInput.data.edits)) {
+		for (const edit of parsedInput.data.edits as Array<{
+			file_path?: string;
+		}>) {
+			if (edit.file_path) sensitivePaths.push(edit.file_path);
+		}
+	}
+	const blockedPath = sensitivePaths.find((p) => isSensitiveFilePath(p));
+	if (blockedPath) {
+		logForDebugging(`${tool.name} blocked: sensitive file ${blockedPath}`);
+		const { appendAuditLog, createAuditEntry } = await import(
+			"../audit/auditLog.js"
+		);
+		await appendAuditLog(
+			createAuditEntry(getSessionId(), tool.name, "denied", blockedPath, {
+				success: false,
+				error: "sensitive file protection",
+			}),
+		);
+		return [
+			{
+				message: createUserMessage({
+					content: [
+						{
+							type: "tool_result",
+							content: getSensitiveFileDenialMessage(blockedPath),
+							is_error: true,
+							tool_use_id: toolUseID,
+						},
+					],
+					toolUseResult: `sensitive file: ${blockedPath}`,
+					sourceToolAssistantUUID: assistantMessage.uuid,
+				}),
+			},
+		];
+	}
+
+	// Rate limit check — prevent AI from bulk destructive actions
+	const toolCategory = getToolOperationCategory(tool.name);
+	const rateLimitOp =
+		toolCategory === "write" || toolCategory === "execute"
+			? toolCategory
+			: "other";
+	const { checkOperationRateLimit } = await import("../audit/auditLog.js");
+	const rateLimit = checkOperationRateLimit(rateLimitOp);
+	if (!rateLimit.allowed) {
+		logForDebugging(
+			`${tool.name} rate limited: ${rateLimit.currentCount}/${rateLimit.maxOps} in window`,
+		);
+		return [
+			{
+				message: createUserMessage({
+					content: [
+						{
+							type: "tool_result",
+							content: `Rate limit exceeded for ${rateLimitOp} operations (${rateLimit.currentCount}/${rateLimit.maxOps} per minute). Slow down and try again.`,
+							is_error: true,
+							tool_use_id: toolUseID,
+						},
+					],
+					toolUseResult: `rate limited: ${rateLimitOp}`,
 					sourceToolAssistantUUID: assistantMessage.uuid,
 				}),
 			},
@@ -1311,6 +1465,29 @@ async function checkPermissionsAndCallTool(
 		}
 
 		endToolExecutionSpan({ success: true });
+
+		// Audit log: successful tool execution
+		const auditOp = getToolOperationCategory(tool.name);
+		const auditTarget =
+			"file_path" in processedInput
+				? String(processedInput.file_path)
+				: "edits" in processedInput && Array.isArray(processedInput.edits)
+					? (processedInput.edits as Array<{ file_path?: string }>)
+							.map((e) => e.file_path)
+							.filter(Boolean)
+							.join(", ")
+					: "command" in processedInput
+						? String((processedInput as BashToolInput).command).slice(0, 200)
+						: tool.name;
+		const { appendAuditLog: _appendAudit, createAuditEntry: _createAudit } =
+			await import("../audit/auditLog.js");
+		await _appendAudit(
+			_createAudit(getSessionId(), tool.name, auditOp, auditTarget, {
+				success: true,
+				duration_ms: durationMs,
+			}),
+		);
+
 		// Pass tool result for new_context logging
 		const toolResultStr =
 			result.data && typeof result.data === "object"

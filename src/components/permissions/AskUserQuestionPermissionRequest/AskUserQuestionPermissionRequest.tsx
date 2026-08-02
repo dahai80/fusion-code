@@ -1,7 +1,7 @@
 import type {
 	Base64ImageSource,
 	ImageBlockParam,
-} from "@anthropic-ai/sdk/resources/messages.mjs";
+} from "src/types/anthropic-protocol.js";
 import { Suspense, use, useRef, useState } from "react";
 import { c as _c } from "react/compiler-runtime";
 import { useSettings } from "../../../hooks/useSettings.js";

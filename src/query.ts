@@ -2,7 +2,7 @@
 import type {
 	ToolResultBlockParam,
 	ToolUseBlock,
-} from "@anthropic-ai/sdk/resources/index.mjs";
+} from "src/types/anthropic-protocol.js";
 import type { SDKAssistantMessageError } from "./entrypoints/agentSdkTypes.js";
 import type { CanUseToolFn } from "./hooks/useCanUseTool.js";
 import { FallbackTriggeredError } from "./services/api/withRetry.js";

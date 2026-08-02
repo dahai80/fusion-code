@@ -1,5 +1,5 @@
-import type { Anthropic } from "@anthropic-ai/sdk";
-import type { BetaMessageParam as MessageParam } from "@anthropic-ai/sdk/resources/beta/messages/messages.mjs";
+import type { Anthropic } from "src/types/anthropic-protocol.js";
+import type { BetaMessageParam as MessageParam } from "src/types/anthropic-protocol.js";
 import { getAPIProvider } from "src/utils/model/providers.js";
 import { VERTEX_COUNT_TOKENS_ALLOWED_BETAS } from "../constants/betas.js";
 import type { Attachment } from "../utils/attachments.js";

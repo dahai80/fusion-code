@@ -1,4 +1,4 @@
-import type { ContentBlockParam } from '@anthropic-ai/sdk/resources'
+import type { ContentBlockParam } from 'src/types/anthropic-protocol.js'
 import { logForDebugging } from '../utils/debug.js'
 
 // Resolve file_uuid attachments on inbound bridge user messages and prepend

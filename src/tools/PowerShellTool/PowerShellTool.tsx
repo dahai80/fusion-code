@@ -1,5 +1,5 @@
 import { feature } from 'bun:bundle';
-import type { ToolResultBlockParam } from '@anthropic-ai/sdk/resources/index.mjs';
+import type { ToolResultBlockParam } from 'src/types/anthropic-protocol.js';
 import { copyFile, stat as fsStat, truncate as fsTruncate, link } from 'fs/promises';
 import type { CanUseToolFn } from 'src/hooks/useCanUseTool.js';
 import type { AppState } from 'src/state/AppState.js';

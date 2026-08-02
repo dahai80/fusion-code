@@ -1,4 +1,4 @@
-import type { APIError } from "@anthropic-ai/sdk";
+import type { APIError } from "src/types/anthropic-protocol.js";
 import type {
 	BetaContentBlock,
 	BetaMessage,
@@ -6,11 +6,11 @@ import type {
 	BetaRedactedThinkingBlock,
 	BetaThinkingBlock,
 	BetaToolUseBlock,
-} from "@anthropic-ai/sdk/resources/beta/messages/messages.mjs";
+} from "src/types/anthropic-protocol.js";
 import type {
 	ContentBlockParam,
 	ToolResultBlockParam,
-} from "@anthropic-ai/sdk/resources/messages/messages.mjs";
+} from "src/types/anthropic-protocol.js";
 import type { UUID } from "crypto";
 import type {
 	HookEvent,

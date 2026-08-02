@@ -16,9 +16,9 @@ import type {
 	BetaToolUnion,
 	BetaUsage,
 	BetaMessageParam as MessageParam,
-} from "@anthropic-ai/sdk/resources/beta/messages/messages.mjs";
-import type { TextBlockParam } from "@anthropic-ai/sdk/resources/index.mjs";
-import type { Stream } from "@anthropic-ai/sdk/streaming.mjs";
+} from "src/types/anthropic-protocol.js";
+import type { TextBlockParam } from "src/types/anthropic-protocol.js";
+import type { Stream } from "src/types/anthropic-protocol.js";
 import { randomUUID } from "crypto";
 import {
 	getAPIProvider,
@@ -103,7 +103,7 @@ const autoModeStateModule =
 	require("../../utils/permissions/autoModeState.js") as typeof import("../../utils/permissions/autoModeState.js");
 
 import { feature } from "bun:bundle";
-import type { ClientOptions } from "@anthropic-ai/sdk";
+import type { ClientOptions } from "src/types/anthropic-protocol.js";
 import {
 	APIConnectionTimeoutError,
 	APIError,

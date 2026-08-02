@@ -1,7 +1,7 @@
 import type {
   Base64ImageSource,
   ImageBlockParam,
-} from '@anthropic-ai/sdk/resources/messages.mjs'
+} from 'src/types/anthropic-protocol.js'
 import {
   API_IMAGE_MAX_BASE64_SIZE,
   IMAGE_MAX_HEIGHT,

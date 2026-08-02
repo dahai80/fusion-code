@@ -9,7 +9,7 @@ export const MAX_TOOL_RESULT_HARD_CAP_BYTES = 1_000_000
  * Utility for persisting large tool results to disk instead of truncating them.
  */
 
-import type { ToolResultBlockParam } from '@anthropic-ai/sdk/resources/index.mjs'
+import type { ToolResultBlockParam } from 'src/types/anthropic-protocol.js'
 import { mkdir, writeFile } from 'fs/promises'
 import { join } from 'path'
 import { getOriginalCwd, getSessionId } from '../bootstrap/state.js'

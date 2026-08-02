@@ -1,4 +1,4 @@
-import type { ContentBlockParam } from '@anthropic-ai/sdk/resources/index.mjs'
+import type { ContentBlockParam } from 'src/types/anthropic-protocol.js'
 import { execFileSync } from 'child_process'
 import { cpSync, existsSync, mkdirSync, readFileSync } from 'fs'
 import { join } from 'path'

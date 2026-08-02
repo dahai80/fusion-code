@@ -21,7 +21,8 @@
     "build:dev:full": "bun run ./scripts/build.ts --dev --feature-set=dev-full",
     "compile": "bun run ./scripts/build.ts --compile",
     "dev": "bun run ./src/entrypoints/cli.tsx",
-    "typecheck": "tsc --noEmit",
+    "test": "bun test src/__tests__/",
+	    "typecheck": "tsc --noEmit",
     "lint": "biome lint src/ scripts/",
     "lint:fix": "biome lint --write src/ scripts/",
     "check": "bun run typecheck && bun run lint && bun run build"

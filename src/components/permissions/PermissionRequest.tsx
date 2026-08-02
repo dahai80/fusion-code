@@ -39,7 +39,7 @@ const WorkflowTool = feature('WORKFLOW_SCRIPTS') ? null : null;
 const WorkflowPermissionRequest = feature('WORKFLOW_SCRIPTS') ? null : null;
 const MonitorTool = feature('MONITOR_TOOL') ? null : null;
 const MonitorPermissionRequest = feature('MONITOR_TOOL') ? null : null;
-import type { ContentBlockParam } from '@anthropic-ai/sdk/resources/messages.mjs';
+import type { ContentBlockParam } from 'src/types/anthropic-protocol.js';
 /* eslint-enable @typescript-eslint/no-require-imports */
 import type { z } from 'zod/v4';
 import type { PermissionUpdate } from '../../utils/permissions/PermissionUpdateSchema.js';

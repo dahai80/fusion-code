@@ -1,5 +1,5 @@
 import { feature } from "bun:bundle";
-import type Anthropic from "@anthropic-ai/sdk";
+import type { AnthropicDefault as Anthropic } from "src/types/anthropic-protocol.js";
 import {
 	APIConnectionError,
 	APIError,

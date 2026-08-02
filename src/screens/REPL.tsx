@@ -242,7 +242,7 @@ const SLEEP_TOOL_NAME = "Sleep";
 import type {
 	ContentBlockParam,
 	ImageBlockParam,
-} from "@anthropic-ai/sdk/resources/messages.mjs";
+} from "src/types/anthropic-protocol.js";
 import { randomUUID, type UUID } from "crypto";
 import { getFeatureValue_CACHED_MAY_BE_STALE } from "src/services/analytics/growthbook.js";
 import {

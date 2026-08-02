@@ -1,4 +1,4 @@
-import type { ToolUseBlockParam } from "@anthropic-ai/sdk/resources/index.mjs";
+import type { ToolUseBlockParam } from "src/types/anthropic-protocol.js";
 import type React from "react";
 import { c as _c } from "react/compiler-runtime";
 import { useTerminalSize } from "src/hooks/useTerminalSize.js";
