@@ -77,12 +77,14 @@ describe("isToolDenied", () => {
 		expect(isToolDenied("WebSearch")).toBe(false);
 	});
 
-	it("performs case-sensitive matching", () => {
+	it("performs case-insensitive matching", () => {
 		setFusionRulesConfig({
 			deniedTools: ["WebSearch"],
 			defaultTemplate: null,
 		});
-		expect(isToolDenied("websearch")).toBe(false);
+		expect(isToolDenied("websearch")).toBe(true);
+			expect(isToolDenied("WEBSEARCH")).toBe(true);
+			expect(isToolDenied("WebSearch")).toBe(true);
 	});
 });
 
