@@ -1,8 +1,8 @@
-import type { BetaUsage } from "@anthropic-ai/sdk/resources/beta/messages/messages.mjs";
+import type { BetaUsage } from "src/types/anthropic-protocol.js";
 import type {
 	ToolResultBlockParam,
 	ToolUseBlockParam,
-} from "@anthropic-ai/sdk/resources/index.mjs";
+} from "src/types/anthropic-protocol.js";
 import type * as React from "react";
 import { c as _c } from "react/compiler-runtime";
 import { ConfigurableShortcutHint } from "src/components/ConfigurableShortcutHint.js";

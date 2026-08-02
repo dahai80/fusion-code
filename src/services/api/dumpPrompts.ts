@@ -1,4 +1,4 @@
-import type { ClientOptions } from '@anthropic-ai/sdk'
+import type { ClientOptions } from 'src/types/anthropic-protocol.js'
 import { createHash } from 'crypto'
 import { promises as fs } from 'fs'
 import { dirname, join } from 'path'

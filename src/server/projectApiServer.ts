@@ -113,15 +113,21 @@ routes.set("/api/projects/:id/context", async (url, _body, pathParams) => {
 routes.set("/api/sessions", async (url) => {
 	const cwd = getCwdFromUrl(url);
 	const projectId = url.searchParams.get("project_id");
-	const limit = parseInt(url.searchParams.get("limit") ?? "50", 10);
-	const offset = parseInt(url.searchParams.get("offset") ?? "0", 10);
+	const limit = Math.min(
+		Math.max(parseInt(url.searchParams.get("limit") ?? "50", 10) || 50, 1),
+		200,
+	);
+	const offset = Math.max(
+		parseInt(url.searchParams.get("offset") ?? "0", 10) || 0,
+		0,
+	);
 	try {
 		const dir = projectId
 			? projectId.replace(/^-/, "").replace(/-/g, "/")
 			: cwd;
 		const sessions = await listSessionsImpl({
 			dir,
-			limit: Math.min(limit, 200),
+			limit,
 			offset,
 		});
 		return jsonResponse({ sessions, total: sessions.length });
@@ -517,6 +523,135 @@ routes.set("POST /api/memory", async (url, body) => {
 	}
 });
 
+// GET /api/model/status — local MLX model load and status
+routes.set("/api/model/status", async () => {
+	const MLX_BASE = "http://127.0.0.1:11434";
+	try {
+		const tagsResp = await fetch(`${MLX_BASE}/api/tags`, {
+			signal: AbortSignal.timeout(3000),
+		});
+		if (!tagsResp.ok) {
+			return jsonResponse({
+				connected: false,
+				error: `HTTP ${tagsResp.status}`,
+			});
+		}
+		const tagsData = (await tagsResp.json()) as {
+			models?: Array<{
+				name: string;
+				size?: number;
+				quantization_level?: string;
+				modified_at?: string;
+			}>;
+		};
+		const models = (tagsData.models ?? []).map((m) => ({
+			name: m.name,
+			size: m.size,
+			quant: m.quantization_level,
+			modified_at: m.modified_at,
+		}));
+
+		let loaded: string[] = [];
+		try {
+			const psResp = await fetch(`${MLX_BASE}/api/ps`, {
+				signal: AbortSignal.timeout(3000),
+			});
+			if (psResp.ok) {
+				const psData = (await psResp.json()) as {
+					models?: Array<{ name: string }>;
+				};
+				loaded = (psData.models ?? []).map((m) => m.name);
+			}
+		} catch {
+			// /api/ps not available — skip
+		}
+
+		return jsonResponse({ connected: true, models, loaded, url: MLX_BASE });
+	} catch (e) {
+		return jsonResponse({
+			connected: false,
+			error: "Failed to connect to local inference service",
+			url: MLX_BASE,
+		});
+	}
+});
+
+// POST /api/kb/build — build knowledge base
+routes.set("POST /api/kb/build", async (url) => {
+	const cwd = getCwdFromUrl(url);
+	try {
+		const { buildKB } = await import("../services/knowledgeBase/kbManager.js");
+		const result = await buildKB(cwd);
+		return jsonResponse({ ok: true, message: result });
+	} catch (e) {
+		logForDebugging(`projectApiServer: /api/kb/build error: ${e}`);
+		return errorResponse("Failed to build knowledge base", 500);
+	}
+});
+
+// POST /api/kb/query — query knowledge base
+routes.set("POST /api/kb/query", async (url, body) => {
+	const cwd = getCwdFromUrl(url);
+	if (!body || typeof body !== "object") {
+		return errorResponse("Request body required", 400);
+	}
+	const { query, topK } = body as { query?: string; topK?: number };
+	if (!query || typeof query !== "string")
+		return errorResponse("query must be a non-empty string", 400);
+	if (
+		topK !== undefined &&
+		(typeof topK !== "number" || topK < 1 || topK > 100)
+	) {
+		return errorResponse("topK must be a number between 1 and 100", 400);
+	}
+	try {
+		const { queryKB } = await import("../services/knowledgeBase/kbManager.js");
+		const result = await queryKB(cwd, query, topK ?? 5);
+		return jsonResponse({ result });
+	} catch (e) {
+		logForDebugging(`projectApiServer: /api/kb/query error: ${e}`);
+		return errorResponse("Failed to query knowledge base", 500);
+	}
+});
+
+// GET /api/kb/status — knowledge base status
+routes.set("/api/kb/status", async (url) => {
+	const cwd = getCwdFromUrl(url);
+	try {
+		const { getKBStatus } = await import(
+			"../services/knowledgeBase/kbManager.js"
+		);
+		const status = await getKBStatus(cwd);
+		return jsonResponse(status);
+	} catch (e) {
+		logForDebugging(`projectApiServer: /api/kb/status error: ${e}`);
+		return errorResponse("Failed to get KB status", 500);
+	}
+});
+
+// GET /api/templates — list workflow templates
+routes.set("/api/templates", async (url) => {
+	const cwd = getCwdFromUrl(url);
+	try {
+		const { listTemplates } = await import(
+			"../services/workflowTemplates/templateManager.js"
+		);
+		const { getBuiltinTemplates } = await import(
+			"../services/workflowTemplates/builtinTemplates.js"
+		);
+		const saved = await listTemplates(cwd);
+		const builtinList = getBuiltinTemplates();
+		return jsonResponse({
+			builtin: builtinList,
+			saved,
+			total: builtinList.length + saved.length,
+		});
+	} catch (e) {
+		logForDebugging(`projectApiServer: /api/templates error: ${e}`);
+		return errorResponse("Failed to list templates", 500);
+	}
+});
+
 function matchRoute(
 	pathname: string,
 	method: string,
@@ -586,7 +721,10 @@ function findFusionCodeBinary(): string {
 	return "fusion-code";
 }
 
-async function handleChatStream(ws: ServerWebSocket<undefined>, data: Record<string, unknown>) {
+async function handleChatStream(
+	ws: ServerWebSocket<undefined>,
+	data: Record<string, unknown>,
+) {
 	const sessionId = (data.session_id as string) || crypto.randomUUID();
 	const message = data.message as string;
 	const cwd = (data.cwd as string) || process.cwd();
@@ -728,7 +866,10 @@ async function handleChatStream(ws: ServerWebSocket<undefined>, data: Record<str
 	})();
 }
 
-function handleChatCancel(ws: ServerWebSocket<undefined>, data: Record<string, unknown>) {
+function handleChatCancel(
+	ws: ServerWebSocket<undefined>,
+	data: Record<string, unknown>,
+) {
 	const state = wsSessions.get(ws);
 	if (state?.proc) {
 		try {
@@ -817,11 +958,49 @@ export function startProjectApiServer(config: ServerConfig): {
 				req.headers.get("upgrade") === "websocket"
 			) {
 				logForDebugging("projectApiServer: WS upgrade request for /ws/chat");
+				const wsClientIp =
+					req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ??
+					req.headers.get("x-real-ip") ??
+					"local";
+				const { checkOperationRateLimit: wsRateLimit } = await import(
+					"../services/audit/auditLog.js"
+				);
+				const wsRateResult = wsRateLimit(`api:${wsClientIp}`, 120);
+				if (!wsRateResult.allowed) {
+					return new Response(
+						JSON.stringify({ error: "Rate limit exceeded" }),
+						{ status: 429, headers: { "Content-Type": "application/json" } },
+					);
+				}
 				const upgraded = server.upgrade(req);
 				if (!upgraded) {
 					return errorResponse("WebSocket upgrade failed", 500);
 				}
 				return upgraded as unknown as Response;
+			}
+
+			// API rate limiting — 120 requests per minute per IP
+			// Trust x-forwarded-for/x-real-ip from reverse proxy;
+			// when running without a trusted proxy, these headers can be spoofed
+			const clientIp =
+				req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ??
+				req.headers.get("x-real-ip") ??
+				"local";
+			const { checkOperationRateLimit } = await import(
+				"../services/audit/auditLog.js"
+			);
+			const apiRateLimit = checkOperationRateLimit(`api:${clientIp}`, 120);
+			if (!apiRateLimit.allowed) {
+				return new Response(
+					JSON.stringify({
+						error: "Rate limit exceeded",
+						detail: `${apiRateLimit.currentCount}/${apiRateLimit.maxOps} requests per minute`,
+					}),
+					{
+						status: 429,
+						headers: { "Content-Type": "application/json" },
+					},
+				);
 			}
 
 			// CORS headers for Fusion Studio

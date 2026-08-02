@@ -1,4 +1,4 @@
-import type { ContentBlockParam } from "@anthropic-ai/sdk/resources";
+import type { ContentBlockParam } from "src/types/anthropic-protocol.js";
 import { randomUUID } from "crypto";
 import type * as React from "react";
 import { BashModeProgress } from "src/components/BashModeProgress.js";

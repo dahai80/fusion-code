@@ -4,6 +4,10 @@
  * Accepts cwd as parameter instead of reading bootstrap/state.
  * No hooks, no analytics, no memoize, no feature flags.
  * Designed for use by the project API server and external consumers.
+ *
+ * FUSION.rules: Enhanced rule file with priority above CLAUDE.md.
+ * Supports frontmatter fields: denied_tools (string[]), default_template (string).
+ * Load order: global FUSION.rules > project FUSION.rules > CLAUDE.md files.
  */
 
 import { readdir, readFile, stat } from "fs/promises";
@@ -13,7 +17,7 @@ import { parseFrontmatter } from "./frontmatterParser.js";
 
 export type PortableMemoryFileInfo = {
 	path: string;
-	type: "Managed" | "User" | "Project" | "Local" | "AutoMem";
+	type: "Managed" | "User" | "Project" | "Local" | "AutoMem" | "FusionRules";
 	content: string;
 	description: string | null;
 	frontmatter: Record<string, unknown>;
@@ -23,6 +27,11 @@ export type PortableProjectContext = {
 	cwd: string;
 	files: PortableMemoryFileInfo[];
 	combinedContent: string;
+};
+
+export type FusionRulesConfig = {
+	deniedTools: string[];
+	defaultTemplate: string | null;
 };
 
 const MAX_FILE_SIZE = 40000;
@@ -103,15 +112,36 @@ function getAncestorDirs(cwd: string): string[] {
 	return dirs;
 }
 
+export function parseFusionRulesConfig(
+	frontmatter: Record<string, unknown>,
+): FusionRulesConfig {
+	const deniedTools = Array.isArray(frontmatter.denied_tools)
+		? (frontmatter.denied_tools as string[]).filter(
+				(t) => typeof t === "string",
+			)
+		: [];
+	const defaultTemplate =
+		typeof frontmatter.default_template === "string"
+			? frontmatter.default_template
+			: null;
+	return { deniedTools, defaultTemplate };
+}
+
 export async function getMemoryFilesPortable(
 	cwd: string,
 ): Promise<PortableMemoryFileInfo[]> {
 	const result: PortableMemoryFileInfo[] = [];
 
-	// User-level: ~/.fusion-code/CLAUDE.md + ~/.fusion-code/rules/*.md
+	// User-level: ~/.fusion-code/FUSION.rules (higher priority) then ~/.fusion-code/CLAUDE.md + ~/.fusion-code/rules/*.md
 	const { homedir } = await import("os");
 	const configHome =
 		process.env.FUSION_CODE_CONFIG_DIR ?? join(homedir(), ".fusion-code");
+	const userFusionRules = join(configHome, "FUSION.rules");
+	const userFusionRulesInfo = await readMemoryFile(
+		userFusionRules,
+		"FusionRules",
+	);
+	if (userFusionRulesInfo) result.push(userFusionRulesInfo);
 	const userClaudeMd = join(configHome, "CLAUDE.md");
 	const userInfo = await readMemoryFile(userClaudeMd, "User");
 	if (userInfo) result.push(userInfo);
@@ -120,6 +150,13 @@ export async function getMemoryFilesPortable(
 	// Project-level: walk from root to cwd
 	const dirs = getAncestorDirs(cwd).reverse();
 	for (const dir of dirs) {
+		// FUSION.rules (Project) — higher priority than CLAUDE.md
+		const fusionRulesInfo = await readMemoryFile(
+			join(dir, "FUSION.rules"),
+			"FusionRules",
+		);
+		if (fusionRulesInfo) result.push(fusionRulesInfo);
+
 		// CLAUDE.md (Project)
 		const projectInfo = await readMemoryFile(join(dir, "CLAUDE.md"), "Project");
 		if (projectInfo) result.push(projectInfo);
@@ -147,6 +184,28 @@ export async function getMemoryFilesPortable(
 	return result;
 }
 
+export async function getFusionRulesConfigPortable(
+	cwd: string,
+): Promise<FusionRulesConfig> {
+	const files = await getMemoryFilesPortable(cwd);
+	const fusionRulesFiles = files.filter((f) => f.type === "FusionRules");
+	const merged: FusionRulesConfig = { deniedTools: [], defaultTemplate: null };
+	for (const f of fusionRulesFiles) {
+		const config = parseFusionRulesConfig(f.frontmatter);
+		// deniedTools are unioned across files; defaultTemplate is overridden by last non-null value
+		merged.deniedTools = [
+			...new Set([...merged.deniedTools, ...config.deniedTools]),
+		];
+		if (config.defaultTemplate) {
+			merged.defaultTemplate = config.defaultTemplate;
+		}
+	}
+	logForDebugging(
+		`fusionRulesPortable: loaded ${fusionRulesFiles.length} FUSION.rules, deniedTools=${merged.deniedTools.join(",")}, defaultTemplate=${merged.defaultTemplate}`,
+	);
+	return merged;
+}
+
 export async function getProjectContextPortable(
 	cwd: string,
 ): Promise<PortableProjectContext> {
@@ -161,7 +220,9 @@ export async function getProjectContextPortable(
 						? " (user's private project instructions)"
 						: f.type === "AutoMem"
 							? " (auto-memory)"
-							: " (user's global instructions)";
+							: f.type === "FusionRules"
+								? " (enhanced project rules — highest priority)"
+								: " (user's global instructions)";
 			return `Contents of ${f.path}${desc}:\n\n${f.content.trim()}`;
 		})
 		.join("\n\n");

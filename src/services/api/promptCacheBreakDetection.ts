@@ -1,5 +1,5 @@
-import type { BetaToolUnion } from '@anthropic-ai/sdk/resources/beta/messages/messages.mjs'
-import type { TextBlockParam } from '@anthropic-ai/sdk/resources/index.mjs'
+import type { BetaToolUnion } from 'src/types/anthropic-protocol.js'
+import type { TextBlockParam } from 'src/types/anthropic-protocol.js'
 import { createPatch } from 'diff'
 import { mkdir, writeFile } from 'fs/promises'
 import { join } from 'path'

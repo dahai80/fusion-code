@@ -10,6 +10,7 @@
   <a href="https://github.com/dahai80/fusion-code/stargazers"><img src="https://img.shields.io/github/stars/dahai80/fusion-code?style=flat-square" alt="Stars" /></a>
   <a href="https://github.com/dahai80/fusion-code/issues"><img src="https://img.shields.io/github/issues/dahai80/fusion-code?style=flat-square" alt="Issues" /></a>
   <a href="./FEATURES.md"><img src="https://img.shields.io/badge/features-88%20flags-green?style=flat-square" alt="Feature Flags" /></a>
+  <a href="./README_CN.md"><img src="https://img.shields.io/badge/lang-中文-blue?style=flat-square" alt="中文" /></a>
 </p>
 
 ---
@@ -516,6 +517,28 @@ Toggle with `/plugin` inside the REPL.
 
 Place a `CLAUDE.md` file in your project root to give fusion-code project-specific instructions — coding standards, architecture notes, preferred libraries. It is automatically loaded on startup and committed to version control so your whole team shares the same AI behavior.
 
+### Enhanced Rules (FUSION.rules)
+
+FUSION.rules is an enhanced rule file with **priority above CLAUDE.md**. It supports frontmatter fields for project-level constraints that the AI must follow unconditionally:
+
+```yaml
+---
+denied_tools:
+  - WebSearch
+  - WebFetch
+default_template: bug-fix
+---
+```
+
+- `denied_tools` — tool names blocked for this project (e.g., `WebSearch`, `Bash`, `WebFetch`)
+- `default_template` — workflow template auto-assigned to new sessions
+
+**File locations:**
+- Global: `~/.fusion-code/FUSION.rules`
+- Project: `<project-root>/FUSION.rules`
+
+**Priority (highest → lowest):** Global FUSION.rules → Project FUSION.rules → CLAUDE.md → `.fusion-code/rules/*.md` → `CLAUDE.local.md`
+
 ### Multilingual Session Titles
 
 Session titles are auto-generated in the same language as your first message. Chinese input → Chinese title, English → English, etc.
@@ -734,6 +757,54 @@ Verified: 297 pass, 0 fail across all 16 test files.
 | `tests/lib/claudemd-parser.test.ts` | NEW — 7 module re-export tests |
 
 Verified: 312 pass, 2 flaky (pre-existing fusion-mlx-adapter test isolation issue).
+
+### v0.4.4 FUSION.rules + MultiEdit
+
+**New Features:**
+
+1. **FUSION.rules Enhanced Rule System** — Project-level rule file with priority above CLAUDE.md. Supports:
+   - `denied_tools` frontmatter — block specific tools (e.g., `WebSearch`, `Bash`)
+   - `default_template` frontmatter — auto-assign workflow template to new sessions
+   - Priority: Global `~/.fusion-code/FUSION.rules` → Project `FUSION.rules` → `CLAUDE.md`
+   - Runtime registry: `isToolDenied()`, `parseFusionRulesFrontmatter()`, `mergeFusionRulesConfigs()`
+   - Tool execution gate: denied tools return error before `validateInput()`
+
+2. **MultiEdit Tool** (`src/tools/MultiEditTool/`) — batch multi-file edits in a single tool call. Up to 20 edits per call. Groups edits by file, applies sequentially, per-file error isolation. Reuses FileEditTool infrastructure (getPatchForEdits, findActualString, preserveQuoteStyle).
+
+**Files Changed:**
+
+| File | Change |
+|---|---|
+| `src/utils/fusionRules.ts` | NEW — FUSION.rules runtime registry and config extraction |
+| `src/utils/memory/types.ts` | MODIFIED — added `FusionRules` to MemoryType |
+| `src/utils/claudemd.ts` | MODIFIED — loads FUSION.rules before CLAUDE.md in getMemoryFiles() |
+| `src/utils/claudemdPortable.ts` | MODIFIED — FUSION.rules loading for API server + parseFusionRulesConfig |
+| `src/services/tools/toolExecution.ts` | MODIFIED — denied-tools gate before validateInput() |
+| `src/tools/MultiEditTool/` | NEW — MultiEditTool, types, prompt, constants |
+| `src/tools.ts` | MODIFIED — registered MultiEdit in getAllBaseTools(), CORE_TOOLS, FULL_TOOLS |
+| `FUSION.rules.example` | NEW — example FUSION.rules with frontmatter documentation |
+
+**Security & Audit (Gateway):**
+
+3. **Gateway Audit Log** (`src/services/audit/auditLog.ts`) — Persistent JSONL audit trail at `~/.fusion-code/audit/`. Every file read/write, terminal command, MCP call, and denied tool is logged with session ID, timestamp, duration, and success/error. Auto-rotates at 10MB, keeps 30 files.
+
+4. **Operation Rate Limiting** — Built into the audit module. Prevents AI from bulk destructive actions (50 write ops/min, 50 execute ops/min by default). Returns clear error messages when limits are hit.
+
+5. **Sensitive File Protection** (`src/utils/sensitiveFiles.ts`) — Global block on reading secrets, keys, and credentials. Protects `.env`, SSH keys, `.pem`, `.key`, AWS credentials, `.npmrc`, etc. Cannot be overridden by any rule or FUSION.rules.
+
+6. **API Rate Limiting** — Project API server now enforces 120 requests/min per IP, returning HTTP 429 when exceeded.
+
+7. **`/audit` Command** — View AI operation audit log with filters: `--last N`, `--tool NAME`, `--op read|write|execute|denied`.
+
+8. **`/model-status` Command** — Show local MLX model load status, VRAM usage, and inference speed. Queries `http://127.0.0.1:11434/api/tags` and `/api/ps` for loaded models. Also available as `GET /api/model/status` endpoint.
+
+9. **`/offline` Command** — Toggle offline mode: blocks WebSearch/WebFetch, forces local MLX inference.
+
+10. **`/template` Workflow Templates** (`src/services/workflowTemplates/`) — Save, load, export, and import workflow templates. 9 built-in templates: bug-fix, refactor, unit-test, code-review, migration, scaffold, docs-gen, git-workflow, perf-analysis. Templates stored at `~/.fusion-code/templates/` (global) and `.fusion/templates/` (project). Also available as `GET /api/templates` endpoint.
+
+11. **`/kb` Local Knowledge Base** (`src/services/knowledgeBase/`) — Build a vector index of project files using MLX embeddings. Commands: `build`, `query <text>`, `status`, `reset`. Storage at `.fusion/kb/`. API endpoints: `POST /api/kb/build`, `POST /api/kb/query`, `GET /api/kb/status`.
+
+12. **`/session-pack` Asset Packaging** (`src/commands/session-pack/`) — Export/import full session assets (memory, templates, rules) as a single JSON file. Commands: `create [output_dir]`, `load <pack_file>`.
 
 ### Build-Time Constants
 

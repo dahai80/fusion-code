@@ -1,4 +1,4 @@
-import type { ToolResultBlockParam } from "@anthropic-ai/sdk/resources/index.mjs";
+import type { ToolResultBlockParam } from "src/types/anthropic-protocol.js";
 import type { StructuredPatchHunk } from "diff";
 import type * as React from "react";
 import { Suspense, use, useState } from "react";

@@ -1,4 +1,4 @@
-import type { ContentBlockParam } from '@anthropic-ai/sdk/resources/messages.js'
+import type { ContentBlockParam } from 'src/types/anthropic-protocol.js'
 import type { Command } from '../../types/command.js'
 
 const REVIEW_PROMPT = (args: string, fix: boolean) => `

@@ -1,5 +1,5 @@
 import { c as _c } from "react/compiler-runtime";
-import type { TextBlockParam } from '@anthropic-ai/sdk/resources/index.mjs';
+import type { TextBlockParam } from 'src/types/anthropic-protocol.js';
 import figures from 'figures';
 import { COMMAND_MESSAGE_TAG } from '../../constants/xml.js';
 import { Box, Text } from '../../ink.js';

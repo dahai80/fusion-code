@@ -1,4 +1,5 @@
-import Anthropic, { type ClientOptions } from "@anthropic-ai/sdk";
+import Anthropic from "@anthropic-ai/sdk";
+import type { ClientOptions } from "src/types/anthropic-protocol.js";
 
 import { randomUUID } from "crypto";
 import {

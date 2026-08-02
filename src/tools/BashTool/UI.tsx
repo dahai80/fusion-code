@@ -1,4 +1,4 @@
-import type { ToolResultBlockParam } from "@anthropic-ai/sdk/resources/index.mjs";
+import type { ToolResultBlockParam } from "src/types/anthropic-protocol.js";
 import type * as React from "react";
 import { c as _c } from "react/compiler-runtime";
 import { KeyboardShortcutHint } from "../../components/design-system/KeyboardShortcutHint.js";

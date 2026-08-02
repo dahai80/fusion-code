@@ -69,6 +69,12 @@ import style from "./commands/style/index.js";
 import lessPermissionPrompts from "./commands/less-permission-prompts/index.js";
 import memorySearch from "./commands/memory-search/index.js";
 import historySearch from "./commands/history-search/index.js";
+import audit from "./commands/audit/index.js";
+import offline from "./commands/offline/index.js";
+import modelStatus from "./commands/model-status/index.js";
+import template from "./commands/template/index.js";
+import kb from "./commands/kb/index.js";
+import sessionPack from "./commands/session-pack/index.js";
 import suggest from "./commands/suggest/index.js";
 import progress from "./commands/progress/index.js";
 import deploy from "./commands/deploy/index.js";
@@ -253,6 +259,12 @@ const COMMANDS = memoize((): Command[] => [
 	lessPermissionPrompts,
 	memorySearch,
 	historySearch,
+	audit,
+	offline,
+	modelStatus,
+	template,
+	kb,
+	sessionPack,
 	suggest,
 	progress,
 	deploy,
