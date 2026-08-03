@@ -353,11 +353,15 @@ routes.set("POST /api/lsp/operation", async (_url, body) => {
 
 		const manager = getLspServerManager();
 		if (!manager) {
-			return jsonResponse({
-				error: "LSP server manager not initialized",
-				detail: "In API server mode, set FUSION_CODE_PROJECT_DIR env or pass cwd query param to initialize LSP.",
-				status: "unavailable",
-			}, 503);
+			return jsonResponse(
+				{
+					error: "LSP server manager not initialized",
+					detail:
+						"In API server mode, set FUSION_CODE_PROJECT_DIR env or pass cwd query param to initialize LSP.",
+					status: "unavailable",
+				},
+				503,
+			);
 		}
 
 		const absolutePath = resolvePath(String(file_path));
@@ -534,7 +538,8 @@ routes.set("POST /api/memory", async (url, body) => {
 // GET /api/model/status — local MLX model load and status (#38, #39)
 routes.set("/api/model/status", async () => {
 	const MLX_BASE = "http://127.0.0.1:11434";
-	const mlxApiKey = process.env.FUSION_API_KEY || process.env.ANTHROPIC_API_KEY || "";
+	const mlxApiKey =
+		process.env.FUSION_API_KEY || process.env.ANTHROPIC_API_KEY || "";
 	const headers: Record<string, string> = {};
 	if (mlxApiKey) {
 		headers["Authorization"] = `Bearer ${mlxApiKey}`;
@@ -900,7 +905,9 @@ function handleChatCompact(
 	data: Record<string, unknown>,
 ) {
 	const sessionId = (data.session_id as string) || "";
-	logForDebugging(`projectApiServer WS: compact request for session ${sessionId}`);
+	logForDebugging(
+		`projectApiServer WS: compact request for session ${sessionId}`,
+	);
 	const state = wsSessions.get(ws);
 	if (state?.proc) {
 		try {
@@ -909,11 +916,13 @@ function handleChatCompact(
 			/* already dead */
 		}
 	}
-	ws.send(JSON.stringify({
-		type: "compact_done",
-		session_id: sessionId,
-		timestamp: Date.now(),
-	}));
+	ws.send(
+		JSON.stringify({
+			type: "compact_done",
+			session_id: sessionId,
+			timestamp: Date.now(),
+		}),
+	);
 }
 
 // Store config globally so WS handlers can access authToken
@@ -942,7 +951,7 @@ export function startProjectApiServer(config: ServerConfig): {
 						clearInterval(pingInterval);
 					}
 				}, 30000);
-				(ws as Record<string, unknown>).__pingInterval = pingInterval;
+				(ws as unknown as Record<string, unknown>).__pingInterval = pingInterval;
 			},
 			message(ws, message) {
 				try {
@@ -980,7 +989,9 @@ export function startProjectApiServer(config: ServerConfig): {
 				}
 			},
 			close(ws) {
-				const pingInterval = (ws as Record<string, unknown>).__pingInterval as ReturnType<typeof setInterval> | undefined;
+				const pingInterval = (ws as unknown as Record<string, unknown>).__pingInterval as
+					| ReturnType<typeof setInterval>
+					| undefined;
 				if (pingInterval) clearInterval(pingInterval);
 				const state = wsSessions.get(ws);
 				if (state?.proc) {
@@ -1007,7 +1018,10 @@ export function startProjectApiServer(config: ServerConfig): {
 				if (config.authToken) {
 					const wsAuth = req.headers.get("Authorization");
 					const wsToken = url.searchParams.get("token");
-					if (wsAuth !== `Bearer ${config.authToken}` && wsToken !== config.authToken) {
+					if (
+						wsAuth !== `Bearer ${config.authToken}` &&
+						wsToken !== config.authToken
+					) {
 						return errorResponse("Unauthorized", 401);
 					}
 				}
