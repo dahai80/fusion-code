@@ -82,6 +82,24 @@ function estimateMessageTokens(messages: Message[]): number {
 	return total;
 }
 
+async function fetchRemoteBudget(): Promise<ArtifactBudget | null> {
+	try {
+		const windowSize = getContextWindowForModel("default");
+		const result = await artifactsRPC("context.budget", {
+			context_window: windowSize,
+		});
+		if (result && typeof result.total_artifact_tokens === "number") {
+			const totalArtifactTokens = result.total_artifact_tokens as number;
+			const usedTokens = estimateMessageTokens([]) + totalArtifactTokens;
+			const usageRatio = windowSize > 0 ? usedTokens / windowSize : 0;
+			return { usedTokens, windowSize, usageRatio };
+		}
+	} catch {
+		// fallback to local estimation
+	}
+	return null;
+}
+
 function computeBudget(messages: Message[]): ArtifactBudget {
 	const windowSize = getContextWindowForModel("default");
 	const usedTokens = estimateMessageTokens(messages);
@@ -89,22 +107,33 @@ function computeBudget(messages: Message[]): ArtifactBudget {
 	return { usedTokens, windowSize, usageRatio };
 }
 
-async function fetchArtifactContent(artifactId: string): Promise<{
-	content: string;
+async function fetchArtifactContent(
+	artifactId: string,
+	previewOnly: boolean,
+): Promise<{
+	content: string | null;
 	name: string;
 	type: string;
 	tokenCount: number;
+	sections?: Array<{ anchor: string; tokens: number }>;
+	summary?: string;
 } | null> {
 	try {
-		const result = await artifactsRPC("artifact.get_content", {
+		const params: Record<string, unknown> = {
 			artifact_id: artifactId,
-		});
-		if (result.content && typeof result.content === "string") {
+			preview_only: previewOnly,
+		};
+		const result = await artifactsRPC("artifact.load", params);
+		if (result && (result.content !== undefined || result.sections)) {
 			return {
-				content: result.content as string,
-				name: (result.name as string) ?? artifactId,
+				content: (result.content as string | null) ?? null,
+				name: (result.title as string) ?? artifactId,
 				type: (result.type as string) ?? "code",
-				tokenCount: (result.token_count as number) ?? 0,
+				tokenCount: (result.total_tokens as number) ?? 0,
+				sections: result.sections as
+					| Array<{ anchor: string; tokens: number }>
+					| undefined,
+				summary: result.summary as string | undefined,
 			};
 		}
 		return null;
@@ -149,7 +178,10 @@ export async function injectArtifactsIntoMessages(
 		return { messages, injectedCount: 0, totalTokensInjected: 0 };
 	}
 
-	const budget = computeBudget(messages);
+	let budget = await fetchRemoteBudget();
+	if (!budget) {
+		budget = computeBudget(messages);
+	}
 	let injectedCount = 0;
 	let totalTokensInjected = 0;
 	const contentCache = new Map<
@@ -170,11 +202,12 @@ export async function injectArtifactsIntoMessages(
 			let newContent = content;
 			for (const artId of artifactIds) {
 				if (!contentCache.has(artId)) {
-					const artifact = await fetchArtifactContent(artId);
+					const needPreview =
+						budget.usageRatio >= BUDGET_WARN_PCT ||
+						budget.usageRatio >= BUDGET_HARD_PCT;
+					const artifact = await fetchArtifactContent(artId, needPreview);
 					if (artifact) {
-						const artifactTokens =
-							artifact.tokenCount ||
-							roughTokenCountEstimation(artifact.content);
+						const artifactTokens = artifact.tokenCount;
 						const projectedRatio =
 							budget.windowSize > 0
 								? (budget.usedTokens + totalTokensInjected + artifactTokens) /
@@ -182,29 +215,50 @@ export async function injectArtifactsIntoMessages(
 								: 0;
 
 						if (budget.usageRatio >= BUDGET_HARD_PCT) {
+							const sectionList = artifact.sections
+								? artifact.sections
+										.map((s) => `${s.anchor} (${s.tokens}t)`)
+										.join(", ")
+								: "N/A";
 							contentCache.set(artId, {
-								replacement: `[Artifact: ${artifact.name} | ID: ${artId} | Type: ${artifact.type} | Tokens: ${artifactTokens} — injection blocked: context >${Math.round(BUDGET_HARD_PCT * 100)}% full]`,
+								replacement: `[Artifact: ${artifact.name} | ID: ${artId} | Type: ${artifact.type} | Tokens: ${artifactTokens} — injection blocked: context >${Math.round(BUDGET_HARD_PCT * 100)}% full]\nSections: ${sectionList}\nUse LoadArtifact with section parameter to load specific parts.`,
 								tokens: 0,
 							});
 						} else if (
 							budget.usageRatio >= BUDGET_WARN_PCT ||
 							projectedRatio >= BUDGET_HARD_PCT
 						) {
-							const lines = artifact.content.split("\n");
-							const previewLines = lines.slice(0, 10).join("\n");
-							contentCache.set(artId, {
-								replacement: wrapPreviewOnly(
-									artId,
-									artifact.name,
-									artifact.type,
-									artifactTokens,
-									previewLines,
-								),
-								tokens: roughTokenCountEstimation(previewLines),
-							});
+							if (artifact.content) {
+								const lines = artifact.content.split("\n");
+								const previewLines = lines.slice(0, 10).join("\n");
+								contentCache.set(artId, {
+									replacement: wrapPreviewOnly(
+										artId,
+										artifact.name,
+										artifact.type,
+										artifactTokens,
+										previewLines,
+									),
+									tokens: roughTokenCountEstimation(previewLines),
+								});
+							} else {
+								const sectionList = artifact.sections
+									? artifact.sections
+											.map((s) => `${s.anchor} (${s.tokens}t)`)
+											.join(", ")
+									: "N/A";
+								const summary = artifact.summary ?? "";
+								contentCache.set(artId, {
+									replacement: `\n[Artifact preview (budget mode): ${artifact.name} | ID: ${artId} | Type: ${artifact.type} | Tokens: ${artifactTokens}]\nSections: ${sectionList}\n${summary ? `Summary: ${summary}\n` : ""}[...use LoadArtifact with section parameter to load specific parts]\n`,
+									tokens: roughTokenCountEstimation(
+										sectionList + (summary ?? ""),
+									),
+								});
+							}
 						} else {
+							const fullContent = artifact.content ?? "";
 							const full = wrapContentInCodeBlock(
-								artifact.content,
+								fullContent,
 								artifact.name,
 								artifact.type,
 							);
@@ -235,11 +289,11 @@ export async function injectArtifactsIntoMessages(
 						const ids = extractArtifactIds(block.text);
 						if (ids.length === 0) return block;
 						let text = block.text;
-						for (const artId of ids) {
-							const cached = contentCache.get(artId);
+						for (const artId2 of ids) {
+							const cached = contentCache.get(artId2);
 							if (cached) {
 								const refRegex = new RegExp(
-									`\\[Artifact:\\s*[^\\]]*?\\|\\s*ID:\\s*${artId}\\s*\\|[^\\]]*\\]`,
+									`\\[Artifact:\\s*[^\\]]*?\\|\\s*ID:\\s*${artId2}\\s*\\|[^\\]]*\\]`,
 									"g",
 								);
 								text = text.replace(refRegex, cached.replacement);
