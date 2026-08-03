@@ -782,8 +782,9 @@ async function handleChatStream(
 	}
 
 	const binary = findFusionCodeBinary();
+	const commandMode = data.command_mode === true;
 	const args = [
-		"-p",
+		commandMode ? "--command" : "-p",
 		message,
 		"--output-format",
 		"stream-json",
@@ -894,6 +895,27 @@ function handleChatCancel(
 	}
 }
 
+function handleChatCompact(
+	ws: ServerWebSocket<undefined>,
+	data: Record<string, unknown>,
+) {
+	const sessionId = (data.session_id as string) || "";
+	logForDebugging(`projectApiServer WS: compact request for session ${sessionId}`);
+	const state = wsSessions.get(ws);
+	if (state?.proc) {
+		try {
+			state.proc.kill();
+		} catch {
+			/* already dead */
+		}
+	}
+	ws.send(JSON.stringify({
+		type: "compact_done",
+		session_id: sessionId,
+		timestamp: Date.now(),
+	}));
+}
+
 // Store config globally so WS handlers can access authToken
 let config_global: ServerConfig = {
 	port: 11441,
@@ -935,6 +957,9 @@ export function startProjectApiServer(config: ServerConfig): {
 							break;
 						case "chat.cancel":
 							handleChatCancel(ws, data);
+							break;
+						case "chat.compact":
+							handleChatCompact(ws, data);
 							break;
 						default:
 							ws.send(
@@ -979,6 +1004,13 @@ export function startProjectApiServer(config: ServerConfig): {
 				req.headers.get("upgrade") === "websocket"
 			) {
 				logForDebugging("projectApiServer: WS upgrade request for /ws/chat");
+				if (config.authToken) {
+					const wsAuth = req.headers.get("Authorization");
+					const wsToken = url.searchParams.get("token");
+					if (wsAuth !== `Bearer ${config.authToken}` && wsToken !== config.authToken) {
+						return errorResponse("Unauthorized", 401);
+					}
+				}
 				const wsClientIp =
 					req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ??
 					req.headers.get("x-real-ip") ??
