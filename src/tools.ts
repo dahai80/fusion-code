@@ -58,6 +58,8 @@ const getSendMessageTool = () =>
 import { AskUserQuestionTool } from "./tools/AskUserQuestionTool/AskUserQuestionTool.js";
 import { ArtifactCreateTool } from "./tools/ArtifactCreateTool/ArtifactCreateTool.js";
 import { ArtifactUpdateTool } from "./tools/ArtifactUpdateTool/ArtifactUpdateTool.js";
+import { LoadArtifactTool } from "./tools/LoadArtifactTool/LoadArtifactTool.js";
+import { PatchArtifactTool } from "./tools/PatchArtifactTool/PatchArtifactTool.js";
 import { LSPTool } from "./tools/LSPTool/LSPTool.js";
 import { CronCreateTool } from "./tools/CronCreateTool/CronCreateTool.js";
 import { CronDeleteTool } from "./tools/CronDeleteTool/CronDeleteTool.js";
@@ -213,6 +215,8 @@ export function getAllBaseTools(): Tools {
 		BriefTool,
 		ArtifactCreateTool,
 		ArtifactUpdateTool,
+		LoadArtifactTool,
+		PatchArtifactTool,
 		...(getPowerShellTool() ? [getPowerShellTool()] : []),
 		...(SnipTool ? [SnipTool] : []),
 		...(process.env.NODE_ENV === "test" ? [TestingPermissionTool] : []),
@@ -273,6 +277,8 @@ const FULL_TOOLS = new Set([
 	"CtxInspect",
 	"CreateArtifact",
 	"UpdateArtifact",
+	"LoadArtifact",
+	"PatchArtifact",
 	"CreateGoal",
 	"GetGoal",
 	"SetGoalBudget",
