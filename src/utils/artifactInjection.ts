@@ -1,8 +1,8 @@
+import { roughTokenCountEstimation } from "../services/tokenEstimation.js";
 import type { Message } from "../types/message.js";
 import { getArtifactEngineURL } from "./artifactConfig.js";
 import { getContextWindowForModel } from "./context.js";
 import { logError } from "./log.js";
-import { roughTokenCountEstimation } from "../services/tokenEstimation.js";
 
 const REF_PATTERN = /\[Artifact:\s*[^\]]*?\|\s*ID:\s*(art_\w+)\s*\|[^\]]*\]/g;
 
@@ -49,10 +49,11 @@ function isArtifactsEngineAvailable(): boolean {
 
 function extractArtifactIds(text: string): string[] {
 	const ids: string[] = [];
-	let match: RegExpExecArray | null;
 	const pattern = new RegExp(REF_PATTERN.source, "g");
-	while ((match = pattern.exec(text)) !== null) {
+	let match = pattern.exec(text);
+	while (match !== null) {
 		ids.push(match[1]);
+		match = pattern.exec(text);
 	}
 	return ids;
 }
@@ -88,9 +89,7 @@ function computeBudget(messages: Message[]): ArtifactBudget {
 	return { usedTokens, windowSize, usageRatio };
 }
 
-async function fetchArtifactContent(
-	artifactId: string,
-): Promise<{
+async function fetchArtifactContent(artifactId: string): Promise<{
 	content: string;
 	name: string;
 	type: string;
@@ -178,9 +177,7 @@ export async function injectArtifactsIntoMessages(
 							roughTokenCountEstimation(artifact.content);
 						const projectedRatio =
 							budget.windowSize > 0
-								? (budget.usedTokens +
-										totalTokensInjected +
-										artifactTokens) /
+								? (budget.usedTokens + totalTokensInjected + artifactTokens) /
 									budget.windowSize
 								: 0;
 
