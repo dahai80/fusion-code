@@ -92,7 +92,15 @@ Artifact types:
 
 The reference tag format: [Artifact: name | ID: art_xxx | Version: v1 | Type: code | Tokens: 4200 | Summary: ...]
 
-When you need to show or modify the content later, use the UpdateArtifact tool with the artifact_id.`;
+When you need to show or modify the content later, use the UpdateArtifact tool with the artifact_id.
+
+	Auto-trigger rule: When your streaming output exceeds ~30 lines or ~1500 chars, automatically invoke this tool instead of dumping raw content into the chat.
+
+	Long document structure guide (bookend pattern):
+	- Opening section: table of contents, core constraints, key terminology
+	- Body: actual content organized by sections
+	- Closing section: change log, pending optimizations, open questions
+	This structure enables efficient incremental modifications (replace_section/append) without rewriting the entire document.`;
 	},
 	get inputSchema(): InputSchema {
 		return inputSchema();

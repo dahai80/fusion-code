@@ -73,7 +73,11 @@ export const ArtifactUpdateTool = buildTool({
 	async prompt() {
 		return `Use this tool to update an artifact you previously created. Pass the artifact_id (art_xxx) and the new full content. A new version will be created automatically.
 
-The tool returns an updated reference tag with the new version number and token count. Use this when iterating on code or documents that were previously stored as artifacts.`;
+The tool returns an updated reference tag with the new version number and token count. Use this when iterating on code or documents that were previously stored as artifacts.
+
+	Prefer incremental edits: When only a section changed, describe the change in change_log rather than rewriting the entire content. This reduces token cost and preserves context window capacity.
+
+	When the PatchArtifact tool becomes available, prefer it over full-content updates for section-level changes (replace_section/append/prepend/delete_section).`;
 	},
 	get inputSchema(): InputSchema {
 		return inputSchema();

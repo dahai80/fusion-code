@@ -26,7 +26,7 @@ export function getArtifactEngineURL(): string {
 			> | null;
 			const server = parsed?.server;
 			const host = server?.host || "127.0.0.1";
-			const port = server?.port || "8892";
+			const port = server?.port || "11451";
 			cachedURL = `http://${host}:${port}`;
 			console.log(`[artifactConfig] loaded from ${configPath}: ${cachedURL}`);
 			return cachedURL;
@@ -35,7 +35,7 @@ export function getArtifactEngineURL(): string {
 		console.log(`[artifactConfig] failed to read ${configPath}: ${e}`);
 	}
 
-	cachedURL = "http://127.0.0.1:8892";
+	cachedURL = "http://127.0.0.1:11451";
 	return cachedURL;
 }
 
