@@ -344,12 +344,20 @@ routes.set("POST /api/lsp/operation", async (_url, body) => {
 
 		const status = getInitializationStatus();
 		if (status.status === "pending") {
-			await waitForInitialization();
+			try {
+				await waitForInitialization();
+			} catch {
+				logForDebugging("projectApiServer: LSP initialization timed out");
+			}
 		}
 
 		const manager = getLspServerManager();
 		if (!manager) {
-			return errorResponse("LSP server manager not initialized", 503);
+			return jsonResponse({
+				error: "LSP server manager not initialized",
+				detail: "In API server mode, set FUSION_CODE_PROJECT_DIR env or pass cwd query param to initialize LSP.",
+				status: "unavailable",
+			}, 503);
 		}
 
 		const absolutePath = resolvePath(String(file_path));
@@ -523,38 +531,41 @@ routes.set("POST /api/memory", async (url, body) => {
 	}
 });
 
-// GET /api/model/status — local MLX model load and status
+// GET /api/model/status — local MLX model load and status (#38, #39)
 routes.set("/api/model/status", async () => {
 	const MLX_BASE = "http://127.0.0.1:11434";
+	const mlxApiKey = process.env.FUSION_API_KEY || process.env.ANTHROPIC_API_KEY || "";
+	const headers: Record<string, string> = {};
+	if (mlxApiKey) {
+		headers["Authorization"] = `Bearer ${mlxApiKey}`;
+	}
 	try {
-		const tagsResp = await fetch(`${MLX_BASE}/api/tags`, {
+		const modelsResp = await fetch(`${MLX_BASE}/v1/models`, {
 			signal: AbortSignal.timeout(3000),
+			headers,
 		});
-		if (!tagsResp.ok) {
+		if (!modelsResp.ok) {
 			return jsonResponse({
 				connected: false,
-				error: `HTTP ${tagsResp.status}`,
+				error: `HTTP ${modelsResp.status}`,
 			});
 		}
-		const tagsData = (await tagsResp.json()) as {
-			models?: Array<{
-				name: string;
-				size?: number;
-				quantization_level?: string;
-				modified_at?: string;
+		const modelsData = (await modelsResp.json()) as {
+			data?: Array<{
+				id: string;
+				owned_by?: string;
 			}>;
 		};
-		const models = (tagsData.models ?? []).map((m) => ({
-			name: m.name,
-			size: m.size,
-			quant: m.quantization_level,
-			modified_at: m.modified_at,
+		const models = (modelsData.data ?? []).map((m) => ({
+			name: m.id,
+			owned_by: m.owned_by,
 		}));
 
 		let loaded: string[] = [];
 		try {
 			const psResp = await fetch(`${MLX_BASE}/api/ps`, {
 				signal: AbortSignal.timeout(3000),
+				headers,
 			});
 			if (psResp.ok) {
 				const psData = (await psResp.json()) as {
@@ -902,6 +913,14 @@ export function startProjectApiServer(config: ServerConfig): {
 		websocket: {
 			open(ws) {
 				logForDebugging("projectApiServer WS: client connected");
+				const pingInterval = setInterval(() => {
+					try {
+						ws.ping();
+					} catch {
+						clearInterval(pingInterval);
+					}
+				}, 30000);
+				(ws as Record<string, unknown>).__pingInterval = pingInterval;
 			},
 			message(ws, message) {
 				try {
@@ -936,6 +955,8 @@ export function startProjectApiServer(config: ServerConfig): {
 				}
 			},
 			close(ws) {
+				const pingInterval = (ws as Record<string, unknown>).__pingInterval as ReturnType<typeof setInterval> | undefined;
+				if (pingInterval) clearInterval(pingInterval);
 				const state = wsSessions.get(ws);
 				if (state?.proc) {
 					try {
