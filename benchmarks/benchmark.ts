@@ -3,7 +3,7 @@ import { existsSync, statSync, writeFileSync } from 'fs'
 const REPO_ROOT = import.meta.dir + '/..'
 const BINARY_PATH = REPO_ROOT + '/fusion-code'
 const RESULTS_PATH = import.meta.dir + '/results.json'
-const MLX_BASE_URL = 'http://127.0.0.1:11434'
+const MLX_BASE_URL = process.env.FUSION_GATEWAY_URL || process.env.FUSION_MLX_BASE_URL || 'http://127.0.0.1:11432'
 const VERSION_RUNS = 5
 const BUILD_TIMEOUT_MS = 600_000
 
@@ -296,16 +296,16 @@ async function main(): Promise<void> {
     try {
         const available = await checkMlxAvailable()
         if (!available) {
-            console.log('[mlx] port 11434 not responding, skipping inference benchmark')
+            console.log('[mlx] port 11432 not responding, skipping inference benchmark')
             results.mlxInference = {
                 available: false,
                 model: null,
                 firstTokenMs: null,
                 totalMs: null,
-                error: 'port 11434 not listening',
+                error: 'port 11432 not listening',
             }
         } else {
-            console.log('[mlx] port 11434 is listening, probing model ...')
+            console.log('[mlx] port 11432 is listening, probing model ...')
             const model = await getMlxModel()
             if (!model) {
                 console.log('[mlx] no model found, skipping inference')

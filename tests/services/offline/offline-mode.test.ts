@@ -140,7 +140,7 @@ describe('getOfflineCapabilities', () => {
     // Mock local services for full offline mode
     const mockFetch = spyOn(globalThis, 'fetch').mockImplementation(async (url) => {
       const urlStr = String(url)
-      if (urlStr.includes('11434')) return mockResponse({ status: 'ok' }) // MLX available
+      if (urlStr.includes('11432')) return mockResponse({ status: 'ok' }) // MLX available
       if (urlStr.includes('11435')) return mockResponse({ status: 'ok' }) // KB available
       throw new Error('Service unavailable')
     })
@@ -160,12 +160,18 @@ describe('getOfflineCapabilities', () => {
 describe('shouldSkipCloudApi', () => {
   beforeEach(() => {
     delete process.env.FUSION_OFFLINE_MODE
+    delete process.env.FUSION_GATEWAY_ENABLED
     delete process.env.FUSION_MLX_ENABLED
     clearOfflineCache()
   })
 
   it('should return true when FUSION_OFFLINE_MODE is set', () => {
     process.env.FUSION_OFFLINE_MODE = '1'
+    expect(shouldSkipCloudApi()).toBe(true)
+  })
+
+  it('should return true when FUSION_GATEWAY_ENABLED is set', () => {
+    process.env.FUSION_GATEWAY_ENABLED = '1'
     expect(shouldSkipCloudApi()).toBe(true)
   })
 
@@ -251,7 +257,7 @@ describe('detectOfflineModeAtStartup', () => {
   it('should return message for full offline mode', async () => {
     process.env.FUSION_OFFLINE_MODE = '1'
     const mockFetch = spyOn(globalThis, 'fetch').mockImplementation(async (url) => {
-      if (String(url).includes('11434')) return mockResponse({ status: 'ok' })
+      if (String(url).includes('11432')) return mockResponse({ status: 'ok' })
       throw new Error('Unreachable')
     })
 
@@ -289,7 +295,7 @@ describe('isFeatureAvailableInOfflineMode', () => {
     process.env.FUSION_OFFLINE_MODE = '1'
 
     const mockFetch = spyOn(globalThis, 'fetch').mockImplementation(async (url) => {
-      if (String(url).includes('11434')) return mockResponse({ status: 'ok' })
+      if (String(url).includes('11432')) return mockResponse({ status: 'ok' })
       throw new Error('Unreachable')
     })
 
