@@ -223,12 +223,10 @@ routes.set("POST /api/code/generate", async (_url, body) => {
 		userPrompt,
 		"--output-format",
 		"stream-json",
+		"--verbose",
 		"--append-system-prompt",
 		sysPrompt,
 	];
-	if (config_global.authToken) {
-		args.push("--auth", config_global.authToken);
-	}
 
 	logForDebugging(`projectApiServer: /api/code/generate spawning ${binary}`);
 
@@ -794,14 +792,9 @@ async function handleChatStream(
 		"--output-format",
 		"stream-json",
 		"--verbose",
-		"--cwd",
-		cwd,
 	];
 	if (model) {
 		args.push("--model", model);
-	}
-	if (config_global.authToken) {
-		args.push("--auth", config_global.authToken);
 	}
 	if (projectContext) {
 		args.push("--append-system-prompt", projectContext);
@@ -951,7 +944,8 @@ export function startProjectApiServer(config: ServerConfig): {
 						clearInterval(pingInterval);
 					}
 				}, 30000);
-				(ws as unknown as Record<string, unknown>).__pingInterval = pingInterval;
+				(ws as unknown as Record<string, unknown>).__pingInterval =
+					pingInterval;
 			},
 			message(ws, message) {
 				try {
@@ -989,9 +983,8 @@ export function startProjectApiServer(config: ServerConfig): {
 				}
 			},
 			close(ws) {
-				const pingInterval = (ws as unknown as Record<string, unknown>).__pingInterval as
-					| ReturnType<typeof setInterval>
-					| undefined;
+				const pingInterval = (ws as unknown as Record<string, unknown>)
+					.__pingInterval as ReturnType<typeof setInterval> | undefined;
 				if (pingInterval) clearInterval(pingInterval);
 				const state = wsSessions.get(ws);
 				if (state?.proc) {
