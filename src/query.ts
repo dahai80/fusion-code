@@ -1388,6 +1388,7 @@ async function* queryLoop(
 				);
 				const isMlxProvider =
 					!process.env.FUSION_API_KEY ||
+					isEnvTruthy(process.env.FUSION_GATEWAY_ENABLED) ||
 					isEnvTruthy(process.env.FUSION_MLX_ENABLED) ||
 					isEnvTruthy(process.env.FUSION_MLX_AUTO);
 				if (

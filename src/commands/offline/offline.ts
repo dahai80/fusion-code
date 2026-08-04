@@ -2,6 +2,7 @@ import { logForDebugging } from "../../utils/debug.js";
 
 let offlineMode = false;
 let savedFusionMlxEnabled: string | undefined;
+let savedFusionGatewayEnabled: string | undefined;
 
 export function isOfflineMode(): boolean {
 	return offlineMode || process.env.FUSION_CODE_OFFLINE === "1";
@@ -12,12 +13,19 @@ export function setOfflineMode(enabled: boolean): void {
 	process.env.FUSION_CODE_OFFLINE = enabled ? "1" : "";
 	if (enabled) {
 		savedFusionMlxEnabled = process.env.FUSION_MLX_ENABLED;
+		savedFusionGatewayEnabled = process.env.FUSION_GATEWAY_ENABLED;
 		process.env.FUSION_MLX_ENABLED = "1";
+		process.env.FUSION_GATEWAY_ENABLED = "1";
 	} else {
 		if (savedFusionMlxEnabled !== undefined) {
 			process.env.FUSION_MLX_ENABLED = savedFusionMlxEnabled;
 		} else {
 			delete process.env.FUSION_MLX_ENABLED;
+		}
+		if (savedFusionGatewayEnabled !== undefined) {
+			process.env.FUSION_GATEWAY_ENABLED = savedFusionGatewayEnabled;
+		} else {
+			delete process.env.FUSION_GATEWAY_ENABLED;
 		}
 	}
 	logForDebugging(`offline: mode ${enabled ? "ON" : "OFF"}`);
@@ -30,7 +38,7 @@ export async function execute(_args: string): Promise<string> {
 		return [
 			"✈️ Offline mode ON",
 			"",
-			"• Provider forced to local MLX (port 11434)",
+			"• Provider forced to local MLX (port 11432)",
 			"• WebSearch and WebFetch tools blocked",
 			"• No network requests will be made",
 			"",

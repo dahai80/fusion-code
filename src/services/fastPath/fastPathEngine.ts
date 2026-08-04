@@ -79,6 +79,8 @@ const BUILT_IN_RULES: FastPathRule[] = [
 		execute: (_input: string): string | null => {
 			const keys = [
 				"FUSION_API_KEY",
+				"FUSION_GATEWAY_ENABLED",
+				"FUSION_GATEWAY_URL",
 				"FUSION_MLX_ENABLED",
 				"FUSION_MLX_MODEL",
 				"FUSION_MODEL",

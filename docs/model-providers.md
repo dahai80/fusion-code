@@ -18,14 +18,14 @@ export type APIProvider =
 
 | Provider | 类型 | 说明 |
 |----------|------|------|
-| `fusionMlx` | 本地 | MLX 推理，127.0.0.1:11434，默认 provider |
+| `fusionMlx` | 本地 | MLX 推理，127.0.0.1:11432，默认 provider |
 | `firstParty` | 云端 | Anthropic API（`FUSION_API_KEY` / `ANTHROPIC_API_KEY`） |
 | `openai` | 云端 | OpenAI（`FUSION_CODE_USE_OPENAI=1`） |
 | `foundry` | 云端 | Azure Foundry（`FUSION_CODE_USE_FOUNDRY=1`） |
 | `bedrock` | 云端 | AWS Bedrock（`FUSION_CODE_USE_BEDROCK=1`） |
 | `vertex` | 云端 | GCP Vertex（`FUSION_CODE_USE_VERTEX=1`） |
 
-`fusionMlx` 是 fusion-code 的默认本地 provider，无需任何 API key，零配置即可使用（前提是 fusion-mlx 服务在 11434 端口运行）。
+`fusionMlx` 是 fusion-code 的默认本地 provider，无需任何 API key，零配置即可使用（前提是 fusion-mlx 服务在 11432 端口运行）。
 
 ## getAPIProvider() 选择逻辑
 
@@ -58,7 +58,7 @@ export type APIProvider =
 
 自动检测函数，判断是否应使用本地 MLX：
 
-1. 检测 `127.0.0.1:11434` 端口可用性
+1. 检测 `127.0.0.1:11432` 端口可用性
 2. 端口可用时，自动选择一个 code-capable 文本模型
 3. 配合 `getMlxModelCapabilities(modelId)` 检测能力：
    - tool calling 支持
@@ -113,7 +113,7 @@ export type APIProvider =
 # 启动 fusion-mlx 服务
 fusion service start mlx
 
-# 无需任何 env，fusion-code 自动检测 11434 端口
+# 无需任何 env，fusion-code 自动检测 11432 端口
 ./fusion-code
 
 # 或显式启用
@@ -195,6 +195,6 @@ ANTHROPIC_VERTEX_PROJECT_ID=xxx \
 
 - Provider 选择：`getAPIProvider()` 返回值可通过 `FUSION_LOG=debug` 观察启动日志
 - MLX 能力检测：`getMlxModelCapabilities` 结果在 `fusion-mlx-adapter.ts` 启动时打印
-- 模型解析：`/model` 命令展示本地模型列表时，`getFusionMlxModels` 请求 `127.0.0.1:11434/v1/models`
-- 端口检测失败：检查 `lsof -i :11434` 与 `curl http://127.0.0.1:11434/v1/models`
+- 模型解析：`/model` 命令展示本地模型列表时，`getFusionMlxModels` 请求 `127.0.0.1:11432/v1/models`
+- 端口检测失败：检查 `lsof -i :11432` 与 `curl http://127.0.0.1:11432/v1/models`
 - provider 误选云端：确认 `FUSION_API_KEY` 未设置，或显式 `FUSION_MLX_ENABLED=1`

@@ -49,7 +49,7 @@ bun run ./scripts/build.ts --compile
 ./fusion-code-dev    # dev 构建
 ```
 
-云端 provider 需设置 `FUSION_API_KEY` 或 `ANTHROPIC_API_KEY`；本地 MLX 通过 `fusion service start mlx` 启动（端口 11434 自动检测）。
+云端 provider 需设置 `FUSION_API_KEY` 或 `ANTHROPIC_API_KEY`；本地 MLX 通过 `fusion service start mlx` 启动（端口 11432 自动检测）。
 
 仓库未配置 test framework 或 linter。
 
@@ -101,23 +101,23 @@ provider 选择相关 env：
 fusion service start mlx
 ```
 
-服务监听 `127.0.0.1:11434`。
+服务监听 `127.0.0.1:11432`。
 
 ### 检查端口占用
 
 ```bash
-lsof -i :11434
+lsof -i :11432
 # 或
-curl http://127.0.0.1:11434/v1/models
+curl http://127.0.0.1:11432/v1/models
 ```
 
-若端口被占用，先重启 fusion-mlx 服务。fusion-code 启动时通过 `shouldAutoUseFusionMlx()` 检测 11434 端口，可用即自动切换本地推理。
+若端口被占用，先重启 fusion-mlx 服务。fusion-code 启动时通过 `shouldAutoUseFusionMlx()` 检测 11432 端口，可用即自动切换本地推理。
 
 ### 下载模型
 
 通过镜像站 https://hf-mirror.com 下载，避免直连 huggingface.co 网络问题。
 
-涉及大模型测试时，须真实加载模型，检查 11434 端口是否占用，重启 fusion-mlx 使用 11434 端口。
+涉及大模型测试时，须真实加载模型，检查 11432 端口是否占用，重启 fusion-mlx 使用 11432 端口。
 
 ### 本地模型能力检测
 

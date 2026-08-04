@@ -165,8 +165,8 @@ export async function getAnthropicClient({
 		const status = await checkFusionMlxHealth();
 		if (!status.available) {
 			throw new Error(
-				"Fusion-MLX service unavailable. Ensure fusion-mlx is running (default: http://127.0.0.1:11434)\n" +
-					"Set FUSION_MLX_DISABLED=1 to disable.",
+				"Fusion-MLX service unavailable. Ensure gateway is running (default: http://127.0.0.1:11432)\n" +
+					"Set FUSION_GATEWAY_URL to override or FUSION_MLX_DISABLED=1 to disable.",
 			);
 		}
 

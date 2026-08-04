@@ -535,7 +535,10 @@ routes.set("POST /api/memory", async (url, body) => {
 
 // GET /api/model/status — local MLX model load and status (#38, #39)
 routes.set("/api/model/status", async () => {
-	const MLX_BASE = "http://127.0.0.1:11434";
+	const MLX_BASE =
+		process.env.FUSION_GATEWAY_URL ||
+		process.env.FUSION_MLX_BASE_URL ||
+		"http://127.0.0.1:11432";
 	const mlxApiKey =
 		process.env.FUSION_API_KEY || process.env.ANTHROPIC_API_KEY || "";
 	const headers: Record<string, string> = {};

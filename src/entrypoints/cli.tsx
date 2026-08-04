@@ -404,6 +404,7 @@ async function main(): Promise<void> {
 			);
 			const mlxStatus = await checkFusionMlxHealth();
 			if (mlxStatus.available) {
+				process.env.FUSION_GATEWAY_ENABLED = "1";
 				process.env.FUSION_MLX_ENABLED = "1";
 				const models = mlxStatus.models;
 				if (models.length > 0 && !process.env.FUSION_MLX_MODEL) {
@@ -466,7 +467,9 @@ async function main(): Promise<void> {
 				// 走 stderr 不污染 stdout，不带 ANSI 色避免在非真终端炸；FUSION_MLX_QUIET=1 可静默。
 				if (!process.env.FUSION_MLX_QUIET) {
 					const baseUrl =
-						process.env.FUSION_MLX_BASE_URL || "http://127.0.0.1:11434";
+						process.env.FUSION_GATEWAY_URL ||
+						process.env.FUSION_MLX_BASE_URL ||
+						"http://127.0.0.1:11432";
 					process.stderr.write(
 						`\n⚠ fusion-mlx backend not reachable at ${baseUrl}\n` +
 							`  AI features will fail until it is running. Start it with:\n` +

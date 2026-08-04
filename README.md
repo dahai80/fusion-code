@@ -19,7 +19,7 @@
 
 | | |
 |---|---|
-| 🖥️ **Local MLX Inference** | Deep [fusion-mlx](https://github.com/fusion-mlxs/fusion-mlx) integration at `127.0.0.1:11434`. Auto-detects local models, zero cloud dependency. |
+| 🖥️ **Local MLX Inference** | Deep [fusion-mlx](https://github.com/fusion-mlxs/fusion-mlx) integration at `127.0.0.1:11432`. Auto-detects local models, zero cloud dependency. |
 | ☁️ **Cloud LLM Backends** | Anthropic (direct or proxy/LiteLLM), OpenAI Codex, Azure Foundry — plug in an API key and go. Fallback model chain on 429/529 errors. |
 | 🔒 **Zero Telemetry** | No outbound analytics, crash reporting, or usage tracking. Everything stays on your machine. |
 | 🧩 **Builtin Plugins** | GitHub integration, UI/UX Pro Max design assistant, Chrome DevTools — all bundled, user-toggleable. |
@@ -64,7 +64,7 @@ fusion-mlx start
 export HF_ENDPOINT=https://hf-mirror.com
 fusion-mlx pull qwen2.5-coder-7b-instruct
 
-# 3. Launch fusion-code — auto-detects MLX on port 11434
+# 3. Launch fusion-code — auto-detects MLX on port 11432
 ./fusion-code
 ```
 
@@ -115,12 +115,12 @@ bun run build
 
 fusion-code supports multiple API backends. The provider is selected automatically by this priority order:
 
-1. **fusionMlx (local)** — if `FUSION_MLX_ENABLED=1` or no cloud key is set → local MLX at `127.0.0.1:11434`
+1. **fusionMlx (local)** — if `FUSION_GATEWAY_ENABLED=1` or `FUSION_MLX_ENABLED=1` or no cloud key is set → local MLX at `127.0.0.1:11432`
 2. **openai** — if `FUSION_CODE_USE_OPENAI=1` → OpenAI Codex (OAuth)
 3. **foundry** — if `FUSION_CODE_USE_FOUNDRY=1` → Azure AI Foundry
 4. **firstParty (Anthropic)** — if `FUSION_API_KEY` is set → Anthropic API (direct or via proxy)
 
-> The first matching provider wins. If none match, local MLX is auto-detected on port 11434.
+> The first matching provider wins. If none match, local MLX is auto-detected on port 11432.
 
 **Fallback model**: When the primary model is overloaded (529) or rate-limited (429), fusion-code automatically falls back to a smaller model. The default chain is opus→sonnet→haiku. Override with `FUSION_FALLBACK_MODEL` or the `/config fallbackModel` setting.
 
@@ -128,8 +128,8 @@ fusion-code supports multiple API backends. The provider is selected automatical
 
 | Provider | Required Env | Auth Method | Notes |
 |---|---|---|---|
-| **fusionMlx (local)** | none (auto on port 11434) | local | Apple Silicon only; use `FUSION_MLX_MODEL` to pin a model |
-| **fusionMlx (remote)** | `FUSION_MLX_BASE_URL` | local or `FUSION_MLX_API_KEY` | Run MLX on another Mac, connect over network |
+| **fusionMlx (local)** | none (auto on port 11432) | local | Apple Silicon only; use `FUSION_MLX_MODEL` to pin a model |
+| **fusionMlx (remote)** | `FUSION_GATEWAY_URL` (or `FUSION_MLX_BASE_URL`) | local or `FUSION_MLX_API_KEY` | Run MLX on another Mac, connect over network |
 | **Anthropic direct** | `FUSION_API_KEY` | API key / OAuth | Set `FUSION_MODEL` to pin a model |
 | **Anthropic via proxy** | `FUSION_BASE_URL` + `FUSION_API_KEY` | API key or `FUSION_AUTH_TOKEN` | LiteLLM, OpenRouter, internal gateway |
 | **OpenAI Codex** | `FUSION_CODE_USE_OPENAI=1` | OAuth | In-app login flow on first launch |
@@ -150,7 +150,7 @@ Session override (`/model`) > `--model` CLI flag > `FUSION_MODEL` / `FUSION_MLX_
 | `FUSION_AUTH_TOKEN` | `ANTHROPIC_AUTH_TOKEN` | `sk-...` (bearer token) |
 | `FUSION_MODEL` | `ANTHROPIC_MODEL` | `claude-sonnet-5` |
 | `FUSION_MLX_MODEL` | — | `qwen2.5-coder-7b-instruct` |
-| `FUSION_MLX_BASE_URL` | — | `http://192.168.1.10:11434` |
+| `FUSION_GATEWAY_URL` (or `FUSION_MLX_BASE_URL`) | — | `http://192.168.1.10:11432` |
 | `FUSION_CUSTOM_HEADERS` | — | `{"X-Key":"val"}` |
 | `FUSION_BETAS` | `ANTHROPIC_BETAS` | `max-tokens-3-5-sonnet-2024-07-15` |
 | `FUSION_FALLBACK_MODEL` | — | `claude-sonnet-5` (auto-derived if unset) |
@@ -276,7 +276,7 @@ fusion-code mcp logout <server-name>  # Clear stored authentication
 Run fusion-mlx on another Mac and connect over the network:
 
 ```bash
-export FUSION_MLX_BASE_URL="http://192.168.1.10:11434"
+export FUSION_MLX_BASE_URL="http://192.168.1.10:11432"
 # Optional: if the remote requires auth
 export FUSION_MLX_API_KEY="..."
 ./fusion-code
@@ -289,7 +289,7 @@ export FUSION_MLX_API_KEY="..."
 ### Setup
 
 1. **Install fusion-mlx**: `pip install fusion-mlx` (see [fusion-mlx repo](https://github.com/fusion-mlxs/fusion-mlx))
-2. **Start the server**: `fusion-mlx start` — listens on `127.0.0.1:11434`
+2. **Start the server**: `fusion-mlx start` — listens on `127.0.0.1:11432`
 3. **Download a model** (use HuggingFace mirror in China):
 
 ```bash
@@ -315,7 +315,7 @@ export FUSION_MLX_MODEL="qwen2.5-coder-14b-instruct"
 | `qwen2.5-coder-14b-instruct` | 14B | 16 GB | Stronger reasoning, balanced |
 | `qwen2.5-coder-32b-instruct` | 32B | 32 GB+ | Best quality, complex tasks |
 
-> Port 11434 is Ollama-compatible. If you already run Ollama with a code model, fusion-code can use it directly.
+> Port 11432 is Ollama-compatible. If you already run Ollama with a code model, fusion-code can use it directly.
 
 ### MLX Prompt Tier System
 
@@ -680,7 +680,7 @@ The lint-zero merge (`4710056`) introduced a startup regression against local ML
 2. **Stray `function` stdout** (`src/services/api/fusion-mlx-adapter.ts`) - `checkFusionMlxHealth()` carried a leftover debug `console.error(typeof getOriginalFetch())` that printed `function` to stderr on every MLX health check. Removed.
 3. **Dev-mode SDK export** (`src/entrypoints/sdk/coreTypes.ts`) - type-only re-exports were emitted as value exports, causing "export not found" in dev mode. Changed `export {` to `export type {`.
 
-Verified: `bun run dev` against a live fusion-mlx (port 11434) no longer prints `function` and no longer crashes on first paint.
+Verified: `bun run dev` against a live fusion-mlx (port 11432) no longer prints `function` and no longer crashes on first paint.
 
 ### v0.3.4 Patch Fixes
 
@@ -796,7 +796,7 @@ Verified: 312 pass, 2 flaky (pre-existing fusion-mlx-adapter test isolation issu
 
 7. **`/audit` Command** — View AI operation audit log with filters: `--last N`, `--tool NAME`, `--op read|write|execute|denied`.
 
-8. **`/model-status` Command** — Show local MLX model load status, VRAM usage, and inference speed. Queries `http://127.0.0.1:11434/api/tags` and `/api/ps` for loaded models. Also available as `GET /api/model/status` endpoint.
+8. **`/model-status` Command** — Show local MLX model load status, VRAM usage, and inference speed. Queries `http://127.0.0.1:11432/api/tags` and `/api/ps` for loaded models. Also available as `GET /api/model/status` endpoint.
 
 9. **`/offline` Command** — Toggle offline mode: blocks WebSearch/WebFetch, forces local MLX inference.
 

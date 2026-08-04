@@ -38,7 +38,7 @@ export function getAPIProvider(model?: string): APIProvider {
 		if (isEnvTruthy(process.env.FUSION_CODE_USE_OPENAI)) return "openai";
 		return "firstParty";
 	}
-	if (isEnvTruthy(process.env.FUSION_MLX_ENABLED)) {
+	if (isEnvTruthy(process.env.FUSION_GATEWAY_ENABLED) || isEnvTruthy(process.env.FUSION_MLX_ENABLED)) {
 		return "fusionMlx";
 	}
 	// If the model name is clearly an MLX model, use fusionMlx regardless of API keys
@@ -77,7 +77,7 @@ export function isFusionMlxProvider(model?: string): boolean {
 
 export function shouldAutoUseFusionMlx(): boolean {
 	if (isEnvTruthy(process.env.FUSION_MLX_DISABLED)) return false;
-	if (isEnvTruthy(process.env.FUSION_MLX_ENABLED)) return true;
+	if (isEnvTruthy(process.env.FUSION_GATEWAY_ENABLED) || isEnvTruthy(process.env.FUSION_MLX_ENABLED)) return true;
 	if (isEnvTruthy(process.env.FUSION_MLX_AUTO)) {
 		return !process.env.FUSION_API_KEY && !process.env.ANTHROPIC_API_KEY;
 	}

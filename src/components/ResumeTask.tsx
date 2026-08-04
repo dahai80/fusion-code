@@ -251,7 +251,7 @@ function renderErrorSpecificGuidance(errorType: LoadErrorType): React.ReactNode 
     case 'auth':
       return isFusionMlxProvider()
         ? <Box marginY={1} flexDirection="column">
-            <Text dimColor>fusion-mlx service not available</Text>
+            <Text dimColor>Gateway service not available</Text>
             <Text dimColor>
               Run <Text bold>`fusion service start mlx`</Text> or set <Text bold>FUSION_API_KEY</Text>
             </Text>

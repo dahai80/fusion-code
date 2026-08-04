@@ -1,6 +1,6 @@
 import { logForDebugging } from "../../utils/debug.js";
 
-const MLX_BASE = "http://127.0.0.1:11434";
+const MLX_BASE = process.env.FUSION_GATEWAY_URL || process.env.FUSION_MLX_BASE_URL || "http://127.0.0.1:11432";
 
 export async function getEmbedding(text: string): Promise<number[] | null> {
 	try {

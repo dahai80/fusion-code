@@ -4,7 +4,7 @@
  * 将 fusion-code 的 AI 调用从 Anthropic SDK 切换到 fusion-mlx 本地推理引擎。
  * 为上层代码提供兼容 Anthropic Messages API 的接口。
  *
- * fusion-mlx 运行在本地 127.0.0.1:11434，兼容 OpenAI /v1/chat/completions 格式。
+ * fusion-mlx 通过 gateway 运行在 127.0.0.1:11432，兼容 OpenAI /v1/chat/completions 格式。
  * 本适配器在内部做格式转换，外部保持与现有代码兼容。
  */
 
@@ -31,7 +31,7 @@ import type {
 
 // ─── Configuration ────────────────────────────────────────────
 
-const DEFAULT_MLX_BASE_URL = "http://127.0.0.1:11434";
+const DEFAULT_MLX_BASE_URL = "http://127.0.0.1:11432";
 const DEFAULT_WARMUP_TIMEOUT_MS = 60_000; // 60s for first inference (model loading)
 const DEFAULT_STREAM_TIMEOUT_MS = 300_000; // 5 min for streaming
 const DEFAULT_QUERY_TIMEOUT_MS = 120_000; // 2 min for non-streaming
@@ -236,6 +236,7 @@ function isAllowedMlxHostname(hostname: string): boolean {
 
 function getMlxBaseUrl(): string {
 	const url =
+		process.env.FUSION_GATEWAY_URL ||
 		process.env.FUSION_MLX_BASE_URL ||
 		process.env.MLX_BASE_URL ||
 		DEFAULT_MLX_BASE_URL;

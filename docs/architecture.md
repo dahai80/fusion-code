@@ -70,7 +70,7 @@ fast-path 的意义是避免加载完整 REPL 依赖树，`--version` 可做到�
 | 文件 | 职责 |
 |------|------|
 | `claude.ts` | 主 Anthropic API 客户端（云端 firstParty 路径） |
-| `fusion-mlx-adapter.ts` | 本地 MLX 适配器，拦截 `/v1/messages` 转发到 127.0.0.1:11434 |
+| `fusion-mlx-adapter.ts` | 本地 MLX 适配器，拦截 `/v1/messages` 转发到 127.0.0.1:11432 |
 | `fusion-mlx-stream.ts` | MLX 流式响应转 Anthropic SSE 格式 |
 | `fusion-mlx-tool-validator.ts` | 工具调用 JSON 校验与修复 |
 | `fusion-mlx-types.ts` | MLX 类型定义 |
@@ -128,7 +128,7 @@ Anthropic 与 OpenAI 的 OAuth 流程。
 
 | Provider | 说明 |
 |----------|------|
-| `fusionMlx` | 本地 MLX 推理（127.0.0.1:11434），默认 |
+| `fusionMlx` | 本地 MLX 推理（127.0.0.1:11432），默认 |
 | `firstParty` | Anthropic API（`FUSION_API_KEY` / `ANTHROPIC_API_KEY`） |
 | `openai` | OpenAI（`FUSION_CODE_USE_OPENAI=1`） |
 | `foundry` | Azure Foundry（`FUSION_CODE_USE_FOUNDRY=1`） |
@@ -146,7 +146,7 @@ Anthropic 与 OpenAI 的 OAuth 流程。
 
 ### shouldAutoUseFusionMlx()
 
-检测 11434 端口可用性，自动选择一个 code-capable 文本模型。本地模型能力检测见 `getMlxModelCapabilities(modelId)`：tool calling / vision / streaming 能力 + per-model `max_input_tokens`（不再硬编码 32K）。
+检测 11432 端口可用性，自动选择一个 code-capable 文本模型。本地模型能力检测见 `getMlxModelCapabilities(modelId)`：tool calling / vision / streaming 能力 + per-model `max_input_tokens`（不再硬编码 32K）。
 
 ### 模型解析优先级
 

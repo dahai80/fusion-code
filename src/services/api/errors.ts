@@ -157,7 +157,7 @@ export const INVALID_API_KEY_ERROR_MESSAGE =
 export const INVALID_API_KEY_ERROR_MESSAGE_EXTERNAL =
 	"Invalid API key · Fix external API key";
 export const MLX_UNAVAILABLE_ERROR_MESSAGE =
-	"fusion-mlx not available · Run `fusion service start mlx` or set FUSION_API_KEY";
+	"Gateway not available · Run `fusion service start mlx` or set FUSION_API_KEY";
 export const ORG_DISABLED_ERROR_MESSAGE_ENV_KEY_WITH_OAUTH =
 	"Your FUSION_API_KEY belongs to a disabled organization · Unset the environment variable to use your subscription instead";
 export const ORG_DISABLED_ERROR_MESSAGE_ENV_KEY =
