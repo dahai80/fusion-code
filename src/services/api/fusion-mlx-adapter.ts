@@ -32,6 +32,9 @@ import type {
 // ─── Configuration ────────────────────────────────────────────
 
 const DEFAULT_MLX_BASE_URL = "http://127.0.0.1:11432";
+// fusion-mlx route_guard (#343/#349) Phase 2 默认 enforce: 缺失 X-Fusion-Route 头的请求被 403 拒绝。
+// gateway 会注入此头;fusion-code 直连或经 gateway 转发时也须自身携带。值可经 FUSION_ROUTE_HEADER 覆盖。
+const DEFAULT_FUSION_ROUTE_HEADER = "local";
 const DEFAULT_WARMUP_TIMEOUT_MS = 60_000; // 60s for first inference (model loading)
 const DEFAULT_STREAM_TIMEOUT_MS = 300_000; // 5 min for streaming
 const DEFAULT_QUERY_TIMEOUT_MS = 120_000; // 2 min for non-streaming
@@ -275,10 +278,47 @@ function toMlxModelName(model: string): string {
 // fusion-mlx 支持可选 API key 鉴权(见 fusion_mlx/middleware/auth.py:
 // _verify_api_key_values 在配置了 api_key 后校验 Authorization: Bearer / x-api-key,
 // 未配置时 anonymous allowed)。配置后不带凭据的请求会被 401 拒绝。
+//
+// 鉴权 key 分两层 (issue #52):
+//   - gateway 层 (默认 11432): 用 FUSION_GATEWAY_API_KEY / gateway config 的 api_keys
+//   - MLX 直连层 (11434): 用 FUSION_MLX_API_KEY / ~/.fusion-mlx/settings.json auth.api_key
+// 经 gateway 时若用 MLX key 会被 401 拒绝,故按 base URL 选对应层 key。
+//
+// 另: fusion-mlx route_guard (#343/#349) Phase 2 默认 enforce,缺失 X-Fusion-Route 头
+// 的请求被 403 拒绝。此处统一注入,值可经 FUSION_ROUTE_HEADER 覆盖。
 function getMlxAuthHeaders(): Record<string, string> {
-	const apiKey = getMlxApiKey();
-	if (!apiKey) return {};
-	return { Authorization: `Bearer ${apiKey}` };
+	const headers: Record<string, string> = {
+		"X-Fusion-Route": process.env.FUSION_ROUTE_HEADER || DEFAULT_FUSION_ROUTE_HEADER,
+	};
+	const apiKey = isGatewayBaseUrl() ? getGatewayApiKey() : getMlxApiKey();
+	if (apiKey) {
+		headers.Authorization = `Bearer ${apiKey}`;
+	}
+	return headers;
+}
+
+// 判断当前 base URL 是否指向 gateway (默认 11432) 而非 MLX 直连 (11434)。
+function isGatewayBaseUrl(): boolean {
+	try {
+		const parsed = new URL(getMlxBaseUrl());
+		return parsed.port === "11432";
+	} catch {
+		return true; // 默认 base URL 即 gateway
+	}
+}
+
+let _cachedGatewayApiKey: string | undefined | null = null;
+function getGatewayApiKey(): string | undefined {
+	if (_cachedGatewayApiKey !== null) return _cachedGatewayApiKey;
+	const envKey =
+		process.env.FUSION_GATEWAY_API_KEY || process.env.GATEWAY_API_KEY;
+	if (envKey) {
+		_cachedGatewayApiKey = envKey;
+		return envKey;
+	}
+	// 回退: gateway 未单独配置 key 时复用 MLX key (单机部署常共用)。
+	_cachedGatewayApiKey = getMlxApiKey();
+	return _cachedGatewayApiKey;
 }
 
 let _cachedMlxApiKey: string | undefined | null = null;
@@ -367,6 +407,18 @@ async function mlxFetchWithRetry(
 			mlxApiCircuit.recordSuccess();
 		} else if (response.status >= 500) {
 			mlxApiCircuit.recordFailure();
+		} else if (response.status === 401 || response.status === 403) {
+			// 鉴权/路由头失败不重试 (非连接错误),输出明确诊断 (issue #52 D2)。
+			// 401: key 层级错配或 key 错误;403: X-Fusion-Route 头缺失被 route_guard 拒绝。
+			const layer = isGatewayBaseUrl() ? "gateway" : "MLX";
+			const hint =
+				response.status === 401
+					? `鉴权失败 (${layer} 层)。请检查 ${layer === "gateway" ? "FUSION_GATEWAY_API_KEY 是否匹配 fusion-gateway config.yaml 的 auth.api_keys" : "FUSION_MLX_API_KEY 是否匹配 ~/.fusion-mlx/settings.json 的 auth.api_key"}`
+					: `route_guard 拒绝 (X-Fusion-Route 头缺失或值不被接受)。当前头: X-Fusion-Route=${process.env.FUSION_ROUTE_HEADER || DEFAULT_FUSION_ROUTE_HEADER}`;
+			logForDebugging(
+				`[Fusion-MLX] 请求被 ${response.status} 拒绝 — ${hint}`,
+				{ level: "warn" },
+			);
 		}
 		return response;
 	} catch (error) {
@@ -456,11 +508,29 @@ export async function checkFusionMlxHealth(): Promise<FusionMlxStatus> {
 		});
 
 		if (!response.ok) {
-			// 401 = server running, auth required — still "available"
-			// just needs FUSION_MLX_API_KEY. Other errors = truly unavailable.
+			// 401 = 服务在运行但鉴权失败 (key 层级错配或 key 错误,见 issue #52)。
+			// 403 = route_guard Phase 2 enforce 拒绝 (缺失 X-Fusion-Route 头)。
+			// 两者都意味着服务在运行,但 fusion-code 侧配置需修正,仍记为 available
+			// 但输出明确诊断引导,而非静默误判。
 			if (response.status === 401) {
+				const hint = isGatewayBaseUrl()
+					? "gateway 层鉴权失败,请检查 FUSION_GATEWAY_API_KEY 是否匹配 fusion-gateway config.yaml 的 auth.api_keys (注意 gateway key 与 MLX key 是两套)"
+					: "MLX 层鉴权失败,请检查 FUSION_MLX_API_KEY 是否匹配 ~/.fusion-mlx/settings.json 的 auth.api_key";
 				logForDebugging(
-					"[Fusion-MLX] Health check got 401 — server running, auth required",
+					`[Fusion-MLX] Health check got 401 — server running, auth failed. ${hint}`,
+					{ level: "warn" },
+				);
+				return {
+					available: true,
+					version: "unknown",
+					models: [],
+					uptime_seconds: 0,
+				};
+			}
+			if (response.status === 403) {
+				logForDebugging(
+					`[Fusion-MLX] Health check got 403 — route_guard 拒绝 (X-Fusion-Route 头缺失或值不被接受)。当前头: X-Fusion-Route=${process.env.FUSION_ROUTE_HEADER || DEFAULT_FUSION_ROUTE_HEADER}。若 MLX 侧 FUSION_ROUTE_ENFORCE 改为 warn-only 可忽略此 403。`,
+					{ level: "warn" },
 				);
 				return {
 					available: true,
