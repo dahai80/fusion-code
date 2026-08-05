@@ -1670,7 +1670,6 @@ export function createFusionMlxFetch(model: string): typeof globalThis.fetch {
 					"./fusion-mlx-stream.js"
 				);
 				return encodeStreamToAnthropicSSE(anthropicStream, mlxResponse);
-				console.error();
 			}
 
 			// 非流式响应 — max_tokens escalation on truncation
