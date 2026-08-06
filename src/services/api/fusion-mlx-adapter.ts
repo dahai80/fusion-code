@@ -288,7 +288,8 @@ function toMlxModelName(model: string): string {
 // 的请求被 403 拒绝。此处统一注入,值可经 FUSION_ROUTE_HEADER 覆盖。
 function getMlxAuthHeaders(): Record<string, string> {
 	const headers: Record<string, string> = {
-		"X-Fusion-Route": process.env.FUSION_ROUTE_HEADER || DEFAULT_FUSION_ROUTE_HEADER,
+		"X-Fusion-Route":
+			process.env.FUSION_ROUTE_HEADER || DEFAULT_FUSION_ROUTE_HEADER,
 	};
 	const apiKey = isGatewayBaseUrl() ? getGatewayApiKey() : getMlxApiKey();
 	if (apiKey) {
@@ -415,10 +416,9 @@ async function mlxFetchWithRetry(
 				response.status === 401
 					? `鉴权失败 (${layer} 层)。请检查 ${layer === "gateway" ? "FUSION_GATEWAY_API_KEY 是否匹配 fusion-gateway config.yaml 的 auth.api_keys" : "FUSION_MLX_API_KEY 是否匹配 ~/.fusion-mlx/settings.json 的 auth.api_key"}`
 					: `route_guard 拒绝 (X-Fusion-Route 头缺失或值不被接受)。当前头: X-Fusion-Route=${process.env.FUSION_ROUTE_HEADER || DEFAULT_FUSION_ROUTE_HEADER}`;
-			logForDebugging(
-				`[Fusion-MLX] 请求被 ${response.status} 拒绝 — ${hint}`,
-				{ level: "warn" },
-			);
+			logForDebugging(`[Fusion-MLX] 请求被 ${response.status} 拒绝 — ${hint}`, {
+				level: "warn",
+			});
 		}
 		return response;
 	} catch (error) {
