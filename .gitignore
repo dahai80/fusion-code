@@ -6,6 +6,10 @@ dist/
 /cli-dev
 openclaw/
 
+# start.sh runtime artifacts (pid file + logs dir)
+.fusion-code.pid
+/logs/
+
 # Bun build artifacts
 .*.bun-build
 
