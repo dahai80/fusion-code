@@ -10,10 +10,10 @@
 
 import {
 	collectTrajectories,
-	exportTrajectories,
-	readManifest,
 	DEFAULT_DEST_DIR,
 	DEFAULT_SOURCE_DIR,
+	exportTrajectories,
+	readManifest,
 } from "../../services/trajectory/index.js";
 
 interface ParsedFlags {
