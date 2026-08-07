@@ -297,6 +297,17 @@ async function main(): Promise<void> {
 		return;
 	}
 
+	// Fast-path for `fusion-code trajectory ...`: D1 轨迹飞轮 (issue #50/#51).
+	// 收集 session jsonl → 汇聚标注 → 导出 SFT/DPO/GRPO 训练集。
+	if (args[0] === "trajectory") {
+		profileCheckpoint("cli_trajectory_path");
+		const { trajectoryMain } = await import(
+			"../cli/handlers/trajectory.js"
+		);
+		await trajectoryMain(args.slice(1));
+		gracefulShutdownSync(0);
+	}
+
 	// Fast-path for template job commands.
 	if (
 		feature("TEMPLATES") &&
