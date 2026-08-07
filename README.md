@@ -419,6 +419,20 @@ bun run ./scripts/build.ts --dev --feature-set=dev-full --feature=BRIDGE_MODE
 bun run dev                            # Run from source
 ```
 
+### Trajectory Flywheel (D1)
+
+Collect session trajectories and export training datasets (SFT/DPO/GRPO) for fusion-trainer:
+
+```bash
+./fusion-code trajectory collect                              # 汇聚 session → ~/.fusion/trajectories
+./fusion-code trajectory export --format sft                  # 导出 SFT 训练集
+./fusion-code trajectory export --format dpo                  # 导出 DPO 偏好对
+./fusion-code trajectory export --format grpo                 # 导出 GRPO reward 集
+./fusion-code trajectory manifest                             # 查看汇聚清单
+```
+
+See [docs/trajectory-pipeline.md](docs/trajectory-pipeline.md) for details.
+
 ### Permission Modes
 
 Press **Shift+Tab** to cycle modes:
