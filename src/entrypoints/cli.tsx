@@ -301,9 +301,7 @@ async function main(): Promise<void> {
 	// 收集 session jsonl → 汇聚标注 → 导出 SFT/DPO/GRPO 训练集。
 	if (args[0] === "trajectory") {
 		profileCheckpoint("cli_trajectory_path");
-		const { trajectoryMain } = await import(
-			"../cli/handlers/trajectory.js"
-		);
+		const { trajectoryMain } = await import("../cli/handlers/trajectory.js");
 		await trajectoryMain(args.slice(1));
 		gracefulShutdownSync(0);
 	}

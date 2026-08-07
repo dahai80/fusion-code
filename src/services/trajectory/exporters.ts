@@ -133,14 +133,30 @@ export function buildDPOPairs(trajectories: CollectedTrajectory[]): DPOPair[] {
 	return pairs;
 }
 
+// 在候选目录中找到第一个含 manifest.json 的, 返回 {storeDir, manifest}; 都没有则 null
+async function resolveStore(
+	candidates: string[],
+): Promise<{
+	storeDir: string;
+	manifest: NonNullable<Awaited<ReturnType<typeof readManifest>>>;
+} | null> {
+	for (const dir of candidates) {
+		if (!dir) continue;
+		const m = await readManifest(dir);
+		if (m) return { storeDir: dir, manifest: m };
+	}
+	return null;
+}
+
 // 加载所有汇聚轨迹 (或按 sessionId 过滤)
+// storeDir = 汇聚库目录 (manifest.json + raw/ 所在)
 export async function loadAll(
-	destDir: string,
+	storeDir: string,
 	sessionId?: string,
 ): Promise<CollectedTrajectory[]> {
-	const manifest = await readManifest(destDir);
+	const manifest = await readManifest(storeDir);
 	if (!manifest) {
-		log("no manifest at " + destDir + ", run collect first");
+		log("no manifest at " + storeDir + ", run collect first");
 		return [];
 	}
 	const out: CollectedTrajectory[] = [];
@@ -148,7 +164,7 @@ export async function loadAll(
 		if (sessionId && entry.sessionId !== sessionId) continue;
 		const safeName = entry.sessionId.replace(/[^a-zA-Z0-9_-]/g, "_");
 		const rawFile = path.join(
-			destDir,
+			storeDir,
 			"raw",
 			entry.product + "-" + safeName + ".jsonl",
 		);
@@ -168,12 +184,27 @@ async function writeJsonl(filePath: string, records: unknown[]): Promise<void> {
 }
 
 // 主入口
+// 汇聚库定位优先级: storeDir > sourceDir > destDir (取首个含 manifest 者)
 export async function exportTrajectories(
 	options: ExportOptions,
 ): Promise<{ count: number; format: string; destFile: string }> {
-	const { sourceDir, destDir, format, sessionId } = options;
-	log("export format=" + format + " source=" + sourceDir + " dest=" + destDir);
-	const trajectories = await loadAll(sourceDir, sessionId);
+	const { sourceDir, destDir, format, sessionId, storeDir } = options;
+	const resolved = await resolveStore([storeDir, sourceDir, destDir]);
+	if (!resolved) {
+		log(
+			"no manifest found in any of storeDir/sourceDir/destDir " +
+				"(storeDir=" +
+				(storeDir ?? "-") +
+				", sourceDir=" +
+				sourceDir +
+				", destDir=" +
+				destDir +
+				"), run collect first",
+		);
+	}
+	const store = resolved?.storeDir ?? sourceDir ?? destDir;
+	log("export format=" + format + " store=" + store + " dest=" + destDir);
+	const trajectories = await loadAll(store, sessionId);
 	log("loaded " + trajectories.length + " trajectories");
 
 	let records: unknown[] = [];

@@ -2,19 +2,19 @@
 //
 // 用临时目录构造 session jsonl, 跑 collect → export 三格式, 校验输出结构。
 
-import { describe, expect, it, beforeEach, afterEach } from "bun:test";
+import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import { promises as fs } from "node:fs";
-import path from "node:path";
 import os from "node:os";
+import path from "node:path";
 import {
 	collectTrajectories,
 	readManifest,
 } from "../../services/trajectory/collector.js";
 import {
-	exportTrajectories,
-	toSFTSample,
-	toGRPOSample,
 	buildDPOPairs,
+	exportTrajectories,
+	toGRPOSample,
+	toSFTSample,
 } from "../../services/trajectory/exporters.js";
 import type {
 	CollectedTrajectory,
@@ -264,6 +264,30 @@ describe("exportTrajectories", () => {
 		const out = (await fs.readFile(res.destFile, "utf8")).trim().split("\n");
 		const rewards = out.map((l) => JSON.parse(l).reward as number).sort();
 		expect(rewards).toEqual([0, 1]);
+	});
+
+	// 回归 #58: sourceDir 指向 session 源目录 (无 manifest), destDir 指向汇聚库
+	// 应通过 destDir 回退定位 manifest, 不再返回 count=0
+	it("#58 export falls back to destDir when sourceDir has no manifest", async () => {
+		await seedTwoSessions();
+		const res = await exportTrajectories({
+			sourceDir, // session 源目录 (无 manifest)
+			destDir, // 汇聚库 (有 manifest)
+			format: "grpo",
+		});
+		expect(res.count).toBe(2); // 不再是 0
+	});
+
+	// 显式 storeDir 优先
+	it("export uses storeDir when provided", async () => {
+		await seedTwoSessions();
+		const res = await exportTrajectories({
+			sourceDir, // 无 manifest, 不应被使用
+			destDir, // 输出目录
+			storeDir: destDir, // 汇聚库
+			format: "sft",
+		});
+		expect(res.count).toBe(1);
 	});
 });
 

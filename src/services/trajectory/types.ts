@@ -106,9 +106,13 @@ export interface CollectOptions {
 }
 
 // 导出选项
+// storeDir  = 汇聚库目录 (manifest.json + raw/ 所在), 优先使用
+// sourceDir = 兼容旧调用: 若 storeDir 未传, 作为汇聚库回退
+// destDir   = 输出目录 (sft/dpo/grpo.jsonl 写入处)
 export interface ExportOptions {
 	sourceDir: string;
 	destDir: string;
 	format: ExportFormat;
 	sessionId?: string;
+	storeDir?: string;
 }
