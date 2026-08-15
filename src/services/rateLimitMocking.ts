@@ -3,7 +3,6 @@
  * This isolates mock logic from production code
  */
 
-import { APIError } from '@anthropic-ai/sdk'
 import {
   applyMockHeaders,
   checkMockFastModeRateLimit,
@@ -12,6 +11,28 @@ import {
   isMockFastModeRateLimitScenario,
   shouldProcessMockLimits,
 } from './mockRateLimits.js'
+
+// log: ant-only mock — 不依赖 SDK 的 APIError 类。构造一个结构与 APIError 兼容的
+// Error 子类 (status/headers/error/requestID), 下游 isApiErrorLike 按形状识别。
+class MockAPIError extends Error {
+  readonly status: number
+  readonly headers: globalThis.Headers
+  readonly error: unknown
+  readonly requestID: string | undefined
+  constructor(
+    status: number,
+    error: unknown,
+    message: string,
+    headers: globalThis.Headers,
+  ) {
+    super(message)
+    this.name = 'APIError'
+    this.status = status
+    this.error = error
+    this.headers = headers
+    this.requestID = undefined
+  }
+}
 
 /**
  * Process headers, applying mocks if /mock-limits command is active
@@ -42,14 +63,14 @@ export function shouldProcessRateLimits(isSubscriber: boolean): boolean {
 export function checkMockRateLimitError(
   currentModel: string,
   isFastModeActive?: boolean,
-): APIError | null {
+): MockAPIError | null {
   if (!shouldProcessMockLimits()) {
     return null
   }
 
   const headerlessMessage = getMockHeaderless429Message()
   if (headerlessMessage) {
-    return new APIError(
+    return new MockAPIError(
       429,
       { error: { type: 'rate_limit_error', message: headerlessMessage } },
       headerlessMessage,
@@ -93,7 +114,7 @@ export function checkMockRateLimitError(
       return null
     }
     // Create a mock 429 error with the fast mode headers
-    const error = new APIError(
+    const error = new MockAPIError(
       429,
       { error: { type: 'rate_limit_error', message: 'Rate limit exceeded' } },
       'Rate limit exceeded',
@@ -113,7 +134,7 @@ export function checkMockRateLimitError(
 
   if (shouldThrow429) {
     // Create a mock 429 error with the appropriate headers
-    const error = new APIError(
+    const error = new MockAPIError(
       429,
       { error: { type: 'rate_limit_error', message: 'Rate limit exceeded' } },
       'Rate limit exceeded',
@@ -134,7 +155,9 @@ export function checkMockRateLimitError(
 /**
  * Check if this is a mock 429 error that shouldn't be retried
  */
-export function isMockRateLimitError(error: APIError): boolean {
+export function isMockRateLimitError(
+  error: { status?: number },
+): boolean {
   return shouldProcessMockLimits() && error.status === 429
 }
 

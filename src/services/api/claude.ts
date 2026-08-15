@@ -1,3 +1,4 @@
+import { randomUUID } from "crypto";
 import type {
 	BetaContentBlock,
 	BetaContentBlockParam,
@@ -16,10 +17,9 @@ import type {
 	BetaToolUnion,
 	BetaUsage,
 	BetaMessageParam as MessageParam,
+	Stream,
+	TextBlockParam,
 } from "src/types/anthropic-protocol.js";
-import type { TextBlockParam } from "src/types/anthropic-protocol.js";
-import type { Stream } from "src/types/anthropic-protocol.js";
-import { randomUUID } from "crypto";
 import {
 	getAPIProvider,
 	isFirstPartyAnthropicBaseUrl,
@@ -66,7 +66,7 @@ import {
 } from "../../utils/context.js";
 import { resolveAppliedEffort } from "../../utils/effort.js";
 import { isEnvTruthy } from "../../utils/envUtils.js";
-import { errorMessage } from "../../utils/errors.js";
+import { errorMessage, isAbortError } from "../../utils/errors.js";
 import { computeFingerprintFromMessages } from "../../utils/fingerprint.js";
 import { captureAPIRequest, logError } from "../../utils/log.js";
 import {
@@ -103,12 +103,7 @@ const autoModeStateModule =
 	require("../../utils/permissions/autoModeState.js") as typeof import("../../utils/permissions/autoModeState.js");
 
 import { feature } from "bun:bundle";
-import type { ClientOptions } from "src/types/anthropic-protocol.js";
-import {
-	APIConnectionTimeoutError,
-	APIError,
-	APIUserAbortError,
-} from "@anthropic-ai/sdk/error";
+import { isApiErrorLike } from "../llm/errors.js";
 import {
 	getAfkModeHeaderLatched,
 	getCacheEditingHeaderLatched,
@@ -141,6 +136,7 @@ import type { QuerySource } from "src/constants/querySource.js";
 import type { Notification } from "src/context/notifications.js";
 import { addToTotalSessionCost } from "src/cost-tracker.js";
 import { getFeatureValue_CACHED_MAY_BE_STALE } from "src/services/analytics/growthbook.js";
+import type { ClientOptions } from "src/types/anthropic-protocol.js";
 import type { AgentId } from "src/types/ids.js";
 import {
 	ADVISOR_TOOL_INSTRUCTIONS,
@@ -225,6 +221,8 @@ import {
 	markToolsSentToAPIState,
 	pinCacheEdits,
 } from "../compact/microCompact.js";
+// LLM 接缝 (Phase 4): flag 开时用 streamViaSeam 替代 SDK 流式; 关时 DCE 消除
+import { isSeamActive, streamViaSeam } from "../llm/seam.js";
 import { getInitializationStatus } from "../lsp/manager.js";
 import { isToolFromMcpServer } from "../mcp/utils.js";
 import { withStreamingVCR, withVCR } from "../vcr.js";
@@ -255,8 +253,6 @@ import {
 	type RetryContext,
 	withRetry,
 } from "./withRetry.js";
-// LLM 接缝 (Phase 4): flag 开时用 streamViaSeam 替代 SDK 流式; 关时 DCE 消除
-import { isSeamActive, streamViaSeam } from "../llm/seam.js";
 
 // Define a type that represents valid JSON values
 type JsonValue = string | number | boolean | null | JsonObject | JsonArray;
@@ -746,10 +742,13 @@ export async function queryModelWithoutStreaming({
 		}
 	}
 	if (!assistantMessage) {
-		// If the signal was aborted, throw APIUserAbortError instead of a generic error
+		// If the signal was aborted, throw AbortError instead of a generic error
 		// This allows callers to handle abort scenarios gracefully
 		if (signal.aborted) {
-			throw new APIUserAbortError();
+			// log: 不依赖 SDK 的 APIUserAbortError — 构造具名 AbortError, isAbortError 可识别
+			const abortErr = new Error("Request was aborted.");
+			abortErr.name = "AbortError";
+			throw abortErr;
 		}
 		throw new Error("No assistant message found");
 	}
@@ -880,7 +879,7 @@ export async function* executeNonStreamingRequest(
 				);
 			} catch (err) {
 				// User aborts are not errors — re-throw immediately without logging
-				if (err instanceof APIUserAbortError) throw err;
+				if (isAbortError(err)) throw err;
 
 				// Instrumentation: record when the non-streaming request errors (including
 				// timeouts). Lets us distinguish "fallback hung past container kill"
@@ -2450,7 +2449,7 @@ async function* queryModel(
 				});
 			}
 
-			if (streamingError instanceof APIUserAbortError) {
+			if (isAbortError(streamingError)) {
 				// Check if the abort signal was triggered by the user (ESC key)
 				// If the signal is aborted, it's a user-initiated abort
 				// If not, it's likely a timeout from the SDK
@@ -2469,14 +2468,16 @@ async function* queryModel(
 					}
 					throw streamingError;
 				} else {
-					// The SDK threw APIUserAbortError but our signal wasn't aborted
+					// The SDK threw an abort but our signal wasn't aborted
 					// This means it's a timeout from the SDK's internal timeout
 					logForDebugging(
 						`Streaming timeout (SDK abort): ${streamingError.message}`,
 						{ level: "error" },
 					);
-					// Throw a more specific error for timeout
-					throw new APIConnectionTimeoutError({ message: "Request timed out" });
+					// log: 不依赖 SDK 的 APIConnectionTimeoutError — 构造具名 timeout 错误
+					const timeoutErr = new Error("Request timed out");
+					timeoutErr.name = "APIConnectionTimeoutError";
+					throw timeoutErr;
 				}
 			}
 
@@ -2631,7 +2632,7 @@ async function* queryModel(
 		const is404StreamCreationError =
 			!didFallBackToNonStreaming &&
 			errorFromRetry instanceof CannotRetryError &&
-			errorFromRetry.originalError instanceof APIError &&
+			isApiErrorLike(errorFromRetry.originalError) &&
 			errorFromRetry.originalError.status === 404;
 
 		if (is404StreamCreationError) {
@@ -2639,7 +2640,8 @@ async function* queryModel(
 			// and CannotRetryError means every retry failed — so grab the failed
 			// request's ID from the error header instead.
 			const failedRequestId =
-				(errorFromRetry.originalError as APIError).requestID ?? "unknown";
+				(errorFromRetry.originalError as { requestID?: string }).requestID ??
+				"unknown";
 			logForDebugging(
 				"Streaming endpoint returned 404, falling back to non-streaming mode",
 				{ level: "warn" },
@@ -2725,15 +2727,17 @@ async function* queryModel(
 					errorModel = fallbackError.retryContext.model;
 				}
 
-				if (error instanceof APIError) {
+				if (isApiErrorLike(error)) {
 					extractQuotaStatusFromError(error);
 				}
 
 				const requestId =
 					streamRequestId ||
-					(error instanceof APIError ? error.requestID : undefined) ||
-					(error instanceof APIError
-						? (error.error as { request_id?: string })?.request_id
+					(isApiErrorLike(error)
+						? (error as { requestID?: string }).requestID
+						: undefined) ||
+					(isApiErrorLike(error)
+						? ((error as { error?: { request_id?: string } }).error)?.request_id
 						: undefined);
 
 				logAPIError({
@@ -2754,7 +2758,7 @@ async function* queryModel(
 					previousRequestId,
 				});
 
-				if (error instanceof APIUserAbortError) {
+				if (isAbortError(error)) {
 					releaseStreamResources();
 					return;
 				}
@@ -2780,16 +2784,18 @@ async function* queryModel(
 			}
 
 			// Extract quota status from error headers if it's a rate limit error
-			if (error instanceof APIError) {
+			if (isApiErrorLike(error)) {
 				extractQuotaStatusFromError(error);
 			}
 
 			// Extract requestId from stream, error header, or error body
 			const requestId =
 				streamRequestId ||
-				(error instanceof APIError ? error.requestID : undefined) ||
-				(error instanceof APIError
-					? (error.error as { request_id?: string })?.request_id
+				(isApiErrorLike(error)
+					? (error as { requestID?: string }).requestID
+					: undefined) ||
+				(isApiErrorLike(error)
+					? ((error as { error?: { request_id?: string } }).error)?.request_id
 					: undefined);
 
 			logAPIError({
@@ -2812,7 +2818,7 @@ async function* queryModel(
 
 			// Don't yield an assistant error message for user aborts
 			// The interruption message is handled in query.ts
-			if (error instanceof APIUserAbortError) {
+			if (isAbortError(error)) {
 				releaseStreamResources();
 				return;
 			}

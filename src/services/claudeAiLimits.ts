@@ -1,4 +1,3 @@
-import { APIError } from '@anthropic-ai/sdk'
 import type { MessageParam } from 'src/types/anthropic-protocol.js'
 import isEqual from 'lodash-es/isEqual.js'
 import { getIsNonInteractiveSession } from '../bootstrap/state.js'
@@ -8,6 +7,7 @@ import { getGlobalConfig, saveGlobalConfig } from '../utils/config.js'
 import { logError } from '../utils/log.js'
 import { getSmallFastModel } from '../utils/model/model.js'
 import { isEssentialTrafficOnly } from '../utils/privacyLevel.js'
+import { isApiErrorLike } from './llm/errors.js'
 import type { AnalyticsMetadata_I_VERIFIED_THIS_IS_NOT_CODE_OR_FILEPATHS } from './analytics/index.js'
 import { logEvent } from './analytics/index.js'
 import { getAPIMetadata } from './api/claude.js'
@@ -242,7 +242,7 @@ export async function checkQuotaStatus(): Promise<void> {
     // Update limits based on the response
     extractQuotaStatusFromHeaders(raw.headers)
   } catch (error) {
-    if (error instanceof APIError) {
+    if (isApiErrorLike(error)) {
       extractQuotaStatusFromError(error)
     }
   }
@@ -484,7 +484,9 @@ export function extractQuotaStatusFromHeaders(
   }
 }
 
-export function extractQuotaStatusFromError(error: APIError): void {
+export function extractQuotaStatusFromError(
+  error: { status?: number; message: string; headers?: unknown },
+): void {
   if (
     !shouldProcessRateLimits(isClaudeAISubscriber()) ||
     error.status !== 429
@@ -496,7 +498,9 @@ export function extractQuotaStatusFromError(error: APIError): void {
     let newLimits = { ...currentLimits }
     if (error.headers) {
       // Process headers (applies mocks from /mock-limits command if active)
-      const headersToUse = processRateLimitHeaders(error.headers)
+      const headersToUse = processRateLimitHeaders(
+        error.headers as globalThis.Headers,
+      )
       rawUtilization = extractRawUtilization(headersToUse)
       newLimits = computeNewLimitsFromHeaders(headersToUse)
 

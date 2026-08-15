@@ -1,5 +1,4 @@
 import { feature } from "bun:bundle";
-import { APIError } from "@anthropic-ai/sdk";
 import type {
 	BetaStopReason,
 	BetaUsage as Usage,
@@ -38,6 +37,7 @@ import { sanitizeToolNameForAnalytics } from "../analytics/metadata.js";
 import { EMPTY_USAGE } from "./emptyUsage.js";
 import { classifyAPIError } from "./errors.js";
 import { extractConnectionErrorDetails } from "./errorUtils.js";
+import { isApiErrorLike } from "../llm/errors.js";
 
 export type { NonNullableUsage };
 export { EMPTY_USAGE };
@@ -46,8 +46,9 @@ export { EMPTY_USAGE };
 export type GlobalCacheStrategy = "tool_based" | "system_prompt" | "none";
 
 function getErrorMessage(error: unknown): string {
-	if (error instanceof APIError) {
-		const body = error.error as { error?: { message?: string } } | undefined;
+	if (isApiErrorLike(error)) {
+		// log: SDK 错误体嵌在 .error 字段; 接缝错误无此字段, 走通用 message
+		const body = (error as { error?: { error?: { message?: string } } }).error;
 		if (body?.error?.message) return body.error.message;
 	}
 	return error instanceof Error ? error.message : String(error);
@@ -273,12 +274,14 @@ export function logAPIError({
 }): void {
 	const gateway = detectGateway({
 		headers:
-			error instanceof APIError && error.headers ? error.headers : headers,
+			isApiErrorLike(error) && error.headers
+				? (error.headers as unknown as globalThis.Headers)
+				: headers,
 		baseUrl: process.env.FUSION_BASE_URL,
 	});
 
 	const errStr = getErrorMessage(error);
-	const status = error instanceof APIError ? String(error.status) : undefined;
+	const status = isApiErrorLike(error) ? String(error.status) : undefined;
 	const errorType = classifyAPIError(error);
 
 	// Log detailed connection error info to debug logs (visible via --debug)
