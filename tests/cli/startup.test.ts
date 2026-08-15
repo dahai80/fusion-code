@@ -26,6 +26,10 @@ describe("CLI 启动环境变量", () => {
 		delete process.env.FUSION_MLX_ENABLED;
 		delete process.env.FUSION_MLX_MODEL;
 		delete process.env.FUSION_MLX_BASE_URL;
+		delete process.env.FUSION_MLX_AUTO;
+		delete process.env.FUSION_GATEWAY_ENABLED;
+		delete process.env.FUSION_BASE_URL;
+		delete process.env.FUSION_API_KEY;
 		delete process.env.FORCE_COLOR;
 		delete process.env.CLAUDE_CONFIG_DIR;
 		delete process.env.ANTHROPIC_API_KEY;
