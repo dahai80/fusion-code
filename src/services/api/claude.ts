@@ -255,6 +255,8 @@ import {
 	type RetryContext,
 	withRetry,
 } from "./withRetry.js";
+// LLM 接缝 (Phase 4): flag 开时用 streamViaSeam 替代 SDK 流式; 关时 DCE 消除
+import { isSeamActive, streamViaSeam } from "../llm/seam.js";
 
 // Define a type that represents valid JSON values
 type JsonValue = string | number | boolean | null | JsonObject | JsonArray;
@@ -1815,6 +1817,18 @@ async function* queryModel(
 				// BetaMessageStream calls partialParse() on every input_json_delta, which we don't need
 				// since we handle tool input accumulation ourselves
 				// biome-ignore lint/plugin: main conversation loop handles attribution separately
+				//
+				// LLM 接缝 (Phase 4): flag 开时走 streamViaSeam (直接 HTTP+SSE,不经 SDK),
+				// 复用下方 switch (streamViaSeam 产出结构兼容的 SDK part)。
+				// flag 关时走 SDK 原路径, 行为不变; 回滚=关 LLM_ADAPTER_SEAM。
+				if (isSeamActive(options.model)) {
+					queryCheckpoint("query_response_headers_received");
+					return streamViaSeam(
+						params,
+						signal,
+						options.model,
+					) as unknown as typeof result.data;
+				}
 				const result = await anthropic.beta.messages
 					.create(
 						{ ...params, stream: true },
