@@ -118,7 +118,7 @@ export function isApiErrorLike(error: unknown): error is {
 }
 
 // 传输层错误: SDK APIConnectionError (name 含 "Connection") 或 LlmRequestError(code=TRANSPORT/TIMEOUT)。
-export function isConnectionErrorLike(error: unknown): boolean {
+export function isConnectionErrorLike(error: unknown): error is Error {
 	if (!(error instanceof Error)) return false;
 	if (error instanceof LlmRequestError) {
 		return (
@@ -131,7 +131,7 @@ export function isConnectionErrorLike(error: unknown): boolean {
 }
 
 // 传输层 + 超时: SDK APIConnectionTimeoutError (name 含 "Timeout") 或 message 含 timeout。
-export function isTimeoutErrorLike(error: unknown): boolean {
+export function isTimeoutErrorLike(error: unknown): error is Error {
 	if (!(error instanceof Error)) return false;
 	if (error instanceof LlmRequestError) {
 		return error.failure.code === "TIMEOUT";
