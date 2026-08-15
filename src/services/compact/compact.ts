@@ -15,7 +15,6 @@ const sessionTranscriptModule = feature("KAIROS")
 		})()
 	: null;
 
-import { APIUserAbortError } from "@anthropic-ai/sdk";
 import { markPostCompaction } from "src/bootstrap/state.js";
 import { getInvokedSkillsForAgent } from "../../bootstrap/state.js";
 import type { QuerySource } from "../../constants/querySource.js";
@@ -1776,7 +1775,12 @@ async function streamCompactSummary({
 					hasStartedStreaming,
 				});
 				await sleep(getRetryDelay(attempt), context.abortController.signal, {
-					abortError: () => new APIUserAbortError(),
+					abortError: () => {
+						// log: 不依赖 SDK 的 AbortError 工厂 — sleep 仅要求 () => Error
+						const err = new Error("Request was aborted.");
+						err.name = "AbortError";
+						return err;
+					},
 				});
 				continue;
 			}

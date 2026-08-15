@@ -1,5 +1,4 @@
 import { feature } from "bun:bundle";
-import { APIUserAbortError } from "@anthropic-ai/sdk";
 import type { z } from "zod/v4";
 import { getFeatureValue_CACHED_MAY_BE_STALE } from "../../services/analytics/growthbook.js";
 import {
@@ -28,7 +27,7 @@ import { tryParseShellCommand } from "../../utils/bash/shellQuote.js";
 import { getCwd } from "../../utils/cwd.js";
 import { logForDebugging } from "../../utils/debug.js";
 import { isEnvTruthy } from "../../utils/envUtils.js";
-import { AbortError } from "../../utils/errors.js";
+import { AbortError, isAbortError } from "../../utils/errors.js";
 import type {
 	ClassifierBehavior,
 	ClassifierResult,
@@ -1634,9 +1633,9 @@ export async function executeAsyncClassifierCheck(
 				);
 	} catch (error: unknown) {
 		// When the coordinator session is cancelled, the abort signal fires and the
-		// classifier API call rejects with APIUserAbortError. This is expected and
+		// classifier API call rejects with an abort-shaped error. This is expected and
 		// should not surface as an unhandled promise rejection.
-		if (error instanceof APIUserAbortError || error instanceof AbortError) {
+		if (isAbortError(error)) {
 			callbacks.onComplete?.();
 			return;
 		}

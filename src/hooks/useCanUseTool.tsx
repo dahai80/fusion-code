@@ -1,5 +1,4 @@
 import { feature } from "bun:bundle";
-import { APIUserAbortError } from "@anthropic-ai/sdk";
 import { c as _c } from "react/compiler-runtime";
 import {
 	type AnalyticsMetadata_I_VERIFIED_THIS_IS_NOT_CODE_OR_FILEPATHS,
@@ -24,7 +23,7 @@ import {
 	setYoloClassifierApproval,
 } from "../utils/classifierApprovals.js";
 import { logForDebugging } from "../utils/debug.js";
-import { AbortError } from "../utils/errors.js";
+import { isAbortError } from "../utils/errors.js";
 import { logError } from "../utils/log.js";
 import type { ClassifierResult } from "../utils/permissions/bashClassifier.js";
 import type { PermissionDecision } from "../utils/permissions/PermissionResult.js";
@@ -292,10 +291,7 @@ function useCanUseTool(setToolUseConfirmQueue, setToolPermissionContext) {
 						}
 					})
 					.catch((error) => {
-						if (
-							error instanceof AbortError ||
-							error instanceof APIUserAbortError
-						) {
+						if (isAbortError(error)) {
 							logForDebugging(
 								`Permission check threw ${error.constructor.name} for tool=${tool.name}: ${error.message}`,
 							);
