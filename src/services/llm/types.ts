@@ -91,12 +91,22 @@ export type LlmErrorCode =
 	| "TRANSPORT"
 	| "ABORTED";
 
+// Headers 形态兼容 SDK APIError.headers (支持 .get(name)) 与裸对象 (支持 ["retry-after"])。
+// httpClient 把 fetch Response.headers (原生 Headers, 自带 .get) 直接挂上即可。
+export type LlmFailureHeaders = {
+	get?(name: string): string | null;
+} & {
+	[header: string]: string | undefined;
+};
+
 export interface LlmFailure {
 	code: LlmErrorCode;
 	message: string;
 	status?: number;
 	providerRetryAfterMs?: number;
 	requestId?: string;
+	// 非 2xx 响应头 (限流/重试头来源)。fetch 异常路径无 response, 留 undefined。
+	headers?: LlmFailureHeaders;
 }
 
 // ─── 工具 schema ────────────────────────────────────────────

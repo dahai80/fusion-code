@@ -1,10 +1,6 @@
 import { feature } from "bun:bundle";
 import type { AnthropicDefault as Anthropic } from "src/types/anthropic-protocol.js";
-import {
-	APIConnectionError,
-	APIError,
-	APIUserAbortError,
-} from "@anthropic-ai/sdk";
+import type { APIError } from "src/types/anthropic-protocol.js";
 import type { QuerySource } from "src/constants/querySource.js";
 import type { SystemAPIErrorMessage } from "src/types/message.js";
 import { logForDebugging } from "src/utils/debug.js";
@@ -45,8 +41,30 @@ import {
 } from "../rateLimitMocking.js";
 import { REPEATED_529_ERROR_MESSAGE } from "./errors.js";
 import { extractConnectionErrorDetails } from "./errorUtils.js";
+// LLM 接缝 (Phase 5): 用形态判定替代 instanceof APIError/APIConnectionError/APIUserAbortError,
+// 同时接纳 SDK 抛出的 APIError (flag 关) 与 seam 抛出的 LlmRequestError (flag 开)。
+import {
+	isAbortErrorLike,
+	isApiErrorLike,
+	isConnectionErrorLike,
+} from "../llm/errors.js";
 
-const abortError = () => new APIUserAbortError();
+// 中断错误工厂: 返回 name="AbortError" 的 Error, isAbortErrorLike 可识别。
+// 替代 SDK 的 new APIUserAbortError(); sleep 的 abortError 选项要求 () => Error。
+const abortError = (): Error => {
+	const err = new Error("Request was aborted.");
+	err.name = "AbortError";
+	return err;
+};
+
+// 形态化 API 错误类型 (替代 SDK APIError 形参): 同时描述 SDK APIError 与 seam LlmRequestError。
+// isApiErrorLike 是其类型守卫; .status/.message/.headers/.requestID 字段与 SDK 一致。
+type ApiErrorLike = {
+	status?: number;
+	message: string;
+	headers?: { get?(name: string): string | null };
+	requestID?: string;
+};
 
 const DEFAULT_MAX_RETRIES = 10;
 const FLOOR_OUTPUT_TOKENS = 3000;
@@ -104,12 +122,12 @@ function isPersistentRetryEnabled(): boolean {
 
 function isTransientCapacityError(error: unknown): boolean {
 	return (
-		is529Error(error) || (error instanceof APIError && error.status === 429)
+		is529Error(error) || (isApiErrorLike(error) && error.status === 429)
 	);
 }
 
 function isStaleConnectionError(error: unknown): boolean {
-	if (!(error instanceof APIConnectionError)) {
+	if (!isConnectionErrorLike(error)) {
 		return false;
 	}
 	const details = extractConnectionErrorDetails(error);
@@ -187,7 +205,7 @@ export async function* withRetry<T>(
 	let persistentAttempt = 0;
 	for (let attempt = 1; attempt <= maxRetries + 1; attempt++) {
 		if (options.signal?.aborted) {
-			throw new APIUserAbortError();
+			throw abortError();
 		}
 
 		// Capture whether fast mode is active before this attempt
@@ -230,7 +248,7 @@ export async function* withRetry<T>(
 
 			if (
 				client === null ||
-				(lastError instanceof APIError && lastError.status === 401) ||
+				(isApiErrorLike(lastError) && lastError.status === 401) ||
 				isOAuthTokenRevokedError(lastError) ||
 				isBedrockAuthError(lastError) ||
 				isVertexAuthError(lastError) ||
@@ -238,7 +256,7 @@ export async function* withRetry<T>(
 			) {
 				// On 401 "token expired" or 403 "token revoked", force a token refresh
 				if (
-					(lastError instanceof APIError && lastError.status === 401) ||
+					(isApiErrorLike(lastError) && lastError.status === 401) ||
 					isOAuthTokenRevokedError(lastError)
 				) {
 					const failedAccessToken = getClaudeAIOAuthTokens()?.accessToken;
@@ -253,7 +271,7 @@ export async function* withRetry<T>(
 		} catch (error) {
 			lastError = error;
 			logForDebugging(
-				`API error (attempt ${attempt}/${maxRetries + 1}): ${error instanceof APIError ? `${error.status} ${error.message}` : errorMessage(error)}`,
+				`API error (attempt ${attempt}/${maxRetries + 1}): ${isApiErrorLike(error) ? `${error.status} ${error.message}` : errorMessage(error)}`,
 				{ level: "error" },
 			);
 
@@ -266,7 +284,7 @@ export async function* withRetry<T>(
 			if (
 				wasFastModeActive &&
 				!isPersistentRetryEnabled() &&
-				error instanceof APIError &&
+				isApiErrorLike(error) &&
 				(error.status === 429 || is529Error(error))
 			) {
 				// If the 429 is specifically because extra usage (overage) is not
@@ -325,7 +343,7 @@ export async function* withRetry<T>(
 			// Track consecutive 529/429 errors — trigger fallback for all models with a fallback configured
 			const isOverloadOrRateLimit =
 				is529Error(error) ||
-				(error instanceof APIError && error.status === 429);
+				(isApiErrorLike(error) && error.status === 429);
 			if (isOverloadOrRateLimit) {
 				consecutive529Errors++;
 				if (consecutive529Errors >= MAX_529_RETRIES) {
@@ -337,7 +355,7 @@ export async function* withRetry<T>(
 							fallback_model:
 								options.fallbackModel as AnalyticsMetadata_I_VERIFIED_THIS_IS_NOT_CODE_OR_FILEPATHS,
 							provider: getAPIProviderForStatsig(),
-							error_status: (error instanceof APIError
+							error_status: (isApiErrorLike(error)
 								? error.status
 								: 529) as AnalyticsMetadata_I_VERIFIED_THIS_IS_NOT_CODE_OR_FILEPATHS,
 						});
@@ -375,7 +393,7 @@ export async function* withRetry<T>(
 				handleAwsCredentialError(error) || handleGcpCredentialError(error);
 			if (
 				!handledCloudAuthError &&
-				(!(error instanceof APIError) || !shouldRetry(error))
+				(!isApiErrorLike(error) || !shouldRetry(error))
 			) {
 				throw new CannotRetryError(error, retryContext);
 			}
@@ -384,7 +402,7 @@ export async function* withRetry<T>(
 			// NOTE: With extended-context-window beta, this 400 error should not occur.
 			// The API now returns 'model_context_window_exceeded' stop_reason instead.
 			// Keeping for backward compatibility.
-			if (error instanceof APIError) {
+			if (isApiErrorLike(error)) {
 				const overflowData = parseMaxTokensContextOverflowError(error);
 				if (overflowData) {
 					const { inputTokens, contextLimit } = overflowData;
@@ -429,7 +447,7 @@ export async function* withRetry<T>(
 			// Get retry-after header if available
 			const retryAfter = getRetryAfter(error);
 			let delayMs: number;
-			if (persistent && error instanceof APIError && error.status === 429) {
+			if (persistent && isApiErrorLike(error) && error.status === 429) {
 				persistentAttempt++;
 				// Window-based limits (e.g. 5hr Max/Pro) include a reset timestamp.
 				// Wait until reset rather than polling every 5 min uselessly.
@@ -467,16 +485,17 @@ export async function* withRetry<T>(
 			logEvent("tengu_api_retry", {
 				attempt: reportedAttempt,
 				delayMs: delayMs,
-				error: (error as APIError)
-					.message as AnalyticsMetadata_I_VERIFIED_THIS_IS_NOT_CODE_OR_FILEPATHS,
-				status: (error as APIError).status,
+				error: (isApiErrorLike(error)
+					? error.message
+					: errorMessage(error)) as AnalyticsMetadata_I_VERIFIED_THIS_IS_NOT_CODE_OR_FILEPATHS,
+				status: isApiErrorLike(error) ? error.status : undefined,
 				provider: getAPIProviderForStatsig(),
 			});
 
 			if (persistent) {
 				if (delayMs > 60_000) {
 					logEvent("tengu_api_persistent_retry_wait", {
-						status: (error as APIError).status,
+						status: isApiErrorLike(error) ? error.status : undefined,
 						delayMs,
 						attempt: reportedAttempt,
 						provider: getAPIProviderForStatsig(),
@@ -487,10 +506,10 @@ export async function* withRetry<T>(
 				// {type:'system', subtype:'api_retry'} on stdout via QueryEngine.
 				let remaining = delayMs;
 				while (remaining > 0) {
-					if (options.signal?.aborted) throw new APIUserAbortError();
-					if (error instanceof APIError) {
+					if (options.signal?.aborted) throw abortError();
+					if (isApiErrorLike(error)) {
 						yield createSystemAPIErrorMessage(
-							error,
+							error as unknown as APIError,
 							remaining,
 							reportedAttempt,
 							maxRetries,
@@ -504,9 +523,9 @@ export async function* withRetry<T>(
 				// persistentAttempt counter which keeps growing to the 5-min cap.
 				if (attempt >= maxRetries) attempt = maxRetries;
 			} else {
-				if (error instanceof APIError) {
+				if (isApiErrorLike(error)) {
 					yield createSystemAPIErrorMessage(
-						error,
+						error as unknown as APIError,
 						delayMs,
 						attempt,
 						maxRetries,
@@ -526,7 +545,7 @@ function getRetryAfter(error: unknown): string | null {
 			"retry-after"
 		] ||
 			// eslint-disable-next-line eslint-plugin-n/no-unsupported-features/node-builtins
-			((error as APIError).headers as Headers)?.get?.("retry-after")) ??
+			(error as { headers?: Headers })?.headers?.get?.("retry-after")) ??
 		null
 	);
 }
@@ -548,7 +567,9 @@ export function getRetryDelay(
 	return baseDelay + jitter;
 }
 
-export function parseMaxTokensContextOverflowError(error: APIError):
+export function parseMaxTokensContextOverflowError(
+	error: ApiErrorLike,
+):
 	| {
 			inputTokens: number;
 			maxTokens: number;
@@ -599,7 +620,7 @@ export function parseMaxTokensContextOverflowError(error: APIError):
 // header for fast-mode rejection (e.g., x-fast-mode-rejected). String-matching
 // the error message is fragile and will break if the API wording changes.
 function isFastModeNotEnabledError(error: unknown): boolean {
-	if (!(error instanceof APIError)) {
+	if (!isApiErrorLike(error)) {
 		return false;
 	}
 	return (
@@ -609,7 +630,7 @@ function isFastModeNotEnabledError(error: unknown): boolean {
 }
 
 export function is529Error(error: unknown): boolean {
-	if (!(error instanceof APIError)) {
+	if (!isApiErrorLike(error)) {
 		return false;
 	}
 
@@ -623,7 +644,7 @@ export function is529Error(error: unknown): boolean {
 
 function isOAuthTokenRevokedError(error: unknown): boolean {
 	return (
-		error instanceof APIError &&
+		isApiErrorLike(error) &&
 		error.status === 403 &&
 		(error.message?.includes("OAuth token has been revoked") ?? false)
 	);
@@ -658,9 +679,10 @@ function handleGcpCredentialError(_error: unknown): boolean {
 	return false;
 }
 
-function shouldRetry(error: APIError): boolean {
+function shouldRetry(error: ApiErrorLike): boolean {
 	// Never retry mock errors - they're from /mock-limits command for testing
-	if (isMockRateLimitError(error)) {
+	// rateLimitMocking 仍用 SDK APIError 形参 (ant-only mock), 此处形态兼容, 安全转换。
+	if (isMockRateLimitError(error as unknown as APIError)) {
 		return false;
 	}
 
@@ -715,7 +737,7 @@ function shouldRetry(error: APIError): boolean {
 		}
 	}
 
-	if (error instanceof APIConnectionError) {
+	if (isConnectionErrorLike(error)) {
 		return true;
 	}
 
@@ -767,7 +789,7 @@ const DEFAULT_FAST_MODE_FALLBACK_HOLD_MS = 30 * 60 * 1000; // 30 minutes
 const SHORT_RETRY_THRESHOLD_MS = 20 * 1000; // 20 seconds
 const MIN_COOLDOWN_MS = 10 * 60 * 1000; // 10 minutes
 
-function getRetryAfterMs(error: APIError): number | null {
+function getRetryAfterMs(error: ApiErrorLike): number | null {
 	const retryAfter = getRetryAfter(error);
 	if (retryAfter) {
 		const seconds = parseInt(retryAfter, 10);
@@ -778,7 +800,7 @@ function getRetryAfterMs(error: APIError): number | null {
 	return null;
 }
 
-function getRateLimitResetDelayMs(error: APIError): number | null {
+function getRateLimitResetDelayMs(error: ApiErrorLike): number | null {
 	const resetHeader = error.headers?.get?.("anthropic-ratelimit-unified-reset");
 	if (!resetHeader) return null;
 	const resetUnixSec = Number(resetHeader);
