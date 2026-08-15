@@ -31,6 +31,9 @@ export interface PostMessagesOptions {
     firstParty?: boolean;
     signal?: AbortSignal;
     timeoutMs?: number;
+    // 可选 fetch 注入 (fusion-mlx 路径用 createFusionMlxFetch 拦截并转译)。
+    // 缺省走 globalThis.fetch。
+    fetchFn?: typeof fetch;
 }
 
 export interface PostMessagesResult {
@@ -72,7 +75,8 @@ export async function postMessages(
 
     let response: Response;
     try {
-        response = await fetch(url, fetchOptions as RequestInit);
+        const doFetch = opts.fetchFn ?? fetch;
+        response = await doFetch(url, fetchOptions as RequestInit);
     } catch (error) {
         const failure = classifyError(error, undefined, undefined);
         logForDebugging(`[llm:http] fetch failed: ${failure.code} ${failure.message}`);
