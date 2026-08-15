@@ -408,6 +408,10 @@ bun run ./scripts/build.ts --feature=ULTRAPLAN --feature=ULTRATHINK
 bun run ./scripts/build.ts --dev --feature-set=dev-full --feature=BRIDGE_MODE
 ```
 
+### LLM Adapter Seam (`LLM_ADAPTER_SEAM`)
+
+A provider-neutral seam (`src/services/llm/`) decouples the runtime from `@anthropic-ai/sdk`'s error layer. When this flag is on and the provider is `firstParty` or `fusionMlx`, requests bypass `anthropic.beta.messages.create` and POST `/v1/messages` directly via the seam (SSE→StreamChunk→SDK parts). Error handling uses duck-typing guards (`isApiErrorLike`/`isAbortError`) instead of `instanceof` SDK classes. Default off; in the `dev-full` set. See `docs/model-providers.md` § "LLM Adapter 接缝". Cloud providers (bedrock/vertex/foundry) still use the SDK client — full decoupling tracked in issues #63/#64/#65.
+
 ---
 
 ## Usage
@@ -432,6 +436,12 @@ Collect session trajectories and export training datasets (SFT/DPO/GRPO) for fus
 ```
 
 See [docs/trajectory-pipeline.md](docs/trajectory-pipeline.md) for details.
+
+### Production Acceptance
+
+v0.4.18 核心特性生产验收 (13 项: 多供应商路由 / Feature Flags / MLX Tiering / 权限模式 / Slash Commands / Plugins / Context Management / Workflows / FUSION.rules / Context Hub / Agent Tools / Safe Mode / Telemetry):
+
+See [docs/acceptance-report.md](docs/acceptance-report.md) for full report.
 
 ### Permission Modes
 
