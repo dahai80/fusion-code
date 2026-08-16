@@ -303,6 +303,35 @@ describe("sseToChunk", () => {
 		expect(sseToChunk("ping", "", {})).toBeNull();
 	});
 
+	test("error event throws with parsed message (not silently dropped)", () => {
+		const data = JSON.stringify({
+			type: "error",
+			error: { type: "overloaded_error", message: "Overloaded" },
+		});
+		expect(() => sseToChunk("error", data, {})).toThrow("Overloaded");
+	});
+
+	test("error event thrown error carries status for retry classification", () => {
+		const data = JSON.stringify({
+			type: "error",
+			error: { type: "overloaded_error", message: "Overloaded" },
+			status: 529,
+		});
+		let caught: Error | undefined;
+		try {
+			sseToChunk("error", data, {});
+		} catch (e) {
+			caught = e as Error;
+		}
+		expect(caught).toBeInstanceOf(Error);
+		expect(caught?.name).toBe("APIError");
+		expect((caught as { status?: number }).status).toBe(529);
+	});
+
+	test("error event falls back to raw data when no message field", () => {
+		expect(() => sseToChunk("error", "oops", {})).toThrow("oops");
+	});
+
 	test("malformed JSON ignored", () => {
 		expect(sseToChunk("message_start", "{not json", {})).toBeNull();
 	});

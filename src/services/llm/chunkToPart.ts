@@ -116,12 +116,14 @@ export function chunkToSdkPart(
 			const usage = toAnthropicUsage(chunk.usage);
 			state.lastUsage = usage;
 			if (chunk.stopReason) state.stopReason = chunk.stopReason;
+			// log: stop_reason 仅透传实际收到的值; 不兜底 "end_turn"。
+			// 流异常截断 (无 message_delta stop_reason) 时保留 null, 让 claude.ts
+			// 的 !stopReason 空响应检测 (claude.ts:2368) 正常触发, 而非伪装成正常结束。
+			const stopReason = chunk.stopReason ?? state.stopReason ?? null;
 			return {
 				type: "message_delta",
 				usage,
-				delta: {
-					stop_reason: chunk.stopReason ?? state.stopReason ?? "end_turn",
-				},
+				delta: { stop_reason: stopReason },
 			};
 		}
 		case "finish": {

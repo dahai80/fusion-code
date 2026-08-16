@@ -181,6 +181,13 @@ export function sseToChunk(
 		try {
 			p = JSON.parse(data) as Record<string, unknown>;
 		} catch {
+			// log: 非 JSON 的 error 事件仍须抛出 (SDK 用 safeJSON ?? raw 兜底),
+			// 其他事件 (message_start 等) 解析失败则忽略, 维持原行为。
+			if (event === "error") {
+				const thrown = new Error(data || "stream error");
+				thrown.name = "APIError";
+				throw thrown;
+			}
 			return null;
 		}
 	}
@@ -262,7 +269,23 @@ export function sseToChunk(
 		case "message_stop":
 			return { type: "finish", reason: toFinishReason(state.stopReason) };
 		case "ping":
-		case "error":
+			return null;
+		case "error": {
+			// log: 流中 error 事件 — SDK 在 core/streaming.js:62 对此抛 APIError, withRetry
+			// 据此重试/分类。这里同样抛出, 避免 mid-stream 错误被静默吞掉导致流无 finish 地截断。
+			// 错误体形如 {"type":"error","error":{"type":"overloaded_error","message":"..."}}。
+			const errBody = p as {
+				error?: { type?: string; message?: string };
+				message?: string;
+			};
+			const msg =
+				errBody?.error?.message ?? errBody?.message ?? data ?? "stream error";
+			const thrown = new Error(msg) as Error & { status?: number };
+			thrown.name = "APIError";
+			// 透传 status (若有) 供 withRetry isApiErrorLike + classifyByStatus 重试分类。
+			if (typeof p.status === "number") thrown.status = p.status;
+			throw thrown;
+		}
 		default:
 			return null;
 	}
