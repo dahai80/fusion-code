@@ -179,28 +179,36 @@ ANTHROPIC_VERTEX_PROJECT_ID=xxx \
 
 注：当前 fork 中 vertex 分支已禁用，需恢复源码中 `if (false)` 分支才能使用。
 
-## LLM Adapter 接缝 (div-anthropic Phase 1-5)
+## LLM Adapter 接缝 (div-anthropic, SDK 已彻底移除)
 
-为去除对 `@anthropic-ai/sdk` 的运行时耦合，fusion-code 引入 provider 中立的 **LLM 接缝 (seam)**。分支 `feat/div-anthropic`，feature flag `LLM_ADAPTER_SEAM` 守护（默认关，`dev-full` feature-set 开启）。
+fusion-code 已彻底移除对 `@anthropic-ai/sdk` 的运行时与编译期依赖（`package.json` 不再含该依赖）。所有 LLM 调用统一走 provider 中立的 **LLM 接缝 (seam)**，由 `LlmClient`（`src/services/llm/client.ts`）承载。分支 `feat/div-anthropic`。
 
 ### 架构
 
 ```
 claude.ts queryModel()
-  └─ if (isSeamActive(model))  ← flag + provider∈{firstParty, fusionMlx}
-       streamViaSeam(params, signal, model)   ← 接缝路径
-         ├─ httpClient.postMessages()         ← 裸 HTTP POST /v1/messages
-         ├─ parseSseStream() → sseToChunk()   ← SSE → StreamChunk (provider 中立)
-         └─ chunkStreamToSdkParts()           ← StreamChunk → SDK part (喂下方既有 switch, 零改动)
-     else
-       anthropic.beta.messages.create({stream}) ← SDK 路径 (flag 关 / 云 provider)
+  └─ anthropic.streamMessages(params, {signal, headers})   ← LlmClient 唯一路径
+       └─ streamViaSeam(params, signal, model, headers)     ← 接缝路径
+            ├─ httpClient.postMessages()                    ← 裸 HTTP POST /v1/messages
+            ├─ parseSseStream() → sseToChunk()              ← SSE → StreamChunk (provider 中立)
+            └─ chunkStreamToSdkParts()                      ← StreamChunk → SDK part (喂下方既有 switch, 零改动)
 ```
 
-flag 关时 `streamViaSeam` 经 Bun DCE 消除，回滚=关 flag。
+`getAnthropicClient()` 返回 `LlmClient`：firstParty + fusionMlx 经 `createSeamClient(model, fetchOverride, defaultHeaders)` 构造；bedrock / vertex / foundry **抛错**引导走 fusion-gateway（云端签名在网关完成）。`streamViaSeam` 返回 `{ stream, requestId, response }`，填充 `streamRequestId`/`streamResponse`，保留与旧 SDK `.withResponse()` 一致的 request_id 追踪与 body 取消能力。
 
-### 错误层解耦 (Phase 5)
+### LlmClient 5 方法（替代 SDK API）
 
-错误处理不再 `instanceof` SDK 错误类，改用鸭子类型桥 (`src/services/llm/errors.ts`)，同时接受 SDK `APIError`（flag-off）与接缝 `LlmRequestError`（flag-on）：
+| LlmClient 方法 | 替代的 SDK 调用 | 用途 |
+|----------------|----------------|------|
+| `streamMessages(params, {signal,headers})` | `anthropic.beta.messages.create({stream:true})` | 主流式（claude.ts 主循环） |
+| `createMessage(params, {signal,timeoutMs})` | `anthropic.beta.messages.create(...)` | 非流式（verifyApiKey / 非流式 fallback / sideQuery / tokenEstimation）；注入 `_request_id` |
+| `createMessageRaw(params, opts)` | `anthropic.beta.messages.create(...).asResponse()` | 原始 Response（claudeAiLimits 读限流头） |
+| `countTokens(params, opts?)` | `anthropic.beta.messages.countTokens(...)` | 计数（tokenEstimation） |
+| `listModels({betas,signal}?)` | `anthropic.models.list({betas})` | 模型列表（modelCapabilities） |
+
+### 错误层解耦
+
+错误处理不再 `instanceof` SDK 错误类，改用鸭子类型桥 (`src/services/llm/errors.ts`)，接受接缝 `LlmRequestError`：
 
 | 鸭子守卫 | 替代的 SDK 判定 | 判定依据 |
 |----------|----------------|----------|
@@ -209,12 +217,13 @@ flag 关时 `streamViaSeam` 经 Bun DCE 消除，回滚=关 flag。
 | `isTimeoutErrorLike(e)` | `instanceof APIConnectionTimeoutError` | code=TIMEOUT，或 `.name` 含 "Timeout"，或 message 含 "timeout" |
 | `isAbortError(e)` | `instanceof APIUserAbortError` | `.name`∈{APIUserAbortError, AbortError}，或 message="Request was aborted." |
 
-`utils/errors.ts` 的 `isAbortError` 用 `.name`/`.message` 而非 `instanceof`，因 minified build 中 SDK 类名混淆为 `nJT` 且 SDK 不设 `.name`。
+`utils/errors.ts` 的 `isAbortError` 用 `.name`/`.message` 而非 `instanceof`，因 minified build 中类名混淆且不设 `.name`。
 
-### 当前范围与遗留
+### 完成状态
 
-- **已完成**：错误层 12 个文件脱 SDK 运行时；编译后二进制 0 处 `@anthropic-ai/sdk` 错误类引用；firstParty+fusionMlx 经接缝跑通（MLX smoke 200 OK）。
-- **未完成（见 issue #63/#64/#65）**：`client.ts` 的 `new Anthropic(...)` 仍为云 provider（bedrock/vertex/foundry 签名）必需；`package.json` 的 SDK 依赖未移除。接缝当前只覆盖 firstParty+fusionMlx。
+- **已完成**：`package.json` 移除 `@anthropic-ai/sdk` + `@anthropic-ai/foundry-sdk`；`client.ts` 不再 `new Anthropic(...)`；全部 8 处 SDK 方法调用点迁移到 LlmClient；编译后二进制 0 处功能性 `@anthropic-ai/sdk` 引用（残留 1 处为 bedrock/vertex/foundry 抛错的用户可见提示串）。
+- **typecheck 0 错误；build + build:dev:full 通过；514 测试全过**。
+- **遗留（见 fusion-gateway issue）**：bedrock / vertex / foundry 云 provider 直连已移除，需经 fusion-gateway 签名。
 
 ## 辅助函数
 
