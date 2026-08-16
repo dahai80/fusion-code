@@ -443,6 +443,8 @@ v0.4.18 核心特性生产验收 (13 项: 多供应商路由 / Feature Flags / M
 
 See [docs/acceptance-report.md](docs/acceptance-report.md) for full report.
 
+v0.4.19 补丁: LLM Adapter 接缝 (div-anthropic Phase 1-6) — provider 中立的 HTTP/SSE 流式接缝 (`src/services/llm/`), 错误层脱离 `@anthropic-ai/sdk` (形态判定桥), 由 `LLM_ADAPTER_SEAM` feature flag 守护 (default off, `dev-full` 启用), 即时回滚=关 flag。仅覆盖 firstParty + fusionMlx; 云 provider 签名仍走 SDK (后续 issue #63/#64/#65)。pre-landing 审查修复 3 处 SSE 解析回归。验收: typecheck 0 / 单测 116 pass / build green / CI green。详见 [docs/reviews/div-anthropic-review-2026-08-15.md](docs/reviews/div-anthropic-review-2026-08-15.md)。
+
 ### Permission Modes
 
 Press **Shift+Tab** to cycle modes:
