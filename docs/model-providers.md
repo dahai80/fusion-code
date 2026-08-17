@@ -140,6 +140,20 @@ FUSION_API_KEY=sk-ant-xxx FUSION_BASE_URL=https://api.anthropic.com ./fusion-cod
 FUSION_MODEL=claude-sonnet-4-20250514 ./fusion-code
 ```
 
+#### 第三方代理（LiteLLM 等）
+
+第三方代理（baseUrl 非 `api.anthropic.com`，如 LiteLLM）下，`FUSION_API_KEY` 与 `ANTHROPIC_API_KEY` 均可作为 key，`FUSION_API_KEY` 优先。接缝层（去 SDK 后）在第三方代理场景补回了旧 SDK 构造函数对 `ANTHROPIC_API_KEY` 的环境变量回退读取——仅设 `ANTHROPIC_API_KEY`（非 `sk-ant-`）+ 代理 baseUrl 即可工作，无需 `FUSION_API_KEY`。
+
+```bash
+# LiteLLM 代理：仅 ANTHROPIC_API_KEY + ANTHROPIC_BASE_URL
+ANTHROPIC_API_KEY=sk-adco-xxx \
+ANTHROPIC_BASE_URL=http://litellm.proxy:4000 \
+FUSION_MLX_DISABLED=1 \
+./fusion-code --model glm5.2 -p "hi"
+```
+
+> 注意 `FUSION_BASE_URL` 优先级高于 `ANTHROPIC_BASE_URL`（接缝 `resolveFirstPartyBaseUrl` 读取顺序 `FUSION_BASE_URL || ANTHROPIC_BASE_URL`）。若 `FUSION_BASE_URL` 残留 `http://127.0.0.1` 会覆盖代理 URL，导致连接失败——第三方代理场景请用 `ANTHROPIC_BASE_URL` 或清空 `FUSION_BASE_URL`。
+
 ### openai
 
 ```bash
