@@ -75,6 +75,8 @@ export const getHookEventMetadata = memoize(
             'elicitation_dialog',
             'elicitation_complete',
             'elicitation_response',
+            'agent_completed',
+            'agent_needs_input',
           ],
         },
       },
@@ -261,6 +263,11 @@ export const getHookEventMetadata = memoize(
         description:
           'Input to command is JSON with file_path and event (change, add, unlink).\nCLAUDE_ENV_FILE is set — write bash exports there to apply env to subsequent BashTool commands.\nThe matcher field specifies filenames to watch in the current directory (e.g. ".envrc|.env").\nHook output can include hookSpecificOutput.watchPaths (array of absolute paths) to dynamically update the watch list.\nExit code 0 - command completes successfully\nOther exit codes - show stderr to user only',
       },
+      DirectoryAdded: {
+        summary: 'After a working directory is added',
+        description:
+          'Input to command is JSON with directory (absolute path) and source (repl_add_dir or cli_add_dir).\nFires after /add-dir or --add-dir applies the directory to the session.\nHook output can include hookSpecificOutput.watchPaths (array of absolute paths) to register with the FileChanged watcher.\nExit code 0 - command completes successfully\nOther exit codes - show stderr to user only',
+      },
     }
   },
   toolNames => toolNames.slice().sort().join(','),
@@ -299,6 +306,7 @@ export function groupHooksByEventAndMatcher(
     InstructionsLoaded: {},
     CwdChanged: {},
     FileChanged: {},
+    DirectoryAdded: {},
   }
 
   const metadata = getHookEventMetadata(toolNames)

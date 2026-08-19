@@ -39,7 +39,8 @@ export type HookEvent =
 	| "WorktreeRemove"
 	| "InstructionsLoaded"
 	| "CwdChanged"
-	| "FileChanged";
+	| "FileChanged"
+	| "DirectoryAdded";
 
 export type ModelUsage = {
 	costUSD?: number;

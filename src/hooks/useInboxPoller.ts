@@ -16,6 +16,7 @@ import { isInProcessTeammateTask } from "../tasks/InProcessTeammateTask/types.js
 import { getAllBaseTools } from "../tools.js";
 import type { PermissionUpdate } from "../types/permissions.js";
 import { logForDebugging } from "../utils/debug.js";
+import { executeNotificationHooks } from "../utils/hooks.js";
 import {
 	findInProcessTeammateTaskId,
 	handlePlanApprovalResponse,
@@ -362,6 +363,15 @@ export function useInboxPoller({
 					},
 					terminal,
 				);
+				void executeNotificationHooks({
+					message: `${firstParsed.agent_id} needs permission for ${firstParsed.tool_name}`,
+					title: "Agent needs input",
+					notificationType: "agent_needs_input",
+				}).catch((error) => {
+					console.error(
+						`agent_needs_input notification hook failed: ${error instanceof Error ? error.message : "Unknown error"}`,
+					);
+				});
 			}
 		}
 
@@ -460,6 +470,15 @@ export function useInboxPoller({
 						},
 						terminal,
 					);
+					void executeNotificationHooks({
+						message: `${firstRequest.workerName} needs network access to ${firstRequest.host}`,
+						title: "Agent needs input",
+						notificationType: "agent_needs_input",
+					}).catch((error) => {
+						console.error(
+							`agent_needs_input notification hook failed: ${error instanceof Error ? error.message : "Unknown error"}`,
+						);
+					});
 				}
 			}
 		}

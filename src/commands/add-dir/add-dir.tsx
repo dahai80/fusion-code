@@ -11,6 +11,7 @@ import type { LocalJSXCommandOnDone } from '../../types/command.js';
 import { applyPermissionUpdate, persistPermissionUpdate } from '../../utils/permissions/PermissionUpdate.js';
 import type { PermissionUpdateDestination } from '../../utils/permissions/PermissionUpdateSchema.js';
 import { SandboxManager } from '../../utils/sandbox/sandbox-adapter.js';
+import { executeDirectoryAddedHooks } from '../../utils/hooks.js';
 import { addDirHelpMessage, validateDirectoryForWorkspace } from './validation.js';
 function AddDirError(t0) {
   const $ = _c(10);
@@ -92,6 +93,11 @@ export async function call(onDone: LocalJSXCommandOnDone, context: LocalJSXComma
       setAdditionalDirectoriesForClaudeMd([...currentDirs, path]);
     }
     SandboxManager.refreshConfig();
+    void executeDirectoryAddedHooks(path, 'repl_add_dir').catch((error) => {
+      console.error(
+        `DirectoryAdded hook failed: ${error instanceof Error ? error.message : 'Unknown error'}`,
+      );
+    });
     let message: string;
     if (remember) {
       try {

@@ -40,6 +40,7 @@ export type HookEvent =
   | 'InstructionsLoaded'
   | 'CwdChanged'
   | 'FileChanged'
+  | 'DirectoryAdded'
 
 export type ModelUsage = {
   costUSD?: number
@@ -281,6 +282,11 @@ export type CwdChangedHookInput = HookInput & {
 export type FileChangedHookInput = HookInput & {
   hook_event_name: 'FileChanged'
   file_path: string
+}
+export type DirectoryAddedHookInput = HookInput & {
+  hook_event_name: 'DirectoryAdded'
+  directory: string
+  source: 'repl_add_dir' | 'cli_add_dir'
 }
 export type InstructionsLoadedHookInput = HookInput & {
   hook_event_name: 'InstructionsLoaded'

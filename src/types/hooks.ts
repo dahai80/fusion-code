@@ -156,6 +156,13 @@ export const syncHookResponseSchema = lazySchema(() =>
 						.optional(),
 				}),
 				z.object({
+					hookEventName: z.literal("DirectoryAdded"),
+					watchPaths: z
+						.array(z.string())
+						.describe("Absolute paths to watch for FileChanged hooks")
+						.optional(),
+				}),
+				z.object({
 					hookEventName: z.literal("WorktreeCreate"),
 					worktreePath: z.string(),
 				}),
