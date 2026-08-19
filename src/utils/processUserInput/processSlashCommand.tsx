@@ -1,8 +1,4 @@
 import { feature } from "bun:bundle";
-import type {
-	ContentBlockParam,
-	TextBlockParam,
-} from "src/types/anthropic-protocol.js";
 import { randomUUID } from "crypto";
 import { setPromptId } from "src/bootstrap/state.js";
 import {
@@ -18,6 +14,10 @@ import {
 } from "src/commands.js";
 import { NO_CONTENT_MESSAGE } from "src/constants/messages.js";
 import type { SetToolJSXFn, ToolUseContext } from "src/Tool.js";
+import type {
+	ContentBlockParam,
+	TextBlockParam,
+} from "src/types/anthropic-protocol.js";
 import type {
 	AssistantMessage,
 	AttachmentMessage,
@@ -86,7 +86,11 @@ import {
 	isRestrictedToPluginOnly,
 	isSourceAdminTrusted,
 } from "../settings/pluginOnlyPolicy.js";
-import { parseSlashCommand } from "../slashCommandParsing.js";
+import {
+	parseSlashCommand,
+	parseStackedSlashCommands,
+	type StackedSlashParse,
+} from "../slashCommandParsing.js";
 import { sleep } from "../sleep.js";
 import { recordSkillUsage } from "../suggestions/skillUsageTracking.js";
 import { logOTelEvent, redactIfDisabled } from "../telemetry/events.js";
@@ -388,6 +392,116 @@ export function looksLikeCommand(commandName: string): boolean {
 	// If it contains other characters, it's probably a file path or other input
 	return !/[^a-zA-Z0-9:\-_]/.test(commandName);
 }
+
+// 堆叠 slash-skill 分发: 前导 N-1 条 prompt-type skill 注入 context (串联 content),
+// 终末命令 (最后一条 /cmd) 以 freeText 作 args 生实际 turn。
+// 返回 null 表示无法堆叠 (命令缺失/前导非 prompt-type), 调用方回退单命令路径。
+async function processStackedSlashCommands(
+	stacked: StackedSlashParse,
+	precedingInputBlocks: ContentBlockParam[],
+	imageContentBlocks: ContentBlockParam[],
+	context: ProcessUserInputContext,
+	setToolJSX: SetToolJSXFn,
+	uuid?: string,
+	isAlreadyProcessing?: boolean,
+	canUseTool?: CanUseToolFn,
+): Promise<ProcessUserInputBaseResult | null> {
+	const commands = stacked.commands;
+	// 全部命令须存在; 前导 (除终末外) 须 prompt-type (local-jsx 无法静默注入 context)
+	const resolved: (CommandBase & PromptCommand)[] = [];
+	for (let i = 0; i < commands.length - 1; i++) {
+		const cmd = getCommand(commands[i]!.commandName, context.options.commands);
+		if (!cmd || cmd.type !== "prompt") {
+			return null;
+		}
+		resolved.push(cmd);
+	}
+	const terminalName = commands[commands.length - 1]!.commandName;
+	const terminalCmd = getCommand(terminalName, context.options.commands);
+	// 终末须存在且 prompt-type (local-jsx 终末不在堆叠范围)
+	if (!terminalCmd || terminalCmd.type !== "prompt") {
+		return null;
+	}
+
+	// 累积前导技能 content (每条 getPromptForCommand 取空 args, 仅注入 context)
+	const sessionId = getSessionId();
+	const stackedContextParts: string[] = [];
+	for (const cmd of resolved) {
+		try {
+			const raw = await cmd.getPromptForCommand("", context);
+			const text =
+				typeof raw === "string"
+					? raw
+					: raw
+							.filter((b): b is TextBlockParam => b.type === "text")
+							.map((b) => b.text)
+							.join("\n\n");
+			if (text) {
+				stackedContextParts.push(text);
+			}
+			// 注册 skill hooks (与 getMessagesForPromptSlashCommand 一致)
+			const hooksAllowed =
+				!isRestrictedToPluginOnly("hooks") || isSourceAdminTrusted(cmd.source);
+			if (cmd.hooks && hooksAllowed) {
+				registerSkillHooks(
+					context.setAppState,
+					sessionId,
+					cmd.hooks,
+					cmd.name,
+					cmd.type === "prompt" ? cmd.skillRoot : undefined,
+				);
+			}
+			// 记录技能调用 (compaction 保留)
+			const skillPath = cmd.source ? `${cmd.source}:${cmd.name}` : cmd.name;
+			addInvokedSkill(
+				cmd.name,
+				skillPath,
+				text,
+				getAgentContext()?.agentId ?? null,
+			);
+			recordSkillUsage(cmd.name);
+		} catch (error) {
+			logError(error);
+		}
+	}
+
+	// 终末命令以 freeText 作 args 走标准分发
+	const terminalResult = await getMessagesForSlashCommand(
+		terminalName,
+		stacked.freeText,
+		setToolJSX,
+		context,
+		precedingInputBlocks,
+		imageContentBlocks,
+		isAlreadyProcessing,
+		canUseTool,
+		uuid,
+	);
+
+	// 合并: 若有累积 context, 作为 isMeta 前缀插入终末 main content 之前
+	if (stackedContextParts.length > 0 && terminalResult.messages.length > 0) {
+		const stackedContextMessage = createUserMessage({
+			content: `<stacked-skill-context>\n${stackedContextParts.join("\n\n")}\n</stacked-skill-context>`,
+			isMeta: true,
+		});
+		// 终末 prompt 路径: messages = [metadata, isMeta:mainContent, ...attachments, command_permissions]
+		// 在 mainContent (index 1) 前插入 context
+		const insertAt = Math.min(1, terminalResult.messages.length);
+		terminalResult.messages.splice(insertAt, 0, stackedContextMessage);
+	}
+
+	return {
+		messages: terminalResult.messages,
+		shouldQuery: terminalResult.shouldQuery,
+		allowedTools: terminalResult.allowedTools,
+		disallowedTools: terminalResult.disallowedTools,
+		model: terminalResult.model,
+		effort: terminalResult.effort,
+		nextInput: terminalResult.nextInput,
+		submitNextInput: terminalResult.submitNextInput,
+		resultText: terminalResult.resultText,
+	};
+}
 export async function processSlashCommand(
 	inputString: string,
 	precedingInputBlocks: ContentBlockParam[],
@@ -419,6 +533,28 @@ export async function processSlashCommand(
 		};
 	}
 	const { commandName, args: parsedArgs, isMcp } = parsed;
+
+	// 堆叠 slash-skill 调用 (对齐 CC 2.1.199 "最多 5 前导技能"):
+	// /skill-a /skill-b do XYZ -> 前导技能注入 context, 终末命令 (或 free-text) 生实际 turn。
+	// 仅当 >=2 前导 slash 命令, 且前 N-1 条均为 prompt-type skill 时触发。
+	const stacked = parseStackedSlashCommands(inputString);
+	if (stacked && stacked.commands.length >= 2) {
+		const stackedResult = await processStackedSlashCommands(
+			stacked,
+			precedingInputBlocks,
+			imageContentBlocks,
+			context,
+			setToolJSX,
+			uuid,
+			isAlreadyProcessing,
+			canUseTool,
+		);
+		if (stackedResult) {
+			return stackedResult;
+		}
+		// stackedResult null = 终末命令非 prompt/local-jsx 或前导有非法技能,
+		// 回退单命令路径 (下方用 parsed 继续处理首个命令)。
+	}
 	const sanitizedCommandName = isMcp
 		? "mcp"
 		: !builtInCommandNames().has(commandName)
