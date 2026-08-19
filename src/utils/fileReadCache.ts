@@ -14,6 +14,9 @@ type CachedFileData = {
 class FileReadCache {
   private cache = new Map<string, CachedFileData>()
   private readonly maxCacheSize = 1000
+  // 对齐 CC 2.1.208 (issue #75): 字节上限, 防 1000 大文件无界占内存 (如 1000×10MB≈10GB)
+  private readonly maxCacheBytes = 16 * 1024 * 1024
+  private currentBytes = 0
 
   /**
    * Reads a file with caching. Returns both content and encoding.
@@ -49,20 +52,36 @@ class FileReadCache {
       .readFileSync(filePath, { encoding })
       .replaceAll('\r\n', '\n')
 
+    // 覆盖旧条目时先扣旧字节 (避免重复计)
+    const oldEntry = this.cache.get(cacheKey)
+    if (oldEntry) {
+      this.currentBytes -= Buffer.byteLength(oldEntry.content)
+    }
+    const entryBytes = Buffer.byteLength(content)
+
     // Update cache
     this.cache.set(cacheKey, {
       content,
       encoding,
       mtime: stats.mtimeMs,
     })
+    this.currentBytes += entryBytes
 
-    // Evict 10% of oldest entries when cache exceeds max size
+    // Evict 10% of oldest entries when cache exceeds max size OR max bytes
+    // (对齐 CC 2.1.208: entry-count + byte 双 cap, issue #75)
     // This amortizes eviction cost instead of evicting one entry per insert
-    if (this.cache.size > this.maxCacheSize) {
+    if (
+      this.cache.size > this.maxCacheSize ||
+      this.currentBytes > this.maxCacheBytes
+    ) {
       const evictCount = Math.max(1, Math.floor(this.maxCacheSize * 0.1))
       let evicted = 0
       for (const key of this.cache.keys()) {
         if (evicted >= evictCount) break
+        const evictedEntry = this.cache.get(key)
+        if (evictedEntry) {
+          this.currentBytes -= Buffer.byteLength(evictedEntry.content)
+        }
         this.cache.delete(key)
         evicted++
       }
@@ -76,12 +95,17 @@ class FileReadCache {
    */
   clear(): void {
     this.cache.clear()
+    this.currentBytes = 0
   }
 
   /**
    * Removes a specific file from the cache.
    */
   invalidate(filePath: string): void {
+    const entry = this.cache.get(filePath)
+    if (entry) {
+      this.currentBytes -= Buffer.byteLength(entry.content)
+    }
     this.cache.delete(filePath)
   }
 
