@@ -312,15 +312,24 @@ export function getAnthropicApiKeyWithSource(
 	const baseUrl =
 		process.env.FUSION_BASE_URL || process.env.ANTHROPIC_BASE_URL || "";
 	const isThirdPartyProxy = baseUrl && !baseUrl.includes("api.anthropic.com");
+	// 第三方代理回退: 旧 SDK 构造函数在 apiKey 为空时会直接读取 ANTHROPIC_API_KEY
+	// 环境变量。接缝层 (seam) 不经 SDK, 丢失了这一回退。此处为第三方代理场景补回
+	// ANTHROPIC_API_KEY 读取 (FUSION_API_KEY 仍优先), 保持前后行为一致。
+	// 仅限第三方代理 (非 Anthropic 域名): firstParty 直连 Anthropic 仍走 approved 列表。
+	const fallbackKeyEnv = isThirdPartyProxy
+		? process.env.ANTHROPIC_API_KEY
+		: undefined;
 	if (
-		apiKeyEnv &&
+		(apiKeyEnv || fallbackKeyEnv) &&
 		(isThirdPartyProxy ||
-			getGlobalConfig().customApiKeyResponses?.approved?.includes(
-				normalizeApiKeyForConfig(apiKeyEnv),
-			))
+			(apiKeyEnv &&
+				getGlobalConfig().customApiKeyResponses?.approved?.includes(
+					normalizeApiKeyForConfig(apiKeyEnv),
+				)))
 	) {
+		const key = apiKeyEnv ?? fallbackKeyEnv;
 		return {
-			key: apiKeyEnv,
+			key: key ?? null,
 			source: "FUSION_API_KEY",
 		};
 	}

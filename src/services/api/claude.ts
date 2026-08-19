@@ -103,7 +103,6 @@ const autoModeStateModule =
 	require("../../utils/permissions/autoModeState.js") as typeof import("../../utils/permissions/autoModeState.js");
 
 import { feature } from "bun:bundle";
-import { isApiErrorLike } from "../llm/errors.js";
 import {
 	getAfkModeHeaderLatched,
 	getCacheEditingHeaderLatched,
@@ -221,8 +220,9 @@ import {
 	markToolsSentToAPIState,
 	pinCacheEdits,
 } from "../compact/microCompact.js";
+import { isApiErrorLike } from "../llm/errors.js";
 // LLM 接缝 (Phase 4): flag 开时用 streamViaSeam 替代 SDK 流式; 关时 DCE 消除
-import { isSeamActive, streamViaSeam } from "../llm/seam.js";
+import { streamViaSeam } from "../llm/seam.js";
 import { getInitializationStatus } from "../lsp/manager.js";
 import { isToolFromMcpServer } from "../mcp/utils.js";
 import { withStreamingVCR, withVCR } from "../vcr.js";
@@ -555,15 +555,18 @@ export async function verifyApiKey(
 				async (anthropic) => {
 					const messages: MessageParam[] = [{ role: "user", content: "test" }];
 					// biome-ignore lint/plugin: API key verification is intentionally a minimal direct call
-					await anthropic.beta.messages.create({
-						model,
-						max_tokens: 1,
-						messages,
-						temperature: 1,
-						...(betas.length > 0 && { betas }),
-						metadata: getAPIMetadata(),
-						...getExtraBodyParams(),
-					});
+					await anthropic.createMessage(
+						{
+							model,
+							max_tokens: 1,
+							messages,
+							temperature: 1,
+							...(betas.length > 0 && { betas }),
+							metadata: getAPIMetadata(),
+							...getExtraBodyParams(),
+						},
+						{},
+					);
 					return true;
 				},
 				{ maxRetries: 2, model, thinkingConfig: { type: "disabled" } }, // Use fewer retries for API key verification
@@ -867,16 +870,16 @@ export async function* executeNonStreamingRequest(
 
 			try {
 				// biome-ignore lint/plugin: non-streaming API call
-				return await anthropic.beta.messages.create(
+				return (await anthropic.createMessage(
 					{
 						...adjustedParams,
 						model: normalizeModelStringForAPI(adjustedParams.model),
 					},
 					{
 						signal: retryOptions.signal,
-						timeout: fallbackTimeoutMs,
+						timeoutMs: fallbackTimeoutMs,
 					},
-				);
+				)) as unknown as BetaMessage;
 			} catch (err) {
 				// User aborts are not errors — re-throw immediately without logging
 				if (isAbortError(err)) throw err;
@@ -1817,32 +1820,22 @@ async function* queryModel(
 				// since we handle tool input accumulation ourselves
 				// biome-ignore lint/plugin: main conversation loop handles attribution separately
 				//
-				// LLM 接缝 (Phase 4): flag 开时走 streamViaSeam (直接 HTTP+SSE,不经 SDK),
-				// 复用下方 switch (streamViaSeam 产出结构兼容的 SDK part)。
-				// flag 关时走 SDK 原路径, 行为不变; 回滚=关 LLM_ADAPTER_SEAM。
-				if (isSeamActive(options.model)) {
-					queryCheckpoint("query_response_headers_received");
-					return streamViaSeam(
-						params,
-						signal,
-						options.model,
-					) as unknown as typeof result.data;
-				}
-				const result = await anthropic.beta.messages
-					.create(
-						{ ...params, stream: true },
-						{
-							signal,
-							...(clientRequestId && {
-								headers: { [CLIENT_REQUEST_ID_HEADER]: clientRequestId },
-							}),
-						},
-					)
-					.withResponse();
+				// LLM 接缝 (div-anthropic): SDK 已移除, 主流式统一走 streamViaSeam
+				// (直接 HTTP+SSE -> StreamChunk -> SDK part, 结构兼容 BetaRawMessageStreamEvent)。
+				// requestId/response 填充 streamRequestId/streamResponse, 保留与旧 SDK
+				// .withResponse() 一致的 request_id 追踪与 body 取消能力。
+				const seamStream = await streamViaSeam(
+					params,
+					signal,
+					options.model,
+					clientRequestId
+						? { [CLIENT_REQUEST_ID_HEADER]: clientRequestId }
+						: undefined,
+				);
 				queryCheckpoint("query_response_headers_received");
-				streamRequestId = result.request_id;
-				streamResponse = result.response;
-				return result.data;
+				streamRequestId = seamStream.requestId;
+				streamResponse = seamStream.response;
+				return seamStream.stream as unknown as Stream<BetaRawMessageStreamEvent>;
 			},
 			{
 				model: options.model,
@@ -2737,7 +2730,7 @@ async function* queryModel(
 						? (error as { requestID?: string }).requestID
 						: undefined) ||
 					(isApiErrorLike(error)
-						? ((error as { error?: { request_id?: string } }).error)?.request_id
+						? (error as { error?: { request_id?: string } }).error?.request_id
 						: undefined);
 
 				logAPIError({
@@ -2795,7 +2788,7 @@ async function* queryModel(
 					? (error as { requestID?: string }).requestID
 					: undefined) ||
 				(isApiErrorLike(error)
-					? ((error as { error?: { request_id?: string } }).error)?.request_id
+					? (error as { error?: { request_id?: string } }).error?.request_id
 					: undefined);
 
 			logAPIError({

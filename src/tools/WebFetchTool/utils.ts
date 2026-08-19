@@ -617,7 +617,7 @@ export async function applyPromptToMarkdown(
 	const { content } = assistantMessage.message;
 	if (content.length > 0) {
 		const contentBlock = content[0];
-		if ("text" in contentBlock!) {
+		if (contentBlock.type === "text") {
 			return contentBlock.text;
 		}
 	}

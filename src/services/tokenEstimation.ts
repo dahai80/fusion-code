@@ -1,5 +1,7 @@
-import type { Anthropic } from "src/types/anthropic-protocol.js";
-import type { BetaMessageParam as MessageParam } from "src/types/anthropic-protocol.js";
+import type {
+	Anthropic,
+	BetaMessageParam as MessageParam,
+} from "src/types/anthropic-protocol.js";
 import { getAPIProvider } from "src/utils/model/providers.js";
 import { VERTEX_COUNT_TOKENS_ALLOWED_BETAS } from "../constants/betas.js";
 import type { Attachment } from "../utils/attachments.js";
@@ -147,7 +149,7 @@ export async function countMessagesTokensWithAPI(
 
 			const filteredBetas = betas;
 
-			const response = await anthropic.beta.messages.countTokens({
+			const response = await anthropic.countTokens({
 				model: normalizeModelStringForAPI(model),
 				messages:
 					// When we pass tools and no messages, we need to pass a dummy message
@@ -274,22 +276,25 @@ export async function countTokensViaHaikuFallback(
 			: betas;
 
 	// biome-ignore lint/plugin: token counting needs specialized parameters (thinking, betas) that sideQuery doesn't support
-	const response = await anthropic.beta.messages.create({
-		model: normalizeModelStringForAPI(model),
-		max_tokens: containsThinking ? TOKEN_COUNT_MAX_TOKENS : 1,
-		messages: messagesToSend,
-		tools: tools.length > 0 ? tools : undefined,
-		...(filteredBetas.length > 0 && { betas: filteredBetas }),
-		metadata: getAPIMetadata(),
-		...getExtraBodyParams(),
-		// Enable thinking if messages contain thinking blocks
-		...(containsThinking && {
-			thinking: {
-				type: "enabled",
-				budget_tokens: TOKEN_COUNT_THINKING_BUDGET,
-			},
-		}),
-	});
+	const response = await anthropic.createMessage(
+		{
+			model: normalizeModelStringForAPI(model),
+			max_tokens: containsThinking ? TOKEN_COUNT_MAX_TOKENS : 1,
+			messages: messagesToSend,
+			tools: tools.length > 0 ? tools : undefined,
+			...(filteredBetas.length > 0 && { betas: filteredBetas }),
+			metadata: getAPIMetadata(),
+			...getExtraBodyParams(),
+			// Enable thinking if messages contain thinking blocks
+			...(containsThinking && {
+				thinking: {
+					type: "enabled",
+					budget_tokens: TOKEN_COUNT_THINKING_BUDGET,
+				},
+			}),
+		},
+		{},
+	);
 
 	const usage = response.usage;
 	const inputTokens = usage.input_tokens;

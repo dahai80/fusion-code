@@ -9,6 +9,7 @@ import type {
 	SDKSystemMessage,
 	SDKToolProgressMessage,
 } from "../entrypoints/agentSdkTypes.js";
+import type { ContentBlockParam } from "../types/anthropic-protocol.js";
 import type {
 	AssistantMessage,
 	Message,
@@ -204,8 +205,7 @@ export function convertSDKMessage(
 				return {
 					type: "message",
 					message: createUserMessage({
-						content:
-							content as import("@anthropic-ai/sdk/resources/messages/messages.mjs").ContentBlockParam[],
+						content: content as ContentBlockParam[],
 						toolUseResult: userMsg.tool_use_result,
 						uuid: userMsg.uuid as string | undefined,
 						timestamp: userMsg.timestamp as string | undefined,
@@ -220,9 +220,7 @@ export function convertSDKMessage(
 					return {
 						type: "message",
 						message: createUserMessage({
-							content: content as
-								| string
-								| import("@anthropic-ai/sdk/resources/messages/messages.mjs").ContentBlockParam[],
+							content: content as string | ContentBlockParam[],
 							toolUseResult: userMsg.tool_use_result,
 							uuid: userMsg.uuid as string | undefined,
 							timestamp: userMsg.timestamp as string | undefined,

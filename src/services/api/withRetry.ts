@@ -1,7 +1,6 @@
 import { feature } from "bun:bundle";
-import type { AnthropicDefault as Anthropic } from "src/types/anthropic-protocol.js";
-import type { APIError } from "src/types/anthropic-protocol.js";
 import type { QuerySource } from "src/constants/querySource.js";
+import type { APIError } from "src/types/anthropic-protocol.js";
 import type { SystemAPIErrorMessage } from "src/types/message.js";
 import { logForDebugging } from "src/utils/debug.js";
 import { logError } from "src/utils/log.js";
@@ -35,12 +34,7 @@ import {
 	type AnalyticsMetadata_I_VERIFIED_THIS_IS_NOT_CODE_OR_FILEPATHS,
 	logEvent,
 } from "../analytics/index.js";
-import {
-	checkMockRateLimitError,
-	isMockRateLimitError,
-} from "../rateLimitMocking.js";
-import { REPEATED_529_ERROR_MESSAGE } from "./errors.js";
-import { extractConnectionErrorDetails } from "./errorUtils.js";
+import type { LlmClient } from "../llm/client.js";
 // LLM 接缝 (Phase 5): 用形态判定替代 instanceof APIError/APIConnectionError/APIUserAbortError,
 // 同时接纳 SDK 抛出的 APIError (flag 关) 与 seam 抛出的 LlmRequestError (flag 开)。
 import {
@@ -48,6 +42,12 @@ import {
 	isApiErrorLike,
 	isConnectionErrorLike,
 } from "../llm/errors.js";
+import {
+	checkMockRateLimitError,
+	isMockRateLimitError,
+} from "../rateLimitMocking.js";
+import { REPEATED_529_ERROR_MESSAGE } from "./errors.js";
+import { extractConnectionErrorDetails } from "./errorUtils.js";
 
 // 中断错误工厂: 返回 name="AbortError" 的 Error, isAbortErrorLike 可识别。
 // 替代 SDK 的 new APIUserAbortError(); sleep 的 abortError 选项要求 () => Error。
@@ -121,9 +121,7 @@ function isPersistentRetryEnabled(): boolean {
 }
 
 function isTransientCapacityError(error: unknown): boolean {
-	return (
-		is529Error(error) || (isApiErrorLike(error) && error.status === 429)
-	);
+	return is529Error(error) || (isApiErrorLike(error) && error.status === 429);
 }
 
 function isStaleConnectionError(error: unknown): boolean {
@@ -185,9 +183,9 @@ export class FallbackTriggeredError extends Error {
 }
 
 export async function* withRetry<T>(
-	getClient: () => Promise<Anthropic>,
+	getClient: () => Promise<LlmClient>,
 	operation: (
-		client: Anthropic,
+		client: LlmClient,
 		attempt: number,
 		context: RetryContext,
 	) => Promise<T>,
@@ -199,7 +197,7 @@ export async function* withRetry<T>(
 		thinkingConfig: options.thinkingConfig,
 		...(isFastModeEnabled() && { fastMode: options.fastMode }),
 	};
-	let client: Anthropic | null = null;
+	let client: LlmClient | null = null;
 	let consecutive529Errors = options.initialConsecutive529Errors ?? 0;
 	let lastError: unknown;
 	let persistentAttempt = 0;
@@ -342,8 +340,7 @@ export async function* withRetry<T>(
 
 			// Track consecutive 529/429 errors — trigger fallback for all models with a fallback configured
 			const isOverloadOrRateLimit =
-				is529Error(error) ||
-				(isApiErrorLike(error) && error.status === 429);
+				is529Error(error) || (isApiErrorLike(error) && error.status === 429);
 			if (isOverloadOrRateLimit) {
 				consecutive529Errors++;
 				if (consecutive529Errors >= MAX_529_RETRIES) {
@@ -487,7 +484,9 @@ export async function* withRetry<T>(
 				delayMs: delayMs,
 				error: (isApiErrorLike(error)
 					? error.message
-					: errorMessage(error)) as AnalyticsMetadata_I_VERIFIED_THIS_IS_NOT_CODE_OR_FILEPATHS,
+					: errorMessage(
+							error,
+						)) as AnalyticsMetadata_I_VERIFIED_THIS_IS_NOT_CODE_OR_FILEPATHS,
 				status: isApiErrorLike(error) ? error.status : undefined,
 				provider: getAPIProviderForStatsig(),
 			});
@@ -567,9 +566,7 @@ export function getRetryDelay(
 	return baseDelay + jitter;
 }
 
-export function parseMaxTokensContextOverflowError(
-	error: ApiErrorLike,
-):
+export function parseMaxTokensContextOverflowError(error: ApiErrorLike):
 	| {
 			inputTokens: number;
 			maxTokens: number;
@@ -665,7 +662,6 @@ function handleAwsCredentialError(_error: unknown): boolean {
 // google-auth-library throws plain Error (no typed name like AWS's
 // CredentialsProviderError). Match common SDK-level credential-failure messages.
 // isGoogleAuthLibraryCredentialError removed (unused)
-
 
 function isVertexAuthError(_error: unknown): boolean {
 	return false;

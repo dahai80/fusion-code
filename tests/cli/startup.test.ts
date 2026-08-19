@@ -299,6 +299,84 @@ describe("认证和授权", () => {
 	});
 });
 
+// ─── 第三方代理 API Key 回退 (div-anthropic 回归修复) ──────
+// 背景: 旧 SDK 构造函数在 apiKey 为空时直接读取 ANTHROPIC_API_KEY 环境变量。
+// 接缝层 (seam) 不经 SDK, 丢失了这一回退 → 仅设 ANTHROPIC_API_KEY (非 sk-ant)
+// + 第三方代理 baseUrl 时, firstParty 路径拿不到 key → 401/连接失败。
+// 修复: auth 层在第三方代理场景下回退读取 ANTHROPIC_API_KEY (FUSION_API_KEY 仍优先)。
+describe("第三方代理 API Key 回退", () => {
+	const savedNodeEnv = process.env.NODE_ENV;
+	beforeEach(() => {
+		// 确保非 fusionMlx provider (否则 auth 提前返回 null)
+		delete process.env.FUSION_MLX_ENABLED;
+		delete process.env.FUSION_GATEWAY_ENABLED;
+		process.env.FUSION_MLX_DISABLED = "1";
+		// 清空 key 环境变量, 由各用例按需设置
+		delete process.env.FUSION_API_KEY;
+		delete process.env.ANTHROPIC_API_KEY;
+		delete process.env.FUSION_BASE_URL;
+		delete process.env.ANTHROPIC_BASE_URL;
+		// 确保非 bare/CI/非交互 (走第三方代理分支, 不走提前返回)
+		delete process.env.FUSION_CODE_SIMPLE;
+		delete process.env.CI;
+		// bun test 默认 NODE_ENV=test 会触发 auth 的 CI 分支 (无 key 即抛错)。
+		// 本组用例验证非 CI 的第三方代理回退分支, 临时改为 production 绕过。
+		process.env.NODE_ENV = "production";
+	});
+	afterEach(() => {
+		// 显式恢复本组改动的环境变量, 避免污染后续 describe (FUSION_MLX_DISABLED 等)
+		process.env.NODE_ENV = savedNodeEnv;
+		delete process.env.FUSION_MLX_DISABLED;
+	});
+
+	it("FUSION_API_KEY 优先于 ANTHROPIC_API_KEY (第三方代理)", async () => {
+		process.env.ANTHROPIC_BASE_URL = "http://litellm.proxy:4000";
+		process.env.FUSION_API_KEY = "sk-fusion-priority";
+		process.env.ANTHROPIC_API_KEY = "sk-anthropic-fallback";
+		const { getAnthropicApiKeyWithSource } = await import(
+			"../../src/utils/auth.js"
+		);
+		const result = getAnthropicApiKeyWithSource();
+		expect(result.key).toBe("sk-fusion-priority");
+		expect(result.source).toBe("FUSION_API_KEY");
+	});
+
+	it("仅 ANTHROPIC_API_KEY 时第三方代理回退读取 (回归修复核心)", async () => {
+		process.env.ANTHROPIC_BASE_URL = "http://litellm.proxy:4000";
+		process.env.ANTHROPIC_API_KEY = "sk-anthropic-only";
+		const { getAnthropicApiKeyWithSource } = await import(
+			"../../src/utils/auth.js"
+		);
+		const result = getAnthropicApiKeyWithSource();
+		expect(result.key).toBe("sk-anthropic-only");
+		expect(result.source).toBe("FUSION_API_KEY");
+	});
+
+	it("FUSION_BASE_URL 指向第三方代理时同样回退", async () => {
+		process.env.FUSION_BASE_URL = "http://litellm.proxy:4000";
+		process.env.ANTHROPIC_API_KEY = "sk-via-fusion-base";
+		const { getAnthropicApiKeyWithSource } = await import(
+			"../../src/utils/auth.js"
+		);
+		const result = getAnthropicApiKeyWithSource();
+		expect(result.key).toBe("sk-via-fusion-base");
+	});
+
+	it("FUSION_BASE_URL 优先级高于 ANTHROPIC_BASE_URL (resolveFirstPartyBaseUrl)", async () => {
+		// seam 的 resolveFirstPartyBaseUrl: FUSION_BASE_URL || ANTHROPIC_BASE_URL
+		// 两者都设时 FUSION_BASE_URL 胜出, 这是之前误用 127.0.0.1 覆盖代理的根因
+		process.env.FUSION_BASE_URL = "http://fusion-first:4000";
+		process.env.ANTHROPIC_BASE_URL = "http://anthropic-second:4000";
+		process.env.ANTHROPIC_API_KEY = "sk-prio";
+		const { getAnthropicApiKeyWithSource } = await import(
+			"../../src/utils/auth.js"
+		);
+		const result = getAnthropicApiKeyWithSource();
+		// key 回退生效 (FUSION_BASE_URL 也是第三方代理)
+		expect(result.key).toBe("sk-prio");
+	});
+});
+
 // ─── 成本计算 ──────────────────────────────────────────────
 
 describe("成本计算", () => {

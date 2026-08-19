@@ -10,6 +10,7 @@
 //   src/utils/cch.ts       computeCch/replaceCchPlaceholder/hasCchPlaceholder
 
 import { randomUUID } from "node:crypto";
+import type { SdkFetch } from "../../types/anthropic-protocol.js";
 import { getAnthropicApiKey } from "../../utils/auth.js";
 import {
 	computeCch,
@@ -32,8 +33,8 @@ export interface PostMessagesOptions {
 	signal?: AbortSignal;
 	timeoutMs?: number;
 	// 可选 fetch 注入 (fusion-mlx 路径用 createFusionMlxFetch 拦截并转译)。
-	// 缺省走 globalThis.fetch。
-	fetchFn?: typeof fetch;
+	// 缺省走 globalThis.fetch。类型用 SdkFetch (无 preconnect), 兼容 SDK fetch 与注入测试。
+	fetchFn?: SdkFetch;
 }
 
 export interface PostMessagesResult {

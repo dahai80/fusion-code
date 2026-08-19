@@ -86,7 +86,7 @@ export function finalContextTokensFromLastResponse(
 		if (usage) {
 			// Stainless types don't include iterations yet — cast like advisor.ts:43
 			const iterations = (
-				usage as {
+				usage as unknown as {
 					iterations?: Array<{
 						input_tokens: number;
 						output_tokens: number;
