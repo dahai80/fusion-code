@@ -235,7 +235,8 @@ claude.ts queryModel()
 
 ### 完成状态
 
-- **已完成**：`package.json` 移除 `@anthropic-ai/sdk` + `@anthropic-ai/foundry-sdk`；`client.ts` 不再 `new Anthropic(...)`；全部 8 处 SDK 方法调用点迁移到 LlmClient；编译后二进制 0 处功能性 `@anthropic-ai/sdk` 引用（残留 1 处为 bedrock/vertex/foundry 抛错的用户可见提示串）。
+- **已完成**：`package.json` 移除 `@anthropic-ai/sdk` + `@anthropic-ai/foundry-sdk` + `@anthropic-ai/claude-agent-sdk`；`client.ts` 不再 `new Anthropic(...)`；全部 8 处 SDK 方法调用点迁移到 LlmClient；编译后二进制 0 处功能性 `@anthropic-ai/sdk` 引用（残留 1 处为 bedrock/vertex/foundry 抛错的用户可见提示串）。
+- **D3 三包评估完成**（issue #65, PR #68）：`@anthropic-ai/claude-agent-sdk` **彻底移除**（print.ts:132 纯 `import type`，本地 `PermissionMode` 6 模式等价覆盖；附带切断 claude-agent-sdk 顶层 deps 含 `@anthropic-ai/sdk` 的传递拉取，连 8 平台原生子包一并移除）；`@anthropic-ai/sandbox-runtime` **保留**（OS 级沙箱执行，无原生等价）；`@anthropic-ai/mcpb` **保留**（Bundle manifest 解包独有，`@modelcontextprotocol/sdk` 无覆盖，已懒加载）。最终 `package.json` 仅余此两运行时必需包。
 - **typecheck 0 错误；build + build:dev:full 通过；514 测试全过**。
 - **遗留（见 fusion-gateway issue）**：bedrock / vertex / foundry 云 provider 直连已移除，需经 fusion-gateway 签名。
 
