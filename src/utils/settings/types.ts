@@ -939,6 +939,12 @@ export const SettingsSchema = lazySchema(() =>
 				.describe(
 					"Reduce or disable animations for accessibility (spinner shimmer, flash effects, etc.)",
 				),
+			axScreenReader: z
+				.boolean()
+				.optional()
+				.describe(
+					"Enable screen reader mode (alias for prefersReducedMotion via settings.json, CC 2.1.208). getInitialSettings maps this to prefersReducedMotion at runtime.",
+				),
 			autoMemoryEnabled: z
 				.boolean()
 				.optional()
