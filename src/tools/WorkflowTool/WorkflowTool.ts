@@ -1,11 +1,14 @@
+import { feature } from "bun:bundle";
 import { randomUUID } from "node:crypto";
 import { readFile } from "node:fs/promises";
 import { z } from "zod/v4";
 import { buildTool } from "../../Tool.js";
 import { logForDebugging } from "../../utils/debug.js";
 import { lazySchema } from "../../utils/lazySchema.js";
+import { emitPerfettoInstant } from "../../utils/telemetry/perfettoTracing.js";
 import { WORKFLOW_TOOL_NAME } from "./constants.js";
 import { DESCRIPTION, getPrompt } from "./prompt.js";
+import { executeWorkflow, isWorkflowRuntimeEnabled } from "./runtime.js";
 import { parseYamlWorkflow } from "./yamlLoader.js";
 
 const inputSchema = lazySchema(() =>
@@ -143,7 +146,7 @@ export const WorkflowTool = buildTool({
 	get outputSchema(): OutputSchema {
 		return outputSchema();
 	},
-	async execute(input, _context, _canUseTool?, _parentMessage?, _onProgress?) {
+	async execute(input, context, canUseTool?, _parentMessage?, onProgress?) {
 		// log: fixed execute signature
 		const runId = `wf_${randomUUID().slice(0, 8)}`;
 		logForDebugging(
@@ -174,8 +177,54 @@ export const WorkflowTool = buildTool({
 			};
 		}
 
+		// 双门禁: feature("WORKFLOW_SCRIPTS") (编译期, build:dev:full) AND
+		// FUSION_WORKFLOW_RUNTIME_ENABLED=1 (运行期)。两层都满足才跑 runtime;
+		// 否则 byte-identical 验证桩 (旧行为)。
+		if (feature("WORKFLOW_SCRIPTS") && isWorkflowRuntimeEnabled()) {
+			activeRuns.set(runId, { status: "running", startTime: Date.now() });
+			emitPerfettoInstant("workflow_run_started", "workflow", { runId });
+			logForDebugging(
+				`[Workflow] runtime enabled: executing script for run ${runId}`,
+			);
+			try {
+				const result = await executeWorkflow({
+					scriptSource,
+					args: input.args,
+					runId,
+					toolUseContext: context,
+					canUseTool:
+						canUseTool ?? ((async () => ({ behavior: "allow" })) as never),
+					querySource: context?.options?.querySource ?? ("tool" as never),
+					abortController: context?.abortController ?? new AbortController(),
+					onProgress: onProgress as never,
+				});
+				activeRuns.set(runId, { status: "completed", startTime: Date.now() });
+				emitPerfettoInstant("workflow_run_completed", "workflow", { runId });
+				return {
+					data: {
+						runId,
+						status: "completed" as const,
+						message: `Workflow run completed. Result: ${safeStringify(result)}`,
+					},
+				};
+			} catch (err) {
+				activeRuns.set(runId, { status: "error", startTime: Date.now() });
+				emitPerfettoInstant("workflow_run_error", "workflow", {
+					runId,
+					error: String((err as Error).message ?? err),
+				});
+				return {
+					data: {
+						runId,
+						status: "error" as const,
+						message: `Workflow failed: ${(err as Error).message ?? err}`,
+					},
+				};
+			}
+		}
+
 		activeRuns.set(runId, { status: "started", startTime: Date.now() });
-		logForDebugging(`[Workflow] run ${runId} started`);
+		logForDebugging(`[Workflow] run ${runId} started (stub mode)`);
 
 		try {
 			const scriptName = input.name || input.scriptPath || "inline";
@@ -213,3 +262,12 @@ export const WorkflowTool = buildTool({
 		};
 	},
 });
+
+function safeStringify(value: unknown): string {
+	try {
+		const s = typeof value === "string" ? value : JSON.stringify(value);
+		return s ?? "undefined";
+	} catch {
+		return String(value);
+	}
+}
