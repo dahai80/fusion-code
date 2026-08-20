@@ -165,7 +165,11 @@ import {
 	mergeFileStateCaches,
 	READ_FILE_STATE_CACHE_SIZE,
 } from "../utils/fileStateCache.js";
-import { formatTokens, truncateToWidth } from "../utils/format.js";
+import {
+	formatDuration,
+	formatTokens,
+	truncateToWidth,
+} from "../utils/format.js";
 import { isHumanTurn } from "../utils/messagePredicates.js";
 import { QueryGuard } from "../utils/QueryGuard.js";
 import { prependToShellHistoryCache } from "../utils/suggestions/shellHistoryCompletion.js";
@@ -622,6 +626,14 @@ const HISTORY_STUB = {
 // up to read the start → start typing → before this fix, snapped to bottom.
 // https://anthropic.slack.com/archives/C07VBSHV7EV/p1773545449871739
 const RECENT_SCROLL_REPIN_WINDOW_MS = 3000;
+
+// item 16 (CC 2.1.228): compact stall 提示阈值。后端 emit compact_stall {elapsedMs}
+// (每 10s), 前端超过此阈值才显耗时文本 (避免短 compact 闪现 stall 提示)。
+// env FUSION_COMPACT_STALL_HINT_MS 覆盖; default 30s fail-open (NaN/负值回退 default)。
+const COMPACT_STALL_HINT_MS = (() => {
+	const raw = Number(process.env.FUSION_COMPACT_STALL_HINT_MS);
+	return Number.isFinite(raw) && raw > 0 ? raw : 30_000;
+})();
 
 // Use LRU cache to prevent unbounded memory growth
 // 100 files should be sufficient for most coding sessions while preventing
@@ -3364,6 +3376,20 @@ export function REPL({
 							break;
 						case "compact_start":
 							setSpinnerMessage("Compacting conversation");
+							break;
+						case "compact_retry":
+							// item 16: 截断重试可见。reason 原样显示 (prompt_too_long/mlx_memory/mlx_server_error)
+							setSpinnerMessage(
+								`Compacting (retry ${event.attempt}/${event.maxRetries}: ${event.reason})`,
+							);
+							break;
+						case "compact_stall":
+							// item 16: 无 token 流超阈值显耗时提示。retry 文本优先 (重试瞬时, stall 30s 才显, 时序不撞)
+							if (event.elapsedMs >= COMPACT_STALL_HINT_MS) {
+								setSpinnerMessage(
+									`Compacting conversation — running ${formatDuration(event.elapsedMs)}, large context summaries can take a while`,
+								);
+							}
 							break;
 						case "compact_end":
 							setSpinnerMessage(null);
