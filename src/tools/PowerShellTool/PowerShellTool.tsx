@@ -404,7 +404,8 @@ export const PowerShellTool = buildTool({
         originalSize: persistedOutputSize ?? 0,
         isJson: false,
         preview: preview.preview,
-        hasMore: preview.hasMore
+        hasMore: preview.hasMore,
+        tailPreview: preview.tailPreview,
       });
     } else if (stdout) {
       processedStdout = stdout.replace(/^(\s*\n)+/, '');

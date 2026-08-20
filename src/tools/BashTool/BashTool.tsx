@@ -595,7 +595,8 @@ export const BashTool = buildTool({
         originalSize: persistedOutputSize ?? 0,
         isJson: false,
         preview: preview.preview,
-        hasMore: preview.hasMore
+        hasMore: preview.hasMore,
+        tailPreview: preview.tailPreview,
       });
     }
     let errorMessage = stderr.trim();
