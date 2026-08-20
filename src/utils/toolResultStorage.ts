@@ -97,6 +97,10 @@ export type PersistedToolResult = {
   isJson: boolean
   preview: string
   hasMore: boolean
+  // P1.1 Spill: trailing preview so the model sees errors/summaries that
+  // live at the end of large outputs (logs, stack traces). Undefined when
+  // content fit within the preview budget (no truncation, backward compat).
+  tailPreview?: string
 }
 
 // Error result when persistence fails
@@ -184,8 +188,11 @@ export async function persistToolResult(
     // EEXIST: already persisted on a prior turn, fall through to preview
   }
 
-  // Generate a preview
-  const { preview, hasMore } = generatePreview(contentStr, PREVIEW_SIZE_BYTES)
+  // Generate a preview (head + tail when truncated — P1.1 Spill)
+  const { preview, hasMore, tailPreview } = generatePreview(
+    contentStr,
+    PREVIEW_SIZE_BYTES,
+  )
 
   return {
     filepath,
@@ -193,6 +200,7 @@ export async function persistToolResult(
     isJson,
     preview,
     hasMore,
+    tailPreview,
   }
 }
 
@@ -206,7 +214,16 @@ export function buildLargeToolResultMessage(
   message += `Output too large (${formatFileSize(result.originalSize)}). Full output saved to: ${result.filepath}\n\n`
   message += `Preview (first ${formatFileSize(PREVIEW_SIZE_BYTES)}):\n`
   message += result.preview
-  message += result.hasMore ? '\n...\n' : '\n'
+  if (result.tailPreview) {
+    // P1.1 Spill: head + tail preview. Middle is omitted; the locator above
+    // tells the model to Read the persisted file for full content.
+    message += `\n... [output truncated, see file for full content] ...\n`
+    message += `Preview (last ${formatFileSize(PREVIEW_SIZE_BYTES)}):\n`
+    message += result.tailPreview
+    message += '\n'
+  } else {
+    message += result.hasMore ? '\n...\n' : '\n'
+  }
   message += PERSISTED_OUTPUT_CLOSING_TAG
   return message
 }
@@ -431,20 +448,40 @@ async function maybePersistLargeToolResult(
 export function generatePreview(
   content: string,
   maxBytes: number,
-): { preview: string; hasMore: boolean } {
+): { preview: string; hasMore: boolean; tailPreview?: string } {
   if (content.length <= maxBytes) {
     return { preview: content, hasMore: false }
   }
 
-  // Find the last newline within the limit to avoid cutting mid-line
-  const truncated = content.slice(0, maxBytes)
-  const lastNewline = truncated.lastIndexOf('\n')
+  // P1.1 Spill: split the budget into head + tail so the model sees both the
+  // leading context and the trailing errors/summaries of large outputs.
+  // Head gets the larger share (leading context is usually more valuable);
+  // both cut on a newline near their boundary to avoid splitting mid-line.
+  // head + tail bytes stay within maxBytes so the notice doesn't inflate the
+  // model-visible size beyond the existing ~2KB approximation.
+  const headBudget = Math.floor(maxBytes * 0.6)
+  const tailBudget = maxBytes - headBudget
 
-  // If we found a newline reasonably close to the limit, use it
-  // Otherwise fall back to the exact limit
-  const cutPoint = lastNewline > maxBytes * 0.5 ? lastNewline : maxBytes
+  const headTruncated = content.slice(0, headBudget)
+  const headLastNewline = headTruncated.lastIndexOf('\n')
+  const headCut =
+    headLastNewline > headBudget * 0.5 ? headLastNewline : headBudget
 
-  return { preview: content.slice(0, cutPoint), hasMore: true }
+  // Tail looks back from the end by tailBudget, then trims forward to the
+  // first newline so the tail preview starts on a clean line.
+  const tailFrom = content.length - tailBudget
+  const tailTruncated = content.slice(tailFrom)
+  const tailFirstNewline = tailTruncated.indexOf('\n')
+  const tailCut =
+    tailFirstNewline >= 0 && tailFirstNewline < tailBudget * 0.5
+      ? tailFirstNewline + 1
+      : 0
+
+  return {
+    preview: content.slice(0, headCut),
+    hasMore: true,
+    tailPreview: content.slice(tailFrom + tailCut),
+  }
 }
 
 /**
