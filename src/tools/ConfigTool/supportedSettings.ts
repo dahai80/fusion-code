@@ -19,7 +19,7 @@ type SyncableAppStateKey =
 
 type SettingConfig = {
 	source: "global" | "settings";
-	type: "boolean" | "string";
+	type: "boolean" | "string" | "array";
 	description: string;
 	path?: string[];
 	options?: readonly string[];
@@ -43,6 +43,12 @@ export const SUPPORTED_SETTINGS: Record<string, SettingConfig> = {
 		type: "string",
 		description: "Key binding mode",
 		options: EDITOR_MODES,
+	},
+	vimInsertModeRemaps: {
+		source: "global",
+		type: "array",
+		description:
+			"INSERT-mode 双键 exit 序列（仅 vim 模式生效，如 jj 退出 INSERT）",
 	},
 	verbose: {
 		source: "global",

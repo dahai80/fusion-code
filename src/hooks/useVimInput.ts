@@ -1,4 +1,4 @@
-import React, { useCallback, useState } from 'react'
+import React, { useCallback, useEffect, useState } from 'react'
 import type { Key } from '../ink.js'
 import type { VimInputState, VimMode } from '../types/textInputTypes.js'
 import { Cursor } from '../utils/Cursor.js'
@@ -24,6 +24,7 @@ import {
   type VimState,
 } from '../vim/types.js'
 import { type UseTextInputProps, useTextInput } from './useTextInput.js'
+import { getGlobalConfig } from '../utils/config.js'
 
 type UseVimInputProps = Omit<UseTextInputProps, 'inputFilter'> & {
   onModeChange?: (mode: VimMode) => void
@@ -38,6 +39,21 @@ export function useVimInput(props: UseVimInputProps): VimInputState {
   const persistentRef = React.useRef<PersistentState>(
     createInitialPersistentState(),
   )
+
+  // item 20: INSERT-mode 双键序列状态 (vimInsertModeRemaps)。独立 ref —
+  // VimState 每输入被覆写, 无法承载跨键 prefix。
+  const remapSeqRef = React.useRef<{
+    prefix: string
+    timer: ReturnType<typeof setTimeout> | null
+  }>({ prefix: '', timer: null })
+
+  // 卸载时清超时定时器, 防 leak。
+  useEffect(() => {
+    return () => {
+      const seq = remapSeqRef.current
+      if (seq.timer) clearTimeout(seq.timer)
+    }
+  }, [])
 
   // inputFilter is applied once at the top of handleVimInput (not here) so
   // vim-handled paths that return without calling textInput.onInput still
@@ -209,6 +225,14 @@ export function useVimInput(props: UseVimInputProps): VimInputState {
     if (state.mode === 'INSERT') {
       // Track inserted text for dot-repeat
       if (key.backspace || key.delete) {
+        // Backspace 中断正在暂存的 remap 序列: 清 prefix + 定时器。
+        // 已插字符由下方 insertedText 回退正常处理。
+        const seq0 = remapSeqRef.current
+        if (seq0.timer) {
+          clearTimeout(seq0.timer)
+          seq0.timer = null
+        }
+        seq0.prefix = ''
         if (state.insertedText.length > 0) {
           vimStateRef.current = {
             mode: 'INSERT',
@@ -218,11 +242,76 @@ export function useVimInput(props: UseVimInputProps): VimInputState {
             ),
           }
         }
-      } else {
-        vimStateRef.current = {
-          mode: 'INSERT',
-          insertedText: state.insertedText + input,
+        textInput.onInput(input, key)
+        return
+      }
+
+      // item 20: vimInsertModeRemaps 双键序列检测 (仅打印字符)。
+      // default off (空 remaps → 透传, byte-identical 旧行为)。
+      const remaps = getGlobalConfig().vimInsertModeRemaps ?? []
+      const seq = remapSeqRef.current
+      if (remaps.length > 0) {
+        const verdict = matchInsertRemap(remaps, seq.prefix, input)
+        if (verdict.action === 'match') {
+          // 完整匹配: 回溯删已暂存 prefix 字符 (已插为真实文本) + 切 NORMAL。
+          // 不插当前键 (exit 序列尾字符不进文本)。
+          if (seq.timer) {
+            clearTimeout(seq.timer)
+            seq.timer = null
+          }
+          // 置空前先记待删数 (prefix 已作为真实字符插入, 需回溯删)。
+          const toDelete = seq.prefix.length
+          seq.prefix = ''
+          let cursor = Cursor.fromText(
+            props.value,
+            props.columns,
+            textInput.offset,
+          )
+          for (let i = 0; i < toDelete; i++) {
+            cursor = cursor.backspace()
+          }
+          props.onChange(cursor.text)
+          textInput.setOffset(cursor.offset)
+          // insertedText 镜像减 toDelete, 防 dot-repeat 重放已删字符。
+          vimStateRef.current = {
+            mode: 'INSERT',
+            insertedText: state.insertedText.slice(
+              0,
+              Math.max(0, state.insertedText.length - toDelete),
+            ),
+          }
+          switchToNormalMode()
+          return
         }
+        if (verdict.action === 'prefix') {
+          // 暂存前缀 + 仍插入字符 (匹配时回溯删) + 起/重置超时窗。
+          seq.prefix = verdict.newPrefix
+          if (seq.timer) clearTimeout(seq.timer)
+          const timeoutMs = getInsertRemapTimeoutMs()
+          if (timeoutMs > 0) {
+            seq.timer = setTimeout(() => {
+              remapSeqRef.current.prefix = ''
+              remapSeqRef.current.timer = null
+            }, timeoutMs)
+          }
+          vimStateRef.current = {
+            mode: 'INSERT',
+            insertedText: state.insertedText + input,
+          }
+          textInput.onInput(input, key)
+          return
+        }
+        // passthrough: 放弃序列, 清 prefix + 定时器, 正常插入。
+        if (seq.timer) {
+          clearTimeout(seq.timer)
+          seq.timer = null
+        }
+        seq.prefix = ''
+      }
+
+      vimStateRef.current = {
+        mode: 'INSERT',
+        insertedText: state.insertedText + input,
       }
       textInput.onInput(input, key)
       return
@@ -313,4 +402,43 @@ export function useVimInput(props: UseVimInputProps): VimInputState {
     mode,
     setMode: setModeExternal,
   }
+}
+
+// --- item 20: vimInsertModeRemaps 双键 INSERT exit 序列映射 (CC 2.1.208) ---
+// 纯函数: 判定 INSERT 字符是否构成 remap 序列。无副作用, 便于单测。
+// remaps: 已配的 exit 序列 (如 ["jj","jk"]); prefix: 已暂存前缀; input: 当前键。
+// 返回 action: 'match' (完整匹配, 需回溯删 prefix + 切 NORMAL)
+//            | 'prefix' (仍是某序列前缀, 暂存 + 继续超时窗)
+//            | 'passthrough' (非匹配非前缀, 放弃序列, 正常插入)
+export type InsertRemapResult = {
+  action: 'match' | 'prefix' | 'passthrough'
+  newPrefix: string
+}
+
+export function matchInsertRemap(
+  remaps: string[],
+  prefix: string,
+  input: string,
+): InsertRemapResult {
+  if (remaps.length === 0) {
+    return { action: 'passthrough', newPrefix: '' }
+  }
+  const candidate = prefix + input
+  if (remaps.includes(candidate)) {
+    return { action: 'match', newPrefix: '' }
+  }
+  if (remaps.some((r) => r.startsWith(candidate))) {
+    return { action: 'prefix', newPrefix: candidate }
+  }
+  return { action: 'passthrough', newPrefix: '' }
+}
+
+// 超时窗: env FUSION_VIM_INSERT_REMAP_TIMEOUT_MS, default 750, fail-open。
+// 0 = 禁超时 (立即放弃序列, 单字符无法成序列, 合法 edge)。
+export function getInsertRemapTimeoutMs(): number {
+  const raw = process.env.FUSION_VIM_INSERT_REMAP_TIMEOUT_MS
+  if (raw === undefined) return 750
+  const parsed = Number(raw)
+  if (!Number.isFinite(parsed) || parsed < 0) return 750
+  return parsed
 }
