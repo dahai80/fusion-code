@@ -460,6 +460,7 @@ export async function loadMessagesFromJsonlPath(path: string): Promise<{
 export async function loadConversationForResume(
 	source: string | LogOption | undefined,
 	sourceJsonlFile: string | undefined,
+	forkSession?: boolean,
 ): Promise<{
 	messages: Message[];
 	turnInterruptionState: TurnInterruptionState;
@@ -571,8 +572,10 @@ export async function loadConversationForResume(
 		const deserialized = deserializeMessagesWithInterruptDetection(messages!);
 		messages = deserialized.messages;
 
-		// Process session start hooks for resume
-		const hookMessages = await processSessionStartHooks("resume", {
+		// Process session start hooks for resume. --fork-session 报告 source
+		// "fork" (CC 2.1.214, issue #79), 让 hook 区分 fork 与普通 resume。
+		const sessionStartSource = forkSession ? "fork" : "resume";
+		const hookMessages = await processSessionStartHooks(sessionStartSource, {
 			sessionId,
 		});
 

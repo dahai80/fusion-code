@@ -2469,12 +2469,17 @@ export function REPL({
 					timeoutMs: sessionEndTimeoutMs,
 				});
 
-				// Process session start hooks for resume
-				const hookMessages = await processSessionStartHooks("resume", {
-					sessionId,
-					agentType: mainThreadAgentDefinition?.agentType,
-					model: mainLoopModel,
-				});
+				// Process session start hooks for resume. Fork 会话报告 source "fork"
+				// (CC 2.1.214, issue #79), 让 hook 区分 fork 与普通 resume。
+				const sessionStartSource = entrypoint === "fork" ? "fork" : "resume";
+				const hookMessages = await processSessionStartHooks(
+					sessionStartSource,
+					{
+						sessionId,
+						agentType: mainThreadAgentDefinition?.agentType,
+						model: mainLoopModel,
+					},
+				);
 
 				// Append hook messages to the conversation
 				messages.push(...hookMessages);
