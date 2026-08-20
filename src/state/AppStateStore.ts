@@ -165,6 +165,11 @@ export type AppState = DeepImmutable<{
   // Incremented at spawn (sync + async) in AgentTool.call(); reset to 0 by
   // /clear (clearConversation). Capped by FUSION_MAX_SUBAGENTS_PER_SESSION.
   subagentSpawnCount: number
+  // P2.1 subagent guardrail (item 14): session-cumulative token budget used by
+  // subagents. Incremented at each finalizeAgentTool site (sync + async +
+  // backgrounded-from-sync) via rootSetAppState; reset to 0 by /clear.
+  // Capped by FUSION_MAX_SUBAGENT_BUDGET_TOKENS (0 = off, default).
+  subagentBudgetUsedTokens: number
   // Task ID that has been foregrounded - its messages are shown in main view
   foregroundedTaskId?: string
   // Task ID of in-process teammate whose transcript is being viewed (undefined = leader's view)
@@ -478,6 +483,7 @@ export function getDefaultAppState(): AppState {
     tasks: {},
     agentNameRegistry: new Map(),
     subagentSpawnCount: 0,
+    subagentBudgetUsedTokens: 0,
     verbose: false,
     mainLoopModel: null, // alias, full name (as with --model or env var), or null (default)
     mainLoopModelForSession: null,

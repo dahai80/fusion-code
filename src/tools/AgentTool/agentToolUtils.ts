@@ -596,6 +596,14 @@ export async function runAsyncAgentLifecycle({
 
     const agentResult = finalizeAgentTool(agentMessages, taskId, metadata)
 
+    // P2.1 item 14: accumulate subagent token budget. Keep in sync — every
+    // finalizeAgentTool site must increment.
+    rootSetAppState((prev) => ({
+      ...prev,
+      subagentBudgetUsedTokens:
+        (prev.subagentBudgetUsedTokens ?? 0) + (agentResult.totalTokens ?? 0),
+    }))
+
     // Mark task completed FIRST so TaskOutput(block=true) unblocks
     // immediately. classifyHandoffIfNeeded (API call) and getWorktreeResult
     // (git exec) are notification embellishments that can hang — they must
