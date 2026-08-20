@@ -314,10 +314,48 @@ async function detectMultipleInstallations(): Promise<
   return installations
 }
 
+// FUSION_* -> ANTHROPIC_* env mapping pairs (cli.tsx:30-49). Each pair uses
+// `if (FUSION_X && !ANTHROPIC_X) ANTHROPIC_X = FUSION_X` — so when BOTH are
+// set the FUSION_* value is silently ignored. That's the P4.2 spec "残留陷阱":
+// a user sets FUSION_BASE_URL expecting it to take effect, but a leftover
+// ANTHROPIC_BASE_URL shadows it with no warning. Surfaced in /doctor so the
+// shadowing is visible rather than silent.
+const FUSION_ENV_CONFLICT_PAIRS: ReadonlyArray<{
+  fusion: string
+  anthropic: string
+}> = [
+  { fusion: 'FUSION_API_KEY', anthropic: 'ANTHROPIC_API_KEY' },
+  { fusion: 'FUSION_BASE_URL', anthropic: 'ANTHROPIC_BASE_URL' },
+  { fusion: 'FUSION_AUTH_TOKEN', anthropic: 'ANTHROPIC_AUTH_TOKEN' },
+  { fusion: 'FUSION_BETAS', anthropic: 'ANTHROPIC_BETAS' },
+  { fusion: 'FUSION_MODEL', anthropic: 'ANTHROPIC_MODEL' },
+  { fusion: 'FUSION_LOG', anthropic: 'ANTHROPIC_LOG' },
+]
+
+export function detectFusionEnvConflicts(): Array<{
+  issue: string
+  fix: string
+}> {
+  const warnings: Array<{ issue: string; fix: string }> = []
+  for (const { fusion, anthropic } of FUSION_ENV_CONFLICT_PAIRS) {
+    if (process.env[fusion] && process.env[anthropic]) {
+      warnings.push({
+        issue: `Both ${fusion} and ${anthropic} are set; ${fusion} is silently ignored (the ${anthropic} value takes precedence).`,
+        fix: `Unset the one you don't intend to use, e.g. \`unset ${anthropic}\`, or align them to the same value. Only ${anthropic} is read when both are present.`,
+      })
+    }
+  }
+  return warnings
+}
+
 async function detectConfigurationIssues(
   type: InstallationType,
 ): Promise<Array<{ issue: string; fix: string }>> {
   const warnings: Array<{ issue: string; fix: string }> = []
+  // P4.2 §6: FUSION_* vs ANTHROPIC_* env-conflict detection. Runs before the
+  // development-mode early return below — env correctness is relevant in dev
+  // too, and this check is pure sync (no install-path dependency).
+  warnings.push(...detectFusionEnvConflicts())
 
   // Managed-settings forwards-compat: the schema preprocess silently drops
   // unknown strictPluginOnlyCustomization surface names so one future enum
