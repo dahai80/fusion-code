@@ -39,6 +39,7 @@ const fullExperimentalFeatures = [
 	"UNATTENDED_RETRY",
 	"VERIFICATION_AGENT",
 	"VOICE_MODE",
+	"WORKFLOW_SCRIPTS",
 ] as const;
 
 function runCommand(cmd: string[]): string | null {
