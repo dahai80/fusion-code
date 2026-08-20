@@ -53,6 +53,10 @@ import {
 } from "../../Tool.js";
 import { ListMcpResourcesTool } from "../../tools/ListMcpResourcesTool/ListMcpResourcesTool.js";
 import { type MCPProgress, MCPTool } from "../../tools/MCPTool/MCPTool.js";
+import {
+	notifyMonitorMcpTaskDone,
+	spawnMonitorMcpTask,
+} from "../../tasks/MonitorMcpTask/MonitorMcpTask.js";
 import { createMcpAuthTool } from "../../tools/McpAuthTool/McpAuthTool.js";
 import { ReadMcpResourceTool } from "../../tools/ReadMcpResourceTool/ReadMcpResourceTool.js";
 import { createAbortController } from "../../utils/abortController.js";
@@ -242,6 +246,112 @@ function getMcpToolTimeoutMs(): number {
 		);
 	}
 	return timeout;
+}
+
+// item 4: MCP 工具自动后台化阈值。FUSION_MCP_AUTO_BACKGROUND_MS 控制慢
+// MCP 调用多久后转后台 task (default 0=off)。对齐 CC 默认 120s 可配。
+function getMcpAutoBackgroundMs(): number {
+	const ms =
+		parseInt(process.env.FUSION_MCP_AUTO_BACKGROUND_MS || "", 10) || 0;
+	if (ms < 0) {
+		return 0;
+	}
+	return ms;
+}
+
+// 标记: MCP 调用超阈值转后台 (非错误, 仅 race 信号)
+class McpAutoBackgroundTimeoutError extends Error {
+	constructor() {
+		super("MCP tool auto-backgrounded");
+		this.name = "McpAutoBackgroundTimeoutError";
+	}
+}
+
+// item 4: MCP 调用超阈值转后台。spawn task 注册到 AppState, 回 interim
+// tool_result 解锁 REPL, 后台续跑 callPromise, 完成时 notify 模型 (复用
+// LocalShellTask task-notification 模式)。
+async function backgroundMcpCall({
+	callPromise,
+	serverName,
+	toolName,
+	toolUseId,
+	setAppState,
+	onProgress,
+	startTime,
+}: {
+	callPromise: Promise<MCPToolCallResult>;
+	serverName: string;
+	toolName: string;
+	toolUseId: string | undefined;
+	setAppState: (f: (prev: import("../../state/AppState.js").AppState) => import("../../state/AppState.js").AppState) => void;
+	onProgress?: ToolCallProgress<MCPProgress>;
+	startTime: number;
+}): Promise<{ data: MCPToolResult }> {
+	const { taskId } = spawnMonitorMcpTask(
+		serverName,
+		toolName,
+		toolUseId,
+		setAppState,
+	);
+	logMCPDebug(
+		serverName,
+		`Tool '${toolName}' auto-backgrounded as task ${taskId} after ${Date.now() - startTime}ms`,
+	);
+	// 后台续跑真调用 (callPromise 已 detach turn-abort, 存活到完成)
+	void callPromise
+		.then((mcpResult) => {
+			const contentStr =
+				typeof mcpResult.content === "string"
+					? mcpResult.content
+					: jsonStringify(mcpResult.content ?? null, null, 2);
+			notifyMonitorMcpTaskDone(
+				taskId,
+				serverName,
+				toolName,
+				"completed",
+				contentStr,
+				setAppState,
+				toolUseId,
+			);
+			if (onProgress && toolUseId) {
+				onProgress({
+					toolUseID: toolUseId,
+					data: {
+						type: "mcp_progress",
+						status: "completed",
+						serverName,
+						toolName,
+						elapsedTimeMs: Date.now() - startTime,
+					},
+				});
+			}
+		})
+		.catch((error) => {
+			const contentStr =
+				error instanceof Error ? error.message : jsonStringify(error);
+			notifyMonitorMcpTaskDone(
+				taskId,
+				serverName,
+				toolName,
+				"failed",
+				contentStr,
+				setAppState,
+				toolUseId,
+			);
+			logMCPError(
+				serverName,
+				`Backgrounded tool '${toolName}' (task ${taskId}) failed: ${contentStr}`,
+			);
+		});
+	// interim result: 告知模型该工具已转后台, 完成时通过 task-notification 通知
+	return {
+		data: [
+			{
+				type: "text",
+				text: `MCP tool "${serverName}/${toolName}" is taking longer than ${Date.now() - startTime}ms and has been moved to a background task (id: ${taskId}). You will be notified when it completes. Continue with other work in the meantime.`,
+			},
+		],
+	};
 }
 
 import { isClaudeInChromeMCPServer } from "../../utils/claudeInChrome/common.js";
@@ -1950,16 +2060,53 @@ export const fetchToolsForClient = memoizeWithLRU(
 
 							const startTime = Date.now();
 							const MAX_SESSION_RETRIES = 1;
+
+							// item 4: MCP 工具自动后台化。慢 MCP 调用超过
+							// FUSION_MCP_AUTO_BACKGROUND_MS (default 0=off) 转后台 task,
+							// REPL 不阻塞。composite bgController: 跟随 turn-abort 直
+							// 到超时, 超时后 detach — 背景调用存活到 turn 结束后, listener
+							// 移除无泄漏。MCP 工具可能 mutating, 不重调, 必须保活当前调用。
+							const autoBackgroundMs = getMcpAutoBackgroundMs();
+							let bgController: AbortController | undefined;
+							let bgTimer: NodeJS.Timeout | undefined;
+							// detach 标志: 超时后置 true, turn-abort 不再传到 bgController
+							let bgDetached = false;
+							if (autoBackgroundMs > 0) {
+								bgController = new AbortController();
+								const turnSignal = context.abortController.signal;
+								// 跟随 turn-abort: turn 取消则背景调用也取消 (未超时阶段)
+								const onTurnAbort = () => {
+									if (!bgDetached) {
+										bgController?.abort();
+									}
+								};
+								if (turnSignal.aborted) {
+									bgController.abort();
+								} else {
+									turnSignal.addEventListener("abort", onTurnAbort, {
+										once: true,
+									});
+								}
+								bgTimer = setTimeout(() => {
+									// 超时: detach turn-abort, 背景调用继续存活
+									turnSignal.removeEventListener("abort", onTurnAbort);
+									bgDetached = true;
+								}, autoBackgroundMs);
+							}
+							const callSignal = bgController
+								? bgController.signal
+								: context.abortController.signal;
+
 							for (let attempt = 0; ; attempt++) {
 								try {
 									const connectedClient = await ensureConnectedClient(client);
-									const mcpResult = await callMCPToolWithUrlElicitationRetry({
+									const callPromise = callMCPToolWithUrlElicitationRetry({
 										client: connectedClient,
 										clientConnection: client,
 										tool: tool.name,
 										args,
 										meta,
-										signal: context.abortController.signal,
+										signal: callSignal,
 										setAppState: context.setAppState,
 										onProgress:
 											onProgress && toolUseId
@@ -1972,6 +2119,75 @@ export const fetchToolsForClient = memoizeWithLRU(
 												: undefined,
 										handleElicitation: context.handleElicitation,
 									});
+
+									// item 4: 若启用自动后台, race vs bgTimer。
+									// 超时 (bgController detached) → 转 task, 回 interim
+									// result, 背景续跑真调用并在完成时 notify 模型。
+									if (bgTimer && bgController) {
+										const bgTimeout = new Promise<never>((_, reject) => {
+											bgController!.signal.addEventListener(
+												"abort",
+												() => {
+													if (bgDetached) {
+														reject(new McpAutoBackgroundTimeoutError());
+													}
+												},
+												{ once: true },
+											);
+										});
+										try {
+											const mcpResult = await Promise.race([
+												callPromise,
+												bgTimeout,
+											]);
+											if (bgTimer) clearTimeout(bgTimer);
+											if (onProgress && toolUseId) {
+												onProgress({
+													toolUseID: toolUseId,
+													data: {
+														type: "mcp_progress",
+														status: "completed",
+														serverName: client.name,
+														toolName: tool.name,
+														elapsedTimeMs: Date.now() - startTime,
+													},
+												});
+											}
+											return {
+												data: mcpResult.content,
+												...((mcpResult._meta ||
+													mcpResult.structuredContent) && {
+													mcpMeta: {
+														...(mcpResult._meta && {
+															_meta: mcpResult._meta,
+														}),
+														...(mcpResult.structuredContent && {
+															structuredContent:
+																mcpResult.structuredContent,
+														}),
+													},
+												}),
+											};
+										} catch (error) {
+											if (error instanceof McpAutoBackgroundTimeoutError) {
+												// 转 task: spawn, 回 interim, 背景续跑
+												return await backgroundMcpCall({
+													callPromise,
+													serverName: client.name,
+													toolName: tool.name,
+													toolUseId,
+													setAppState:
+														context.setAppStateForTasks ??
+														context.setAppState,
+													onProgress,
+													startTime,
+												});
+											}
+											throw error;
+										}
+									}
+
+									const mcpResult = await callPromise;
 
 									// Emit progress when tool completes successfully
 									if (onProgress && toolUseId) {
