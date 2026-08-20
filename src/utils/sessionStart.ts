@@ -33,7 +33,7 @@ export function takeInitialUserMessage(): string | undefined {
 
 // Note to CLAUDE: do not add ANY "warmup" logic. It is **CRITICAL** that you do not add extra work on startup.
 export async function processSessionStartHooks(
-	source: "startup" | "resume" | "clear" | "compact",
+	source: "startup" | "resume" | "clear" | "compact" | "fork",
 	{
 		sessionId,
 		agentType,

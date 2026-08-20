@@ -4491,6 +4491,7 @@ async function run(): Promise<CommanderCommand> {
 					const result = await loadConversationForResume(
 						undefined /* sessionId */,
 						undefined /* sourceFile */,
+						!!options.forkSession,
 					);
 					if (!result) {
 						logEvent("tengu_continue", {
@@ -5141,6 +5142,7 @@ async function run(): Promise<CommanderCommand> {
 								const result = await loadConversationForResume(
 									logOption,
 									undefined,
+									true, // ccshare resume 本质是 fork (新建会话, 不接管原会话)
 								);
 								if (result) {
 									processedResume = await processResumedConversation(
@@ -5199,6 +5201,7 @@ async function run(): Promise<CommanderCommand> {
 									const result = await loadConversationForResume(
 										logOption,
 										undefined /* sourceFile */,
+										!!options.forkSession,
 									);
 									if (result) {
 										processedResume = await processResumedConversation(
@@ -5257,6 +5260,7 @@ async function run(): Promise<CommanderCommand> {
 						const result = await loadConversationForResume(
 							matchedLog ?? sessionId,
 							undefined,
+							!!options.forkSession,
 						);
 						if (!result) {
 							logEvent("tengu_session_resumed", {

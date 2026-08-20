@@ -4219,11 +4219,7 @@ function runHeadlessStreaming(
 					}
 				} else if (message.request.subtype === "code_diff") {
 					try {
-						const {
-							original,
-							modified,
-							path: filePath,
-						} = message.request;
+						const { original, modified, path: filePath } = message.request;
 						const { createTwoFilesPatch } = await import("diff");
 						const patch = createTwoFilesPatch(
 							filePath || "original",
@@ -5310,6 +5306,7 @@ async function loadInitialMessages(
 			const result = await loadConversationForResume(
 				undefined /* sessionId */,
 				undefined /* file path */,
+				!!options.forkSession,
 			);
 			if (result) {
 				// Match coordinator mode to the resumed session's mode
@@ -5473,6 +5470,7 @@ async function loadInitialMessages(
 			const result = await loadConversationForResume(
 				parsedSessionId.sessionId,
 				parsedSessionId.jsonlFile || undefined,
+				!!options.forkSession,
 			);
 
 			// hydrateFromCCRv2InternalEvents writes an empty transcript file for
