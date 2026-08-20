@@ -121,6 +121,7 @@ import {
 	isForkSubagentEnabled,
 	isInForkChild,
 } from "./forkSubagent.js";
+import { getSubagentAutoBackgroundMs } from "./autoBackground.js";
 import type { AgentDefinition } from "./loadAgentsDir.js";
 import {
 	filterAgentsByMcpRequirements,
@@ -159,6 +160,14 @@ const isBackgroundTasksDisabled =
 // Auto-background agent tasks after this many ms (0 = disabled)
 // Enabled by env var OR GrowthBook gate (checked lazily since GB may not be ready at module load)
 function getAutoBackgroundMs(): number {
+	// item 12: FUSION_SUBAGENT_AUTO_BACKGROUND_MS 显式阈值 (并行 item 4
+	// FUSION_MCP_AUTO_BACKGROUND_MS)。default 0=off, byte-identical 旧行为。
+	// 设正值 → subagent 运行该毫秒后转后台, 复用 registerAgentForeground
+	// 定时器→backgroundSignal→mid-run 后台化解阻塞 turn。
+	const fusionMs = getSubagentAutoBackgroundMs();
+	if (fusionMs > 0) {
+		return fusionMs;
+	}
 	if (
 		isEnvTruthy(process.env.CLAUDE_AUTO_BACKGROUND_TASKS) ||
 		getFeatureValue_CACHED_MAY_BE_STALE("tengu_auto_background_agents", false)
