@@ -30,6 +30,7 @@ import {
   detectWinget,
   getPackageManager,
 } from './nativeInstaller/packageManagers.js'
+import { shouldAutoUseFusionMlx } from './model/providers.js'
 import { getPlatform } from './platform.js'
 import { getRipgrepStatus } from './ripgrep.js'
 import { SandboxManager } from './sandbox/sandbox-adapter.js'
@@ -42,6 +43,10 @@ import {
 } from './shellConfig.js'
 import { jsonParse } from './slowOperations.js'
 import { which } from './which.js'
+import {
+  fetchMlxPs,
+  fetchMlxStatus,
+} from '../commands/model-status/model-status.js'
 
 export type InstallationType =
   | 'npm-global'
@@ -511,6 +516,58 @@ export function detectLinuxGlobPatternWarnings(): Array<{
   return warnings
 }
 
+// MLX gateway base URL. Keep in sync with model-status.ts:3 — fetchMlxStatus
+// resolves the same expression internally but does not surface the URL in its
+// return value, so we recompute it here for the not-reachable error message.
+const MLX_GATEWAY_URL =
+  process.env.FUSION_GATEWAY_URL ||
+  process.env.FUSION_MLX_BASE_URL ||
+  'http://127.0.0.1:11432'
+
+// P4.2 #1+#3: probe MLX gateway reachability + model-load state. Only when MLX
+// is the configured provider (shouldAutoUseFusionMlx) — otherwise MLX being
+// down is expected (cloud active) and probing wastes a 3s timeout + noise.
+// Reuses fetchMlxStatus/fetchMlxPs (same /api/tags + /api/ps the
+// `/model-status` command uses, 3s timeout cap). OOM (#4) deferred — MLX
+// exposes no memory-status endpoint today (only POST /api/v1/gc, mutating).
+export async function detectMlxHealth(): Promise<
+  Array<{ issue: string; fix: string }>
+> {
+  if (!shouldAutoUseFusionMlx()) {
+    return []
+  }
+
+  const status = await fetchMlxStatus()
+  if (!status.connected) {
+    return [
+      {
+        issue: `Fusion-MLX gateway not reachable at ${MLX_GATEWAY_URL} (${status.error ?? 'connection refused'}). Local inference unavailable.`,
+        fix: 'Start MLX with `fusion service start mlx` (or `~/claude-home/fusion-mlx/start.sh start`). Set FUSION_GATEWAY_URL to override, or FUSION_MLX_DISABLED=1 to disable.',
+      },
+    ]
+  }
+
+  const loaded = await fetchMlxPs()
+  if (loaded.length === 0) {
+    const available = status.models.map((m) => m.name)
+    const availableSuffix =
+      available.length > 0
+        ? ` (available: ${available.slice(0, 3).join(', ')}${available.length > 3 ? '…' : ''})`
+        : ''
+    return [
+      {
+        issue: `Fusion-MLX gateway connected but no model loaded${availableSuffix}. Queries will trigger a cold load (slow first turn).`,
+        fix:
+          available.length > 0
+            ? `Pre-load a model, e.g. \`fusion model load ${available[0]}\`, or just start querying — MLX lazy-loads on first request.`
+            : 'No models found. Download one via the model hub, then load it.',
+      },
+    ]
+  }
+
+  return []
+}
+
 export async function getDoctorDiagnostic(): Promise<DiagnosticInfo> {
   const installationType = await getCurrentInstallationType()
   const version =
@@ -522,6 +579,11 @@ export async function getDoctorDiagnostic(): Promise<DiagnosticInfo> {
 
   // Add glob pattern warnings for Linux sandboxing
   warnings.push(...detectLinuxGlobPatternWarnings())
+
+  // P4.2 #1+#3: MLX gateway reachability + model-load state (only when MLX is
+  // the configured provider). Runtime health, distinct from config correctness
+  // — runs regardless of dev mode (MLX availability matters in dev too).
+  warnings.push(...(await detectMlxHealth()))
 
   // Add warnings for leftover npm installations when running native
   if (installationType === 'native') {
