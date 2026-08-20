@@ -813,9 +813,13 @@ export function getInitialSettings(): SettingsJson {
   const { settings } = getSettingsWithErrors()
   const merged = settings || {}
   // --ax-screen-reader: force reduced motion for screen reader accessibility
-  // Check both CLI env var and runtime override from /screen-reader command
+  // Check both CLI env var and runtime override from /screen-reader command.
+  // Accept both FUSION_SCREEN_READER (legacy) and FUSION_AX_SCREEN_READER
+  // (spec name, CC 2.1.208) so users following the doc aren't silently no-op'd.
   const screenReaderActive =
     process.env.FUSION_SCREEN_READER === '1' ||
+    process.env.FUSION_AX_SCREEN_READER === '1' ||
+    merged.axScreenReader === true ||
     (globalThis as { __fusionScreenReaderOverride?: boolean }).__fusionScreenReaderOverride === true
   if (screenReaderActive) {
     merged.prefersReducedMotion = true
