@@ -17,6 +17,7 @@ import { getSmallFastModel } from '../../utils/model/model.js'
 import { jsonParse, jsonStringify } from '../../utils/slowOperations.js'
 import { asSystemPrompt } from '../../utils/systemPromptType.js'
 import { getWebSearchPrompt, WEB_SEARCH_TOOL_NAME } from './prompt.js'
+import { checkWebSearchGuardrail, getMaxWebSearchesPerSession } from './webSearchGuardrail.js'
 import {
   getToolUseSummary,
   renderToolResultMessage,
@@ -250,6 +251,25 @@ export const WebSearchTool = buildTool({
   async call(input, context, _canUseTool, _parentMessage, onProgress) {
     const startTime = performance.now()
     const { query } = input
+
+    // Per-session web-search guardrail (CC 2.1.217 item 13). Gate before the
+    // search, then increment via the session-shared setter so the count
+    // survives across the tool-call boundary (setAppState is no-op for async
+    // agents; setAppStateForTasks always reaches the root store).
+    const sessionSearchCount = context.getAppState().webSearchCount ?? 0
+    const guardrailError = checkWebSearchGuardrail({ sessionSearchCount })
+    if (guardrailError) {
+      throw new Error(guardrailError)
+    }
+    const setSessionState =
+      context.setAppStateForTasks ?? context.setAppState
+    setSessionState((prev) => ({
+      ...prev,
+      webSearchCount: (prev.webSearchCount ?? 0) + 1,
+    }))
+    logForDebugging(
+      `[webSearchGuardrail] invocation ${sessionSearchCount + 1}/${getMaxWebSearchesPerSession()} for query: ${query}`,
+    )
 
     const sandboxDenied = SandboxManager.getNetworkRestrictionConfig().deniedHosts
     if (sandboxDenied && sandboxDenied.length > 0 && !input.allowed_domains?.length) {

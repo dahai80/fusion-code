@@ -4392,6 +4392,7 @@ async function run(): Promise<CommanderCommand> {
 					parseEffortValue(options.effort) ?? getInitialEffortSetting(),
 				activeOverlays: new Set<string>(),
 				fastMode: getInitialFastModeSetting(resolvedInitialModel),
+				webSearchCount: 0,
 				...(isAdvisorEnabled() &&
 					advisorModel && {
 						advisorModel,

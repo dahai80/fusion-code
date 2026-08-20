@@ -453,6 +453,10 @@ export type AppState = DeepImmutable<{
   // Races against local UI + bridge + hooks + classifier via claim() in
   // interactiveHandler.ts. Constructed once in useManageMCPConnections.
   channelPermissionCallbacks?: ChannelPermissionCallbacks
+  // Session-cumulative WebSearch invocation count (CC 2.1.217 item 13
+  // guardrail). Incremented by WebSearchTool.call after the
+  // FUSION_MAX_WEB_SEARCHES_PER_SESSION gate passes; reset to 0 by /clear.
+  webSearchCount: number
 }
 
 export type AppStateStore = Store<AppState>
@@ -570,5 +574,6 @@ export function getDefaultAppState(): AppState {
     effortValue: undefined,
     activeOverlays: new Set<string>(),
     fastMode: false,
+    webSearchCount: 0,
   }
 }
