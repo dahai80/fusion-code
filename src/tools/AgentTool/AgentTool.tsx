@@ -38,6 +38,7 @@ import {
 	updateAgentProgress as updateAsyncAgentProgress,
 	updateProgressFromMessage,
 } from "../../tasks/LocalAgentTask/LocalAgentTask.js";
+import { checkSubagentGuardrails } from "./subagentGuardrails.js";
 
 // RemoteAgentTask removed - cloud-only. Stubs for dead-code-eliminated remote path:
 const checkRemoteAgentEligibility = async (): Promise<any> => ({
@@ -643,6 +644,29 @@ export const AgentTool = buildTool({
 		if (selectedAgent.color) {
 			setAgentColor(selectedAgent.agentType, selectedAgent.color);
 		}
+
+		// P2.1 subagent guardrails: enforce concurrency / session-count / depth
+		// caps before any spawn setup. Re-read appState here (not the 416-line
+		// snapshot) so the running-task count reflects agents that completed
+		// while required MCP servers were pending above. Depth comes from
+		// queryTracking, incremented per nesting level in createSubagentContext.
+		// Throws on cap exceedance — surfaces to the model via the existing
+		// tool-error path (same as the fork/MCP guards above).
+		const guardrailState = toolUseContext.getAppState();
+		const guardrailError = checkSubagentGuardrails({
+			appState: guardrailState,
+			depth: toolUseContext.queryTracking?.depth ?? 0,
+			sessionSpawnCount: guardrailState.subagentSpawnCount ?? 0,
+		});
+		if (guardrailError) {
+			throw new Error(guardrailError);
+		}
+		// Session-cumulative spawn count (survives agent completion; resets on
+		// /clear). Increment once per accepted spawn, before sync/async dispatch.
+		rootSetAppState((prev) => ({
+			...prev,
+			subagentSpawnCount: (prev.subagentSpawnCount ?? 0) + 1,
+		}));
 
 		// Resolve agent params for logging (these are already resolved in runAgent)
 		const resolvedAgentModel = getAgentModel(

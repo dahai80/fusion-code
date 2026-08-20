@@ -4287,6 +4287,7 @@ async function run(): Promise<CommanderCommand> {
 				settings: getInitialSettings(),
 				tasks: {},
 				agentNameRegistry: new Map(),
+				subagentSpawnCount: 0,
 				verbose: verbose ?? getGlobalConfig().verbose ?? false,
 				mainLoopModel: initialMainLoopModel,
 				mainLoopModelForSession: null,
