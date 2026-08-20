@@ -95,7 +95,9 @@ export function getSkillsPath(
 
 /**
  * Estimates token count for a skill based on frontmatter only
- * (name, description, whenToUse) since full content is only loaded on invocation.
+ * (name, description, whenToUse). Body 正文不在估算内 — directory/plugin skill
+ * 正文在 getPromptForCommand 时按需 lazy read (issue #77, CC 2.1.234), bundled/MCP
+ * 同样惰性, 故 frontmatter-only 估算对全部 skill 来源成立。
  */
 export function estimateSkillFrontmatterTokens(skill: Command): number {
   const frontmatterText = [skill.name, skill.description, skill.whenToUse]
@@ -277,6 +279,7 @@ export function createSkillCommand({
   description,
   hasUserSpecifiedDescription,
   markdownContent,
+  skillFilePath,
   allowedTools,
   disallowedTools,
   argumentHint,
@@ -300,7 +303,11 @@ export function createSkillCommand({
   displayName: string | undefined
   description: string
   hasUserSpecifiedDescription: boolean
-  markdownContent: string
+  // Body-defer (CC 2.1.234, issue #77): directory/plugin skill 正文不常驻闭包。
+  // file-backed skill 传 skillFilePath, 首次 getPromptForCommand 时 lazy read + memo。
+  // MCP/inline (无文件) 传 markdownContent, 保持 eager。
+  markdownContent?: string
+  skillFilePath?: string
   allowedTools: string[]
   disallowedTools: string[]
   argumentHint: string | undefined
@@ -320,6 +327,8 @@ export function createSkillCommand({
   effort: EffortValue | undefined
   shell: FrontmatterShell | undefined
 }): Command {
+  // Body-defer memo (issue #77): per-Command Promise cache, 首次 read 后命中。
+  let bodyPromise: Promise<string> | undefined
   return {
     type: 'prompt',
     name: skillName,
@@ -338,7 +347,7 @@ export function createSkillCommand({
     agent,
     effort,
     paths,
-    contentLength: markdownContent.length,
+    contentLength: markdownContent?.length ?? 0,
     isHidden: !userInvocable,
     progressMessage: 'running',
     userFacingName(): string {
@@ -349,9 +358,22 @@ export function createSkillCommand({
     hooks,
     skillRoot: baseDir,
     async getPromptForCommand(args, toolUseContext) {
+      // Body-defer (issue #77): file-backed skill 首次调用 lazy read 全文 + memo
+      // (镜像 bundledSkills.ts ??= Promise-memo, 并发 invoke 共享 in-flight read)。
+      // MCP/inline 走 markdownContent (eager, 无文件可延迟)。
+      let markdownBody: string
+      if (skillFilePath) {
+        bodyPromise ??= getFsImplementation().readFile(skillFilePath, {
+          encoding: 'utf-8',
+        })
+        const full = await bodyPromise
+        markdownBody = parseFrontmatter(full, skillFilePath).content
+      } else {
+        markdownBody = markdownContent ?? ''
+      }
       let finalContent = baseDir
-        ? `Base directory for this skill: ${baseDir}\n\n${markdownContent}`
-        : markdownContent
+        ? `Base directory for this skill: ${baseDir}\n\n${markdownBody}`
+        : markdownBody
 
       finalContent = substituteArguments(
         finalContent,
@@ -468,7 +490,7 @@ async function loadSkillsFromSkillsDir(
           skill: createSkillCommand({
             ...parsed,
             skillName,
-            markdownContent,
+            skillFilePath,
             source,
             baseDir: skillDirPath,
             loadedFrom: 'skills',
@@ -609,7 +631,7 @@ async function loadSkillsFromCommandsDir(
             ...parsed,
             skillName: cmdName,
             displayName: undefined,
-            markdownContent: content,
+            skillFilePath: filePath,
             source,
             baseDir: skillDirectory,
             loadedFrom: 'commands_DEPRECATED',
