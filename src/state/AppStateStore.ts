@@ -161,6 +161,10 @@ export type AppState = DeepImmutable<{
   // Name → AgentId registry populated by Agent tool when `name` is provided.
   // Latest-wins on collision. Used by SendMessage to route by name.
   agentNameRegistry: Map<string, AgentId>
+  // P2.1 subagent guardrail: session-cumulative count of Agent-tool spawns.
+  // Incremented at spawn (sync + async) in AgentTool.call(); reset to 0 by
+  // /clear (clearConversation). Capped by FUSION_MAX_SUBAGENTS_PER_SESSION.
+  subagentSpawnCount: number
   // Task ID that has been foregrounded - its messages are shown in main view
   foregroundedTaskId?: string
   // Task ID of in-process teammate whose transcript is being viewed (undefined = leader's view)
@@ -469,6 +473,7 @@ export function getDefaultAppState(): AppState {
     settings: getInitialSettings(),
     tasks: {},
     agentNameRegistry: new Map(),
+    subagentSpawnCount: 0,
     verbose: false,
     mainLoopModel: null, // alias, full name (as with --model or env var), or null (default)
     mainLoopModelForSession: null,
