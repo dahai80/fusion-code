@@ -187,6 +187,8 @@ export async function clearConversation({
           resources: {},
           pluginReconnectKey: prev.mcp.pluginReconnectKey,
         },
+        // Reset session-cumulative WebSearch guardrail count (CC 2.1.217 item 13).
+        webSearchCount: 0,
       }
     })
   }
