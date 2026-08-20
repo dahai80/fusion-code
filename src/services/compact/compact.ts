@@ -250,6 +250,28 @@ export const ERROR_MESSAGE_NOT_ENOUGH_MESSAGES =
 const MAX_PTL_RETRIES = 3;
 const PTL_RETRY_MARKER =
 	"[earlier conversation truncated for compaction retry]";
+// item 16 (CC 2.1.228): compact stall 提示。LLM-summary compact 单次流可 30s+ 无 token
+// (MLX 大上下文摘要慢), 用户无法区分 "正常慢" vs "卡住重试中"。周期 emit
+// compact_stall {elapsedMs} 让前端显耗时提示。粒度 10s (粗粒度提示非精确进度)。
+const COMPACT_STALL_INTERVAL_MS = 10_000;
+
+// 启动 compact stall 计时器: 每 COMPACT_STALL_INTERVAL_MS emit compact_stall。
+// 返回 clear fn, 调用方在 compact_end/throw 路径 finally 里 clear (防泄漏)。
+// 不复用 REPL loadingStartTimeRef (指 query 起点非 compact 起点, elapsed 不准)。
+export function startCompactStallTimer(
+	context: ToolUseContext,
+	startTime: number,
+	intervalMs: number = COMPACT_STALL_INTERVAL_MS,
+): () => void {
+	if (!context.onCompactProgress) return () => {};
+	const interval = setInterval(() => {
+		context.onCompactProgress?.({
+			type: "compact_stall",
+			elapsedMs: Date.now() - startTime,
+		});
+	}, intervalMs);
+	return () => clearInterval(interval);
+}
 // 本地模型 compact 安全系数:只用上下文窗口的 70%作为 compact 输入上限,
 // 留 30%给 KV cache 开销(32B 模型长上下文 KV cache 可占 30%+内存)
 const MLX_COMPACT_TOKEN_SAFETY_FACTOR = 0.7;
@@ -554,6 +576,9 @@ export async function compactConversation(
 	isAutoCompact: boolean = false,
 	recompactionInfo?: RecompactionInfo,
 ): Promise<CompactionResult> {
+	// item 16: compact stall 计时器。try 前声明 (block-scope: try 内 let 不可见于 finally),
+	// compact_start 启, finally clear。hook-blocked 早 return 路径也由 finally 覆盖。
+	let clearStallTimer: () => void = () => {};
 	try {
 		if (messages.length === 0) {
 			throw new Error(ERROR_MESSAGE_NOT_ENOUGH_MESSAGES);
@@ -601,6 +626,8 @@ export async function compactConversation(
 		context.setStreamMode?.("requesting");
 		context.setResponseLength?.(() => 0);
 		context.onCompactProgress?.({ type: "compact_start" });
+		// item 16: compact_start 后启 stall 计时器, finally 清
+		clearStallTimer = startCompactStallTimer(context, Date.now());
 
 		// 3P default: true — forked-agent path reuses main conversation's prompt cache.
 		// Experiment (Jan 2026) confirmed: false path is 98% cache miss, costs ~0.76% of
@@ -743,6 +770,17 @@ export async function compactConversation(
 			// CC-1180: compact request itself hit prompt-too-long. Truncate the
 			// oldest API-round groups and retry rather than leaving the user stuck.
 			ptlAttempts++;
+			// item 16 (CC 2.1.228): emit 用户可见重试进度 (复用已算的判定, 不重判)
+			context.onCompactProgress?.({
+				type: "compact_retry",
+				attempt: ptlAttempts,
+				maxRetries: MAX_PTL_RETRIES,
+				reason: isEmptyMlxOom
+					? "mlx_memory"
+					: isMlxServerError
+						? "mlx_server_error"
+						: "prompt_too_long",
+			});
 			const truncated =
 				ptlAttempts <= MAX_PTL_RETRIES
 					? truncateHeadForPTLRetry(messagesToSummarize, summaryResponse)
@@ -1072,6 +1110,7 @@ export async function compactConversation(
 		context.setStreamMode?.("requesting");
 		context.setResponseLength?.(() => 0);
 		context.onCompactProgress?.({ type: "compact_end" });
+		clearStallTimer(); // item 16: 防 stall 计时器泄漏 (覆盖 throw + 早 return)
 		context.setSDKStatus?.(null);
 	}
 }
@@ -1091,6 +1130,8 @@ export async function partialCompactConversation(
 	userFeedback?: string,
 	direction: PartialCompactDirection = "from",
 ): Promise<CompactionResult> {
+	// item 16: compact stall 计时器 (同 compactConversation)
+	let clearStallTimer: () => void = () => {};
 	try {
 		const messagesToSummarize =
 			direction === "up_to"
@@ -1163,6 +1204,8 @@ export async function partialCompactConversation(
 		context.setStreamMode?.("requesting");
 		context.setResponseLength?.(() => 0);
 		context.onCompactProgress?.({ type: "compact_start" });
+		// item 16: compact_start 后启 stall 计时器, finally 清
+		clearStallTimer = startCompactStallTimer(context, Date.now());
 
 		const compactPrompt = getPartialCompactPrompt(
 			customInstructions,
@@ -1247,6 +1290,17 @@ export async function partialCompactConversation(
 			if (!needsTruncateRetry) break;
 
 			ptlAttempts++;
+			// item 16 (CC 2.1.228): emit 用户可见重试进度 (partial 路径)
+			context.onCompactProgress?.({
+				type: "compact_retry",
+				attempt: ptlAttempts,
+				maxRetries: MAX_PTL_RETRIES,
+				reason: isEmptyMlxOom
+					? "mlx_memory"
+					: isMlxServerError
+						? "mlx_server_error"
+						: "prompt_too_long",
+			});
 			const truncated =
 				ptlAttempts <= MAX_PTL_RETRIES
 					? truncateHeadForPTLRetry(apiMessages, summaryResponse)
@@ -1490,6 +1544,7 @@ export async function partialCompactConversation(
 		context.setStreamMode?.("requesting");
 		context.setResponseLength?.(() => 0);
 		context.onCompactProgress?.({ type: "compact_end" });
+		clearStallTimer(); // item 16: 防 stall 计时器泄漏 (覆盖 throw + 早 return)
 		context.setSDKStatus?.(null);
 	}
 }

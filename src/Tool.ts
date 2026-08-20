@@ -1,12 +1,12 @@
 import type {
-	ToolResultBlockParam,
-	ToolUseBlockParam,
-} from "src/types/anthropic-protocol.js";
-import type {
 	ElicitRequestURLParams,
 	ElicitResult,
 } from "@modelcontextprotocol/sdk/types.js";
 import type { UUID } from "crypto";
+import type {
+	ToolResultBlockParam,
+	ToolUseBlockParam,
+} from "src/types/anthropic-protocol.js";
 import type { z } from "zod/v4";
 import type { Command } from "./commands.js";
 import type { CanUseToolFn } from "./hooks/useCanUseTool.js";
@@ -153,7 +153,14 @@ export type CompactProgressEvent =
 			hookType: "pre_compact" | "post_compact" | "session_start";
 	  }
 	| { type: "compact_start" }
-	| { type: "compact_end" };
+	| { type: "compact_end" }
+	| {
+			type: "compact_retry";
+			attempt: number;
+			maxRetries: number;
+			reason: "prompt_too_long" | "mlx_memory" | "mlx_server_error";
+	  }
+	| { type: "compact_stall"; elapsedMs: number };
 
 export type ToolUseContext = {
 	options: {
