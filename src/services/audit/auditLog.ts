@@ -106,6 +106,54 @@ export async function appendAuditLog(entry: AuditLogEntry): Promise<void> {
 	}
 }
 
+// Credential redaction — mask secret families before persisting to audit JSONL.
+// item 22 (CC 2.1.224 sandbox credential awareness): audit log target/detail/error
+// may carry embedded tokens (e.g. `curl -H "Authorization: Bearer eyJ..."` in a
+// 200-char command slice). Mask to <prefix4>…<suffix4> so the format stays
+// recognizable but the secret is unrecoverable. Non-matching text passes through.
+// Single-pass combined alternation — each secret span matched exactly once, so
+// no later pattern re-masks an already-masked prefix (the bug with a chained
+// .replace loop: Bearer would re-mask the leading eyJ… of a JWT Bearer token).
+// Alternation order is irrelevant for overlap: the regex scans left-to-right,
+// so for `Authorization: Bearer <jwt>` the Bearer branch wins (Bearer appears
+// before eyJ), masking the whole token — equivalent result to the JWT branch.
+const SECRET_RE =
+	/(\beyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\b)|(\bBearer\s+[A-Za-z0-9._~+/=-]+)|(X-Amz-Signature=[0-9a-fA-F]+)|([xX]-[aA][pP][iI]-[kK][eE][yY]:\s*[^\s,;]+)|(Authorization:\s*Basic\s+[A-Za-z0-9._~+/=-]+)/g;
+
+function maskSecretSpan(match: string): string {
+	if (match.startsWith("Bearer")) {
+		return `Bearer ${maskMiddle(match.slice("Bearer".length).trim())}`;
+	}
+	if (match.startsWith("Authorization: Basic")) {
+		return `Authorization: Basic ${maskMiddle(
+			match.slice("Authorization: Basic".length).trim(),
+		)}`;
+	}
+	if (match.toLowerCase().startsWith("x-api-key:")) {
+		const val = match.slice(match.indexOf(":") + 1).trim();
+		return `x-api-key: ${maskMiddle(val)}`;
+	}
+	if (match.startsWith("X-Amz-Signature=")) {
+		return `X-Amz-Signature=${maskMiddle(match.slice("X-Amz-Signature=".length))}`;
+	}
+	// JWT (standalone, starts eyJ)
+	return maskMiddle(match);
+}
+
+function maskMiddle(secret: string): string {
+	if (secret.length <= 8) {
+		return `${secret.slice(0, 2)}…${secret.slice(-2)}`;
+	}
+	return `${secret.slice(0, 4)}…${secret.slice(-4)}`;
+}
+
+export function redactSecrets(input: string): string {
+	if (!input) {
+		return input;
+	}
+	return input.replace(SECRET_RE, maskSecretSpan);
+}
+
 export function createAuditEntry(
 	sessionId: string,
 	toolName: string,
@@ -123,10 +171,10 @@ export function createAuditEntry(
 		session_id: sessionId,
 		tool_name: toolName,
 		operation,
-		target,
-		detail: opts?.detail,
+		target: redactSecrets(target),
+		detail: opts?.detail ? redactSecrets(opts.detail) : undefined,
 		success: opts?.success ?? true,
-		error: opts?.error,
+		error: opts?.error ? redactSecrets(opts.error) : undefined,
 		duration_ms: opts?.duration_ms,
 	};
 }

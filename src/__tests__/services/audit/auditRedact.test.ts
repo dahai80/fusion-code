@@ -1,0 +1,78 @@
+import { describe, expect, it } from "bun:test";
+import {
+	createAuditEntry,
+	redactSecrets,
+} from "../../../services/audit/auditLog.js";
+
+describe("audit redactSecrets (item 22)", () => {
+	it("masks JWT (3-segment eyJ...)", () => {
+		const jwt =
+			"eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxMjMifQ.SflKxwRJSMeKKF2QT4fwpMeJf36POk6yJV_adQssw5c";
+		const out = redactSecrets(`curl -H "Authorization: Bearer ${jwt}"`);
+		expect(out).not.toContain(jwt);
+		expect(out).toContain("eyJh…sw5c");
+	});
+
+	it("masks Bearer token, keeps scheme", () => {
+		const out = redactSecrets(
+			"Authorization: Bearer abcdefghijklmnop1234567890",
+		);
+		expect(out).toBe("Authorization: Bearer abcd…7890");
+	});
+
+	it("masks AWS SigV4 X-Amz-Signature hex", () => {
+		const out = redactSecrets(
+			"X-Amz-Signature=a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0c1d2e3f4a5b6c7d8e9f0a1b2",
+		);
+		expect(out).toBe("X-Amz-Signature=a1b2…a1b2");
+	});
+
+	it("masks x-api-key header", () => {
+		const out = redactSecrets("x-api-key: sk_live_abcdef0123456789XYZ");
+		expect(out).toBe("x-api-key: sk_l…9XYZ");
+	});
+
+	it("masks generic Authorization (Basic)", () => {
+		const out = redactSecrets(
+			"Authorization: Basic dXNlcjpwYXNzMTIzNDU2Nzg5MA==",
+		);
+		expect(out).toBe("Authorization: Basic dXNl…MA==");
+	});
+
+	it("does not touch non-secret text", () => {
+		const plain = "ran: git status --short in /Users/dahai/fusion/fusion-code";
+		expect(redactSecrets(plain)).toBe(plain);
+	});
+
+	it("short secret (<=8 chars) masked with 2+…+2", () => {
+		expect(redactSecrets("Bearer ab12cd34")).toBe("Bearer ab…34");
+	});
+
+	it("empty/whitespace passthrough", () => {
+		expect(redactSecrets("")).toBe("");
+		expect(redactSecrets("just words")).toBe("just words");
+	});
+
+	it("createAuditEntry redacts target + detail + error", () => {
+		const entry = createAuditEntry("sess-1", "Bash", "execute", "denied", {
+			detail: 'cmd: curl -H "Authorization: Bearer abcdefghijklmnop1234567890"',
+			success: false,
+			error: "Bearer xyz1234567890abcdef failed",
+		});
+		expect(entry.target).toBe("denied");
+		expect(entry.detail).toContain("abcd…7890");
+		expect(entry.error).toContain("xyz1…cdef");
+		expect(entry.detail).not.toContain("abcdefghijklmnop1234567890");
+	});
+
+	it("createAuditEntry leaves clean fields untouched", () => {
+		const entry = createAuditEntry("sess-2", "Read", "read", "/tmp/data.json", {
+			success: true,
+			duration_ms: 12,
+		});
+		expect(entry.target).toBe("/tmp/data.json");
+		expect(entry.detail).toBeUndefined();
+		expect(entry.error).toBeUndefined();
+		expect(entry.duration_ms).toBe(12);
+	});
+});
