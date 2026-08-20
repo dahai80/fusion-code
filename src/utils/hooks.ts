@@ -95,6 +95,7 @@ import type {
 	ConfigChangeHookInput,
 	CwdChangedHookInput,
 	FileChangedHookInput,
+	DirectoryAddedHookInput,
 	InstructionsLoadedHookInput,
 	UserPromptSubmitHookInput,
 	PermissionRequestHookInput,
@@ -4364,6 +4365,24 @@ export function executeFileChangedHooks(
 		hook_event_name: "FileChanged",
 		file_path: filePath,
 		event: event as HookEvent, // log: fix TS2322 'add'|'unlink'|'change' not assignable to HookEvent
+	};
+	return executeEnvHooks(hookInput, timeoutMs);
+}
+
+export function executeDirectoryAddedHooks(
+	directory: string,
+	source: "repl_add_dir" | "cli_add_dir",
+	timeoutMs: number = TOOL_HOOK_EXECUTION_TIMEOUT_MS,
+): Promise<{
+	results: HookOutsideReplResult[];
+	watchPaths: string[];
+	systemMessages: string[];
+}> {
+	const hookInput: DirectoryAddedHookInput = {
+		...createBaseHookInput(undefined),
+		hook_event_name: "DirectoryAdded",
+		directory,
+		source,
 	};
 	return executeEnvHooks(hookInput, timeoutMs);
 }

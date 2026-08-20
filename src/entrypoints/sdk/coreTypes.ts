@@ -80,6 +80,7 @@ export const HOOK_EVENTS = [
 	"InstructionsLoaded",
 	"CwdChanged",
 	"FileChanged",
+	"DirectoryAdded",
 ] as const;
 
 export const EXIT_REASONS = [

@@ -38,6 +38,7 @@ import { registerCleanup } from '../utils/cleanupRegistry.js'
 import { logForDebugging } from '../utils/debug.js'
 import { logError } from '../utils/log.js'
 import { enqueuePendingNotification } from '../utils/messageQueueManager.js'
+import { executeNotificationHooks } from '../utils/hooks.js'
 import { emitTaskTerminatedSdk } from '../utils/sdkEventQueue.js'
 import {
   getAgentTranscriptPath,
@@ -260,6 +261,13 @@ function enqueueMainSessionNotification(
 </${TASK_NOTIFICATION_TAG}>`
 
   enqueuePendingNotification({ value: message, mode: 'task-notification' })
+  void executeNotificationHooks({
+    message: summary,
+    title: 'Background session',
+    notificationType: status === 'completed' ? 'agent_completed' : 'agent_failed'
+  }).catch(error => {
+    console.error(`agent_completed notification hook failed: ${error instanceof Error ? error.message : 'Unknown error'}`)
+  })
 }
 
 /**

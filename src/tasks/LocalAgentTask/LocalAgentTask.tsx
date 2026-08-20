@@ -15,6 +15,7 @@ import { createAbortController, createChildAbortController } from '../../utils/a
 import { registerCleanup } from '../../utils/cleanupRegistry.js';
 import { getToolSearchOrReadInfo } from '../../utils/collapseReadSearch.js';
 import { enqueuePendingNotification } from '../../utils/messageQueueManager.js';
+import { executeNotificationHooks } from '../../utils/hooks.js';
 import { getAgentTranscriptPath } from '../../utils/sessionStorage.js';
 import { evictTaskOutput, getTaskOutputPath, initTaskOutputAsSymlink } from '../../utils/task/diskOutput.js';
 import { PANEL_GRACE_MS, registerTask, updateTaskState } from '../../utils/task/framework.js';
@@ -258,6 +259,13 @@ export function enqueueAgentNotification({
   enqueuePendingNotification({
     value: message,
     mode: 'task-notification'
+  });
+  void executeNotificationHooks({
+    message: summary,
+    title: 'Background agent',
+    notificationType: status === 'completed' ? 'agent_completed' : 'agent_failed'
+  }).catch(error => {
+    console.error(`agent_completed notification hook failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
   });
 }
 
