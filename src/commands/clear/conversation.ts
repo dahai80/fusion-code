@@ -172,6 +172,9 @@ export async function clearConversation({
         // P2.1 guardrail: reset session-cumulative subagent spawn count so the
         // FUSION_MAX_SUBAGENTS_PER_SESSION cap starts fresh after /clear.
         subagentSpawnCount: 0,
+        // P2.1 guardrail (item 14): reset session-cumulative subagent token
+        // budget so FUSION_MAX_SUBAGENT_BUDGET_TOKENS starts fresh after /clear.
+        subagentBudgetUsedTokens: 0,
         // Clear standalone agent context (name/color set by /rename, /color)
         // so the new session doesn't display the old session's identity badge
         standaloneAgentContext: undefined,

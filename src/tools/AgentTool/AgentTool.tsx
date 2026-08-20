@@ -657,6 +657,7 @@ export const AgentTool = buildTool({
 			appState: guardrailState,
 			depth: toolUseContext.queryTracking?.depth ?? 0,
 			sessionSpawnCount: guardrailState.subagentSpawnCount ?? 0,
+			budgetUsedTokens: guardrailState.subagentBudgetUsedTokens ?? 0,
 		});
 		if (guardrailError) {
 			throw new Error(guardrailError);
@@ -1351,6 +1352,15 @@ export const AgentTool = buildTool({
 												metadata,
 											);
 
+											// P2.1 item 14: accumulate subagent token budget. Keep
+											// in sync — every finalizeAgentTool site must increment.
+											rootSetAppState((prev) => ({
+												...prev,
+												subagentBudgetUsedTokens:
+													(prev.subagentBudgetUsedTokens ?? 0) +
+													(agentResult.totalTokens ?? 0),
+											}));
+
 											// Mark task completed FIRST so TaskOutput(block=true)
 											// unblocks immediately. classifyHandoffIfNeeded and
 											// cleanupWorktreeIfNeeded can hang — they must not gate
@@ -1695,6 +1705,14 @@ export const AgentTool = buildTool({
 						syncAgentId,
 						metadata,
 					);
+					// P2.1 item 14: accumulate subagent token budget. Keep in
+					// sync — every finalizeAgentTool site must increment.
+					rootSetAppState((prev) => ({
+						...prev,
+						subagentBudgetUsedTokens:
+							(prev.subagentBudgetUsedTokens ?? 0) +
+							(agentResult.totalTokens ?? 0),
+					}));
 					if (feature("TRANSCRIPT_CLASSIFIER")) {
 						const currentAppState = toolUseContext.getAppState();
 						const handoffWarning = await classifyHandoffIfNeeded({

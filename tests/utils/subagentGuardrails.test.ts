@@ -5,9 +5,11 @@ import {
 	checkSubagentGuardrails,
 	countRunningSubagents,
 	DEFAULT_MAX_CONCURRENT_SUBAGENTS,
+	DEFAULT_MAX_SUBAGENT_BUDGET_TOKENS,
 	DEFAULT_MAX_SUBAGENT_SPAWN_DEPTH,
 	DEFAULT_MAX_SUBAGENTS_PER_SESSION,
 	getMaxConcurrentSubagents,
+	getMaxSubagentBudgetTokens,
 	getMaxSubagentSpawnDepth,
 	getMaxSubagentsPerSession,
 } from "../../src/tools/AgentTool/subagentGuardrails.js";
@@ -47,6 +49,7 @@ const ENV_KEYS = [
 	"FUSION_MAX_CONCURRENT_SUBAGENTS",
 	"FUSION_MAX_SUBAGENTS_PER_SESSION",
 	"FUSION_MAX_SUBAGENT_SPAWN_DEPTH",
+	"FUSION_MAX_SUBAGENT_BUDGET_TOKENS",
 ] as const;
 
 describe("subagentGuardrails", () => {
@@ -66,6 +69,10 @@ describe("subagentGuardrails", () => {
 				DEFAULT_MAX_SUBAGENTS_PER_SESSION,
 			);
 			expect(getMaxSubagentSpawnDepth()).toBe(DEFAULT_MAX_SUBAGENT_SPAWN_DEPTH);
+			// Budget default = 0 (off) — no sensible non-zero default.
+			expect(getMaxSubagentBudgetTokens()).toBe(
+				DEFAULT_MAX_SUBAGENT_BUDGET_TOKENS,
+			);
 		});
 		it("honors env overrides", () => {
 			process.env.FUSION_MAX_CONCURRENT_SUBAGENTS = "5";
@@ -86,6 +93,28 @@ describe("subagentGuardrails", () => {
 		it("truncates decimal env to integer (parseInt semantics)", () => {
 			process.env.FUSION_MAX_CONCURRENT_SUBAGENTS = "5.9";
 			expect(getMaxConcurrentSubagents()).toBe(5);
+		});
+		it("budget: 0 (off) is a legal default, not a fallback error", () => {
+			// Unset / empty / non-numeric / 0 / negative all map to 0 (off).
+			// Unlike count/depth caps, 0 means "no budget" — fail open.
+			// (Decimals like "5.9" truncate to 5 via parseInt — valid, same as
+			// the count/depth caps, tested separately below.)
+			process.env.FUSION_MAX_SUBAGENT_BUDGET_TOKENS = "0";
+			expect(getMaxSubagentBudgetTokens()).toBe(0);
+			delete process.env.FUSION_MAX_SUBAGENT_BUDGET_TOKENS;
+			expect(getMaxSubagentBudgetTokens()).toBe(0);
+			for (const bad of ["", "nope", "-3"]) {
+				process.env.FUSION_MAX_SUBAGENT_BUDGET_TOKENS = bad;
+				expect(getMaxSubagentBudgetTokens()).toBe(0);
+			}
+		});
+		it("budget: truncates decimal env to integer (parseInt semantics)", () => {
+			process.env.FUSION_MAX_SUBAGENT_BUDGET_TOKENS = "5.9";
+			expect(getMaxSubagentBudgetTokens()).toBe(5);
+		});
+		it("budget: honors a valid positive env override", () => {
+			process.env.FUSION_MAX_SUBAGENT_BUDGET_TOKENS = "50000";
+			expect(getMaxSubagentBudgetTokens()).toBe(50000);
 		});
 	});
 
@@ -176,6 +205,76 @@ describe("subagentGuardrails", () => {
 					sessionSpawnCount: DEFAULT_MAX_SUBAGENTS_PER_SESSION - 1,
 				}),
 			).toBeNull();
+		});
+
+		it("budget: off by default — never blocks even with huge usage", () => {
+			// No env set → maxBudget 0 → dimension skipped entirely.
+			expect(
+				checkSubagentGuardrails({
+					appState: makeAppState([]),
+					depth: 0,
+					sessionSpawnCount: 0,
+					budgetUsedTokens: Number.MAX_SAFE_INTEGER,
+				}),
+			).toBeNull();
+		});
+		it("budget: allows spawn when usage is below the cap", () => {
+			process.env.FUSION_MAX_SUBAGENT_BUDGET_TOKENS = "10000";
+			expect(
+				checkSubagentGuardrails({
+					appState: makeAppState([]),
+					depth: 0,
+					sessionSpawnCount: 0,
+					budgetUsedTokens: 9999,
+				}),
+			).toBeNull();
+		});
+		it("budget: rejects when usage reaches the cap", () => {
+			process.env.FUSION_MAX_SUBAGENT_BUDGET_TOKENS = "10000";
+			const err = checkSubagentGuardrails({
+				appState: makeAppState([]),
+				depth: 0,
+				sessionSpawnCount: 0,
+				budgetUsedTokens: 10000,
+			});
+			expect(err).not.toBeNull();
+			expect(err).toContain("budget");
+			expect(err).toContain("FUSION_MAX_SUBAGENT_BUDGET_TOKENS");
+			expect(err).toContain("10000");
+		});
+		it("budget: rejects when usage exceeds the cap", () => {
+			process.env.FUSION_MAX_SUBAGENT_BUDGET_TOKENS = "1000";
+			const err = checkSubagentGuardrails({
+				appState: makeAppState([]),
+				depth: 0,
+				sessionSpawnCount: 0,
+				budgetUsedTokens: 5000,
+			});
+			expect(err).not.toBeNull();
+			expect(err).toContain("FUSION_MAX_SUBAGENT_BUDGET_TOKENS");
+		});
+		it("budget: defaults to 0 when budgetUsedTokens omitted", () => {
+			// Callers may omit the optional field — must not throw, treated as 0.
+			process.env.FUSION_MAX_SUBAGENT_BUDGET_TOKENS = "100";
+			expect(
+				checkSubagentGuardrails({
+					appState: makeAppState([]),
+					depth: 0,
+					sessionSpawnCount: 0,
+				}),
+			).toBeNull();
+		});
+		it("budget: checked last — prior caps still win when also exceeded", () => {
+			// Depth AND budget both exceeded — depth message wins (checked first).
+			process.env.FUSION_MAX_SUBAGENT_BUDGET_TOKENS = "100";
+			const err = checkSubagentGuardrails({
+				appState: makeAppState([]),
+				depth: DEFAULT_MAX_SUBAGENT_SPAWN_DEPTH,
+				sessionSpawnCount: 0,
+				budgetUsedTokens: 9999,
+			});
+			expect(err).not.toBeNull();
+			expect(err).toContain("depth");
 		});
 
 		it("checks depth before concurrency (cheapest first)", () => {
