@@ -1,4 +1,5 @@
 import chalk from 'chalk'
+import { getInitialSettings } from '../utils/settings/settings.js'
 import type { Color, TextStyles } from './styles.js'
 
 /**
@@ -61,6 +62,17 @@ function clampChalkLevelForTmux(): boolean {
 export const CHALK_BOOSTED_FOR_XTERMJS = boostChalkLevelForXtermJs()
 export const CHALK_CLAMPED_FOR_TMUX = clampChalkLevelForTmux()
 
+// screen-reader ANSI gate: when active, colorize()/applyTextStyles() return
+// raw strings (no ANSI escapes), reusing NO_COLOR semantics locally to the Ink
+// render path. In-function gate (not global chalk.level=0) to avoid touching
+// non-Ink chalk imports (telemetry/gracefulShutdown/markdown.ts). Default off
+// = byte-identical current behavior.
+let screenReaderAnsiGateActive =
+  getInitialSettings().prefersReducedMotion === true
+export function applyScreenReaderAnsiGate(active: boolean): void {
+  screenReaderAnsiGateActive = active
+}
+
 export type ColorType = 'foreground' | 'background'
 
 const RGB_REGEX = /^rgb\(\s?(\d+),\s?(\d+),\s?(\d+)\s?\)$/
@@ -72,6 +84,10 @@ export const colorize = (
   type: ColorType,
 ): string => {
   if (!color) {
+    return str
+  }
+
+  if (screenReaderAnsiGateActive) {
     return str
   }
 
@@ -175,6 +191,10 @@ export const colorize = (
  */
 export function applyTextStyles(text: string, styles: TextStyles): string {
   let result = text
+
+  if (screenReaderAnsiGateActive) {
+    return text
+  }
 
   // Apply styles in reverse order of desired nesting.
   // chalk wraps text so later calls become outer wrappers.
