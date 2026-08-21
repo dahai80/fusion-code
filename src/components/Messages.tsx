@@ -48,6 +48,10 @@ import {
 	type StreamingToolUse,
 	shouldShowUserMessage,
 } from "../utils/messages.js";
+import {
+	type NormalizedCacheState,
+	normalizeMessagesIncremental,
+} from "../utils/normalizeMessagesCache.js";
 import { plural } from "../utils/stringUtils.js";
 import { renderableSearchText } from "../utils/transcriptSearch.js";
 import { Divider } from "./design-system/Divider.js";
@@ -461,10 +465,19 @@ const MessagesImpl = ({
 		"Transcript",
 		"Ctrl+E",
 	);
-	const normalizedMessages = useMemo(
-		() => normalizeMessages(messages).filter(isNotEmptyMessage),
-		[messages],
-	);
+	// Incremental normalize cache: append-only messages keep stable object
+	// refs, so we reuse the cached normalized prefix and only recompute the
+	// tail. Compact/rewind replace the whole array → prefix refs mismatch →
+	// full recompute (auto-correct, no stale output). See item 5.
+	const normalizeCacheRef = useRef<NormalizedCacheState | null>(null);
+	const normalizedMessages = useMemo(() => {
+		const { normalized, cache } = normalizeMessagesIncremental(
+			messages,
+			normalizeCacheRef.current,
+		);
+		normalizeCacheRef.current = cache;
+		return normalized.filter(isNotEmptyMessage);
+	}, [messages]);
 
 	// Check if streaming thinking should be visible (streaming or within 30s timeout)
 	const isStreamingThinkingVisible = useMemo(() => {
