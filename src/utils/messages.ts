@@ -1,5 +1,12 @@
 import { feature } from "bun:bundle";
-import type { BetaUsage as Usage } from "src/types/anthropic-protocol.js";
+import { randomUUID, type UUID } from "crypto";
+import isObject from "lodash-es/isObject.js";
+import last from "lodash-es/last.js";
+import {
+	type AnalyticsMetadata_I_VERIFIED_THIS_IS_NOT_CODE_OR_FILEPATHS,
+	logEvent,
+} from "src/services/analytics/index.js";
+import { sanitizeToolNameForAnalytics } from "src/services/analytics/metadata.js";
 import type {
 	ContentBlock,
 	ContentBlockParam,
@@ -11,15 +18,8 @@ import type {
 	ToolResultBlockParam,
 	ToolUseBlock,
 	ToolUseBlockParam,
+	BetaUsage as Usage,
 } from "src/types/anthropic-protocol.js";
-import { randomUUID, type UUID } from "crypto";
-import isObject from "lodash-es/isObject.js";
-import last from "lodash-es/last.js";
-import {
-	type AnalyticsMetadata_I_VERIFIED_THIS_IS_NOT_CODE_OR_FILEPATHS,
-	logEvent,
-} from "src/services/analytics/index.js";
-import { sanitizeToolNameForAnalytics } from "src/services/analytics/metadata.js";
 import type { AgentId } from "src/types/ids.js";
 import { companionIntroText } from "../buddy/prompt.js";
 import { NO_CONTENT_MESSAGE } from "../constants/messages.js";
@@ -91,14 +91,6 @@ type HookAttachmentWithName = Exclude<
 	HookPermissionDecisionAttachment
 >;
 
-import type { APIError } from "src/types/anthropic-protocol.js";
-import type {
-	BetaContentBlock,
-	BetaMessage,
-	BetaRedactedThinkingBlock,
-	BetaThinkingBlock,
-	BetaToolUseBlock,
-} from "src/types/anthropic-protocol.js";
 import type {
 	HookEvent,
 	SDKAssistantMessageError,
@@ -118,6 +110,14 @@ import {
 import { FileWriteTool } from "src/tools/FileWriteTool/FileWriteTool.js";
 import { GLOB_TOOL_NAME } from "src/tools/GlobTool/prompt.js";
 import { GREP_TOOL_NAME } from "src/tools/GrepTool/prompt.js";
+import type {
+	APIError,
+	BetaContentBlock,
+	BetaMessage,
+	BetaRedactedThinkingBlock,
+	BetaThinkingBlock,
+	BetaToolUseBlock,
+} from "src/types/anthropic-protocol.js";
 import type { DeepImmutable } from "src/types/utils.js";
 import { getStrictToolResultPairing } from "../bootstrap/state.js";
 import type { SpinnerMode } from "../components/Spinner.js";
@@ -739,22 +739,35 @@ export function normalizeMessages(
 ): (NormalizedAssistantMessage | NormalizedUserMessage)[];
 export function normalizeMessages(messages: Message[]): NormalizedMessage[];
 export function normalizeMessages(messages: Message[]): NormalizedMessage[] {
-	// isNewChain tracks whether we need to generate new UUIDs for messages when normalizing.
-	// When a message has multiple content blocks, we split it into multiple messages,
-	// each with a single content block. When this happens, we need to generate new UUIDs
-	// for all subsequent messages to maintain proper ordering and prevent duplicate UUIDs.
-	// This flag is set to true once we encounter a message with multiple content blocks,
-	// and remains true for all subsequent messages in the normalization process.
-	let isNewChain = false;
-	return messages.flatMap((message) => {
+	return normalizeMessagesCore(messages, false).normalized;
+}
+
+// Core normalization loop, extracted so the incremental cache (see
+// normalizeMessagesCache.ts) can reuse the exact per-message transform with a
+// seeded isNewChain flag when appending to a cached prefix. Behavior-identical
+// to the original inlined loop — isNewChain is the only mutable state.
+//
+// isNewChain is monotonic false→true within a call: once a message with
+// content.length > 1 flips it, every subsequent message gets a derived UUID
+// (deriveUUID(parentUUID, index)) instead of keeping its own. Seeding the flag
+// from a cached prefix's final value lets a tail-only recompute produce the
+// same UUIDs as a full recompute.
+export function normalizeMessagesCore(
+	messages: Message[],
+	seedIsNewChain: boolean,
+): { normalized: NormalizedMessage[]; isNewChain: boolean } {
+	let isNewChain = seedIsNewChain;
+	const normalized: NormalizedMessage[] = [];
+	for (const message of messages) {
 		switch (message.type) {
 			case "assistant": {
 				isNewChain = isNewChain || message.message.content.length > 1;
-				return message.message.content.map((_, index) => {
+				for (let index = 0; index < message.message.content.length; index++) {
+					const _ = message.message.content[index]!;
 					const uuid = isNewChain
 						? deriveUUID(message.uuid, index)
 						: message.uuid;
-					return {
+					normalized.push({
 						type: "assistant" as const,
 						timestamp: message.timestamp,
 						message: {
@@ -769,32 +782,36 @@ export function normalizeMessages(messages: Message[]): NormalizedMessage[] {
 						error: message.error,
 						isApiErrorMessage: message.isApiErrorMessage,
 						advisorModel: message.advisorModel,
-					} as NormalizedAssistantMessage;
-				});
+					} as NormalizedAssistantMessage);
+				}
+				break;
 			}
 			case "attachment":
-				return [message];
+				normalized.push(message);
+				break;
 			case "progress":
-				return [message];
+				normalized.push(message);
+				break;
 			case "system":
-				return [message];
+				normalized.push(message);
+				break;
 			case "user": {
 				if (typeof message.message.content === "string") {
 					const uuid = isNewChain ? deriveUUID(message.uuid, 0) : message.uuid;
-					return [
-						{
-							...message,
-							uuid,
-							message: {
-								...message.message,
-								content: [{ type: "text", text: message.message.content }],
-							},
-						} as NormalizedMessage,
-					];
+					normalized.push({
+						...message,
+						uuid,
+						message: {
+							...message.message,
+							content: [{ type: "text", text: message.message.content }],
+						},
+					} as NormalizedMessage);
+					break;
 				}
 				isNewChain = isNewChain || message.message.content.length > 1;
 				let imageIndex = 0;
-				return message.message.content.map((_, index) => {
+				for (let index = 0; index < message.message.content.length; index++) {
+					const _ = message.message.content[index]!;
 					const isImage = _.type === "image";
 					// For image content blocks, extract just the ID for this image
 					const imageId =
@@ -802,7 +819,7 @@ export function normalizeMessages(messages: Message[]): NormalizedMessage[] {
 							? message.imagePasteIds[imageIndex]
 							: undefined;
 					if (isImage) imageIndex++;
-					return {
+					normalized.push({
 						...createUserMessage({
 							content: [_],
 							toolUseResult: message.toolUseResult,
@@ -815,11 +832,13 @@ export function normalizeMessages(messages: Message[]): NormalizedMessage[] {
 							origin: message.origin,
 						}),
 						uuid: isNewChain ? deriveUUID(message.uuid, index) : message.uuid,
-					} as NormalizedMessage;
-				});
+					} as NormalizedMessage);
+				}
+				break;
 			}
 		}
-	});
+	}
+	return { normalized, isNewChain };
 }
 
 type ToolUseRequestMessage = NormalizedAssistantMessage & {
