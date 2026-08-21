@@ -1,9 +1,4 @@
-import {
-  EFFORT_HIGH,
-  EFFORT_LOW,
-  EFFORT_MAX,
-  EFFORT_MEDIUM,
-} from '../constants/figures.js'
+import { getFigures } from '../constants/figures.js'
 import {
   type EffortLevel,
   type EffortValue,
@@ -25,18 +20,19 @@ export function getEffortNotificationText(
 }
 
 export function effortLevelToSymbol(level: EffortLevel): string {
+  const fig = getFigures()
   switch (level) {
     case 'low':
-      return EFFORT_LOW
+      return fig.EFFORT_LOW
     case 'medium':
-      return EFFORT_MEDIUM
+      return fig.EFFORT_MEDIUM
     case 'high':
-      return EFFORT_HIGH
+      return fig.EFFORT_HIGH
     case 'max':
-      return EFFORT_MAX
+      return fig.EFFORT_MAX
     default:
       // Defensive: level can originate from remote config. If an unknown
       // value slips through, render the high symbol rather than undefined.
-      return EFFORT_HIGH
+      return fig.EFFORT_HIGH
   }
 }

@@ -7,6 +7,17 @@ import { wrapAnsi } from '../ink/wrapAnsi.js';
 import { Ansi, useTheme } from '../ink.js';
 import type { CliHighlight } from '../utils/cliHighlight.js';
 import { formatToken, padAligned } from '../utils/markdown.js';
+import { getInitialSettings } from '../utils/settings/settings.js';
+
+// screen-reader table borders: read once at module load. Downgrade Unicode
+// box-drawing to ASCII (+/-/|) when prefersReducedMotion is active so screen
+// readers read plain text. Default off = byte-identical current borders.
+const REDUCED_MOTION = getInitialSettings().prefersReducedMotion === true;
+const BORDERS = REDUCED_MOTION
+  ? { top: ['+', '-', '+', '+'], middle: ['+', '-', '+', '+'], bottom: ['+', '-', '+', '+'] }
+  : { top: ['┌', '─', '┬', '┐'], middle: ['├', '─', '┼', '┤'], bottom: ['└', '─', '┴', '┘'] };
+const VBAR = REDUCED_MOTION ? '|' : '│';
+const HBAR = REDUCED_MOTION ? '-' : '─';
 
 /** Accounts for parent indentation (e.g. message dot prefix) and terminal
  *  resize races. Without enough margin the table overflows its layout box
@@ -206,7 +217,7 @@ export function MarkdownTable({
     // Build each line of the row as a single string
     const result: string[] = [];
     for (let lineIdx = 0; lineIdx < maxLines_0; lineIdx++) {
-      let line = '│';
+      let line = VBAR;
       for (let colIndex_2 = 0; colIndex_2 < cells.length; colIndex_2++) {
         const lines_1 = cellLines[colIndex_2]!;
         const offset = verticalOffsets[colIndex_2]!;
@@ -215,7 +226,7 @@ export function MarkdownTable({
         const width_0 = columnWidths[colIndex_2]!;
         // Headers always centered; data uses table alignment
         const align = isHeader ? 'center' : token.align?.[colIndex_2] ?? 'left';
-        line += ' ' + padAligned(lineText, stringWidth(lineText), width_0, align) + ' │';
+        line += ' ' + padAligned(lineText, stringWidth(lineText), width_0, align) + ` ${VBAR}`;
       }
       result.push(line);
     }
@@ -224,11 +235,7 @@ export function MarkdownTable({
 
   // Render horizontal border as a single string
   function renderBorderLine(type: 'top' | 'middle' | 'bottom'): string {
-    const [left, mid, cross, right] = {
-      top: ['┌', '─', '┬', '┐'],
-      middle: ['├', '─', '┼', '┤'],
-      bottom: ['└', '─', '┴', '┘']
-    }[type] as [string, string, string, string];
+    const [left, mid, cross, right] = BORDERS[type] as [string, string, string, string];
     let line_0 = left;
     columnWidths.forEach((width_1, colIndex_3) => {
       line_0 += mid.repeat(width_1 + 2);
@@ -242,7 +249,7 @@ export function MarkdownTable({
     const lines_2: string[] = [];
     const headers = token.header.map(h => getPlainText(h.tokens));
     const separatorWidth = Math.min(terminalWidth - 1, 40);
-    const separator = '─'.repeat(separatorWidth);
+    const separator = HBAR.repeat(separatorWidth);
     // Small indent for wrapped lines (just 2 spaces)
     const wrapIndent = '  ';
     token.rows.forEach((row_2, rowIndex) => {

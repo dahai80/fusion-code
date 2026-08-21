@@ -6,9 +6,14 @@ import { generateContextSuggestions } from '../utils/contextSuggestions.js';
 import { getDisplayPath } from '../utils/file.js';
 import { formatTokens } from '../utils/format.js';
 import { getSourceDisplayName, type SettingSource } from '../utils/settings/constants.js';
+import { getInitialSettings } from '../utils/settings/settings.js';
 import { plural } from '../utils/stringUtils.js';
 import { ContextSuggestions } from './ContextSuggestions.js';
 const RESERVED_CATEGORY_NAME = 'Autocompact buffer';
+// screen-reader tree branch: read once at module load (same module-scope
+// pattern as LogoV2.tsx). /context is transient — re-mounts on each open, so
+// toggling FUSION_AX_SCREEN_READER between sessions reflects on next render.
+const TREE_BRANCH = getInitialSettings().prefersReducedMotion === true ? '- ' : '└ ';
 
 /**
  * One-liner for the legend header showing what context-collapse has done.
@@ -391,33 +396,33 @@ export function ContextVisualization(t0) {
   return t18;
 }
 function _temp27(attachment, i_10) {
-  return <Box key={i_10} marginLeft={1}><Text>└ {attachment.name}: </Text><Text dimColor={true}>{formatTokens(attachment.tokens)} tokens</Text></Box>;
+  return <Box key={i_10} marginLeft={1}><Text>{TREE_BRANCH}{attachment.name}: </Text><Text dimColor={true}>{formatTokens(attachment.tokens)} tokens</Text></Box>;
 }
 function _temp26(tool_5, i_9) {
-  return <Box key={i_9} marginLeft={1}><Text>└ {tool_5.name}: </Text><Text dimColor={true}>calls {formatTokens(tool_5.callTokens)}, results{" "}{formatTokens(tool_5.resultTokens)}</Text></Box>;
+  return <Box key={i_9} marginLeft={1}><Text>{TREE_BRANCH}{tool_5.name}: </Text><Text dimColor={true}>calls {formatTokens(tool_5.callTokens)}, results{" "}{formatTokens(tool_5.resultTokens)}</Text></Box>;
 }
 function _temp25(t0) {
   const [sourceDisplay_0, sourceSkills] = t0;
   return <Box key={sourceDisplay_0} flexDirection="column" marginTop={1}><Text dimColor={true}>{sourceDisplay_0}</Text>{sourceSkills.map(_temp24)}</Box>;
 }
 function _temp24(skill, i_8) {
-  return <Box key={i_8}><Text>└ {skill.name}: </Text><Text dimColor={true}>{formatTokens(skill.tokens)} tokens</Text></Box>;
+  return <Box key={i_8}><Text>{TREE_BRANCH}{skill.name}: </Text><Text dimColor={true}>{formatTokens(skill.tokens)} tokens</Text></Box>;
 }
 function _temp23(file, i_7) {
-  return <Box key={i_7}><Text>└ {getDisplayPath(file.path)}: </Text><Text dimColor={true}>{formatTokens(file.tokens)} tokens</Text></Box>;
+  return <Box key={i_7}><Text>{TREE_BRANCH}{getDisplayPath(file.path)}: </Text><Text dimColor={true}>{formatTokens(file.tokens)} tokens</Text></Box>;
 }
 function _temp22(t0) {
   const [sourceDisplay, sourceAgents] = t0;
   return <Box key={sourceDisplay} flexDirection="column" marginTop={1}><Text dimColor={true}>{sourceDisplay}</Text>{sourceAgents.map(_temp21)}</Box>;
 }
 function _temp21(agent, i_6) {
-  return <Box key={i_6}><Text>└ {agent.agentType}: </Text><Text dimColor={true}>{formatTokens(agent.tokens)} tokens</Text></Box>;
+  return <Box key={i_6}><Text>{TREE_BRANCH}{agent.agentType}: </Text><Text dimColor={true}>{formatTokens(agent.tokens)} tokens</Text></Box>;
 }
 function _temp20(section, i_5) {
-  return <Box key={i_5}><Text>└ {section.name}: </Text><Text dimColor={true}>{formatTokens(section.tokens)} tokens</Text></Box>;
+  return <Box key={i_5}><Text>{TREE_BRANCH}{section.name}: </Text><Text dimColor={true}>{formatTokens(section.tokens)} tokens</Text></Box>;
 }
 function _temp19(tool_4, i_4) {
-  return <Box key={i_4}><Text dimColor={true}>└ {tool_4.name}</Text></Box>;
+  return <Box key={i_4}><Text dimColor={true}>{TREE_BRANCH}{tool_4.name}</Text></Box>;
 }
 function _temp18(t_4) {
   return !t_4.isLoaded;
@@ -426,19 +431,19 @@ function _temp17(t_5) {
   return !t_5.isLoaded;
 }
 function _temp16(tool_3, i_3) {
-  return <Box key={`def-${i_3}`}><Text>└ {tool_3.name}: </Text><Text dimColor={true}>{formatTokens(tool_3.tokens)} tokens</Text></Box>;
+  return <Box key={`def-${i_3}`}><Text>{TREE_BRANCH}{tool_3.name}: </Text><Text dimColor={true}>{formatTokens(tool_3.tokens)} tokens</Text></Box>;
 }
 function _temp15(t_3) {
   return t_3.isLoaded;
 }
 function _temp14(tool_2, i_2) {
-  return <Box key={`sys-${i_2}`}><Text>└ {tool_2.name}: </Text><Text dimColor={true}>{formatTokens(tool_2.tokens)} tokens</Text></Box>;
+  return <Box key={`sys-${i_2}`}><Text>{TREE_BRANCH}{tool_2.name}: </Text><Text dimColor={true}>{formatTokens(tool_2.tokens)} tokens</Text></Box>;
 }
 function _temp13(tool_1, i_1) {
-  return <Box key={i_1}><Text>└ {tool_1.name}: </Text><Text dimColor={true}>{formatTokens(tool_1.tokens)} tokens</Text></Box>;
+  return <Box key={i_1}><Text>{TREE_BRANCH}{tool_1.name}: </Text><Text dimColor={true}>{formatTokens(tool_1.tokens)} tokens</Text></Box>;
 }
 function _temp12(tool_0, i_0) {
-  return <Box key={i_0}><Text dimColor={true}>└ {tool_0.name}</Text></Box>;
+  return <Box key={i_0}><Text dimColor={true}>{TREE_BRANCH}{tool_0.name}</Text></Box>;
 }
 function _temp11(t_1) {
   return !t_1.isLoaded;
@@ -447,7 +452,7 @@ function _temp10(t_2) {
   return !t_2.isLoaded;
 }
 function _temp1(tool, i) {
-  return <Box key={i}><Text>└ {tool.name}: </Text><Text dimColor={true}>{formatTokens(tool.tokens)} tokens</Text></Box>;
+  return <Box key={i}><Text>{TREE_BRANCH}{tool.name}: </Text><Text dimColor={true}>{formatTokens(tool.tokens)} tokens</Text></Box>;
 }
 function _temp0(t) {
   return t.isLoaded;
