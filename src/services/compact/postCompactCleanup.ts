@@ -5,7 +5,10 @@ import { getUserContext } from '../../context.js'
 import { clearSpeculativeChecks } from '../../tools/BashTool/bashPermissions.js'
 import { clearClassifierApprovals } from '../../utils/classifierApprovals.js'
 import { resetGetMemoryFilesCache } from '../../utils/claudemd.js'
-import { clearSessionMessagesCache } from '../../utils/sessionStorage.js'
+import {
+  clearSessionMessagesCache,
+  trimCurrentSessionTranscript,
+} from '../../utils/sessionStorage.js'
 import { clearBetaTracingState } from '../../utils/telemetry/betaSessionTracing.js'
 import { resetMicrocompactState } from './microCompact.js'
 import { getLspServerManager } from '../lsp/manager.js'
@@ -82,5 +85,11 @@ export function runPostCompactCleanup(
   // compaction. Fire-and-forget; closeFilesNotIn swallows per-file errors.
   if (activeFilePaths && activeFilePaths.size > 0) {
     void getLspServerManager()?.closeFilesNotIn(activeFilePaths)
+  }
+  // item 6: compact 收尾触发磁盘裁剪 (CC 2.1.208)。default off —
+  // FUSION_TRANSCRIPT_TRIM_THRESHOLD 未设则 no-op。仅主线程 compact 裁 (子代理
+  // 不动主 transcript)。fire-and-forget — 走 trackWrite 串行等 pending 写排空后裁。
+  if (isMainThreadCompact) {
+    void trimCurrentSessionTranscript()
   }
 }

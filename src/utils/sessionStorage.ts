@@ -90,6 +90,11 @@ import {
 	readTranscriptForLoad,
 	SKIP_PRECOMPACT_THRESHOLD,
 } from "./sessionStoragePortable.js";
+import {
+	shouldTrimTranscript,
+	performTrim as trimTranscriptPerform,
+	recoverTrimIfNeeded as trimTranscriptRecover,
+} from "./sessionTranscript.js";
 import { getInitialSettings } from "./settings/settings.js";
 import { jsonParse, jsonStringify } from "./slowOperations.js";
 import type { ContentReplacementRecord } from "./toolResultStorage.js";
@@ -972,6 +977,55 @@ class Project {
 				// Silently ignore errors - the file might not exist yet
 			}
 		});
+	}
+
+	/**
+	 * item 6: 磁盘裁剪 transcript (CC 2.1.208)。compact 后阈值触发, 走 trackWrite
+	 * 串行 (同 removeMessageByUuid 模式), 调 sessionTranscript.performTrim 纯函数。
+	 * default off — FUSION_TRANSCRIPT_TRIM_THRESHOLD 未设则 shouldTrim 返 false, no-op。
+	 * 三重数据安全: default off + atomicWriteFile tmp+rename + preservedSegment 不裁。
+	 */
+	async trimTranscriptOnDisk(): Promise<void> {
+		if (this.sessionFile === null) return;
+		const decision = shouldTrimTranscript(this.sessionFile);
+		if (!decision.trim) return;
+		return this.trackWrite(async () => {
+			if (this.sessionFile === null) return;
+			try {
+				const result = await trimTranscriptPerform(this.sessionFile);
+				if (result.trimmed) {
+					logEvent("tengu_transcript_trimmed", {
+						origSize: result.origSize,
+						newSize: result.newSize,
+						trimmedBytes: result.trimmedBytes,
+					});
+				}
+			} catch (error) {
+				// 失败不阻断 compact (compact 已成功, 裁剪是 best-effort 优化)。
+				// 错误细节进本地 debug 日志 (logForDebugging 接受 string),
+				// 遥测只记 boolean 失败计数 (LogEventMetadata 不允许 string)。
+				logEvent("tengu_transcript_trim_failed", { failed: 1 });
+				logForDebugging(`transcript trim failed: ${String(error)}`, {
+					level: "warn",
+				});
+			}
+		});
+	}
+
+	/**
+	 * item 6: resume/启动崩溃恢复。default off 时 checkpoint 永不存在 → no-op, 零开销。
+	 * checkpoint 存在 + 主文件 OK → 幂等删 checkpoint; 主文件坏 → fail-visible (不静默删)。
+	 */
+	async recoverTrimIfNeeded(): Promise<void> {
+		if (this.sessionFile === null) return;
+		try {
+			await trimTranscriptRecover(this.sessionFile);
+		} catch (error) {
+			logEvent("tengu_transcript_trim_recover_failed", { failed: 1 });
+			logForDebugging(`transcript trim recover failed: ${String(error)}`, {
+				level: "warn",
+			});
+		}
 	}
 
 	/**
@@ -3523,6 +3577,14 @@ export async function loadTranscriptFile(
 	contextCollapseSnapshot: ContextCollapseSnapshotEntry | undefined;
 	leafUuids: Set<UUID>;
 }> {
+	// item 6: resume 崩溃恢复。default off 时 checkpoint 永不存在 → no-op, 零开销。
+	// checkpoint 残留 + 主文件完整 → 幂等删 checkpoint; 主文件坏 → fail-visible。
+	try {
+		await trimTranscriptRecover(filePath);
+	} catch {
+		// 恢复失败不阻断加载 (加载照常走, 磁盘可能有 pre-compact 残留但
+		// readTranscriptForLoad 照常 boundary-truncate)。
+	}
 	const messages = new Map<UUID, TranscriptMessage>();
 	const summaries = new Map<UUID, string>();
 	const customTitles = new Map<UUID, string>();
@@ -3896,6 +3958,37 @@ const getSessionMessages = memoize(
  */
 export function clearSessionMessagesCache(): void {
 	getSessionMessages.cache.clear?.();
+}
+
+/**
+ * item 6: 触发当前 session transcript 磁盘裁剪 (CC 2.1.208)。compact 收尾调。
+ * default off — FUSION_TRANSCRIPT_TRIM_THRESHOLD 未设则 no-op, byte-identical 旧行为。
+ * 走 trackWrite 串行, 崩溃安全 (atomicWriteFile tmp+rename + checkpoint)。
+ */
+export async function trimCurrentSessionTranscript(): Promise<void> {
+	try {
+		await getProject().trimTranscriptOnDisk();
+	} catch (error) {
+		logEvent("tengu_transcript_trim_failed", { failed: 1 });
+		logForDebugging(`transcript trim failed: ${String(error)}`, {
+			level: "warn",
+		});
+	}
+}
+
+/**
+ * item 6: resume/启动崩溃恢复。loadTranscriptFile 前调。
+ * default off 时 checkpoint 永不存在 → no-op, 零开销。
+ */
+export async function recoverCurrentSessionTrimIfNeeded(): Promise<void> {
+	try {
+		await getProject().recoverTrimIfNeeded();
+	} catch (error) {
+		logEvent("tengu_transcript_trim_recover_failed", { failed: 1 });
+		logForDebugging(`transcript trim recover failed: ${String(error)}`, {
+			level: "warn",
+		});
+	}
 }
 
 /**
