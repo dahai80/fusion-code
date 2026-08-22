@@ -603,11 +603,20 @@ const MessagesImpl = ({
 	// useMemo included renderRange → every scroll rebuilt 6 Maps over 27k
 	// messages + 4 filter/map passes = ~50ms alloc per scroll → GC pressure →
 	// 100-173ms stop-the-world pauses on the 1GB heap.
+	// item 17 / :598 (issue #111): synthetic streaming tool_use blocks are
+	// DECOUPLED from this memo. They derive from streamingToolUses and update on
+	// every input_json_delta, so including them here re-ran all O(n) transforms
+	// per delta = the per-delta cliff. Now this memo runs only when
+	// normalizedMessages changes (turn boundary / compact / rewind); synthetic
+	// is appended cheaply downstream (O(k)). Safe because synthetic blocks are
+	// plain tool_use (type hardcoded "tool_use", never server_tool_use) so
+	// shouldRenderStatically short-circuits on streamingToolUseIDs before
+	// consulting lookups — they never need lookups entries (verified by tests).
 	const {
-		collapsed: collapsed_0,
-		lookups: lookups_0,
-		hasTruncatedMessages: hasTruncatedMessages_0,
-		hiddenMessageCount: hiddenMessageCount_0,
+		collapsed: collapsedReal,
+		lookups: lookupsReal,
+		hasTruncatedMessages: hasTruncatedMessagesReal,
+		hiddenMessageCount: hiddenMessageCountReal,
 	} = useMemo(() => {
 		// In fullscreen mode the alt buffer has no native scrollback, so the
 		// compact-boundary filter just hides history the ScrollBox could
@@ -636,7 +645,8 @@ const MessagesImpl = ({
 				// count in ctrl-o or consume slots in the 200-message render cap.
 				.filter((msg_3) => !isNullRenderingAttachment(msg_3))
 				.filter((_) => shouldShowUserMessage(_, isTranscriptMode)),
-			syntheticStreamingToolUseMessages,
+			// item 17 / :598: real-only — synthetic appended downstream.
+			[],
 		);
 		// Three-tier filtering. Transcript mode (ctrl+o screen) is truly unfiltered.
 		// Brief-only: SendUserMessage + user input only. Default: drop redundant
@@ -695,11 +705,21 @@ const MessagesImpl = ({
 		verbose,
 		normalizedMessages,
 		isTranscriptMode,
-		syntheticStreamingToolUseMessages,
 		shouldTruncate,
 		tools,
 		isBriefOnly,
 	]);
+	// item 17 / :598 (issue #111): cheap downstream append of synthetic streaming
+	// tool_use blocks onto the real-only transform. O(k) where k = synthetic block
+	// count (tiny). lookups/hasTruncated/hiddenCount pass through unchanged —
+	// synthetic blocks never query lookups (shouldRenderStatically short-circuit).
+	const collapsed_0 =
+		syntheticStreamingToolUseMessages.length > 0
+			? [...collapsedReal, ...syntheticStreamingToolUseMessages]
+			: collapsedReal;
+	const lookups_0 = lookupsReal;
+	const hasTruncatedMessages_0 = hasTruncatedMessagesReal;
+	const hiddenMessageCount_0 = hiddenMessageCountReal;
 
 	// Cheap slice — only runs when scroll range or slice config changes.
 	const renderableMessages = useMemo(() => {

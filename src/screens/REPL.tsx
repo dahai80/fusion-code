@@ -3539,20 +3539,12 @@ export function REPL({
 				event,
 				(newMessage) => {
 					if (isCompactBoundaryMessage(newMessage)) {
-						// Fullscreen: keep pre-compact messages for scrollback. query.ts
-						// slices at the boundary for API calls, Messages.tsx skips the
-						// boundary filter in fullscreen, and useLogMessages treats this
-						// as an incremental append (first uuid unchanged). Cap at one
-						// compact-interval of scrollback — normalizeMessages/applyGrouping
-						// are O(n) per render, so drop everything before the previous
-						// boundary to keep n bounded across multi-day sessions.
+						// item 17: 全屏跨多次压缩保留完整 pre-compact 历史。:598 useMemo
+						// 已解耦 syntheticStreamingToolUseMessages (仅 normalizedMessages
+						// 变=turn 边界跑, 非每 delta), O(n) 跨多日罕见可接受。虚拟滚动绑
+						// 内存 (mounted-item count, 非总数)。query.ts 仍 boundary 裁 API。
 						if (isFullscreenEnvEnabled()) {
-							setMessages((old) => [
-								...getMessagesAfterCompactBoundary(old, {
-									includeSnipped: true,
-								}),
-								newMessage,
-							]);
+							setMessages((old) => [...old, newMessage]);
 						} else {
 							setMessages(() => [newMessage]);
 						}
