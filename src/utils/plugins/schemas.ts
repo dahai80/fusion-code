@@ -987,6 +987,23 @@ export const MarketplaceSourceSchema = lazySchema(() =>
         .describe('Local directory containing .claude-plugin/marketplace.json'),
     }),
     z.object({
+      source: z.literal('command'),
+      command: z
+        .string()
+        .min(1)
+        .describe(
+          'Local shell command whose stdout prints the marketplace directory ' +
+            '(containing .claude-plugin/marketplace.json). Re-parsed each session ' +
+            'so the directory can move without restart. Security: same trust model ' +
+            'as git/npm/zip install (arbitrary code execution) — gate via ' +
+            'strictKnownMarketplaces marketplace-name allowlist, not host/path patterns.',
+        ),
+      cwd: z
+        .string()
+        .optional()
+        .describe('Working directory for the command (defaults to process cwd).'),
+    }),
+    z.object({
       source: z.literal('hostPattern'),
       hostPattern: z
         .string()
