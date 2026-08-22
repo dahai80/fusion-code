@@ -243,6 +243,8 @@ describe("detectMlxHealth — OOM (#4, fusion-mlx#564)", () => {
 		expect(warnings[0].issue).toContain("MLX peak");
 		expect(warnings[0].fix).toContain("/mlx gc");
 		expect(warnings[0].fix).toContain("unload");
+		// #7 fixAction framework: OOM warning carries a callable auto-fix (gc)
+		expect(typeof warnings[0].fixAction).toBe("function");
 	});
 
 	it("warns with high OOM risk", async () => {
@@ -265,6 +267,8 @@ describe("detectMlxHealth — OOM (#4, fusion-mlx#564)", () => {
 		expect(warnings[0].issue).toContain("high");
 		expect(warnings[0].issue).toContain("memory pressure");
 		expect(warnings[0].fix).toContain("/mlx gc");
+		// #7 fixAction framework: high OOM warning also carries callable gc fix
+		expect(typeof warnings[0].fixAction).toBe("function");
 	});
 
 	it("no warning when oom_risk is low", async () => {
@@ -311,5 +315,56 @@ describe("detectMlxHealth — OOM (#4, fusion-mlx#564)", () => {
 		expect(warnings).toHaveLength(1);
 		expect(warnings[0].issue).toContain("no model loaded");
 		expect(warnings[0].issue).not.toContain("imminent");
+	});
+
+	// ─── #7 fixAction framework: fixAction() is callable → POST /api/v1/gc ──
+	// requestMlxGC (adapter :604) uses globalThis.fetch directly. The gc route
+	// returns { mem_before, mem_after, freed } → { success: true, freed }.
+	it("#7: OOM fixAction() calls /api/v1/gc and returns success", async () => {
+		forceMlxProvider();
+		let gcCalled = false;
+		spyOn(globalThis, "fetch").mockImplementation(
+			(async (input) => {
+				const url = String(input);
+				if (url.includes("/v1/health")) {
+					return mockResponse({
+						status: "ok",
+						version: "test",
+						uptime_seconds: 0,
+						active_models: ["qwen-coder"],
+						oom_risk: "high",
+						memory: {
+							rss_bytes: 3_000_000_000,
+							used_bytes: 12_000_000_000,
+							free_bytes: 2_000_000_000,
+							total_bytes: 16_000_000_000,
+							mlx_active_bytes: 6_000_000_000,
+							mlx_cache_bytes: 4_000_000_000,
+							mlx_peak_bytes: 12_000_000_000,
+							per_model: [],
+						},
+					});
+				}
+				if (url.includes("/api/ps")) {
+					return mockResponse({ models: [{ name: "qwen-coder" }] });
+				}
+				if (url.includes("/api/tags")) {
+					return mockResponse({ models: [{ name: "qwen-coder" }] });
+				}
+				if (url.includes("/api/v1/gc")) {
+					gcCalled = true;
+					return mockResponse({ mem_before: 8000, mem_after: 3000, freed: 5000 });
+				}
+				throw new Error(`unexpected fetch url: ${url}`);
+			}) as unknown as typeof fetch,
+		);
+		const warnings = await detectMlxHealth();
+		expect(warnings).toHaveLength(1);
+		expect(typeof warnings[0].fixAction).toBe("function");
+		// fixAction is requestMlxGC — calling it triggers the gc endpoint.
+		const result = (await warnings[0].fixAction!()) as { success: boolean; freed?: number };
+		expect(gcCalled).toBe(true);
+		expect(result.success).toBe(true);
+		expect(result.freed).toBe(5000);
 	});
 });

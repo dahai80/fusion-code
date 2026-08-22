@@ -47,7 +47,7 @@ import {
   fetchMlxPs,
   fetchMlxStatus,
 } from '../commands/model-status/model-status.js'
-import { fetchMlxHealth } from '../services/api/fusion-mlx-adapter.js'
+import { fetchMlxHealth, requestMlxGC } from '../services/api/fusion-mlx-adapter.js'
 
 export type InstallationType =
   | 'npm-global'
@@ -66,7 +66,7 @@ export type DiagnosticInfo = {
   autoUpdates: string
   hasUpdatePermissions: boolean | null
   multipleInstallations: Array<{ type: string; path: string }>
-  warnings: Array<{ issue: string; fix: string }>
+  warnings: Array<{ issue: string; fix: string; fixAction?: () => Promise<unknown> }>
   recommendation?: string
   packageManager?: string
   ripgrepStatus: {
@@ -341,8 +341,9 @@ const FUSION_ENV_CONFLICT_PAIRS: ReadonlyArray<{
 export function detectFusionEnvConflicts(): Array<{
   issue: string
   fix: string
+  fixAction?: () => Promise<unknown>
 }> {
-  const warnings: Array<{ issue: string; fix: string }> = []
+  const warnings: Array<{ issue: string; fix: string; fixAction?: () => Promise<unknown> }> = []
   for (const { fusion, anthropic } of FUSION_ENV_CONFLICT_PAIRS) {
     if (process.env[fusion] && process.env[anthropic]) {
       warnings.push({
@@ -356,8 +357,8 @@ export function detectFusionEnvConflicts(): Array<{
 
 async function detectConfigurationIssues(
   type: InstallationType,
-): Promise<Array<{ issue: string; fix: string }>> {
-  const warnings: Array<{ issue: string; fix: string }> = []
+): Promise<Array<{ issue: string; fix: string; fixAction?: () => Promise<unknown> }>> {
+  const warnings: Array<{ issue: string; fix: string; fixAction?: () => Promise<unknown> }> = []
   // P4.2 §6: FUSION_* vs ANTHROPIC_* env-conflict detection. Runs before the
   // development-mode early return below — env correctness is relevant in dev
   // too, and this check is pure sync (no install-path dependency).
@@ -531,12 +532,13 @@ async function detectConfigurationIssues(
 export function detectLinuxGlobPatternWarnings(): Array<{
   issue: string
   fix: string
+  fixAction?: () => Promise<unknown>
 }> {
   if (getPlatform() !== 'linux') {
     return []
   }
 
-  const warnings: Array<{ issue: string; fix: string }> = []
+  const warnings: Array<{ issue: string; fix: string; fixAction?: () => Promise<unknown> }> = []
   const globPatterns = SandboxManager.getLinuxGlobPatternWarnings()
 
   if (globPatterns.length > 0) {
@@ -588,7 +590,7 @@ function formatBytesLocal(bytes: number): string {
 }
 
 export async function detectMlxHealth(): Promise<
-  Array<{ issue: string; fix: string }>
+  Array<{ issue: string; fix: string; fixAction?: () => Promise<unknown> }>
 > {
   if (!shouldAutoUseFusionMlx()) {
     return []
@@ -633,6 +635,7 @@ export async function detectMlxHealth(): Promise<
       {
         issue: `Fusion-MLX memory OOM imminent (oom_risk=imminent). Next large request will likely crash.${health.memory ? ` Available ${formatBytesLocal(health.memory.free_bytes)} / ${formatBytesLocal(health.memory.total_bytes)}, MLX peak ${formatBytesLocal(health.memory.mlx_peak_bytes ?? 0)}.` : ''}`,
         fix: 'Run `/mlx gc` (or POST /api/v1/gc) to reclaim MLX cache, or unload the oldest model with `fusion model unload <name>` to free memory before the next request.',
+        fixAction: requestMlxGC,
       },
     ]
   }
@@ -641,6 +644,7 @@ export async function detectMlxHealth(): Promise<
       {
         issue: `Fusion-MLX memory pressure high (oom_risk=high). Performance may degrade; large requests risk OOM.${health.memory ? ` Available ${formatBytesLocal(health.memory.free_bytes)} / ${formatBytesLocal(health.memory.total_bytes)}.` : ''}`,
         fix: 'Run `/mlx gc` to reclaim MLX cache, or unload unused models to reduce memory pressure.',
+        fixAction: requestMlxGC,
       },
     ]
   }
