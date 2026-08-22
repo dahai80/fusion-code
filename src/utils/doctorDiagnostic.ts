@@ -47,6 +47,7 @@ import {
   fetchMlxPs,
   fetchMlxStatus,
 } from '../commands/model-status/model-status.js'
+import { fetchMlxHealth } from '../services/api/fusion-mlx-adapter.js'
 
 export type InstallationType =
   | 'npm-global'
@@ -562,12 +563,30 @@ const MLX_GATEWAY_URL =
   process.env.FUSION_MLX_BASE_URL ||
   'http://127.0.0.1:11432'
 
-// P4.2 #1+#3: probe MLX gateway reachability + model-load state. Only when MLX
-// is the configured provider (shouldAutoUseFusionMlx) — otherwise MLX being
-// down is expected (cloud active) and probing wastes a 3s timeout + noise.
-// Reuses fetchMlxStatus/fetchMlxPs (same /api/tags + /api/ps the
-// `/model-status` command uses, 3s timeout cap). OOM (#4) deferred — MLX
-// exposes no memory-status endpoint today (only POST /api/v1/gc, mutating).
+// P4.2 #1+#3+#4: probe MLX gateway reachability + model-load state + OOM.
+// Only when MLX is the configured provider (shouldAutoUseFusionMlx) —
+// otherwise MLX being down is expected (cloud active) and probing wastes a
+// 3s timeout + noise. Reuses fetchMlxStatus/fetchMlxPs (same /api/tags +
+// /api/ps the `/model-status` command uses, 3s timeout cap). OOM (#4) via
+// fetchMlxHealth (GET /v1/health, fusion-mlx#564/PR #581) — only probed after
+// a model is loaded (no point probing memory when nothing occupies it). That
+// endpoint is management-gated (valid api_key required, loopback not exempt
+// per fusion-mlx#350); single-box anonymous MLX deployments have no management
+// access → fetchMlxHealth returns null (fail-open) → OOM diagnostics silently
+// skip rather than false-positive. oom_risk is a deterministic two-signal
+// classifier (available_ratio + mlx_peak_ratio) computed by fusion-mlx.
+function formatBytesLocal(bytes: number): string {
+  if (!bytes) return '0B'
+  const units = ['B', 'KB', 'MB', 'GB']
+  let n = bytes
+  let i = 0
+  while (n >= 1024 && i < units.length - 1) {
+    n /= 1024
+    i++
+  }
+  return `${n.toFixed(n >= 100 || i === 0 ? 0 : 1)}${units[i]}`
+}
+
 export async function detectMlxHealth(): Promise<
   Array<{ issue: string; fix: string }>
 > {
@@ -599,6 +618,29 @@ export async function detectMlxHealth(): Promise<
           available.length > 0
             ? `Pre-load a model, e.g. \`fusion model load ${available[0]}\`, or just start querying — MLX lazy-loads on first request.`
             : 'No models found. Download one via the model hub, then load it.',
+      },
+    ]
+  }
+
+  // P4.2 #4: proactive OOM detection (fusion-mlx#564). Only when a model is
+  // loaded — no point probing memory when nothing occupies it. fetchMlxHealth
+  // is management-gated (401 → null fail-open): single-box anonymous MLX
+  // deployments have no management access, so OOM diagnostics silently skip
+  // rather than false-positive.
+  const health = await fetchMlxHealth()
+  if (health?.oom_risk === 'imminent') {
+    return [
+      {
+        issue: `Fusion-MLX memory OOM imminent (oom_risk=imminent). Next large request will likely crash.${health.memory ? ` Available ${formatBytesLocal(health.memory.free_bytes)} / ${formatBytesLocal(health.memory.total_bytes)}, MLX peak ${formatBytesLocal(health.memory.mlx_peak_bytes ?? 0)}.` : ''}`,
+        fix: 'Run `/mlx gc` (or POST /api/v1/gc) to reclaim MLX cache, or unload the oldest model with `fusion model unload <name>` to free memory before the next request.',
+      },
+    ]
+  }
+  if (health?.oom_risk === 'high') {
+    return [
+      {
+        issue: `Fusion-MLX memory pressure high (oom_risk=high). Performance may degrade; large requests risk OOM.${health.memory ? ` Available ${formatBytesLocal(health.memory.free_bytes)} / ${formatBytesLocal(health.memory.total_bytes)}.` : ''}`,
+        fix: 'Run `/mlx gc` to reclaim MLX cache, or unload unused models to reduce memory pressure.',
       },
     ]
   }

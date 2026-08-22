@@ -558,6 +558,36 @@ export async function checkFusionMlxHealth(): Promise<FusionMlxStatus> {
 	}
 }
 
+// fusion-mlx#564 (PR #581): GET /v1/health 只读内存/OOM 状态, management-gated
+// (verify_management_access — 需有效 api_key, loopback 不豁免 #350)。用于
+// /doctor P4.2 #4 主动 OOM 检测 + enhance-0819 item 15 OOM 恢复。
+// 401 = MLX 未配 key (anonymous 部署) 或 key 层级错配 → management 端点不可用,
+//   fail-open 返 null (不阻塞 /doctor, 不误报 OOM)。
+// 网络/超时/非 200 → null fail-open。仅在 MLX provider 时被 detectMlxHealth 调用。
+export async function fetchMlxHealth(): Promise<MLXHealthResponse | null> {
+	try {
+		const response = await getOriginalFetch()(getMlxApiUrl("/v1/health"), {
+			method: "GET",
+			headers: { ...getMlxAuthHeaders() },
+			signal: AbortSignal.timeout(3000),
+		});
+		if (!response.ok) {
+			logForDebugging(
+				`[Fusion-MLX] /v1/health returned ${response.status} (management-gated; ${response.status === 401 ? "MLX 未配 key 或 key 层级错配" : "服务端拒绝"}) — OOM 诊断跳过`,
+				{ level: "debug" },
+			);
+			return null;
+		}
+		const data = (await response.json()) as MLXHealthResponse;
+		return data;
+	} catch (error) {
+		logForDebugging(
+			`[Fusion-MLX] /v1/health fetch failed: ${(error as Error).message}`,
+		);
+		return null;
+	}
+}
+
 // Post-compact GC for MLX: request fusion-mlx backend to release KV cache
 // Importers: compact.ts (after compactConversation), hardCompact.ts (after hard compact)
 // User instruction: "深度研读 suggest1.md和suggest2.md 制定方案和计划，修复问题，提升fusion-code竞争力"
