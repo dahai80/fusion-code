@@ -1,11 +1,14 @@
 /**
  * item 25A: 最小 workflow 执行 runtime 单测 (CC 2.1.229)
  */
-import { describe, expect, it } from "bun:test";
+import { afterEach, describe, expect, it } from "bun:test";
 import {
+	type DelayFn,
 	evaluateScript,
 	extractMeta,
 	isWorkflowRuntimeEnabled,
+	runWithConcurrency,
+	workflowStaggerMs,
 } from "../tools/WorkflowTool/runtime.js";
 
 // ─── isWorkflowRuntimeEnabled ───
@@ -257,5 +260,165 @@ describe("evaluateScript", () => {
 		await expect(evaluateScript(src, primitives)).rejects.toThrow(
 			/export const meta/,
 		);
+	});
+});
+
+// ─── item 25B: 错峰 fan-out (PREFIX_STAGGER_MS) ───
+//
+// runWithConcurrency stagger 分支 + workflowStaggerMs env 解析。
+// default off (staggerMs=0) = 25A byte-identical, 无延迟。
+// injectable delayFn (同步收集 startMs 序列) 验证错峰顺序, 无 fake-timer。
+
+describe("item 25B: workflowStaggerMs env 解析", () => {
+	const origFusion = process.env.FUSION_WORKFLOW_PREFIX_STAGGER_MS;
+	const origClaude = process.env.CLAUDE_CODE_WORKFLOW_PREFIX_STAGGER_MS;
+
+	afterEach(() => {
+		if (origFusion === undefined) {
+			delete process.env.FUSION_WORKFLOW_PREFIX_STAGGER_MS;
+		} else {
+			process.env.FUSION_WORKFLOW_PREFIX_STAGGER_MS = origFusion;
+		}
+		if (origClaude === undefined) {
+			delete process.env.CLAUDE_CODE_WORKFLOW_PREFIX_STAGGER_MS;
+		} else {
+			process.env.CLAUDE_CODE_WORKFLOW_PREFIX_STAGGER_MS = origClaude;
+		}
+	});
+
+	it("env 未设 → 0 (default off)", () => {
+		delete process.env.FUSION_WORKFLOW_PREFIX_STAGGER_MS;
+		delete process.env.CLAUDE_CODE_WORKFLOW_PREFIX_STAGGER_MS;
+		expect(workflowStaggerMs()).toBe(0);
+	});
+
+	it("空串 → 0 (default off)", () => {
+		process.env.FUSION_WORKFLOW_PREFIX_STAGGER_MS = "";
+		delete process.env.CLAUDE_CODE_WORKFLOW_PREFIX_STAGGER_MS;
+		expect(workflowStaggerMs()).toBe(0);
+	});
+
+	it("FUSION_ 优先于 CLAUDE_CODE_", () => {
+		process.env.FUSION_WORKFLOW_PREFIX_STAGGER_MS = "100";
+		process.env.CLAUDE_CODE_WORKFLOW_PREFIX_STAGGER_MS = "200";
+		expect(workflowStaggerMs()).toBe(100);
+	});
+
+	it("回退 CLAUDE_CODE_ 当 FUSION_ 未设", () => {
+		delete process.env.FUSION_WORKFLOW_PREFIX_STAGGER_MS;
+		process.env.CLAUDE_CODE_WORKFLOW_PREFIX_STAGGER_MS = "50";
+		expect(workflowStaggerMs()).toBe(50);
+	});
+
+	it("非法值 → fail-off (0)", () => {
+		process.env.FUSION_WORKFLOW_PREFIX_STAGGER_MS = "abc";
+		delete process.env.CLAUDE_CODE_WORKFLOW_PREFIX_STAGGER_MS;
+		expect(workflowStaggerMs()).toBe(0);
+	});
+
+	it("负数 → fail-off (0)", () => {
+		process.env.FUSION_WORKFLOW_PREFIX_STAGGER_MS = "-5";
+		delete process.env.CLAUDE_CODE_WORKFLOW_PREFIX_STAGGER_MS;
+		expect(workflowStaggerMs()).toBe(0);
+	});
+
+	it("NaN 串 → fail-off (0)", () => {
+		process.env.FUSION_WORKFLOW_PREFIX_STAGGER_MS = "NaN";
+		delete process.env.CLAUDE_CODE_WORKFLOW_PREFIX_STAGGER_MS;
+		expect(workflowStaggerMs()).toBe(0);
+	});
+
+	it("Infinity 串 → fail-off (0)", () => {
+		process.env.FUSION_WORKFLOW_PREFIX_STAGGER_MS = "Infinity";
+		delete process.env.CLAUDE_CODE_WORKFLOW_PREFIX_STAGGER_MS;
+		expect(workflowStaggerMs()).toBe(0);
+	});
+
+	it("有效值 → 原样返回", () => {
+		process.env.FUSION_WORKFLOW_PREFIX_STAGGER_MS = "250";
+		delete process.env.CLAUDE_CODE_WORKFLOW_PREFIX_STAGGER_MS;
+		expect(workflowStaggerMs()).toBe(250);
+	});
+
+	it("0 显式 → 0 (off, 但合法)", () => {
+		process.env.FUSION_WORKFLOW_PREFIX_STAGGER_MS = "0";
+		delete process.env.CLAUDE_CODE_WORKFLOW_PREFIX_STAGGER_MS;
+		expect(workflowStaggerMs()).toBe(0);
+	});
+});
+
+describe("item 25B: runWithConcurrency stagger", () => {
+	// 注入 delay 收集每次调用 ms (每 worker k 调 delay(k*staggerMs) 一次, worker 0 跳过)。
+	// Promise.all 并发拉起 worker, 调度交错不确定 → 不依赖调用顺序,
+	// 仅断言 delayCalls 集合 = 预期错峰序列 (排序后比, 解耦微任务调度)。
+	function makeClock() {
+		const delayCalls: number[] = [];
+		const started: boolean[] = [];
+		const delay: DelayFn = async (ms) => {
+			delayCalls.push(ms);
+		};
+		const makeThunk = (id: number) => async () => {
+			started[id] = true;
+			return id;
+		};
+		return { delayCalls, started, delay, makeThunk };
+	}
+
+	it("staggerMs=0 → 不调 delay (无延迟, 25A byte-identical)", async () => {
+		const { delayCalls, delay, makeThunk } = makeClock();
+		const thunks = [makeThunk(0), makeThunk(1), makeThunk(2), makeThunk(3)];
+		await runWithConcurrency(thunks, 4, 0, delay);
+		expect(delayCalls).toEqual([]);
+	});
+
+	it("staggerMs=50 → delay 调用 = worker1..3 错峰 [50, 100, 150]", async () => {
+		const { delayCalls, delay, makeThunk } = makeClock();
+		const thunks = [makeThunk(0), makeThunk(1), makeThunk(2), makeThunk(3)];
+		await runWithConcurrency(thunks, 4, 50, delay);
+		// worker0 不延迟; worker1/2/3 各 delay(50/100/150)。排序解耦调度。
+		expect([...delayCalls].sort((a, b) => a - b)).toEqual([50, 100, 150]);
+	});
+
+	it("stagger 仅前 cap 个 worker 错峰 (cap < thunks)", async () => {
+		// cap=2, 4 thunks: 仅 worker0/1 初始错峰 (worker0 不延迟, worker1 delay(50))。
+		// worker 补位无延迟 → delayCalls 仅 1 项 [50]。
+		const { delayCalls, started, delay, makeThunk } = makeClock();
+		const thunks = [makeThunk(0), makeThunk(1), makeThunk(2), makeThunk(3)];
+		await runWithConcurrency(thunks, 2, 50, delay);
+		expect(delayCalls).toEqual([50]);
+		// 全 4 thunk 都执行 (补位无丢)。
+		expect(started.filter((s) => s === true).length).toBe(4);
+	});
+
+	it("staggerMs=0 cap<items 全部完成 (25A 等价)", async () => {
+		const { delay, makeThunk } = makeClock();
+		const thunks = [makeThunk(0), makeThunk(1), makeThunk(2), makeThunk(3)];
+		const results = await runWithConcurrency(thunks, 2, 0, delay);
+		expect(results).toEqual([0, 1, 2, 3]);
+	});
+
+	it("thunk throw → 该项 null 不连累 (stagger on)", async () => {
+		const { delay } = makeClock();
+		const thunks = [
+			async () => "ok",
+			async () => {
+				throw new Error("x");
+			},
+		];
+		const results = await runWithConcurrency(thunks, 2, 50, delay);
+		expect(results).toContain("ok");
+		expect(results).toContain(null);
+	});
+
+	it("空 thunks → 空数组 (stagger 不爆)", async () => {
+		const { delay } = makeClock();
+		const results = await runWithConcurrency([], 4, 50, delay);
+		expect(results).toEqual([]);
+	});
+
+	it("单 thunk + stagger → 不延迟 (workerIndex 0 无 delay)", async () => {
+		const { delayCalls, delay, makeThunk } = makeClock();
+		await runWithConcurrency([makeThunk(0)], 4, 100, delay);
+		expect(delayCalls).toEqual([]);
 	});
 });
