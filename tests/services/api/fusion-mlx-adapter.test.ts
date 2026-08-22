@@ -850,4 +850,199 @@ describe("createFusionMlxFetch", () => {
 			mockFetch.mockRestore();
 		}
 	});
+
+	// ─── item 15(a) MLX OOM gc-retry ──────────────────────────
+	// OOM 撞顶 → requestMlxGC (POST /api/v1/gc) → 成功则重发同上下文一次,
+	// 成功转正常响应路径; gc 失败/重发仍失败 → fallback x-should-retry:false。
+
+	it("item15a: OOM → gc 成功 + 重发成功 → 返回 200 正常响应", async () => {
+		const fetchFn = createFusionMlxFetch("test-model");
+		let chatCallCount = 0;
+		const mockFetch = spyOn(globalThis, "fetch").mockImplementation(
+			async (url) => {
+				const urlStr = String(url);
+				if (urlStr.includes("/api/v1/gc")) {
+					return mockResponse({ mem_before: 8000, mem_after: 3000, freed: 5000 });
+				}
+				if (urlStr.includes("/v1/chat/completions")) {
+					chatCallCount++;
+					if (chatCallCount === 1) {
+						// 首次 OOM 撞顶
+						return new Response("memory limit exceeded: Reduce context size", { status: 500 });
+					}
+					// gc 后重发成功
+					return mockResponse({
+						id: "oom-recover",
+						object: "chat.completion",
+						created: 100,
+						model: "test-model",
+						choices: [
+							{ index: 0, message: { role: "assistant", content: "recovered" }, finish_reason: "stop" },
+						],
+						usage: { prompt_tokens: 5, completion_tokens: 3, total_tokens: 8 },
+					});
+				}
+				return mockResponse({});
+			},
+		);
+
+		try {
+			const res = await fetchFn("http://localhost/v1/messages", {
+				method: "POST",
+				headers: { "content-type": "application/json" },
+				body: JSON.stringify({
+					model: "test",
+					messages: [{ role: "user", content: "Hi" }],
+				}),
+			});
+			expect(res.status).toBe(200);
+			const data = await res.json();
+			expect(data.type).toBe("message");
+			expect(data.content[0].text).toBe("recovered");
+			expect(chatCallCount).toBe(2); // 首次 OOM + gc 后重发
+		} finally {
+			mockFetch.mockRestore();
+		}
+	});
+
+	it("item15a: OOM → gc 失败 → fallback x-should-retry:false", async () => {
+		const fetchFn = createFusionMlxFetch("test-model");
+		let chatCallCount = 0;
+		const mockFetch = spyOn(globalThis, "fetch").mockImplementation(
+			async (url) => {
+				const urlStr = String(url);
+				if (urlStr.includes("/api/v1/gc")) {
+					return new Response("gc failed", { status: 500 });
+				}
+				if (urlStr.includes("/v1/chat/completions")) {
+					chatCallCount++;
+					return new Response("memory limit exceeded", { status: 500 });
+				}
+				return mockResponse({});
+			},
+		);
+
+		try {
+			const res = await fetchFn("http://localhost/v1/messages", {
+				method: "POST",
+				headers: { "content-type": "application/json" },
+				body: JSON.stringify({
+					model: "test",
+					messages: [{ role: "user", content: "Hi" }],
+				}),
+			});
+			expect(res.status).toBe(500);
+			expect(res.headers.get("x-should-retry")).toBe("false");
+			const data = await res.json();
+			expect(data.type).toBe("error");
+			expect(chatCallCount).toBe(1); // gc 失败, 不重发
+		} finally {
+			mockFetch.mockRestore();
+		}
+	});
+
+	it("item15a: OOM → gc 成功但重发仍 OOM → fallback x-should-retry:false", async () => {
+		const fetchFn = createFusionMlxFetch("test-model");
+		let chatCallCount = 0;
+		const mockFetch = spyOn(globalThis, "fetch").mockImplementation(
+			async (url) => {
+				const urlStr = String(url);
+				if (urlStr.includes("/api/v1/gc")) {
+					return mockResponse({ mem_before: 8000, mem_after: 6000, freed: 2000 });
+				}
+				if (urlStr.includes("/v1/chat/completions")) {
+					chatCallCount++;
+					return new Response("memory limit exceeded: Reduce context size", { status: 500 });
+				}
+				return mockResponse({});
+			},
+		);
+
+		try {
+			const res = await fetchFn("http://localhost/v1/messages", {
+				method: "POST",
+				headers: { "content-type": "application/json" },
+				body: JSON.stringify({
+					model: "test",
+					messages: [{ role: "user", content: "Hi" }],
+				}),
+			});
+			expect(res.status).toBe(500);
+			expect(res.headers.get("x-should-retry")).toBe("false");
+			expect(chatCallCount).toBe(2); // 首次 OOM + gc 后重发仍 OOM
+		} finally {
+			mockFetch.mockRestore();
+		}
+	});
+
+	it("item15a: OOM 重发抛异常 → fallback x-should-retry:false (不传播异常)", async () => {
+		const fetchFn = createFusionMlxFetch("test-model");
+		let chatCallCount = 0;
+		const mockFetch = spyOn(globalThis, "fetch").mockImplementation(
+			async (url) => {
+				const urlStr = String(url);
+				if (urlStr.includes("/api/v1/gc")) {
+					return mockResponse({ mem_before: 8000, mem_after: 6000, freed: 2000 });
+				}
+				if (urlStr.includes("/v1/chat/completions")) {
+					chatCallCount++;
+					if (chatCallCount === 1) {
+						return new Response("memory limit exceeded", { status: 500 });
+					}
+					throw new Error("connection reset on retry");
+				}
+				return mockResponse({});
+			},
+		);
+
+		try {
+			const res = await fetchFn("http://localhost/v1/messages", {
+				method: "POST",
+				headers: { "content-type": "application/json" },
+				body: JSON.stringify({
+					model: "test",
+					messages: [{ role: "user", content: "Hi" }],
+				}),
+			});
+			expect(res.status).toBe(500);
+			expect(res.headers.get("x-should-retry")).toBe("false");
+			expect(chatCallCount).toBe(2); // 首次 OOM + 重发抛异常
+		} finally {
+			mockFetch.mockRestore();
+		}
+	});
+
+	it("item15a: 非 OOM 错误 → 不调 gc, 既有行为不变 (无 x-should-retry)", async () => {
+		const fetchFn = createFusionMlxFetch("test-model");
+		let gcCalled = false;
+		const mockFetch = spyOn(globalThis, "fetch").mockImplementation(
+			async (url) => {
+				const urlStr = String(url);
+				if (urlStr.includes("/api/v1/gc")) {
+					gcCalled = true;
+					return mockResponse({ freed: 0 });
+				}
+				if (urlStr.includes("/v1/chat/completions")) {
+					return new Response("internal server error", { status: 500 });
+				}
+				return mockResponse({});
+			},
+		);
+
+		try {
+			const res = await fetchFn("http://localhost/v1/messages", {
+				method: "POST",
+				headers: { "content-type": "application/json" },
+				body: JSON.stringify({
+					model: "test",
+					messages: [{ role: "user", content: "Hi" }],
+				}),
+			});
+			expect(res.status).toBe(500);
+			expect(res.headers.get("x-should-retry")).toBeNull();
+			expect(gcCalled).toBe(false); // 非 OOM 不触发 gc
+		} finally {
+			mockFetch.mockRestore();
+		}
+	});
 });

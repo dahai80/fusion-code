@@ -1632,7 +1632,8 @@ export function createFusionMlxFetch(model: string): typeof globalThis.fetch {
 			};
 
 			// 调用 fusion-mlx with retry support
-			const mlxResponse = await mlxFetchWithRetry(
+			// item 15(a): let — OOM gc-retry 成功时重赋值转 OK 路径, 避免重复转换逻辑
+			let mlxResponse = await mlxFetchWithRetry(
 				`${baseUrl}/v1/chat/completions`,
 				{
 					method: "POST",
@@ -1654,32 +1655,82 @@ export function createFusionMlxFetch(model: string): typeof globalThis.fetch {
 				};
 				const retryAfter = mlxResponse.headers.get("retry-after");
 				if (retryAfter) errorHeaders["retry-after"] = retryAfter;
-				// fusion-mlx memory_guard 撞顶是确定性失败(同上下文重试必再次 OOM):
-				// 标记 x-should-retry:false,让 Anthropic SDK 与 withRetry 都立即放弃重试,
-				// 避免空转重试耗满 30+ 分钟(3 次失败 × 每次 prefill ~4min)。
+				// item 15(a) MLX OOM 自动恢复: memory_guard 撞顶原本是确定性失败
+				// (同上下文重试必再 OOM) → 标 x-should-retry:false 立即放弃。但若先
+				// gc 释放显存, 同上下文可能装下 → gc + 重发一次, 成功则转既有 OK 路径
+				// (流式/非流式分支原样复用), 失败 fallback 既有 x-should-retry:false 错误。
+				// 与既有 truncate-retry (非流式 max_tokens 升级 :1710) 同为 adapter 层
+				// 透传恢复, 仅在"同上下文 OOM 即今日直接失败"的 case 触发, 不碰更高层
+				// truncate/compact/熔断 路径 (无冲突)。requestMlxGC / mlxFetchWithRetry
+				// 同文件已有 (:604 / :372), mirror 既有重试模式。重试一次不循环。
 				if (
 					errorBody.includes("memory limit exceeded") ||
 					errorBody.includes("Reduce context size")
 				) {
-					errorHeaders["x-should-retry"] = "false";
 					logForDebugging(
-						`[Fusion-MLX] memory_guard 撞顶(status ${mlxResponse.status}),标记 x-should-retry:false 阻止重试`,
+						`[Fusion-MLX] memory_guard 撞顶(status ${mlxResponse.status}),尝试 gc + 重试`,
 						{ level: "warn" },
 					);
+					const gcResult = await requestMlxGC();
+					if (gcResult.success) {
+						try {
+							const retryResp = await mlxFetchWithRetry(
+								`${baseUrl}/v1/chat/completions`,
+								{
+									method: "POST",
+									headers: { "Content-Type": "application/json" },
+									body: JSON.stringify(mlxBody),
+									signal:
+										init?.signal ||
+										AbortSignal.timeout(getMlxTimeout(mlxBody.stream)),
+								},
+							);
+							if (retryResp.ok) {
+								logForDebugging(
+									`[Fusion-MLX] OOM gc-retry 成功 (gc freed ${gcResult.freed ?? "unknown"} bytes), 转正常响应路径`,
+								);
+								mlxResponse = retryResp;
+							} else {
+								logForDebugging(
+									`[Fusion-MLX] OOM gc-retry 仍失败(status ${retryResp.status}), fallback x-should-retry:false`,
+									{ level: "warn" },
+								);
+							}
+						} catch (retryErr) {
+							logForDebugging(
+								`[Fusion-MLX] OOM gc-retry 异常: ${(retryErr as Error).message}, fallback x-should-retry:false`,
+								{ level: "warn" },
+							);
+						}
+					} else {
+						logForDebugging(
+							`[Fusion-MLX] gc 失败 (${gcResult.error ?? "unknown"}), fallback x-should-retry:false`,
+							{ level: "warn" },
+						);
+					}
 				}
-				return new Response(
-					JSON.stringify({
-						type: "error",
-						error: {
-							type: "api_error",
-							message: `Fusion-MLX error: ${mlxResponse.status} - ${errorBody}`,
+				// gc-retry 未挽回 → 返既有 x-should-retry:false 错误 (防空转重试)
+				if (!mlxResponse.ok) {
+					if (
+						errorBody.includes("memory limit exceeded") ||
+						errorBody.includes("Reduce context size")
+					) {
+						errorHeaders["x-should-retry"] = "false";
+					}
+					return new Response(
+						JSON.stringify({
+							type: "error",
+							error: {
+								type: "api_error",
+								message: `Fusion-MLX error: ${mlxResponse.status} - ${errorBody}`,
+							},
+						}),
+						{
+							status: mlxResponse.status,
+							headers: errorHeaders,
 						},
-					}),
-					{
-						status: mlxResponse.status,
-						headers: errorHeaders,
-					},
-				);
+					);
+				}
 			}
 
 			if (body.stream) {
