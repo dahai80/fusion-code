@@ -36,15 +36,58 @@ function concurrencyCap(): number {
 	return Math.max(1, Math.min(16, cpus - 2));
 }
 
-// ─── 并发池: 限并发 cap, 每 thunk throw→该项 null (不 reject 整体) ───
+// ─── 错峰 fan-out (item 25B, CC 2.1.229 PREFIX_STAGGER_MS) ───
+//
+// 并发池 worker 启动前错峰延迟, 让后启 agent 复用先启 agent 已预热的 prompt
+// prefix 缓存 (本地 MLX 无 KV 共享时兄弟 agent 各自重算 prefill, 错峰给复用窗口)。
+// default off: env 未设/非法 → 0 = 25A byte-identical (无延迟, 同时拉起)。
+// 仅初始 burst 错峰 (前 cap 个 worker), 后续 worker 补位无延迟 (一进一出, 无 burst)。
 
-async function runWithConcurrency<T>(
+// 测试用导出 (同 extractMeta)。生产仅内部 createParallel/PipelinePrimitive 调。
+export function workflowStaggerMs(): number {
+	// FUSION_ 优先 (fusion-code 约定), 回落 CC 原名。
+	const raw =
+		process.env.FUSION_WORKFLOW_PREFIX_STAGGER_MS ??
+		process.env.CLAUDE_CODE_WORKFLOW_PREFIX_STAGGER_MS;
+	if (raw === undefined || raw === "") return 0;
+	const parsed = Number(raw);
+	// 非数/负数/NaN → fail-off = 0 (不阻塞, 25A 行为)。
+	if (!Number.isFinite(parsed) || parsed < 0) {
+		logForDebugging(
+			`[Workflow] invalid PREFIX_STAGGER_MS "${raw}", defaulting to 0 (off)`,
+		);
+		return 0;
+	}
+	return parsed;
+}
+
+// 默认延迟函数。测试可注入同步/短延迟实现 (无 fake-timer, 复用 item 16 教训)。
+export type DelayFn = (ms: number) => Promise<void>;
+const defaultDelay: DelayFn = (ms) =>
+	ms > 0
+		? new Promise<void>((resolve) => setTimeout(resolve, ms))
+		: Promise.resolve();
+
+// ─── 并发池: 限并发 cap, 每 thunk throw→该项 null (不 reject 整体) ───
+//
+// staggerMs > 0: worker k 在首任务前 wait (k * staggerMs) — 仅前 cap 个 worker,
+// 错开初始 burst。第 idx 项在哪 worker 不定 (next++ 抢占), 但启动延迟按 worker 编号错峰。
+// staggerMs = 0: 无延迟, 25A 行为 byte-identical。
+
+// 测试用导出 (注入 delayFn 验错峰顺序, 无 fake-timer)。
+export async function runWithConcurrency<T>(
 	thunks: Array<() => Promise<T>>,
 	cap: number,
+	staggerMs = 0,
+	delay: DelayFn = defaultDelay,
 ): Promise<Array<T | null>> {
 	const results: Array<T | null> = new Array(thunks.length).fill(null);
 	let next = 0;
-	const worker = async () => {
+	const worker = async (workerIndex: number) => {
+		// 初始 burst 错峰: worker k 等 k * staggerMs 后开始抢任务。
+		if (staggerMs > 0 && workerIndex > 0) {
+			await delay(workerIndex * staggerMs);
+		}
 		while (true) {
 			const idx = next++;
 			if (idx >= thunks.length) return;
@@ -59,7 +102,8 @@ async function runWithConcurrency<T>(
 			}
 		}
 	};
-	const workers = Array.from({ length: Math.min(cap, thunks.length) }, worker);
+	const workerCount = Math.min(cap, thunks.length);
+	const workers = Array.from({ length: workerCount }, (_, i) => worker(i));
 	await Promise.all(workers);
 	return results;
 }
@@ -375,7 +419,8 @@ type ParallelPrimitive = <T>(
 ) => Promise<Array<T | null>>;
 
 function createParallelPrimitive(): ParallelPrimitive {
-	return async (thunks) => runWithConcurrency(thunks, concurrencyCap());
+	return async (thunks) =>
+		runWithConcurrency(thunks, concurrencyCap(), workflowStaggerMs());
 }
 
 type Stage = (
@@ -405,7 +450,7 @@ function createPipelinePrimitive(): PipelinePrimitive {
 			}
 			return prev;
 		});
-		return runWithConcurrency(thunks, concurrencyCap());
+		return runWithConcurrency(thunks, concurrencyCap(), workflowStaggerMs());
 	};
 }
 
