@@ -122,6 +122,7 @@ import {
 	isInForkChild,
 } from "./forkSubagent.js";
 import { getSubagentAutoBackgroundMs } from "./autoBackground.js";
+import { isSubagentDefaultBackground } from "./autoBackground.js";
 import type { AgentDefinition } from "./loadAgentsDir.js";
 import {
 	filterAgentsByMcpRequirements,
@@ -887,6 +888,10 @@ export const AgentTool = buildTool({
 				isCoordinator ||
 				forceAsync ||
 				assistantForceAsync ||
+				// 维度5: env 开关让默认子代理 spawn 即后台 (非队友) 解阻塞主 turn。
+				// !isInProcessTeammate() guard 同 line 455 既有 throw (in-process
+				// 队友生命周期绑 leader 进程不可后台)。default off byte-identical。
+				(!isInProcessTeammate() && isSubagentDefaultBackground()) ||
 				(proactiveModule?.isProactiveActive() ?? false)) &&
 			!isBackgroundTasksDisabled;
 		// Assemble the worker's tool pool independently of the parent's.
