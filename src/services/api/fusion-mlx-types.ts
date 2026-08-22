@@ -176,11 +176,32 @@ export interface MLXModelInfo {
 
 // ─── Health Check ─────────────────────────────────────────────
 
+// fusion-mlx#564 (PR #581): GET /v1/health 只读内存/OOM 端点。
+// status 扩 degraded|oom; memory + oom_risk 为 #564 新增, 旧 MLX 无该端点时
+// fetchMlxHealth 返 null (fail-open) 故此处全 optional 以兼容。
+export interface MLXMemoryStat {
+  name: string
+  bytes: number
+}
+
+export interface MLXHealthMemory {
+  rss_bytes: number
+  used_bytes: number
+  free_bytes: number
+  total_bytes: number
+  mlx_active_bytes: number | null
+  mlx_cache_bytes: number | null
+  mlx_peak_bytes: number | null
+  per_model: MLXMemoryStat[]
+}
+
 export interface MLXHealthResponse {
-  status: 'ok' | 'error'
+  status: 'ok' | 'degraded' | 'oom' | 'error'
   version: string
   uptime_seconds: number
   active_models: string[]
+  memory?: MLXHealthMemory
+  oom_risk?: 'none' | 'low' | 'high' | 'imminent'
 }
 
 // ─── Anthropic-compatible Messages API ─────────────────────────

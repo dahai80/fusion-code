@@ -1,8 +1,12 @@
 import { afterEach, beforeEach, describe, expect, it, spyOn } from "bun:test";
+import { _resetOriginalFetch } from "../../services/api/fusion-mlx-adapter.js";
 import { detectMlxHealth } from "../../utils/doctorDiagnostic.js";
 
 // detectMlxHealth probes MLX via fetchMlxStatus (/api/tags) + fetchMlxPs
-// (/api/ps), both of which call globalThis.fetch. We route the mock by URL.
+// (/api/ps) + fetchMlxHealth (/v1/health). fetchMlxStatus/fetchMlxPs call
+// globalThis.fetch directly; fetchMlxHealth uses adapter getOriginalFetch()
+// (lazy-captured globalThis.fetch), so we _resetOriginalFetch() per test to
+// force re-capture of the mocked fetch. We route all three by URL.
 // shouldAutoUseFusionMlx (the probe gate) reads env, so each case snapshots +
 // restores the relevant vars. process.env is process-global — isolation is
 // mandatory.
@@ -58,13 +62,36 @@ function mockResponse(body: unknown, status = 200): Response {
 	});
 }
 
-// /api/tags → { models: [{ name, size, quant }] }; /api/ps → { models: [{ name }] }.
+// /api/tags → { models: [{ name, size, quant }] }; /api/ps → { models: [{ name }] };
+// /v1/health → MLXHealthResponse (status/oom_risk/memory…). health === null
+// simulates fetchMlxHealth fail-open (401/timeout/network → null, OOM skip).
+type HealthMock =
+	| { oom_risk: "none" | "low" | "high" | "imminent"; memory?: object }
+	| null
+	| { status: number }; // { status: 401 } → 401 response
+
 const mlxFetchImpl = (
 	loaded: string[] | null,
 	models: Array<{ name: string; size?: number; quant?: string }>,
+	health: HealthMock = null,
 ): typeof fetch =>
 	(async (input) => {
 		const url = String(input);
+		if (url.includes("/v1/health")) {
+			// health === null → fetchMlxHealth fail-open (throw → null).
+			if (health === null) throw new Error("health unreachable");
+			if ("status" in health) {
+				return mockResponse({ error: "auth" }, health.status);
+			}
+			return mockResponse({
+				status: "ok",
+				version: "test",
+				uptime_seconds: 0,
+				active_models: loaded ?? [],
+				oom_risk: health.oom_risk,
+				memory: health.memory,
+			});
+		}
 		if (url.includes("/api/ps")) {
 			// loaded === null simulates a /api/ps fetch failure → fetchMlxPs catches
 			// and returns [], so we reject; fetchMlxPs' own try/catch swallows it.
@@ -80,9 +107,10 @@ const mlxFetchImpl = (
 function routeFetch(
 	loaded: string[] | null,
 	models: Array<{ name: string; size?: number; quant?: string }>,
+	health: HealthMock = null,
 ) {
 	return spyOn(globalThis, "fetch").mockImplementation(
-		mlxFetchImpl(loaded, models),
+		mlxFetchImpl(loaded, models, health),
 	);
 }
 
@@ -91,6 +119,9 @@ describe("detectMlxHealth", () => {
 
 	beforeEach(() => {
 		snap = snapshotEnvs();
+		// fetchMlxHealth lazy-captures globalThis.fetch on first call; reset so
+		// the per-test spyOn mock is re-captured rather than a stale real fetch.
+		_resetOriginalFetch();
 	});
 
 	afterEach(() => {
@@ -165,5 +196,120 @@ describe("detectMlxHealth", () => {
 		routeFetch(["qwen-coder"], [{ name: "qwen-coder" }]);
 		const warnings = await detectMlxHealth();
 		expect(warnings).toEqual([]);
+	});
+});
+
+// ─── P4.2 #4 / fusion-mlx#564: proactive OOM detection ──────────
+//
+// detectMlxHealth probes /v1/health (fetchMlxHealth) only after a model is
+// loaded (no point probing memory when nothing occupies it). oom_risk is a
+// deterministic two-signal classifier computed by fusion-mlx; fusion-code just
+// surfaces it. high/imminent → warning; none/low → silent; fetch fail-open
+// (401/timeout/network → null) → skip, no false-positive.
+
+describe("detectMlxHealth — OOM (#4, fusion-mlx#564)", () => {
+	let snap: Record<string, string | undefined>;
+
+	beforeEach(() => {
+		snap = snapshotEnvs();
+		_resetOriginalFetch();
+	});
+
+	afterEach(() => {
+		restoreEnvs(snap);
+		spyOn(globalThis, "fetch").mockRestore();
+	});
+
+	it("warns with imminent OOM risk and surfaces memory stats", async () => {
+		forceMlxProvider();
+		routeFetch(["qwen-coder"], [{ name: "qwen-coder" }], {
+			oom_risk: "imminent",
+			memory: {
+				rss_bytes: 4_000_000_000,
+				used_bytes: 14_000_000_000,
+				free_bytes: 500_000_000,
+				total_bytes: 16_000_000_000,
+				mlx_active_bytes: 8_000_000_000,
+				mlx_cache_bytes: 4_000_000_000,
+				mlx_peak_bytes: 15_000_000_000,
+				per_model: [{ name: "qwen-coder", bytes: 4_000_000_000 }],
+			},
+		});
+		const warnings = await detectMlxHealth();
+		expect(warnings).toHaveLength(1);
+		expect(warnings[0].issue).toContain("imminent");
+		expect(warnings[0].issue).toContain("OOM");
+		// memory stats surfaced (free/total/peak)
+		expect(warnings[0].issue).toContain("MLX peak");
+		expect(warnings[0].fix).toContain("/mlx gc");
+		expect(warnings[0].fix).toContain("unload");
+	});
+
+	it("warns with high OOM risk", async () => {
+		forceMlxProvider();
+		routeFetch(["qwen-coder"], [{ name: "qwen-coder" }], {
+			oom_risk: "high",
+			memory: {
+				rss_bytes: 3_000_000_000,
+				used_bytes: 12_000_000_000,
+				free_bytes: 2_000_000_000,
+				total_bytes: 16_000_000_000,
+				mlx_active_bytes: 6_000_000_000,
+				mlx_cache_bytes: 4_000_000_000,
+				mlx_peak_bytes: 12_000_000_000,
+				per_model: [],
+			},
+		});
+		const warnings = await detectMlxHealth();
+		expect(warnings).toHaveLength(1);
+		expect(warnings[0].issue).toContain("high");
+		expect(warnings[0].issue).toContain("memory pressure");
+		expect(warnings[0].fix).toContain("/mlx gc");
+	});
+
+	it("no warning when oom_risk is low", async () => {
+		forceMlxProvider();
+		routeFetch(["qwen-coder"], [{ name: "qwen-coder" }], {
+			oom_risk: "low",
+		});
+		const warnings = await detectMlxHealth();
+		expect(warnings).toEqual([]);
+	});
+
+	it("no warning when oom_risk is none", async () => {
+		forceMlxProvider();
+		routeFetch(["qwen-coder"], [{ name: "qwen-coder" }], {
+			oom_risk: "none",
+		});
+		const warnings = await detectMlxHealth();
+		expect(warnings).toEqual([]);
+	});
+
+	it("no OOM warning when /v1/health fails (fail-open, e.g. MLX no key → 401)", async () => {
+		forceMlxProvider();
+		// health === null → /v1/health throws → fetchMlxHealth returns null → skip.
+		routeFetch(["qwen-coder"], [{ name: "qwen-coder" }], null);
+		const warnings = await detectMlxHealth();
+		expect(warnings).toEqual([]);
+	});
+
+	it("no OOM warning when /v1/health returns 401 (management-gated, anonymous MLX)", async () => {
+		forceMlxProvider();
+		routeFetch(["qwen-coder"], [{ name: "qwen-coder" }], { status: 401 });
+		const warnings = await detectMlxHealth();
+		expect(warnings).toEqual([]);
+	});
+
+	it("OOM warning omitted when no model loaded (probed only after load)", async () => {
+		forceMlxProvider();
+		// No model loaded → early-return before fetchMlxHealth, even though
+		// /v1/health would report imminent. The no-model warning wins.
+		routeFetch([], [{ name: "qwen-coder" }], {
+			oom_risk: "imminent",
+		});
+		const warnings = await detectMlxHealth();
+		expect(warnings).toHaveLength(1);
+		expect(warnings[0].issue).toContain("no model loaded");
+		expect(warnings[0].issue).not.toContain("imminent");
 	});
 });
