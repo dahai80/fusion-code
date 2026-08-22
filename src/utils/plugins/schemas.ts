@@ -1172,6 +1172,33 @@ export const PluginSourceSchema = lazySchema(() =>
         'Plugin located in a subdirectory of a larger repository (monorepo). ' +
           'Only the specified subdirectory is materialized; the rest of the repo is not downloaded.',
       ),
+    // item 23: archive 源 — HTTPS zip 下载 + 可选 SHA-256 锁定 (CC 2.1.224, §138/§215)
+    // 与 url (git-clone) 不同: archive 下 raw .zip 文件, 非 git 仓库。
+    z.object({
+      source: z.literal('archive'),
+      url: z
+        .string()
+        .url()
+        .describe(
+          'HTTPS URL to a .zip archive containing the plugin at its root ' +
+            '(or under root-dir if specified). Downloaded and extracted directly — no git involved.',
+        ),
+      sha256: z
+        .string()
+        .regex(/^[0-9a-f]{64}$/, 'sha256 must be a 64-character lowercase hex string')
+        .optional()
+        .describe(
+          'Optional SHA-256 (64-char hex) of the archive bytes, verified before extraction. ' +
+            'When omitted the download is not integrity-checked (fail-open, logged).',
+        ),
+      rootDir: z
+        .string()
+        .optional()
+        .describe(
+          'Optional subdirectory inside the archive that is the plugin root. ' +
+            'Use when the zip unpacks to a top-level folder, e.g. "my-plugin-main".',
+        ),
+    }).describe('HTTPS zip archive as plugin source, with optional SHA-256 pinning'),
     // TODO (future work) gist
     // TODO (future work) single file?
   ]),
@@ -1218,7 +1245,7 @@ const SettingsMarketplacePluginSchema = lazySchema(() =>
     .refine(p => typeof p.source !== 'string', {
       message:
         'Plugins in a settings-sourced marketplace must use remote sources ' +
-        '(github, git-subdir, npm, url, pip). Relative-path sources like "./foo" ' +
+        '(github, git-subdir, npm, url, pip, archive). Relative-path sources like "./foo" ' +
         'have no marketplace repository to resolve against.',
     }),
 )

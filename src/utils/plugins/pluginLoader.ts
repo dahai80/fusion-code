@@ -85,6 +85,8 @@ import type { HooksSettings } from "../settings/types.js";
 import { SettingsSchema } from "../settings/types.js";
 import { jsonParse, jsonStringify } from "../slowOperations.js";
 import { getAddDirEnabledPlugins } from "./addDirPluginSettings.js";
+// item 23: archive 源 (HTTPS zip + SHA-256 锁定)
+import { installFromArchive } from "./archiveSource.js";
 import { verifyAndDemote } from "./dependencyResolver.js";
 import { classifyFetchError, logPluginFetch } from "./fetchTelemetry.js";
 import { checkGitAvailable } from "./gitAvailability.js";
@@ -913,6 +915,9 @@ export function generateTemporaryCacheNameForPlugin(
 			case "git-subdir":
 				prefix = "subdir";
 				break;
+			case "archive":
+				prefix = "archive";
+				break;
 			default:
 				prefix = "unknown";
 		}
@@ -979,6 +984,9 @@ export async function cachePlugin(
 					break;
 				case "pip":
 					throw new Error("Python package plugins are not yet supported");
+				case "archive":
+					await installFromArchive(source, tempPath);
+					break;
 				default:
 					throw new Error(`Unsupported plugin source type`);
 			}
