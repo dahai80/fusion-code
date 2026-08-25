@@ -242,10 +242,15 @@ async function main(): Promise<void> {
 		);
 		const authToken =
 			args.find((a) => a.startsWith("--auth="))?.slice(7) ??
+			process.env.FUSION_CODE_AUTH_TOKEN ??
 			process.env.FUSION_API_KEY ??
 			"";
+		const authDisabled =
+			args.includes("--no-auth") ||
+			(process.env.FUSION_CODE_NO_AUTH ?? "") === "1" ||
+			(process.env.FUSION_CODE_NO_AUTH ?? "").toLowerCase() === "true";
 		const instance = startServer(
-			{ port, host: "127.0.0.1", authToken },
+			{ port, host: "127.0.0.1", authToken, authDisabled },
 			null,
 			null,
 		);

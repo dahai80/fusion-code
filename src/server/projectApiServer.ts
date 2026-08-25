@@ -13,12 +13,14 @@
  */
 
 import type { ServerWebSocket } from "bun";
-import { mkdir, readdir, writeFile } from "fs/promises";
+import { randomBytes } from "crypto";
+import { chmod, mkdir, readdir, writeFile } from "fs/promises";
 import { homedir } from "os";
 import { dirname, join, resolve } from "path";
 import { scanMemoryFiles } from "../memdir/memoryScan.js";
 import { getProjectContextPortable } from "../utils/claudemdPortable.js";
 import { logForDebugging } from "../utils/debug.js";
+import { isEnvTruthy } from "../utils/envUtils.js";
 import {
 	listSessionsImpl,
 	parseSessionInfoFromLite,
@@ -921,6 +923,57 @@ function handleChatCompact(
 	);
 }
 
+// Resolve the effective auth token for this server instance.
+//
+// Pre-fix: `if (config.authToken)` was fail-open — an empty authToken
+// (the default, and what start.sh passes when FUSION_API_KEY is unset)
+// silently disabled auth, exposing the project API unauthenticated. A
+// process with no explicit token must NOT be reachable without auth.
+//
+// Resolution order:
+//   1. explicit --auth / FUSION_API_KEY -> use verbatim
+//   2. FUSION_CODE_NO_AUTH=1 / --no-auth -> explicitly disabled (dev only,
+//      loud warning). Only opt-out path.
+//   3. otherwise -> generate a per-instance random token and persist it to
+//      ~/.fusion-code/server.token (mode 0600) so a trusted local client
+//      (Fusion Studio) can discover it. Server stays fail-closed.
+export function resolveEffectiveAuthToken(config: ServerConfig): {
+	token: string | null;
+	tokenFile?: string;
+	disabled: boolean;
+} {
+	if (config.authDisabled || isEnvTruthy(process.env.FUSION_CODE_NO_AUTH)) {
+		logForDebugging(
+			"projectApiServer: auth DISABLED via FUSION_CODE_NO_AUTH/--no-auth (dev only). API is unauthenticated.",
+		);
+		return { token: null, disabled: true };
+	}
+	if (config.authToken && config.authToken.trim() !== "") {
+		return { token: config.authToken, disabled: false };
+	}
+	// No explicit token and not opted out -> generate one and persist for
+	// client discovery. Fail-closed: an unknown client cannot connect.
+	const generated = randomBytes(32).toString("hex");
+	const configDir =
+		process.env.FUSION_CODE_CONFIG_DIR ?? join(homedir(), ".fusion-code");
+	const tokenFile = join(configDir, "server.token");
+	void (async () => {
+		try {
+			await mkdir(configDir, { recursive: true });
+			await writeFile(tokenFile, generated, { mode: 0o600 });
+			await chmod(tokenFile, 0o600);
+			logForDebugging(
+				`projectApiServer: generated per-instance auth token, written to ${tokenFile} (mode 0600)`,
+			);
+		} catch (e) {
+			logForDebugging(
+				`projectApiServer: WARNING failed to persist generated token to ${tokenFile}: ${e}. Auth still enforced with in-memory token; local clients must pass --auth explicitly.`,
+			);
+		}
+	})();
+	return { token: generated, tokenFile, disabled: false };
+}
+
 // Store config globally so WS handlers can access authToken
 let config_global: ServerConfig = {
 	port: 11441,
@@ -933,6 +986,13 @@ export function startProjectApiServer(config: ServerConfig): {
 	stop: () => void;
 } {
 	config_global = config;
+	// Resolve effective auth token (fail-closed). Empty authToken no longer
+	// disables auth; a per-instance token is generated instead. See
+	// resolveEffectiveAuthToken for the resolution order.
+	const effective = resolveEffectiveAuthToken(config);
+	config_global.effectiveAuthToken = effective.token ?? undefined;
+	config_global.authDisabled = effective.disabled;
+	config_global.tokenFile = effective.tokenFile;
 
 	const server = Bun.serve({
 		port: config.port,
@@ -1011,12 +1071,17 @@ export function startProjectApiServer(config: ServerConfig): {
 				req.headers.get("upgrade") === "websocket"
 			) {
 				logForDebugging("projectApiServer: WS upgrade request for /ws/chat");
-				if (config.authToken) {
+				// Fail-closed: require a matching token unless auth is explicitly
+				// disabled (--no-auth / FUSION_CODE_NO_AUTH). An empty authToken
+				// no longer skips auth (issue #132).
+				const wsEffective =
+					config_global.effectiveAuthToken ?? config.authToken;
+				if (!config_global.authDisabled && wsEffective) {
 					const wsAuth = req.headers.get("Authorization");
 					const wsToken = url.searchParams.get("token");
 					if (
-						wsAuth !== `Bearer ${config.authToken}` &&
-						wsToken !== config.authToken
+						wsAuth !== `Bearer ${wsEffective}` &&
+						wsToken !== wsEffective
 					) {
 						return errorResponse("Unauthorized", 401);
 					}
@@ -1078,10 +1143,14 @@ export function startProjectApiServer(config: ServerConfig): {
 				});
 			}
 
-			// Auth check
-			if (config.authToken) {
+			// Auth check — fail-closed (issue #132). An empty authToken no
+			// longer disables auth; a per-instance token is enforced unless
+			// auth is explicitly disabled via --no-auth / FUSION_CODE_NO_AUTH.
+			const httpEffective =
+				config_global.effectiveAuthToken ?? config.authToken;
+			if (!config_global.authDisabled && httpEffective) {
 				const auth = req.headers.get("Authorization");
-				if (auth !== `Bearer ${config.authToken}`) {
+				if (auth !== `Bearer ${httpEffective}`) {
 					return errorResponse("Unauthorized", 401);
 				}
 			}
