@@ -407,6 +407,7 @@ import {
 	DirectConnectError,
 } from "./server/createDirectConnectSession.js";
 import { initializeLspServerManager } from "./services/lsp/manager.js";
+import { initializeExecutorManager } from "./services/executor/manager.js";
 import { shouldEnablePromptSuggestion } from "./services/PromptSuggestion/promptSuggestion.js";
 import {
 	type AppState,
@@ -3555,6 +3556,12 @@ async function run(): Promise<CommanderCommand> {
 			// code in untrusted directories before user consent.
 			// Must be after inline plugins are set (if any) so --plugin-dir LSP servers are included.
 			initializeLspServerManager();
+
+			// Initialize fusion-executor (Layer B "hands"). Default-off —
+			// initializeExecutorManager no-ops when FUSION_CODE_EXECUTOR_ENABLED is
+			// unset, keeping the disabled path byte-identical. Same trust gate as
+			// LSP: spawns a subprocess, so only after trust is established.
+			initializeExecutorManager();
 
 			// Show settings validation errors after trust is established
 			// MCP config errors don't block settings from loading, so exclude them

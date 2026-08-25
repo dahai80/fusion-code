@@ -240,6 +240,45 @@ claude.ts queryModel()
 - **typecheck 0 错误；build + build:dev:full 通过；514 测试全过**。
 - **遗留（见 fusion-gateway issue）**：bedrock / vertex / foundry 云 provider 直连已移除，需经 fusion-gateway 签名。
 
+## Executor seam (Layer B 自研手接入)
+
+审计（`audit/fusion-code-vs-executor-0825.md`）确立分层：`src/services/llm/` = Layer A（脑，SDK runtime，`@anthropic-ai/sdk` 已移除全自研）；`fusion-executor` = Layer B（手，built-in tools + sandbox，Rust + PyO3，stateless `&self`）。集成 = fusion-code 路由 tool 执行到 executor。PRD 3 阶段（`architecture/fusion-executor-prd.md`）：Phase1 ExecutorDriver 接口 / Phase2 diagnostics 切片 / Phase3 git snapshot + atomic rollback。
+
+### Phase 1 落地（本 PR）
+
+5 新文件 + 2 改，surgical，default-off，禁用 byte-identical。
+
+- `src/services/executor/types.ts` — TS 类型镜像 executor Rust models（snake_case serde verbatim）：`ExecutionRequest` / `ExecutionResult` / `Diagnostics` / `ExecutorStreamChunk`。常量 `EXECUTOR_EXIT_OK=0` / `EXECUTOR_EXIT_TIMEOUT=-124` / `EXECUTOR_EXIT_BLOCKED=-1`。
+- `src/services/executor/ExecutorClient.ts` — UDS NDJSON-RPC client（**非** LSP Content-Length framing）。spawn `fusion-executor --serve --sock <path>`（persistent UDS server），spawn-gate 防 ENOENT，`net.createConnection` + 行缓冲 NDJSON（每帧 `serde_json::to_string(resp) + "\n"`）。方法 `health` / `execute` / `executeStream`（多 result 帧共享一 id：chunk...done）/ `stop`。crash handling `isStopping` flag + onCrash。
+- `src/services/executor/ExecutorInstance.ts` — state machine `stopped→starting→running→stopping→error`，`MAX_CRASH_RECOVERY=3`，lazy-require client。
+- `src/services/executor/manager.ts` — module-scope singleton + generation counter + race-safe `initPromise`（镜像 `lsp/manager.ts`）。`isExecutorEnabled()` gate `isEnvTruthy(FUSION_CODE_EXECUTOR_ENABLED)`，未设 → init no-op（byte-identical）。`registerCleanup` 进程退出停子进程。`getExecutorClient()` 未就绪/失败 → undefined（fail-open）。
+- `src/services/executor/executorDriver.ts` — BashTool 委托面。`callBashViaExecutor` async generator：构 `ExecutionRequest`，`executeStream` chunk → progress 协议（回调→队列桥，burst 合并不丢 fullOutput），终态 `ExecutionResult` → `ExecResult`（`code=exit_code`，`interrupted=timed_out`，stdout/stderr 直传）。`isExecutorRouteable` gate 排除 `run_in_background`（issue #1 无 background API）+ `_simulatedSedEdit`。无 client → 返回 null（fail-open）。测试注入缝 `_setExecutorClientForTesting`。
+- `src/tools/BashTool/BashTool.tsx` — `call` 顶 lazy-require gate（`isEnvTruthy` 守卫，禁用路径不 require）。`isExecutorRouteable` → `callBashViaExecutor`，否则现有 `runShellCommand`。generator 终态 null → `logExecutorFallback` + 落回 `runShellCommand`。
+- `src/main.tsx` — `initializeExecutorManager()`（LSP init 之后，同 trust gate）。
+
+### Wire & 协议
+
+- **wire = NDJSON**（非 vscode-jsonrpc Content-Length）：executor fe-ipc 每帧 `serde_json::to_string(resp) + "\n"`。raw `net.Socket` + 行缓冲。
+- **execute_stream**：多 result 帧共享一 request id。chunk `{type:"chunk",data}` ... done `{type:"done",result:ExecutionResult}`。
+- **exit codes**：0=ok，-124=timeout，-1=blocked/internal。
+
+### Gate & fail-open
+
+- gate：`isEnvTruthy(process.env.FUSION_CODE_EXECUTOR_ENABLED)`（1/true/yes/on）。默认 off → BashTool 走 `runShellCommand`，零差异。
+- fail-open：executor 二进制缺失 / init 失败 / crash → `getExecutorClient()` undefined → `callBashViaExecutor` 返 null → BashTool 落回 in-process `runShellCommand`，log warning。
+- background 命令保留 fusion-code `spawnShellTask` 自有路径（executor issue #1 无 background 支持）。
+
+### Phase 2/3 follow-up（上游阻塞）
+
+- Phase 2（diagnostics 切片）：executor `executor.diagnostics` 已暴露，Phase 1 `enable_rollback_snapshot=true` 已铺路。
+- Phase 3（git snapshot + atomic rollback）：cross-call snapshot 需 persistent UDS server（本 PR 已用 `--serve`）+ executor issue #1/#2 修复。
+
+### 测试
+
+- `manager.test.ts` — env gate（truthy/falsy/unset）、disabled byte-identical（init no-op）、enabled-but-binary-missing fail-open、singleton + generation counter。
+- `executorDriver.test.ts` — `isExecutorRouteable`（5 cases）、fail-open null、result mapping（normal/timeout/blocked）、streaming chunk→progress（fullOutput 累积）、reject null、no-chunks 0 frames。注入缝避免 `mock.module` 跨文件污染。
+
+
 ## 辅助函数
 
 | 函数 | 文件 | 说明 |
