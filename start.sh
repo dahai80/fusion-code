@@ -8,7 +8,15 @@ DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$DIR"
 
 PORT="${FUSION_CODE_PORT:-11441}"
-AUTH="${FUSION_API_KEY:-}"
+# Auth token precedence: explicit FUSION_CODE_AUTH_TOKEN > FUSION_API_KEY.
+# Empty -> server generates a per-instance token (fail-closed, issue #132),
+# discoverable at ~/.fusion-code/server.token. Set FUSION_CODE_NO_AUTH=1 to
+# disable auth entirely (dev only — NOT recommended).
+AUTH="${FUSION_CODE_AUTH_TOKEN:-${FUSION_API_KEY:-}}"
+NO_AUTH_FLAG=""
+if [ "${FUSION_CODE_NO_AUTH:-}" = "1" ] || [ "${FUSION_CODE_NO_AUTH:-}" = "true" ]; then
+    NO_AUTH_FLAG="--no-auth"
+fi
 PID_FILE="$DIR/.fusion-code.pid"
 LOG_DIR="$DIR/logs"
 STDOUT_LOG="$LOG_DIR/stdout.log"
@@ -38,7 +46,7 @@ do_start() {
     fi
     ensure_binary
     echo "[start.sh] Starting Fusion-Code API on port ${PORT}"
-    nohup ./fusion-code --serve --port="${PORT}" --auth="${AUTH}" \
+    nohup ./fusion-code --serve --port="${PORT}" --auth="${AUTH}" ${NO_AUTH_FLAG} \
         >> "$STDOUT_LOG" 2>> "$STDERR_LOG" &
     local pid=$!
     echo "$pid" > "$PID_FILE"

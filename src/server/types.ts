@@ -14,6 +14,12 @@ export type ServerConfig = {
   port: number
   host: string
   authToken: string
+  /** Explicit opt-out of auth (dev only). Resolved from --no-auth / FUSION_CODE_NO_AUTH. */
+  authDisabled?: boolean
+  /** Resolved per-instance token written to ~/.fusion-code/server.token when authToken empty. */
+  effectiveAuthToken?: string
+  /** Path the effective token was written to, for client discovery. */
+  tokenFile?: string
   unix?: string
   /** Idle timeout for detached sessions (ms). 0 = never expire. */
   idleTimeoutMs?: number
