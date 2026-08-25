@@ -49,6 +49,7 @@ jobs:
                     src/commands/tour/ \
                     src/services/agents/ \
                     src/services/deploy/ \
+                    src/services/executor/ \
                     src/services/dev-server/ \
                     src/services/events/ \
                     src/services/license-check/ \

@@ -643,19 +643,34 @@ export const BashTool = buildTool({
     const isMainThread = !toolUseContext.agentId;
     const preventCwdChanges = !isMainThread;
     try {
-      // Use the new async generator version of runShellCommand
-      const commandGenerator = runShellCommand({
-        input,
-        abortController,
-        // Use the always-shared task channel so async agents' background
-        // bash tasks are actually registered (and killable on agent exit).
-        setAppState: toolUseContext.setAppStateForTasks ?? setAppState,
-        setToolJSX,
-        preventCwdChanges,
-        isMainThread,
-        toolUseId: toolUseContext.toolUseId,
-        agentId: toolUseContext.agentId
-      });
+      // Phase 1: route foreground bash to fusion-executor (Layer B "hands").
+      // Default-off — FUSION_CODE_EXECUTOR_ENABLED gates. background/sed-simulate
+      // stay in-process (executor issue #1 has no background API). lazy-require
+      // keeps the executor module graph out of the disabled runtime path.
+      let commandGenerator;
+      let executorRouteable = false;
+      if (isEnvTruthy(process.env.FUSION_CODE_EXECUTOR_ENABLED)) {
+        const { isExecutorRouteable } = require('../../services/executor/executorDriver.js');
+        executorRouteable = isExecutorRouteable(input);
+      }
+      if (executorRouteable) {
+        const { callBashViaExecutor } = require('../../services/executor/executorDriver.js');
+        commandGenerator = callBashViaExecutor(input, toolUseContext);
+      } else {
+        // Use the new async generator version of runShellCommand
+        commandGenerator = runShellCommand({
+          input,
+          abortController,
+          // Use the always-shared task channel so async agents' background
+          // bash tasks are actually registered (and killable on agent exit).
+          setAppState: toolUseContext.setAppStateForTasks ?? setAppState,
+          setToolJSX,
+          preventCwdChanges,
+          isMainThread,
+          toolUseId: toolUseContext.toolUseId,
+          agentId: toolUseContext.agentId
+        });
+      }
 
       // Consume the generator and capture the return value
       let generatorResult;
@@ -681,6 +696,44 @@ export const BashTool = buildTool({
 
       // Get the final result from the generator's return value
       result = generatorResult.value;
+      // Executor fail-open: null means the executor was unavailable mid-call
+      // (binary missing / init failed / stream crashed). Fall back to in-process
+      // runShellCommand so the user is never blocked by a Layer B outage.
+      if (result === null) {
+        const { logExecutorFallback } = require('../../services/executor/executorDriver.js');
+        logExecutorFallback(input.command);
+        const fallbackGenerator = runShellCommand({
+          input,
+          abortController,
+          setAppState: toolUseContext.setAppStateForTasks ?? setAppState,
+          setToolJSX,
+          preventCwdChanges,
+          isMainThread,
+          toolUseId: toolUseContext.toolUseId,
+          agentId: toolUseContext.agentId
+        });
+        let fallbackResult;
+        do {
+          fallbackResult = await fallbackGenerator.next();
+          if (!fallbackResult.done && onProgress) {
+            const progress = fallbackResult.value;
+            onProgress({
+              toolUseID: `bash-progress-${progressCounter++}`,
+              data: {
+                type: 'bash_progress',
+                output: progress.output,
+                fullOutput: progress.fullOutput,
+                elapsedTimeSeconds: progress.elapsedTimeSeconds,
+                totalLines: progress.totalLines,
+                totalBytes: progress.totalBytes,
+                taskId: progress.taskId,
+                timeoutMs: progress.timeoutMs
+              }
+            });
+          }
+        } while (!fallbackResult.done);
+        result = fallbackResult.value;
+      }
       trackGitOperations(input.command, result.code, result.stdout);
       const isInterrupt = result.interrupted && abortController.signal.reason === 'interrupt';
 
