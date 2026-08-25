@@ -1,7 +1,7 @@
 // SSE 解析单测 — 覆盖多行 data / event / 注释 / 跨 chunk 边界 / 中断
 
 import { describe, expect, test } from "bun:test";
-import { parseSseStream } from "../../services/llm/sseStream.js";
+import { parseSseStream, StallTimeoutError, type ParseSseOptions } from "../../services/llm/sseStream.js";
 
 // 从字符串序列构造 ReadableStream (每个字符串模拟一个到达的 chunk)。
 function makeStream(chunks: string[]): ReadableStream<Uint8Array> {
@@ -16,9 +16,13 @@ function makeStream(chunks: string[]): ReadableStream<Uint8Array> {
     });
 }
 
-async function collect(body: ReadableStream<Uint8Array>, signal?: AbortSignal) {
+async function collect(
+    body: ReadableStream<Uint8Array>,
+    signal?: AbortSignal,
+    options?: ParseSseOptions,
+) {
     const out: { event: string; data: string }[] = [];
-    for await (const e of parseSseStream(body, signal)) {
+    for await (const e of parseSseStream(body, signal, options)) {
         out.push({ event: e.event, data: e.data });
     }
     return out;
@@ -90,5 +94,84 @@ describe("parseSseStream", () => {
     test("empty data field yields empty string", async () => {
         const body = makeStream(["data:\n\n"]);
         expect(await collect(body)).toEqual([{ event: "message", data: "" }]);
+    });
+});
+
+// ---- Stall watchdog (#134) ----
+
+// Stream that enqueues one chunk then never closes and never sends more —
+// simulates a stalled upstream (hung inference / dropped connection).
+function stallStream(firstChunk?: string): ReadableStream<Uint8Array> {
+    const encoder = new TextEncoder();
+    return new ReadableStream({
+        start(controller) {
+            if (firstChunk) controller.enqueue(encoder.encode(firstChunk));
+            // intentionally never close, never enqueue again
+        },
+    });
+}
+
+describe("parseSseStream stall watchdog", () => {
+    test("first-token timeout throws StallTimeoutError", async () => {
+        // No chunk ever arrives; firstTokenMs=50ms budget.
+        const body = stallStream();
+        const p = collect(body, undefined, { firstTokenMs: 50, stallMs: 50 });
+        await expect(p).rejects.toBeInstanceOf(StallTimeoutError);
+        let phase: string | undefined;
+        try {
+            await p;
+        } catch (e) {
+            phase = (e as StallTimeoutError).phase;
+        }
+        expect(phase).toBe("first-token");
+    });
+
+    test("idle timeout throws after first byte received", async () => {
+        // First chunk arrives immediately, then silence -> idle stall.
+        const body = stallStream("data: hi\n\n");
+        const p = collect(body, undefined, { firstTokenMs: 1000, stallMs: 50 });
+        await expect(p).rejects.toBeInstanceOf(StallTimeoutError);
+        let phase: string | undefined;
+        try {
+            await p;
+        } catch (e) {
+            phase = (e as StallTimeoutError).phase;
+        }
+        expect(phase).toBe("idle");
+    });
+
+    test("stallMs: 0 disables watchdog (no timeout on silent stream)", async () => {
+        // With watchdog disabled, a never-closing stream should NOT throw a
+        // StallTimeoutError within a short window. We race it against a timer.
+        const body = stallStream();
+        let threw = false;
+        const race = Promise.race([
+            collect(body, undefined, { stallMs: 0, firstTokenMs: 0 })
+                .then(() => [])
+                .catch((e) => {
+                    if (e instanceof StallTimeoutError) threw = true;
+                    return [];
+                }),
+            new Promise<void>((r) => setTimeout(() => r(), 80)),
+        ]);
+        await race;
+        expect(threw).toBe(false);
+    });
+
+    test("normal fast stream unaffected by watchdog", async () => {
+        const body = makeStream(["data: one\n\ndata: two\n\n"]);
+        const out = await collect(body, undefined, { firstTokenMs: 100, stallMs: 100 });
+        expect(out).toEqual([
+            { event: "message", data: "one" },
+            { event: "message", data: "two" },
+        ]);
+    });
+
+    test("abort signal still throws AbortError (not StallTimeoutError)", async () => {
+        const ac = new AbortController();
+        const body = stallStream("data: x");
+        const p = collect(body, ac.signal, { firstTokenMs: 10000, stallMs: 10000 });
+        ac.abort();
+        await expect(p).rejects.toBeInstanceOf(DOMException);
     });
 });

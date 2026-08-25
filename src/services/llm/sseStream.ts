@@ -17,10 +17,114 @@ export interface SseEvent {
     id?: string;
 }
 
+// Idle/stall watchdog options for parseSseStream. A stalled upstream (hung
+// inference, dropped connection without RST, gateway stall) otherwise keeps
+// reader.read() pending forever with no recovery. Default budgets are env
+// driven; pass stallMs: 0 to disable entirely.
+export interface ParseSseOptions {
+    // Max ms between received chunks once first byte arrived. 0 = disable.
+    stallMs?: number;
+    // Max ms to first byte (prefill can be slow). 0 = same as stallMs.
+    firstTokenMs?: number;
+}
+
+// StallTimeoutError: name contains "Timeout" so classifyByMessage -> TIMEOUT
+// (retryable via withRetry), and isTimeoutErrorLike duck-types true.
+export class StallTimeoutError extends Error {
+    public readonly phase: "first-token" | "idle";
+    constructor(phase: "first-token" | "idle", elapsedMs: number, budgetMs: number) {
+        super(`SSE stream ${phase} timeout: ${elapsedMs}ms > ${budgetMs}ms budget (stalled upstream)`);
+        this.name = "StallTimeoutError";
+        this.phase = phase;
+    }
+}
+
+// Env-driven default budgets. 0 disables the watchdog (byte-identical to
+// pre-fix behavior). FUSION_CODE_SSE_STALL_MS=0 / FUSION_CODE_SSE_FIRST_TOKEN_MS=0.
+const DEFAULT_STALL_MS = parseInt(process.env.FUSION_CODE_SSE_STALL_MS ?? "60000", 10);
+const DEFAULT_FIRST_TOKEN_MS = parseInt(process.env.FUSION_CODE_SSE_FIRST_TOKEN_MS ?? "180000", 10);
+
+function resolveBudgets(options?: ParseSseOptions): {
+    stallMs: number;
+    firstTokenMs: number;
+} {
+    const stallMs = options?.stallMs ?? (Number.isNaN(DEFAULT_STALL_MS) ? 60000 : DEFAULT_STALL_MS);
+    const firstTokenMs =
+        options?.firstTokenMs ?? (Number.isNaN(DEFAULT_FIRST_TOKEN_MS) ? 180000 : DEFAULT_FIRST_TOKEN_MS);
+    return { stallMs, firstTokenMs };
+}
+
+// Race reader.read() against a stall timer. On timeout, cancel the reader
+// (releases the read) and throw StallTimeoutError. Timer resets after first
+// byte to the inter-chunk idle budget. Rejects with AbortError if signal
+// aborts mid-read (preserves existing abort semantics).
+async function readWithStallGuard(
+    reader: ReadableStreamDefaultReader<Uint8Array>,
+    signal: AbortSignal | undefined,
+    budgets: { stallMs: number; firstTokenMs: number },
+    sawFirstByte: { v: boolean },
+): Promise<Awaited<ReturnType<typeof reader.read>>> {
+    const disabled = budgets.stallMs <= 0 && budgets.firstTokenMs <= 0;
+    if (disabled) {
+        if (signal?.aborted) throw new DOMException("SSE stream aborted", "AbortError");
+        return reader.read();
+    }
+
+    let timer: ReturnType<typeof setTimeout> | undefined;
+
+    type ReadResult = Awaited<ReturnType<typeof reader.read>>;
+    const armed = new Promise<ReadResult>((resolve, reject) => {
+        const armTimer = () => {
+            if (timer) clearTimeout(timer);
+            const budget = sawFirstByte.v ? budgets.stallMs : budgets.firstTokenMs;
+            if (budget <= 0) return;
+            const startedAt = Date.now();
+            timer = setTimeout(() => {
+                const phase = sawFirstByte.v ? "idle" : "first-token";
+                const err = new StallTimeoutError(phase, Date.now() - startedAt, budget);
+                // Cancel releases the pending reader.read(); its promise then
+                // rejects with a TypeError — but we reject first via our own.
+                void reader.cancel().catch(() => {});
+                reject(err);
+            }, budget);
+        };
+        armTimer();
+
+        reader
+            .read()
+            .then((result) => {
+                if (timer) clearTimeout(timer);
+                if (!sawFirstByte.v && !result.done) sawFirstByte.v = true;
+                resolve(result);
+            })
+            .catch((err: unknown) => {
+                if (timer) clearTimeout(timer);
+                reject(err instanceof Error ? err : new Error(String(err)));
+            });
+
+        if (signal) {
+            const onAbort = () => {
+                if (timer) clearTimeout(timer);
+                void reader.cancel().catch(() => {});
+                reject(new DOMException("SSE stream aborted", "AbortError"));
+            };
+            if (signal.aborted) onAbort();
+            else signal.addEventListener("abort", onAbort, { once: true });
+        }
+    });
+
+    return armed.catch((err: Error) => {
+        // Ensure any in-flight timer is cleared on rejection path.
+        if (timer) clearTimeout(timer);
+        throw err;
+    });
+}
+
 // 把一个 ReadableStream<Uint8Array> (fetch Response.body) 解析成 SseEvent 异步迭代器。
 export async function* parseSseStream(
     body: ReadableStream<Uint8Array>,
     signal?: AbortSignal,
+    options?: ParseSseOptions,
 ): AsyncIterable<SseEvent> {
     const reader = body.getReader();
     const decoder = new TextDecoder();
@@ -28,13 +132,15 @@ export async function* parseSseStream(
     let event = "message";
     let dataLines: string[] = [];
     let lastId: string | undefined;
+    const budgets = resolveBudgets(options);
+    const sawFirstByte = { v: false };
 
     try {
         while (true) {
             if (signal?.aborted) {
                 throw new DOMException("SSE stream aborted", "AbortError");
             }
-            const { done, value } = await reader.read();
+            const { done, value } = await readWithStallGuard(reader, signal, budgets, sawFirstByte);
             if (done) break;
             buffer += decoder.decode(value, { stream: true });
 
