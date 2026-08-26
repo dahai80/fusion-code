@@ -279,6 +279,25 @@ enhance-0819.md P0.2 要新建 `src/services/session/events.ts`：`SessionEvent`
 
 **若需做（spec 的分步路径）**：1. 先 `src/services/session/events.ts` 定义 `SessionEvent`+`SessionEventMap`+`SESSION_FORMAT_VERSION` 类型（纯类型，0 运行时）；2. 在 `QueryEngine` 旁路 emit 事件（不改 `mutableMessages`，双写对照）；3. 写 `deriveMessages()` 投影 + dev 断言 "任何达模型请求的可从日志重构"，逐步对齐 16 处变更点行为；4. 验 `replay 事件流 == 模型历史`；5. 替换 `mutableMessages` 直接维护 → `deriveMessages` 单源；6. 压缩改 emit `compaction/start|end` + `surfaceOp:replace`（替 `:947-964` splice/push）；7. 审计日志 + 轨迹 collector 改读 typed 事件流。每步保现有测试不回归。
 
+### P1.2 影子价压缩 + KV-cache 前缀边界协商 — 现状（enhance-0819.md:528）
+
+enhance-0819.md P1.2 动机："MLX 极重 KV-cache 复用；当前 hardCompact 截断丢可复用前缀"。spec 5 落地步骤：1. 影子价模型（工具结果大小+引用频次+时近性）`src/services/compact/shadowPrice.ts`；2. `hardCompact.ts` 改影子价裁（替当前 head/tail 固定）；3. KV-cache 前缀边界追踪（与 MLX adapter 协商 cache breakpoint）；4. 压缩 emit `surfaceOp:replace`（P0.2 集成）；5. 测试。审计现状后 **defer 为显式决策**，分三段：
+
+**Step 3 — KV-cache 前缀边界协商：服务端已交付，客户端显式 breakpoint 冗余。**
+- fusion-mlx `/v1/messages` handler **已 honor `cache_control`**：`anthropic_routes.py:198` `_extract_prefix_cache_boundary` 从 system blocks 的 `cache_control` 提前缀边界，`anthropic_adapter.py:107-121` 算 boundary char 数。上游 issue #196（honor cache_control）/#241（prompt caching）/#289+#386（会话级 KV 复用，Fork 前缀）**全 CLOSED**。`memory_cache.py:721` = **自动前缀匹配**（exact + prefix + supersequence + longest-common-prefix）— KV 复用**无需显式 breakpoint**，命中即复用。
+- fusion-code MLX 路径 `createFusionMlxFetch`（`fusion-mlx-adapter.ts:1373`）拦截 `/v1/messages`（`:1516`）→ 翻译到 `/v1/chat/completions`（`:1637`），`anthropicToMlxMessages`（`:859`）**把 system 数组塌成单 string**，drop `cache_control`（`:894` 注释自标 "when fusion-mlx server adds cache-aware API, we can send as separate cached/uncached blocks" — 该 API 今已存，但 adapter 仍走 /v1/chat/completions）。`getPromptCachingEnabled`(`claude.ts:331`) 无 MLX gate，system blocks 带 `cache_control` 标记，但被翻译层丢。
+- **决策**：`/v1/chat/completions` 路径靠自动前缀匹配已得 KV 复用 → 显式 breakpoint 协商**冗余**。补全 = MLX 路径改直连 `/v1/messages`（绕过 1500+ 行翻译逻辑）= 大适配器重构，故意 OpenAI 兼容（adapter:7），无具体故障驱动（自动匹配覆盖）。违反 simplicity-first，defer。
+
+**Step 1+2 — 影子价裁剪：net-new，触碰活压缩路径，引用频次信号部分存在。**
+- 影子价 = 0 匹配（`shadowPrice`/`tool-result-pruner` net-new）。当前 `hardCompact.ts:42` `truncateString(s, headChars=200, tailChars=100)` = 固定 head/tail per-string 截断（`truncateToolResultContent`/`truncateAssistantText`），**不按代价模型**。
+- spec 的 "引用频次" 信号**部分存在但非频次**：`sessionMemoryCompact.ts:153` `getToolResultIds`/`hasToolUseWithIds`/`adjustIndexToPreserveAPIInvariants`(`:232`) = tool_use/tool_result **成对正确性守卫**（orphan tool_result 必须带匹配 tool_use 进 kept range），是**二元存在性**检查，非**频次计数**。即"某工具结果是否还被引用"有解，"引用多少次/多近"无解。
+- 微压缩另一路径 `selectFreshToReplace`(`toolResultStorage.ts:804`) = fresh tool result **按 size 降序**挑最大替（previews ~2KB 近似），非影子价、非 hardCompact。
+- **决策**：影子价 = 新代价模型 + 改活压缩路径 `truncateString` → 代价排序裁剪，触碰 MLX 默认压缩逻辑（`shouldUseHardCompact` `:251` MLX-only），无具体故障驱动（固定截断今日可工作），违反 simplicity-first。defer。若做：先纯函数 `shadowPrice.ts`（size + 频次扫描 assistant content 计 tool_use_id 出现次数 + 时近性按 round index），单测；后改 `hardCompactMessages` 在 `isOld` 分支按影子价排序裁（替 `truncateToolResultContent`）。
+
+**Step 4 — surfaceOp:replace：阻塞于 P0.2 defer（见上节，PR #143）。** 依赖 `SessionEvent`/`surfaceOp` 投影，P0.2 显式 defer 未解，本步骤不可独立落地。
+
+**跨仓只读边界**：fusion-mlx 侧 KV API（`cache_control` honor + 自动前缀匹配）已完整交付（issue #196/#241/#289/#386 全 CLOSED）。本 defer 纯 fusion-code 客户端决策，**无上游 issue 需提**（上游无缺口）。
+
 ## Executor seam (Layer B 自研手接入)
 
 审计（`audit/fusion-code-vs-executor-0825.md`）确立分层：`src/services/llm/` = Layer A（脑，SDK runtime，`@anthropic-ai/sdk` 已移除全自研）；`fusion-executor` = Layer B（手，built-in tools + sandbox，Rust + PyO3，stateless `&self`）。集成 = fusion-code 路由 tool 执行到 executor。PRD 3 阶段（`architecture/fusion-executor-prd.md`）：Phase1 ExecutorDriver 接口 / Phase2 diagnostics 切片 / Phase3 git snapshot + atomic rollback。
