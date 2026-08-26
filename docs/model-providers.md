@@ -240,6 +240,22 @@ claude.ts queryModel()
 - **typecheck 0 错误；build + build:dev:full 通过；514 测试全过**。
 - **遗留（见 fusion-gateway issue）**：bedrock / vertex / foundry 云 provider 直连已移除，需经 fusion-gateway 签名。
 
+### P0.1 Capability Seam 三角色 — 现状（enhance-0819.md:449）
+
+enhance-0819.md P0.1 要 "consumer (claude.ts) 0 具体 provider import；换 MLX→firstParty 仅改 provider 注册，consumer 不动"。审计现状：
+
+- **Service Definition 已落地** = `LlmClient` 接口（`src/services/llm/client.ts:69`），5 方法 `streamMessages`/`createMessage`/`createMessageRaw`/`countTokens`/`listModels`，即 spec 的 `LlmCapability`。
+- **Provider factory 已落地** = `getAnthropicClient()`（`src/services/api/client.ts:54`）返回 `LlmClient`（非具体 client）；`createSeamClient(model, fetchOverride, defaultHeaders)` 构 firstParty + fusionMlx。bedrock/vertex/foundry 抛错引导 gateway。
+- **Consumer 模型调用路径已中立** = `claude.ts` 两处 `getAnthropicClient({...})` 调用点（:549 verify、:854 主调用）均消费 `LlmClient` 接口（`anthropic.createMessage` / streaming），不 import 具体 provider。SDK 已移除（div-anthropic）。
+- **更深的适配器层** = `LlmAdapter`/`registry.ts`（`getLlmAdapter` 按 `APIProvider` 静态分发，`LLM_ADAPTER_SEAM` feature flag gate，默认 off 回退 seam）。中立 `StreamChunk` 类型（`types.ts`）。
+
+**已满足 spec 的核心高杠杆点**（换 provider 不动模型调用循环）。spec 的 "大重构" 风险项（"需保 514 测试不回归，分步：先接口共存[done]，后去具体 import[remaining]"）剩余 tail：
+
+- **Consumer 残留 provider 条件分支**（9 处，`claude.ts`）：`isFusionMlxProvider()`(:524 verifyApiKey 短路)、`shouldIncludeFirstPartyOnlyBetas()`(:303/476/1420/1664 betas 条件)、`getAPIProvider()==="firstParty"`(:1439/1677/1681/1814 header/betas 条件)、`isFirstPartyAnthropicBaseUrl()`(:1814)。这些在 **betas / auth verify / header** 逻辑，非模型调用路径（call path 已中立）。完整清除 = 把 provider-aware 逻辑下沉到 capability-fact/adapter 层，spec 自标 "大重构"。
+- **能力事实未集中**：`supportsStreaming`/`supportsVision`/`maxInputTokens` 散在 `fusion-mlx-models.ts`（MLX-only）+ `modelCapabilities.ts`；无 `LLM_SETTINGS_NAMESPACE` 命名空间注册。spec step "能力事实集中" + "命名空间" 未做。
+
+**决策**：核心 seam 已由 div-anthropic 交付，满足 "换 provider 不动循环" 的高杠杆目标。剩余 tail 为 provider-conditional 清除 + 能力事实集中 = spec 自标 "大重构"（高回归面，触及活模型路径的 betas/auth/header），无具体故障驱动，违反 simplicity-first。**defer 为显式决策**，非 backlog；若需做，按 spec "分步" 先抽 capability-fact 单点，再逐个下沉 provider 条件分支，每步保 469 测试不回归。
+
 ## Executor seam (Layer B 自研手接入)
 
 审计（`audit/fusion-code-vs-executor-0825.md`）确立分层：`src/services/llm/` = Layer A（脑，SDK runtime，`@anthropic-ai/sdk` 已移除全自研）；`fusion-executor` = Layer B（手，built-in tools + sandbox，Rust + PyO3，stateless `&self`）。集成 = fusion-code 路由 tool 执行到 executor。PRD 3 阶段（`architecture/fusion-executor-prd.md`）：Phase1 ExecutorDriver 接口 / Phase2 diagnostics 切片 / Phase3 git snapshot + atomic rollback。
