@@ -244,7 +244,7 @@ claude.ts queryModel()
 
 审计（`audit/fusion-code-vs-executor-0825.md`）确立分层：`src/services/llm/` = Layer A（脑，SDK runtime，`@anthropic-ai/sdk` 已移除全自研）；`fusion-executor` = Layer B（手，built-in tools + sandbox，Rust + PyO3，stateless `&self`）。集成 = fusion-code 路由 tool 执行到 executor。PRD 3 阶段（`architecture/fusion-executor-prd.md`）：Phase1 ExecutorDriver 接口 / Phase2 diagnostics 切片 / Phase3 git snapshot + atomic rollback。
 
-### Phase 1 落地（本 PR）
+### Phase 1 落地（PR #135）
 
 5 新文件 + 2 改，surgical，default-off，禁用 byte-identical。
 
@@ -268,15 +268,33 @@ claude.ts queryModel()
 - fail-open：executor 二进制缺失 / init 失败 / crash → `getExecutorClient()` undefined → `callBashViaExecutor` 返 null → BashTool 落回 in-process `runShellCommand`，log warning。
 - background 命令保留 fusion-code `spawnShellTask` 自有路径（executor issue #1 无 background 支持）。
 
-### Phase 2/3 follow-up（上游阻塞）
+### Phase 2/3 落地（PR #139，上游阻塞解除）
 
-- Phase 2（diagnostics 切片）：executor `executor.diagnostics` 已暴露，Phase 1 `enable_rollback_snapshot=true` 已铺路。
-- Phase 3（git snapshot + atomic rollback）：cross-call snapshot 需 persistent UDS server（本 PR 已用 `--serve`）+ executor issue #1/#2 修复。
+executor v0.2.0 上游 12 issues 全 CLOSED。本 PR = fusion-code 侧 wiring，surgical，default-off，fail-open，禁用 byte-identical。
+
+**Phase 2（diagnostics 切片，降 Token）**：executor `execute_stream` 服务端自动填 `ExecutionResult.diagnostics`（slicer：优先 stderr 非空 else stdout，tail 30 行，regex TS→Python→Node→Bun→Rust→Go→Swift，返 `{error_type?, file_path?, line_number?, code_snippet?, raw_trace?}`）。Phase 1 的 `mapResult` 丢弃它；本 PR 保留并透传 `ExecResult.diagnostics`。失败路径用切片替全量 bash 输出（PRD 降 Token 目标），成功路径不改（exit 0 不触失败分支，surgical）。无独立 `diagnostics()` RPC（服务端 in-band 自动填）。
+
+**Phase 3（git snapshot + atomic rollback）**：`auto_rollback` = 单次调用自洽（call 开头建快照，`exit_code!=0` + 文件毁损 diff>0 时回滚，设 `auto_rolled_back=true`），caller 无法注入外部 snapshot_id。`buildRequest` 传 `cwd`（snapshot 需；非 repo 返 null 安全），`enable_rollback_snapshot:true` 硬编码。`auto_rollback_policy` **opt-in 独立 env gate** `FUSION_CODE_EXECUTOR_AUTO_ROLLBACK`（default off）——auto-rollback 在 `exit!=0` + 文件 diff 时回滚会撤销模型合法编辑，破坏 edit-test-fail 编码循环，故不随 executor enable 自动开。回滚后前置 `<note>Working tree auto-reverted via git snapshot...</note>` 告知模型。`max_consecutive_failures` 死字段（Rust 不读），caller owns failure-count loop。
+
+- `src/utils/ShellCommand.ts` — `ExecResult` +3 可选字段（`diagnostics`/`autoRolledBack`/`snapshotId`）。内联 `Diagnostics` 结构类型（不引 `executor/types` → 保 utils < services 依赖方向，解循环依赖）。顶层 camelCase 匹 ExecResult 约定，嵌套 diagnostics 保 snake_case 匹 wire（透传不改）。
+- `src/services/executor/executorDriver.ts` — `mapResult` 保留 diagnostics/snapshot/rollback；`buildRequest` 传 `cwd` + opt-in `auto_rollback_policy`；两条 `logForDebugging`（diagnostics + rollback state，新路径默认日志）。
+- `src/tools/BashTool/BashTool.tsx` — 失败路径 `formatDiagnosticsForModel` 切片替全量 + 回滚 `<note>` 前置。无切片（in-process / executor 无切片）→ 全量不变 byte-identical。
+- `src/tools/BashTool/bashDiagnostics.ts`（新）— 纯 helper（`formatDiagnosticsForModel`），提取出单测，不依赖 BashTool 模块图。
+- `src/__tests__/tools/BashTool/bashDiagnostics.test.ts`（新）— 8 测。
+- `src/__tests__/services/executor/executorDriver.test.ts` — +8 测（mapResult passthrough：diagnostics/snapshot_id/auto_rolled_back；buildRequest：cwd、auto_rollback policy on/off、enable_rollback_snapshot 回归）。
+
+**default-off byte-identical**：`FUSION_CODE_EXECUTOR_ENABLED` 未设 → `isExecutorRouteable` false → executorDriver 不触；in-process path 不设 diagnostics/autoRolledBack/snapshotId → `formatDiagnosticsForModel` 返全量 → `ShellError('', fullOutput)` 同今日。
+
+### Scope-creep（显式 defer）
+
+- 手动 turn-boundary snapshot/rollback（PRD line 160 retry-3x）— Phase 3b，触 turn lifecycle（query.ts/REPL.tsx/QueryEngine），大 surface，另 PR。
+- 进程内输出切片（非 executor 路径）— 需 TS 移植 Rust slicer 或 out-of-band diagnostics RPC，defer。
 
 ### 测试
 
 - `manager.test.ts` — env gate（truthy/falsy/unset）、disabled byte-identical（init no-op）、enabled-but-binary-missing fail-open、singleton + generation counter。
-- `executorDriver.test.ts` — `isExecutorRouteable`（5 cases）、fail-open null、result mapping（normal/timeout/blocked）、streaming chunk→progress（fullOutput 累积）、reject null、no-chunks 0 frames。注入缝避免 `mock.module` 跨文件污染。
+- `executorDriver.test.ts` — `isExecutorRouteable`（5 cases）、fail-open null、result mapping（normal/timeout/blocked）、streaming chunk→progress（fullOutput 累积）、reject null、no-chunks 0 frames。+8 Phase 2/3 测（mapResult passthrough + buildRequest cwd/policy）。注入缝避免 `mock.module` 跨文件污染。
+- `bashDiagnostics.test.ts` — undefined→全量不变、切片替全量、auto_rolled_back `<note>` 前置（有/无 snapshotId）、无 note（false/undefined）、部分字段缺失、omit line_number 后缀。
 
 
 ## 辅助函数
