@@ -256,6 +256,29 @@ enhance-0819.md P0.1 要 "consumer (claude.ts) 0 具体 provider import；换 ML
 
 **决策**：核心 seam 已由 div-anthropic 交付，满足 "换 provider 不动循环" 的高杠杆目标。剩余 tail 为 provider-conditional 清除 + 能力事实集中 = spec 自标 "大重构"（高回归面，触及活模型路径的 betas/auth/header），无具体故障驱动，违反 simplicity-first。**defer 为显式决策**，非 backlog；若需做，按 spec "分步" 先抽 capability-fact 单点，再逐个下沉 provider 条件分支，每步保 469 测试不回归。
 
+### P0.2 事件溯源会话日志 + surfaceOp — 现状（enhance-0819.md:472）
+
+enhance-0819.md P0.2 要新建 `src/services/session/events.ts`：`SessionEvent` 信封 `{seq, time, ignorable, surfaceOp, sourceEventSeqs}` + `surfaceOp: 'append' | {op:'replace', start, end}` + `SessionEventMap` + `deriveMessages()` 单投影（替 `mutableMessages` 直接维护）+ `SESSION_FORMAT_VERSION`。审计现状：**net-new 基础设施**，无任何已落地符号。
+
+**审计 — 已存在的非正式事件日志（磁盘侧）**：
+- 会话持久化 = append-only JSONL：`recordTranscript`(`sessionStorage.ts:1486`) → `insertMessageChain`(`:1071`, 逐 msg `appendEntry`) → `enqueueWrite`(`:635`) → 批量 `fsAppendFile`。每条 `TranscriptMessage`(`types/logs.ts:221`) 带 `parentUuid`/`logicalParentUuid`/`isSidechain`/`gitBranch`/`sessionId`/`version` 链式结构。`Entry` 判别联合（`:297`，含 `TranscriptMessage|SummaryMessage|CustomTitleMessage|TaskSummaryMessage|TagMessage|...`）= 非类型化事件日志。
+- 压缩边界标记 = `SystemCompactBoundaryMessage`（`messages.ts:4568` `createCompactBoundaryMessage`，`compactMetadata:{trigger,preTokens,userContext,messagesSummarized}`），压缩产物 `CompactResult.{boundaryMarker, messagesToKeep}`（`compact.ts:483`），顺序 `boundaryMarker, summaryMessages, messagesToKeep, ...`（`:511`）= 非正式 `surfaceOp:replace`。`tengu_compact*`/`tengu_partial_compact*` analytics 事件（`compact.ts:987` 等多处）= 分析事件，非会话日志事件。
+- 磁盘裁剪（PR #114）：`trimCurrentSessionTranscript` pre-compact 段永留盘 + compact_boundary 标记 + 崩溃安全 checkpoint — 压缩前完整历史**磁盘保留**，溯源不丢。
+
+**审计 — `mutableMessages` 变更面（spec 自标 "大改" surface）**：
+- 定义：`QueryEngine.ts:188` 字段 / `:204` init / `:1236` config shape / `:346` 外部 mutator 回调（print 模式写回缝）/ `print.ts:1153` print 模式本地副本。
+- **16 处直接变更**（push/splice/length=0）：QueryEngine 12 处（`:431` user turn seed、`:790/794/807/866` assistant/tool/synthetic append 4 处、`:947` length=0 snip reset、`:948` snip replace、`:952` post-snip push、`:964` splice mutableBoundary prefix prune）+ queryHelpers 2 处（`:338/359` CCR resume）+ print.ts 2 处（`:1238` breadcrumbs、`:4429` bridge history replay）。`recap`/`summary` 只读。
+- `normalizeMessages`/`normalizeMessagesCache`（PR #112）：`messages.ts:731` 4 重载 → `normalizeMessagesCore`(`:755`, 单调 `isNewChain` flag 的 per-msg transform)；`normalizeMessagesCache.ts` 引用身份键增量缓存 O(n)→O(tail)。**最接近 `deriveMessages()` 的现有层**，但是 per-message 规范化 transform，非 log→history 投影；`deriveMessages` 会坐在它之上，不替换它。
+
+**已部分满足 spec 的 3 动机**：
+1. "审计全模型可见输入事件流" — 磁盘 JSONL 已捕获全流（非类型化 `Entry` 联合，非 typed `SessionEvent`）。
+2. "压缩丢溯源" — PR #114 pre-compact 段永留盘，磁盘保留完整历史；内存 splice 丢前缀是设计行为（释放 context）。
+3. "轨迹飞轮临时重构" — collector(`collector.ts:21`) 读 `RawEvent {type?, message?, cwd?}` ad-hoc 重建，**但可用**（22 场景已验证，D1 飞轮已落地 PR #56）。
+
+**决策**：net-new typed 内存层（`SessionEvent`/`surfaceOp`/`deriveMessages` 替换 16 处变更点）= spec 自标 "大改消息管理" 大重构。spec 自定的落地顺序（"先写事件 旁路，后 deriveMessages 替换，后压缩迁移"）印证：step 1（旁路写事件）廉价但产出的 foundation **无消费者**；`deriveMessages`（step 3）必须精确镜像 16 处各异的行为才能过不变量断言 = 重新实现消息管理逻辑 = "大改" 本身。3 动机已部分由磁盘日志服务，无具体故障驱动，违反 simplicity-first。**defer 为显式决策**，非 backlog。
+
+**若需做（spec 的分步路径）**：1. 先 `src/services/session/events.ts` 定义 `SessionEvent`+`SessionEventMap`+`SESSION_FORMAT_VERSION` 类型（纯类型，0 运行时）；2. 在 `QueryEngine` 旁路 emit 事件（不改 `mutableMessages`，双写对照）；3. 写 `deriveMessages()` 投影 + dev 断言 "任何达模型请求的可从日志重构"，逐步对齐 16 处变更点行为；4. 验 `replay 事件流 == 模型历史`；5. 替换 `mutableMessages` 直接维护 → `deriveMessages` 单源；6. 压缩改 emit `compaction/start|end` + `surfaceOp:replace`（替 `:947-964` splice/push）；7. 审计日志 + 轨迹 collector 改读 typed 事件流。每步保现有测试不回归。
+
 ## Executor seam (Layer B 自研手接入)
 
 审计（`audit/fusion-code-vs-executor-0825.md`）确立分层：`src/services/llm/` = Layer A（脑，SDK runtime，`@anthropic-ai/sdk` 已移除全自研）；`fusion-executor` = Layer B（手，built-in tools + sandbox，Rust + PyO3，stateless `&self`）。集成 = fusion-code 路由 tool 执行到 executor。PRD 3 阶段（`architecture/fusion-executor-prd.md`）：Phase1 ExecutorDriver 接口 / Phase2 diagnostics 切片 / Phase3 git snapshot + atomic rollback。
