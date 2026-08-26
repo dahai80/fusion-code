@@ -355,6 +355,50 @@ executor v0.2.0 上游 12 issues 全 CLOSED。本 PR = fusion-code 侧 wiring，
 - `bashDiagnostics.test.ts` — undefined→全量不变、切片替全量、auto_rolled_back `<note>` 前置（有/无 snapshotId）、无 note（false/undefined）、部分字段缺失、omit line_number 后缀。
 
 
+## P5 远期结构 — 现状与 defer 决策（enhance-0819.md §D.7）
+
+spec §D.7 P5 自标"远期结构, 评估" / "评估而非照搬"。审计现状后：**3 项 surgical 落地 + 3 项显式 defer**。
+
+### P5.3 Goal CAS + disarm — 落地（PR #145, main 5a96578）
+
+现有 `GoalCreate`/`GoalGet`/`GoalSetBudget`/`GoalUpdate` 升级 `GoalRef{id, revision}` CAS 守卫（`expectedRevision` 字段，byte-identical when omitted，normalize-on-load 无 migration）。Activation 不持久化（重启需人授权续）由现有进程内权限模型满足。轮 cap + 空闲检查点 = 现有 Goal 生命周期。**落地**：revision 字段 + CAS guard，17 单测。DSH #2/#3/#5 远期子项 defer（无具体故障驱动）。
+
+### P5.4 自修改评估 — 落地（PR #146, main a5e51ab）
+
+`CreateSessionSkillTool` — 会话级一次性技能（vm 沙箱**非**安全边界，会话级 + 不持久 + 仅元数据审计 `skill_write` op）。`registerDynamicSkill` seam + `getDynamicSkills` fresh read。双门禁 `feature("SESSION_SKILLS")` + `FUSION_CODE_SESSION_SKILLS_ENABLED` default-off byte-identical。**落地**：15 单测。
+
+### P5.5 Typert 类型图评估 — 落地 + defer
+
+spec 三部分：(1) 从工具/技能/插件定义生成类型图 → JSON 导出；(2) 运行时能力内省；(3) RPC 网关远程控制面。
+
+- **(1) 类型图导出 — 落地（PR #147, main 5a7319c）**：纯 `exportCapabilityManifest(options)`（`src/services/capability/manifest.ts`）聚合 `getAllBaseTools` + `getCommands` + `getBundledSkills` + `loadAllPlugins` → JSON manifest。`fusion-code capability export [--no-schemas] [--no-skills] [--no-plugins] [--indent N]` fast-path 子命令。schema 序列化复用 `zodToJsonSchema` + MCP `inputJSONSchema` 短路（同 `api.ts:158-160`）。prompt 类型命令（bundled/skills 源）分区入 skills 数组。双门禁 `feature("CAPABILITY_MANIFEST")` + `FUSION_CODE_CAPABILITY_MANIFEST_ENABLED` default-off byte-identical。15 单测（`mock.module` 隔离映射逻辑，免 auth-env + 网络）。纯函数只读，零运行时影响。
+- **(2) 运行时能力内省 — 无独立 surface（已由现有注册表满足）**：`getAllBaseTools`/`getCommands`/`getBundledSkills`/`loadAllPlugins` 均已存在且运行时可调，manifest 导出即其内省产物。无需新建 introspection surface — 新建 = 投机抽象（违反 simplicity-first）。
+- **(3) RPC 网关远程控制面 — 显式 defer（安全面）**：spec 自标"评估而非照搬"。远程控制本地 agent 的能力面 = 新安全 surface（远程触发工具/改配置/读能力清单）。manifest 导出（本地只读 JSON）已满足"能力内省"目标；RPC 远程控制面无具体故障驱动，违反 simplicity-first + 扩大攻击面。**defer 为显式决策，非 backlog**。若需做：先定 RPC 鉴权模型（per-instance token，复用 server PR #137 的 fail-closed auth gate），再定 capability 命令白名单，最后 wire — 每步保 514 测试不回归。
+
+### P5.1 Agent-scope 原语 — 显式 defer（已满足）
+
+spec P5.1："每子代理 scoped 注册（工具/hook/能力），父链读全局，卸载回滚。结构基础供 P5.2/P5.3。"
+
+审计现状 — **三要素均已由现有代码满足**：
+- **scoped 注册**：`AgentTool/runAgent.ts:470-481` — `allowedTools`/`disallowedTools` 作 session-level permissions 注入子代理，per-agent 工具作用域已实现。
+- **父链读全局**：`isInProcessTeammate`（`src/utils/teammateContext.ts`）+ `InProcessTeammateTask`（`src/tasks/InProcessTeammateTask/`）— 子代理可读父链上下文。
+- **卸载回滚**：`QueryEngine.ts` finally 块 — 会话/代理生命周期结束清理。
+
+**决策**：spec P5.1 意图为 P5.2/P5.3 提供"结构基础"，但二者已分别落地（P5.3 PR #145 / P5.2 见下）而**未依赖** unified AgentScope 抽象 — 即现有分散实现已支撑。新建 unified `AgentScope` 抽象（聚合三要素为单原语）= 投机重构（无具体故障驱动，三要素今日各自工作，抽象增加间接层违反 simplicity-first，且 Rule 7 两 pattern 优于一个）。**defer 为显式决策，非 backlog**。若需做：先抽 `AgentScope{tools, hooks, capabilities, parent}` interface，再逐个迁移 runAgent/teammate/QueryEngine 三处至统一原语，每步保测试不回归。
+
+### P5.2 每会话代理 Preset — 显式 defer（~90% 已满足）
+
+spec P5.2："`agent.fusion.yml` checked-in 声明项目代理工具/沙箱/审批策略。`write()` no-op。scope 链 agent→preset→global。配 FUSION.rules 演进。"
+
+审计现状 — **~90% 已满足**：
+- **项目代理声明**：`getAgentDefinitionsWithOverrides`（`src/main.tsx:3144`）从文件加载 agent 定义（含 per-agent `tools`/`disallowedTools`/`effort` 等）。等价 spec `agent.fusion.yml` 的"声明项目代理"。
+- **工具/审批策略**：`FUSION.rules` `denied_tools`（`src/utils/fusionRules.ts:49` + `toolExecution.ts:758` gate）— 项目级工具拒绝清单，等价 spec "工具/审批策略"。
+- **scope 链 global→project→local**：`src/utils/settings/` 三级 settings cascade（local > project > global）+ `~/.fusion-code/FUSION.rules`（global）> `<project>/FUSION.rules`（project）优先级链（见 CLAUDE.md "FUSION.rules 优先级"）。
+
+**缺口（~10%）**：(a) 单一 `agent.fusion.yml` 统一文件格式（现分散于 agent 定义文件 + FUSION.rules + settings）；(b) `agent_preset` 简写（spec 意图一行声明 preset 复用）。
+
+**决策**：缺口为格式糖，无功能缺失。新建 one-file format + `agent_preset` shorthand = 投机抽象（现有分散格式今日工作，Rule 7 两 pattern 优于一个；新格式需迁移 + 双格式期，回归面大）。**defer 为显式决策，非 backlog**。若需做：先定 `agent.fusion.yml` schema（`agents: [{name, preset, tools, sandbox, approval}]`），加 loader 读它并合并进 `getAgentDefinitionsWithOverrides`，`agent_preset` 作引用复用键 — 保 `denied_tools` 优先级链不变。
+
 ## 辅助函数
 
 | 函数 | 文件 | 说明 |
