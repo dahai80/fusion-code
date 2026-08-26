@@ -39,6 +39,7 @@ const fullExperimentalFeatures = [
 	"UNATTENDED_RETRY",
 	"VERIFICATION_AGENT",
 	"VOICE_MODE",
+	"SESSION_SKILLS",
 	"WORKFLOW_SCRIPTS",
 ] as const;
 

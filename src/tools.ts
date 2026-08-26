@@ -74,6 +74,8 @@ import { CtxInspectTool } from "./tools/CtxInspectTool/CtxInspectTool.js";
 import { ReportFindingsTool } from "./tools/ReportFindingsTool/ReportFindingsTool.js";
 import { WorkflowTool } from "./tools/WorkflowTool/WorkflowTool.js";
 import { DesignSyncTool } from "./tools/DesignSyncTool/DesignSyncTool.js";
+import { CreateSessionSkillTool } from "./tools/CreateSessionSkillTool/CreateSessionSkillTool.js";
+import { isSessionSkillsEnabled } from "./tools/CreateSessionSkillTool/runtime.js";
 import { ListMcpResourcesTool } from "./tools/ListMcpResourcesTool/ListMcpResourcesTool.js";
 import { ReadMcpResourceTool } from "./tools/ReadMcpResourceTool/ReadMcpResourceTool.js";
 import { ToolSearchTool } from "./tools/ToolSearchTool/ToolSearchTool.js";
@@ -205,6 +207,11 @@ export function getAllBaseTools(): Tools {
 		ReportFindingsTool,
 		WorkflowTool,
 		DesignSyncTool,
+		// P5.4 session skills: 会话级一次性技能 (in-memory, 不持久, 仅元数据审计)。
+		// 双门禁: feature("SESSION_SKILLS") 编译期 (CreateSessionSkillTool.isEnabled 内) +
+		// FUSION_CODE_SESSION_SKILLS_ENABLED 运行期 (此处 preset 门控 + isEnabled 二次校验)。
+		// 关闭时两层都 false → 工具不入 preset 列表, byte-identical。
+		...(isSessionSkillsEnabled() ? [CreateSessionSkillTool] : []),
 		...(isWorktreeModeEnabled() ? [EnterWorktreeTool, ExitWorktreeTool] : []),
 		SleepTool,
 		...(TeamCreateTool ? [TeamCreateTool] : []),

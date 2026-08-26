@@ -1011,6 +1011,16 @@ export function getDynamicSkills(): Command[] {
   return Array.from(dynamicSkills.values())
 }
 
+// P5.4 (DSH #5 自修改评估): 会话级一次性技能注入。把已构造的 Command 写入 in-memory
+// dynamicSkills Map (不落盘), 供 getCommands(cwd) 经 getDynamicSkills() 暴露给模型。
+// 仅会话级: clearDynamicSkills() (/clear) 或进程退出即销毁, 非持久。
+// 返回是否覆盖了同名已存技能 (调试/审计用)。
+export function registerDynamicSkill(skill: Command): boolean {
+  const replaced = dynamicSkills.has(skill.name)
+  dynamicSkills.set(skill.name, skill)
+  return replaced
+}
+
 /**
  * Activates conditional skills (skills with paths frontmatter) whose path
  * patterns match the given file paths. Activated skills are added to the

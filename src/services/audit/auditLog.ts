@@ -17,7 +17,7 @@ export type AuditLogEntry = {
 	timestamp: string;
 	session_id: string;
 	tool_name: string;
-	operation: "read" | "write" | "execute" | "mcp_call" | "denied";
+	operation: "read" | "write" | "execute" | "mcp_call" | "denied" | "skill_write";
 	target: string;
 	detail?: string;
 	success: boolean;
