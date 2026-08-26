@@ -9,6 +9,7 @@ import { getClaudeConfigHomeDir } from "src/utils/envUtils.js";
 import type { SettingSource } from "src/utils/settings/constants.js";
 import { getOriginalCwd } from "../bootstrap/state.js";
 import type { CommandResultDisplay } from "../commands.js";
+import { DoctorWarnings } from "../components/DoctorWarnings.js";
 import { Pane } from "../components/design-system/Pane.js";
 import { PressEnterToContinue } from "../components/PressEnterToContinue.js";
 import { SandboxDoctorSection } from "../components/sandbox/SandboxDoctorSection.js";
@@ -412,10 +413,7 @@ export function Doctor(t0) {
 	let t21;
 	if ($[36] !== diagnostic.warnings) {
 		t21 = diagnostic.warnings.length > 0 && (
-			<>
-				<Text />
-				{diagnostic.warnings.map(_temp10)}
-			</>
+			<DoctorWarnings warnings={diagnostic.warnings} />
 		);
 		$[36] = diagnostic.warnings;
 		$[37] = t21;
@@ -811,14 +809,6 @@ function _temp11(validation, i_1) {
 				{validation.message}
 			</Text>
 		</Text>
-	);
-}
-function _temp10(warning, i_0) {
-	return (
-		<Box key={i_0} flexDirection="column">
-			<Text color="warning">Warning: {warning.issue}</Text>
-			<Text>Fix: {warning.fix}</Text>
-		</Box>
 	);
 }
 function _temp1(install, i) {
