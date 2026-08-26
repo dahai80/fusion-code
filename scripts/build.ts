@@ -40,6 +40,7 @@ const fullExperimentalFeatures = [
 	"VERIFICATION_AGENT",
 	"VOICE_MODE",
 	"SESSION_SKILLS",
+	"CAPABILITY_MANIFEST",
 	"WORKFLOW_SCRIPTS",
 ] as const;
 

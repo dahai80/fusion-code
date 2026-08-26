@@ -311,6 +311,17 @@ async function main(): Promise<void> {
 		gracefulShutdownSync(0);
 	}
 
+	// P5.5 能力清单 (Typert 类型图): 从工具/技能/插件定义生成类型图 (JSON 导出)。
+	// 双门禁: feature("CAPABILITY_MANIFEST") 编译期 (此 if 内, feature 宏必须直接
+	// 用于 if 条件) + FUSION_CODE_CAPABILITY_MANIFEST_ENABLED=1 运行期 (handler 内)。
+	// 默认 off → feature off 时整块 dead-code 消除, byte-identical。RPC 控制面 defer。
+	if (feature("CAPABILITY_MANIFEST") && args[0] === "capability") {
+		profileCheckpoint("cli_capability_path");
+		const { capabilityMain } = await import("../cli/handlers/capability.js");
+		await capabilityMain(args.slice(1));
+		gracefulShutdownSync(0);
+	}
+
 	// Fast-path for template job commands.
 	if (
 		feature("TEMPLATES") &&
