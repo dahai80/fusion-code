@@ -32,6 +32,10 @@ export type Goal = {
 	pausedAt: number | null;
 	completedAt: number | null;
 	summary: string | null;
+	// P5.3 GoalRef CAS — compare-and-swap revision. Bumped on every field
+	// mutation; tools pass expectedRevision to reject stale concurrent writes.
+	// Old goal files without revision normalize to 1 on load (no migration).
+	revision: number;
 };
 
 const MAX_OBJECTIVE_LENGTH = 4000;
@@ -59,7 +63,14 @@ function loadGoals(sessionId: string): Goal[] {
 		const path = getGoalsFilePath(sessionId);
 		if (existsSync(path)) {
 			const raw = readFileSync(path, "utf-8").trim();
-			if (raw) return JSON.parse(raw);
+			if (raw) {
+				const goals = JSON.parse(raw) as Goal[];
+				// P5.3: normalize old files lacking revision → 1 (no migration).
+				for (const g of goals) {
+					if (g.revision == null) g.revision = 1;
+				}
+				return goals;
+			}
 		}
 	} catch (e) {
 		logForDebugging(
@@ -102,6 +113,7 @@ export function createGoal(
 		pausedAt: goals.length === 0 ? null : Date.now(),
 		completedAt: null,
 		summary: null,
+		revision: 1,
 	};
 	goals.push(goal);
 	saveGoals(sessionId, goals);
@@ -133,6 +145,7 @@ export function pauseGoal(sessionId: string, goalId?: string): Goal | null {
 	if (!target || target.status !== "active") return null;
 	target.status = "paused";
 	target.pausedAt = Date.now();
+	target.revision += 1;
 	saveGoals(sessionId, goals);
 	logForDebugging(`[GoalState] Paused goal ${target.id}`);
 	return target;
@@ -149,6 +162,7 @@ export function resumeGoal(sessionId: string, goalId?: string): Goal | null {
 	target.status = "active";
 	target.pausedAt = null;
 	target.startedAt = target.startedAt ?? Date.now();
+	target.revision += 1;
 	saveGoals(sessionId, goals);
 	logForDebugging(`[GoalState] Resumed goal ${target.id}`);
 	return target;
@@ -165,11 +179,13 @@ export function completeGoal(
 	goals[idx].status = "complete";
 	goals[idx].completedAt = Date.now();
 	goals[idx].summary = summary ?? null;
+	goals[idx].revision += 1;
 	const nextPaused = goals.find((g) => g.status === "paused");
 	if (nextPaused) {
 		nextPaused.status = "active";
 		nextPaused.pausedAt = null;
 		nextPaused.startedAt = nextPaused.startedAt ?? Date.now();
+		nextPaused.revision += 1;
 		logForDebugging(`[GoalState] Auto-activated next goal ${nextPaused.id}`);
 	}
 	saveGoals(sessionId, goals);
@@ -187,6 +203,7 @@ export function blockGoal(
 	if (idx === -1 || goals[idx].status !== "active") return null;
 	goals[idx].status = "blocked";
 	goals[idx].summary = summary ?? null;
+	goals[idx].revision += 1;
 	saveGoals(sessionId, goals);
 	logForDebugging(`[GoalState] Blocked goal ${goalId}`);
 	return goals[idx];
@@ -205,6 +222,7 @@ export function replaceGoal(
 	}
 	active.objective = objective;
 	if (budget) active.budget = budget;
+	active.revision += 1;
 	saveGoals(sessionId, goals);
 	logForDebugging(`[GoalState] Replaced goal ${active.id} objective`);
 	return active;
@@ -226,6 +244,7 @@ export function cancelGoal(sessionId: string, goalId?: string): boolean {
 		nextPaused.status = "active";
 		nextPaused.pausedAt = null;
 		nextPaused.startedAt = nextPaused.startedAt ?? Date.now();
+		nextPaused.revision += 1;
 	}
 	saveGoals(sessionId, goals);
 	logForDebugging(`[GoalState] Cancelled goal ${targetId}`);
@@ -279,6 +298,7 @@ export function updateBudgetUsed(
 	if (delta.turns) active.budgetUsed.turns += delta.turns;
 	if (delta.tokens) active.budgetUsed.tokens += delta.tokens;
 	if (delta.wallMs) active.budgetUsed.wallMs += delta.wallMs;
+	active.revision += 1;
 	saveGoals(sessionId, goals);
 	return active;
 }
@@ -292,6 +312,7 @@ export function setGoalBudget(
 	const goal = goals.find((g) => g.id === goalId);
 	if (!goal) return null;
 	goal.budget = { ...goal.budget, ...budget };
+	goal.revision += 1;
 	saveGoals(sessionId, goals);
 	logForDebugging(`[GoalState] Set budget for goal ${goalId}`);
 	return goal;

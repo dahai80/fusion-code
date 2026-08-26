@@ -4,6 +4,7 @@ import {
 	blockGoal,
 	completeGoal,
 	getActiveGoal,
+	getGoalById,
 	getGoalQueue,
 } from "../../services/goal/goalState.js";
 import { buildTool, type ToolDef } from "../../Tool.js";
@@ -24,6 +25,14 @@ const inputSchema = lazySchema(() =>
 			.string()
 			.optional()
 			.describe("Summary of what was accomplished or why blocked"),
+		expectedRevision: z
+			.number()
+			.int()
+			.optional()
+			.describe(
+				"Compare-and-swap guard: the revision you last read via GoalGet. " +
+					"If the stored revision differs, the update is rejected as stale.",
+			),
 	}),
 );
 type InputSchema = ReturnType<typeof inputSchema>;
@@ -37,6 +46,11 @@ const outputSchema = lazySchema(() =>
 			.optional()
 			.describe("ID of the next auto-activated goal, if any"),
 		queueRemaining: z.number().describe("Number of goals remaining in queue"),
+		revision: z
+			.number()
+			.optional()
+			.describe("New revision after update (for subsequent CAS calls)"),
+		error: z.string().optional().describe("Error message if the update failed"),
 	}),
 );
 type OutputSchema = ReturnType<typeof outputSchema>;
@@ -61,7 +75,7 @@ export const GoalUpdateTool = buildTool({
 	},
 	// log: execute signature expanded to match Tool type (5 params)
 	async execute(
-		{ goalId, status, summary },
+		{ goalId, status, summary, expectedRevision },
 		_context,
 		_canUseTool?,
 		_parentMessage?,
@@ -81,6 +95,32 @@ export const GoalUpdateTool = buildTool({
 				};
 			}
 			targetId = active.id;
+		}
+		// P5.3 GoalRef CAS: reject stale concurrent writes when caller guards.
+		// Omitted expectedRevision → no check (byte-identical to prior behavior).
+		if (expectedRevision != null) {
+			const current = getGoalById(sessionId, targetId);
+			if (!current) {
+				return {
+					data: {
+						goalId: targetId,
+						status: "Goal not found",
+						queueRemaining: 0,
+						error: `Goal ${targetId} not found`,
+					},
+				};
+			}
+			if (current.revision !== expectedRevision) {
+				return {
+					data: {
+						goalId: targetId,
+						status: "stale revision",
+						queueRemaining: 0,
+						revision: current.revision,
+						error: `Stale revision: expected ${expectedRevision} but current is ${current.revision}. Re-read the goal and retry.`,
+					},
+				};
+			}
 		}
 		let updated;
 		if (status === "complete") {
@@ -105,16 +145,27 @@ export const GoalUpdateTool = buildTool({
 				status: updated.status,
 				nextGoalId: nextActive?.id,
 				queueRemaining: queue.filter((g) => g.status !== "complete").length,
+				revision: updated.revision,
 			},
 		};
 	},
 	mapToolResultToToolResultBlockParam(content, toolUseID) {
-		const { goalId, status, nextGoalId, queueRemaining } = content as Output;
+		const { goalId, status, nextGoalId, queueRemaining, revision, error } =
+			content as Output;
+		if (error) {
+			return {
+				tool_use_id: toolUseID,
+				type: "tool_result",
+				content: `Goal ${goalId}: ${error}`,
+				is_error: true,
+			};
+		}
 		const next = nextGoalId ? ` Next goal activated: ${nextGoalId}` : "";
+		const rev = revision != null ? ` (revision ${revision})` : "";
 		return {
 			tool_use_id: toolUseID,
 			type: "tool_result",
-			content: `Goal ${goalId} updated to ${status}.${next} Queue remaining: ${queueRemaining}`,
+			content: `Goal ${goalId} updated to ${status}.${next} Queue remaining: ${queueRemaining}${rev}`,
 		};
 	},
 } satisfies ToolDef<InputSchema, Output>);

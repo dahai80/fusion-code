@@ -32,6 +32,11 @@ const outputSchema = lazySchema(() =>
 		budget: z.string().describe("Budget usage summary"),
 		budgetExceeded: z.boolean().describe("Whether budget has been exceeded"),
 		queueSize: z.number().describe("Total goals in queue"),
+		revision: z
+			.number()
+			.describe(
+				"Current revision — pass as expectedRevision to GoalUpdate/GoalSetBudget for compare-and-swap",
+			),
 	}),
 );
 type OutputSchema = ReturnType<typeof outputSchema>;
@@ -75,6 +80,7 @@ export const GoalGetTool = buildTool({
 					budget: "N/A",
 					budgetExceeded: false,
 					queueSize: 0,
+					revision: 0,
 				},
 			};
 		}
@@ -87,17 +93,25 @@ export const GoalGetTool = buildTool({
 				budget: formatBudgetUsage(goal),
 				budgetExceeded: isBudgetExceeded(goal),
 				queueSize: queue.length,
+				revision: goal.revision,
 			},
 		};
 	},
 	mapToolResultToToolResultBlockParam(content, toolUseID) {
-		const { goalId, objective, status, budget, budgetExceeded, queueSize } =
-			content as Output;
+		const {
+			goalId,
+			objective,
+			status,
+			budget,
+			budgetExceeded,
+			queueSize,
+			revision,
+		} = content as Output;
 		const exceeded = budgetExceeded ? " [BUDGET EXCEEDED]" : "";
 		return {
 			tool_use_id: toolUseID,
 			type: "tool_result",
-			content: `Goal ${goalId}: "${objective}" (status: ${status}, budget: ${budget}${exceeded}, queue: ${queueSize} goals)`,
+			content: `Goal ${goalId}: "${objective}" (status: ${status}, budget: ${budget}${exceeded}, queue: ${queueSize} goals, revision: ${revision})`,
 		};
 	},
 } satisfies ToolDef<InputSchema, Output>);
