@@ -287,7 +287,7 @@ executor v0.2.0 上游 12 issues 全 CLOSED。本 PR = fusion-code 侧 wiring，
 
 ### Scope-creep（显式 defer）
 
-- 手动 turn-boundary snapshot/rollback（PRD line 160 retry-3x）— Phase 3b，触 turn lifecycle（query.ts/REPL.tsx/QueryEngine），大 surface，另 PR。
+- 手动 turn-boundary snapshot/rollback（PRD line 160 retry-3x）— **已由 PR #139 in-band per-command auto-rollback 满足**，不另做。PRD line 160 原意 = "调用 executor 前建快照，失败触发 rollback()"，PR #139 `buildRequest` 传 `auto_rollback_policy`（opt-in `FUSION_CODE_EXECUTOR_AUTO_ROLLBACK`），executor 在 call-start 建快照、`exit!=0` + 文件毁损 diff>0 时回滚、设 `auto_rolled_back=true`、模型见 `<note>`，正是该语义。文件毁损 diff 守卫比 PRD 原始 "retry 3x then rollback"（盲目回滚）更安全——仅当文件被*损坏*时回滚，不撤销 edit-test-fail 循环中的合法编辑。client-orchestrated whole-turn revert 变体（显式 `executor.snapshot_create`/`executor.rollback` RPC + turn lifecycle wiring）**架构上劣于** in-band 方案：(a) whole-turn revert 丢失模型好的编辑（per-command file-damage guard 不丢）；(b) 需在 query.ts 新增 failure counter + terminal-reason 上抛 REPL（REPL.tsx:3841 `for await` 丢弃 query 返回值，无捕获路径）；(c) PRD retry-3x 是 Python HealingSession 伪码（固定计数器），fusion-code loop 是 model-driven（模型自己重试），固定计数器不映射；(d) 暴露无 caller 的显式 RPC = 投机死码（违反 simplicity）。故 defer 为显式决策，非 backlog。
 - 进程内输出切片（非 executor 路径）— 需 TS 移植 Rust slicer 或 out-of-band diagnostics RPC，defer。
 
 ### 测试
