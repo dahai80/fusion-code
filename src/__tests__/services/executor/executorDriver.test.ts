@@ -5,12 +5,17 @@ import {
 	type ExecutorClientLike,
 	isExecutorRouteable,
 } from "../../../services/executor/executorDriver.js";
-import type { ExecutionResult } from "../../../services/executor/types.js";
+import type {
+	ExecutionRequest,
+	ExecutionResult,
+} from "../../../services/executor/types.js";
+import type { ExecResult } from "../../../utils/ShellCommand.js";
 
 // isExecutorRouteable reads isExecutorEnabled() (env gate). We toggle the env
 // directly rather than mocking the manager — avoids mock.module cross-file
 // pollution into manager.test.ts (Bun shares module cache across test files).
 const ENV_KEY = "FUSION_CODE_EXECUTOR_ENABLED";
+const AUTO_ROLLBACK_KEY = "FUSION_CODE_EXECUTOR_AUTO_ROLLBACK";
 
 function makeResult(over: Partial<ExecutionResult> = {}): ExecutionResult {
 	return {
@@ -31,15 +36,33 @@ function makeClient(
 	return { executeStream };
 }
 
+// Drain an async generator to its terminal value (ExecResult | null), dropping
+// intermediate progress frames. Mirrors the harness used by the existing tests.
+async function drain(
+	gen: AsyncGenerator<unknown, unknown, void>,
+): Promise<ExecResult | null> {
+	let terminal: ExecResult | null = null;
+	while (true) {
+		const r = await gen.next();
+		if (r.done) {
+			terminal = r.value as ExecResult | null;
+			break;
+		}
+	}
+	return terminal;
+}
+
 describe("executorDriver", () => {
 	beforeEach(() => {
 		_setExecutorClientForTesting(undefined);
 		delete process.env[ENV_KEY];
+		delete process.env[AUTO_ROLLBACK_KEY];
 	});
 
 	afterEach(() => {
 		_setExecutorClientForTesting(undefined);
 		delete process.env[ENV_KEY];
+		delete process.env[AUTO_ROLLBACK_KEY];
 	});
 
 	describe("isExecutorRouteable", () => {
@@ -238,6 +261,143 @@ describe("executorDriver", () => {
 				frames.push(r.value);
 			}
 			expect(frames.length).toBe(0);
+		});
+	});
+
+	describe("callBashViaExecutor Phase 2/3 passthrough (mapResult)", () => {
+		it("preserves diagnostics on failure", async () => {
+			_setExecutorClientForTesting(
+				makeClient(async () =>
+					makeResult({
+						exit_code: 1,
+						diagnostics: {
+							error_type: "SyntaxError",
+							file_path: "foo.py",
+							line_number: 3,
+							raw_trace: "SyntaxError: bad",
+						},
+					}),
+				),
+			);
+			const gen = callBashViaExecutor(
+				{ command: "python foo.py" },
+				{ abortController: new AbortController() },
+			);
+			const terminal = await drain(gen);
+			expect(terminal?.diagnostics?.error_type).toBe("SyntaxError");
+			expect(terminal?.diagnostics?.file_path).toBe("foo.py");
+			expect(terminal?.diagnostics?.line_number).toBe(3);
+			expect(terminal?.diagnostics?.raw_trace).toBe("SyntaxError: bad");
+		});
+
+		it("leaves diagnostics undefined on success (byte-identical)", async () => {
+			_setExecutorClientForTesting(
+				makeClient(async () => makeResult({ exit_code: 0, stdout: "ok" })),
+			);
+			const gen = callBashViaExecutor(
+				{ command: "echo ok" },
+				{ abortController: new AbortController() },
+			);
+			const terminal = await drain(gen);
+			expect(terminal?.diagnostics).toBeUndefined();
+		});
+
+		it("preserves snapshot_id", async () => {
+			_setExecutorClientForTesting(
+				makeClient(async () =>
+					makeResult({ exit_code: 0, snapshot_id: "head:abc123" }),
+				),
+			);
+			const gen = callBashViaExecutor(
+				{ command: "echo hi" },
+				{ abortController: new AbortController() },
+			);
+			const terminal = await drain(gen);
+			expect(terminal?.snapshotId).toBe("head:abc123");
+		});
+
+		it("preserves auto_rolled_back", async () => {
+			_setExecutorClientForTesting(
+				makeClient(async () =>
+					makeResult({ exit_code: 1, auto_rolled_back: true }),
+				),
+			);
+			const gen = callBashViaExecutor(
+				{ command: "false" },
+				{ abortController: new AbortController() },
+			);
+			const terminal = await drain(gen);
+			expect(terminal?.autoRolledBack).toBe(true);
+		});
+	});
+
+	describe("callBashViaExecutor Phase 3 buildRequest (cwd + auto_rollback_policy)", () => {
+		it("passes cwd in request", async () => {
+			let captured: ExecutionRequest | undefined;
+			_setExecutorClientForTesting(
+				makeClient(async (req) => {
+					captured = req;
+					return makeResult({ exit_code: 0 });
+				}),
+			);
+			const gen = callBashViaExecutor(
+				{ command: "echo hi" },
+				{ abortController: new AbortController() },
+			);
+			await drain(gen);
+			expect(typeof captured?.cwd).toBe("string");
+			expect(captured?.cwd?.length).toBeGreaterThan(0);
+		});
+
+		it("auto_rollback off by default (policy undefined)", async () => {
+			let captured: ExecutionRequest | undefined;
+			_setExecutorClientForTesting(
+				makeClient(async (req) => {
+					captured = req;
+					return makeResult({ exit_code: 0 });
+				}),
+			);
+			const gen = callBashViaExecutor(
+				{ command: "echo hi" },
+				{ abortController: new AbortController() },
+			);
+			await drain(gen);
+			expect(captured?.auto_rollback_policy).toBeUndefined();
+			expect(captured?.enable_rollback_snapshot).toBe(true);
+		});
+
+		it("auto_rollback on when env set (file_damage_check true)", async () => {
+			process.env[AUTO_ROLLBACK_KEY] = "1";
+			let captured: ExecutionRequest | undefined;
+			_setExecutorClientForTesting(
+				makeClient(async (req) => {
+					captured = req;
+					return makeResult({ exit_code: 0 });
+				}),
+			);
+			const gen = callBashViaExecutor(
+				{ command: "echo hi" },
+				{ abortController: new AbortController() },
+			);
+			await drain(gen);
+			expect(captured?.auto_rollback_policy).toBeDefined();
+			expect(captured?.auto_rollback_policy?.file_damage_check).toBe(true);
+		});
+
+		it("enable_rollback_snapshot always true (regression Phase 1)", async () => {
+			let captured: ExecutionRequest | undefined;
+			_setExecutorClientForTesting(
+				makeClient(async (req) => {
+					captured = req;
+					return makeResult({ exit_code: 0 });
+				}),
+			);
+			const gen = callBashViaExecutor(
+				{ command: "echo hi" },
+				{ abortController: new AbortController() },
+			);
+			await drain(gen);
+			expect(captured?.enable_rollback_snapshot).toBe(true);
 		});
 	});
 });

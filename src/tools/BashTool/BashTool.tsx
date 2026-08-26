@@ -7,6 +7,7 @@ import { z } from 'zod/v4';
 import { getKairosActive } from '../../bootstrap/state.js';
 import { TOOL_SUMMARY_MAX_LENGTH } from '../../constants/toolLimits.js';
 import { checkCommandLoop } from './commandLoopGuard.js';
+import { formatDiagnosticsForModel } from './bashDiagnostics.js';
 import { type AnalyticsMetadata_I_VERIFIED_THIS_IS_NOT_CODE_OR_FILEPATHS, logEvent } from '../../services/analytics/index.js';
 import { notifyVscodeFileUpdated } from '../../services/mcp/vscodeSdkMcp.js';
 import type { SetToolJSXFn, ToolCallProgress, ToolUseContext, ValidationResult } from '../../Tool.js';
@@ -769,7 +770,19 @@ export const BashTool = buildTool({
         // stderr is merged into stdout (merged fd); outputWithSbFailures
         // already has the full output. Pass '' for stdout to avoid
         // duplication in getErrorParts() and processBashCommand.
-        throw new ShellError('', outputWithSbFailures, result.code, result.interrupted);
+        // Phase 2/3: when the executor produced a diagnostics slice, replace the
+        // full output with it to cut tokens fed to the model; when
+        // auto-rolled-back, prefix a <note> so the model knows its edits were
+        // reverted. No slice (in-process path / executor no-slice) → full output
+        // unchanged, byte-identical with today.
+        const failureStderr = formatDiagnosticsForModel(
+          result.diagnostics,
+          outputWithSbFailures,
+          result.code,
+          result.autoRolledBack,
+          result.snapshotId,
+        );
+        throw new ShellError('', failureStderr, result.code, result.interrupted);
       }
       wasInterrupted = result.interrupted;
     } finally {

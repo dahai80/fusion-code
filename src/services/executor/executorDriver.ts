@@ -6,7 +6,9 @@
 // and simulated-sed stay on the in-process path. Fail-open: if no client, returns
 // null so BashTool.call falls through to runShellCommand.
 
+import { getCwd } from "../../utils/cwd.js";
 import { logForDebugging } from "../../utils/debug.js";
+import { isEnvTruthy } from "../../utils/envUtils.js";
 import type { ExecResult } from "../../utils/ShellCommand.js";
 import { getDefaultBashTimeoutMs } from "../../utils/timeouts.js";
 import { getExecutorClient, isExecutorEnabled } from "./manager.js";
@@ -56,6 +58,13 @@ function mapResult(res: ExecutionResult): ExecResult {
 		stderr: res.stderr ?? "",
 		code: res.exit_code,
 		interrupted: res.timed_out,
+		// Phase 2/3: preserve sliced diagnostics + git snapshot/rollback state.
+		// diagnostics carries the server-side traceback slice (error_type /
+		// file_path:line / code_snippet / raw_trace). autoRolledBack/snapshotId
+		// carry Phase 3 git-rollback state. All undefined on the in-process path.
+		diagnostics: res.diagnostics,
+		autoRolledBack: res.auto_rolled_back,
+		snapshotId: res.snapshot_id,
 	};
 }
 
@@ -67,12 +76,18 @@ function buildRequest(
 	toolUseId?: string,
 ): ExecutionRequest {
 	const timeoutMs = input.timeout || getDefaultBashTimeoutMs();
+	const autoRollback = isEnvTruthy(
+		process.env.FUSION_CODE_EXECUTOR_AUTO_ROLLBACK,
+	);
 	return {
 		command: input.command,
 		task_id: toolUseId,
+		cwd: getCwd(),
 		timeout_sec: timeoutMs / 1000,
 		enable_rollback_snapshot: true,
-		auto_rollback_policy: undefined,
+		auto_rollback_policy: autoRollback
+			? { max_consecutive_failures: 0, file_damage_check: true }
+			: undefined,
 		seatbelt: false,
 	};
 }
@@ -191,6 +206,19 @@ export async function* callBashViaExecutor(
 	if (!terminal) {
 		logForDebugging("executor executeStream returned no terminal result");
 		return null;
+	}
+	// Phase 2/3: log diagnostics + rollback state for problem location. These
+	// only populate on the executor route; absent (no log) on the in-process path.
+	if (terminal.exit_code !== 0 && terminal.diagnostics) {
+		const d = terminal.diagnostics;
+		logForDebugging(
+			`executor diagnostics: type=${d.error_type ?? "?"} file=${d.file_path ?? "?"}:${d.line_number ?? "?"}`,
+		);
+	}
+	if (terminal.auto_rolled_back) {
+		logForDebugging(
+			`executor auto-rolled-back command (snapshot=${terminal.snapshot_id ?? "n/a"})`,
+		);
 	}
 	return mapResult(terminal);
 }
