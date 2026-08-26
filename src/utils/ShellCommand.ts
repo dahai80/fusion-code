@@ -27,6 +27,19 @@ export type ExecResult = {
   outputTaskId?: string
   /** Error message when the command failed before spawning (e.g., deleted cwd). */
   preSpawnError?: string
+  // Phase 2/3 executor passthrough (in-process path leaves these undefined →
+  // byte-identical). Inline structural type matching the executor wire format
+  // (snake_case), NOT imported from services/executor — keeps the utils < services
+  // dependency direction intact (no circular dep).
+  diagnostics?: {
+    error_type?: string
+    file_path?: string
+    line_number?: number
+    code_snippet?: string
+    raw_trace?: string
+  }
+  autoRolledBack?: boolean
+  snapshotId?: string
 }
 
 export type ShellCommand = {
