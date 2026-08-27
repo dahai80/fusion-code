@@ -42,6 +42,13 @@ export type ExecutionResult = {
 	auto_rolled_back: boolean;
 };
 
+// executor.snapshot_create / executor.rollback wire (Phase 3b turn-boundary).
+// Source: fusion-executor/crates/fe-ipc/src/lib.rs:1417/1445 (read-only, cross-repo).
+// snapshot_create params {cwd} → {snapshot_id}; rollback params {snapshot_id, cwd}
+// → {ok: true} (executor returns -32012 + throws on failure, caller treats throw).
+export type SnapshotResult = { snapshot_id: string };
+export type RollbackResult = { ok: boolean };
+
 // executor.execute_stream frame `result` payload — multiple frames per request,
 // all sharing the request id. chunk = live stdio slice; done = terminal result.
 export type ExecutorStreamChunk =

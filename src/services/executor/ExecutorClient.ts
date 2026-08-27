@@ -18,6 +18,8 @@ import type {
 	ExecutionRequest,
 	ExecutionResult,
 	ExecutorStreamChunk,
+	RollbackResult,
+	SnapshotResult,
 } from "./types.js";
 
 export type ExecutorHealth = {
@@ -36,6 +38,8 @@ export type ExecutorClient = {
 		onChunk: (chunk: ExecutorStreamChunk) => void,
 		signal?: AbortSignal,
 	) => Promise<ExecutionResult>;
+	snapshotCreate: (cwd: string) => Promise<SnapshotResult>;
+	rollback: (snapshotId: string, cwd: string) => Promise<RollbackResult>;
 	stop: () => Promise<void>;
 };
 
@@ -300,6 +304,29 @@ export function createExecutorClient(
 				);
 			}
 			return promise as Promise<ExecutionResult>;
+		},
+
+		async snapshotCreate(cwd: string): Promise<SnapshotResult> {
+			// Phase 3b turn-boundary: caller-owned git snapshot. Non-repo cwd
+			// returns snapshot_id="" upstream (safe no-op). Caller gates on env.
+			const { promise } = sendRequest("executor.snapshot_create", { cwd });
+			return promise as Promise<SnapshotResult>;
+		},
+
+		async rollback(
+			snapshotId: string,
+			cwd: string,
+		): Promise<RollbackResult> {
+			// Empty snapshot_id = non-repo no-op upstream; skip the RPC entirely
+			// so an accidental call on a non-repo cwd doesn't round-trip.
+			if (!snapshotId) {
+				return { ok: false };
+			}
+			const { promise } = sendRequest("executor.rollback", {
+				snapshot_id: snapshotId,
+				cwd,
+			});
+			return promise as Promise<RollbackResult>;
 		},
 
 		async stop(): Promise<void> {

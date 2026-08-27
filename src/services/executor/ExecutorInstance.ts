@@ -12,6 +12,8 @@ import type {
 	ExecutionRequest,
 	ExecutionResult,
 	ExecutorStreamChunk,
+	RollbackResult,
+	SnapshotResult,
 } from "./types.js";
 
 export type ExecutorState =
@@ -33,6 +35,8 @@ export type ExecutorInstance = {
 		onChunk: (chunk: ExecutorStreamChunk) => void,
 		signal?: AbortSignal,
 	) => Promise<ExecutionResult>;
+	snapshotCreate: (cwd: string) => Promise<SnapshotResult>;
+	rollback: (snapshotId: string, cwd: string) => Promise<RollbackResult>;
 	health: () => Promise<ExecutorHealth>;
 };
 
@@ -200,6 +204,37 @@ export function createExecutorInstance(name: string): ExecutorInstance {
 		return client.executeStream(req, onChunk, signal);
 	}
 
+	async function snapshotCreate(cwd: string): Promise<SnapshotResult> {
+		await ensureStarted();
+		if (!isHealthyFn()) {
+			const error = new Error(
+				`executor '${name}' not healthy for snapshot (state=${state})`,
+			);
+			logError(error);
+			throw error;
+		}
+		// No retry — snapshot_create is cheap + idempotent-ish (git stash ref).
+		// Non-repo cwd returns snapshot_id="" upstream; caller treats "" as no-op.
+		return client.snapshotCreate(cwd);
+	}
+
+	async function rollback(
+		snapshotId: string,
+		cwd: string,
+	): Promise<RollbackResult> {
+		if (!snapshotId) return { ok: false };
+		await ensureStarted();
+		if (!isHealthyFn()) {
+			const error = new Error(
+				`executor '${name}' not healthy for rollback (state=${state})`,
+			);
+			logError(error);
+			throw error;
+		}
+		// No retry — rollback mutates the working tree; retry would re-apply.
+		return client.rollback(snapshotId, cwd);
+	}
+
 	async function health(): Promise<ExecutorHealth> {
 		if (!client.isRunning) {
 			return { ok: false };
@@ -219,6 +254,8 @@ export function createExecutorInstance(name: string): ExecutorInstance {
 		restart,
 		execute,
 		executeStream,
+		snapshotCreate,
+		rollback,
 		health,
 	};
 }
