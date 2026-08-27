@@ -30,7 +30,18 @@ export function classifyByMessage(message: string): LlmErrorCode {
 		)
 	)
 		return "TRANSPORT";
-	if (/abort/i.test(message)) return "ABORTED";
+	// P3-14: 仅匹配精确中止信息, 不用 /abort/i — 后者误命中 "aborted by operator"、
+	// "abortion policy" 等含 "abort" 子串的非中止场景 → 错判 ABORTED 不重试。
+	// 中止的可靠信号是 .name === "AbortError" (classifyError 已查), 此处兜底只接
+	// fetch/AbortController 已知的精确 message 串。
+	if (
+		message === "Request was aborted." ||
+		message === "The user aborted a request." ||
+		message === "This operation was aborted." ||
+		message === "The operation was aborted." ||
+		message === "operation was aborted"
+	)
+		return "ABORTED";
 	return "SERVER";
 }
 
@@ -46,10 +57,16 @@ export function classifyError(
 
 	// 中断优先 (AbortError 不可重试, 且 status 无意义)。
 	// 兼容 DOMException 与任意把 .name 设为 "AbortError" 的 Error (fetch/AbortController 约定)。
+	// P3-14: message 判定走精确已知中止串 (见 classifyByMessage 同改), 不用 /abort/i
+	// 宽匹配 — 防含 "abort" 子串的非中止错误 (如 "aborted by operator") 被误判不重试。
 	if (
 		(error instanceof DOMException && error.name === "AbortError") ||
 		(error as { name?: string })?.name === "AbortError" ||
-		/abort/i.test(message)
+		message === "Request was aborted." ||
+		message === "The user aborted a request." ||
+		message === "This operation was aborted." ||
+		message === "The operation was aborted." ||
+		message === "operation was aborted"
 	) {
 		return { code: "ABORTED", message, requestId };
 	}
@@ -153,10 +170,15 @@ export function isAbortErrorLike(error: unknown): boolean {
 		return error.failure.code === "ABORTED";
 	}
 	const name = (error as { name?: string }).name ?? "";
+	// P3-14: 精确中止 message 集 (与 classifyError/classifyByMessage 同源), 不用 /abort/i。
 	return (
 		name === "APIUserAbortError" ||
 		name === "AbortError" ||
-		error.message === "Request was aborted."
+		error.message === "Request was aborted." ||
+		error.message === "The user aborted a request." ||
+		error.message === "This operation was aborted." ||
+		error.message === "The operation was aborted." ||
+		error.message === "operation was aborted"
 	);
 }
 

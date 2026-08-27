@@ -52,7 +52,8 @@ type PendingRequest = {
 	};
 };
 
-let requestCounter = 0;
+// P3-2: requestCounter 移入 createExecutorClient 闭包 (见下)。
+// 原模块级跨客户端共享 → 两客户端共存 ID 碰撞 → reject 错的 pending。
 
 // P2-19: 随机 socket 路径置于 0700 私有目录, 非可预测的 tmpdir/fusion-executor-<pid>.sock。
 // 原路径可预测 → 任何同用户进程可 connect() socket 驱动 executor.execute 跑任意 bash,
@@ -98,6 +99,8 @@ export function createExecutorClient(
 	// NDJSON line buffer — frames split on \n, partial frames held across data events.
 	let lineBuffer = "";
 	const pending = new Map<number, PendingRequest>();
+	// P3-2: per-client counter (was module-level → cross-client ID collision).
+	let requestCounter = 0;
 
 	function checkStartFailed(): void {
 		if (startFailed) {

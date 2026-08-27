@@ -97,6 +97,14 @@ async function countWorktreeChanges(
     return null
   }
 
+  // P3-12: 校验 originalHeadCommit 为 40 字符 hex SHA 再插 git rev-list range。
+  // 畸形 (损坏 sessionStorage/手编 state) 时 git 失败返 null (fail-closed 安全偶然),
+  // 但未校验存储值插 git range 表达式脆弱 — execFileNoThrow 数组参无注入, 但
+  // rev-list 语义可能误计。校验后插, 畸形 → null (同 fail-closed 语义)。
+  if (!/^[0-9a-f]{40}$/.test(originalHeadCommit)) {
+    return null
+  }
+
   const revList = await execFileNoThrow('git', [
     '-C',
     worktreePath,

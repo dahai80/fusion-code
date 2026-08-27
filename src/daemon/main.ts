@@ -8,9 +8,32 @@
  */
 
 import { spawn, type ChildProcess } from 'child_process'
+import { statSync } from 'fs'
+import { resolve } from 'path'
 import { logForDebugging } from '../utils/debug.js'
 import { gracefulShutdownSync } from '../utils/process.js'
 import { subprocessEnv } from '../utils/subprocessEnv.js'
+// P3-20: process.exit 直跳过注册的 cleanup (init.ts:18 registerCleanup 注册的
+// analytics flush / LSP 关停等)。退出前先跑 runCleanupFunctions + cleanupWorkers。
+import { runCleanupFunctions } from '../utils/cleanupRegistry.js'
+
+// P3-21: 允许的 worker 脚本后缀 (仅脚本文件, 非任意可执行)。
+const WORKER_PATH_ALLOWED_EXT = ['.js', '.mjs', '.cjs', '.tsx', '.ts']
+
+// P3-21: 校验 workerPath — 绝对化 + 后缀白名单 + 文件存在。返回安全绝对路径或 null。
+function resolveWorkerPath(raw: string): string | null {
+  if (!raw || typeof raw !== 'string') return null
+  const abs = resolve(raw)
+  const ext = abs.slice(abs.lastIndexOf('.')).toLowerCase()
+  if (!WORKER_PATH_ALLOWED_EXT.includes(ext)) return null
+  try {
+    const st = statSync(abs)
+    if (!st.isFile()) return null
+  } catch {
+    return null
+  }
+  return abs
+}
 
 export interface DaemonSubcommand {
   name: string
@@ -64,7 +87,8 @@ export async function daemonMain(args: string[]): Promise<void> {
   } else {
     console.log(`Unknown daemon subcommand: ${subcommand}`)
     console.log('Usage: claude daemon <start|stop|status|workers>')
-    process.exit(1)
+    // P3-20: 走 exitDaemon 跑 cleanup, 非裸 process.exit。
+    await exitDaemon(1)
   }
 }
 
@@ -93,29 +117,45 @@ async function stopDaemon(): Promise<void> {
     daemonProcess = null
   }
   console.log('Daemon stopped.')
-  process.exit(0)
+  // P3-20: 走 exitDaemon 跑 cleanup, 非裸 process.exit。
+  await exitDaemon(0)
 }
 
-function checkDaemonStatus(): void {
+async function checkDaemonStatus(): Promise<void> {
   const running = daemonProcess !== null && !daemonProcess.killed
   console.log(`Daemon status: ${running ? 'running' : 'stopped'}`)
-  process.exit(0)
+  // P3-20: 走 exitDaemon 跑 cleanup, 非裸 process.exit。
+  await exitDaemon(0)
 }
 
-function listWorkers(): void {
+async function listWorkers(): Promise<void> {
   console.log('Active workers:')
   const workerKinds = ['assistant', 'proactive', 'bg', 'cron']
   for (const kind of workerKinds) {
     console.log(`  - ${kind}`)
   }
-  process.exit(0)
+  // P3-20: 走 exitDaemon 跑 cleanup, 非裸 process.exit。
+  await exitDaemon(0)
 }
 
 // 存储所有 worker 及其 exit 监听器，用于清理
 const workers: Map<string, { process: ChildProcess; onExit: (code: number | null) => void }> = new Map()
 
 function spawnWorker(kind: string): ChildProcess {
-  const workerPath = process.argv[1] || './cli'
+  // P3-21: process.argv[1] 攻击者可经 exec 参数控制; 未校验直 spawn 该路径为命令
+  // = RCE 原语 (daemon fast-path 在 cli.tsx auth 前跑)。校验: 仅接 .js/.tsx/.mjs/.cjs
+  // 后缀 + 必须能 resolve 为绝对路径 (path.resolve), 拒绝裸命令名/相对穿越/非脚本。
+  // 不在白名单列固定名 (因 build 产物路径可变), 改用后缀 + 绝对化 + 存在性约束。
+  const rawWorkerPath = process.argv[1] || './cli'
+  const workerPath = resolveWorkerPath(rawWorkerPath)
+  if (!workerPath) {
+    logForDebugging(
+      `[Daemon] Refusing to spawn worker "${kind}": workerPath rejected (raw="${rawWorkerPath}")`,
+    )
+    // Fail-closed: 返回一个已退出的哑进程占位, 不 spawn 攻击者路径。
+    const dummy = spawn('true', [], { stdio: 'ignore' })
+    return dummy
+  }
   const args = workerPath.endsWith('.tsx')
     ? ['run', workerPath, '--daemon-worker', kind]
     : [workerPath, '--daemon-worker', kind]
@@ -149,6 +189,18 @@ function cleanupWorkers(): void {
   }
   workers.clear()
   daemonProcess = null
+}
+
+// P3-20: 统一退出路径 — 跑注册的 cleanup (runCleanupFunctions, analytics flush 等)
+// + kill 残留 worker, 再 process.exit。原各处 process.exit 直跳过 cleanup。
+async function exitDaemon(code: number): Promise<void> {
+  try {
+    cleanupWorkers()
+    await runCleanupFunctions()
+  } catch (err) {
+    logForDebugging(`[Daemon] exitDaemon cleanup failed: ${(err as Error).message}`)
+  }
+  process.exit(code)
 }
 
 async function keepAlive(): Promise<void> {

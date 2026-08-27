@@ -1134,17 +1134,30 @@ export const connectToServer = memoize(
 			// Store handler reference for cleanup to prevent memory leaks
 			let stderrHandler: ((data: Buffer) => void) | undefined;
 			let stderrOutput = "";
+			// P3-8: stderr 累积上限 4MB (原 64MB/server, 多 stdio server N×64MB)。
+			// 上限后停 toString (字符串化前查长度, 避免每块仍分配立即 GC 搅动);
+			// 上限命中日志一次 (原静默丢, 调试产 >64MB stderr 后失败的 server 不可能)。
+			const MAX_STDERR_BYTES = 4 * 1024 * 1024;
+			let stderrCappedLogged = false;
 			if (serverRef.type === "stdio" || !serverRef.type) {
 				const stdioTransport = transport as StdioClientTransport;
 				if (stdioTransport.stderr) {
 					stderrHandler = (data: Buffer) => {
-						// Cap stderr accumulation to prevent unbounded memory growth
-						if (stderrOutput.length < 64 * 1024 * 1024) {
-							try {
-								stderrOutput += data.toString();
-							} catch {
-								// Ignore errors from exceeding max string length
+						// 字符串化前查长度 — 上限后不再 data.toString() 分配。
+						if (stderrOutput.length >= MAX_STDERR_BYTES) {
+							if (!stderrCappedLogged) {
+								stderrCappedLogged = true;
+								logMCPError(
+									name,
+									`Server stderr exceeded ${MAX_STDERR_BYTES} bytes cap; further stderr dropped`,
+								);
 							}
+							return;
+						}
+						try {
+							stderrOutput += data.toString();
+						} catch {
+							// Ignore errors from exceeding max string length
 						}
 					};
 					stdioTransport.stderr.on("data", stderrHandler);

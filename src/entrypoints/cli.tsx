@@ -4,7 +4,12 @@ import { join } from "path";
 import { gracefulShutdownSync } from "../utils/gracefulShutdown.js";
 
 // 设置 Fusion-Code 配置目录为 ~/.fusion-code，避免与 Claude Code 冲突
-process.env.FUSION_CODE_CONFIG_DIR = join(homedir(), ".fusion-code");
+// P3-16: 仅在未设置时赋默认值 — 顶层无条件赋值会覆盖用户/测试预设的 env, 且每次
+// import 变全局状态无 restore 破坏测试隔离。下游读取方均已 `?? join(homedir(),...)`
+// 兜底, 故此赋值本就冗余; 此处保留仅补默认, 不覆盖已设值。
+if (!process.env.FUSION_CODE_CONFIG_DIR) {
+	process.env.FUSION_CODE_CONFIG_DIR = join(homedir(), ".fusion-code");
+}
 
 // 仅在未设置 NO_COLOR 时强制 FORCE_COLOR=1（尊重 NO_COLOR 通用标准，避免与 FORCE_COLOR 冲突触发 Bun 警告）
 if (!process.env.NO_COLOR) process.env.FORCE_COLOR = "1";

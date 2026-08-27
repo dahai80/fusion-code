@@ -124,8 +124,11 @@ function fileSizeSync(filePath: string): number {
  */
 export async function computeTrimBoundary(
 	filePath: string,
+	// P3-3: 调用方 (performTrim) 可传预读 content 避双读 — 原两次 readFile
+	// 间无外部写者假设, 传同一 buffer 保证一致且省一次磁盘 IO。
+	preReadContent?: Buffer,
 ): Promise<BoundaryInfo | null> {
-	const content = await readFile(filePath);
+	const content = preReadContent ?? (await readFile(filePath));
 	if (content.length === 0) return null;
 
 	const marker = compactBoundaryMarker();
@@ -257,7 +260,9 @@ export async function performTrim(filePath: string): Promise<TrimResult> {
 		};
 	}
 
-	const boundary = await computeTrimBoundary(filePath);
+	// P3-3: 单读一次, 传 computeTrimBoundary 避双读 (原 readFile 两次: boundary + postCompact)。
+	const content = await readFile(filePath);
+	const boundary = await computeTrimBoundary(filePath, content);
 	if (boundary === null || boundary.lastBoundaryLineStart === null) {
 		return {
 			trimmed: false,
@@ -270,7 +275,6 @@ export async function performTrim(filePath: string): Promise<TrimResult> {
 
 	// post-compact 段 = boundary 行 + 其后所有内容。
 	const boundaryStart = boundary.lastBoundaryLineStart;
-	const content = await readFile(filePath);
 	const postCompact = content.subarray(boundaryStart);
 
 	// 拼新文件: metadata 行 + post-compact 段。metadata 已含换行, postCompact 以 boundary 行起。

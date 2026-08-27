@@ -1313,6 +1313,8 @@ export class QueryEngine {
 			this.eventRecorder.getLog(),
 			this.mutableMessages,
 			turnResultUuid,
+			// P3-1: noop recorder (off 会话) 短路, 不查 env 查实例。
+			this.eventRecorder === NOOP_RECORDER,
 		);
 		yield {
 			type: "result",

@@ -11,7 +11,7 @@
 
 import { feature } from 'bun:bundle'
 import axios from 'axios'
-import { mkdir, readFile, stat, writeFile } from 'fs/promises'
+import { mkdir, readFile, rename, stat, writeFile } from 'fs/promises'
 import pickBy from 'lodash-es/pickBy.js'
 import { dirname } from 'path'
 import { getIsInteractive } from '../../bootstrap/state.js'
@@ -468,7 +468,12 @@ async function writeFileForSync(
       await mkdir(parentDir, { recursive: true })
     }
 
-    await writeFile(filePath, content, 'utf8')
+    // P3-6: 原子写 — tmp+writeFile(flush)+rename。非原子 writeFile 崩溃 mid-write
+    // 留截断 settings.json → 下次启动 getConfig 抛 ConfigParseError 回退默认 →
+    // 用户在途编辑丢。tmp 同目录保证 rename 原子 (同 filesystem); flush 落盘。
+    const tmpPath = `${filePath}.${process.pid}.tmp`
+    await writeFile(tmpPath, content, { encoding: 'utf8', flush: true })
+    await rename(tmpPath, filePath)
     logForDiagnosticsNoPII('info', 'settings_sync_file_written')
     return true
   } catch {

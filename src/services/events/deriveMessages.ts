@@ -74,13 +74,21 @@ export function deriveMessages(log: SessionEventLog): Message[] {
 
 // dev 断言 — derived === mutableMessages。prod 早 return (byte-identical)。
 // dev + env 开: drift 则 logForDebugging + throw (fail-visible)。每 turn 末调一次。
+// P3-1: 查 recorder 是否 noop 实例, 非查 env — env 运行时翻转后 off 会话持
+// NOOP_RECORDER (log 空), 若仅查 env (on) 则 derived([]) !== mutableMessages
+// 假漂移抛。短路 noop recorder 才正确 (off 会话无论 env 当前值都不断言)。
 export function assertDualWrite(
 	log: SessionEventLog,
 	mutableMessages: Message[],
 	turnId: string,
+	isNoopRecorder = false,
 ): void {
 	// prod byte-identical: 非 dev 或 env 未设 → 零行为早 return。
 	if (!isDevEnv() || !isEnvTruthy(process.env.FUSION_CODE_EVENT_SOURCING)) {
+		return;
+	}
+	// P3-1: noop recorder (off 会话) 短路 — 其 log 恒空, 断言必假漂移。
+	if (isNoopRecorder) {
 		return;
 	}
 	const derived = deriveMessages(log);

@@ -403,13 +403,18 @@ async function mlxFetchWithRetry(
 	);
 
 	try {
-		console.error(
-			url,
-			"origFetch===globalThis.fetch?",
-			getOriginalFetch() === globalThis.fetch,
-		);
+		// P3-9: 残留 debug console.error 删 — 每 MLX 请求触发, 打全 URL (某些配置
+		// 带 auth 查询参数) + status 到 stderr, 污染 WS chat handler 管到客户端。
+		// 改 logForDebugging + FUSION_CODE_DEBUG_MLX_FETCH 门控, 默认静默。
+		if (isEnvTruthy(process.env.FUSION_CODE_DEBUG_MLX_FETCH)) {
+			logForDebugging(
+				`mlx fetch: origFetch===globalThis.fetch? ${getOriginalFetch() === globalThis.fetch}`,
+			);
+		}
 		const response = await getOriginalFetch()(url, init);
-		console.error(response.ok, "status=", response.status);
+		if (isEnvTruthy(process.env.FUSION_CODE_DEBUG_MLX_FETCH)) {
+			logForDebugging(`mlx fetch: ok=${response.ok} status=${response.status}`);
+		}
 		if (response.ok) {
 			mlxApiCircuit.recordSuccess();
 		} else if (response.status >= 500) {

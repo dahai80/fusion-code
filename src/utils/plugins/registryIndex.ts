@@ -42,7 +42,9 @@ export const RegistryEntrySchema = z.object({
 export const RegistryIndexSchema = z.object({
 	schemaVersion: z.number().int().default(0),
 	updated: z.string().optional(),
-	plugins: z.array(RegistryEntrySchema),
+	// P3-11: plugins 数组上限 — 恶意 registry 返百万条目, axios 缓冲后 schema parse
+	// 全接, writeCache 写全数组填盘。加 .max(10000) 超限拒绝 parse 而非缓存。
+	plugins: z.array(RegistryEntrySchema).max(10000),
 });
 
 export type RegistryEntry = z.infer<typeof RegistryEntrySchema>;

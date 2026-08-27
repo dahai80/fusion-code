@@ -2,7 +2,9 @@ import { profileCheckpoint } from '../utils/startupProfiler.js'
 import '../bootstrap/state.js'
 import '../utils/config.js'
 import { asyncMemoize } from '../utils/asyncMemoize.js'
-import { getIsNonInteractiveSession } from 'src/bootstrap/state.js'
+// P3-17: 相对路径 (同 L2 '../bootstrap/state.js'), 非 'src/bootstrap/state.js' 绝对路径 —
+// 后者在 bun build --compile 下脆弱, 且与同文件 L2 不一致。
+import { getIsNonInteractiveSession } from '../bootstrap/state.js'
 import { shutdownLspServerManager } from '../services/lsp/manager.js'
 import { populateOAuthAccountInfoIfNeeded } from '../services/oauth/client.js'
 import {
@@ -74,15 +76,24 @@ export const init = asyncMemoize(async (): Promise<void> => {
 
     // Populate OAuth account info if it is not already cached in config. This is needed since the
     // OAuth account info may not be populated when logging in through the VSCode extension.
-    void populateOAuthAccountInfoIfNeeded()
+    // P3-18: .catch 防 reject → unhandledRejection (OAuth 缓存静默填充失败无退出, 仅记日志)。
+    void populateOAuthAccountInfoIfNeeded().catch((e) =>
+      logForDebugging(`[init] populateOAuthAccountInfoIfNeeded failed: ${(e as Error).message}`),
+    )
     profileCheckpoint('init_after_oauth_populate')
 
     // Initialize JetBrains IDE detection asynchronously (populates cache for later sync access)
-    void initJetBrainsDetection()
+    // P3-18: .catch 同上。
+    void initJetBrainsDetection().catch((e) =>
+      logForDebugging(`[init] initJetBrainsDetection failed: ${(e as Error).message}`),
+    )
     profileCheckpoint('init_after_jetbrains_detection')
 
     // Detect GitHub repository asynchronously (populates cache for gitDiff PR linking)
-    void detectCurrentRepository()
+    // P3-18: .catch 同上。
+    void detectCurrentRepository().catch((e) =>
+      logForDebugging(`[init] detectCurrentRepository failed: ${(e as Error).message}`),
+    )
 
     // Initialize the loading promise early so that other systems (like plugin hooks)
     // can await remote settings loading. The promise includes a timeout to prevent

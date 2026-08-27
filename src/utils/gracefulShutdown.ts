@@ -37,6 +37,7 @@ import {
 } from '../services/analytics/index.js'
 import type { AppState } from '../state/AppState.js'
 import { runCleanupFunctions } from './cleanupRegistry.js'
+import { isTestEnv } from './buildConstants.js'
 import { logForDebugging } from './debug.js'
 import { logForDiagnosticsNoPII } from './diagLogs.js'
 import { isEnvTruthy } from './envUtils.js'
@@ -298,6 +299,8 @@ export const setupGracefulShutdown = memoize(() => {
 
   // Log uncaught exceptions for container observability and analytics
   // Error names (e.g., "TypeError") are not sensitive - safe to log
+  // P3-19: uncaughtException 后进程处于未定义状态, Node 语义继续执行 = 潜在腐败。
+  // 记日志后退出 (exit 1)。测试环境 (isTestEnv) 不退 — 保留 test runner 存活。
   process.on('uncaughtException', error => {
     logForDiagnosticsNoPII('error', 'uncaught_exception', {
       error_name: error.name,
@@ -307,9 +310,13 @@ export const setupGracefulShutdown = memoize(() => {
       error_name:
         error.name as AnalyticsMetadata_I_VERIFIED_THIS_IS_NOT_CODE_OR_FILEPATHS,
     })
+    if (!isTestEnv()) {
+      process.exit(1)
+    }
   })
 
   // Log unhandled promise rejections for container observability and analytics
+  // P3-19: 同 uncaughtException — 记日志后退出, 测试环境不退。
   process.on('unhandledRejection', reason => {
     const errorName =
       reason instanceof Error
@@ -330,6 +337,9 @@ export const setupGracefulShutdown = memoize(() => {
       error_name:
         errorName as AnalyticsMetadata_I_VERIFIED_THIS_IS_NOT_CODE_OR_FILEPATHS,
     })
+    if (!isTestEnv()) {
+      process.exit(1)
+    }
   })
 })
 

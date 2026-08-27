@@ -474,12 +474,15 @@ export async function copyPluginToVersionedCache(
  * Validate a git URL using Node.js URL parsing
  */
 function validateGitUrl(url: string): string {
+	// P3-10: 去 file: 协议 — 插件 git source 指 file:///etc/something 让 git clone
+	// 读用户可读的任意本地路径 (本地文件外泄原语)。本地路径插件用 directory source,
+	// 无正当理由经 git source 克隆本地路径。
 	try {
 		const parsed = new URL(url);
-		if (!["https:", "file:"].includes(parsed.protocol)) {
+		if (parsed.protocol !== "https:") {
 			if (!/^git@[a-zA-Z0-9.-]+:/.test(url)) {
 				throw new Error(
-					`Invalid git URL protocol: ${parsed.protocol}. Only HTTPS, file:// and SSH (git@) URLs are supported. HTTP is insecure and not allowed.`,
+					`Invalid git URL protocol: ${parsed.protocol}. Only HTTPS and SSH (git@) URLs are supported. HTTP is insecure and not allowed; file:// is not supported (use directory source for local paths).`,
 				);
 			}
 		}
