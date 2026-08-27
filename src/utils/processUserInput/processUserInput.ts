@@ -36,6 +36,7 @@ import {
 	getAttachmentMessages,
 } from "../attachments.js";
 import type { PastedContent } from "../config.js";
+import { logForDebugging } from "../debug.js";
 import type { EffortValue } from "../effort.js";
 import { toArray } from "../generators.js";
 import {
@@ -265,6 +266,42 @@ export async function processUserInput({
 		}
 	}
 	queryCheckpoint("query_hooks_end");
+
+	// fusion-memory: retrieve cross-session long-term memory at turn start.
+	// Fire-and-forget, main agent only (!context.agentId). Recalls relevant
+	// memory for the current user input and injects it as an attachment message
+	// (same path as UserPromptSubmit hook additionalContext). Skips silently if
+	// fm-server down or FUSION_MEMORY_API_KEY unset (retrieveContext handles
+	// fail-empty). Only on the happy path (shouldQuery) with real input.
+	if (!context.agentId && result.shouldQuery && inputMessage) {
+		const memoryRetrieveModule =
+			require("../../services/memory/retrieveContext.js") as typeof import(
+				"../../services/memory/retrieveContext.js"
+			);
+		void memoryRetrieveModule
+			.retrieveMemorySection({
+				inputText: inputMessage,
+				agentId: context.agentId,
+			})
+			.then((section) => {
+				if (section) {
+					result.messages.push(
+						createAttachmentMessage({
+							type: "hook_additional_context",
+							content: [applyTruncation(section)],
+							hookName: "FusionMemory",
+							toolUseID: `fm-${randomUUID()}`,
+							hookEvent: "UserPromptSubmit",
+						}),
+					);
+				}
+			})
+			.catch((err) => {
+				logForDebugging(
+					`[Fusion-Memory] retrieve inject error: ${(err as Error).message}`,
+				);
+			});
+	}
 
 	// Happy path: onQuery will clear userInputOnProcessing via startTransition
 	// so it resolves in the same frame as deferredMessages (no flicker gap).
