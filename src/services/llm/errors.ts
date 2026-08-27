@@ -103,6 +103,9 @@ export class LlmRequestError extends Error {
 // (flag 开时 HTTP 路径)。判定靠形态而非原型链, 因两类错误无共同基类。
 
 // 任意带 .status (number) 的错误 — 覆盖 SDK APIError 与 LlmRequestError。
+// P2-7: 不再对"任意带 headers 对象"判 true — axios/got/自定义错误都有 headers,
+// 会误分类非 API 错误为 API 错误 → 错误重试/恢复。要求 API 特定信号:
+// status (HTTP 错误必有) 或 requestID (SDK/seam 注入)。headers 单独不足。
 export function isApiErrorLike(error: unknown): error is {
 	status?: number;
 	message: string;
@@ -112,7 +115,6 @@ export function isApiErrorLike(error: unknown): error is {
 	if (!(error instanceof Error)) return false;
 	return (
 		typeof (error as { status?: unknown }).status === "number" ||
-		(error as { headers?: unknown }).headers !== undefined ||
 		(error as { requestID?: unknown }).requestID !== undefined
 	);
 }

@@ -6,6 +6,7 @@ import type { Command } from "../../commands.js";
 import type { Tool } from "../../Tool.js";
 import {
 	clearServerCache,
+	clearServerCacheByName,
 	fetchCommandsForClient,
 	fetchResourcesForClient,
 	fetchToolsForClient,
@@ -352,7 +353,9 @@ export function useManageMCPConnections(
 					client.client.onclose = () => {
 						const configType = client.config.type ?? "stdio";
 
-						clearServerCache(client.name, client.config).catch(() => {
+						// P2-15: 按 name 前缀清 cache, 非精确捕获注册时旧 config。
+						// 避免用户编辑 .mcp.json 后新 key 连接不被旧 config 的 onclose 清除 → 泄漏。
+						clearServerCacheByName(client.name).catch(() => {
 							logForDebugging(
 								`Failed to invalidate the server cache: ${client.name}`,
 							);

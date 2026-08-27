@@ -1451,6 +1451,31 @@ function getConfig<A>(
 
   const fs = getFsImplementation()
 
+  // P2-16: 同步读前先 stat 检查大小。病态大的 ~/.claude.json (跨多会话累积)
+  // 阻塞事件循环 + OOM。5MB 阈值: 超则 throw fail-visible, 非静默吞下继续。
+  // 正常配置 <100KB; 备份/恢复路径按需重读, 此守卫覆盖所有 getConfig 入口。
+  const CONFIG_SIZE_WARN = 5 * 1024 * 1024 // 5MB
+  try {
+    const stat = fs.statSync(file)
+    if (stat.size > CONFIG_SIZE_WARN) {
+      throw new ConfigParseError(
+        `Configuration file ${file} is ${Math.round(stat.size / 1024 / 1024)}MB, exceeding the ${CONFIG_SIZE_WARN / 1024 / 1024}MB limit. Refusing to load to avoid blocking the event loop. Trim or remove it.`,
+        file,
+        createDefault(),
+      )
+    }
+  } catch (statError) {
+    const statCode = getErrnoCode(statError)
+    if (statCode !== 'ENOENT') {
+      // stat 失败但文件存在 (权限/IO) — fail-visible, 不静默回退默认
+      if (!(statError instanceof ConfigParseError)) {
+        throw statError
+      }
+      throw statError
+    }
+    // ENOENT — 走下面 readFileSync 的 ENOENT 备份路径
+  }
+
   try {
     const fileContent = fs.readFileSync(file, {
       encoding: 'utf-8',

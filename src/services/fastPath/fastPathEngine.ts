@@ -93,6 +93,20 @@ const BUILT_IN_RULES: FastPathRule[] = [
 				if (!v) return `  ${k}: (not set)`;
 				if (k.includes("KEY") || k.includes("TOKEN"))
 					return `  ${k}: ${v.slice(0, 4)}...`;
+				// P2-10: FUSION_BASE_URL 可能带代理凭证 (http://user:pass@proxy)。
+				// 剥离 userinfo 再暴露, 防凭证泄露进模型上下文。
+				if (k === "FUSION_BASE_URL") {
+					try {
+						const u = new URL(v);
+						if (u.username || u.password) {
+							u.username = "";
+							u.password = "";
+							return `  ${k}: ${u.toString()} (credentials stripped)`;
+						}
+					} catch {
+						return `  ${k}: ${v.slice(0, 4)}...`;
+					}
+				}
 				return `  ${k}: ${v}`;
 			});
 			return `Environment:\n${lines.join("\n")}`;

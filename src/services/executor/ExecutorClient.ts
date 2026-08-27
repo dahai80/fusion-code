@@ -6,9 +6,9 @@
 // Mirror LSPClient.ts lifecycle: spawn-gate, isStopping, onCrash, stop().
 
 import { type ChildProcess, spawn } from "node:child_process";
-import { existsSync, unlinkSync } from "node:fs";
+import { randomBytes } from "node:crypto";
+import { existsSync, mkdirSync, unlinkSync } from "node:fs";
 import { createConnection, type Socket } from "node:net";
-import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { logForDebugging } from "../../utils/debug.js";
 import { errorMessage } from "../../utils/errors.js";
@@ -54,11 +54,31 @@ type PendingRequest = {
 
 let requestCounter = 0;
 
-function defaultSocketPath(): string {
-	return join(tmpdir(), `fusion-executor-${process.pid}.sock`);
+// P2-19: 随机 socket 路径置于 0700 私有目录, 非可预测的 tmpdir/fusion-executor-<pid>.sock。
+// 原路径可预测 → 任何同用户进程可 connect() socket 驱动 executor.execute 跑任意 bash,
+// 绕过 CLI 工具权限+审批。随机名 + 0700 目录让 socket 路径不猜得中, 仅本进程+子进程知。
+// auth 握手 token 需 fusion-executor 服务端校验 (跨仓), 此处仅客户端侧硬化路径。
+function executorSocketDir(): string {
+	const base =
+		process.env.FUSION_CODE_CONFIG_DIR ||
+		`${process.env.HOME || ""}/.fusion-code`;
+	return join(base, "executor");
 }
 
-// Resolve socket path: explicit arg > env FUSION_EXECUTOR_SOCK > pid-scoped default.
+function defaultSocketPath(): string {
+	const dir = executorSocketDir();
+	try {
+		if (!existsSync(dir)) mkdirSync(dir, { recursive: true, mode: 0o700 });
+	} catch (e) {
+		logForDebugging(
+			`executor client: failed to create 0700 socket dir ${dir}: ${errorMessage(e)}`,
+		);
+	}
+	const rand = randomBytes(8).toString("hex");
+	return join(dir, `executor-${process.pid}-${rand}.sock`);
+}
+
+// Resolve socket path: explicit arg > env FUSION_EXECUTOR_SOCK > random 0700-dir default.
 function resolveSocketPath(override?: string): string {
 	if (override) return override;
 	if (process.env.FUSION_EXECUTOR_SOCK) return process.env.FUSION_EXECUTOR_SOCK;
@@ -313,9 +333,7 @@ export function createExecutorClient(
 					const pendingReq = pending.get(id);
 					if (pendingReq) {
 						pending.delete(id);
-						pendingReq.reject(
-							new Error("executor executeStream aborted"),
-						);
+						pendingReq.reject(new Error("executor executeStream aborted"));
 					}
 					// best-effort cancel RPC (server 杀 child); 不等回应, 失败已 fail-soft。
 					try {
@@ -338,10 +356,7 @@ export function createExecutorClient(
 			return promise as Promise<SnapshotResult>;
 		},
 
-		async rollback(
-			snapshotId: string,
-			cwd: string,
-		): Promise<RollbackResult> {
+		async rollback(snapshotId: string, cwd: string): Promise<RollbackResult> {
 			// Empty snapshot_id = non-repo no-op upstream; skip the RPC entirely
 			// so an accidental call on a non-repo cwd doesn't round-trip.
 			if (!snapshotId) {

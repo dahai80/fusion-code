@@ -1898,6 +1898,32 @@ export async function clearServerCache(
 	}
 }
 
+// P2-15: 按 name 前缀清 connectToServer.cache, 非精确捕获 config hash。
+// onclose 注册时捕获旧 client.config; getServerCacheKey 含 jsonStringify(serverRef),
+// 用户编辑 .mcp.json 时新连接已在新 key 建立 → onclose 调 clearServerCache(name,OLD_config)
+// 只删旧 key, 新 key 条目不清 + 子进程不清 → 泄漏。此 helper 迭代所有 `${name}-`
+// 开头 key 全删, 对齐当前盘上 config 形状, 不依赖注册时快照。
+export async function clearServerCacheByName(name: string): Promise<void> {
+	const prefix = `${name}-`;
+	// MapCache 类型未暴露 keys() (仅 delete/get/has/set), 运行时底层 Map 有 keys。
+	// cast 取键迭代再 delete, 按前缀清所有 name-* 条目 (含旧/新 config 的 key)。
+	const cache = connectToServer.cache as unknown as {
+		keys: () => Iterable<string>;
+		delete: (key: string) => boolean;
+	};
+	for (const key of cache.keys()) {
+		if (key.startsWith(prefix)) {
+			cache.delete(key);
+		}
+	}
+	fetchToolsForClient.cache.delete(name);
+	fetchResourcesForClient.cache.delete(name);
+	fetchCommandsForClient.cache.delete(name);
+	if (feature("MCP_SKILLS")) {
+		fetchMcpSkillsForClient!.cache.delete(name);
+	}
+}
+
 /**
  * Ensures a valid connected client for an MCP server.
  * For most server types, uses the memoization cache if available, or reconnects

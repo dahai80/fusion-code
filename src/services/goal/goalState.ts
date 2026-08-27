@@ -80,16 +80,24 @@ function loadGoals(sessionId: string): Goal[] {
 	return [];
 }
 
-function saveGoals(sessionId: string, goals: Goal[]): void {
+function saveGoals(sessionId: string, goals: Goal[]): boolean {
+	// P2-5: 原 catch 仅 logForDebugging (dev 才见) → 写失败静默, budget+revision
+	// 丢, 破坏 P5.3 CAS。改 console.error fail-visible (stderr 始终见) + 返回
+	// boolean 让调用方感知。不 throw (会杀 turn, 各调用点无 try)。返回 false 时
+	// 调用方拿到的 goal 对象反映内存值, revision 已自增但未落盘 — 下次 load 从盘
+	// 读回旧 revision, CAS 冲突暴露此 gap (fail-visible 的下游效应)。
 	try {
 		const dir = getGoalsDir();
 		if (!existsSync(dir)) mkdirSync(dir, { recursive: true });
 		const path = getGoalsFilePath(sessionId);
 		writeFileSync(path, JSON.stringify(goals, null, 2), "utf-8");
+		return true;
 	} catch (e) {
-		logForDebugging(
-			`[GoalState] Failed to save goals: ${(e as Error).message}`,
+		// P2-5: fail-visible — console.error 始终到 stderr, 非 dev-only。
+		console.error(
+			`[GoalState] Failed to save goals (budget/revision NOT persisted): ${(e as Error).message}`,
 		);
+		return false;
 	}
 }
 

@@ -17,7 +17,7 @@ import { accumulateUsage, updateUsage } from "src/services/api/claude.js";
 import type { NonNullableUsage } from "src/services/api/logging.js";
 import { EMPTY_USAGE } from "src/services/api/logging.js";
 import { checkBudget } from "src/services/goal/budgetEnforcer.js";
-import { updateBudgetUsed } from "src/services/goal/goalState.js";
+import { getActiveGoal as getActiveGoalFromState, updateBudgetUsed } from "src/services/goal/goalState.js";
 import type { ContentBlockParam } from "src/types/anthropic-protocol.js";
 import stripAnsi from "strip-ansi";
 import type { Command } from "./commands.js";
@@ -263,6 +263,17 @@ export class QueryEngine {
 		this.eventRecorder.record("turn_start", {
 			prompt: typeof prompt === "string" ? prompt : "[content blocks]",
 		});
+		// P2-4: turns 按 user turn 计非按 message_stop 计。tool-use 循环一发多个
+		// message_stop (每 LLM call 一), 原 message_stop 内 turns:1 按 assistant
+		// msg 计 turn → budgetUsed.turns 虚高。移 turn 增量到此 (turn 边界), 每 ask
+		// 一次。tokens 仍在 message_stop 累。只在有 active goal 时触发 (无 goal
+		// 省同步 IO, 见 message_stop 处的 hasGoal gate)。
+		try {
+			const _sid = getSessionId();
+			if (getActiveGoalFromState(_sid)) {
+				updateBudgetUsed(_sid, { turns: 1 });
+			}
+		} catch {}
 		setCwd(cwd);
 		const persistSession = !isSessionPersistenceDisabled();
 		const startTime = Date.now();
@@ -270,9 +281,13 @@ export class QueryEngine {
 		// Phase 3b: take a caller-owned turn-boundary git snapshot so /rollback
 		// can revert the working tree to before this turn. Default-off env gate
 		// (FUSION_CODE_EXECUTOR_TURN_SNAPSHOT=1); no-op when disabled or non-repo.
-		// Fire-and-forget — snapshot failure is fail-soft (turn proceeds).
+		// P2-3: await snapshot — fire-and-forget 与 recordTurnFailure (~L862) 竞态,
+		// snapshot 未完成时失败计错快照。await 仅在 enabled 时阻塞 (非 enabled
+		// 即时 resolve no-op), byte-identical off。snapshot 仍 fail-soft。
 		const turnSnapshotId = randomUUID();
-		void takeTurnSnapshot(turnSnapshotId).catch(() => {});
+		try {
+			await takeTurnSnapshot(turnSnapshotId);
+		} catch {}
 
 		// Wrap canUseTool to track permission denials
 		const wrappedCanUseTool: CanUseToolFn = async (
@@ -874,8 +889,11 @@ export class QueryEngine {
 							timestamp: new Date().toISOString(),
 						};
 						this.mutableMessages.push(hintMessage);
-						// ar-plan PR #7 (S2.1): 旁路写 assistant_message (rollback hint, shadow)
-						this.eventRecorder.record("assistant_message", hintMessage);
+						// ar-plan PR #7 (S2.1): 旁路写 hint (shadow)。
+						// P2-6: hintMessage 是 type:user role:user 却原记为 assistant_message
+						// → deriveMessages 投影进 assistant 流, 分类错。改为 user_message
+						// (匹配实际 role)。断言偶然过因同对象引用, 投影分类仍错。
+						this.eventRecorder.record("user_message", hintMessage);
 						if (persistSession) {
 							messages.push(hintMessage);
 							void recordTranscript(messages);
@@ -918,7 +936,7 @@ export class QueryEngine {
 							const _tokenDelta =
 								(currentMessageUsage.input_tokens ?? 0) +
 								(currentMessageUsage.output_tokens ?? 0);
-							updateBudgetUsed(_sessionId, { turns: 1, tokens: _tokenDelta });
+							updateBudgetUsed(_sessionId, { tokens: _tokenDelta });
 							const _budgetCheck = checkBudget(_sessionId);
 							if (_budgetCheck.exceeded) {
 								// P1-5: 预算超限此前仅建议性 — pauseGoal 后 turn 继续, console.error

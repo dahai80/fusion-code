@@ -2084,6 +2084,10 @@ async function* queryModel(
 									| typeof part.delta
 									| ConnectorTextDelta;
 								if (!contentBlock) {
+									// P2-9: delta 缺 contentBlock 不硬抛 — gateway replay 旧 index
+									// 或 resume seedState 不匹配时硬抛 RangeError 会杀死整个流。
+									// 改为日志警告 + continue (优雅恢复), 仅 content_block_start 与
+									// 已存在不同块不匹配时才属真正错误 (那里仍可见)。
 									logEvent("tengu_streaming_error", {
 										error_type:
 											"content_block_not_found_delta" as AnalyticsMetadata_I_VERIFIED_THIS_IS_NOT_CODE_OR_FILEPATHS,
@@ -2091,7 +2095,10 @@ async function* queryModel(
 											part.type as AnalyticsMetadata_I_VERIFIED_THIS_IS_NOT_CODE_OR_FILEPATHS,
 										part_index: part.index,
 									});
-									throw new RangeError("Content block not found");
+									logForDebugging(
+										`content_block_delta missing block at index ${part.index} (gateway replay/resume mismatch); skipping delta`,
+									);
+									continue;
 								}
 								if (
 									feature("CONNECTOR_TEXT") &&

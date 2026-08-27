@@ -6,7 +6,8 @@
  * overridden by any rule.
  */
 
-import { normalize } from "path";
+import { lstat, realpath } from "node:fs/promises";
+import { normalize } from "node:path";
 
 const SENSITIVE_PATTERNS: RegExp[] = [
 	/\.env$/i,
@@ -65,6 +66,33 @@ export function isSensitiveFilePath(filePath: string): boolean {
 		if (pattern.test(normalized)) return true;
 	}
 	return false;
+}
+
+// P2-1: 符号链接穿透守卫。isSensitiveFilePath 仅操作路径字符串 — `ln -s ~/.env ./link`
+// 后 `./link` 规范化串不含 `.env`, 守卫见无害路径但 AI 见敏感内容。
+// 此 async helper 解析 symlink: lstat 探测 → 若符号链接则 realpath 解析真实目标 →
+// 真实目标匹配敏感 pattern 则拒绝; realpath 失败 (断链) 则拒绝 (无法判定, fail-closed)。
+// 路径不存在 (ENOENT) 不算穿透 → 返回 false (非符号链接, 正常缺失文件)。
+// 调用点在 isSensitiveFilePath 字符串检查之外补充此检查 (字符串检查仍快路径短路)。
+export async function isSymlinkBypassingSensitiveGate(
+	filePath: string,
+): Promise<boolean> {
+	try {
+		const stats = await lstat(filePath);
+		if (!stats.isSymbolicLink()) return false; // 非符号链接 → 字符串检查已足够
+		// 符号链接: realpath 解析最终目标, 再测敏感 pattern
+		const resolved = await realpath(filePath);
+		return isSensitiveFilePath(resolved);
+	} catch (err) {
+		const code = (err as NodeJS.ErrnoException).code;
+		if (code === "ENOENT") return false; // 目标不存在, 非穿透
+		// 断链 (ELOOP/其他) → 无法判定真实目标, fail-closed 拒绝
+		if (code === "ELOOP" || code === "EINVAL" || code === "ENOTDIR") {
+			return true;
+		}
+		// 其他错误 (权限等) 保守拒绝, 避免静默放过
+		return true;
+	}
 }
 
 // P0-5: extract candidate file-path tokens from a Bash command string for the

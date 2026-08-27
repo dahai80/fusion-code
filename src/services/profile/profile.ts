@@ -51,6 +51,27 @@ export function loadProfile(name?: string): Profile | null {
 			);
 			return null;
 		}
+		// P2-11: schema 校验 enabledTools/disabledTools/requiresFlags 须为 string[]。
+		// 裸 JSON.parse as Profile 不查 cast — 非字符串条目进 new Set + set.has 行为
+		// 异常。恶意/手编 profile 注入非字符串 → 拒 (fail-open 全集 byte-identical)。
+		const strArrayFields: (keyof Profile)[] = [
+			"enabledTools",
+			"disabledTools",
+			"requiresFlags",
+		];
+		for (const field of strArrayFields) {
+			const val = parsed[field];
+			if (val === undefined) continue;
+			if (
+				!Array.isArray(val) ||
+				val.some((e) => typeof e !== "string")
+			) {
+				logForDebugging(
+					`[profile] user "${name}" schema mismatch (${String(field)} not string[]); fail-open full set`,
+				);
+				return null;
+			}
+		}
 		return parsed;
 	} catch (err) {
 		logForDebugging(

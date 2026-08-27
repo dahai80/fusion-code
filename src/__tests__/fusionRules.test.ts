@@ -95,7 +95,10 @@ describe("mergeFusionRulesConfigs", () => {
 			{ deniedTools: ["Bash", "WebSearch"], defaultTemplate: "project" },
 		]);
 		expect(merged.deniedTools).toEqual(["Bash", "WebSearch"]);
-		expect(merged.defaultTemplate).toBe("project");
+		// P2-13: defaultTemplate first-wins — global (earliest) wins, aligning
+		// with CLAUDE.md doc priority (global rules highest). configs ordered
+		// [global, project, ...] descending priority.
+		expect(merged.defaultTemplate).toBe("global");
 	});
 
 	it("preserves defaultTemplate when later config has null", () => {

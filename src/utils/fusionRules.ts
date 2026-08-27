@@ -56,6 +56,19 @@ export function isToolDenied(toolName: string): boolean {
 	return mergedConfig.deniedTools.some((t) => t.toLowerCase() === lower);
 }
 
+// P2-12: isToolDenied 只查主名, 不查别名。用户在 denied_tools 列旧名/别名 (如
+// KillShell 旧名 TaskStop) → 模型调主名 TaskStop → isToolDenied("TaskStop") false
+// → deny 静默失效。此 helper 查主名 + 全别名, 调用点传 Tool 对象匹配。
+export function isToolDeniedByNameOrAlias(
+	tool: { name: string; aliases?: string[] },
+): boolean {
+	if (isToolDenied(tool.name)) return true;
+	if (tool.aliases?.length) {
+		return tool.aliases.some((alias) => isToolDenied(alias));
+	}
+	return false;
+}
+
 export function getDeniedTools(): string[] {
 	return [...mergedConfig.deniedTools];
 }
@@ -72,10 +85,15 @@ export function mergeFusionRulesConfigs(
 		defaultTemplate: null,
 	};
 	for (const config of configs) {
+		// deniedTools 取并集 (无害, 多层叠加更严)。
 		merged.deniedTools = [
 			...new Set([...merged.deniedTools, ...config.deniedTools]),
 		];
-		if (config.defaultTemplate) {
+		// P2-13: defaultTemplate 改 first-wins (最早出现的优先)。
+		// configs 顺序 = [global, project, ...] (claudemd 组装按优先级降序)。
+		// 原 last-wins 让 project 覆盖 global, 与 CLAUDE.md 文档优先级
+		// (global 最高) 相反。first-wins 使 global 优先, 对齐文档。
+		if (config.defaultTemplate && !merged.defaultTemplate) {
 			merged.defaultTemplate = config.defaultTemplate;
 		}
 	}

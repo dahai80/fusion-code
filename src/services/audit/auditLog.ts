@@ -8,7 +8,7 @@
  * Rotation: files rotate when exceeding maxFileSize (default 10MB).
  */
 
-import { appendFile, mkdir, readdir, stat, unlink } from "fs/promises";
+import { appendFile, chmod, mkdir, readdir, stat, unlink } from "fs/promises";
 import { join } from "path";
 import { logForDebugging } from "../../utils/debug.js";
 import { getClaudeConfigHomeDir } from "../../utils/envUtils.js";
@@ -42,7 +42,11 @@ function getAuditFilePath(): string {
 async function ensureAuditDir(): Promise<void> {
 	const dir = getAuditDir();
 	try {
-		await mkdir(dir, { recursive: true });
+		// P2-17: 目录 0700 非 0755。审计文件 0600 但 0755 目录下任何同用户进程
+		// 可 readdir/unlink 条目 → 轮转/防篡改失效。0700 仅属主可遍历+移除。
+		await mkdir(dir, { recursive: true, mode: 0o700 });
+		// mode 受 umask 影响 (mkdir mode 是 creation mask), 显式 chmod 锁定。
+		await chmod(dir, 0o700).catch(() => {});
 	} catch (e) {
 		const code = (e as NodeJS.ErrnoException).code;
 		if (code !== "EEXIST") {

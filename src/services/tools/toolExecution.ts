@@ -755,8 +755,11 @@ async function checkPermissionsAndCallTool(
 	}
 
 	// FUSION.rules denied tools check
-	const { isToolDenied } = await import("../../utils/fusionRules.js");
-	if (isToolDenied(tool.name)) {
+	// P2-12: 查主名 + 别名 (isToolDeniedByNameOrAlias), 防 denied_tools 列别名静默失效。
+	const { isToolDeniedByNameOrAlias } = await import(
+		"../../utils/fusionRules.js"
+	);
+	if (isToolDeniedByNameOrAlias(tool)) {
 		logForDebugging(`${tool.name} blocked by FUSION.rules denied_tools`);
 		// Audit log: denied tool
 		const { appendAuditLog, createAuditEntry } = await import(
@@ -789,6 +792,7 @@ async function checkPermissionsAndCallTool(
 	// Sensitive file protection — block reads/writes to secrets/keys
 	const {
 		isSensitiveFilePath,
+		isSymlinkBypassingSensitiveGate,
 		getSensitiveFileDenialMessage,
 		extractCandidatePathsFromCommand,
 	} = await import("../../utils/sensitiveFiles.js");
@@ -815,7 +819,20 @@ async function checkPermissionsAndCallTool(
 			...extractCandidatePathsFromCommand(parsedInput.data.command),
 		);
 	}
-	const blockedPath = sensitivePaths.find((p) => isSensitiveFilePath(p));
+	// P2-1: 字符串 pattern 检查 (快速路径, 阻直接命中)。
+	let blockedPath = sensitivePaths.find((p) => isSensitiveFilePath(p));
+	// P2-1: 符号链接穿透守卫。`ln -s ~/.env ./link` → 规范化串不含 `.env`,
+	// 字符串检查放过, 但 AI 经 ./link 读到敏感内容。对未命中字符串检查的候选
+	// 路径逐个 realpath 解析: 符号链接解析到敏感目标则拒 (fail-closed)。
+	if (!blockedPath) {
+		for (const p of sensitivePaths) {
+			if (isSensitiveFilePath(p)) continue; // 已被字符串检查命中
+			if (await isSymlinkBypassingSensitiveGate(p)) {
+				blockedPath = p;
+				break;
+			}
+		}
+	}
 	if (blockedPath) {
 		logForDebugging(`${tool.name} blocked: sensitive file ${blockedPath}`);
 		const { appendAuditLog, createAuditEntry } = await import(

@@ -6,7 +6,7 @@
 // the fetch and returns the cached index (or empty if none), so local builtin
 // plugins stay usable offline. Byte-identical when no one calls discover.
 
-import { mkdir, readFile, stat, writeFile } from "node:fs/promises";
+import { chmod, mkdir, readFile, stat, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import axios from "axios";
 import { z } from "zod";
@@ -102,8 +102,14 @@ async function cacheFresh(): Promise<boolean> {
 
 async function writeCache(index: RegistryIndex): Promise<void> {
 	try {
-		await mkdir(cacheDir(), { recursive: true });
-		await writeFile(cacheFile(), JSON.stringify(index, null, 2), "utf8");
+		// P2-18: 目录 0700 + 文件 0600 非 0755/0644。cache 含插件元数据
+		// (名/源 URL/sha256) = 用户浏览哪些插件的侧信道, 不应世界可读。
+		await mkdir(cacheDir(), { recursive: true, mode: 0o700 });
+		await chmod(cacheDir(), 0o700).catch(() => {});
+		await writeFile(cacheFile(), JSON.stringify(index, null, 2), {
+			encoding: "utf8",
+			mode: 0o600,
+		});
 	} catch (err) {
 		logForDebugging(`[registry] cache write failed: ${(err as Error).message}`);
 	}
