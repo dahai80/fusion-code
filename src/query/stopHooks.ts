@@ -45,6 +45,8 @@ const extractMemoriesModule = feature("EXTRACT_MEMORIES")
 const jobClassifierModule = feature("TEMPLATES")
 	? (require("../jobs/classifier.js") as typeof import("../jobs/classifier.js"))
 	: null;
+const memoryCommitModule =
+	require("../services/memory/commitTurn.js") as typeof import("../services/memory/commitTurn.js");
 
 /* eslint-enable @typescript-eslint/no-require-imports */
 
@@ -160,6 +162,24 @@ export async function* handleStopHooks(
 				stopHookContext,
 				toolUseContext.appendSystemMessage,
 			);
+		}
+		// fusion-memory: commit last turn to cross-session long-term memory.
+		// Fire-and-forget, main agent only. Skips silently if fm-server down or
+		// FUSION_MEMORY_API_KEY unset (commitTurn handles fail-empty).
+		if (!toolUseContext.agentId) {
+			void memoryCommitModule
+				.commitLastTurn({
+					messages: stopHookContext.messages,
+					agentId: toolUseContext.agentId,
+				})
+				.catch((err) => {
+					logForDebugging(
+						`[Fusion-Memory] commit error: ${errorMessage(err)}`,
+						{
+							level: "error",
+						},
+					);
+				});
 		}
 	}
 
