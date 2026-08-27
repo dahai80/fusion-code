@@ -68,6 +68,8 @@ import {
 	isEventSourcingEnabled,
 	NOOP_RECORDER,
 } from "./services/events/eventLog.js";
+// ar-plan PR #8 (S2.2): 双写断言 (dev-only, prod byte-identical)
+import { assertDualWrite } from "./services/events/deriveMessages.js";
 import {
 	getMainLoopModel,
 	parseUserSpecifiedModel,
@@ -1248,6 +1250,9 @@ export class QueryEngine {
 
 		// ar-plan PR #7 (S2.1): capture turn result uuid for turn_end shadow
 		const turnResultUuid = randomUUID();
+		// ar-plan PR #8 (S2.2): 双写断言 — 每 turn 末一次 (非每 push, 省开销)。
+		// dev + env 开: derived === mutableMessages; prod 早 return (byte-identical)。
+		assertDualWrite(this.eventRecorder.getLog(), this.mutableMessages, turnResultUuid);
 		yield {
 			type: "result",
 			subtype: "success",
