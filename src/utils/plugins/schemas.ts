@@ -1026,6 +1026,15 @@ export const MarketplaceSourceSchema = lazySchema(() =>
             'directories.',
         ),
     }),
+    z.object({
+      // ar-plan PR #5 (E1): official registry.json index source. Points at a
+      // curated registry (e.g. fusion-plugins-official) that lists installable
+      // plugins across all 4 source types. /plugins discover fetches this index;
+      // install reuses the existing loader via the per-entry source. Pure index
+      // fetch — no telemetry sent back (privacy). FUSION_OFFLINE=1 skips fetch.
+      source: z.literal('registry'),
+      url: z.string().url().describe('URL to a registry.json plugin index'),
+    }),
     z
       .object({
         source: z.literal('settings'),
