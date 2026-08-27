@@ -682,6 +682,15 @@ src/
 | **v0.4.0** | 项目级 API 服务器、便携式 CLAUDE.md 解析器（312 通过） |
 | **v0.4.4** | FUSION.rules 规则系统、MultiEdit 工具、审计日志、敏感文件保护、频率限制、新命令 |
 
+## 开发者文档
+
+- [`docs/developer-guide.md`](docs/developer-guide.md) — **场景化快速上手 + 配置排障矩阵**（使用 fusion-code 的开发者首选）
+- [`docs/development.md`](docs/development.md) — 构建命令、feature flag 机制、env 映射表（改 fusion-code 本身）
+- [`docs/model-providers.md`](docs/model-providers.md) — 6 个 provider 选择逻辑 + 各 provider env 配置示例
+- [`docs/feature-flags.md`](docs/feature-flags.md) — 88 个 feature flag 详表
+- [`docs/architecture.md`](docs/architecture.md) — 高层架构与核心子系统
+- [`docs/trajectory-pipeline.md`](docs/trajectory-pipeline.md) — 会话→训练数据飞轮
+
 ## 贡献
 
 1. Fork 仓库
