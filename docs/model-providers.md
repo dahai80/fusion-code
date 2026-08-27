@@ -376,6 +376,54 @@ executor v0.2.0 上游 12 issues 全 CLOSED。本 PR = fusion-code 侧 wiring，
 - `bashDiagnostics.test.ts` — undefined→全量不变、切片替全量、auto_rolled_back `<note>` 前置（有/无 snapshotId）、无 note（false/undefined）、部分字段缺失、omit line_number 后缀。
 
 
+## Stream Resume seam (gw#123 客户端半，PR #163)
+
+### 背景
+
+fusion-gateway 服务端可恢复 SSE 已落地（cross-repo gw#123，merged 2026-08-27）：本地 MLX 流式生成中途掉线时，可经 `GET /v1/messages/{stream_id}/events` 携带 `Last-Event-ID: <sid>:<seq>` 游标重连，replay 缓存帧 + live tail 续流，而非整轮重发。本节是 gw#123 acceptance box 4 未勾选项——fusion-code **客户端半**。**逆转 Defer Item 1**（`enhance-0819.md` item 15(b) "gateway reconnect + stream-resume"，阻塞项"无 stream-resume 基建"已被 gw#123 移除）。
+
+### 服务端契约（gw#123，fusion-code 只读）
+
+- 触发：`routing.stream.resume_enabled`（默认 false）AND route == LocalBackend；cloud/first-party 不可恢复。
+- `sid` = 请求 X-Request-ID；响应头 `X-Fusion-Stream-ID: <sid>` 宣告命名空间。
+- 每 SSE 帧 `id: <sid>:<seq>`（单调）；有界 buffer（rolling：256 events / 1 MiB / 10m TTL）。
+- resume 端点 `GET /v1/messages/{sid}/events`，游标 `Last-Event-ID` 头（优先）或 `?last_event_id=`；两阶段 replay-after-cursor + live drain；404 = disabled/unknown/evicted。
+- 经 `POST /v1/chat/completions` → `handleStreamChatResumable`（LocalBackend）触发；`POST /v1/messages` Anthropic 路径不 engage。
+
+### cursor 丢失 3 处（MLX 翻译层）
+
+fusion-code MLX 路径不发 `/v1/messages`，`createFusionMlxFetch` 拦截改写为 `POST /v1/chat/completions`。gateway 回 OpenAI SSE 带 `X-Fusion-Stream-ID` + `id:` 行，翻译层在 3 处毁游标：
+1. `transformMLXStreamToAnthropic` 只解析 `data:` 行 → 逐帧 `id:` 被剥离。
+2. `encodeStreamToAnthropicSSE` spread 原响应头 → `X-Fusion-Stream-ID` 透传（无需改）。
+3. `streamViaSeam` `sseToChunk` 丢弃 `evt.id`。
+
+### 方案
+
+**cursor 捕获 — teeCursor 侧信道（option B）。** `teeCursor(rawResponseBody)` 在 transform 前包原始 body，拆 SSE 帧，提取 `id: <sid>:<seq>` 到 mutable `CursorRef`，帧原样透传（transform 字节不变）。`sid` 从 `X-Fusion-Stream-ID` 头读。surgical：一个 helper + 一个 hook + catch 读 ref，不动 transform 上游签名。
+
+**合并 — STATE-CONTINUATION（关键）。** 在 resumed 帧上跑 FRESH transform 会重合成 `message_start` + FRESH `content_block` 索引（0,1,...），与 `claude.ts` 掉线前 `contentBlocks` 索引错位（→ `RangeError`）且丢 mid-tool args（`id`/`name` 游标后不再到达）。修复：用掉线前 `StreamState` 的**深克隆**种子续传 `transformMLXStreamToAnthropic`（`contentIndex`/`textBuffer`/`emittedTextLen`/`textBlockOpen`/`thinkingBlockOpen`/`currentToolCall`）。transform 无缝续传——正确索引、只发新文本（`slice` from `emittedTextLen`）、mid-tool args 追加同块、抑制 spurious `content_block_start`（open-block flag 已 true）。merge generator 唯一过滤：丢弃 resumed 流启动无条件 `message_start`。
+
+**drop 判定（claude.ts catch）。** resume-eligible = 仅 timeout 类（`isTimeoutErrorLike` / `streamIdleAborted`）——管道已排空 lag=0、cursor+state 一致安全。硬传输 reset 排除（管 lag → cursor 超前消费 → replay 丢帧 → 腐败）。`APIError` 4xx 与用户中断照旧 re-throw。
+
+### 门控与边界
+
+- `FUSION_CODE_STREAM_RESUME_ENABLED`（默认未设 = off，**byte-identical**）——经 `isEnvTruthy` 读，非 `feature()` 运行期 cast（避 PR #9 build bug：`feature()` 要字符串字面量做 DCE）。
+- `FUSION_CODE_STREAM_RESUME_MAX_ATTEMPTS`（默认 3）。
+- 404（disabled/evicted/TTL）/ 超限 / 重复传输错 → 落到既有 non-streaming fallback。无新失败模式，最坏 = 今天行为。
+
+### 落地
+
+- **NEW** `src/services/llm/streamResume.ts` — `teeCursor`（cursor 侧信道）、`resumeStreamFetch`（真实 global fetch，绕过 adapter 拦截器）、`mergeResumedStream`（种子续传合并）、`isResumeEligibleError`、门控 helper、`ResumeRefs` WeakMap。
+- **MOD** `src/services/api/fusion-mlx-stream.ts` — `transformMLXStreamToAnthropic` 加可选 `seedState?` + `stateRef?` 参数（undefined = byte-identical）；export `StreamState`。
+- **MOD** `src/services/api/fusion-mlx-adapter.ts` — streaming 分支：body 包 `teeCursor`、建 `stateRef`、WeakMap 挂 refs（off → 不变）。
+- **MOD** `src/services/api/claude.ts` — while-loop 包 for-await，catch 内 resume-eligible 分支（off → 原路径 verbatim）。
+- **NEW** `src/__tests__/llm/streamResume.test.ts` — 34 测：teeCursor、seedState 续传、mergeResumedStream、resumeStreamFetch（mock fetch）、isResumeEligibleError、门控、ResumeRefs、端到端 state-continuation 合并。
+
+### defer
+
+- option A（full `id:` 端到端穿 transform/encode/seam/sseToChunk/types = 5 文件签名改）→ DEFERRED；option B（teeCursor 侧信道）优先。cursor 保真问题暴露再回访。
+- 端到端手工测（对 live gateway `resume_enabled=true`）需 gateway 侧 env，另行追踪。
+
 ## P5 远期结构 — 现状与 defer 决策（enhance-0819.md §D.7）
 
 spec §D.7 P5 自标"远期结构, 评估" / "评估而非照搬"。审计现状后：**3 项 surgical 落地 + 3 项显式 defer**。
