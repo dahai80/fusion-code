@@ -5,12 +5,12 @@
 // consumers — 0 this PR). exec + sandbox are opt-in env-gated (default off →
 // undefined → byte-identical). Existing BashTool routing stays untouched.
 import { logForDebugging } from "../../utils/debug.js";
-import { createLlmCapability } from "./capability.js";
-import type { LlmCapability } from "./capability.js";
-import type { FsCapability } from "./capabilities/fs.js";
-import type { ToolsCapability } from "./capabilities/tools.js";
 import type { ExecCapability } from "./capabilities/exec.js";
+import type { FsCapability } from "./capabilities/fs.js";
 import type { SandboxCapability } from "./capabilities/sandbox.js";
+import type { ToolsCapability } from "./capabilities/tools.js";
+import type { LlmCapability } from "./capability.js";
+import { createLlmCapability } from "./capability.js";
 
 export interface Ctx {
 	readonly llm: LlmCapability;

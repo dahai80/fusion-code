@@ -3,10 +3,9 @@ import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 const { BaseToolsCapability } = await import(
 	"../../../../services/llm/capabilities/tools.js"
 );
-const {
-	getFusionRulesConfig,
-	setFusionRulesConfig,
-} = await import("../../../../utils/fusionRules.js");
+const { getFusionRulesConfig, setFusionRulesConfig } = await import(
+	"../../../../utils/fusionRules.js"
+);
 
 let savedConfig: ReturnType<typeof getFusionRulesConfig>;
 

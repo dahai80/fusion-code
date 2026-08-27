@@ -1,10 +1,4 @@
-import {
-	afterEach,
-	beforeEach,
-	describe,
-	expect,
-	test,
-} from "bun:test";
+import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 
 // No mock.module here: the real adapter's getMlxModelCapabilities probes the
 // local MLX server via getFusionMlxModels(), which catches ECONNREFUSED and

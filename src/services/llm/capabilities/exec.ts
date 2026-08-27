@@ -7,8 +7,8 @@
 // one-shot exec consumers (ctx-inspect helpers, code-search) that want a result
 // without the BashTool orchestration layer.
 import { spawn } from "node:child_process";
-import type { ExecResult } from "../../../utils/ShellCommand.js";
 import { logForDebugging } from "../../../utils/debug.js";
+import type { ExecResult } from "../../../utils/ShellCommand.js";
 
 export interface ExecCapability {
 	readonly backend: "in-process" | "executor";

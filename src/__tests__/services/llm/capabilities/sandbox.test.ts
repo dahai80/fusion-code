@@ -11,7 +11,11 @@ describe("NoneSandboxProvider", () => {
 
 	test("applyTo returns the same object unchanged (no-op identity)", () => {
 		const cap = new NoneSandboxProvider();
-		const opts = { cwd: "/tmp", shell: true, stdio: ["ignore", "pipe", "pipe"] };
+		const opts = {
+			cwd: "/tmp",
+			shell: true,
+			stdio: ["ignore", "pipe", "pipe"],
+		};
 		expect(cap.applyTo(opts)).toBe(opts);
 	});
 

@@ -5,8 +5,9 @@
 // FileReadTool object — that pulls ToolUseContext/permissions/UI graph; the
 // seam keeps the capability primitive-light per "包现实现 = wrap the capability,
 // not the Tool orchestration layer"). Byte-identical when no consumer migrated.
-import { readFile, writeFile, glob } from "node:fs/promises";
+
 import { exec } from "node:child_process";
+import { glob, readFile, writeFile } from "node:fs/promises";
 import { promisify } from "node:util";
 import { logForDebugging } from "../../../utils/debug.js";
 

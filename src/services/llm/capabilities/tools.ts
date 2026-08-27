@@ -6,10 +6,11 @@
 // it needs full ToolUseContext (canUseTool/parentMessage/onProgress), which
 // would over-couple; the registry+denial lookup face is what A3 centralizes.
 // Byte-identical when no consumer migrated.
-import { getAllBaseTools } from "../../../tools.js";
+
 import { findToolByName, type Tool, type Tools } from "../../../Tool.js";
-import { isToolDenied } from "../../../utils/fusionRules.js";
+import { getAllBaseTools } from "../../../tools.js";
 import { logForDebugging } from "../../../utils/debug.js";
+import { isToolDenied } from "../../../utils/fusionRules.js";
 
 export interface ToolsCapability {
 	readonly provider: "base";
