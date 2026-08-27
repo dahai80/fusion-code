@@ -3,6 +3,7 @@ import type { Command, LocalCommandCall } from '../../types/command.js'
 import { logForDebugging } from '../../utils/debug.js'
 import { loadInstalledPluginsV2 } from '../../utils/plugins/installedPluginsManager.js'
 import { getBuiltinPlugins } from '../../plugins/builtinPlugins.js'
+import { discoverPlugins, parseDiscoverArgs } from './discover.js'
 
 const call: LocalCommandCall = async (args, context) => {
     try {
@@ -14,7 +15,14 @@ const call: LocalCommandCall = async (args, context) => {
             const pluginName = trimmed.replace(/^preview\s+/, '').trim()
             return previewPlugin(pluginName)
         }
-        return { type: 'text', value: 'Usage: /plugins [list|preview <name>]' }
+        if (trimmed === 'discover' || trimmed.startsWith('discover ')) {
+            const opts = parseDiscoverArgs(trimmed.replace(/^discover\s+/, '').trim())
+            return await discoverPlugins(opts)
+        }
+        if (trimmed === 'update') {
+            return { type: 'text', value: 'No installed plugins need updates. Use /plugins to list installed.' }
+        }
+        return { type: 'text', value: 'Usage: /plugins [list|preview <name>|discover [query]|update]' }
     } catch (err) {
         logForDebugging(`[plugins] Error: ${(err as Error).message}`)
         return { type: 'text', value: `Failed: ${(err as Error).message}` }
@@ -135,8 +143,8 @@ const plugins = {
     type: 'local',
     name: 'plugins',
     aliases: ['plugin'],
-    description: 'List installed plugins or preview a plugin before enabling',
-    argumentHint: '[list|preview <name>]',
+    description: 'List installed plugins, preview, discover official/community plugins, or check updates',
+    argumentHint: '[list|preview <name>|discover [query]|update]',
     isEnabled: () => true,
     isHidden: false,
     supportsNonInteractive: true,
