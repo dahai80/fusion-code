@@ -133,6 +133,48 @@ async function main(): Promise<void> {
 		console.log(prompt.join("\n"));
 		return;
 	}
+
+	// ar-plan PR #9 (S3): --dump-config fast-path — 导出当前生效配置树 (诊断用)。
+	// 仿 --dump-system-prompt: 解析 provider/model/profile/tool list/commands → JSON。
+	if (feature("DUMP_CONFIG") && args[0] === "--dump-config") {
+		profileCheckpoint("cli_dump_config_path");
+		const { enableConfigs } = await import("../utils/config.js");
+		enableConfigs();
+		const { getMainLoopModel } = await import("../utils/model/model.js");
+		const { getAPIProvider } = await import("../utils/model/providers.js");
+		const { getTools } = await import("../tools.js");
+		const { getCommands } = await import("../commands.js");
+		const {
+			loadProfile,
+			setSessionProfile,
+			validateProfileRequiresFlags,
+			enabledFlagsChecker,
+		} = await import("../services/profile/profile.js");
+		// 解析 --model / --profile
+		const modelIdx = args.indexOf("--model");
+		const model = (modelIdx !== -1 && args[modelIdx + 1]) || getMainLoopModel();
+		const profileIdx = args.indexOf("--profile");
+		const profileName = profileIdx !== -1 ? args[profileIdx + 1] : undefined;
+		const profile = loadProfile(profileName);
+		if (profile) {
+			setSessionProfile(profile);
+			// feature() 编译期宏无法运行期查动态 flag 名 — 用 enabledFlagsChecker 查
+			// FUSION_CODE_ENABLED_FLAGS (未设 = 全满足 fail-open), 避开 feature() cast。
+			validateProfileRequiresFlags(profile, enabledFlagsChecker());
+		}
+		const provider = getAPIProvider(model);
+		const toolList = getTools({} as never).map((t) => t.name);
+		const commandList = (await getCommands(process.cwd())).map((c) => c.name);
+		const configDump = {
+			provider,
+			model,
+			profile: profile?.name ?? null,
+			enabledTools: toolList,
+			commands: commandList,
+		};
+		console.log(JSON.stringify(configDump, null, 2));
+		return;
+	}
 	if (process.argv[2] === "--claude-in-chrome-mcp") {
 		profileCheckpoint("cli_claude_in_chrome_mcp_path");
 		const { runClaudeInChromeMcpServer } = await import(
@@ -400,6 +442,29 @@ async function main(): Promise<void> {
 	// option building (not just inside the action handler).
 	if (args.includes("--bare")) {
 		process.env.CLAUDE_CODE_SIMPLE = "1";
+	}
+
+	// ar-plan PR #9 (S3): --profile <name> CLI flag — 解析 → setSessionProfile
+	// → getTools 后调 filterToolsByProfile (MLX 分层之后叠加)。
+	// byte-identical off: 无 --profile → loadProfile(undefined)=null →
+	// setSessionProfile(null) (即 globalThis 默认) → filterToolsByProfile 原样返回。
+	const profileFlagIdx = args.indexOf("--profile");
+	if (profileFlagIdx !== -1) {
+		profileCheckpoint("cli_profile_parse");
+		const {
+			loadProfile,
+			setSessionProfile,
+			validateProfileRequiresFlags,
+			enabledFlagsChecker,
+		} = await import("../services/profile/profile.js");
+		const profileName = args[profileFlagIdx + 1];
+		const profile = loadProfile(profileName);
+		if (profile) {
+			setSessionProfile(profile);
+			// 同 --dump-config: 用 enabledFlagsChecker (env 查) 替 feature() cast,
+			// feature() 运行期无法查动态 flag 名 (bun 编译期宏限制)。
+			validateProfileRequiresFlags(profile, enabledFlagsChecker());
+		}
 	}
 
 	// No special flags detected, load and run the full CLI

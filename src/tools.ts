@@ -1,5 +1,9 @@
 // biome-ignore-all assist/source/organizeImports: ANT-ONLY import markers must not be reordered
 import { toolMatchesName, type Tool, type Tools } from "./Tool.js";
+import {
+	filterToolsByProfile,
+	getSessionProfile,
+} from "./services/profile/profile.js";
 import { AgentTool } from "./tools/AgentTool/AgentTool.js";
 import { SkillTool } from "./tools/SkillTool/SkillTool.js";
 import { BashTool } from "./tools/BashTool/BashTool.js";
@@ -346,7 +350,8 @@ export const getTools = (permissionContext: ToolPermissionContext): Tools => {
 			(tool) => !specialTools.has(tool.name),
 		);
 		const filtered = baseTools.filter((tool) => mlxToolFilter.has(tool.name));
-		return filterToolsByDenyRules(filtered, permissionContext);
+		const denied = filterToolsByDenyRules(filtered, permissionContext);
+		return filterToolsByProfile(denied, getSessionProfile());
 	}
 
 	const tools = getAllBaseTools().filter(
@@ -370,7 +375,10 @@ export const getTools = (permissionContext: ToolPermissionContext): Tools => {
 	}
 
 	const isEnabled = allowedTools.map((_) => _.isEnabled());
-	return allowedTools.filter((_, i) => isEnabled[i]);
+	const enabledTools = allowedTools.filter((_, i) => isEnabled[i]);
+	// ar-plan PR #9 (S3): profile 层在 MLX 分层之后叠加 (两正交)。
+	// getSessionProfile() = null (无 --profile) → 原样返回 byte-identical。
+	return filterToolsByProfile(enabledTools, getSessionProfile());
 };
 
 /**
