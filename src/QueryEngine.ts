@@ -1,5 +1,4 @@
 import { feature } from "bun:bundle";
-import type { ContentBlockParam } from "src/types/anthropic-protocol.js";
 import { randomUUID } from "crypto";
 import last from "lodash-es/last.js";
 import {
@@ -19,6 +18,7 @@ import type { NonNullableUsage } from "src/services/api/logging.js";
 import { EMPTY_USAGE } from "src/services/api/logging.js";
 import { checkBudget } from "src/services/goal/budgetEnforcer.js";
 import { updateBudgetUsed } from "src/services/goal/goalState.js";
+import type { ContentBlockParam } from "src/types/anthropic-protocol.js";
 import stripAnsi from "strip-ansi";
 import type { Command } from "./commands.js";
 import { getSlashCommandToolSkills } from "./commands.js";
@@ -36,6 +36,19 @@ import { loadMemoryPrompt } from "./memdir/memdir.js";
 import { hasAutoMemPathOverride } from "./memdir/paths.js";
 import { query } from "./query.js";
 import { categorizeRetryableAPIError } from "./services/api/errors.js";
+// ar-plan PR #8 (S2.2): 双写断言 (dev-only, prod byte-identical)
+import { assertDualWrite } from "./services/events/deriveMessages.js";
+// ar-plan PR #7 (S2.1): 事件溯源旁路写
+import {
+	isEventSourcingEnabled,
+	NOOP_RECORDER,
+	SessionEventRecorder,
+} from "./services/events/eventLog.js";
+import {
+	recordTurnFailure,
+	takeTurnSnapshot,
+	lastHint as turnSnapshotHint,
+} from "./services/executor/turnSnapshot.js";
 import type { MCPServerConnection } from "./services/mcp/types.js";
 import type { AppState } from "./state/AppState.js";
 import { type Tools, type ToolUseContext, toolMatchesName } from "./Tool.js";
@@ -62,14 +75,6 @@ import { headlessProfilerCheckpoint } from "./utils/headlessProfiler.js";
 import { registerStructuredOutputEnforcement } from "./utils/hooks/hookHelpers.js";
 import { getInMemoryErrors } from "./utils/log.js";
 import { countToolCalls, SYNTHETIC_MESSAGES } from "./utils/messages.js";
-// ar-plan PR #7 (S2.1): 事件溯源旁路写
-import {
-	SessionEventRecorder,
-	isEventSourcingEnabled,
-	NOOP_RECORDER,
-} from "./services/events/eventLog.js";
-// ar-plan PR #8 (S2.2): 双写断言 (dev-only, prod byte-identical)
-import { assertDualWrite } from "./services/events/deriveMessages.js";
 import {
 	getMainLoopModel,
 	parseUserSpecifiedModel,
@@ -81,11 +86,6 @@ import {
 } from "./utils/processUserInput/processUserInput.js";
 import { fetchSystemPromptParts } from "./utils/queryContext.js";
 import { setCwd } from "./utils/Shell.js";
-import {
-	lastHint as turnSnapshotHint,
-	recordTurnFailure,
-	takeTurnSnapshot,
-} from "./services/executor/turnSnapshot.js";
 import {
 	flushSessionStorage,
 	recordTranscript,
@@ -259,7 +259,9 @@ export class QueryEngine {
 
 		this.discoveredSkillNames.clear();
 		// ar-plan PR #7 (S2.1): 旁路写 turn_start (shadow, default-off)
-		this.eventRecorder.record("turn_start", { prompt: typeof prompt === "string" ? prompt : "[content blocks]" });
+		this.eventRecorder.record("turn_start", {
+			prompt: typeof prompt === "string" ? prompt : "[content blocks]",
+		});
 		setCwd(cwd);
 		const persistSession = !isSessionPersistenceDisabled();
 		const startTime = Date.now();
@@ -1252,7 +1254,11 @@ export class QueryEngine {
 		const turnResultUuid = randomUUID();
 		// ar-plan PR #8 (S2.2): 双写断言 — 每 turn 末一次 (非每 push, 省开销)。
 		// dev + env 开: derived === mutableMessages; prod 早 return (byte-identical)。
-		assertDualWrite(this.eventRecorder.getLog(), this.mutableMessages, turnResultUuid);
+		assertDualWrite(
+			this.eventRecorder.getLog(),
+			this.mutableMessages,
+			turnResultUuid,
+		);
 		yield {
 			type: "result",
 			subtype: "success",
