@@ -94,7 +94,7 @@ export interface AnthropicPing {
 
 // ─── Stream State ─────────────────────────────────────────────
 
-interface StreamState {
+export interface StreamState {
 	messageId: string;
 	model: string;
 	contentIndex: number;
@@ -269,30 +269,46 @@ export async function* transformMLXStreamToAnthropic(
 	response: Response,
 	model: string,
 	inputTokens?: number,
+	seedState?: StreamState,
+	stateRef?: { current: StreamState | undefined },
 ): AsyncGenerator<AnthropicStreamEvent> {
-	const state = createInitialState(model);
+	// seedState = resume 续传: 深克隆 pre-drop state (调用方克隆, 隔离双流腐败)。
+	// 续传 contentIndex/textBuffer/emittedTextLen/textBlockOpen/currentToolCall →
+	// 正确索引/只发新文本/续 mid-tool/抑制 spurious content_block_start。
+	// undefined → createInitialState (byte-identical 原行为)。
+	const state = seedState
+		? (structuredClone(seedState) as StreamState)
+		: createInitialState(model);
+
+	// stateRef 侧信道: state 为 const ref, processChunk 原地改其字段, 对象身份不变。
+	// 一次性挂载后, claude.ts 掉线时读 stateRef.current 拿 live state (已含所有累计变更)。
+	// undefined → 不挂 (byte-identical 原行为)。
+	if (stateRef) stateRef.current = state;
 
 	if (!response.body) {
 		throw new Error("MLX stream response has no body");
 	}
 
-	// Emit message_start
-	yield {
-		type: "message_start",
-		message: {
-			id: state.messageId,
-			type: "message",
-			role: "assistant",
-			content: [],
-			model: state.model,
-			stop_reason: null,
-			stop_sequence: null,
-			usage: {
-				input_tokens: inputTokens ?? 0,
-				output_tokens: 0,
+	// Emit message_start — seed 续传时跳过 (claude.ts 已持有本轮 message_start;
+	// resumed 的会带新 message_id+零 usage 覆盖 partialMessage, mergeResumedStream 也再丢一次)。
+	if (!seedState) {
+		yield {
+			type: "message_start",
+			message: {
+				id: state.messageId,
+				type: "message",
+				role: "assistant",
+				content: [],
+				model: state.model,
+				stop_reason: null,
+				stop_sequence: null,
+				usage: {
+					input_tokens: inputTokens ?? 0,
+					output_tokens: 0,
+				},
 			},
-		},
-	};
+		};
+	}
 
 	const reader = response.body.getReader();
 	const decoder = new TextDecoder();

@@ -11,6 +11,12 @@
 import { logForDebugging } from "../../utils/debug.js";
 import { isEnvTruthy } from "../../utils/envUtils.js";
 import {
+	attachResumeRefs,
+	isStreamResumeEnabled,
+	type StateRef,
+	teeCursor,
+} from "../llm/streamResume.js";
+import {
 	type AnthropicNonStreamingResponse,
 	type AnthropicStreamEvent,
 	transformMLXResponseToAnthropic,
@@ -1742,15 +1748,56 @@ export function createFusionMlxFetch(model: string): typeof globalThis.fetch {
 				logForDebugging(
 					`[Fusion-MLX] Stream message_start input_tokens estimate: ${inputTokensEst}`,
 				);
+
+				// resume 感知: env on + gateway 响应带 X-Fusion-Stream-ID →
+				//   ① teeCursor 在 transform 前侧信道提 id:<sid>:<seq> → cursorRef
+				//   ② stateRef 让 transform 挂 live StreamState (掉线时深克隆续种子)
+				//   ③ attachResumeRefs 挂到 OUTPUT Response (encodeStreamToAnthropicSSE 返回值),
+				//      因 claude.ts 持 streamResponse = 该 OUTPUT (WeakMap 键 = Response 对象)。
+				//   off → 无 wrap/refs, transform 3 参数, byte-identical 原行为。
+				const resumeOn = isStreamResumeEnabled();
+				const sid = resumeOn
+					? mlxResponse.headers.get("x-fusion-stream-id") || ""
+					: "";
+
+				let transformResponse: Response = mlxResponse;
+				let cursorRef: { current: string } | undefined;
+				let stateRef: StateRef | undefined;
+				if (resumeOn && sid && mlxResponse.body) {
+					const tee = teeCursor(mlxResponse.body);
+					cursorRef = tee.ref;
+					stateRef = { current: undefined };
+					// transform 读 .body → 给 teed stream (旁路提 id, 帧原样透传)。
+					transformResponse = new Response(tee.stream, {
+						status: mlxResponse.status,
+						headers: mlxResponse.headers,
+					});
+				}
+
 				const anthropicStream = transformMLXStreamToAnthropic(
-					mlxResponse,
+					transformResponse,
 					model,
 					inputTokensEst,
+					undefined,
+					stateRef,
 				);
 				const { encodeStreamToAnthropicSSE } = await import(
 					"./fusion-mlx-stream.js"
 				);
-				return encodeStreamToAnthropicSSE(anthropicStream, mlxResponse);
+				const output = await encodeStreamToAnthropicSSE(
+					anthropicStream,
+					mlxResponse,
+				);
+				if (cursorRef && stateRef && sid) {
+					attachResumeRefs(output, {
+						cursorRef,
+						stateRef,
+						sid,
+						baseUrl: getMlxBaseUrl(),
+						authHeaders: getMlxAuthHeaders(),
+					});
+				}
+				return output;
 			}
 
 			// 非流式响应 — max_tokens escalation on truncation
