@@ -74,6 +74,7 @@ import {
 import { headlessProfilerCheckpoint } from "./utils/headlessProfiler.js";
 import { registerStructuredOutputEnforcement } from "./utils/hooks/hookHelpers.js";
 import { getInMemoryErrors } from "./utils/log.js";
+import { logForDebugging } from "./utils/debug.js";
 import { countToolCalls, SYNTHETIC_MESSAGES } from "./utils/messages.js";
 import {
 	getMainLoopModel,
@@ -852,14 +853,14 @@ export class QueryEngine {
 								block?.type === "tool_result" &&
 								(block as { is_error?: boolean }).is_error
 							) {
-								recordTurnFailure();
+								recordTurnFailure(turnSnapshotId);
 							}
 						}
 					}
 					// Phase 3b: if the failure threshold staged a rollback hint,
 					// inject it as a user-role note so the next ask() surfaces it.
 					// Drains the hint (one-shot per threshold crossing).
-					const tsHint = turnSnapshotHint();
+					const tsHint = turnSnapshotHint(turnSnapshotId);
 					if (tsHint) {
 						const hintMessage = {
 							type: "user" as const,
@@ -920,7 +921,37 @@ export class QueryEngine {
 							updateBudgetUsed(_sessionId, { turns: 1, tokens: _tokenDelta });
 							const _budgetCheck = checkBudget(_sessionId);
 							if (_budgetCheck.exceeded) {
-								console.error("[goal] budget exceeded", _budgetCheck.goalId);
+								// P1-5: 预算超限此前仅建议性 — pauseGoal 后 turn 继续, console.error
+								// 到 stderr SDK 消费者看不到, message 被丢弃。镜像 maxBudgetUsd (L1090):
+								// yield result subtype error_max_budget + return, surfacing message。
+								logForDebugging(
+									`[goal] budget exceeded, goal ${_budgetCheck.goalId} paused: ${_budgetCheck.message}`,
+									{ level: "warn" },
+								);
+								yield {
+									type: "result",
+									subtype: "error_max_budget",
+									duration_ms: Date.now() - startTime,
+									duration_api_ms: getTotalAPIDuration(),
+									is_error: true,
+									num_turns: turnCount,
+									stop_reason: lastStopReason,
+									session_id: getSessionId(),
+									total_cost_usd: getTotalCost(),
+									usage: this.totalUsage,
+									modelUsage: getModelUsage(),
+									permission_denials: this.permissionDenials,
+									fast_mode_state: getFastModeState(
+										mainLoopModel,
+										initialAppState.fastMode,
+									),
+									uuid: randomUUID(),
+									errors: [
+										_budgetCheck.message ??
+											"Goal budget exceeded",
+									],
+								};
+								return;
 							}
 						} catch (_budgetErr) {
 							// budget tracking skipped
@@ -1024,6 +1055,12 @@ export class QueryEngine {
 						if (snipResult.executed) {
 							this.mutableMessages.length = 0;
 							this.mutableMessages.push(...snipResult.messages);
+							// P1-9: 同步本地快照 messages — 此前只更 mutableMessages,
+							// messages (L468 副本) 仍带 pre-snip 旧数据 →
+							// recordTranscript(messages) 写旧消息到磁盘, result findLast
+							// 走旧 messages。原地 length=0 + push 保持 const 引用。
+							messages.length = 0;
+							messages.push(...snipResult.messages);
 							// ar-plan PR #7 (S2.1): 旁路写 compact (snip replay, shadow)
 							this.eventRecorder.record("compact", snipResult);
 						}
@@ -1282,6 +1319,17 @@ export class QueryEngine {
 		};
 		// ar-plan PR #7 (S2.1): 旁路写 turn_end (shadow, default-off)
 		this.eventRecorder.record("turn_end", { uuid: turnResultUuid });
+		// P1-4: wallMs 预算此前从不驱动 (调用方只传 turns/tokens, budgetUsed.wallMs 恒 0,
+		// 用户 `/goal wallMs=...` 静默永不触发)。turn 末用 startTime 差值累加, 一次/turn。
+		try {
+			const _sessionId = getSessionId();
+			const _wallDelta = Date.now() - startTime;
+			if (_wallDelta > 0) {
+				updateBudgetUsed(_sessionId, { wallMs: _wallDelta });
+			}
+		} catch (_wallErr) {
+			// wallMs tracking skipped — turns/tokens already tracked per-iteration
+		}
 	}
 
 	interrupt(): void {

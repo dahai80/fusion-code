@@ -15,6 +15,7 @@
 import type { ServerWebSocket } from "bun";
 import { randomBytes } from "crypto";
 import { chmod, mkdir, readdir, writeFile } from "fs/promises";
+import { chmodSync, mkdirSync, writeFileSync } from "fs";
 import { homedir } from "os";
 import { dirname, join, resolve } from "path";
 import { scanMemoryFiles } from "../memdir/memoryScan.js";
@@ -957,20 +958,28 @@ export function resolveEffectiveAuthToken(config: ServerConfig): {
 	const configDir =
 		process.env.FUSION_CODE_CONFIG_DIR ?? join(homedir(), ".fusion-code");
 	const tokenFile = join(configDir, "server.token");
-	void (async () => {
-		try {
-			await mkdir(configDir, { recursive: true });
-			await writeFile(tokenFile, generated, { mode: 0o600 });
-			await chmod(tokenFile, 0o600);
-			logForDebugging(
-				`projectApiServer: generated per-instance auth token, written to ${tokenFile} (mode 0600)`,
-			);
-		} catch (e) {
-			logForDebugging(
-				`projectApiServer: WARNING failed to persist generated token to ${tokenFile}: ${e}. Auth still enforced with in-memory token; local clients must pass --auth explicitly.`,
-			);
-		}
-	})();
+	// P1-15: 同步阻塞写 — 此前 fire-and-forget async 写让 Bun.serve 先接连接,
+	// 本地客户端 (Fusion Studio) 立即轮询 server.token 竞态错过写 → 静默 auth 锁定。
+	// 此函数在 startProjectApiServer 启动时调一次 (非热路径), 同步写保证文件在
+	// serve 前存在。写失败 = fail-closed (throw, 启动失败 surfacing), 不留 in-memory
+	// token 无客户端可获的静默锁定。
+	try {
+		mkdirSync(configDir, { recursive: true });
+		writeFileSync(tokenFile, generated, { mode: 0o600 });
+		chmodSync(tokenFile, 0o600);
+		logForDebugging(
+			`projectApiServer: generated per-instance auth token, written to ${tokenFile} (mode 0600)`,
+		);
+	} catch (e) {
+		logForDebugging(
+			`projectApiServer: failed to persist generated token to ${tokenFile}: ${e}. ` +
+				`Fail-closed: refusing to start with in-memory-only token (no local client could discover it). Pass --auth explicitly.`,
+		);
+		throw new Error(
+			`failed to persist per-instance auth token to ${tokenFile}: ${e}. ` +
+				`Auth fail-closed — pass --auth=<token> explicitly or fix config dir permissions.`,
+		);
+	}
 	return { token: generated, tokenFile, disabled: false };
 }
 

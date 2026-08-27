@@ -26,6 +26,12 @@ const MAX_RETRIES_FOR_TRANSIENT_ERRORS = 3;
  * Actual delays: 500ms, 1000ms, 2000ms
  */
 const RETRY_BASE_DELAY_MS = 500;
+
+// P1-17: 默认超时安全网。config.startupTimeout/requestTimeout 未设 (undefined) 时
+// initialize 与每请求可永挂 — 行为不端的 LSP server spawn 成功但不响应 initialize,
+// 或后续请求无回包, 拖垮整个会话 LSP 子系统。显式配置仍优先 (用户调大)。
+const DEFAULT_STARTUP_TIMEOUT_MS = 30_000;
+const DEFAULT_REQUEST_TIMEOUT_MS = 10_000;
 /**
  * LSP server instance interface returned by createLSPServerInstance.
  * Manages the lifecycle of a single LSP server with state tracking and health monitoring.
@@ -237,15 +243,14 @@ export function createLSPServerInstance(
 			};
 
 			initPromise = client.initialize(initParams);
-			if (config.startupTimeout !== undefined) {
-				await withTimeout(
-					initPromise,
-					config.startupTimeout,
-					`LSP server '${name}' timed out after ${config.startupTimeout}ms during initialization`,
-				);
-			} else {
-				await initPromise;
-			}
+			// P1-17: 默认 startupTimeout (30s) 防止 initialize 永挂。
+			const startupTimeoutMs =
+				config.startupTimeout ?? DEFAULT_STARTUP_TIMEOUT_MS;
+			await withTimeout(
+				initPromise,
+				startupTimeoutMs,
+				`LSP server '${name}' timed out after ${startupTimeoutMs}ms during initialization`,
+			);
 
 			state = "running";
 			startTime = new Date();
@@ -371,7 +376,15 @@ export function createLSPServerInstance(
 			attempt++
 		) {
 			try {
-				return await client.sendRequest(method, params);
+				// P1-17: 默认 requestTimeout (10s) 防止单请求永挂拖垮会话。
+				// 用户 config.requestTimeout 未设 → DEFAULT_REQUEST_TIMEOUT_MS。
+				const requestTimeoutMs =
+					config.requestTimeout ?? DEFAULT_REQUEST_TIMEOUT_MS;
+				return await withTimeout(
+					client.sendRequest(method, params),
+					requestTimeoutMs,
+					`LSP request '${method}' to '${name}' timed out after ${requestTimeoutMs}ms`,
+				);
 			} catch (error) {
 				lastAttemptError = error as Error;
 

@@ -31,8 +31,13 @@ export interface ParseSseOptions {
 // StallTimeoutError: name contains "Timeout" so classifyByMessage -> TIMEOUT
 // (retryable via withRetry), and isTimeoutErrorLike duck-types true.
 export class StallTimeoutError extends Error {
-    public readonly phase: "first-token" | "idle";
-    constructor(phase: "first-token" | "idle", elapsedMs: number, budgetMs: number) {
+    // P1-26: phase 扩 "hard-timeout" — watchdog 禁用时硬安全网超时用此 phase。
+    public readonly phase: "first-token" | "idle" | "hard-timeout";
+    constructor(
+        phase: "first-token" | "idle" | "hard-timeout",
+        elapsedMs: number,
+        budgetMs: number,
+    ) {
         super(`SSE stream ${phase} timeout: ${elapsedMs}ms > ${budgetMs}ms budget (stalled upstream)`);
         this.name = "StallTimeoutError";
         this.phase = phase;
@@ -43,6 +48,12 @@ export class StallTimeoutError extends Error {
 // pre-fix behavior). FUSION_CODE_SSE_STALL_MS=0 / FUSION_CODE_SSE_FIRST_TOKEN_MS=0.
 const DEFAULT_STALL_MS = parseInt(process.env.FUSION_CODE_SSE_STALL_MS ?? "60000", 10);
 const DEFAULT_FIRST_TOKEN_MS = parseInt(process.env.FUSION_CODE_SSE_FIRST_TOKEN_MS ?? "180000", 10);
+
+// P1-26: 双预算 0 (watchdog 禁用) 时的硬安全网。裸 reader.read() 挂死上游 = 永挂
+// 直到 ESC。即便用户显式禁用 stall 检测, 仍强制 10min 硬超时兜底 — 上游真挂会
+// 抛 StallTimeoutError 而非静默永挂。10min 远超正常长生成的 chunk 间隔 (60s 默认 stall
+// 的 10×), 正常流不会误触; 仅兜底"无任何字节"的死连接。
+const HARD_READ_TIMEOUT_MS = 10 * 60 * 1000;
 
 function resolveBudgets(options?: ParseSseOptions): {
     stallMs: number;
@@ -67,7 +78,25 @@ async function readWithStallGuard(
     const disabled = budgets.stallMs <= 0 && budgets.firstTokenMs <= 0;
     if (disabled) {
         if (signal?.aborted) throw new DOMException("SSE stream aborted", "AbortError");
-        return reader.read();
+        // P1-26: watchdog 禁用时强制硬超时安全网 — 防裸 reader.read() 永挂。
+        // Race read 对 HARD_READ_TIMEOUT_MS timer, 超时 cancel reader + 抛 StallTimeoutError。
+        return new Promise((resolve, reject) => {
+            const timer = setTimeout(() => {
+                const err = new StallTimeoutError("hard-timeout", HARD_READ_TIMEOUT_MS, HARD_READ_TIMEOUT_MS);
+                void reader.cancel().catch(() => {});
+                reject(err);
+            }, HARD_READ_TIMEOUT_MS);
+            reader
+                .read()
+                .then((result) => {
+                    clearTimeout(timer);
+                    resolve(result);
+                })
+                .catch((err) => {
+                    clearTimeout(timer);
+                    reject(err);
+                });
+        });
     }
 
     let timer: ReturnType<typeof setTimeout> | undefined;

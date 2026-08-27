@@ -124,9 +124,12 @@ export const GoalUpdateTool = buildTool({
 		}
 		let updated;
 		if (status === "complete") {
-			updated = completeGoal(sessionId, targetId, summary);
+			// P1-8: pass expectedRevision into the single load/save cycle so the CAS
+			// check + mutation are atomic (previously getGoalById read + separate
+			// completeGoal reload/save = TOCTOU window for concurrent writes).
+			updated = completeGoal(sessionId, targetId, summary, expectedRevision);
 		} else {
-			updated = blockGoal(sessionId, targetId, summary);
+			updated = blockGoal(sessionId, targetId, summary, expectedRevision);
 		}
 		if (!updated) {
 			return {

@@ -172,10 +172,23 @@ export function completeGoal(
 	sessionId: string,
 	goalId: string,
 	summary?: string,
+	expectedRevision?: number,
 ): Goal | null {
 	const goals = loadGoals(sessionId);
 	const idx = goals.findIndex((g) => g.id === goalId);
 	if (idx === -1 || goals[idx].status === "complete") return null;
+	// P1-8: CAS 在单次 load/save 周期内执行 (此前 getGoalById 读 revision +
+	// completeGoal 独立 reload save = 两周期 TOCTOU, 并发写覆盖, CAS 装饰性)。
+	// expectedRevision 省略 → 不检查 (byte-identical)。
+	if (
+		expectedRevision != null &&
+		goals[idx].revision !== expectedRevision
+	) {
+		logForDebugging(
+			`[GoalState] completeGoal CAS rejected: expected ${expectedRevision} got ${goals[idx].revision}`,
+		);
+		return null;
+	}
 	goals[idx].status = "complete";
 	goals[idx].completedAt = Date.now();
 	goals[idx].summary = summary ?? null;
@@ -197,10 +210,21 @@ export function blockGoal(
 	sessionId: string,
 	goalId: string,
 	summary?: string,
+	expectedRevision?: number,
 ): Goal | null {
 	const goals = loadGoals(sessionId);
 	const idx = goals.findIndex((g) => g.id === goalId);
 	if (idx === -1 || goals[idx].status !== "active") return null;
+	// P1-8: CAS 在单次 load/save 周期内执行 (同 completeGoal)。
+	if (
+		expectedRevision != null &&
+		goals[idx].revision !== expectedRevision
+	) {
+		logForDebugging(
+			`[GoalState] blockGoal CAS rejected: expected ${expectedRevision} got ${goals[idx].revision}`,
+		);
+		return null;
+	}
 	goals[idx].status = "blocked";
 	goals[idx].summary = summary ?? null;
 	goals[idx].revision += 1;

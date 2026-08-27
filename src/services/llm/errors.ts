@@ -137,7 +137,10 @@ export function isTimeoutErrorLike(error: unknown): error is Error {
 		return error.failure.code === "TIMEOUT";
 	}
 	const name = (error as { name?: string }).name ?? "";
-	return /Timeout/.test(name) || /timeout/i.test(error.message);
+	// P1-22: match "timed out" (Node "Request timed out") too, not just the
+	// contiguous "timeout" token. A timed-out request that fails the regex
+	// is misclassified as non-timeout and never triggers retry/recovery.
+	return /Timeout/.test(name) || /timeout|timed?\s*out/i.test(error.message);
 }
 
 // 中断: SDK APIUserAbortError (name "APIUserAbortError") 或任意 .name === "AbortError",

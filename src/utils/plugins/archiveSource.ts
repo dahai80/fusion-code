@@ -16,7 +16,9 @@
 
 import { Buffer } from "node:buffer";
 import { createHash, timingSafeEqual } from "node:crypto";
-import { chmod, mkdir, writeFile } from "node:fs/promises";
+import { chmod, mkdir, open, readFile, unlink, writeFile } from "node:fs/promises";
+import { closeSync, fdatasyncSync, openSync } from "node:fs";
+import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import axios from "axios";
 import { logForDebugging } from "../debug.js";
@@ -34,6 +36,11 @@ export interface ArchivePluginSource {
 
 // 下载超时 (zip 通常 MB 级, 2min 足够; 大包如超时多半网络问题)
 const ARCHIVE_DOWNLOAD_TIMEOUT_MS = 120_000;
+
+// P1-29: 下载累计字节硬上限 — 流式写盘边下边累计, 超限即 abort。与解压层
+// (dxt/zip.ts 100k files / 512MB / 1024MB / 50:1) 形成纵深: 下载阶段先拒超大
+// 压缩体, 防缓冲 OOM 前就断流。50MB 与 maxContentLength 对齐。
+const ARCHIVE_MAX_DOWNLOAD_BYTES = 50_000_000;
 
 /**
  * 判定 PluginSource 是否为 archive 源 (type guard)。
@@ -78,6 +85,26 @@ function validateHttpsUrl(url: string): string {
 }
 
 /**
+ * P1-29: 重定向目标 HTTPS 校验。初始 URL 经 validateHttpsUrl 已锁 https,
+ * 但 maxRedirects:5 跟随重定向时服务器可 302 到 http:// (降级/中间人)。
+ * axios beforeRedirect 回调在每次重定向前触发, options 即新请求配置 —
+ * 校验 options.protocol === 'https:' 否则抛错中断 (fail-visible, Rule 12)。
+ * 仅放过 https: 重定向, 防下载链路被无声降级到明文。
+ */
+function assertRedirectHttps(options: {
+	protocol?: string;
+	hostname?: string;
+}): void {
+	const proto = options.protocol ?? "";
+	if (proto !== "https:") {
+		throw new Error(
+			`archive source redirect to non-HTTPS rejected: ${proto}//${options.hostname ?? "?"}. ` +
+				"HTTPS-only chain enforced (initial + all redirects).",
+		);
+	}
+}
+
+/**
  * 下载 zip → (可选) SHA-256 校验 → 解压到 targetPath。
  *
  * fail-visible (Rule 12): 网络/校验失败/解压失败全 throw, 不静默降级。
@@ -93,16 +120,67 @@ export async function installFromArchive(
 	const safeUrl = validateHttpsUrl(source.url);
 	logForDebugging(`archive source: downloading ${safeUrl}`);
 
-	// 下载 raw zip 字节 (arraybuffer, 同 officialMarketplaceGcs.ts:107-111)
-	const response = await axios.get(safeUrl, {
-		responseType: "arraybuffer",
-		timeout: ARCHIVE_DOWNLOAD_TIMEOUT_MS,
-		maxRedirects: 5,
-	});
-	const zipBuf = Buffer.from(response.data);
-	logForDebugging(
-		`archive source: downloaded ${zipBuf.length} bytes from ${safeUrl}`,
-	);
+	// P1-29: 流到临时文件带累计字节上限 (非全量 arraybuffer 缓冲)。
+	// 全量 arraybuffer 在解压层 zip-bomb 检查之前就把整包载入 RAM, 攻陷/恶意
+	// archive 返多 GB → 进程 OOM。改为 responseType:"stream" 逐块写盘 + 累计
+	// bytes, 超 ARCHIVE_MAX_DOWNLOAD_BYTES 即 abort + 删 temp。从盘读回 Buffer
+	// 再交 unzipFile (解压层仍守 100k files / 512MB / 50:1)。
+	// P1-29b: beforeRedirect 锁每跳重定向亦 https (assertRedirectHttps), 防链路
+	// 被 302 无声降级到 http:// 明文。
+	const tmpPath = join(tmpdir(), `fusion-archive-${process.pid}-${Date.now()}.zip`);
+	let zipBuf: Buffer;
+	try {
+		const response = await axios.get(safeUrl, {
+			responseType: "stream",
+			timeout: ARCHIVE_DOWNLOAD_TIMEOUT_MS,
+			maxRedirects: 5,
+			maxContentLength: ARCHIVE_MAX_DOWNLOAD_BYTES,
+			maxBodyLength: ARCHIVE_MAX_DOWNLOAD_BYTES,
+			beforeRedirect: (options) => {
+				assertRedirectHttps(options as { protocol?: string; hostname?: string });
+			},
+		});
+		const stream = response.data as NodeJS.ReadableStream & {
+			destroy(error?: Error): void;
+		};
+		const fh = await open(tmpPath, "w");
+		let received = 0;
+		let oversize = false;
+		try {
+			for await (const chunk of stream) {
+				received += chunk.length;
+				if (received > ARCHIVE_MAX_DOWNLOAD_BYTES) {
+					oversize = true;
+					stream.destroy(new Error(`archive download exceeded ${ARCHIVE_MAX_DOWNLOAD_BYTES} bytes (size cap)`));
+					break;
+				}
+				await fh.writeFile(chunk as Buffer);
+			}
+		} finally {
+			await fh.close().catch(() => {});
+		}
+		if (oversize) {
+			throw new Error(
+				`archive source aborted: response exceeded ${ARCHIVE_MAX_DOWNLOAD_BYTES} bytes (size cap) from ${safeUrl}`,
+			);
+		}
+		// 落盘耐久性: fdatasync 后再读回, 防 crash 留半写文件被当完整 zip 解。
+		let fdSync: number | undefined;
+		try {
+			fdSync = openSync(tmpPath, "r");
+			fdatasyncSync(fdSync);
+		} catch {
+			// 非正确性问题, 仅丢失断电耐久性。
+		} finally {
+			if (fdSync !== undefined) closeSync(fdSync);
+		}
+		zipBuf = await readFile(tmpPath);
+		logForDebugging(
+			`archive source: downloaded ${zipBuf.length} bytes from ${safeUrl}`,
+		);
+	} finally {
+		await unlink(tmpPath).catch(() => {});
+	}
 
 	// SHA-256 锁定 (可选) — 提供则校验, mismatch refuse 不解压
 	if (source.sha256) {

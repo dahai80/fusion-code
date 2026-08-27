@@ -231,6 +231,13 @@ const MCP_TOOL_TIMEOUT_WARN_MS = 600000;
  */
 const MAX_MCP_DESCRIPTION_LENGTH = 2048;
 
+// P1-19: MCP tools/list 硬上限。恶意/有缺陷 server 返 100k tools → 无界内存增长
+// + 单 turn 送 100k 工具定义给模型 = OOM + 上下文窗口耗尽。超限截断 + fail-visible
+// 警告日志。LRU 仍按 server 数限界 (MCP_FETCH_CACHE_SIZE), 此为单 server tool 数门控。
+const MAX_MCP_TOOLS_PER_SERVER = 1000;
+// P1-19: nextCursor 跟进硬页限 — 防止 server 用分页诱导客户端无限跟进 (cursor loop)。
+const MAX_MCP_TOOLS_PAGES = 50;
+
 /**
  * Gets the timeout for MCP tool calls in milliseconds.
  * Uses MCP_TOOL_TIMEOUT environment variable if set, otherwise defaults to 5 minutes.
@@ -1968,13 +1975,41 @@ export const fetchToolsForClient = memoizeWithLRU(
 				return [];
 			}
 
-			const result = (await client.client.request(
-				{ method: "tools/list" },
-				ListToolsResultSchema,
-			)) as ListToolsResult;
+			// P1-19: 跟进 nextCursor 分页 (硬页限 MAX_MCP_TOOLS_PAGES 防 cursor loop),
+			// 累积全部 tools 后统一 cap。单次 request 不跟进 = server 分页时只拿首页。
+			const allRawTools: ListToolsResult["tools"] = [];
+			let cursor: string | undefined;
+			let pages = 0;
+			let pageResult: ListToolsResult;
+			do {
+				pageResult = (await client.client.request(
+					cursor
+						? { method: "tools/list", params: { cursor } }
+						: { method: "tools/list" },
+					ListToolsResultSchema,
+				)) as ListToolsResult;
+				allRawTools.push(...pageResult.tools);
+				cursor = pageResult.nextCursor;
+				pages++;
+			} while (cursor && pages < MAX_MCP_TOOLS_PAGES);
+
+			if (cursor && pages >= MAX_MCP_TOOLS_PAGES) {
+				logForDebugging(
+					`MCP server "${client.name}": tools/list hit ${MAX_MCP_TOOLS_PAGES}-page cap, stopping pagination (possible cursor loop)`,
+				);
+			}
+
+			// P1-19: 硬上限 — 超 MAX_MCP_TOOLS_PER_SERVER 截断 + fail-visible 警告。
+			let toolsToCap = allRawTools;
+			if (allRawTools.length > MAX_MCP_TOOLS_PER_SERVER) {
+				logForDebugging(
+					`MCP server "${client.name}": returned ${allRawTools.length} tools (cap ${MAX_MCP_TOOLS_PER_SERVER}) — truncating, excess tools dropped`,
+				);
+				toolsToCap = allRawTools.slice(0, MAX_MCP_TOOLS_PER_SERVER);
+			}
 
 			// Sanitize tool data from MCP server
-			const toolsToProcess = recursivelySanitizeUnicode(result.tools);
+			const toolsToProcess = recursivelySanitizeUnicode(toolsToCap);
 
 			// Check if we should skip the mcp__ prefix for SDK MCP servers
 			const skipPrefix =

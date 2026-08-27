@@ -226,6 +226,7 @@ import { streamViaSeam } from "../llm/seam.js";
 // stream-resume (gw#123 client half): 本地 MLX 流掉线时带 Last-Event-ID 重连续流。
 // default-off (FUSION_CODE_STREAM_RESUME_ENABLED), off = byte-identical。
 import {
+	attachResumeRefs,
 	getResumeRefs,
 	isResumeEligibleError,
 	isStreamResumeEnabled,
@@ -2557,7 +2558,31 @@ async function* queryModel(
 									resumedResp,
 									options.model,
 									seedState,
+									undefined,
+									// P1-25: thread the SAME stateRef the resumed transform writes to.
+									// A SECOND drop during resume then clones live resumed state, not
+									// stale pre-drop state → no duplicate text, no RangeError.
+									refs.stateRef,
 								);
+								// P1-24: reassign streamResponse to the resumed Response so the
+								// WeakMap-attached cursor+state refs follow the new socket, and
+								// re-attach refs (the resumed GET carries no X-Fusion-Stream-ID
+								// side-channel — reuse sid/baseUrl/authHeaders from the original).
+								// Without this the resumed body socket leaks on the next drop and a
+								// second resume can't find its refs (getResumeRefs returns undefined).
+								if (resumedResp) {
+									attachResumeRefs(
+										resumedResp as unknown as Response,
+										{
+											cursorRef: refs.cursorRef,
+											stateRef: refs.stateRef,
+											sid: refs.sid,
+											baseUrl: refs.baseUrl,
+											authHeaders: refs.authHeaders,
+										},
+									);
+									streamResponse = resumedResp as unknown as Response;
+								}
 								// 重接 for-await: 重赋 stream, 重置 idle 标志 + timer, 续流。
 								stream = merged as unknown as Stream<BetaRawMessageStreamEvent>;
 								streamIdleAborted = false;

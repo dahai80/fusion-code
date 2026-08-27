@@ -112,6 +112,16 @@ function shouldRetry529(querySource: QuerySource | undefined): boolean {
 // until there's a dedicated keep-alive channel.
 const PERSISTENT_MAX_BACKOFF_MS = 5 * 60 * 1000;
 const PERSISTENT_RESET_CAP_MS = 6 * 60 * 60 * 1000;
+// P1-20: persistent mode clamps `attempt` at maxRetries so the for-loop
+// condition `attempt <= maxRetries + 1` is always true and there is no
+// wall-clock ceiling — a 429 storm loops forever on a 5-min backoff. Cap
+// the total persistent retry window so a stuck gateway cannot pin the turn
+// until the user ESCs. Override via env for long-running batch jobs.
+const PERSISTENT_MAX_DURATION_MS = Number.isFinite(
+	parseInt(process.env.FUSION_CODE_PERSISTENT_MAX_DURATION_MS ?? "", 10),
+)
+	? parseInt(process.env.FUSION_CODE_PERSISTENT_MAX_DURATION_MS ?? "", 10)
+	: 24 * 60 * 60 * 1000; // 24h
 const HEARTBEAT_INTERVAL_MS = 30_000;
 
 function isPersistentRetryEnabled(): boolean {
@@ -201,9 +211,28 @@ export async function* withRetry<T>(
 	let consecutive529Errors = options.initialConsecutive529Errors ?? 0;
 	let lastError: unknown;
 	let persistentAttempt = 0;
+	const startedAt = Date.now();
+	// P1-20: persistent flag hoisted to function scope (set in the error
+	// branch below) so the loop-top wall-clock cap can read it without a TDZ
+	// reference to a const declared later in the loop body.
+	let persistent = false;
 	for (let attempt = 1; attempt <= maxRetries + 1; attempt++) {
 		if (options.signal?.aborted) {
 			throw abortError();
+		}
+		// P1-20: break the infinite persistent loop on a wall-clock cap.
+		// Without this, persistent 429 retries never terminate (attempt is
+		// clamped so the for-condition stays true). Bail loudly instead of
+		// looping until ESC.
+		if (
+			persistent &&
+			persistentAttempt > 0 &&
+			Date.now() - startedAt > PERSISTENT_MAX_DURATION_MS
+		) {
+			logForDebugging(
+				`withRetry: persistent retry exceeded ${PERSISTENT_MAX_DURATION_MS}ms wall-clock cap; giving up`,
+			);
+			throw new CannotRetryError(lastError, retryContext);
 		}
 
 		// Capture whether fast mode is active before this attempt
@@ -378,8 +407,10 @@ export async function* withRetry<T>(
 				}
 			}
 
-			// Only retry if the error indicates we should
-			const persistent =
+			// Only retry if the error indicates we should.
+			// P1-20: reassign the hoisted flag (was const) so the next loop-top
+			// wall-clock cap check sees persistent=true.
+			persistent =
 				isPersistentRetryEnabled() && isTransientCapacityError(error);
 			if (attempt > maxRetries && !persistent) {
 				throw new CannotRetryError(error, retryContext);
@@ -557,7 +588,11 @@ export function getRetryDelay(
 	if (retryAfterHeader) {
 		const seconds = parseInt(retryAfterHeader, 10);
 		if (!isNaN(seconds)) {
-			return seconds * 1000;
+			// P1-21: a gateway can send retry-after:3600 (1h). With
+			// maxRetries=10 that blocks the turn for 10h. Cap the honored
+			// sleep at the configured max delay so a hostile/misconfigured
+			// retry-after header cannot stall the session indefinitely.
+			return Math.min(seconds * 1000, maxDelayMs);
 		}
 	}
 
@@ -773,7 +808,17 @@ function shouldRetry(error: ApiErrorLike): boolean {
 
 export function getDefaultMaxRetries(): number {
 	if (process.env.FUSION_CODE_MAX_RETRIES) {
-		return parseInt(process.env.FUSION_CODE_MAX_RETRIES, 10);
+		// P1-1: bare parseInt -> NaN when the env var is non-numeric. NaN
+		// makes `attempt <= NaN + 1` always false, so retries silently
+		// become zero and transient 429/timeout errors never retry. Guard
+		// with isFinite and fall back to the default.
+		const raw = parseInt(process.env.FUSION_CODE_MAX_RETRIES, 10);
+		if (Number.isFinite(raw) && raw >= 0) {
+			return raw;
+		}
+		logForDebugging(
+			`withRetry: ignoring invalid FUSION_CODE_MAX_RETRIES="${process.env.FUSION_CODE_MAX_RETRIES}", using default ${DEFAULT_MAX_RETRIES}`,
+		);
 	}
 	return DEFAULT_MAX_RETRIES;
 }

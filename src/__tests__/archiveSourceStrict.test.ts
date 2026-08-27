@@ -14,6 +14,7 @@ import { afterEach, beforeEach, describe, expect, it, mock } from "bun:test";
 import { Buffer } from "node:buffer";
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
+import { Readable } from "node:stream";
 import { join } from "node:path";
 
 // 真 zip 字节 (fflate 同 archiveSource.test.ts)。空归档 → 0 entries →
@@ -24,7 +25,10 @@ const fakeZipBytes = Buffer.from(zipSync({}, { level: 6 }));
 
 mock.module("axios", () => ({
 	default: {
-		get: mock(async (_url: string) => ({ data: fakeZipBytes })),
+		// P1-29: installFromArchive 现 responseType:"stream" 流式写盘, 故 mock
+		// 返回 Node Readable (非裸 Buffer) — Readable.from(Buffer) 逐块产出字节
+		// 且带 destroy(), 与流式下载代码契约一致。
+		get: mock(async (_url: string) => ({ data: Readable.from(fakeZipBytes) })),
 	},
 }));
 

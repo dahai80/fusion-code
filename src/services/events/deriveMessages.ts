@@ -35,8 +35,31 @@ export function deriveMessages(log: SessionEventLog): Message[] {
 			}
 			case "compact": {
 				// compact 边界: 截断此前累积, compact 后的事件重建 = 新真源。
-				// S2.2 投影仅截断消息前缀 (compact 事件本身 data 非消息)。
+				// P1-3: compact data 携带替换状态, 否则 assertDualWrite 每次压缩假阳性
+				// (mutableMessages=[boundary] 但 derived=[] → dev 永远抓不到真漂移)。
+				// 两形态: snipResult {executed, messages} → re-seed out = messages;
+				//   compact_boundary Message → out = [该 boundary] (mutable 仅 push boundary)。
 				out.length = 0;
+				const compactData = ev.data as {
+					executed?: boolean;
+					messages?: Message[];
+				};
+				if (
+					compactData?.executed === true &&
+					Array.isArray(compactData.messages)
+				) {
+					out.push(...compactData.messages);
+				} else if (
+					ev.data &&
+					typeof ev.data === "object" &&
+					"role" in ev.data &&
+					"content" in ev.data
+				) {
+					// compact_boundary Message: mutableMessages 仅 push 此 boundary。
+					// 双重断言: 窄化后类型与 Message 不充分重叠 (缺 type/subtype 等字段),
+					// 先 unknown 再 Message, 运行时 shape 由 recordTranscript 保证。
+					out.push(ev.data as unknown as Message);
+				}
 				break;
 			}
 			case "turn_start":

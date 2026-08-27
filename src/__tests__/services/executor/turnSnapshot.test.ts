@@ -173,22 +173,22 @@ describe("turnSnapshot", () => {
 			_setTurnSnapshotCwdForTesting("/repo");
 			await takeTurnSnapshot("turn-1");
 
-			recordTurnFailure();
-			recordTurnFailure();
-			expect(lastHint()).toBeUndefined();
-			recordTurnFailure();
-			const hint = lastHint();
+			recordTurnFailure("turn-1");
+			recordTurnFailure("turn-1");
+			expect(lastHint("turn-1")).toBeUndefined();
+			recordTurnFailure("turn-1");
+			const hint = lastHint("turn-1");
 			expect(hint).toContain("/rollback");
 			// Further failures do not re-stage (hintInjected guard).
-			recordTurnFailure();
-			expect(lastHint()).toBeUndefined();
+			recordTurnFailure("turn-1");
+			expect(lastHint("turn-1")).toBeUndefined();
 		});
 
 		it("no hint when no current turn (failures ignored)", () => {
-			recordTurnFailure();
-			recordTurnFailure();
-			recordTurnFailure();
-			expect(lastHint()).toBeUndefined();
+			recordTurnFailure("no-such-turn");
+			recordTurnFailure("no-such-turn");
+			recordTurnFailure("no-such-turn");
+			expect(lastHint("no-such-turn")).toBeUndefined();
 		});
 
 		it("takeTurnSnapshot resets current-turn tracking (no bleed across turns)", async () => {
@@ -197,13 +197,13 @@ describe("turnSnapshot", () => {
 			_setTurnSnapshotEnabledForTesting(true);
 			_setTurnSnapshotCwdForTesting("/repo");
 			await takeTurnSnapshot("turn-1");
-			recordTurnFailure();
-			recordTurnFailure();
+			recordTurnFailure("turn-1");
+			recordTurnFailure("turn-1");
 
 			await takeTurnSnapshot("turn-2");
-			recordTurnFailure();
+			recordTurnFailure("turn-2");
 			// turn-2 only has 1 failure → no hint (turn-1's 2 don't bleed).
-			expect(lastHint()).toBeUndefined();
+			expect(lastHint("turn-2")).toBeUndefined();
 		});
 	});
 
@@ -305,8 +305,8 @@ describe("turnSnapshot", () => {
 
 			const snap = await takeTurnSnapshot("turn-1");
 			const ok = await rollbackToTurn();
-			recordTurnFailure();
-			const hint = lastHint();
+			recordTurnFailure("turn-1");
+			const hint = lastHint("turn-1");
 
 			expect(snap).toBeNull();
 			expect(ok).toBe(false);

@@ -24,6 +24,10 @@ export class OAuthService {
   private port: number | null = null
   private manualAuthCodeResolver: ((authorizationCode: string) => void) | null =
     null
+  // P1-11: CSRF 绑定 state, 手动流程校验。auto flow 在 auth-code-listener.ts:69
+  // 存 this.expectedState; 手动流程此前无校验 (params.state 未比对此值 = CSRF)。
+  // 这里镜像: 存 + 比对。null = 无进行中 OAuth (不误拒)。
+  private expectedState: string | null = null
 
   constructor() {
     this.codeVerifier = crypto.generateCodeVerifier()
@@ -138,16 +142,20 @@ export class OAuthService {
     return new Promise((resolve, reject) => {
       // Set up manual auth code resolver
       this.manualAuthCodeResolver = resolve
+      // P1-11: 存 expected state 供手动流程校验 (CSRF 绑定)。
+      this.expectedState = state
 
       // Start automatic flow
       this.authCodeListener
         ?.waitForAuthorization(state, onReady)
         .then(authorizationCode => {
           this.manualAuthCodeResolver = null
+          this.expectedState = null
           resolve(authorizationCode)
         })
         .catch(error => {
           this.manualAuthCodeResolver = null
+          this.expectedState = null
           reject(error)
         })
     })
@@ -158,12 +166,28 @@ export class OAuthService {
     authorizationCode: string
     state: string
   }): void {
-    if (this.manualAuthCodeResolver) {
-      this.manualAuthCodeResolver(params.authorizationCode)
-      this.manualAuthCodeResolver = null
-      // Close the auth code listener since manual input was used
-      this.authCodeListener?.close()
+    if (!this.manualAuthCodeResolver) {
+      return
     }
+    // P1-11: CSRF state 绑定 — 镜像 auth-code-listener.ts:164。state 不匹配 =
+    // 钓鱼/CSRF (攻击者诱导受害者粘贴攻击者 code)。不 resolve, 不交换 token, fail-visible。
+    if (
+      this.expectedState == null ||
+      params.state !== this.expectedState
+    ) {
+      logEvent('tengu_oauth_manual_state_mismatch', {})
+      this.manualAuthCodeResolver = null
+      this.expectedState = null
+      this.authCodeListener?.close()
+      throw new Error(
+        'Invalid state parameter — manual OAuth flow rejected (CSRF guard)',
+      )
+    }
+    this.manualAuthCodeResolver(params.authorizationCode)
+    this.manualAuthCodeResolver = null
+    this.expectedState = null
+    // Close the auth code listener since manual input was used
+    this.authCodeListener?.close()
   }
 
   private formatTokens(

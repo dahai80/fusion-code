@@ -46,6 +46,11 @@ export function getFusionRulesConfig(): FusionRulesConfig {
 	return mergedConfig;
 }
 
+// P1-28: denied_tools 是按名拒绝 (name-deny), 非按能力拒绝 (capability-deny)。
+// 配 ["Bash"] 阻内置 Bash, 但不阻 MCP 工具 (mcp__foo__run_bash)、插件工具、或
+// shell 出的插件 slash 命令 (hooks.ts shell:true spawn 不经此门)。用户须明白此为
+// 名单拒绝 — 想阻"执行任意 shell"能力须额外配 MCP/插件 server 级 deny 或沙箱。
+// 不扩成能力 tag 拒绝 (注册时打 tag) 以保持 surgical: 名单语义清晰, 文档明确即可。
 export function isToolDenied(toolName: string): boolean {
 	const lower = toolName.toLowerCase();
 	return mergedConfig.deniedTools.some((t) => t.toLowerCase() === lower);

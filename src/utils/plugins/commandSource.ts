@@ -27,6 +27,12 @@ export interface CommandMarketplaceSource {
 // 命令超时。插件目录解析应秒级 — 长 command 多半有问题 (挂起/网络)。
 const COMMAND_TIMEOUT_MS = 30_000;
 
+// P1-12: shell 元字符 — 命中即拒绝 (无法表示为单 argv, shell 语义 = 注入面)。
+// command 源命令来自受信声明但非用户随意输入; 强制单进程无管道/重定向/命令串接,
+// 配合 shell:false argv 执行消除注入。真需 shell 语义应走 executor 沙箱 (远期)。
+const SHELL_OPERATOR_RE =
+	/[;|&]|\|\||&&|>\s|<\s|\$\(|`|\$\{|2>\s|>>|^[\s]*\(|\\[;&|<>]/;
+
 export interface ResolvedCommandSource {
 	directoryPath: string;
 }
@@ -55,7 +61,18 @@ export async function resolveCommandSource(
 		`command source: running "${source.command}"${cwd ? ` in ${cwd}` : ""}`,
 	);
 
-	// execa shell:true 跑整命令串 (支持管道/重定向, 如 `which myplugin`)。
+	// P1-12: 拒绝 shell 元字符 (注入面 — 链式命令/管道/重定向/命令替换)。
+	// command 源契约 = 跑单条受信命令取目录路径 (如 `which myplugin`); 复杂 shell
+	// 语义 (管道/串接/`$()`) 非此源用途且是注入向量, 拒绝。单进程命令保持 shell:true
+	// 接口 (echo/pwd/printf 引号语义), 元字符门 = 安全边界。
+	if (SHELL_OPERATOR_RE.test(source.command)) {
+		throw new Error(
+			`command source rejected: shell operators not allowed (injection risk) — "${source.command}". ` +
+				`Use a single command without pipes/redirects/chaining; complex commands belong in the executor sandbox.`,
+		);
+	}
+
+	// execa shell:true 跑单条命令串 (已过元字符门, 无链式/注入)。
 	const result = await execFileNoThrowWithCwd(source.command, [], {
 		cwd,
 		timeout: COMMAND_TIMEOUT_MS,

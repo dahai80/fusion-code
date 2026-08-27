@@ -26,7 +26,8 @@
 
 import axios from 'axios'
 import { createHash } from 'crypto'
-import { mkdir, readdir, readFile, stat, writeFile } from 'fs/promises'
+import { mkdir, readdir, readFile, rename, stat, writeFile } from 'fs/promises'
+import { closeSync, fdatasyncSync, openSync } from 'fs'
 import { join, relative, sep } from 'path'
 import {
   CLAUDE_AI_INFERENCE_SCOPE,
@@ -733,13 +734,40 @@ async function writeRemoteEntriesToLocal(
         // Fall through to write for ENOENT/ENOTDIR (file doesn't exist yet)
       }
 
+      // P1-18: 写前密钥扫描 — 队友推入 API key/.env/token 进 team memory 落到
+      // 每个协作者机器。checkTeamMemSecrets 只扫模型 FileWrite/Edit, 此处直接
+      // 写远程内容 (绕过模型路径)。命中跳过+警告, 同 upload 路径 (L599) 语义。
+      const secretMatches = scanForSecrets(content)
+      if (secretMatches.length > 0) {
+        const firstMatch = secretMatches[0]!
+        logForDebugging(
+          `team-memory-sync: skipping remote pull "${relPath}" — detected ${firstMatch.label} (secret in team memory)`,
+          { level: 'warn' },
+        )
+        return false
+      }
+
       try {
         const parentDir = validatedPath.substring(
           0,
           validatedPath.lastIndexOf(sep),
         )
         await mkdir(parentDir, { recursive: true })
-        await writeFile(validatedPath, content, 'utf8')
+        // P1-18: 原子写 — tmp+rename+fdatasync。非原子 writeFile 崩溃 mid-pull
+        // 留截断文件 → 被当本地编辑 → 下次同步推回 → 腐蚀共享状态。tmp 同目录
+        // 保证 rename 原子 (同 filesystem), rename 后 fdatasync 落盘。
+        const tmpPath = `${validatedPath}.${process.pid}.tmp`
+        await writeFile(tmpPath, content, 'utf8')
+        let fd: number | undefined
+        try {
+          fd = openSync(tmpPath, 'r')
+          fdatasyncSync(fd)
+        } catch {
+          // 非正确性问题, 仅丢失断电耐久性。
+        } finally {
+          if (fd !== undefined) closeSync(fd)
+        }
+        await rename(tmpPath, validatedPath)
         return true
       } catch (e) {
         logForDebugging(

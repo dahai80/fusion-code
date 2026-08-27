@@ -131,10 +131,24 @@ export async function resumeStreamFetch(
 		headers["Last-Event-ID"] = cursor;
 	}
 	logForDebugging(`[Stream-Resume] Resume GET ${url} cursor=${cursor}`);
+	// P1-23: the resume GET had only the turn AbortSignal. A slow/malicious
+	// gateway that accepts the connection but never sends a byte hangs the
+	// turn until the user ESCs. Add a hard fetch timeout so a stuck resume
+	// endpoint cannot pin the turn; the caller falls through to the
+	// existing non-streaming fallback on timeout.
+	const RESUME_FETCH_TIMEOUT_MS = Number.isFinite(
+		parseInt(process.env.FUSION_CODE_STREAM_RESUME_FETCH_TIMEOUT_MS ?? "", 10),
+	)
+		? parseInt(process.env.FUSION_CODE_STREAM_RESUME_FETCH_TIMEOUT_MS ?? "", 10)
+		: 30_000;
+	const timeoutSignal = AbortSignal.timeout(RESUME_FETCH_TIMEOUT_MS);
+	const combinedSignal = signal
+		? AbortSignal.any([signal, timeoutSignal])
+		: timeoutSignal;
 	const resp = await fetch(url, {
 		method: "GET",
 		headers,
-		signal,
+		signal: combinedSignal,
 	});
 	if (!resp.ok) {
 		// 404 = 服务端 disabled/unknown/evicted → 不可 resume, 抛错落到 fallback。
@@ -167,13 +181,20 @@ export async function* mergeResumedStream(
 	model: string,
 	seedState?: StreamState,
 	inputTokens?: number,
+	stateRef?: { current: StreamState | undefined },
 ): AsyncGenerator<AnthropicStreamEvent> {
 	let droppedMessageStart = false;
+	// P1-25: thread stateRef through to the resumed transform. Without it the
+	// resumed stream's evolving state is invisible to claude.ts, so a SECOND
+	// drop during resume would clone the STALE pre-drop state again → re-emit
+	// already-received resumed bytes (duplicate text) or RangeError on index
+	// mismatch. The ref gives claude.ts the live resumed state to clone next.
 	const resumed = transformMLXStreamToAnthropic(
 		resumedResponse,
 		model,
 		inputTokens,
 		seedState,
+		stateRef,
 	);
 	for await (const part of resumed) {
 		// 丢弃首 message_start (resumed transform 启动无条件发, 与种子无关)。

@@ -10,6 +10,8 @@ export type LspServerConfig = {
 	settings?: unknown;
 	workspaceFolder?: string;
 	startupTimeout?: number;
+	// P1-17: 每请求超时 (ms)。未设 → LSPServerInstance 默认 10s 安全网。
+	requestTimeout?: number;
 	shutdownTimeout?: number;
 	restartOnCrash?: boolean;
 	maxRestarts?: number;

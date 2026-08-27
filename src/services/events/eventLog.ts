@@ -19,11 +19,30 @@ export function isEventSourcingEnabled(): boolean {
 }
 
 // 纯函数 append — 不可变, 返新 log, 原 log 不动 (可单测, 不依赖实例)。
+// 注意: 单测用此纯函数; recorder 内部走原地 push (appendEventInPlace) 避免 O(n²)。
 export function appendEvent(
 	log: SessionEventLog,
 	event: SessionEvent,
 ): SessionEventLog {
 	return [...log, event];
+}
+
+// P1-10: 原地 push 版 (recorder 用) — 避免 appendEvent 每次 spread 整 log 的 O(n) 拷贝,
+// 会话内 O(n²) (1000-msg ~8000 append ~32M 拷贝)。带上限防无界增长 (默认 50000 事件,
+// 远超单会话合理量, 溢出丢最旧并告警 — 事件流本为影子写不读主路径, 可接受)。
+export const MAX_EVENT_LOG_SIZE = 50000;
+export function appendEventInPlace(
+	log: SessionEventLog,
+	event: SessionEvent,
+): void {
+	if (log.length >= MAX_EVENT_LOG_SIZE) {
+		// 丢最旧 10% 腾空间, 避免每次溢出都 shift (O(n))。
+		log.splice(0, Math.ceil(MAX_EVENT_LOG_SIZE * 0.1));
+		logForDebugging(
+			`[event-sourcing] event log cap reached (${MAX_EVENT_LOG_SIZE}); trimmed oldest 10%`,
+		);
+	}
+	log.push(event);
 }
 
 // 旁路写记录器 — per-session 绑 turnId/sessionId, 生成单调 seq。
@@ -56,7 +75,8 @@ export class SessionEventRecorder {
 				surfaceOp: opts?.surfaceOp,
 				sourceEventSeqs: opts?.sourceEventSeqs,
 			};
-			this.log = appendEvent(this.log, event);
+			// P1-10: 原地 push (非 appendEvent spread) — 避免 O(n²) 拷贝; 带上限。
+			appendEventInPlace(this.log, event);
 		} catch (err) {
 			// Rule 12 fail-visible: 声明错但主路径不阻断 (旁路写性质决定)。
 			logForDebugging(

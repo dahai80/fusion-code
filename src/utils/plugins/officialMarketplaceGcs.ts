@@ -81,6 +81,10 @@ export async function fetchOfficialMarketplaceFromGcs(
     const latest = await axios.get(`${GCS_BASE}/latest`, {
       responseType: 'text',
       timeout: 10_000,
+      // P1-27: maxContentLength/maxBodyLength — latest 指针本 ~40 字节, 仍加帽防
+      // 被攻陷后端返超大 body (text 全量缓冲进内存)。
+      maxContentLength: 50_000_000,
+      maxBodyLength: 50_000_000,
     })
     sha = String(latest.data).trim()
     if (!sha) {
@@ -107,6 +111,10 @@ export async function fetchOfficialMarketplaceFromGcs(
     const zipResp = await axios.get(`${GCS_BASE}/${sha}.zip`, {
       responseType: 'arraybuffer',
       timeout: 60_000,
+      // P1-27: maxContentLength/maxBodyLength 50MB — zip arraybuffer 全量缓冲进
+      // RAM, 防被攻陷 GCS 桶返超大 zip → OOM (解压限制在 unzipFile, 下载先缓冲)。
+      maxContentLength: 50_000_000,
+      maxBodyLength: 50_000_000,
     })
     const zipBuf = Buffer.from(zipResp.data)
     bytes = zipBuf.length

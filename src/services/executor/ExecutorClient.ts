@@ -288,20 +288,45 @@ export function createExecutorClient(
 			signal?: AbortSignal,
 		): Promise<ExecutionResult> {
 			const stream = { onChunk };
-			const { promise } = sendRequest("executor.execute_stream", req, stream);
+			const { id, promise } = sendRequest(
+				"executor.execute_stream",
+				req,
+				stream,
+			);
 			if (signal) {
 				if (signal.aborted) {
+					// P1-7: 已中止 → 仅 reject 本请求, 不动共享 socket。
+					const pendingReq = pending.get(id);
+					if (pendingReq) {
+						pending.delete(id);
+						pendingReq.reject(
+							new Error("executor executeStream aborted before start"),
+						);
+					}
 					throw new Error("executor executeStream aborted before start");
 				}
-				signal.addEventListener(
-					"abort",
-					() => {
-						// Abort → best-effort: reject pending; executor kills child on socket close.
-						failAllPending(new Error("executor executeStream aborted"));
-						socket?.destroy();
-					},
-					{ once: true },
-				);
+				// P1-7: 此前 abort 调 failAllPending (毁全部在途) + socket.destroy
+				// (毁共享 UDS, reject 所有并发 bash 调用)。abort 单流不应毁全局。
+				// 改: 仅 reject 本 id + 发 executor.cancel RPC 让 server 杀 child;
+				// listener 在 promise settle 时移除 (不泄漏每次调用一个 listener)。
+				const onAbort = () => {
+					const pendingReq = pending.get(id);
+					if (pendingReq) {
+						pending.delete(id);
+						pendingReq.reject(
+							new Error("executor executeStream aborted"),
+						);
+					}
+					// best-effort cancel RPC (server 杀 child); 不等回应, 失败已 fail-soft。
+					try {
+						sendRequest("executor.cancel", { id });
+					} catch {
+						// socket 已断则 cancel 无法发, 本请求已 reject, 无副作用。
+					}
+				};
+				signal.addEventListener("abort", onAbort, { once: true });
+				// settle 后移除 listener (resolve/reject 都清理, 避免监听器泄漏)。
+				promise.finally(() => signal.removeEventListener("abort", onAbort));
 			}
 			return promise as Promise<ExecutionResult>;
 		},

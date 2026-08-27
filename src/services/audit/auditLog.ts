@@ -93,6 +93,20 @@ async function rotateIfNeeded(): Promise<void> {
 	}
 }
 
+// P1-13: 审计写失败的不可恢复 errno — fail-closed (重抛让调用方决定阻断)。
+// 攻击者填满磁盘 (ENOSPC) / 只读挂载 (EROFS) / 权限收回 (EACCES) → 审计轨迹静默
+// 丢失, "审计失败" 与 "无工具调用" 读时不可区分, 破坏不可否认性。这些 errno = 审计
+// 无法保证, 重抛。瞬时/可恢复错误 (EMFILE/EAGAIN/ENOTEMPTY 轮转竞态) 仍 fail-open
+// (记 debug 日志), 避免偶发噪声拖垮主路径。
+const AUDIT_FAIL_CLOSED_CODES = new Set([
+	"EACCES",
+	"ENOSPC",
+	"EROFS",
+	"EDQUOT",
+	"ENOTDIR",
+	"EISDIR",
+]);
+
 export async function appendAuditLog(entry: AuditLogEntry): Promise<void> {
 	try {
 		await ensureAuditDir();
@@ -102,7 +116,19 @@ export async function appendAuditLog(entry: AuditLogEntry): Promise<void> {
 			mode: 0o600, // Owner read/write only
 		});
 	} catch (e) {
-		logForDebugging(`auditLog: failed to append: ${(e as Error).message}`);
+		const code = (e as NodeJS.ErrnoException).code;
+		const msg = (e as Error).message;
+		// P1-13: 不可恢复 fs 错 → fail-closed (审计无法保证, 重抛 surfacing)。
+		if (code && AUDIT_FAIL_CLOSED_CODES.has(code)) {
+			logForDebugging(
+				`auditLog: fail-closed append (${code}): ${msg} — rethrowing, audit integrity cannot be guaranteed`,
+			);
+			throw new Error(
+				`audit log write failed (${code}): audit integrity cannot be guaranteed — refusing to proceed silently`,
+			);
+		}
+		// 瞬时/可恢复错误 → fail-open (记日志, 不阻断主路径)。
+		logForDebugging(`auditLog: failed to append: ${msg}`);
 	}
 }
 

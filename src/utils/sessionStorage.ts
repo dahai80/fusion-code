@@ -4,7 +4,7 @@ import type { Dirent } from "fs";
 // Sync fs primitives for readFileTailSync — separate from fs/promises
 // imports above. Named (not wildcard) per CLAUDE.md style; no collisions
 // with the async-suffixed names.
-import { closeSync, fstatSync, openSync, readSync } from "fs";
+import { closeSync, fstatSync, openSync, readSync, fdatasyncSync } from "fs";
 import {
 	appendFile as fsAppendFile,
 	open as fsOpen,
@@ -495,6 +495,13 @@ function getProject(): Project {
 	return project;
 }
 
+// P1-16: 非创建型 singleton 访问器。appendEntryToFile (同步 hot path) 须在无
+// 实例时保持原同步写, 不能惰性创建 Project (会注册 cleanup + 触发无谓初始化)。
+// 仅当实例已存在且该文件正 drain 时才需路由队列。
+function tryGetProject(): Project | undefined {
+	return project ?? undefined;
+}
+
 /**
  * Reset the Project singleton's flush state for testing.
  * This ensures tests don't interfere with each other via shared counter state.
@@ -595,6 +602,11 @@ class Project {
 	private activeDrain: Promise<void> | null = null;
 	private FLUSH_INTERVAL_MS = 100;
 	private readonly MAX_CHUNK_BYTES = 100 * 1024 * 1024;
+	// P1-16: per-file drain 标志。drainWriteQueue await appendToFile 期间置位,
+	// 标记该文件有未完成的异步批写。appendEntryToFile (同步 appendFileSync)
+	// 见此标志 = 该文件异步批写在途, 改走 enqueueWrite 同一队列避免字节交错
+	// (批写可能跨多次 write syscall, 同步写插中间 → JSONL 畸形行 → transcript 损坏)。
+	private drainingFiles = new Set<string>();
 
 	constructor() {}
 
@@ -644,6 +656,19 @@ class Project {
 		});
 	}
 
+	// P1-16: 同步 metadata 写 (appendEntryToFile) 在文件异步批写在途时改走队列的
+	// 两 个公共访问点。暴露最小必要能力, 不暴露 enqueueWrite 本身。
+	// isDrainingFile = 该文件是否在 drainWriteQueue 的 appendToFile 期间。
+	isDrainingFile(filePath: string): boolean {
+		return this.drainingFiles.has(filePath);
+	}
+
+	// enqueueMetadataWrite = 把同步 metadata 写排进同一 per-file 队列 (fire-and-forget)。
+	// drain 完成后追加, 无字节交错。调用方 void 掉返回 (无同步读回路径)。
+	enqueueMetadataWrite(filePath: string, entry: Entry): Promise<void> {
+		return this.enqueueWrite(filePath, entry);
+	}
+
 	private scheduleDrain(): void {
 		if (this.flushTimer) {
 			return;
@@ -669,6 +694,20 @@ class Project {
 			await mkdir(dirname(filePath), { recursive: true, mode: 0o700 });
 			await fsAppendFile(filePath, data, { mode: 0o600 });
 		}
+		// P1-16: fdatasync 落盘 — 无 fsync 断电截断末尾部分行, JSONL reader
+		// 命中畸形行 → transcript 从此损坏。fdatasync (非 fsync) 不刷文件元数据
+		// (mtime 等), 仅数据块, 性能优且足够 (同文件追加, 大小由后续写更新)。
+		// 用同步 fdatasyncSync(fd) — fs/promises 不导出 fdatasync (仅 fs 同步版)。
+		// fail-open: 某些 FS 不支持 fdatasync, 失败不阻断 — 数据已在 page cache。
+		let fh: import("fs/promises").FileHandle | undefined;
+		try {
+			fh = await fsOpen(filePath, "r");
+			fdatasyncSync(fh.fd);
+		} catch {
+			// 非正确性问题, 仅丢失断电耐久性。
+		} finally {
+			await fh?.close().catch(() => {});
+		}
 	}
 
 	private async drainWriteQueue(): Promise<void> {
@@ -686,7 +725,14 @@ class Project {
 
 				if (content.length + line.length >= this.MAX_CHUNK_BYTES) {
 					// Flush chunk and resolve its entries before starting a new one
-					await this.appendToFile(filePath, content);
+					// P1-16: 标记该文件异步写中, 让 appendEntryToFile (同步) 改走
+					// 队列避免字节交错 (批写跨多次 write syscall, 同步写插中间)。
+					this.drainingFiles.add(filePath);
+					try {
+						await this.appendToFile(filePath, content);
+					} finally {
+						this.drainingFiles.delete(filePath);
+					}
 					for (const r of resolvers) {
 						r();
 					}
@@ -699,7 +745,13 @@ class Project {
 			}
 
 			if (content.length > 0) {
-				await this.appendToFile(filePath, content);
+				// P1-16: 同上 — 标记异步写在途。
+				this.drainingFiles.add(filePath);
+				try {
+					await this.appendToFile(filePath, content);
+				} finally {
+					this.drainingFiles.delete(filePath);
+				}
 				for (const r of resolvers) {
 					r();
 				}
@@ -2657,6 +2709,18 @@ function appendEntryToFile(
 	fullPath: string,
 	entry: Record<string, unknown>,
 ): void {
+	// P1-16: 若该文件正被 drainWriteQueue 异步批写 (drainingFiles 置位), 同步
+	// appendFileSync 会插进批写中间 (批写跨多次 write syscall, O_APPEND 仅保证
+	// 单次 write 原子, 不保证整批) → 字节交错 → JSONL 畸形行 → transcript 损坏。
+	// 改走同一 enqueueWrite 队列 (fire-and-forget): 写入串行进队列, drain 完成后
+	// 追加, 无交错。代价: 写延迟至下次 drain (≤100ms), 但元数据写无同步读回路径
+	// (cleanup 先 await flush() 再 reAppend; materializeSessionFile 顺序 await
+	// appendEntry 亦 drain 队列), 语义不破坏。无 drain 在途时保持原同步写 (即时落盘)。
+	const project = tryGetProject();
+	if (project && project.isDrainingFile(fullPath)) {
+		void project.enqueueMetadataWrite(fullPath, entry as Entry);
+		return;
+	}
 	const fs = getFsImplementation();
 	const line = jsonStringify(entry) + "\n";
 	try {

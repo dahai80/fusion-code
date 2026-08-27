@@ -57,9 +57,13 @@ type TurnSnapshot = {
 	hintInjected: boolean;
 };
 
+// P1-6: ring 是跨 turn 历史快照 (last-5 GC, /rollback 按 turnId 取, 共享安全);
+// 但 currentTurn + pendingHint 此前是模块单例 → 并发 in-process QueryEngine
+// (subagent 共享进程) 交叉: Turn A takeTurnSnapshot 清了 Turn B 的 currentTurn,
+// Turn B 的失败计入 Turn A, /rollback 回滚错 turn。改为按 turnId 键控 per-turn 状态。
 const ring: TurnSnapshot[] = [];
-let currentTurn: TurnSnapshot | undefined;
-let pendingHint: string | undefined;
+const turnStateByTurnId = new Map<string, TurnSnapshot>();
+const pendingHintByTurnId = new Map<string, string>();
 
 function resolveClient(): ExecutorClientLike | undefined {
 	return _testClient ?? (getExecutorClient() as unknown as ExecutorClientLike | undefined);
@@ -75,7 +79,9 @@ function resolveCwd(): string {
 export async function takeTurnSnapshot(
 	turnId: string,
 ): Promise<string | null> {
-	_resetCurrentTurn();
+	// P1-6: 按 turnId 清本 turn 的 per-turn 状态 (而非模块单例), 隔离并发 QueryEngine。
+	turnStateByTurnId.delete(turnId);
+	pendingHintByTurnId.delete(turnId);
 	if (!isTurnSnapshotEnabled()) return null;
 	const client = resolveClient();
 	if (!client) {
@@ -112,37 +118,41 @@ export async function takeTurnSnapshot(
 	};
 	ring.push(snap);
 	while (ring.length > RING_SIZE) ring.shift();
-	currentTurn = snap;
+	turnStateByTurnId.set(turnId, snap);
 	logForDebugging(`turnSnapshot: took snapshot ${snapshotId} for turn ${turnId}`);
 	return turnId;
 }
 
-// Record a tool failure (is_error) against the current turn. At the threshold,
-// stage a rollback hint for the model via lastHint(). Idempotent per turn —
+// Record a tool failure (is_error) against a turn. At the threshold,
+// stage a rollback hint for the model via lastHint(turnId). Idempotent per turn —
 // the hint is injected once even if failures keep climbing.
-export function recordTurnFailure(): void {
-	if (!currentTurn) return;
-	currentTurn.failures++;
+// P1-6: turnId 键控 → 并发 QueryEngine 各自的失败互不污染。
+export function recordTurnFailure(turnId: string): void {
+	const turn = turnStateByTurnId.get(turnId);
+	if (!turn) return;
+	turn.failures++;
 	if (
-		currentTurn.failures >= FAILURE_THRESHOLD &&
-		!currentTurn.hintInjected
+		turn.failures >= FAILURE_THRESHOLD &&
+		!turn.hintInjected
 	) {
-		currentTurn.hintInjected = true;
-		pendingHint =
-			`<note>This turn has ${currentTurn.failures} tool failures. ` +
-			`You can revert the working tree to before this turn with \`/rollback\` ` +
-			`if the failures stem from a bad edit.</note>`;
+		turn.hintInjected = true;
+		pendingHintByTurnId.set(
+			turnId,
+			`<note>This turn has ${turn.failures} tool failures. ` +
+				`You can revert the working tree to before this turn with \`/rollback\` ` +
+				`if the failures stem from a bad edit.</note>`,
+		);
 		logForDebugging(
-			`turnSnapshot: failure threshold reached for turn ${currentTurn.turnId}, hint staged`,
+			`turnSnapshot: failure threshold reached for turn ${turn.turnId}, hint staged`,
 		);
 	}
 }
 
-// Read + clear the staged rollback hint. QueryEngine calls this after tool
-// results to surface the hint to the model. Returns undefined when no hint.
-export function lastHint(): string | undefined {
-	const h = pendingHint;
-	pendingHint = undefined;
+// Read + clear the staged rollback hint for a turn. QueryEngine calls this after
+// tool results to surface the hint to the model. Returns undefined when no hint.
+export function lastHint(turnId: string): string | undefined {
+	const h = pendingHintByTurnId.get(turnId);
+	pendingHintByTurnId.delete(turnId);
 	return h;
 }
 
@@ -175,7 +185,9 @@ export async function rollbackToTurn(
 			// Drop rolled-back turns + newer ones from the ring — they're stale.
 			const idx = ring.indexOf(snap);
 			if (idx !== -1) ring.splice(idx);
-			if (currentTurn === snap) currentTurn = undefined;
+			// P1-6: 清本 turn 的 per-turn 状态 (turnId 键控)。
+			turnStateByTurnId.delete(snap.turnId);
+			pendingHintByTurnId.delete(snap.turnId);
 		}
 		return ok;
 	} catch (e) {
@@ -191,18 +203,11 @@ export function listTurnSnapshots(): TurnSnapshot[] {
 	return ring.slice();
 }
 
-// Reset the current-turn tracking — called at submitMessage entry so the
-// failure counter + hint don't bleed across turns.
-function _resetCurrentTurn(): void {
-	currentTurn = undefined;
-	pendingHint = undefined;
-}
-
 // Test-only full reset.
 export function _resetTurnSnapshotForTesting(): void {
 	ring.length = 0;
-	currentTurn = undefined;
-	pendingHint = undefined;
+	turnStateByTurnId.clear();
+	pendingHintByTurnId.clear();
 	_testClient = undefined;
 	_testEnabled = undefined;
 	_testCwd = undefined;

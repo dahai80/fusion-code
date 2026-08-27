@@ -129,7 +129,15 @@ export async function fetchRegistryIndex(
 		}
 	}
 	try {
-		const res = await axios.get(url, { timeout: 10_000, responseType: "json" });
+		// P1-27: maxContentLength/maxBodyLength 50MB — 防 OOM。responseType:"json"
+		// 整 body 缓冲进内存再 parse, 恶意/被攻陷 registry (可 FUSION_CODE_PLUGIN_REGISTRY_URL
+		// 覆盖) 返多 GB JSON → axios 缓冲 → OOM。parse 在全 body 进内存后。
+		const res = await axios.get(url, {
+			timeout: 10_000,
+			responseType: "json",
+			maxContentLength: 50_000_000,
+			maxBodyLength: 50_000_000,
+		});
 		const parsed = RegistryIndexSchema.safeParse(res.data);
 		if (!parsed.success) {
 			logForDebugging(
