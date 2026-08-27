@@ -16,6 +16,8 @@ import type {
 	ExecutionRequest,
 	ExecutionResult,
 	ExecutorStreamChunk,
+	RollbackResult,
+	SnapshotResult,
 } from "./types.js";
 
 // BashTool passes this shape (subset we need) — kept structural to avoid a
@@ -101,6 +103,8 @@ export type ExecutorClientLike = {
 		onChunk: (chunk: ExecutorStreamChunk) => void,
 		signal?: AbortSignal,
 	) => Promise<ExecutionResult>;
+	snapshotCreate: (cwd: string) => Promise<SnapshotResult>;
+	rollback: (snapshotId: string, cwd: string) => Promise<RollbackResult>;
 };
 
 let _testClient: ExecutorClientLike | undefined;

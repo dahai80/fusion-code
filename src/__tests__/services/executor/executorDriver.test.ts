@@ -33,7 +33,11 @@ function makeResult(over: Partial<ExecutionResult> = {}): ExecutionResult {
 function makeClient(
 	executeStream: ExecutorClientLike["executeStream"],
 ): ExecutorClientLike {
-	return { executeStream };
+	return {
+		executeStream,
+		snapshotCreate: async () => ({ snapshot_id: "snap" }),
+		rollback: async () => ({ ok: true }),
+	};
 }
 
 // Drain an async generator to its terminal value (ExecResult | null), dropping

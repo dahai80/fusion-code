@@ -59,6 +59,7 @@ import subtask from "./commands/subtask/index.js";
 import reloadPlugins from "./commands/reload-plugins/index.js";
 import reloadSkills from "./commands/reload-skills/index.js";
 import rewind from "./commands/rewind/index.js";
+import rollback from "./commands/rollback/index.js";
 import heapDump from "./commands/heapdump/index.js";
 import version from "./commands/version.js";
 import summary from "./commands/summary/index.js";
@@ -281,6 +282,7 @@ const COMMANDS = memoize((): Command[] => [
 	tag,
 	theme,
 	rewind,
+	rollback,
 	terminalSetup,
 	tui,
 	upgrade,

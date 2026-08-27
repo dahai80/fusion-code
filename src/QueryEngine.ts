@@ -74,6 +74,11 @@ import {
 import { fetchSystemPromptParts } from "./utils/queryContext.js";
 import { setCwd } from "./utils/Shell.js";
 import {
+	lastHint as turnSnapshotHint,
+	recordTurnFailure,
+	takeTurnSnapshot,
+} from "./services/executor/turnSnapshot.js";
+import {
 	flushSessionStorage,
 	recordTranscript,
 } from "./utils/sessionStorage.js";
@@ -241,6 +246,13 @@ export class QueryEngine {
 		setCwd(cwd);
 		const persistSession = !isSessionPersistenceDisabled();
 		const startTime = Date.now();
+
+		// Phase 3b: take a caller-owned turn-boundary git snapshot so /rollback
+		// can revert the working tree to before this turn. Default-off env gate
+		// (FUSION_CODE_EXECUTOR_TURN_SNAPSHOT=1); no-op when disabled or non-repo.
+		// Fire-and-forget — snapshot failure is fail-soft (turn proceeds).
+		const turnSnapshotId = randomUUID();
+		void takeTurnSnapshot(turnSnapshotId).catch(() => {});
 
 		// Wrap canUseTool to track permission denials
 		const wrappedCanUseTool: CanUseToolFn = async (
@@ -803,10 +815,45 @@ export class QueryEngine {
 					}
 					yield* normalizeMessage(message);
 					break;
-				case "user":
+				case "user": {
 					this.mutableMessages.push(message);
+					// Phase 3b: count tool failures (is_error tool_result blocks)
+					// against the current turn so the rollback hint can stage.
+					if (Array.isArray(message.message?.content)) {
+						for (const block of message.message.content) {
+							if (
+								block?.type === "tool_result" &&
+								(block as { is_error?: boolean }).is_error
+							) {
+								recordTurnFailure();
+							}
+						}
+					}
+					// Phase 3b: if the failure threshold staged a rollback hint,
+					// inject it as a user-role note so the next ask() surfaces it.
+					// Drains the hint (one-shot per threshold crossing).
+					const tsHint = turnSnapshotHint();
+					if (tsHint) {
+						const hintMessage = {
+							type: "user" as const,
+							message: {
+								role: "user" as const,
+								content: [{ type: "text" as const, text: tsHint }],
+							},
+							parent_tool_use_id: null,
+							uuid: randomUUID(),
+							session_id: getSessionId(),
+							timestamp: new Date().toISOString(),
+						};
+						this.mutableMessages.push(hintMessage);
+						if (persistSession) {
+							messages.push(hintMessage);
+							void recordTranscript(messages);
+						}
+					}
 					yield* normalizeMessage(message);
 					break;
+				}
 				case "stream_event":
 					if (message.event.type === "message_start") {
 						// Reset current message usage for new message
