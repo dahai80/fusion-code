@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, test, mock } from "bun:test";
+import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -14,14 +14,21 @@ const fakeIndex = {
 			version: "1.2.0",
 			description: "GitHub workflow plugin",
 			category: "official",
-			source: { type: "github", repo: "dahai80/fusion-plugins-official", path: "plugins/github-helper" },
+			source: {
+				type: "github",
+				repo: "dahai80/fusion-plugins-official",
+				path: "plugins/github-helper",
+			},
 			sha256: "abc123",
 		},
 		{
 			name: "community-weather",
 			description: "Weather lookup from community",
 			category: "community",
-			source: { type: "git", url: "https://github.com/someone/weather-plugin.git" },
+			source: {
+				type: "git",
+				url: "https://github.com/someone/weather-plugin.git",
+			},
 		},
 		{
 			name: "builtin-uiux",
@@ -86,11 +93,17 @@ describe("parseDiscoverArgs", () => {
 	});
 
 	test("bare query → query set, source all", () => {
-		expect(parseDiscoverArgs("github")).toEqual({ query: "github", source: "all" });
+		expect(parseDiscoverArgs("github")).toEqual({
+			query: "github",
+			source: "all",
+		});
 	});
 
 	test("--source=official flag", () => {
-		expect(parseDiscoverArgs("--source=official")).toEqual({ query: "", source: "official" });
+		expect(parseDiscoverArgs("--source=official")).toEqual({
+			query: "",
+			source: "official",
+		});
 	});
 
 	test("query + --source=community", () => {
@@ -101,11 +114,17 @@ describe("parseDiscoverArgs", () => {
 	});
 
 	test("--source official spaced form", () => {
-		expect(parseDiscoverArgs("--source official")).toEqual({ query: "", source: "official" });
+		expect(parseDiscoverArgs("--source official")).toEqual({
+			query: "",
+			source: "official",
+		});
 	});
 
 	test("unknown source normalizes to all", () => {
-		expect(parseDiscoverArgs("--source=bogus")).toEqual({ query: "", source: "all" });
+		expect(parseDiscoverArgs("--source=bogus")).toEqual({
+			query: "",
+			source: "all",
+		});
 	});
 });
 
@@ -161,7 +180,10 @@ describe("discoverPlugins", () => {
 	});
 
 	test("official entries get [official] tag", async () => {
-		const res = await discoverPlugins({ query: "github-helper", source: "all" });
+		const res = await discoverPlugins({
+			query: "github-helper",
+			source: "all",
+		});
 		expect(res.value).toContain("[official]");
 	});
 });

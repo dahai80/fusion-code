@@ -5,12 +5,13 @@
 // Pure index fetch — no telemetry sent back (privacy). FUSION_OFFLINE=1 skips
 // the fetch and returns the cached index (or empty if none), so local builtin
 // plugins stay usable offline. Byte-identical when no one calls discover.
-import axios from "axios";
+
 import { mkdir, readFile, stat, writeFile } from "node:fs/promises";
 import { join } from "node:path";
+import axios from "axios";
 import { z } from "zod";
-import { getClaudeConfigHomeDir, isEnvTruthy } from "../envUtils.js";
 import { logForDebugging } from "../debug.js";
+import { getClaudeConfigHomeDir, isEnvTruthy } from "../envUtils.js";
 
 // One entry per installable plugin in the official registry. `source` is the
 // per-plugin install source — reuses the existing 4-type PluginSourceSchema
@@ -25,13 +26,15 @@ export const RegistryEntrySchema = z.object({
 	category: z
 		.enum(["official", "community", "integration", "model", "other"])
 		.optional(),
-	source: z.object({
-		type: z.enum(["git", "github", "archive", "directory"]),
-		url: z.string().optional(),
-		repo: z.string().optional(),
-		ref: z.string().optional(),
-		path: z.string().optional(),
-	}).passthrough(),
+	source: z
+		.object({
+			type: z.enum(["git", "github", "archive", "directory"]),
+			url: z.string().optional(),
+			repo: z.string().optional(),
+			ref: z.string().optional(),
+			path: z.string().optional(),
+		})
+		.passthrough(),
 	sha256: z.string().optional(),
 	builtin: z.boolean().optional(),
 });
@@ -119,7 +122,9 @@ export async function fetchRegistryIndex(
 	if (await cacheFresh()) {
 		const cached = await readCache();
 		if (cached) {
-			logForDebugging(`[registry] cache hit (${cached.plugins.length} entries)`);
+			logForDebugging(
+				`[registry] cache hit (${cached.plugins.length} entries)`,
+			);
 			return cached;
 		}
 	}
@@ -127,7 +132,9 @@ export async function fetchRegistryIndex(
 		const res = await axios.get(url, { timeout: 10_000, responseType: "json" });
 		const parsed = RegistryIndexSchema.safeParse(res.data);
 		if (!parsed.success) {
-			logForDebugging(`[registry] remote parse failed: ${parsed.error.message}`);
+			logForDebugging(
+				`[registry] remote parse failed: ${parsed.error.message}`,
+			);
 			return (await readCache()) ?? { schemaVersion: 0, plugins: [] };
 		}
 		await writeCache(parsed.data);

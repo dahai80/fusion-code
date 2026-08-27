@@ -5,9 +5,15 @@
 // pluginInstallationHelpers); discover surfaces the name + source so the user
 // runs the existing install command. Byte-identical when not invoked.
 import chalk from "chalk";
-import type { RegistryEntry, RegistryIndex } from "../../utils/plugins/registryIndex.js";
-import { fetchRegistryIndex, isOffline } from "../../utils/plugins/registryIndex.js";
 import { logForDebugging } from "../../utils/debug.js";
+import type {
+	RegistryEntry,
+	RegistryIndex,
+} from "../../utils/plugins/registryIndex.js";
+import {
+	fetchRegistryIndex,
+	isOffline,
+} from "../../utils/plugins/registryIndex.js";
 
 export interface DiscoverOpts {
 	query: string;
@@ -31,7 +37,10 @@ export function parseDiscoverArgs(argStr: string): DiscoverOpts {
 		}
 		if (
 			queryTokens.length === 0 &&
-			(tok === "official" || tok === "community" || tok === "git" || tok === "archive") &&
+			(tok === "official" ||
+				tok === "community" ||
+				tok === "git" ||
+				tok === "archive") &&
 			tokens.some((t) => t.toLowerCase() === "--source")
 		) {
 			// `--source official` form — value token right after the flag.
@@ -45,15 +54,24 @@ export function parseDiscoverArgs(argStr: string): DiscoverOpts {
 
 function normalizeSource(raw: string): DiscoverOpts["source"] {
 	const lower = raw.toLowerCase();
-	if (lower === "official" || lower === "community" || lower === "git" || lower === "archive") {
+	if (
+		lower === "official" ||
+		lower === "community" ||
+		lower === "git" ||
+		lower === "archive"
+	) {
 		return lower;
 	}
 	return "all";
 }
 
-function entryMatchesSource(entry: RegistryEntry, source: DiscoverOpts["source"]): boolean {
+function entryMatchesSource(
+	entry: RegistryEntry,
+	source: DiscoverOpts["source"],
+): boolean {
 	if (source === "all") return true;
-	if (source === "official") return entry.category === "official" || entry.builtin === true;
+	if (source === "official")
+		return entry.category === "official" || entry.builtin === true;
 	if (source === "community") return entry.category === "community";
 	// git/archive → match the per-entry install source type.
 	return entry.source?.type === source;
@@ -69,10 +87,13 @@ function entryMatchesQuery(entry: RegistryEntry, query: string): boolean {
 	);
 }
 
-export async function discoverPlugins(opts: DiscoverOpts): Promise<{ type: "text"; value: string }> {
+export async function discoverPlugins(
+	opts: DiscoverOpts,
+): Promise<{ type: "text"; value: string }> {
 	const index: RegistryIndex = await fetchRegistryIndex();
 	const filtered = index.plugins.filter(
-		(e) => entryMatchesSource(e, opts.source) && entryMatchesQuery(e, opts.query),
+		(e) =>
+			entryMatchesSource(e, opts.source) && entryMatchesQuery(e, opts.query),
 	);
 	logForDebugging(
 		`[plugins] discover query="${opts.query}" source=${opts.source} → ${filtered.length}/${index.plugins.length}`,
@@ -86,7 +107,9 @@ export async function discoverPlugins(opts: DiscoverOpts): Promise<{ type: "text
 	}
 
 	const lines: string[] = [
-		chalk.bold(`Discovered plugins (${filtered.length}${opts.query || opts.source !== "all" ? ` filtered` : ""}):`),
+		chalk.bold(
+			`Discovered plugins (${filtered.length}${opts.query || opts.source !== "all" ? ` filtered` : ""}):`,
+		),
 	];
 	for (const entry of filtered) {
 		const tag = entry.builtin
@@ -101,6 +124,10 @@ export async function discoverPlugins(opts: DiscoverOpts): Promise<{ type: "text
 		lines.push(`  ${chalk.cyan(entry.name)}${version}${tag}${desc}`);
 	}
 	lines.push("");
-	lines.push(chalk.dim("Install with the existing install command using the source shown. Use /plugins list to see installed."));
+	lines.push(
+		chalk.dim(
+			"Install with the existing install command using the source shown. Use /plugins list to see installed.",
+		),
+	);
 	return { type: "text", value: lines.join("\n") };
 }
