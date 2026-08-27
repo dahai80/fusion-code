@@ -10,6 +10,7 @@
 import { spawn, type ChildProcess } from 'child_process'
 import { logForDebugging } from '../utils/debug.js'
 import { gracefulShutdownSync } from '../utils/process.js'
+import { subprocessEnv } from '../utils/subprocessEnv.js'
 
 export interface DaemonSubcommand {
   name: string
@@ -124,7 +125,7 @@ function spawnWorker(kind: string): ChildProcess {
     args,
     {
       stdio: 'inherit',
-      env: { ...process.env },
+      env: subprocessEnv(),
     },
   )
 

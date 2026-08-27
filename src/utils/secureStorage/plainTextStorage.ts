@@ -1,12 +1,21 @@
-import { chmodSync } from 'fs'
+import {
+  chmodSync,
+  closeSync,
+  fsyncSync,
+  openSync,
+  renameSync,
+  unlinkSync,
+  writeFileSync,
+} from 'fs'
 import { join } from 'path'
+import { randomBytes } from 'crypto'
 import { getClaudeConfigHomeDir } from '../envUtils.js'
+import { logForDebugging } from '../debug.js'
 import { getErrnoCode } from '../errors.js'
 import { getFsImplementation } from '../fsOperations.js'
 import {
   jsonParse,
   jsonStringify,
-  writeFileSyncSlow,
 } from '../slowOperations.js'
 import type { SecureStorage, SecureStorageData } from './types.js'
 
@@ -45,25 +54,46 @@ export const plainTextStorage = {
     // sync IO: called from sync context (SecureStorage interface)
     try {
       const { storageDir, storagePath } = getStoragePath()
+      // dir 0700 (P0-9): default mkdirSync leaves 0755, allowing same-user
+      // processes to readdir/unlink credential entries.
       try {
-        getFsImplementation().mkdirSync(storageDir)
+        getFsImplementation().mkdirSync(storageDir, { recursive: true, mode: 0o700 })
       } catch (e: unknown) {
         const code = getErrnoCode(e)
         if (code !== 'EEXIST') {
           throw e
         }
       }
+      // Tighten existing dir to 0700 (umask may have widened it on prior runs).
+      try {
+        chmodSync(storageDir, 0o700)
+      } catch {
+        // non-fatal: best-effort hardening
+      }
 
-      writeFileSyncSlow(storagePath, jsonStringify(data), {
-        encoding: 'utf8',
-        flush: false,
-      })
-      chmodSync(storagePath, 0o600)
+      // Atomic write (P0-9): write to tmp file with mode 0600 at creation
+      // (never world-readable-to-start), fsync, then rename over the target.
+      // Crash mid-write leaves either the old file intact or the complete new
+      // file — never a truncated/partial credentials file that would lose all
+      // stored tokens on next read.
+      const tmpPath = `${storagePath}.${randomBytes(6).toString('hex')}.tmp`
+      let fd: number | undefined
+      try {
+        fd = openSync(tmpPath, 'w', 0o600)
+        writeFileSync(fd, jsonStringify(data), { encoding: 'utf8' })
+        fsyncSync(fd)
+      } finally {
+        if (fd !== undefined) {
+          closeSync(fd)
+        }
+      }
+      renameSync(tmpPath, storagePath)
       return {
         success: true,
         warning: 'Warning: Storing credentials in plaintext. Install libsecret (Linux) or use macOS keychain for encrypted storage.',
       }
-    } catch {
+    } catch (e: unknown) {
+      logForDebugging(`plainTextStorage.update failed: ${e}`)
       return { success: false }
     }
   },

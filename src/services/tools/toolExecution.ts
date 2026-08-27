@@ -787,9 +787,11 @@ async function checkPermissionsAndCallTool(
 	}
 
 	// Sensitive file protection — block reads/writes to secrets/keys
-	const { isSensitiveFilePath, getSensitiveFileDenialMessage } = await import(
-		"../../utils/sensitiveFiles.js"
-	);
+	const {
+		isSensitiveFilePath,
+		getSensitiveFileDenialMessage,
+		extractCandidatePathsFromCommand,
+	} = await import("../../utils/sensitiveFiles.js");
 	const sensitivePaths: string[] = [];
 	if ("file_path" in parsedInput.data && parsedInput.data.file_path) {
 		sensitivePaths.push(String(parsedInput.data.file_path));
@@ -800,6 +802,18 @@ async function checkPermissionsAndCallTool(
 		}>) {
 			if (edit.file_path) sensitivePaths.push(edit.file_path);
 		}
+	}
+	// P0-5: Grep/Glob accept a `path` arg (search root) that the gate missed —
+	// `grep x .ssh` / `glob **/*.pem` reached secrets unblocked. Check it.
+	if ("path" in parsedInput.data && parsedInput.data.path) {
+		sensitivePaths.push(String(parsedInput.data.path));
+	}
+	// P0-5: Bash tool `command` bypassed the gate entirely — `cat ~/.ssh/id_rsa`
+	// or `grep x .env` reached secrets. Extract path-looking operands and check.
+	if ("command" in parsedInput.data && typeof parsedInput.data.command === "string") {
+		sensitivePaths.push(
+			...extractCandidatePathsFromCommand(parsedInput.data.command),
+		);
 	}
 	const blockedPath = sensitivePaths.find((p) => isSensitiveFilePath(p));
 	if (blockedPath) {

@@ -96,6 +96,7 @@ export type FsOperations = {
   mkdirSync(
     path: string,
     options?: {
+      recursive?: boolean
       mode?: number
     },
   ): void
