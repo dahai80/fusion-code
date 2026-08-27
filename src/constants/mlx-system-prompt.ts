@@ -25,10 +25,12 @@ import {
 	getContextBudgetProtocol,
 	getErrorRecoveryProtocol,
 	getFileEditingProtocol,
+	getLongTaskCheckpointProtocol,
 	getMultiTurnProtocol,
 	getOutputFormatProtocol,
 	getTaskExecutionProtocol,
 	getToolCallDecisionProtocol,
+	getToolResultProcessingProtocol,
 } from "./behavioral-protocols.js";
 import {
 	getCompressionStrategySection,
@@ -654,18 +656,19 @@ export async function buildMlxSystemPrompt(
 	sections.push(getOutputStyleSection());
 	sections.push(getThinkFirstProtocol(tier));
 
-	// === TIER: COMPACT+ (32B on ≤32K context) ===
+	// === TIER: COMPACT (32B on ≤32K context) ===
 	// compact keeps system prompt minimal (~3K tokens) to leave room
 	// for core tools (~5K) and conversation in tight 32K windows.
-	// Only adds coding standards and error recovery on top of mini.
-	if (
-		tier === "compact" ||
-		tier === "standard" ||
-		tier === "extended" ||
-		tier === "full"
-	) {
+	// Adds coding standards + the two failure/checkpoint protocols.
+	// NOTE: compact does NOT get getErrorRecoveryProtocol — its content
+	// overlaps with getToolResultProcessingProtocol (which is more specific:
+	// ≤3 retry limit, failure-mode classification). Dropping it keeps the
+	// compact tier within the ~3K budget (equal-replacement, ar-plan PR #2).
+	// standard+ tiers get all three below (general + specific protocols).
+	if (tier === "compact") {
 		sections.push(getCodingStandardsSection());
-		sections.push(getErrorRecoveryProtocol());
+		sections.push(getToolResultProcessingProtocol());
+		sections.push(getLongTaskCheckpointProtocol());
 	}
 
 	// === TIER: STANDARD+ (7B+ with sufficient context) ===
@@ -678,6 +681,8 @@ export async function buildMlxSystemPrompt(
 		sections.push(getToolCallExamplesProtocol());
 		sections.push(getFileEditingProtocol());
 		sections.push(getErrorRecoveryProtocol());
+		sections.push(getToolResultProcessingProtocol());
+		sections.push(getLongTaskCheckpointProtocol());
 		sections.push(getContextBudgetProtocol());
 		sections.push(getOutputFormatProtocol());
 		sections.push(getVerificationCheckpointProtocol());

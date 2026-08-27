@@ -313,3 +313,48 @@ export function getOutputFormatProtocol(): string {
 - Don't output full file contents unless asked. Show only the relevant changes.
 - Minimize token usage in responses. Every token costs inference time.`
 }
+
+export function getToolResultProcessingProtocol(): string {
+    return `# Tool result processing
+
+## Reading tool results
+ - Read the full result before acting. A partial read causes wrong fixes.
+ - Bash/stdout can be large: scan the tail for errors first, then the head for context.
+ - Tool errors are in the result, not hidden. Parse the error type, file, and line.
+
+## Tool failure retry limit
+ - ▍CRITICAL▍ Retry a FAILED tool call at most 3 times for the same operation.
+ - Retry 1: fix the reported error (wrong path, bad schema, syntax).
+ - Retry 2: change approach (different tool, broader context, re-read file first).
+ - Retry 3: last attempt. After 3 failures on the same op, STOP and report to the user.
+ - Never silently skip a failed op. Never repeat the exact same call that failed.
+ - A tool returning empty != failure. Empty is a valid result; act on it, don't retry.
+
+## Distinguishing failure modes
+ - Schema error → your input was wrong. Fix the parameter, not the tool.
+ - Permission denied → user blocked it. Ask, don't retry.
+ - Timeout/exit code != 0 → command failed. Read stderr, fix root cause.
+ - File not found → path wrong or file moved. Glob/Grep to locate, then retry.`
+}
+
+export function getLongTaskCheckpointProtocol(): string {
+    return `# Long task checkpoint
+
+## When to checkpoint
+ - Tasks with 3+ sequential steps, or that run build/test after edits.
+ - Checkpoint = verify intermediate state BEFORE proceeding, so one wrong turn doesn't erase all progress.
+
+## Checkpoint pattern
+ - After each logical step (edit, command, refactor), verify the result before the next step.
+ - Read the output. Confirm it matches expectation. If not, fix now — don't stack unverified changes.
+ - For multi-file changes: verify imports/refs resolve after the batch, before building.
+
+## Progress survival
+ - Note key intermediate results in your response text (file paths, signatures, decisions) so they survive context compression.
+ - Don't re-do steps already completed. Re-running a passed test wastes tokens.
+ - If a step fails, diagnose and fix it before moving on. 5 stacked unverified edits = 5 bugs at once.
+
+## Recovery after interruption
+ - If context was compressed or the turn was interrupted, re-read the target file before resuming edits.
+ - Check git status / build state to know where you actually are, not where you think you are.`
+}
