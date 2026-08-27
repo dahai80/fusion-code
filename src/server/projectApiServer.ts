@@ -981,6 +981,34 @@ let config_global: ServerConfig = {
 	authToken: "",
 };
 
+// P0-2: rate-limit key must NOT trust client-supplied X-Forwarded-For by
+// default. Without a trusted reverse proxy in front, a remote attacker sets
+// that header to a fresh value per request and bypasses the per-IP limit
+// entirely (and pins out a victim). Use the raw socket peer address from
+// Bun's server.requestIP; only honor forwarded headers when an operator has
+// explicitly set FUSION_CODE_TRUSTED_PROXY=1 (they own the proxy hop that
+// overwrites the header before it reaches us).
+function resolveClientIp(
+	req: Request,
+	server: import("bun").Server<unknown>,
+): string {
+	if (isEnvTruthy(process.env.FUSION_CODE_TRUSTED_PROXY)) {
+		const fwd = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim();
+		if (fwd) return fwd;
+		const real = req.headers.get("x-real-ip");
+		if (real) return real;
+	}
+	try {
+		const ip = server.requestIP(req);
+		if (ip) {
+			return typeof ip === "string" ? ip : (ip as { address: string }).address;
+		}
+	} catch {
+		// requestIP can throw on some platforms; fall back to "local"
+	}
+	return "local";
+}
+
 export function startProjectApiServer(config: ServerConfig): {
 	port: number;
 	stop: () => void;
@@ -1061,7 +1089,7 @@ export function startProjectApiServer(config: ServerConfig): {
 				logForDebugging("projectApiServer WS: client disconnected");
 			},
 		},
-		async fetch(req) {
+		async fetch(req, server) {
 			const url = new URL(req.url);
 			const method = req.method;
 
@@ -1086,10 +1114,7 @@ export function startProjectApiServer(config: ServerConfig): {
 						return errorResponse("Unauthorized", 401);
 					}
 				}
-				const wsClientIp =
-					req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ??
-					req.headers.get("x-real-ip") ??
-					"local";
+				const wsClientIp = resolveClientIp(req, server);
 				const { checkOperationRateLimit: wsRateLimit } = await import(
 					"../services/audit/auditLog.js"
 				);
@@ -1108,12 +1133,10 @@ export function startProjectApiServer(config: ServerConfig): {
 			}
 
 			// API rate limiting — 120 requests per minute per IP
-			// Trust x-forwarded-for/x-real-ip from reverse proxy;
-			// when running without a trusted proxy, these headers can be spoofed
-			const clientIp =
-				req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ??
-				req.headers.get("x-real-ip") ??
-				"local";
+			// P0-2: key from the raw socket peer, not client-supplied
+			// X-Forwarded-For (spoofable unless a trusted proxy is in front and
+			// FUSION_CODE_TRUSTED_PROXY=1). See resolveClientIp.
+			const clientIp = resolveClientIp(req, server);
 			const { checkOperationRateLimit } = await import(
 				"../services/audit/auditLog.js"
 			);
@@ -1131,15 +1154,31 @@ export function startProjectApiServer(config: ServerConfig): {
 				);
 			}
 
-			// CORS headers for Fusion Studio
+			// CORS headers for Fusion Studio.
+			// P0-1: never allow cross-origin from any origin when auth is disabled
+			// — `Access-Control-Allow-Origin: *` on an unauthenticated RCE surface
+			// lets any web page drive the server. When auth is disabled, emit NO
+			// ACAO header (browsers block cross-origin fetches, which is the safe
+			// default for the dev-only --no-auth path). When auth is enabled,
+			// reflect the request Origin so Fusion Studio (same machine, known
+			// origin) still works, and require the bearer token on every call.
+			const corsOrigin = config_global.authDisabled
+				? null
+				: (req.headers.get("origin") ?? "*");
 			if (method === "OPTIONS") {
+				const preflightHeaders: Record<string, string> = {
+					"Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+					"Access-Control-Allow-Headers": "Content-Type, Authorization",
+				};
+				if (corsOrigin) {
+					preflightHeaders["Access-Control-Allow-Origin"] = corsOrigin;
+					if (corsOrigin !== "*") {
+						preflightHeaders["Vary"] = "Origin";
+					}
+				}
 				return new Response(null, {
 					status: 204,
-					headers: {
-						"Access-Control-Allow-Origin": "*",
-						"Access-Control-Allow-Methods": "GET, POST, OPTIONS",
-						"Access-Control-Allow-Headers": "Content-Type, Authorization",
-					},
+					headers: preflightHeaders,
 				});
 			}
 
@@ -1171,8 +1210,16 @@ export function startProjectApiServer(config: ServerConfig): {
 
 			try {
 				const response = await matched.handler(url, body, matched.pathParams);
-				// Add CORS headers to all responses
-				response.headers.set("Access-Control-Allow-Origin", "*");
+				// P0-1: add CORS headers to all responses — but only when auth is
+				// enabled (see the OPTIONS preflight block above for rationale).
+				// Reflecting Origin instead of "*" avoids granting every web page
+				// access to the authenticated API.
+				if (corsOrigin) {
+					response.headers.set("Access-Control-Allow-Origin", corsOrigin);
+					if (corsOrigin !== "*") {
+						response.headers.set("Vary", "Origin");
+					}
+				}
 				return response;
 			} catch (e) {
 				logForDebugging(`projectApiServer: unhandled error: ${e}`);

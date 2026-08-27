@@ -4,6 +4,7 @@ import { extractDangerousSettings, hasDangerousSettings, hasDangerousSettingsCha
 import { render } from '../../ink.js';
 import { KeybindingSetup } from '../../keybindings/KeybindingProviderSetup.js';
 import { AppStateProvider } from '../../state/AppState.js';
+import { logForDebugging } from '../../utils/debug.js';
 import { gracefulShutdownSync } from '../../utils/gracefulShutdown.js';
 import { getBaseRenderOptions } from '../../utils/renderOptions.js';
 import type { SettingsJson } from '../../utils/settings/types.js';
@@ -29,9 +30,19 @@ export async function checkManagedSettingsSecurity(cachedSettings: SettingsJson 
     return 'no_check_needed';
   }
 
-  // Skip dialog in non-interactive mode (consistent with trust dialog behavior)
+  // P0-8: non-interactive mode must NOT auto-apply dangerous settings. The
+  // prior behavior returned 'no_check_needed', which the caller treated as
+  // "apply the new settings" — silently enabling whatever dangerous fields the
+  // server pushed (e.g. permissions, env, hooks) with no human review, in a
+  // headless/CI run where there is no human to catch it. Fail closed instead:
+  // reject the new settings, keep the cached ones, and log loudly so the
+  // operator sees dangerous remote settings were refused unattended.
   if (!getIsInteractive()) {
-    return 'no_check_needed';
+    logForDebugging(
+      'Remote settings: non-interactive mode — rejecting dangerous remote settings (no human to approve); keeping cached settings',
+    );
+    logEvent('tengu_managed_settings_security_rejected_noninteractive', {});
+    return 'rejected';
   }
 
   // Log that dialog is being shown
@@ -62,10 +73,27 @@ export async function checkManagedSettingsSecurity(cachedSettings: SettingsJson 
 /**
  * Handle the security check result by exiting if rejected
  * Returns true if we should continue, false if we should stop
+ *
+ * P0-8: in non-interactive mode, a 'rejected' result (dangerous remote
+ * settings refused unattended) should keep the cached settings and continue
+ * the run rather than killing the process — there is no human who made a
+ * decision, so a hard exit would just break every headless/CI run that
+ * happens to receive a dangerous remote-settings payload. The interactive
+ * path (user explicitly declined the dialog) still shuts down, since that
+ * is a deliberate user choice.
  */
 export function handleSecurityCheckResult(result: SecurityCheckResult): boolean {
   if (result === 'rejected') {
-    gracefulShutdownSync(1);
+    if (getIsInteractive()) {
+      logForDebugging(
+        'Remote settings: user rejected dangerous settings in interactive mode — shutting down',
+      );
+      gracefulShutdownSync(1);
+      return false;
+    }
+    logForDebugging(
+      'Remote settings: dangerous settings rejected in non-interactive mode — keeping cached settings, continuing',
+    );
     return false;
   }
   return true;

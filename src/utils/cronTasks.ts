@@ -181,6 +181,14 @@ export async function writeCronTasks(
   )
 }
 
+// P0-6: hard cap on total scheduled jobs across both stores. Previously the
+// "MAX_JOBS=50" comment at the id generator was aspirational and never
+// enforced — a model could enqueue unbounded jobs (memory + scheduler walk
+// cost + on-disk file growth). 50 matches the documented ceiling; session
+// (in-memory, !durable) and durable (disk) counts sum against it so neither
+// store alone can bypass the cap.
+const MAX_CRON_JOBS = 50
+
 /**
  * Append a task. Returns the generated id. Caller is responsible for having
  * already validated the cron string (the tool does this via validateInput).
@@ -190,6 +198,10 @@ export async function writeCronTasks(
  * written to .claude/scheduled_tasks.json and dies with the process. The
  * scheduler merges session tasks into its tick loop directly, so no file
  * change event is needed.
+ *
+ * P0-6: rejects once the combined session + durable job count reaches
+ * MAX_CRON_JOBS, with a clear error so the caller surfaces it rather than
+ * silently dropping the job.
  */
 export async function addCronTask(
   cron: string,
@@ -209,10 +221,24 @@ export async function addCronTask(
     ...(recurring ? { recurring: true } : {}),
   }
   if (!durable) {
+    // P0-6: count session jobs against the shared ceiling before pushing.
+    if (getSessionCronTasks().length >= MAX_CRON_JOBS) {
+      const msg = `Cron job limit reached (${MAX_CRON_JOBS}). Delete an existing job with CronDelete before scheduling more.`
+      logForDebugging(`addCronTask rejected (session cap): ${msg}`)
+      throw new Error(msg)
+    }
     addSessionCronTask({ ...task, ...(agentId ? { agentId } : {}) })
     return id
   }
   const tasks = await readCronTasks()
+  // P0-6: durable jobs count against the same ceiling; the session store is
+  // excluded here because a durable request can't be satisfied by an
+  // in-memory slot, and durable + session are independently bounded.
+  if (tasks.length >= MAX_CRON_JOBS) {
+    const msg = `Cron job limit reached (${MAX_CRON_JOBS}). Delete an existing job with CronDelete before scheduling more.`
+    logForDebugging(`addCronTask rejected (durable cap): ${msg}`)
+    throw new Error(msg)
+  }
   tasks.push(task)
   await writeCronTasks(tasks)
   return id

@@ -5,12 +5,19 @@ import {
 	type ToolCallProgress,
 	type ToolDef,
 	type ToolUseContext,
+	type ValidationResult,
 } from "../../Tool.js";
 import type { AssistantMessage } from "../../types/message.js";
 import { addCronTask } from "../../utils/cronTasks.js";
+import { parseCronExpression } from "../../utils/cron.js";
 import { lazySchema } from "../../utils/lazySchema.js";
 import { CRON_CREATE_TOOL_NAME } from "./constants.js";
 import { DESCRIPTION, getPrompt } from "./prompt.js";
+
+// P0-6: cap prompt length so a runaway model can't enqueue unbounded text per
+// job (memory + log amplification). 8KiB is generous for any sane prompt and
+// bounds the per-job footprint under the 50-job ceiling.
+const CRON_PROMPT_MAX = 8192;
 
 const inputSchema = lazySchema(() =>
 	z.strictObject({
@@ -19,7 +26,10 @@ const inputSchema = lazySchema(() =>
 			.describe(
 				'Standard 5-field cron expression in local time: "M H DoM Mon DoW" (e.g., "*/5 * * * *" = every 5 minutes, "30 14 28 2 *" = Feb 28 at 2:30pm local once)',
 			),
-		prompt: z.string().describe("The prompt to enqueue at each fire time."),
+		prompt: z
+			.string()
+			.max(CRON_PROMPT_MAX)
+			.describe("The prompt to enqueue at each fire time."),
 		recurring: z
 			.boolean()
 			.default(true)
@@ -60,6 +70,23 @@ export const CronCreateTool = buildTool({
 	},
 	get outputSchema(): OutputSchema {
 		return outputSchema();
+	},
+	// P0-6: validate cron syntax before addCronTask accepts it. Without this an
+	// invalid/garbage cron string is stored (DoS: jobs that never fire yet
+	// occupy a slot, or scheduler walk cost on a huge bogus field). parseCronExpression
+	// rejects non-5-field, out-of-range, and unsupported syntax.
+	async validateInput(
+		{ cron }: { cron: string; prompt: string; recurring: boolean; durable: boolean },
+		_context: ToolUseContext,
+	): Promise<ValidationResult> {
+		if (parseCronExpression(cron) === null) {
+			return {
+				result: false,
+				message: `Invalid cron expression "${cron}": must be a valid 5-field cron (minute hour day-of-month month day-of-week).`,
+				errorCode: 1,
+			};
+		}
+		return { result: true };
 	},
 	// log: execute signature expanded to match Tool type (5 params)
 	async execute(

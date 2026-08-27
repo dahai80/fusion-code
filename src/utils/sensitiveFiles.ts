@@ -67,6 +67,57 @@ export function isSensitiveFilePath(filePath: string): boolean {
 	return false;
 }
 
+// P0-5: extract candidate file-path tokens from a Bash command string for the
+// sensitive-file gate. The Bash tool's `command` arg bypassed the gate (which
+// only inspected file_path/edits[]), so `cat ~/.ssh/id_rsa` or
+// `grep x .env` reached secrets unblocked. This pulls path-looking operands —
+// tokens containing a path separator, or bare filenames matching a sensitive
+// basename (`.env`, `id_rsa`, `credentials.json`) — without re-implementing a
+// shell parser: split on whitespace/operators, strip surrounding quotes, drop
+// command verbs and flags. Conservative on purpose: a false positive blocks a
+// legitimate read (loud, reversible); a false negative leaks a secret.
+const SENSITIVE_BASENAMES = [
+	".env",
+	"id_rsa",
+	"id_ed25519",
+	"id_ecdsa",
+	"id_dsa",
+	"credentials.json",
+	".npmrc",
+	".pypirc",
+	".netrc",
+	".git-credentials",
+	".github-token",
+];
+
+export function extractCandidatePathsFromCommand(command: string): string[] {
+	const tokens = command.split(/[\s|&;<>]+/).filter(Boolean);
+	const candidates: string[] = [];
+	const seen = new Set<string>();
+	for (const raw of tokens) {
+		// strip matching surrounding quotes
+		let tok = raw;
+		if (
+			(tok.startsWith('"') && tok.endsWith('"')) ||
+			(tok.startsWith("'") && tok.endsWith("'"))
+		) {
+			tok = tok.slice(1, -1);
+		}
+		if (!tok) continue;
+		// skip flags (-x / --x) and command verbs (first token of a segment)
+		if (tok.startsWith("-")) continue;
+		const looksLikePath = tok.includes("/") || tok.includes("\\");
+		const matchesSensitiveBasename = SENSITIVE_BASENAMES.some((b) =>
+			tok === b || tok.endsWith("/" + b) || tok.endsWith("\\" + b),
+		);
+		if (!looksLikePath && !matchesSensitiveBasename) continue;
+		if (seen.has(tok)) continue;
+		seen.add(tok);
+		candidates.push(tok);
+	}
+	return candidates;
+}
+
 export function getSensitiveFileDenialMessage(filePath: string): string {
 	return `Access to "${filePath}" is denied by security policy. This file matches a sensitive path pattern (secrets, keys, or credentials) and cannot be read by AI.`;
 }

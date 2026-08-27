@@ -330,11 +330,42 @@ async function fetchRemoteManagedSettings(
       }
     }
 
-    logForDebugging('Remote settings: Fetched successfully')
+    // P0-7: integrity check. The server-supplied checksum was previously
+    // trusted verbatim and applied to disk — a tampered payload (or a
+    // MITM/downstream proxy) could alter settings with a matching forged
+    // checksum, or carry an empty checksum that bypassed any verification.
+    // Recompute the checksum from the payload locally and reject on mismatch
+    // or when a checksum is missing/empty. Server-side payload signing is a
+    // cross-repo concern (filed separately); this client check closes the
+    // unverified-trust gap within fusion-code.
+    const serverChecksum = parsed.data.checksum
+    if (!serverChecksum || serverChecksum.trim() === '') {
+      logForDebugging(
+        'Remote settings: rejecting payload — missing/empty server checksum (integrity unverifiable)',
+      )
+      return {
+        success: false,
+        error: 'Remote settings payload missing integrity checksum',
+        skipRetry: true,
+      }
+    }
+    const localChecksum = computeChecksumFromSettings(settingsValidation.data)
+    if (localChecksum !== serverChecksum) {
+      logForDebugging(
+        `Remote settings: checksum MISMATCH — server=${serverChecksum} local=${localChecksum}; rejecting tampered/inconsistent payload`,
+      )
+      return {
+        success: false,
+        error: 'Remote settings payload failed integrity check',
+        skipRetry: true,
+      }
+    }
+
+    logForDebugging('Remote settings: Fetched successfully (checksum verified)')
     return {
       success: true,
       settings: settingsValidation.data,
-      checksum: parsed.data.checksum,
+      checksum: serverChecksum,
     }
   } catch (error) {
     const { kind, status, message } = classifyAxiosError(error)

@@ -83,7 +83,15 @@ export function subprocessEnv(): NodeJS.ProcessEnv {
   // CCR containers.
   const proxyEnv = _getUpstreamProxyEnv?.() ?? {}
 
-  if (!isEnvTruthy(process.env.FUSION_CODE_SUBPROCESS_ENV_SCRUB)) {
+  // Scrub secrets by DEFAULT (P0-4). Previously only scrubbed when
+  // FUSION_CODE_SUBPROCESS_ENV_SCRUB=1 (set only by claude-code-action in GHA),
+  // so local/self-hosted installs leaked FUSION_API_KEY/OAuth/cloud creds into
+  // every Bash/MCP/LSP/hook subprocess. Now scrub unless explicit passthrough.
+  // FUSION_CODE_SUBPROCESS_ENV_PASSTHROUGH=1 opts out (legacy unscrubbed env).
+  // FUSION_CODE_SUBPROCESS_ENV_SCRUB=1 still honored (redundant, GHA already sets it).
+  const passthrough = isEnvTruthy(process.env.FUSION_CODE_SUBPROCESS_ENV_PASSTHROUGH)
+  const scrub = isEnvTruthy(process.env.FUSION_CODE_SUBPROCESS_ENV_SCRUB) || !passthrough
+  if (!scrub) {
     return Object.keys(proxyEnv).length > 0
       ? { ...process.env, ...proxyEnv }
       : process.env

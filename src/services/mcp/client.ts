@@ -101,6 +101,7 @@ import {
 } from "../../utils/proxy.js";
 import { recursivelySanitizeUnicode } from "../../utils/sanitization.js";
 import { getSessionIngressAuthToken } from "../../utils/sessionIngressAuth.js";
+import { quote } from "../../utils/bash/shellQuote.js";
 import { sideQuery } from "../../utils/sideQuery.js";
 import { subprocessEnv } from "../../utils/subprocessEnv.js";
 import {
@@ -1080,17 +1081,32 @@ export const connectToServer = memoize(
 				(serverRef as McpStdioServerConfig).type === "stdio" ||
 				!(serverRef as McpStdioServerConfig).type
 			) {
-				const finalCommand =
-					process.env.FUSION_CODE_SHELL_PREFIX ||
-					(serverRef as McpStdioServerConfig).command;
-				const finalArgs = process.env.FUSION_CODE_SHELL_PREFIX
-					? [
-							[
-								(serverRef as McpStdioServerConfig).command,
-								...(serverRef as McpStdioServerConfig).args,
-							].join(" "),
-						]
-					: (serverRef as McpStdioServerConfig).args;
+				// P0-3: shell-prefix command injection. Previously the prefix branch
+				// joined command+args into ONE string and passed it as a single arg,
+				// which a shell prefix (`bash -c`) then re-evaluated as shell syntax —
+				// so an MCP arg like `$(rm -rf /)` or `; curl evil` executed. Now we
+				// pass the prefix shell as `command` and `["-c", <quoted full command>]`
+				// as args. StdioClientTransport spawns `command` with `args` directly
+				// (no shell), and `quote()` escapes the joined command so the `-c`
+				// argument is a literal string the prefix shell parses as ONE command
+				// word — injection tokens stay inert inside the quoted argument.
+				const mcpCommand = (serverRef as McpStdioServerConfig).command;
+				const mcpArgs = (serverRef as McpStdioServerConfig).args;
+				const shellPrefix = process.env.FUSION_CODE_SHELL_PREFIX;
+				let finalCommand: string;
+				let finalArgs: string[];
+				if (shellPrefix) {
+					finalCommand = shellPrefix;
+					const fullCommand = [mcpCommand, ...mcpArgs].join(" ");
+					logMCPDebug(
+						name,
+						`shell-prefix spawn: ${shellPrefix} -c <quoted command>`,
+					);
+					finalArgs = ["-c", quote([fullCommand])];
+				} else {
+					finalCommand = mcpCommand;
+					finalArgs = mcpArgs;
+				}
 				transport = new StdioClientTransport({
 					command: finalCommand,
 					args: finalArgs,
