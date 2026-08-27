@@ -343,9 +343,30 @@ executor v0.2.0 上游 12 issues 全 CLOSED。本 PR = fusion-code 侧 wiring，
 
 **default-off byte-identical**：`FUSION_CODE_EXECUTOR_ENABLED` 未设 → `isExecutorRouteable` false → executorDriver 不触；in-process path 不设 diagnostics/autoRolledBack/snapshotId → `formatDiagnosticsForModel` 返全量 → `ShellError('', fullOutput)` 同今日。
 
+### Phase 3b 落地（PR #152，turn-boundary snapshot/rollback）
+
+互补于 in-band auto-rollback（PR #139）：in-band = 单次调用自洽（call 内建快照+回滚），turn-boundary = **caller 拥有** turn 入口快照，`/rollback` 手动回滚到 turn 前。手动非自动——edit-test-fail 编码循环中 auto-rollback 会撤模型合法编辑，turn-boundary 让模型/用户决定回滚，更安全。
+
+- `src/services/executor/types.ts` — `SnapshotResult` `{snapshot_id}` / `RollbackResult` `{ok}` wire 类型。
+- `src/services/executor/ExecutorClient.ts` — `snapshotCreate(cwd)` / `rollback(snapshotId, cwd)` client 方法（UDS NDJSON-RPC `executor.snapshot_create` / `executor.rollback`）。`rollback` 空 `snapshot_id` short-circuit（非 repo no-op，不 round-trip）。
+- `src/services/executor/ExecutorInstance.ts` — 方法带 `ensureStarted` + health gate。
+- `src/services/executor/executorDriver.ts` — `ExecutorClientLike` 测试缝扩展两方法。
+- `src/services/executor/turnSnapshot.ts`（新）— turn-boundary manager：
+  - `takeTurnSnapshot(turnId)` — fail-soft（snapshot 失败 turn 照跑）；非 repo cwd（executor 返 `""`）= no-op；ring 容最近 5 turn。
+  - `recordTurnFailure()` — 计同 turn `is_error` tool_result；达阈值 3 stage `/rollback` hint（per-turn idempotent，`hintInjected` guard）。
+  - `lastHint()` — 读 + 清 staged hint。
+  - `rollbackToTurn(turnId?)` — 默认最近；成功后 drop 已回滚 + 更新 turn 出 ring。
+- `src/QueryEngine.ts` — `submitMessage` 入口 `takeTurnSnapshot`（fire-and-forget fail-soft）；`case "user"` 扫 `tool_result` `is_error` block + `recordTurnFailure`；hint stage 后注入 user-role note 到 `mutableMessages`（下个 ask() surfacing）。
+- `src/commands/rollback/`（新）— `/rollback [turnId]` local-jsx 命令，调 `rollbackToTurn`。
+- `src/__tests__/services/executor/turnSnapshot.test.ts`（新）— 21 测。
+
+**Gate**：default off，env `FUSION_CODE_EXECUTOR_TURN_SNAPSHOT=1`（strict truthy）。未设 byte-identical——`takeTurnSnapshot` no-op 返 null，无 client 调用、无 ring、无 hint。双门禁 `FUSION_CODE_EXECUTOR_ENABLED`（executor 须开）。
+
+**default-off byte-identical**：两 env 均未设 → `takeTurnSnapshot` 返 null（无 RPC、无 ring）、`rollbackToTurn` 返 false（ring 空）、`recordTurnFailure` 无 currentTurn（no-op）、`lastHint` undefined → QueryEngine 无 hint 注入 → 同今日。
+
 ### Scope-creep（显式 defer）
 
-- 手动 turn-boundary snapshot/rollback（PRD line 160 retry-3x）— **已由 PR #139 in-band per-command auto-rollback 满足**，不另做。PRD line 160 原意 = "调用 executor 前建快照，失败触发 rollback()"，PR #139 `buildRequest` 传 `auto_rollback_policy`（opt-in `FUSION_CODE_EXECUTOR_AUTO_ROLLBACK`），executor 在 call-start 建快照、`exit!=0` + 文件毁损 diff>0 时回滚、设 `auto_rolled_back=true`、模型见 `<note>`，正是该语义。文件毁损 diff 守卫比 PRD 原始 "retry 3x then rollback"（盲目回滚）更安全——仅当文件被*损坏*时回滚，不撤销 edit-test-fail 循环中的合法编辑。client-orchestrated whole-turn revert 变体（显式 `executor.snapshot_create`/`executor.rollback` RPC + turn lifecycle wiring）**架构上劣于** in-band 方案：(a) whole-turn revert 丢失模型好的编辑（per-command file-damage guard 不丢）；(b) 需在 query.ts 新增 failure counter + terminal-reason 上抛 REPL（REPL.tsx:3841 `for await` 丢弃 query 返回值，无捕获路径）；(c) PRD retry-3x 是 Python HealingSession 伪码（固定计数器），fusion-code loop 是 model-driven（模型自己重试），固定计数器不映射；(d) 暴露无 caller 的显式 RPC = 投机死码（违反 simplicity）。故 defer 为显式决策，非 backlog。
+- 手动 turn-boundary snapshot/rollback（PRD line 160 retry-3x）— **已由 PR #139 in-band per-command auto-rollback 满足**（call 内建快照+文件毁损守卫回滚，opt-in `FUSION_CODE_EXECUTOR_AUTO_ROLLBACK`）。**PR #152 补 caller-owned turn-boundary 层**（`executor.snapshot_create`/`executor.rollback` RPC + turn lifecycle wiring + `/rollback` 手动命令，opt-in `FUSION_CODE_EXECUTOR_TURN_SNAPSHOT`）——in-band = 单次调用自洽，turn-boundary = caller 拥有 turn 入口快照、模型/用户决定回滚，两层互补。见上 §Phase 3b。
 - 进程内输出切片（非 executor 路径）— 需 TS 移植 Rust slicer 或 out-of-band diagnostics RPC，defer。
 
 ### 测试
