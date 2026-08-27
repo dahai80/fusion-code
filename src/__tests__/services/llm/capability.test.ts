@@ -33,6 +33,7 @@ const ENV_KEYS = [
 	"FUSION_CODE_USE_OPENAI",
 	"FUSION_API_KEY",
 	"ANTHROPIC_API_KEY",
+	"FUSION_CODE_CTX_EXEC_ENABLED",
 ];
 const saved: Record<string, string | undefined> = {};
 
@@ -229,5 +230,64 @@ describe("createCtx envelope", () => {
 		// consumer guard `ctx.llm.modelId === model` must hold for seam use.
 		expect(ctx.llm.modelId).toBe(model);
 		expect(ctx.llm.supportsThinking()).toBe(false);
+	});
+});
+
+describe("createCtx fs/tools/exec seams (PR #4)", () => {
+	test("ctx.fs populated (LocalFsCapability, provider local)", async () => {
+		const ctx = await createCtx("claude-sonnet-4-6", "/tmp", "sess-fs");
+		expect(ctx.fs).toBeDefined();
+		expect(ctx.fs.provider).toBe("local");
+	});
+
+	test("ctx.fs.read round-trips a write", async () => {
+		const { mkdtemp, rm } = await import("node:fs/promises");
+		const { tmpdir } = await import("node:os");
+		const { join } = await import("node:path");
+		const dir = await mkdtemp(join(tmpdir(), "ctx-seam-"));
+		try {
+			const ctx = await createCtx("claude-sonnet-4-6", dir, "sess-fs-io");
+			const path = join(dir, "seam.txt");
+			await ctx.fs.write(path, "seam-data");
+			expect(await ctx.fs.read(path)).toBe("seam-data");
+		} finally {
+			await rm(dir, { recursive: true, force: true });
+		}
+	});
+
+	test("ctx.tools populated (BaseToolsCapability, provider base)", async () => {
+		const ctx = await createCtx("claude-sonnet-4-6", "/tmp", "sess-tools");
+		expect(ctx.tools).toBeDefined();
+		expect(ctx.tools.provider).toBe("base");
+		// Bash always enabled → list non-empty.
+		expect(ctx.tools.list()).toContain("Bash");
+	});
+
+	test("ctx.tools.getTool('Bash') defined via seam", async () => {
+		const ctx = await createCtx("claude-sonnet-4-6", "/tmp", "sess-tools2");
+		expect(ctx.tools.getTool("Bash")?.name).toBe("Bash");
+	});
+
+	test("ctx.exec undefined when FUSION_CODE_CTX_EXEC_ENABLED off (byte-identical default)", async () => {
+		delete process.env.FUSION_CODE_CTX_EXEC_ENABLED;
+		const ctx = await createCtx("claude-sonnet-4-6", "/tmp", "sess-exec-off");
+		expect(ctx.exec).toBeUndefined();
+	});
+
+	test("ctx.sandbox undefined by default (not injected)", async () => {
+		const ctx = await createCtx("claude-sonnet-4-6", "/tmp", "sess-sandbox");
+		expect(ctx.sandbox).toBeUndefined();
+	});
+
+	test("ctx.exec defined when FUSION_CODE_CTX_EXEC_ENABLED=1", async () => {
+		process.env.FUSION_CODE_CTX_EXEC_ENABLED = "1";
+		try {
+			const ctx = await createCtx("claude-sonnet-4-6", "/tmp", "sess-exec-on");
+			expect(ctx.exec).toBeDefined();
+			// backend picks executor if routable, else in-process — both valid.
+			expect(["in-process", "executor"]).toContain(ctx.exec?.backend);
+		} finally {
+			delete process.env.FUSION_CODE_CTX_EXEC_ENABLED;
+		}
 	});
 });
