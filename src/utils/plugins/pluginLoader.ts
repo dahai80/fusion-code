@@ -549,6 +549,21 @@ export async function installFromNpm(
  * @param ref - Optional branch or tag to checkout
  * @param sha - Optional specific commit SHA to checkout
  */
+
+// ar-plan PR #6 (E2): warn on pre-E2 manifests (schemaVersion missing/0).
+// Compat window accepts them; this nudges authors to pin a stable even version.
+function warnIfLegacyManifestSchema(
+	manifest: PluginManifest,
+	at: string,
+): void {
+	if (manifest.schemaVersion === undefined || manifest.schemaVersion === 0) {
+		logForDebugging(
+			`[plugins] manifest at ${at} has no schemaVersion (pre-E2, default 0). ` +
+				"Pin a stable even schemaVersion for forward compatibility.",
+		);
+	}
+}
+
 export async function gitClone(
 	gitUrl: string,
 	targetPath: string,
@@ -1017,6 +1032,7 @@ export async function cachePlugin(
 
 			if (result.success) {
 				manifest = result.data;
+				warnIfLegacyManifestSchema(manifest, manifestPath);
 			} else {
 				// Manifest exists but is invalid - throw error
 				const errors = result.error.issues
@@ -1063,6 +1079,7 @@ export async function cachePlugin(
 
 			if (result.success) {
 				manifest = result.data;
+				warnIfLegacyManifestSchema(manifest, legacyManifestPath);
 			} else {
 				// Manifest exists but is invalid - throw error
 				const errors = result.error.issues

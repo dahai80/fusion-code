@@ -21,6 +21,7 @@ import { dirname, join } from "node:path";
 import axios from "axios";
 import { logForDebugging } from "../debug.js";
 import { isPathSafe, parseZipModes, unzipFile } from "../dxt/zip.js";
+import { isEnvTruthy } from "../envUtils.js";
 import type { PluginSource } from "./schemas.js";
 
 // archive 源子集 (PluginSource 的 source:'archive' 变体)
@@ -108,6 +109,15 @@ export async function installFromArchive(
 		verifyArchiveIntegrity(zipBuf, source.sha256, safeUrl);
 		logForDebugging(`archive source: SHA-256 verified for ${safeUrl}`);
 	} else {
+		// ar-plan PR #6 (E2): STRICT 模式下缺 sha256 也抛错 (fail-visible),
+		// 强制供应链锁定。env 未设 = 仍 fail-open (byte-identical, 兼容期渐进)。
+		if (isEnvTruthy(process.env.FUSION_CODE_PLUGIN_SHA256_STRICT)) {
+			throw new Error(
+				`archive source missing sha256 pin for ${safeUrl}: ` +
+					"FUSION_CODE_PLUGIN_SHA256_STRICT=1 requires integrity pinning. " +
+					"Add a sha256 field to the archive source.",
+			);
+		}
 		// fail-open 告知 (不阻断, 但记日志 — 无校验 = 信任 HTTPS 传输)
 		logForDebugging(
 			`archive source: no sha256 pin provided for ${safeUrl}, skipping integrity check`,
