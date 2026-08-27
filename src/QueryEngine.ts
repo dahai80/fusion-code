@@ -62,6 +62,12 @@ import { headlessProfilerCheckpoint } from "./utils/headlessProfiler.js";
 import { registerStructuredOutputEnforcement } from "./utils/hooks/hookHelpers.js";
 import { getInMemoryErrors } from "./utils/log.js";
 import { countToolCalls, SYNTHETIC_MESSAGES } from "./utils/messages.js";
+// ar-plan PR #7 (S2.1): 事件溯源旁路写
+import {
+	SessionEventRecorder,
+	isEventSourcingEnabled,
+	NOOP_RECORDER,
+} from "./services/events/eventLog.js";
 import {
 	getMainLoopModel,
 	parseUserSpecifiedModel,
@@ -203,6 +209,9 @@ export class QueryEngine {
 	// many turns in SDK mode.
 	private discoveredSkillNames = new Set<string>();
 	private loadedNestedMemoryPaths = new Set<string>();
+	// ar-plan PR #7 (S2.1): 事件溯源旁路写 — per-session recorder。
+	// default-off (FUSION_CODE_EVENT_SOURCING=1); off = NOOP_RECORDER, 零行为。
+	private eventRecorder: SessionEventRecorder;
 
 	constructor(config: QueryEngineConfig) {
 		this.config = config;
@@ -211,6 +220,10 @@ export class QueryEngine {
 		this.permissionDenials = [];
 		this.readFileState = config.readFileCache;
 		this.totalUsage = EMPTY_USAGE;
+		// ar-plan PR #7: 开则新建 recorder, 关则 no-op 单例 (byte-identical)。
+		this.eventRecorder = isEventSourcingEnabled()
+			? new SessionEventRecorder(getSessionId())
+			: NOOP_RECORDER;
 	}
 
 	async *submitMessage(
@@ -243,6 +256,8 @@ export class QueryEngine {
 		} = this.config;
 
 		this.discoveredSkillNames.clear();
+		// ar-plan PR #7 (S2.1): 旁路写 turn_start (shadow, default-off)
+		this.eventRecorder.record("turn_start", { prompt: typeof prompt === "string" ? prompt : "[content blocks]" });
 		setCwd(cwd);
 		const persistSession = !isSessionPersistenceDisabled();
 		const startTime = Date.now();
@@ -441,6 +456,8 @@ export class QueryEngine {
 
 		// Push new messages, including user input and any attachments
 		this.mutableMessages.push(...messagesFromUserInput);
+		// ar-plan PR #7 (S2.1): 旁路写 user_message (shadow, default-off)
+		this.eventRecorder.record("user_message", messagesFromUserInput);
 
 		// Update params to reflect updates from processing /slash commands
 		const messages = [...this.mutableMessages];
@@ -800,10 +817,14 @@ export class QueryEngine {
 						lastStopReason = message.message.stop_reason;
 					}
 					this.mutableMessages.push(message);
+					// ar-plan PR #7 (S2.1): 旁路写 assistant_message (shadow)
+					this.eventRecorder.record("assistant_message", message);
 					yield* normalizeMessage(message);
 					break;
 				case "progress":
 					this.mutableMessages.push(message);
+					// ar-plan PR #7 (S2.1): 旁路写 assistant_message (progress, shadow)
+					this.eventRecorder.record("assistant_message", message);
 					// Record inline so the dedup loop in the next ask() call sees it
 					// as already-recorded. Without this, deferred progress interleaves
 					// with already-recorded tool_results in mutableMessages, and the
@@ -817,6 +838,8 @@ export class QueryEngine {
 					break;
 				case "user": {
 					this.mutableMessages.push(message);
+					// ar-plan PR #7 (S2.1): 旁路写 tool_result (user role carries result blocks, shadow)
+					this.eventRecorder.record("tool_result", message);
 					// Phase 3b: count tool failures (is_error tool_result blocks)
 					// against the current turn so the rollback hint can stage.
 					if (Array.isArray(message.message?.content)) {
@@ -846,6 +869,8 @@ export class QueryEngine {
 							timestamp: new Date().toISOString(),
 						};
 						this.mutableMessages.push(hintMessage);
+						// ar-plan PR #7 (S2.1): 旁路写 assistant_message (rollback hint, shadow)
+						this.eventRecorder.record("assistant_message", hintMessage);
 						if (persistSession) {
 							messages.push(hintMessage);
 							void recordTranscript(messages);
@@ -911,6 +936,8 @@ export class QueryEngine {
 					break;
 				case "attachment":
 					this.mutableMessages.push(message);
+					// ar-plan PR #7 (S2.1): 旁路写 tool_result (attachment, shadow)
+					this.eventRecorder.record("tool_result", message);
 					// Record inline (same reason as progress above).
 					if (persistSession) {
 						messages.push(message);
@@ -993,10 +1020,14 @@ export class QueryEngine {
 						if (snipResult.executed) {
 							this.mutableMessages.length = 0;
 							this.mutableMessages.push(...snipResult.messages);
+							// ar-plan PR #7 (S2.1): 旁路写 compact (snip replay, shadow)
+							this.eventRecorder.record("compact", snipResult);
 						}
 						break;
 					}
 					this.mutableMessages.push(message);
+					// ar-plan PR #7 (S2.1): 旁路写 compact (compact_boundary, shadow)
+					this.eventRecorder.record("compact", message);
 					// Yield compact boundary messages to SDK
 					if (
 						message.subtype === "compact_boundary" &&
@@ -1215,6 +1246,8 @@ export class QueryEngine {
 			isApiError = Boolean(result.isApiErrorMessage);
 		}
 
+		// ar-plan PR #7 (S2.1): capture turn result uuid for turn_end shadow
+		const turnResultUuid = randomUUID();
 		yield {
 			type: "result",
 			subtype: "success",
@@ -1234,8 +1267,10 @@ export class QueryEngine {
 				mainLoopModel,
 				initialAppState.fastMode,
 			),
-			uuid: randomUUID(),
+			uuid: turnResultUuid,
 		};
+		// ar-plan PR #7 (S2.1): 旁路写 turn_end (shadow, default-off)
+		this.eventRecorder.record("turn_end", { uuid: turnResultUuid });
 	}
 
 	interrupt(): void {
