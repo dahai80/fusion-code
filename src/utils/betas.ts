@@ -28,6 +28,7 @@ import { getCanonicalName } from './model/model.js'
 import { get3PModelCapabilityOverride } from './model/modelSupportOverrides.js'
 import { getAPIProvider } from './model/providers.js'
 import { getInitialSettings } from './settings/settings.js'
+import type { Ctx } from '../services/llm/ctx.js'
 
 /**
  * SDK-provided betas that are allowed for API key users.
@@ -127,7 +128,16 @@ export function modelSupportsContextManagement(model: string): boolean {
 }
 
 // @[MODEL LAUNCH]: Add the new model ID to this list if it supports structured outputs.
-export function modelSupportsStructuredOutputs(model: string): boolean {
+export function modelSupportsStructuredOutputs(
+  model: string,
+  ctx?: Ctx,
+): boolean {
+  // ctx seam (ar-plan PR #3): when a Ctx is passed and matches this model,
+  // read the centralized capability. Falls back to old provider-if when ctx
+  // absent (all current callers) or model mismatches — byte-identical.
+  if (ctx && ctx.llm.modelId === model) {
+    return ctx.llm.supportsStructuredOutput()
+  }
   const canonical = getCanonicalName(model)
   const provider = getAPIProvider()
   // Structured outputs only supported on firstParty and Foundry (not Bedrock/Vertex yet)

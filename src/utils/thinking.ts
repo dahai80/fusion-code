@@ -7,6 +7,7 @@ import { get3PModelCapabilityOverride } from "./model/modelSupportOverrides.js";
 import { getAPIProvider } from "./model/providers.js";
 import { resolveAntModel } from "./model/antModels.js";
 import { getSettingsWithErrors } from "./settings/settings.js";
+import type { Ctx } from "../services/llm/ctx.js";
 
 export type ThinkingConfig =
 	| { type: "adaptive" }
@@ -88,7 +89,7 @@ export function getRainbowColor(
 
 // TODO(inigo): add support for probing unknown models via API error detection
 // Provider-aware thinking support detection (aligns with modelSupportsISP in betas.ts)
-export function modelSupportsThinking(model: string): boolean {
+export function modelSupportsThinking(model: string, ctx?: Ctx): boolean {
 	const supported3P = get3PModelCapabilityOverride(model, "thinking");
 	if (supported3P !== undefined) {
 		return supported3P;
@@ -97,6 +98,12 @@ export function modelSupportsThinking(model: string): boolean {
 		if (resolveAntModel(model.toLowerCase())) {
 			return true;
 		}
+	}
+	// ctx seam (ar-plan PR #3): when a Ctx is passed and matches this model,
+	// read the centralized provider-aware capability. Falls back to old
+	// provider-if when ctx absent (all current callers) or model mismatches.
+	if (ctx && ctx.llm.modelId === model) {
+		return ctx.llm.supportsThinking();
 	}
 	// IMPORTANT: Do not change thinking support without notifying the model
 	// launch DRI and research. This can greatly affect model quality and bashing.
