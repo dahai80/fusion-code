@@ -153,6 +153,10 @@ import type {
 	VimMode,
 } from "../types/textInputTypes.js";
 import { count } from "../utils/array.js";
+import {
+	onlySleepToolActive as onlySleepToolActiveFn,
+	stopHookSpinnerSuffix as stopHookSpinnerSuffixFn,
+} from "../utils/spinnerState.js";
 import { startBackgroundHousekeeping } from "../utils/backgroundHousekeeping.js";
 import { getMemoryFiles } from "../utils/claudemd.js";
 import { logForDebugging } from "../utils/debug.js";
@@ -169,7 +173,6 @@ import {
 import {
 	formatDuration,
 	formatTokens,
-	truncateToWidth,
 } from "../utils/format.js";
 import { isHumanTurn } from "../utils/messagePredicates.js";
 import { QueryGuard } from "../utils/QueryGuard.js";
@@ -305,7 +308,6 @@ import type {
 	HookResultMessage,
 	Message as MessageType,
 	PartialCompactDirection,
-	ProgressMessage,
 	UserMessage,
 } from "../types/message.js";
 import type { AutoUpdaterResult } from "../utils/autoUpdater.js";
@@ -560,7 +562,6 @@ import { startTaskReaper } from "src/services/taskHealth/taskReaper.js";
 import { SandboxManager } from "src/utils/sandbox/sandbox-adapter.js";
 import type { Theme } from "src/utils/theme.js";
 import { AwsAuthStatusBox } from "../components/AwsAuthStatusBox.js";
-import type { HookProgress } from "../types/hooks.js";
 import {
 	AutoRunIssueNotification,
 	type AutoRunIssueReason,
@@ -2029,19 +2030,11 @@ export function REPL({
 	}, [setMessages]);
 
 	// Hide spinner when the only in-progress tool is Sleep
-	const onlySleepToolActive = useMemo(() => {
-		const lastAssistant = messages.findLast((m) => m.type === "assistant");
-		if (lastAssistant?.type !== "assistant") return false;
-		const inProgressToolUses = lastAssistant.message.content.filter(
-			(b) => b.type === "tool_use" && inProgressToolUseIDs.has(b.id),
-		);
-		return (
-			inProgressToolUses.length > 0 &&
-			inProgressToolUses.every(
-				(b) => b.type === "tool_use" && b.name === SLEEP_TOOL_NAME,
-			)
-		);
-	}, [messages, inProgressToolUseIDs]);
+	// audit 1.1.1: 纯推导移至 utils/spinnerState.ts, useMemo 仅缓存
+	const onlySleepToolActive = useMemo(
+		() => onlySleepToolActiveFn(messages, inProgressToolUseIDs),
+		[messages, inProgressToolUseIDs],
+	);
 	const {
 		onBeforeQuery: mrOnBeforeQuery,
 		onTurnComplete: mrOnTurnComplete,
@@ -5316,74 +5309,11 @@ export function REPL({
 	}, [internal_eventEmitter]);
 
 	// Derive stop hook spinner suffix from messages state
-	const stopHookSpinnerSuffix = useMemo(() => {
-		if (!isLoading) return null;
-
-		// Find stop hook progress messages
-		const progressMsgs = messages.filter(
-			(m): m is ProgressMessage<HookProgress> =>
-				m.type === "progress" &&
-				m.data.type === "hook_progress" &&
-				(m.data.hookEvent === "Stop" || m.data.hookEvent === "SubagentStop"),
-		);
-		if (progressMsgs.length === 0) return null;
-
-		// Get the most recent stop hook execution
-		const currentToolUseID = progressMsgs.at(-1)?.toolUseID;
-		if (!currentToolUseID) return null;
-
-		// Check if there's already a summary message for this execution (hooks completed)
-		const hasSummaryForCurrentExecution = messages.some(
-			(m) =>
-				m.type === "system" &&
-				m.subtype === "stop_hook_summary" &&
-				m.toolUseID === currentToolUseID,
-		);
-		if (hasSummaryForCurrentExecution) return null;
-		const currentHooks = progressMsgs.filter(
-			(p) => p.toolUseID === currentToolUseID,
-		);
-		const total = currentHooks.length;
-
-		// Count completed hooks
-		const completedCount = count(messages, (m) => {
-			if (m.type !== "attachment") return false;
-			const attachment = m.attachment;
-			return (
-				"hookEvent" in attachment &&
-				(attachment.hookEvent === "Stop" ||
-					attachment.hookEvent === "SubagentStop") &&
-				"toolUseID" in attachment &&
-				attachment.toolUseID === currentToolUseID
-			);
-		});
-
-		// Check if any hook has a custom status message
-		const customMessage = currentHooks.find((p) => p.data.statusMessage)?.data
-			.statusMessage;
-		if (customMessage) {
-			// Use custom message with progress counter if multiple hooks
-			return total === 1
-				? `${customMessage}…`
-				: `${customMessage}… ${completedCount}/${total}`;
-		}
-
-		// Fall back to default behavior
-		const hookType =
-			currentHooks[0]?.data.hookEvent === "SubagentStop"
-				? "subagent stop"
-				: "stop";
-		if (isInternalBuild()) {
-			const cmd = currentHooks[completedCount]?.data.command;
-			const label = cmd ? ` '${truncateToWidth(cmd, 40)}'` : "";
-			return total === 1
-				? `running ${hookType} hook${label}`
-				: `running ${hookType} hook${label}\u2026 ${completedCount}/${total}`;
-		}
-		return total === 1
-			? `running ${hookType} hook`
-			: `running stop hooks… ${completedCount}/${total}`;
-	}, [messages, isLoading]);
+	// audit 1.1.1: 纯推导移至 utils/spinnerState.ts, useMemo 仅缓存
+	const stopHookSpinnerSuffix = useMemo(
+		() => stopHookSpinnerSuffixFn(messages, isLoading),
+		[messages, isLoading],
+	);
 
 	// Callback to capture frozen state when entering transcript mode
 	const handleEnterTranscript = useCallback(() => {
