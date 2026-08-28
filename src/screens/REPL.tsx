@@ -177,6 +177,7 @@ import {
 } from "../utils/responseLengthState.js";
 import { applyOnCompactProgress as applyOnCompactProgressImpl } from "../utils/compactProgressState.js";
 import { applyNestedStateUpdater as applyNestedStateUpdaterImpl } from "../utils/nestedStateUpdater.js";
+import { handleLocalSandboxUserResponse as handleLocalSandboxUserResponseImpl } from "../utils/sandboxPermissionResponse.js";
 import { startBackgroundHousekeeping } from "../utils/backgroundHousekeeping.js";
 import { getMemoryFiles } from "../utils/claudemd.js";
 import { logForDebugging } from "../utils/debug.js";
@@ -5676,61 +5677,12 @@ export function REPL({
 											allow: boolean;
 											persistToSettings: boolean;
 										}) => {
-											const { allow, persistToSettings } = response;
-											const currentRequest = sandboxPermissionRequestQueue[0];
-											if (!currentRequest) return;
-											const approvedHost = currentRequest.hostPattern.host;
-											if (persistToSettings) {
-												const update = {
-													type: "addRules" as const,
-													rules: [
-														{
-															toolName: WEB_FETCH_TOOL_NAME,
-															ruleContent: `domain:${approvedHost}`,
-														},
-													],
-													behavior: (allow ? "allow" : "deny") as
-														| "allow"
-														| "deny",
-													destination: "localSettings" as const,
-												};
-												setAppState((prev) => ({
-													...prev,
-													toolPermissionContext: applyPermissionUpdate(
-														prev.toolPermissionContext,
-														update,
-													),
-												}));
-												persistPermissionUpdate(update);
-
-												// Immediately update sandbox in-memory config to prevent race conditions
-												// where pending requests slip through before settings change is detected
-												SandboxManager.refreshConfig();
-											}
-
-											// Resolve ALL pending requests for the same host (not just the first one)
-											// This handles the case where multiple parallel requests came in for the same domain
-											setSandboxPermissionRequestQueue((queue) => {
-												queue
-													.filter(
-														(item) => item.hostPattern.host === approvedHost,
-													)
-													.forEach((item) => item.resolvePromise(allow));
-												return queue.filter(
-													(item) => item.hostPattern.host !== approvedHost,
-												);
+											handleLocalSandboxUserResponseImpl(response, {
+												sandboxPermissionRequestQueue,
+												setSandboxPermissionRequestQueue,
+												setAppState,
+												sandboxBridgeCleanupRef,
 											});
-
-											// Clean up bridge subscriptions and cancel remote prompts
-											// for this host since the local user already responded.
-											const cleanups =
-												sandboxBridgeCleanupRef.current.get(approvedHost);
-											if (cleanups) {
-												for (const fn of cleanups) {
-													fn();
-												}
-												sandboxBridgeCleanupRef.current.delete(approvedHost);
-											}
 										}}
 									/>
 								)}
