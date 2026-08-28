@@ -177,7 +177,10 @@ import {
 } from "../utils/responseLengthState.js";
 import { applyOnCompactProgress as applyOnCompactProgressImpl } from "../utils/compactProgressState.js";
 import { applyNestedStateUpdater as applyNestedStateUpdaterImpl } from "../utils/nestedStateUpdater.js";
-import { handleLocalSandboxUserResponse as handleLocalSandboxUserResponseImpl } from "../utils/sandboxPermissionResponse.js";
+import {
+	handleLocalSandboxUserResponse as handleLocalSandboxUserResponseImpl,
+	handleWorkerSandboxUserResponse as handleWorkerSandboxUserResponseImpl,
+} from "../utils/sandboxPermissionResponse.js";
 import { startBackgroundHousekeeping } from "../utils/backgroundHousekeeping.js";
 import { getMemoryFiles } from "../utils/claudemd.js";
 import { logForDebugging } from "../utils/debug.js";
@@ -204,7 +207,6 @@ import {
 	generateSandboxRequestId,
 	isSwarmWorker,
 	sendSandboxPermissionRequestViaMailbox,
-	sendSandboxPermissionResponseViaMailbox,
 } from "../utils/swarm/permissionSync.js";
 import { setMemberActive } from "../utils/swarm/teamHelpers.js";
 import { buildEffectiveSystemPrompt } from "../utils/systemPrompt.js";
@@ -250,15 +252,12 @@ import { buildPermissionUpdates } from "../components/permissions/ExitPlanModePe
 /* eslint-enable custom-rules/no-process-env-top-level, @typescript-eslint/no-require-imports */
 import useCanUseTool from "../hooks/useCanUseTool.js";
 import type { CompactProgressEvent, Tool, ToolPermissionContext } from "../Tool.js";
-import { WEB_FETCH_TOOL_NAME } from "../tools/WebFetchTool/prompt.js";
 import {
 	getScratchpadDir,
 	isScratchpadEnabled,
 } from "../utils/permissions/filesystem.js";
 import {
-	applyPermissionUpdate,
 	applyPermissionUpdates,
-	persistPermissionUpdate,
 } from "../utils/permissions/PermissionUpdate.js";
 import { stripDangerousPermissionsForAutoMode } from "../utils/permissions/permissionSetup.js";
 
@@ -5737,50 +5736,11 @@ export function REPL({
 											allow: boolean;
 											persistToSettings: boolean;
 										}) => {
-											const { allow, persistToSettings } = response;
-											const currentRequest = workerSandboxPermissions.queue[0];
-											if (!currentRequest) return;
-											const approvedHost = currentRequest.host;
-
-											// Send response via mailbox to the worker
-											void sendSandboxPermissionResponseViaMailbox(
-												currentRequest.workerName,
-												currentRequest.requestId,
-												approvedHost,
-												allow,
-												teamContext?.teamName,
-											);
-											if (persistToSettings && allow) {
-												const update = {
-													type: "addRules" as const,
-													rules: [
-														{
-															toolName: WEB_FETCH_TOOL_NAME,
-															ruleContent: `domain:${approvedHost}`,
-														},
-													],
-													behavior: "allow" as const,
-													destination: "localSettings" as const,
-												};
-												setAppState((prev) => ({
-													...prev,
-													toolPermissionContext: applyPermissionUpdate(
-														prev.toolPermissionContext,
-														update,
-													),
-												}));
-												persistPermissionUpdate(update);
-												SandboxManager.refreshConfig();
-											}
-
-											// Remove from queue
-											setAppState((prev) => ({
-												...prev,
-												workerSandboxPermissions: {
-													...prev.workerSandboxPermissions,
-													queue: prev.workerSandboxPermissions.queue.slice(1),
-												},
-											}));
+											handleWorkerSandboxUserResponseImpl(response, {
+												workerSandboxPermissions,
+												setAppState,
+												teamName: teamContext?.teamName,
+											});
 										}}
 									/>
 								)}
