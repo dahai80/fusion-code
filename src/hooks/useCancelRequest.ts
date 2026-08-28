@@ -26,6 +26,8 @@ import {
   killAllRunningAgentTasks,
   markAgentsNotified,
 } from '../tasks/LocalAgentTask/LocalAgentTask.js'
+import { killAllRunningWorkflowTasks } from '../tasks/LocalWorkflowTask/LocalWorkflowTask.js'
+import { isEnvTruthy } from '../utils/envUtils.js'
 import type { PromptInputMode, VimMode } from '../types/textInputTypes.js'
 import {
   clearCommandQueue,
@@ -84,6 +86,52 @@ export function CancelRequestHandler(props: CancelRequestHandlerProps): null {
   const lastKillAgentsPressRef = useRef<number>(0)
   const viewSelectionMode = useAppState(s => s.viewSelectionMode)
 
+  // Shared kill path: stop all agents + workflows, suppress per-agent
+  // notifications, emit SDK events, enqueue a single aggregate model-facing
+  // notification. Returns true if anything was killed.
+  //
+  // audit 1.4.4 (HIGH): 之前只杀 local_agent, workflow 孤立。现在也杀
+  // local_workflow (WorkflowTool 注册进 AppState.tasks 的那些)。显式 kill-all
+  // 手势 (ctrl+x ctrl+k, teammate-view Ctrl+C) 总是杀全部后台类型。
+  //
+  // 声明在 handleCancel 之前 — handleCancel (ESC-kills-background 分支) 引用
+  // 本函数, const arrow 不提升 (TS2448)。
+  const killAllAgentsAndNotify = useCallback((): boolean => {
+    const tasks = store.getState().tasks
+    const runningAgents = Object.entries(tasks).filter(
+      ([, t]) => t.type === 'local_agent' && t.status === 'running',
+    )
+    const runningWorkflows = Object.entries(tasks).filter(
+      ([, t]) => t.type === 'local_workflow' && t.status === 'running',
+    )
+    if (runningAgents.length === 0 && runningWorkflows.length === 0) return false
+    killAllRunningAgentTasks(tasks, setAppState)
+    killAllRunningWorkflowTasks(tasks, setAppState)
+    const descriptions: string[] = []
+    for (const [taskId, task] of runningAgents) {
+      markAgentsNotified(taskId, setAppState)
+      descriptions.push(task.description)
+      emitTaskTerminatedSdk(taskId, 'stopped', {
+        toolUseId: task.toolUseId,
+        summary: task.description,
+      })
+    }
+    for (const [taskId, task] of runningWorkflows) {
+      descriptions.push(task.description)
+      emitTaskTerminatedSdk(taskId, 'stopped', {
+        toolUseId: task.toolUseId,
+        summary: task.description,
+      })
+    }
+    const summary =
+      descriptions.length === 1
+        ? `Background task "${descriptions[0]}" was stopped by the user.`
+        : `${descriptions.length} background tasks were stopped by the user: ${descriptions.map(d => `"${d}"`).join(', ')}.`
+    enqueuePendingNotification({ value: summary, mode: 'task-notification' })
+    onAgentsKilled()
+    return true
+  }, [store, setAppState, onAgentsKilled])
+
   const handleCancel = useCallback(() => {
     const cancelProps = {
       source:
@@ -98,6 +146,12 @@ export function CancelRequestHandler(props: CancelRequestHandlerProps): null {
       logEvent('tengu_cancel', cancelProps)
       setToolUseConfirmQueue(() => [])
       onCancel()
+      // audit 1.4.4 (HIGH): default-off — ESC 默认只杀前台 (保持旧行为
+      // byte-identical)。显式设 FUSION_CODE_ESC_KILLS_BACKGROUND=1 才让 ESC
+      // 同时杀后台 agent + workflow, 否则后台孤立烧资源。
+      if (isEnvTruthy(process.env.FUSION_CODE_ESC_KILLS_BACKGROUND)) {
+        killAllAgentsAndNotify()
+      }
       return
     }
 
@@ -119,6 +173,7 @@ export function CancelRequestHandler(props: CancelRequestHandlerProps): null {
     setToolUseConfirmQueue,
     onCancel,
     streamMode,
+    killAllAgentsAndNotify,
   ])
 
   // Determine if this handler should be active
@@ -165,34 +220,6 @@ export function CancelRequestHandler(props: CancelRequestHandlerProps): null {
     context: 'Chat',
     isActive: isEscapeActive,
   })
-
-  // Shared kill path: stop all agents, suppress per-agent notifications,
-  // emit SDK events, enqueue a single aggregate model-facing notification.
-  // Returns true if anything was killed.
-  const killAllAgentsAndNotify = useCallback((): boolean => {
-    const tasks = store.getState().tasks
-    const running = Object.entries(tasks).filter(
-      ([, t]) => t.type === 'local_agent' && t.status === 'running',
-    )
-    if (running.length === 0) return false
-    killAllRunningAgentTasks(tasks, setAppState)
-    const descriptions: string[] = []
-    for (const [taskId, task] of running) {
-      markAgentsNotified(taskId, setAppState)
-      descriptions.push(task.description)
-      emitTaskTerminatedSdk(taskId, 'stopped', {
-        toolUseId: task.toolUseId,
-        summary: task.description,
-      })
-    }
-    const summary =
-      descriptions.length === 1
-        ? `Background agent "${descriptions[0]}" was stopped by the user.`
-        : `${descriptions.length} background agents were stopped by the user: ${descriptions.map(d => `"${d}"`).join(', ')}.`
-    enqueuePendingNotification({ value: summary, mode: 'task-notification' })
-    onAgentsKilled()
-    return true
-  }, [store, setAppState, onAgentsKilled])
 
   // Ctrl+C (app:interrupt). Scoped to teammate-view: killing agents from the
   // main prompt stays a deliberate gesture (chat:killAgents), not a
