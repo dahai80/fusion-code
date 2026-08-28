@@ -175,6 +175,7 @@ import { applySetInputValue as applySetInputValueImpl } from "../utils/inputValu
 import {
 	applySetResponseLength as applySetResponseLengthImpl,
 } from "../utils/responseLengthState.js";
+import { applyOnCompactProgress as applyOnCompactProgressImpl } from "../utils/compactProgressState.js";
 import { startBackgroundHousekeeping } from "../utils/backgroundHousekeeping.js";
 import { getMemoryFiles } from "../utils/claudemd.js";
 import { logForDebugging } from "../utils/debug.js";
@@ -187,7 +188,7 @@ import {
 	createFileStateCacheWithSizeLimit,
 	READ_FILE_STATE_CACHE_SIZE,
 } from "../utils/fileStateCache.js";
-import { formatDuration, formatTokens } from "../utils/format.js";
+import { formatTokens } from "../utils/format.js";
 import { isHumanTurn } from "../utils/messagePredicates.js";
 import { QueryGuard } from "../utils/QueryGuard.js";
 import { prependToShellHistoryCache } from "../utils/suggestions/shellHistoryCompletion.js";
@@ -246,7 +247,7 @@ const getCoordinatorUserContext: (
 import { buildPermissionUpdates } from "../components/permissions/ExitPlanModePermissionRequest/ExitPlanModePermissionRequest.js";
 /* eslint-enable custom-rules/no-process-env-top-level, @typescript-eslint/no-require-imports */
 import useCanUseTool from "../hooks/useCanUseTool.js";
-import type { Tool, ToolPermissionContext } from "../Tool.js";
+import type { CompactProgressEvent, Tool, ToolPermissionContext } from "../Tool.js";
 import { WEB_FETCH_TOOL_NAME } from "../tools/WebFetchTool/prompt.js";
 import {
 	getScratchpadDir,
@@ -2851,43 +2852,13 @@ export function REPL({
 						}
 					: undefined,
 				setStreamMode,
-				onCompactProgress: (event) => {
-					switch (event.type) {
-						case "hooks_start":
-							setSpinnerColor("claudeBlue_FOR_SYSTEM_SPINNER");
-							setSpinnerShimmerColor("claudeBlueShimmer_FOR_SYSTEM_SPINNER");
-							setSpinnerMessage(
-								event.hookType === "pre_compact"
-									? "Running PreCompact hooks\u2026"
-									: event.hookType === "post_compact"
-										? "Running PostCompact hooks\u2026"
-										: "Running SessionStart hooks\u2026",
-							);
-							break;
-						case "compact_start":
-							setSpinnerMessage("Compacting conversation");
-							break;
-						case "compact_retry":
-							// item 16: 截断重试可见。reason 原样显示 (prompt_too_long/mlx_memory/mlx_server_error)
-							setSpinnerMessage(
-								`Compacting (retry ${event.attempt}/${event.maxRetries}: ${event.reason})`,
-							);
-							break;
-						case "compact_stall":
-							// item 16: 无 token 流超阈值显耗时提示。retry 文本优先 (重试瞬时, stall 30s 才显, 时序不撞)
-							if (event.elapsedMs >= COMPACT_STALL_HINT_MS) {
-								setSpinnerMessage(
-									`Compacting conversation — running ${formatDuration(event.elapsedMs)}, large context summaries can take a while`,
-								);
-							}
-							break;
-						case "compact_end":
-							setSpinnerMessage(null);
-							setSpinnerColor(null);
-							setSpinnerShimmerColor(null);
-							break;
-					}
-				},
+				onCompactProgress: (event: CompactProgressEvent) =>
+					applyOnCompactProgressImpl(event, {
+						compactStallHintMs: COMPACT_STALL_HINT_MS,
+						setSpinnerColor,
+						setSpinnerShimmerColor,
+						setSpinnerMessage,
+					}),
 				setInProgressToolUseIDs,
 				setHasInterruptibleToolInProgress: (v: boolean) => {
 					hasInterruptibleToolInProgressRef.current = v;
