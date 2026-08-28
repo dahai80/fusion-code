@@ -176,6 +176,7 @@ import {
 	applySetResponseLength as applySetResponseLengthImpl,
 } from "../utils/responseLengthState.js";
 import { applyOnCompactProgress as applyOnCompactProgressImpl } from "../utils/compactProgressState.js";
+import { applyNestedStateUpdater as applyNestedStateUpdaterImpl } from "../utils/nestedStateUpdater.js";
 import { startBackgroundHousekeeping } from "../utils/backgroundHousekeeping.js";
 import { getMemoryFiles } from "../utils/claudemd.js";
 import { logForDebugging } from "../utils/debug.js";
@@ -327,10 +328,7 @@ import type {
 } from "../types/message.js";
 import type { AutoUpdaterResult } from "../utils/autoUpdater.js";
 import { hasConsoleBillingAccess } from "../utils/billing.js";
-import {
-	type AttributionState,
-	incrementPromptCount,
-} from "../utils/commitAttribution.js";
+import { incrementPromptCount } from "../utils/commitAttribution.js";
 import {
 	isBgSession,
 	updateSessionActivity,
@@ -2791,33 +2789,10 @@ export function REPL({
 				setAppState,
 				messages,
 				setMessages,
-				updateFileHistoryState(
-					updater: (prev: FileHistoryState) => FileHistoryState,
-				) {
-					// Perf: skip the setState when the updater returns the same reference
-					// (e.g. fileHistoryTrackEdit returns `state` when the file is already
-					// tracked). Otherwise every no-op call would notify all store listeners.
-					setAppState((prev) => {
-						const updated = updater(prev.fileHistory);
-						if (updated === prev.fileHistory) return prev;
-						return {
-							...prev,
-							fileHistory: updated,
-						};
-					});
-				},
-				updateAttributionState(
-					updater: (prev: AttributionState) => AttributionState,
-				) {
-					setAppState((prev) => {
-						const updated = updater(prev.attribution);
-						if (updated === prev.attribution) return prev;
-						return {
-							...prev,
-							attribution: updated,
-						};
-					});
-				},
+				updateFileHistoryState: (updater) =>
+					applyNestedStateUpdaterImpl(setAppState, "fileHistory", updater),
+				updateAttributionState: (updater) =>
+					applyNestedStateUpdaterImpl(setAppState, "attribution", updater),
 				openMessageSelector: () => {
 					if (!disabled) {
 						setIsMessageSelectorVisible(true);
