@@ -293,10 +293,12 @@ import {
 	useAppStateStore,
 	useSetAppState,
 } from "../state/AppState.js";
+import type { InProcessTeammateTaskState } from "../tasks/InProcessTeammateTask/types.js";
 import {
-	type InProcessTeammateTaskState,
-	isInProcessTeammateTask,
-} from "../tasks/InProcessTeammateTask/types.js";
+	getViewedAgentTask,
+	getViewedTask,
+	getViewedTeammateTask,
+} from "../tasks/viewedTaskSelector.js";
 import type { AgentColorName } from "../tools/AgentTool/agentColorManager.js";
 import { resolveAgentTools } from "../tools/AgentTool/agentToolUtils.js";
 import type { AgentDefinition } from "../tools/AgentTool/loadAgentsDir.js";
@@ -5754,12 +5756,10 @@ export function REPL({
 	// viewedAgentTask: teammate OR local_agent — drives the boolean checks
 	// below. viewedTeammateTask: teammate-only narrowed, for teammate-specific
 	// field access (inProgressToolUseIDs).
-	const viewedTask = viewingAgentTaskId ? tasks[viewingAgentTaskId] : undefined;
-	const viewedTeammateTask =
-		viewedTask && isInProcessTeammateTask(viewedTask) ? viewedTask : undefined;
-	const viewedAgentTask =
-		viewedTeammateTask ??
-		(viewedTask && isLocalAgentTask(viewedTask) ? viewedTask : undefined);
+	// audit 1.1.1: 三段推导移至 tasks/viewedTaskSelector.ts
+	const viewedTask = getViewedTask(tasks, viewingAgentTaskId);
+	const viewedTeammateTask = getViewedTeammateTask(viewedTask);
+	const viewedAgentTask = getViewedAgentTask(viewedTask, viewedTeammateTask);
 
 	// Bypass useDeferredValue when streaming text is showing so Messages renders
 	// the final message in the same frame streaming text clears. Also bypass when
