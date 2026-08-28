@@ -1,149 +1,263 @@
 # fusion-code Feature Flags
 
-本文说明 88 个 feature flag 的总览、DCE 机制、34 个 broken flags 的修复记录、dev-full 列表与验证方法。
+本文说明 fusion-code 两类 feature flag 的总览、DCE 机制、dev-full 列表与验证方法。
+审计 §3.2 (2026-08) 指出文档与源码背离, 本文件于 2026-08-28 按源码实际重新核对。
 
-## 总览
+## 两类 flag (不同机制, 不可混用)
 
-仓库当前引用 88 个 `feature('FLAG')` 编译时 flag（源码 grep 统计为 86 个唯一 flag，FEATURES.md 记录 88 个）。
+fusion-code 有**两套**语义重叠但机制不同的 flag:
 
-### DCE 机制
+| 维度 | build-time `feature('X')` | runtime env-gate `isEnvTruthy(process.env.FUSION_CODE_*)` |
+|------|---------------------------|----------------------------------------------------------|
+| 机制 | Bun bundler 编译时宏, 死代码消除 | 进程启动读 env, 运行时条件分支 |
+| 文件 | `import { feature } from 'bun:bundle'` | `isEnvTruthy(process.env.X)` (envUtils.ts) |
+| 数量 | **91** distinct flag / **915** call site | **88** distinct flag / **177** call site |
+| 默认 | 仅 `VOICE_MODE` 进产物, 其余 DCE 移除 | unset = off, byte-identical |
+| 改变需 | 重新 `bun run build` | 重启进程, 无需重编译 |
 
-Feature flag 通过 Bun bundler 的编译时宏实现死代码消除：
+**混用风险 (审计 3.2.2):** `feature()` 要求**字符串字面量**参数才能 DCE (PR #9 build bug: 运行时变量 cast 破坏 build:dev)。env-gate 用 `isEnvTruthy(process.env.X)` (运行时)。二者语义重叠但机制不同 — 该 DCE 的没消除 (包体膨胀), 该运行时的被 build 消除 (行为错)。新 flag 先确定归属: 进产物与否决定用 build-time 还是 runtime。
 
-1. `scripts/build.ts` 收集 `--feature=NAME` 参数，生成 `features` 数组
-2. 每个 feature 以 `--feature=NAME` 传给 `bun build --compile`
-3. 源码中 `import { feature } from 'bun:bundle'`，调用 `feature('FLAG')`
-4. 启用时：`feature('FLAG')` -> `true`，对应代码进入 bundle
-5. 未启用时：`feature('FLAG')` -> `false`，Bundler DCE 移除该分支
+### DCE 机制 (build-time)
 
-这意味着未启用的 feature 代码完全不进入产物，零运行时开销。
+1. `scripts/build.ts` 收集 `--feature=NAME` 参数, 生成 `features` 数组
+2. 每个 feature 以 `--define` 传给 `bun build --compile`
+3. 源码 `import { feature } from 'bun:bundle'`, 调用 `feature('FLAG')` (单/双引号均可)
+4. 启用: `feature('FLAG')` -> `true`, 代码进入 bundle
+5. 未启用: `feature('FLAG')` -> `false`, Bundler DCE 移除该分支
+
+未启用的 feature 代码完全不进入产物, 零运行时开销。
 
 ### 默认启用
 
-`scripts/build.ts` 中 `defaultFeatures = ['VOICE_MODE']`，所有构建变体都包含 `VOICE_MODE`。
+`scripts/build.ts` `defaultFeatures = ['VOICE_MODE']`, 所有构建变体含 `VOICE_MODE`。
 
-## 34 Broken Flags 修复记录（2026-07-23）
+## dev-full: 91 Flags
 
-审计日期 2026-03-31 时，34 个 flag 无法 bundle。2026-07-23 全部修复，`bun run ./scripts/build.ts --dev --feature-set=dev-full --feature=<all 34>` 退出码 0，4001 模块，flag-gated 代码确认进入二进制。
+`scripts/build.ts` `fullExperimentalFeatures` 列出全部 91 个 build-time flag, `--feature-set=dev-full` 一次性全部启用, 使所有 DCE-eligible 实验路径进入二进制编译。该列表与 `src/` 实际 `feature('X')` 调用**逐一核对一致** (0 dead entry, 0 active miss, 核对命令见末节)。
 
-### 修复来源
+```
+ABLATION_BASELINE
+AGENT_MEMORY_SNAPSHOT
+AGENT_TRIGGERS
+AGENT_TRIGGERS_REMOTE
+ALLOW_TEST_VERSIONS
+ANTI_DISTILLATION_CC
+AUTO_THEME
+AWAY_SUMMARY
+BASH_CLASSIFIER
+BG_SESSIONS
+BREAK_CACHE_COMMAND
+BRIDGE_MODE
+BUDDY
+BUILDING_CLAUDE_APPS
+BUILTIN_EXPLORE_PLAN_AGENTS
+BYOC_ENVIRONMENT_RUNNER
+CACHED_MICROCOMPACT
+CAPABILITY_MANIFEST
+CCR_AUTO_CONNECT
+CCR_MIRROR
+CHICAGO_MCP
+COMMIT_ATTRIBUTION
+COMPACTION_REMINDERS
+CONNECTOR_TEXT
+CONTEXT_COLLAPSE
+COORDINATOR_MODE
+COWORKER_TYPE_TELEMETRY
+DAEMON
+DIRECT_CONNECT
+DOWNLOAD_USER_SETTINGS
+DUMP_CONFIG
+DUMP_SYSTEM_PROMPT
+EXPERIMENTAL_SKILL_SEARCH
+EXTRACT_MEMORIES
+FILE_PERSISTENCE
+FORK_SUBAGENT
+HARD_FAIL
+HISTORY_PICKER
+HISTORY_SNIP
+HOOK_PROMPTS
+IS_LIBC_GLIBC
+IS_LIBC_MUSL
+KAIROS
+KAIROS_BRIEF
+KAIROS_CHANNELS
+KAIROS_DREAM
+KAIROS_GITHUB_WEBHOOKS
+KAIROS_PUSH_NOTIFICATION
+LLM_ADAPTER_SEAM
+LODESTONE
+MCP_RICH_OUTPUT
+MCP_SKILLS
+MEMORY_SHAPE_TELEMETRY
+MESSAGE_ACTIONS
+MONITOR_TOOL
+NATIVE_CLIPBOARD_IMAGE
+NEW_INIT
+OVERFLOW_TEST_TOOL
+PERFETTO_TRACING
+POWERSHELL_AUTO_MODE
+PROACTIVE
+PROMPT_CACHE_BREAK_DETECTION
+QUICK_SEARCH
+REACTIVE_COMPACT
+REVIEW_ARTIFACT
+RUN_SKILL_GENERATOR
+SELF_HOSTED_RUNNER
+SESSION_SKILLS
+SHOT_STATS
+SKILL_IMPROVEMENT
+SKIP_DETECTION_WHEN_AUTOUPDATES_DISABLED
+SLOW_OPERATION_LOGGING
+SSH_REMOTE
+STREAMLINED_OUTPUT
+TEAMMEM
+TEMPLATES
+TERMINAL_PANEL
+TOKEN_BUDGET
+TORCH
+TRANSCRIPT_CLASSIFIER
+TREE_SITTER_BASH
+TREE_SITTER_BASH_SHADOW
+UDS_INBOX
+ULTRAPLAN
+ULTRATHINK
+UNATTENDED_RETRY
+UPLOAD_USER_SETTINGS
+VERIFICATION_AGENT
+VOICE_MODE
+WEB_BROWSER_TOOL
+WORKFLOW_SCRIPTS
+```
 
-**12 个 HEAD-only 入口文件 restored**：
+`CHICAGO_MCP` 虽编译通过, 但运行时 reaches `@ant/computer-use-*`, dev-full 已可编译, 实际运行需该外部化包。
 
-| Flag | 文件 |
-|------|------|
-| `BUDDY` | `src/commands/buddy/index.js` |
-| `FORK_SUBAGENT` | `src/commands/fork/index.js` |
-| `HISTORY_SNIP` | `src/commands/force-snip.js`（即 `force-snip.ts`） |
-| `KAIROS_GITHUB_WEBHOOKS` | `src/tools/SubscribePRTool/SubscribePRTool.js` |
-| `KAIROS_PUSH_NOTIFICATION` | `src/tools/PushNotificationTool/PushNotificationTool.js` |
-| `OVERFLOW_TEST_TOOL` | `src/tools/OverflowTestTool/OverflowTestTool.js` |
-| `TORCH` | `src/commands/torch.js` |
-| `CONTEXT_COLLAPSE` | `src/tools/CtxInspectTool/CtxInspectTool.js` |
-| `MONITOR_TOOL` | `src/tools/MonitorTool/MonitorTool.js` |
-| `TERMINAL_PANEL` | `src/tools/TerminalCaptureTool/TerminalCaptureTool.js` |
-| `WEB_BROWSER_TOOL` | `src/tools/WebBrowserTool/WebBrowserTool.js` |
-| `WORKFLOW_SCRIPTS` | `src/commands/workflows/index.js` |
+## runtime env-gate: 88 Flags
 
-**4 个文件已存在**：
+`isEnvTruthy(process.env.FUSION_CODE_*)` 读取的运行时 flag, 进程启动决定, 不需重编译。默认 unset = off, 路径 byte-identical 与关时一致。命名空间统一 `FUSION_CODE_` 前缀 (审计 3.2.4 指出 env 混用 `FUSION_CODE_*`/`FUSION_*`/`CLAUDE_CODE_*` 三前缀, 见 `src/entrypoints/cli.tsx` 映射表 — `FUSION_*` 映射到 `ANTHROPIC_*` 供 SDK 兼容, `CLAUDE_CODE_*` 为上游兼容遗留)。
 
-| Flag | 文件 | 说明 |
-|------|------|------|
-| `RUN_SKILL_GENERATOR` | `src/skills/bundled/runSkillGenerator.ts` | 已在 phase 4-8 补齐 |
-| `REACTIVE_COMPACT` | `src/services/compact/reactiveCompact.ts` | phase 8 实现（5 个缺失函数补齐） |
-| `BUILDING_CLAUDE_APPS` | `src/claude-api/csharp/claude-api.md` | asset 文件 |
-| `TRANSCRIPT_CLASSIFIER` | `src/utils/permissions/yolo-classifier-prompts/auto_mode_system_prompt.txt` | prompt asset |
+```
+FUSION_CODE_ACTION
+FUSION_CODE_ADDITIONAL_DIRECTORIES_CLAUDE_MD
+FUSION_CODE_AGENT_LIST_IN_MESSAGES
+FUSION_CODE_ALWAYS_ENABLE_EFFORT
+FUSION_CODE_ASSISTANT_MODE
+FUSION_CODE_ASSISTANT_TEAM_MODE
+FUSION_CODE_ASSISTANT_VIEWER_MODE
+FUSION_CODE_BRIEF
+FUSION_CODE_BRIEF_UPLOAD
+FUSION_CODE_BUBBLEWRAP
+FUSION_CODE_COORDINATOR_MODE
+FUSION_CODE_DEBUG_MLX_FETCH
+FUSION_CODE_DEBUG_REPAINTS
+FUSION_CODE_DISABLE_1M_CONTEXT
+FUSION_CODE_DISABLE_ADAPTIVE_THINKING
+FUSION_CODE_DISABLE_ADVISOR_TOOL
+FUSION_CODE_DISABLE_ATTACHMENTS
+FUSION_CODE_DISABLE_AUTO_MEMORY
+FUSION_CODE_DISABLE_BACKGROUND_TASKS
+FUSION_CODE_DISABLE_CLAUDE_MDS
+FUSION_CODE_DISABLE_EXPERIMENTAL_BETAS
+FUSION_CODE_DISABLE_FAST_MODE
+FUSION_CODE_DISABLE_FILE_CHECKPOINTING
+FUSION_CODE_DISABLE_LEGACY_MODEL_REMAP
+FUSION_CODE_DISABLE_MOUSE
+FUSION_CODE_DISABLE_MOUSE_CLICKS
+FUSION_CODE_DISABLE_POLICY_SKILLS
+FUSION_CODE_DISABLE_PRECOMPACT_SKIP
+FUSION_CODE_DISABLE_TERMINAL_TITLE
+FUSION_CODE_DISABLE_THINKING
+FUSION_CODE_DUMP_AUTO_MODE
+FUSION_CODE_EAGER_FLUSH
+FUSION_CODE_EMIT_SESSION_STATE_EVENTS
+FUSION_CODE_ENABLE_CFC
+FUSION_CODE_ENABLE_FINE_GRAINED_TOOL_STREAMING
+FUSION_CODE_ENABLE_SDK_FILE_CHECKPOINTING
+FUSION_CODE_ENABLE_TASKS
+FUSION_CODE_ENABLE_TOKEN_USAGE_ATTACHMENT
+FUSION_CODE_ENABLE_XAA
+FUSION_CODE_ESC_KILLS_BACKGROUND
+FUSION_CODE_EVENT_SOURCING
+FUSION_CODE_EXECUTOR_ENABLED
+FUSION_CODE_EXECUTOR_TURN_SNAPSHOT
+FUSION_CODE_EXIT_AFTER_FIRST_RENDER
+FUSION_CODE_EXPERIMENTAL_BUILD
+FUSION_CODE_IDE_SKIP_AUTO_INSTALL
+FUSION_CODE_IDE_SKIP_VALID_CHECK
+FUSION_CODE_IS_COWORK
+FUSION_CODE_KAIROS_ENABLED
+FUSION_CODE_MCP_INSTR_DELTA
+FUSION_CODE_NEW_INIT
+FUSION_CODE_NO_AUTH
+FUSION_CODE_NO_FLICKER
+FUSION_CODE_PLAN_MODE_REQUIRED
+FUSION_CODE_PLUGIN_SHA256_STRICT
+FUSION_CODE_PLUGIN_USE_ZIP_CACHE
+FUSION_CODE_POST_FOR_SESSION_INGRESS_V2
+FUSION_CODE_PROACTIVE
+FUSION_CODE_PROFILE_ENABLED
+FUSION_CODE_PROFILE_QUERY
+FUSION_CODE_PROFILE_STARTUP
+FUSION_CODE_PROVIDER_MANAGED_BY_HOST
+FUSION_CODE_PROXY_RESOLVES_HOSTS
+FUSION_CODE_REMOTE
+FUSION_CODE_REMOTE_SEND_KEEPALIVES
+FUSION_CODE_SAVE_HOOK_ADDITIONAL_CONTEXT
+FUSION_CODE_SIMPLE
+FUSION_CODE_SKIP_FAST_MODE_NETWORK_ERRORS
+FUSION_CODE_SKIP_PROMPT_HISTORY
+FUSION_CODE_STREAMLINED_OUTPUT
+FUSION_CODE_STREAM_RESUME_ENABLED
+FUSION_CODE_SUBPROCESS_ENV_PASSTHROUGH
+FUSION_CODE_SUBPROCESS_ENV_SCRUB
+FUSION_CODE_SYNC_PLUGIN_INSTALL
+FUSION_CODE_TASK_REAPER_ENABLED
+FUSION_CODE_TERMINAL_RECORDING
+FUSION_CODE_TRUSTED_PROXY
+FUSION_CODE_UNATTENDED_RETRY
+FUSION_CODE_UNDERCOVER
+FUSION_CODE_USE_BEDROCK
+FUSION_CODE_USE_CCR_V2
+FUSION_CODE_USE_COWORK_PLUGINS
+FUSION_CODE_USE_FOUNDRY
+FUSION_CODE_USE_NATIVE_FILE_SEARCH
+FUSION_CODE_USE_OPENAI
+FUSION_CODE_USE_POWERSHELL_TOOL
+FUSION_CODE_USE_VERTEX
+FUSION_CODE_VERIFY_PLAN
+```
 
-**剩余 gap**：phase 4-8 补齐（commands/tools/modules/feature flags 4 个 batch）。
+## 运行时 caveat
 
-### 运行时注意事项
+"bundle cleanly" 不等于 "runtime-safe"。部分 flag 运行时依赖:
 
-"bundle cleanly" 不等于 "runtime-safe"。部分 flag 仍依赖：
-
-- 可选原生模块（`image-processor-napi` 等）
+- 可选原生模块 (`image-processor-napi` / `audio-capture-napi` 等)
 - claude.ai OAuth
 - GrowthBook gate
 - 外部化的 `@ant/*` 包
 
-典型运行时 caveat：
+典型:
 
-- `VOICE_MODE`：需 claude.ai OAuth + 录音后端（原生模块或 SoX fallback）
-- `NATIVE_CLIPBOARD_IMAGE`：需 `image-processor-napi` 才加速
-- `BRIDGE_MODE` / `CCR_*`：运行时受 OAuth + GrowthBook 控制
-- `CHICAGO_MCP`：编译通过但运行时 reaches `@ant/computer-use-*`，dev-full 已排除
-- `TEAMMEM`：需 team-memory 配置实际启用才有用
-
-## dev-full 23 Flags
-
-`scripts/build.ts` 中 `fullExperimentalFeatures` 列表（23 个）：
-
-```
-AGENT_MEMORY_SNAPSHOT
-BASH_CLASSIFIER
-BUILTIN_EXPLORE_PLAN_AGENTS
-CACHED_MICROCOMPACT
-COMPACTION_REMINDERS
-EXTRACT_MEMORIES
-HISTORY_PICKER
-HOOK_PROMPTS
-MCP_RICH_OUTPUT
-MESSAGE_ACTIONS
-NATIVE_CLIPBOARD_IMAGE
-NEW_INIT
-POWERSHELL_AUTO_MODE
-PROMPT_CACHE_BREAK_DETECTION
-QUICK_SEARCH
-TOKEN_BUDGET
-TREE_SITTER_BASH
-TREE_SITTER_BASH_SHADOW
-ULTRAPLAN
-ULTRATHINK
-UNATTENDED_RETRY
-VERIFICATION_AGENT
-VOICE_MODE
-```
-
-`CHICAGO_MCP` 虽编译通过，但因运行时依赖 `@ant/computer-use-mcp`，dev-full 已显式排除。
-
-## Flag 分类（FEATURES.md 历史 reconstruction）
-
-以下分类来自 FEATURES.md，保留作为历史参考，不再反映 failing build。
-
-### Interaction and UI Experiments
-
-`AWAY_SUMMARY`、`HISTORY_PICKER`、`HOOK_PROMPTS`、`KAIROS_BRIEF`、`KAIROS_CHANNELS`、`LODESTONE`、`MESSAGE_ACTIONS`、`NEW_INIT`、`QUICK_SEARCH`、`SHOT_STATS`、`TOKEN_BUDGET`、`ULTRAPLAN`、`ULTRATHINK`、`VOICE_MODE`
-
-### Agent, Memory, and Planning Experiments
-
-`AGENT_MEMORY_SNAPSHOT`、`AGENT_TRIGGERS`、`AGENT_TRIGGERS_REMOTE`、`BUILTIN_EXPLORE_PLAN_AGENTS`、`CACHED_MICROCOMPACT`、`COMPACTION_REMINDERS`、`EXTRACT_MEMORIES`、`PROMPT_CACHE_BREAK_DETECTION`、`TEAMMEM`、`VERIFICATION_AGENT`
-
-### Tools, Permissions, and Remote Experiments
-
-`BASH_CLASSIFIER`、`BRIDGE_MODE`、`CCR_AUTO_CONNECT`、`CCR_MIRROR`、`CCR_REMOTE_SETUP`、`CHICAGO_MCP`、`CONNECTOR_TEXT`、`MCP_RICH_OUTPUT`、`NATIVE_CLIPBOARD_IMAGE`、`POWERSHELL_AUTO_MODE`、`TREE_SITTER_BASH`、`TREE_SITTER_BASH_SHADOW`、`UNATTENDED_RETRY`
-
-### Bundle-Clean Support Flags
-
-`ABLATION_BASELINE`、`ALLOW_TEST_VERSIONS`、`ANTI_DISTILLATION_CC`、`BREAK_CACHE_COMMAND`、`COWORKER_TYPE_TELEMETRY`、`DOWNLOAD_USER_SETTINGS`、`DUMP_SYSTEM_PROMPT`、`FILE_PERSISTENCE`、`HARD_FAIL`、`IS_LIBC_GLIBC`、`IS_LIBC_MUSL`、`NATIVE_CLIENT_ATTESTATION`、`PERFETTO_TRACING`、`SKILL_IMPROVEMENT`、`SKIP_DETECTION_WHEN_AUTOUPDATES_DISABLED`、`SLOW_OPERATION_LOGGING`、`UPLOAD_USER_SETTINGS`
-
-### Compile-Safe But Runtime-Caveated
-
-`VOICE_MODE`、`NATIVE_CLIPBOARD_IMAGE`、`BRIDGE_MODE`、`CCR_AUTO_CONNECT`、`CCR_MIRROR`、`CCR_REMOTE_SETUP`、`KAIROS_BRIEF`、`KAIROS_CHANNELS`、`CHICAGO_MCP`、`TEAMMEM`
+- `VOICE_MODE`: 需 claude.ai OAuth + 录音后端 (原生模块或 SoX fallback)
+- `NATIVE_CLIPBOARD_IMAGE`: 需 `image-processor-napi` 才加速
+- `BRIDGE_MODE` / `CCR_*`: 运行时受 OAuth + GrowthBook 控制
+- `CHICAGO_MCP`: 编译通过但运行时 reaches `@ant/computer-use-*`
+- `TEAMMEM`: 需 team-memory 配置实际启用才有用
 
 ## 如何启用 Flag
 
-### 单个 flag
+### build-time 单个 flag
 
 ```bash
 bun run ./scripts/build.ts --feature=ULTRAPLAN
 ```
 
-### 多个 flag
+### build-time 多个 flag
 
 ```bash
 bun run ./scripts/build.ts --feature=ULTRAPLAN --feature=ULTRATHINK
 ```
 
-### 全部实验 flag
+### build-time 全部 91 实验 flag (dev-full)
 
 ```bash
 bun run ./scripts/build.ts --dev --feature-set=dev-full
@@ -151,50 +265,96 @@ bun run ./scripts/build.ts --dev --feature-set=dev-full
 
 ### dev-full + 额外 flag
 
+`--feature-set=dev-full` 已含全部 91 个 `fullExperimentalFeatures`, 故额外 `--feature=` 仅对**列表外**的 flag 有效 (理论上不应有, 因列表与源码一致; 若源码新增 flag 需同步列表, 见末节核对)。
+
+### runtime env-gate
+
+运行时 flag 无需重编译, 进程启动前设 env 即可:
+
 ```bash
-bun run ./scripts/build.ts --dev --feature-set=dev-full --feature=BG_SESSIONS
+FUSION_CODE_STREAM_RESUME_ENABLED=1 ./fusion-code-dev
 ```
 
-dev-full 之外的 flag（如 `BG_SESSIONS`、`AUTO_THEME` 等）需单独 `--feature=` 传入。
+多个叠加:
 
-## 验证 Flag 编译
+```bash
+FUSION_CODE_EXECUTOR_ENABLED=1 FUSION_CODE_PROFILE_ENABLED=1 ./fusion-code-dev
+```
 
-### 1. 构建并观察退出码
+默认 unset = off, 路径 byte-identical。
+
+## 验证 Flag
+
+### 1. build-time: 构建并观察退出码
 
 ```bash
 bun run ./scripts/build.ts --dev --feature=XXX
 echo $?  # 0 表示成功
 ```
 
-成功时输出 `Built ./fusion-code-dev`，并打印模块数。
+成功输出 `Built ./fusion-code-dev` 并打印模块数。
 
-### 2. strings 确认 flag-gated 代码进入二进制
+### 2. build-time: strings 确认 flag-gated 代码进入二进制
 
 ```bash
-# 构建
 bun run ./scripts/build.ts --dev --feature=ULTRAPLAN
-
-# 确认 ULTRAPLAN 相关字符串进入二进制
 strings ./fusion-code-dev | grep -i ultraplan | head
 ```
 
-若 `feature('ULTRAPLAN')` 为 `true`，其 guarded 代码进入 bundle，`strings` 应能搜到相关符号/字符串。
+`feature('ULTRAPLAN')` 为 `true` 时, guarded 代码进入 bundle, `strings` 可搜到相关符号/字符串。
 
-### 3. 反向验证（DCE 生效）
+### 3. build-time: 反向验证 (DCE 生效)
 
 ```bash
-# 不带 --feature=ULTRAPLAN 构建
-bun run ./scripts/build.ts --dev
-
-# 应搜不到 ULTRAPLAN 专属字符串
-strings ./fusion-code-dev | grep -i ultraplan
+bun run ./scripts/build.ts --dev    # 不带 --feature=ULTRAPLAN
+strings ./fusion-code-dev | grep -i ultraplan    # 应搜不到
 ```
 
-未启用的 flag，其代码被 DCE 移除，`strings` 搜不到对应内容。
+未启用 flag 的代码被 DCE 移除, `strings` 搜不到。
+
+### 4. runtime env-gate 验证
+
+```bash
+FUSION_CODE_XXX=1 ./fusion-code-dev --version  # 启动即读 env
+```
+
+runtime flag 不会出现在 `strings` (非编译时), 验证靠日志或行为。多数 runtime flag 在路径入口有 `isEnvTruthy` 短路 + logForDebugging。
+
+## 审计 §3.2 核对 (2026-08-28)
+
+审计 §3.2 原结论 "141 个标志 918 调用点, 组合爆炸不可测" 基于审计时 (2026-08-27) 的 grep, 当时将 build-time 与 runtime 混计。重新核对后:
+
+- build-time `feature('X')`: **91** distinct / **915** call site (单/双引号合并统计 — 审计 grep 可能只匹配单一引号风格, 遗漏单引号调用)
+- runtime `isEnvTruthy(process.env.FUSION_CODE_*)`: **88** distinct / **177** call site
+- 二者机制不同 (build DCE vs runtime 条件分支), 非同一 "141 标志" 组合空间; 审计 3.2.1 的 2^141 指的是二者合并后的概念空间, 实际 build-time 子空间为 2^91, runtime 子空间为 2^88, 但 runtime flag 多有依赖关系 (非全独立)。
+
+审计 3.2.2 (feature() 字面量约束制造 DCE/运行时二分) **成立** — 两套机制共存是已知设计 (build-time 控产物大小, runtime 控运行时行为), 混用风险靠约定 + 本文档说明缓解, 无静态检查。
+
+审计 3.2.3 (默认关 byte-identical 靠人工维持无强制) **成立** — 当前无自动化 off-path 校验, 靠 reviewer + 多 PR memory 纪律维持。
+
+审计 3.2.4 (命名无前缀约定) **部分成立** — runtime flag 统一 `FUSION_CODE_` 前缀; `FUSION_*` (非 `FUSION_CODE_`) 为 SDK 兼容映射, `CLAUDE_CODE_*` 为上游兼容遗留。build-time flag 无统一前缀 (历史命名)。
+
+### 列表与源码一致性核对命令
+
+新增 `feature('X')` gate 后, 需同步 `scripts/build.ts` `fullExperimentalFeatures` 列表。核对:
+
+```bash
+# src/ 实际 feature() 调用 (单/双引号合并)
+{ grep -rhoE "feature\('[A-Z0-9_]+'\)" src/ | sed -E "s/feature\('([^']+)'\)/\1/";
+  grep -rhoE 'feature\("[A-Z0-9_]+"\)' src/ | sed -E 's/feature\("([^"]+)"\)/\1/'; } | LC_ALL=C sort -u > /tmp/src-flags.txt
+# build.ts 列表
+LC_ALL=C grep -oE '"[A-Z_0-9]+"' scripts/build.ts | LC_ALL=C sort -u | tr -d '"' | grep -vE '^HEAD$' > /tmp/build-flags.txt
+# 应两两一致 (0 行输出 = 一致)
+LC_ALL=C comm -23 /tmp/build-flags.txt /tmp/src-flags.txt   # build.ts 有但 src 无 = dead entry
+LC_ALL=C comm -13 /tmp/build-flags.txt /tmp/src-flags.txt   # src 有但 build.ts 无 = dev-full 漏
+```
+
+`comm` 要求 `LC_ALL=C` 保证排序规则一致, 否则跨 locale 出现假差异。
 
 ## 调试日志
 
-- 构建失败：`scripts/build.ts` 会原样输出 `bun build` 的 stderr，观察报错文件定位
-- 模块数异常：正常 dev-full 约 4001 模块，显著偏离说明依赖树有问题
-- 运行时 flag 未生效：用 `strings ./fusion-code-dev | grep <FLAG>` 确认代码是否真的进入二进制
-- flag 运行时 crash：检查是否依赖 OAuth / GrowthBook / 原生模块（见上文运行时 caveat）
+- 构建失败: `scripts/build.ts` 原样输出 `bun build` stderr, 观察报错文件定位
+- 模块数异常: 正常 dev-full 约 4000+ 模块, 显著偏离说明依赖树有问题
+- runtime flag 未生效: 多数入口有 logForDebugging, 查启动日志; env 名拼写 (全大写下划线)
+- runtime flag crash: 检查是否依赖 OAuth / GrowthBook / 原生模块 (见运行时 caveat)
+- build flag 未 DCE: `feature()` 参数必须是**字符串字面量**, 运行时变量 cast 破坏 DCE 且致 build:dev 报错 (PR #9)
