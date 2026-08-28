@@ -161,6 +161,10 @@ import {
 import { deriveMessageDisplayState } from "../utils/messageDisplayState.js";
 import { deriveCompanionLayoutState } from "../utils/companionLayoutState.js";
 import { getFocusedInputDialog } from "../utils/focusedDialogSelector.js";
+import {
+	rewindConversationTo as rewindConversationToImpl,
+	restoreMessageSync as restoreMessageSyncImpl,
+} from "../utils/rewindMessageState.js";
 import { startBackgroundHousekeeping } from "../utils/backgroundHousekeeping.js";
 import { getMemoryFiles } from "../utils/claudemd.js";
 import { logForDebugging } from "../utils/debug.js";
@@ -250,7 +254,6 @@ import { stripDangerousPermissionsForAutoMode } from "../utils/permissions/permi
 const SLEEP_TOOL_NAME = "Sleep";
 import type {
 	ContentBlockParam,
-	ImageBlockParam,
 } from "src/types/anthropic-protocol.js";
 import { randomUUID, type UUID } from "crypto";
 import { getFeatureValue_CACHED_MAY_BE_STALE } from "src/services/analytics/growthbook.js";
@@ -283,7 +286,6 @@ import { useTasksV2WithCollapseEffect } from "../hooks/useTasksV2.js";
 import { maybeMarkProjectOnboardingComplete } from "../projectOnboardingState.js";
 import { query } from "../query.js";
 import { partialCompactConversation } from "../services/compact/compact.js";
-import { resetMicrocompactState } from "../services/compact/microCompact.js";
 import { runPostCompactCleanup } from "../services/compact/postCompactCleanup.js";
 import type {
 	MCPServerConnection,
@@ -4636,98 +4638,33 @@ export function REPL({
 	// Does NOT touch the prompt input. Index is computed from messagesRef (always
 	// fresh via the setMessages wrapper) so callers don't need to worry about
 	// stale closures.
+	// 体已外移到 utils/rewindMessageState.ts。REPL 保留 useCallback 薄包装, deps 不变。
 	const rewindConversationTo = useCallback(
-		(message: UserMessage) => {
-			const prev = messagesRef.current;
-			const messageIndex = prev.lastIndexOf(message);
-			if (messageIndex === -1) return;
-			logEvent("tengu_conversation_rewind", {
-				preRewindMessageCount: prev.length,
-				postRewindMessageCount: messageIndex,
-				messagesRemoved: prev.length - messageIndex,
-				rewindToMessageIndex: messageIndex,
-			});
-			setMessages(prev.slice(0, messageIndex));
-			// Careful, this has to happen after setMessages
-			setConversationId(randomUUID());
-			// Reset cached microcompact state so stale pinned cache edits
-			// don't reference tool_use_ids from truncated messages
-			resetMicrocompactState();
-			if (feature("CONTEXT_COLLAPSE")) {
-				// Rewind truncates the REPL array. Commits whose archived span
-				// was past the rewind point can't be projected anymore
-				// (projectView silently skips them) but the staged queue and ID
-				// maps reference stale uuids. Simplest safe reset: drop
-				// everything. The ctx-agent will re-stage on the next
-				// threshold crossing.
-				/* eslint-disable @typescript-eslint/no-require-imports */
-				(
-					require("../services/contextCollapse/index.js") as typeof import("../services/contextCollapse/index.js")
-				).resetContextCollapse();
-				/* eslint-enable @typescript-eslint/no-require-imports */
-			}
-
-			// Restore state from the message we're rewinding to
-			setAppState((prev) => ({
-				...prev,
-				// Restore permission mode from the message
-				toolPermissionContext:
-					message.permissionMode &&
-					prev.toolPermissionContext.mode !== message.permissionMode
-						? {
-								...prev.toolPermissionContext,
-								mode: message.permissionMode,
-							}
-						: prev.toolPermissionContext,
-				// Clear stale prompt suggestion from previous conversation state
-				promptSuggestion: {
-					text: null,
-					promptId: null,
-					shownAt: 0,
-					acceptedAt: 0,
-					generationRequestId: null,
-				},
-			}));
-		},
+		(message: UserMessage) =>
+			rewindConversationToImpl(message, {
+				messagesRef,
+				setMessages,
+				setConversationId: (id) => setConversationId(id),
+				setAppState,
+			}),
 		[setMessages, setAppState],
 	);
 
 	// Synchronous rewind + input population. Used directly by auto-restore on
 	// interrupt (so React batches with the abort's setMessages → single render,
 	// no flicker). MessageSelector wraps this in setImmediate via handleRestoreMessage.
+	// 体已外移到 utils/rewindMessageState.ts。REPL 保留 useCallback 薄包装, deps 不变。
 	const restoreMessageSync = useCallback(
-		(message: UserMessage) => {
-			rewindConversationTo(message);
-			const r = textForResubmit(message);
-			if (r) {
-				setInputValue(r.text);
-				setInputMode(r.mode);
-			}
-
-			// Restore pasted images
-			if (
-				Array.isArray(message.message.content) &&
-				message.message.content.some((block) => block.type === "image")
-			) {
-				const imageBlocks: Array<ImageBlockParam> =
-					message.message.content.filter((block) => block.type === "image");
-				if (imageBlocks.length > 0) {
-					const newPastedContents: Record<number, PastedContent> = {};
-					imageBlocks.forEach((block, index) => {
-						if (block.source.type === "base64") {
-							const id = message.imagePasteIds?.[index] ?? index + 1;
-							newPastedContents[id] = {
-								id,
-								type: "image",
-								content: block.source.data,
-								mediaType: block.source.media_type,
-							};
-						}
-					});
-					setPastedContents(newPastedContents);
-				}
-			}
-		},
+		(message: UserMessage) =>
+			restoreMessageSyncImpl(message, {
+				messagesRef,
+				setMessages,
+				setConversationId: (id) => setConversationId(id),
+				setAppState,
+				setInputValue,
+				setInputMode,
+				setPastedContents,
+			}),
 		[rewindConversationTo, setInputValue],
 	);
 	restoreMessageSyncRef.current = restoreMessageSync;
