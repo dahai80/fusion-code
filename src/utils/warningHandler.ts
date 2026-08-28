@@ -111,8 +111,19 @@ export function initializeWarningHandler(): void {
         logForDebugging(`${prefix} ${warning.toString()}`, { level: 'warn' })
       }
       // Hide all warnings from users - they are only logged to Statsig for monitoring
-    } catch {
-      // Fail silently - we don't want the warning handler to cause issues
+    } catch (handlerError) {
+      // audit 2.2.6: warningHandler 自身抛错 (e.g. analytics logEvent throw) 会
+      // 进这里。原代码 empty catch = warning 永久丢失无兜底。stderr 写最后一道,
+      // 仅 dev/verbose 可见, 避免污染非 dev 静默。静默分支 (非 dev) 仍不输出。
+      if (isEnvTruthy(process.env.CLAUDE_DEBUG) || isDevelopment) {
+        try {
+          process.stderr.write(
+            `[warningHandler] swallowed warning: ${warning.toString()}; handler error: ${String(handlerError)}\n`,
+          )
+        } catch {
+          // stderr 本身失败 (e.g. 已关闭的 fd) — 最后兜底, 无法再降级。
+        }
+      }
     }
   }
 
