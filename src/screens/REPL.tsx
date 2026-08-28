@@ -169,6 +169,7 @@ import { pickNewSpinnerTip as pickNewSpinnerTipImpl } from "../utils/spinnerTipP
 import { restoreReadFileState as restoreReadFileStateImpl } from "../utils/readFileStateRestore.js";
 import { applyToolJSXUpdate as applyToolJSXUpdateImpl } from "../utils/setToolJSXWrapper.js";
 import { applyToolPermissionContext as applyToolPermissionContextImpl } from "../utils/toolPermissionContextSetter.js";
+import { applyComposedOnScroll as applyComposedOnScrollImpl } from "../utils/composedOnScroll.js";
 import { startBackgroundHousekeeping } from "../utils/backgroundHousekeeping.js";
 import { getMemoryFiles } from "../utils/claudemd.js";
 import { logForDebugging } from "../utils/debug.js";
@@ -1530,28 +1531,14 @@ export function REPL({
 		: HISTORY_STUB;
 	// Compose useUnseenDivider's callbacks with the lazy-load trigger.
 	const composedOnScroll = useCallback(
-		(sticky: boolean, handle: ScrollBoxHandle) => {
-			lastUserScrollTsRef.current = Date.now();
-			if (sticky) {
-				onRepin();
-			} else {
-				onScrollAway(handle);
-				if (feature("KAIROS")) maybeLoadOlder(handle);
-				// Dismiss the companion bubble on scroll — it's absolute-positioned
-				// at bottom-right and covers transcript content. Scrolling = user is
-				// trying to read something under it.
-				if (feature("BUDDY")) {
-					setAppState((prev) =>
-						prev.companionReaction === undefined
-							? prev
-							: {
-									...prev,
-									companionReaction: undefined,
-								},
-					);
-				}
-			}
-		},
+		(sticky: boolean, handle: ScrollBoxHandle) =>
+			applyComposedOnScrollImpl(sticky, handle, {
+				lastUserScrollTsRef,
+				onRepin,
+				onScrollAway,
+				maybeLoadOlder,
+				setAppState,
+			}),
 		[onRepin, onScrollAway, maybeLoadOlder, setAppState],
 	);
 	// Deferred SessionStart hook messages — REPL renders immediately and
