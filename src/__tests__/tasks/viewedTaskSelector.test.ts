@@ -1,5 +1,7 @@
 import { describe, expect, it } from "bun:test";
 import type { TaskState } from "../../tasks/types.js";
+import type { InProcessTeammateTaskState } from "../../tasks/InProcessTeammateTask/types.js";
+import type { LocalAgentTaskState } from "../../tasks/LocalAgentTask/LocalAgentTask.js";
 import {
 	getViewedAgentTask,
 	getViewedTask,
@@ -8,9 +10,14 @@ import {
 
 // audit 1.1.1: 选择器单元测试。guards 只看 type 判别符, 最小 fake 对象即可。
 // 行为等价 REPL 内联推导, 字节无关 — 验证 narrowing 分支正确。
+// fakes 按 narrow 类型声明 (guards 只看 type 判别符, 其余字段省略安全)。
 
-const teammateTask = { type: "in_process_teammate" } as unknown as TaskState;
-const localAgentTask = { type: "local_agent" } as unknown as TaskState;
+const teammateTask = {
+	type: "in_process_teammate",
+} as unknown as InProcessTeammateTaskState;
+const localAgentTask = {
+	type: "local_agent",
+} as unknown as LocalAgentTaskState;
 const remoteAgentTask = { type: "remote_agent" } as unknown as TaskState;
 
 describe("viewedTaskSelector", () => {
