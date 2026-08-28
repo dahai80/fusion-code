@@ -1,4 +1,5 @@
 import { AGENT_TOOL_NAME } from '../../tools/AgentTool/constants.js'
+import { DEFAULT_MAX_CONCURRENT_SUBAGENTS } from '../../tools/AgentTool/subagentGuardrails.js'
 import { ASK_USER_QUESTION_TOOL_NAME } from '../../tools/AskUserQuestionTool/prompt.js'
 import { ENTER_PLAN_MODE_TOOL_NAME } from '../../tools/EnterPlanModeTool/constants.js'
 import { EXIT_PLAN_MODE_TOOL_NAME } from '../../tools/ExitPlanModeTool/constants.js'
@@ -7,7 +8,10 @@ import { getIsGit } from '../../utils/git.js'
 import { registerBundledSkill } from '../bundledSkills.js'
 
 const MIN_AGENTS = 5
-const MAX_AGENTS = 30
+// audit 1.4.7: prompt 上限必须 ≤ AgentTool 硬并发上限, 否则 model 按提示 spawn
+// 30, 第 21 个起被 subagentGuardrails 拒绝, model 重试/error-spin。取硬上限默认值
+// (FUSION_MAX_CONCURRENT_SUBAGENTS 默认 20) 作 prompt 上限, 二者同源不再漂移。
+const MAX_AGENTS = DEFAULT_MAX_CONCURRENT_SUBAGENTS
 
 const WORKER_INSTRUCTIONS = `After you finish implementing the change:
 1. **Simplify** — Invoke the \`${SKILL_TOOL_NAME}\` tool with \`skill: "simplify"\` to review and clean up your changes.
@@ -101,7 +105,7 @@ export function registerBatchSkill(): void {
   registerBundledSkill({
     name: 'batch',
     description:
-      'Research and plan a large-scale change, then execute it in parallel across 5–30 isolated worktree agents that each open a PR.',
+      `Research and plan a large-scale change, then execute it in parallel across ${MIN_AGENTS}–${MAX_AGENTS} isolated worktree agents that each open a PR.`,
     whenToUse:
       'Use when the user wants to make a sweeping, mechanical change across many files (migrations, refactors, bulk renames) that can be decomposed into independent parallel units.',
     argumentHint: '<instruction>',
