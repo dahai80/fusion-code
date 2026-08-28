@@ -9,6 +9,46 @@ import { truncateToWidth } from "./format.js";
 
 const SLEEP_TOOL_NAME = "Sleep";
 
+// showSpinner 入参里 toolJSX 只读 showSpinner 字段, 用最小 shape 避免拉入 React 类型。
+type ToolJsxSpinnerLike = {
+	showSpinner?: boolean;
+} | null;
+
+export type ShowSpinnerInput = {
+	toolJSX: ToolJsxSpinnerLike;
+	toolUseConfirmQueueLength: number;
+	promptQueueLength: number;
+	isLoading: boolean;
+	userInputOnProcessing: string | undefined;
+	hasRunningTeammates: boolean;
+	commandQueueLength: number;
+	pendingWorkerRequest: { toolName: string } | null;
+	onlySleepToolActive: boolean;
+	visibleStreamingText: string | null;
+	isBriefOnly: boolean;
+};
+
+// Derive 主 spinner 可见性。原 REPL.tsx:2034-2053 内联块字节等价外移。
+// getCommandQueueLength 无副作用 (只读 .length), REPL 侧预先求值传入即可。
+export function deriveShowSpinner(input: ShowSpinnerInput): boolean {
+	return (
+		(!input.toolJSX || input.toolJSX.showSpinner === true) &&
+		input.toolUseConfirmQueueLength === 0 &&
+		input.promptQueueLength === 0 &&
+		// 输入处理中 / API 调用中 / teammate 运行中 / 任务通知排队时, 保持 spinner 可见
+		// (避免连续通知之间 isLoading 瞬时为 false 导致 spinner 闪烁)
+		(input.isLoading ||
+			input.userInputOnProcessing ||
+			input.hasRunningTeammates ||
+			input.commandQueueLength > 0) &&
+		// 等待 leader 审批权限请求时隐藏 spinner
+		!input.pendingWorkerRequest &&
+		!input.onlySleepToolActive &&
+		// 流式文本可见时隐藏 (文本本身即反馈), 但 isBriefOnly 抑制流式显示时保留
+		(!input.visibleStreamingText || input.isBriefOnly)
+	);
+}
+
 // Hide spinner when the only in-progress tool is Sleep
 export function onlySleepToolActive(
 	messages: readonly Message[],
