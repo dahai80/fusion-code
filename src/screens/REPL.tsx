@@ -165,6 +165,7 @@ import {
 	rewindConversationTo as rewindConversationToImpl,
 	restoreMessageSync as restoreMessageSyncImpl,
 } from "../utils/rewindMessageState.js";
+import { pickNewSpinnerTip as pickNewSpinnerTipImpl } from "../utils/spinnerTipPicker.js";
 import { startBackgroundHousekeeping } from "../utils/backgroundHousekeeping.js";
 import { getMemoryFiles } from "../utils/claudemd.js";
 import { logForDebugging } from "../utils/debug.js";
@@ -552,10 +553,6 @@ import { useFileHistorySnapshotInit } from "src/hooks/useFileHistorySnapshotInit
 import { useLspPluginRecommendation } from "src/hooks/useLspPluginRecommendation.js";
 import { useOfficialMarketplaceNotification } from "src/hooks/useOfficialMarketplaceNotification.js";
 import { usePromptsFromClaudeInChrome } from "src/hooks/usePromptsFromClaudeInChrome.js";
-import {
-	getTipToShowOnSpinner,
-	recordShownTip,
-} from "src/services/tips/tipScheduler.js";
 import {
 	checkAndDisableAutoModeIfNeeded,
 	checkAndDisableBypassPermissionsIfNeeded,
@@ -1873,38 +1870,14 @@ export function REPL({
 	// saveGlobalConfig writes back-to-back. Reset at submit in onSubmit.
 	const tipPickedThisTurnRef = React.useRef(false);
 	const pickNewSpinnerTip = useCallback(() => {
-		if (tipPickedThisTurnRef.current) return;
-		tipPickedThisTurnRef.current = true;
-		const newMessages = messagesRef.current.slice(
-			bashToolsProcessedIdx.current,
-		);
-		for (const tool of extractBashToolsFromMessages(newMessages)) {
-			bashTools.current.add(tool);
-		}
-		bashToolsProcessedIdx.current = messagesRef.current.length;
-		void getTipToShowOnSpinner({
+		pickNewSpinnerTipImpl({
+			messagesRef,
+			tipPickedThisTurnRef,
+			bashToolsProcessedIdx,
+			bashTools,
+			readFileState,
 			theme,
-			readFileState: readFileState.current,
-			bashTools: bashTools.current,
-		}).then(async (tip) => {
-			if (tip) {
-				const content = await tip.content({
-					theme,
-				});
-				setAppState((prev) => ({
-					...prev,
-					spinnerTip: content,
-				}));
-				recordShownTip(tip);
-			} else {
-				setAppState((prev) => {
-					if (prev.spinnerTip === undefined) return prev;
-					return {
-						...prev,
-						spinnerTip: undefined,
-					};
-				});
-			}
+			setAppState,
 		});
 	}, [setAppState, theme]);
 
