@@ -14,6 +14,15 @@ const applyPermissionUpdateMock = mock((_ctx: unknown, _update: unknown) => ({
 }));
 const persistPermissionUpdateMock = mock((_update: unknown) => {});
 const refreshConfigMock = mock(() => {});
+const sendResponseViaMailboxMock = mock(
+	async (
+		_workerName: string,
+		_requestId: string,
+		_host: string,
+		_allow: boolean,
+		_teamName?: string,
+	) => true,
+);
 
 await mock.module("../../utils/permissions/PermissionUpdate.js", () => ({
 	applyPermissionUpdate: applyPermissionUpdateMock,
@@ -25,10 +34,12 @@ await mock.module("../../tools/WebFetchTool/prompt.js", () => ({
 await mock.module("../../utils/sandbox/sandbox-adapter.js", () => ({
 	SandboxManager: { refreshConfig: refreshConfigMock },
 }));
+await mock.module("../../utils/swarm/permissionSync.js", () => ({
+	sendSandboxPermissionResponseViaMailbox: sendResponseViaMailboxMock,
+}));
 
-const { handleLocalSandboxUserResponse } = await import(
-	"../../utils/sandboxPermissionResponse.js"
-);
+const { handleLocalSandboxUserResponse, handleWorkerSandboxUserResponse } =
+	await import("../../utils/sandboxPermissionResponse.js");
 
 type Item = {
 	hostPattern: { host: string; port: number };
@@ -62,6 +73,7 @@ function resetMocks() {
 	applyPermissionUpdateMock.mockReset();
 	persistPermissionUpdateMock.mockReset();
 	refreshConfigMock.mockReset();
+	sendResponseViaMailboxMock.mockReset();
 }
 
 describe("handleLocalSandboxUserResponse", () => {
@@ -251,5 +263,139 @@ describe("handleLocalSandboxUserResponse", () => {
 				},
 			),
 		).not.toThrow();
+	});
+});
+
+type WorkerItem = {
+	requestId: string;
+	workerId: string;
+	workerName: string;
+	workerColor?: string;
+	host: string;
+	createdAt: number;
+};
+
+function makeWorkerCtx(queue: WorkerItem[]) {
+	const setAppState = mock((updater: (prev: AppState) => AppState) => {
+		updater({
+			workerSandboxPermissions: { queue, selectedIndex: 0 },
+		} as AppState);
+	});
+	return { setAppState };
+}
+
+describe("handleWorkerSandboxUserResponse", () => {
+	it("allow=true persistToSettings=true → mailbox send + persist + refreshConfig + queue slice", () => {
+		resetMocks();
+		const queue: WorkerItem[] = [
+			{
+				requestId: "r1",
+				workerId: "w1",
+				workerName: "alpha",
+				host: "a.com",
+				createdAt: 0,
+			},
+		];
+		const ctx = makeWorkerCtx(queue);
+		handleWorkerSandboxUserResponse(
+			{ allow: true, persistToSettings: true },
+			{
+				workerSandboxPermissions: { queue },
+				setAppState: ctx.setAppState,
+				teamName: "team-x",
+			},
+		);
+		// mailbox: (workerName, requestId, host, allow, teamName)
+		expect(sendResponseViaMailboxMock).toHaveBeenCalledWith(
+			"alpha",
+			"r1",
+			"a.com",
+			true,
+			"team-x",
+		);
+		expect(persistPermissionUpdateMock).toHaveBeenCalledTimes(1);
+		expect(refreshConfigMock).toHaveBeenCalledTimes(1);
+		// setAppState called twice: once for permission, once for queue slice
+		expect(ctx.setAppState).toHaveBeenCalledTimes(2);
+	});
+
+	it("allow=false persistToSettings=true → mailbox send + NO persist (only-allow persists) + queue slice", () => {
+		resetMocks();
+		const queue: WorkerItem[] = [
+			{
+				requestId: "r1",
+				workerId: "w1",
+				workerName: "alpha",
+				host: "a.com",
+				createdAt: 0,
+			},
+		];
+		const ctx = makeWorkerCtx(queue);
+		handleWorkerSandboxUserResponse(
+			{ allow: false, persistToSettings: true },
+			{
+				workerSandboxPermissions: { queue },
+				setAppState: ctx.setAppState,
+				teamName: "team-x",
+			},
+		);
+		expect(sendResponseViaMailboxMock).toHaveBeenCalledWith(
+			"alpha",
+			"r1",
+			"a.com",
+			false,
+			"team-x",
+		);
+		// deny → NO persist/refresh (worker persists only on allow)
+		expect(persistPermissionUpdateMock).not.toHaveBeenCalled();
+		expect(refreshConfigMock).not.toHaveBeenCalled();
+		// but queue still sliced (setAppState called once for slice)
+		expect(ctx.setAppState).toHaveBeenCalledTimes(1);
+	});
+
+	it("persistToSettings=false → mailbox send + NO persist + queue slice", () => {
+		resetMocks();
+		const queue: WorkerItem[] = [
+			{
+				requestId: "r1",
+				workerId: "w1",
+				workerName: "alpha",
+				host: "a.com",
+				createdAt: 0,
+			},
+		];
+		const ctx = makeWorkerCtx(queue);
+		handleWorkerSandboxUserResponse(
+			{ allow: true, persistToSettings: false },
+			{
+				workerSandboxPermissions: { queue },
+				setAppState: ctx.setAppState,
+			},
+		);
+		expect(sendResponseViaMailboxMock).toHaveBeenCalledWith(
+			"alpha",
+			"r1",
+			"a.com",
+			true,
+			undefined,
+		);
+		expect(persistPermissionUpdateMock).not.toHaveBeenCalled();
+		expect(ctx.setAppState).toHaveBeenCalledTimes(1);
+	});
+
+	it("empty queue → early return, no side effects", () => {
+		resetMocks();
+		const queue: WorkerItem[] = [];
+		const ctx = makeWorkerCtx(queue);
+		handleWorkerSandboxUserResponse(
+			{ allow: true, persistToSettings: true },
+			{
+				workerSandboxPermissions: { queue },
+				setAppState: ctx.setAppState,
+			},
+		);
+		expect(sendResponseViaMailboxMock).not.toHaveBeenCalled();
+		expect(persistPermissionUpdateMock).not.toHaveBeenCalled();
+		expect(ctx.setAppState).not.toHaveBeenCalled();
 	});
 });
