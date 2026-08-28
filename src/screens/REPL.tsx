@@ -555,6 +555,7 @@ import {
 	useKickOffCheckAndDisableBypassPermissionsIfNeeded,
 } from "src/utils/permissions/bypassPermissionsKillswitch.js";
 import { performStartupChecks } from "src/utils/plugins/performStartupChecks.js";
+import { startTaskReaper } from "src/services/taskHealth/taskReaper.js";
 import { SandboxManager } from "src/utils/sandbox/sandbox-adapter.js";
 import type { Theme } from "src/utils/theme.js";
 import { AwsAuthStatusBox } from "../components/AwsAuthStatusBox.js";
@@ -1253,6 +1254,18 @@ export function REPL({
 		if (isRemoteSession) return;
 		void performStartupChecks(setAppState);
 	}, [setAppState, isRemoteSession]);
+
+	// audit 1.4.3 / 2.1.2 (HIGH): 周期 reaper 回收超 TTL 的后台 task。
+	// 默认 OFF (FUSION_CODE_TASK_REAPER_ENABLED), byte-identical 旧无 reaper 行为。
+	// mount 时注入 store 访问器, unmount 时 stop。
+	useEffect(() => {
+		if (isRemoteSession) return;
+		const stop = startTaskReaper({
+			getAppState: () => store.getState(),
+			setAppState,
+		});
+		return stop;
+	}, [store, setAppState, isRemoteSession]);
 
 	// Allow Claude in Chrome MCP to send prompts through MCP notifications
 	// and sync permission mode changes to the Chrome extension
