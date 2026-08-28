@@ -167,6 +167,7 @@ import {
 } from "../utils/rewindMessageState.js";
 import { pickNewSpinnerTip as pickNewSpinnerTipImpl } from "../utils/spinnerTipPicker.js";
 import { restoreReadFileState as restoreReadFileStateImpl } from "../utils/readFileStateRestore.js";
+import { applyToolJSXUpdate as applyToolJSXUpdateImpl } from "../utils/setToolJSXWrapper.js";
 import { startBackgroundHousekeeping } from "../utils/backgroundHousekeeping.js";
 import { getMemoryFiles } from "../utils/claudemd.js";
 import { logForDebugging } from "../utils/debug.js";
@@ -1286,46 +1287,11 @@ export function REPL({
 	// 3. In the onDone callback, use `setToolJSX({ jsx: null, shouldHidePromptInput: false, clearLocalJSX: true })`
 	//    to explicitly clear the overlay when the user dismisses it
 	const setToolJSX = useCallback(
-		(
-			args: {
-				jsx: React.ReactNode | null;
-				shouldHidePromptInput: boolean;
-				shouldContinueAnimation?: true;
-				showSpinner?: boolean;
-				isLocalJSXCommand?: boolean;
-				clearLocalJSX?: boolean;
-			} | null,
-		) => {
-			// If setting a local JSX command, store it in the ref
-			if (args?.isLocalJSXCommand) {
-				const { clearLocalJSX: _, ...rest } = args;
-				localJSXCommandRef.current = {
-					...rest,
-					isLocalJSXCommand: true,
-				};
-				setToolJSXInternal(rest);
-				return;
-			}
-
-			// If there's an active local JSX command in the ref
-			if (localJSXCommandRef.current) {
-				// Allow clearing only if explicitly requested (from onDone callbacks)
-				if (args?.clearLocalJSX) {
-					localJSXCommandRef.current = null;
-					setToolJSXInternal(null);
-					return;
-				}
-				// Otherwise, keep the local JSX command visible - ignore tool updates
-				return;
-			}
-
-			// No active local JSX command, allow any update
-			if (args?.clearLocalJSX) {
-				setToolJSXInternal(null);
-				return;
-			}
-			setToolJSXInternal(args);
-		},
+		(args: Parameters<typeof applyToolJSXUpdateImpl>[0]) =>
+			applyToolJSXUpdateImpl(args, {
+				localJSXCommandRef,
+				setToolJSXInternal,
+			}),
 		[],
 	);
 	const [toolUseConfirmQueue, setToolUseConfirmQueue] = useState<
