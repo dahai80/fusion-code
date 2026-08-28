@@ -3722,7 +3722,14 @@ async function run(): Promise<CommanderCommand> {
 			const hookMessages: Awaited<NonNullable<typeof hooksPromise>> = [];
 			// Suppress transient unhandledRejection — the prefetch warms the
 			// memoized connectToServer cache but nobody awaits it in interactive.
-			mcpPromise.catch(() => {});
+			// audit 2.2.5: 旧 .catch(() => {}) 让 MCP prefetch 失败不可见 (业务关键,
+			// 连不上 MCP = 工具静默缺失)。仍 suppress 全局 rejection, 但留 warn 日志。
+			mcpPromise.catch((err: unknown) => {
+				logForDebugging(
+					`[main] MCP prefetch failed: ${(err as Error)?.message ?? err}`,
+					{ level: "warn" },
+				);
+			});
 			const mcpClients: Awaited<typeof mcpPromise>["clients"] = [];
 			const mcpTools: Awaited<typeof mcpPromise>["tools"] = [];
 			const mcpCommands: Awaited<typeof mcpPromise>["commands"] = [];
@@ -3903,7 +3910,14 @@ async function run(): Promise<CommanderCommand> {
 				// Suppress transient unhandledRejection if this rejects before
 				// loadInitialMessages awaits it. Downstream await still observes the
 				// rejection — this just prevents the spurious global handler fire.
-				sessionStartHooksPromise?.catch(() => {});
+				// audit 2.2.5: 留 warn 日志让 session-start hook 失败可见 (业务关键,
+				// hook 跑环境注入/规则加载, 静默吞 = 启动故障无痕)。仍 suppress 全局 rejection。
+				sessionStartHooksPromise?.catch((err: unknown) => {
+					logForDebugging(
+						`[main] sessionStartHooks prefetch failed: ${(err as Error)?.message ?? err}`,
+						{ level: "warn" },
+					);
+				});
 				profileCheckpoint("before_validateForceLoginOrg");
 				// Validate org restriction for non-interactive sessions
 				const orgValidation = await validateForceLoginOrg();

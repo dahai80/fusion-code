@@ -14,8 +14,31 @@ export function classifyByStatus(status: number): LlmErrorCode {
 	return "INVALID_REQUEST";
 }
 
+// audit 2.2.1 (CRITICAL): MLX 确定性错误检测。这些错误重试必复现 (模型/显存/上下文
+// 不足属配置/资源硬限), 旧分类把它们当 SERVER 重试 10×, 对共享 MLX 服务自伤 DoS。
+// 命中 → UNKNOWN (不可重试), 优先于 status 5xx 的 SERVER 判定。
+// 信号串取自 fusion-mlx/MLX 实际 OOM/kv-cache/模型错误日志:
+//   "memory limit exceeded" (MLX OOM)
+//   "Reduce context size" / "reduce the context" (上下文超限)
+//   "model not found" / "model_not_found" (模型缺失/拼错)
+//   "not enough memory" / "out of memory" (系统级 OOM)
+//   "No space left on device" (磁盘满, 确定性)
+export function isDeterministicError(message: string): boolean {
+	return (
+		/memory limit exceeded/i.test(message) ||
+		/reduce (?:the )?context size/i.test(message) ||
+		/model[_ ]not[_ ]found/i.test(message) ||
+		/not enough memory/i.test(message) ||
+		/out of memory/i.test(message) ||
+		/no space left on device/i.test(message)
+	);
+}
+
 // 从 Error 实例名/信息推断传输层错误码 (无 HTTP 状态时)。
 export function classifyByMessage(message: string): LlmErrorCode {
+	// audit 2.2.1: 确定性错误优先 — 即使信息含 "500" 之类, OOM/model_not_found
+	// 也不可重试, 必须在 SERVER/兜底前拦截。
+	if (isDeterministicError(message)) return "UNKNOWN";
 	if (/\b401\b|\b403\b|unauthor|forbidden|invalid.*api.*key/i.test(message))
 		return "AUTH";
 	if (/\b429\b|rate.?limit|too many requests/i.test(message))
@@ -42,7 +65,10 @@ export function classifyByMessage(message: string): LlmErrorCode {
 		message === "operation was aborted"
 	)
 		return "ABORTED";
-	return "SERVER";
+	// audit 2.2.1 (CRITICAL): 兜底不再当 SERVER。未匹配的信息无法证明是可重试的
+	// 瞬态错误, 旧 `return "SERVER"` 让任意未识别错误 (含确定性的) 被重试 10×。
+	// 归 UNKNOWN 不重试 — fail-visible, 让上层显式分类而非默认重试。
+	return "UNKNOWN";
 }
 
 // 统一入口: 把任意异常 + 可选 HTTP 状态归为 LlmFailure。
@@ -72,7 +98,12 @@ export function classifyError(
 	}
 
 	let code: LlmErrorCode;
-	if (typeof status === "number" && status >= 400) {
+	// audit 2.2.1 (CRITICAL): 确定性错误优先于状态码。MLX 把 OOM / 上下文超限 /
+	// model_not_found / 磁盘满 当 500 返回, status>=400 会走 classifyByStatus(500)→SERVER
+	// 把确定性错误判可重试。先查 message: 命中确定性信号 → UNKNOWN 不重试, 绕过状态判定。
+	if (isDeterministicError(message)) {
+		code = "UNKNOWN";
+	} else if (typeof status === "number" && status >= 400) {
 		code = classifyByStatus(status);
 	} else {
 		code = classifyByMessage(message);

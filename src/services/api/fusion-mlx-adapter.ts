@@ -453,13 +453,19 @@ async function mlxFetchWithRetry(
 
 		if (retries <= 0 || !isConnectionError) throw error;
 
+		// audit 2.2.3: 3s 固定延迟加 jitter。N 个并发实例连接失败同步重试 = 惊群,
+		// 对共享 MLX 服务瞬时冲击叠加。与 withRetry.getRetryDelay 同形: baseDelay 的
+		// 25% 随机抖动, 3000±750ms。jitter 解耦并发重试时序。
+		const baseDelay = 3000;
+		const jitter = Math.random() * 0.25 * baseDelay;
+		const retryDelay = Math.round(baseDelay + jitter);
 		logForDebugging(
-			`[Fusion-MLX] Connection failed, retrying in 3s (retries left: ${retries}): ${err.message}`,
+			`[Fusion-MLX] Connection failed, retrying in ${retryDelay}ms (retries left: ${retries}): ${err.message}`,
 		);
 
-		// 3s 延迟期间监听用户中断,ESC 立即生效而非等满 3s
+		// 延迟期间监听用户中断,ESC 立即生效而非等满
 		await new Promise<void>((resolve, reject) => {
-			const timer = setTimeout(resolve, 3000);
+			const timer = setTimeout(resolve, retryDelay);
 			init.signal?.addEventListener(
 				"abort",
 				() => {
