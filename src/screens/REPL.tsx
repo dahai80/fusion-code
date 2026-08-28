@@ -170,6 +170,7 @@ import { restoreReadFileState as restoreReadFileStateImpl } from "../utils/readF
 import { applyToolJSXUpdate as applyToolJSXUpdateImpl } from "../utils/setToolJSXWrapper.js";
 import { applyToolPermissionContext as applyToolPermissionContextImpl } from "../utils/toolPermissionContextSetter.js";
 import { applyComposedOnScroll as applyComposedOnScrollImpl } from "../utils/composedOnScroll.js";
+import { applySetMessages as applySetMessagesImpl } from "../utils/messagesSetter.js";
 import { startBackgroundHousekeeping } from "../utils/backgroundHousekeeping.js";
 import { getMemoryFiles } from "../utils/claudemd.js";
 import { logForDebugging } from "../utils/debug.js";
@@ -1429,35 +1430,13 @@ export function REPL({
 	// This ensures synchronous readers (within the same microtask) always see
 	// the latest value. rawSetMessages is only for triggering a React re-render.
 	const setMessages = useCallback(
-		(action: React.SetStateAction<MessageType[]>) => {
-			const prev = messagesRef.current;
-			const next =
-				typeof action === "function" ? action(messagesRef.current) : action;
-			messagesRef.current = next;
-			if (next.length < userInputBaselineRef.current) {
-				// Shrank (compact/rewind/clear) — clamp so placeholderText's length
-				// check can't go stale.
-				userInputBaselineRef.current = 0;
-			} else if (next.length > prev.length && userMessagePendingRef.current) {
-				// Grew while the submitted user message hasn't landed yet. If the
-				// added messages don't include it (bridge status, hook results,
-				// scheduled tasks landing async during processUserInputBase), bump
-				// baseline so the placeholder stays visible. Once the user message
-				// lands, stop tracking — later additions (assistant stream) should
-				// not re-show the placeholder.
-				const delta = next.length - prev.length;
-				const added =
-					prev.length === 0 || next[0] === prev[0]
-						? next.slice(-delta)
-						: next.slice(0, delta);
-				if (added.some(isHumanTurn)) {
-					userMessagePendingRef.current = false;
-				} else {
-					userInputBaselineRef.current = next.length;
-				}
-			}
-			rawSetMessages(next);
-		},
+		(action: React.SetStateAction<MessageType[]>) =>
+			applySetMessagesImpl(action, {
+				messagesRef,
+				userInputBaselineRef,
+				userMessagePendingRef,
+				rawSetMessages,
+			}),
 		[],
 	);
 	// Capture the baseline message count alongside the placeholder text so
