@@ -168,6 +168,7 @@ import {
 import { pickNewSpinnerTip as pickNewSpinnerTipImpl } from "../utils/spinnerTipPicker.js";
 import { restoreReadFileState as restoreReadFileStateImpl } from "../utils/readFileStateRestore.js";
 import { applyToolJSXUpdate as applyToolJSXUpdateImpl } from "../utils/setToolJSXWrapper.js";
+import { applyToolPermissionContext as applyToolPermissionContextImpl } from "../utils/toolPermissionContextSetter.js";
 import { startBackgroundHousekeeping } from "../utils/backgroundHousekeeping.js";
 import { getMemoryFiles } from "../utils/claudemd.js";
 import { logForDebugging } from "../utils/debug.js";
@@ -2738,40 +2739,12 @@ export function REPL({
 	const setToolPermissionContext = useCallback(
 		(
 			context: ToolPermissionContext,
-			options?: {
-				preserveMode?: boolean;
-			},
-		) => {
-			setAppState((prev) => ({
-				...prev,
-				toolPermissionContext: {
-					...context,
-					// Preserve the coordinator's mode only when explicitly requested.
-					// Workers' getAppState() returns a transformed context with mode
-					// 'acceptEdits' that must not leak into the coordinator's actual
-					// state via permission-rule updates — those call sites pass
-					// { preserveMode: true }. User-initiated mode changes (e.g.,
-					// selecting "allow all edits") must NOT be overridden.
-					mode: options?.preserveMode
-						? prev.toolPermissionContext.mode
-						: context.mode,
-				},
-			}));
-
-			// When permission context changes, recheck all queued items
-			// This handles the case where approving item1 with "don't ask again"
-			// should auto-approve other queued items that now match the updated rules
-			setImmediate((setToolUseConfirmQueue) => {
-				// Use setToolUseConfirmQueue callback to get current queue state
-				// instead of capturing it in the closure, to avoid stale closure issues
-				setToolUseConfirmQueue((currentQueue) => {
-					currentQueue.forEach((item) => {
-						void item.recheckPermission();
-					});
-					return currentQueue;
-				});
-			}, setToolUseConfirmQueue);
-		},
+			options?: Parameters<typeof applyToolPermissionContextImpl>[1],
+		) =>
+			applyToolPermissionContextImpl(context, options, {
+				setAppState,
+				setToolUseConfirmQueue,
+			}),
 		[setAppState, setToolUseConfirmQueue],
 	);
 
