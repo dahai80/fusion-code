@@ -154,6 +154,7 @@ import type {
 } from "../types/textInputTypes.js";
 import { count } from "../utils/array.js";
 import {
+	deriveShowSpinner,
 	onlySleepToolActive as onlySleepToolActiveFn,
 	stopHookSpinnerSuffix as stopHookSpinnerSuffixFn,
 } from "../utils/spinnerState.js";
@@ -2031,26 +2032,19 @@ export function REPL({
 		setInputValue,
 		setToolJSX,
 	});
-	const showSpinner =
-		(!toolJSX || toolJSX.showSpinner === true) &&
-		toolUseConfirmQueue.length === 0 &&
-		promptQueue.length === 0 &&
-		// Show spinner during input processing, API call, while teammates are running,
-		// or while pending task notifications are queued (prevents spinner bounce between consecutive notifications)
-		(isLoading ||
-			userInputOnProcessing ||
-			hasRunningTeammates ||
-			// Keep spinner visible while task notifications are queued for processing.
-			// Without this, the spinner briefly disappears between consecutive notifications
-			// (e.g., multiple background agents completing in rapid succession) because
-			// isLoading goes false momentarily between processing each one.
-			getCommandQueueLength() > 0) &&
-		// Hide spinner when waiting for leader to approve permission request
-		!pendingWorkerRequest &&
-		!onlySleepToolActive &&
-		// Hide spinner when streaming text is visible (the text IS the feedback),
-		// but keep it when isBriefOnly suppresses the streaming text display
-		(!visibleStreamingText || isBriefOnly);
+	const showSpinner = deriveShowSpinner({
+		toolJSX,
+		toolUseConfirmQueueLength: toolUseConfirmQueue.length,
+		promptQueueLength: promptQueue.length,
+		isLoading,
+		userInputOnProcessing,
+		hasRunningTeammates,
+		commandQueueLength: getCommandQueueLength(),
+		pendingWorkerRequest,
+		onlySleepToolActive,
+		visibleStreamingText,
+		isBriefOnly,
+	});
 
 	// Check if any permission or ask question prompt is currently visible
 	// This is used to prevent the survey from opening while prompts are active
