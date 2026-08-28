@@ -160,6 +160,7 @@ import {
 } from "../utils/spinnerState.js";
 import { deriveMessageDisplayState } from "../utils/messageDisplayState.js";
 import { deriveCompanionLayoutState } from "../utils/companionLayoutState.js";
+import { getFocusedInputDialog } from "../utils/focusedDialogSelector.js";
 import { startBackgroundHousekeeping } from "../utils/backgroundHousekeeping.js";
 import { getMemoryFiles } from "../utils/claudemd.js";
 import { logForDebugging } from "../utils/debug.js";
@@ -2446,98 +2447,34 @@ export function REPL({
 	// Permission and interactive dialogs can show even when toolJSX is set,
 	// as long as shouldContinueAnimation is true. This prevents deadlocks when
 	// agents set background hints while waiting for user interaction.
-	function getFocusedInputDialog():
-		| "message-selector"
-		| "sandbox-permission"
-		| "tool-permission"
-		| "prompt"
-		| "worker-sandbox-permission"
-		| "elicitation"
-		| "cost"
-		| "idle-return"
-		| "init-onboarding"
-		| "ide-onboarding"
-		| "model-switch"
-		| "undercover-callout"
-		| "effort-callout"
-		| "remote-callout"
-		| "lsp-recommendation"
-		| "plugin-hint"
-		| "desktop-upsell"
-		| "ultraplan-choice"
-		| "ultraplan-launch"
-		| undefined {
-		// Exit states always take precedence
-		if (isExiting || exitFlow) return undefined;
-
-		// High priority dialogs (always show regardless of typing)
-		if (isMessageSelectorVisible) return "message-selector";
-
-		// Suppress interrupt dialogs while user is actively typing
-		if (isPromptInputActive) return undefined;
-		if (sandboxPermissionRequestQueue[0]) return "sandbox-permission";
-
-		// Permission/interactive dialogs (show unless blocked by toolJSX)
-		const allowDialogsWithAnimation =
-			!toolJSX || toolJSX.shouldContinueAnimation;
-		if (allowDialogsWithAnimation && toolUseConfirmQueue[0])
-			return "tool-permission";
-		if (allowDialogsWithAnimation && promptQueue[0]) return "prompt";
-		// Worker sandbox permission prompts (network access) from swarm workers
-		if (allowDialogsWithAnimation && workerSandboxPermissions.queue[0])
-			return "worker-sandbox-permission";
-		if (allowDialogsWithAnimation && elicitation.queue[0]) return "elicitation";
-		if (allowDialogsWithAnimation && showingCostDialog) return "cost";
-		if (allowDialogsWithAnimation && idleReturnPending) return "idle-return";
-		if (
-			feature("ULTRAPLAN") &&
-			allowDialogsWithAnimation &&
-			!isLoading &&
-			ultraplanPendingChoice
-		)
-			return "ultraplan-choice";
-		if (
-			feature("ULTRAPLAN") &&
-			allowDialogsWithAnimation &&
-			!isLoading &&
-			ultraplanLaunchPending
-		)
-			return "ultraplan-launch";
-
-		// Onboarding dialogs (special conditions)
-		if (allowDialogsWithAnimation && showIdeOnboarding) return "ide-onboarding";
-
-		// Model switch callout (ant-only, eliminated from external builds)
-		if (
-			isInternalBuild() &&
-			allowDialogsWithAnimation &&
-			showModelSwitchCallout
-		)
-			return "model-switch";
-
-		// Undercover auto-enable explainer (ant-only, eliminated from external builds)
-		if (isInternalBuild() && allowDialogsWithAnimation && showUndercoverCallout)
-			return "undercover-callout";
-
-		// Effort callout (shown once for Opus 4.6 users when effort is enabled)
-		if (allowDialogsWithAnimation && showEffortCallout) return "effort-callout";
-
-		// Remote callout (shown once before first bridge enable)
-		if (allowDialogsWithAnimation && showRemoteCallout) return "remote-callout";
-
-		// LSP plugin recommendation (lowest priority - non-blocking suggestion)
-		if (allowDialogsWithAnimation && lspRecommendation)
-			return "lsp-recommendation";
-
-		// Plugin hint from CLI/SDK stderr (same priority band as LSP rec)
-		if (allowDialogsWithAnimation && hintRecommendation) return "plugin-hint";
-
-		// Desktop app upsell (max 3 launches, lowest priority)
-		if (allowDialogsWithAnimation && showDesktopUpsellStartup)
-			return "desktop-upsell";
-		return undefined;
-	}
-	const focusedInputDialog = getFocusedInputDialog();
+	// focusedInputDialog 优先级级联 (20 类型, exit/typing 门控 + toolJSX 动画门控 + ultraplan/ant 分支)
+	// 已外移到 utils/focusedDialogSelector.ts。保留所有 useState/useRef 绑定在此, 仅纯计算外移,
+	// 下游读取同名 const (字节等价)。feature("ULTRAPLAN") + isInternalBuild() 跨文件 DCE 安全。
+	const focusedInputDialog = getFocusedInputDialog({
+		isExiting,
+		exitFlow,
+		isMessageSelectorVisible,
+		isPromptInputActive,
+		sandboxPermissionRequestQueue,
+		toolJSX,
+		toolUseConfirmQueue,
+		promptQueue,
+		workerSandboxPermissionsQueue: workerSandboxPermissions.queue,
+		elicitationQueue: elicitation.queue,
+		showingCostDialog,
+		idleReturnPending,
+		isLoading,
+		ultraplanPendingChoice,
+		ultraplanLaunchPending,
+		showIdeOnboarding,
+		showModelSwitchCallout,
+		showUndercoverCallout,
+		showEffortCallout,
+		showRemoteCallout,
+		lspRecommendation,
+		hintRecommendation,
+		showDesktopUpsellStartup,
+	});
 
 	// True when permission prompts exist but are hidden because the user is typing
 	const hasSuppressedDialogs =
