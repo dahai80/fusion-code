@@ -159,6 +159,7 @@ import {
 	stopHookSpinnerSuffix as stopHookSpinnerSuffixFn,
 } from "../utils/spinnerState.js";
 import { deriveMessageDisplayState } from "../utils/messageDisplayState.js";
+import { deriveCompanionLayoutState } from "../utils/companionLayoutState.js";
 import { startBackgroundHousekeeping } from "../utils/backgroundHousekeeping.js";
 import { getMemoryFiles } from "../utils/claudemd.js";
 import { logForDebugging } from "../utils/debug.js";
@@ -578,7 +579,6 @@ const WebBrowserPanelModule = feature("WEB_BROWSER_TOOL") ? null : null;
 import {
 	CompanionFloatingBubble,
 	CompanionSprite,
-	MIN_COLS_FOR_FULL_SPRITE,
 } from "../buddy/CompanionSprite.js";
 import { filterCommandsForRemoteMode } from "../commands.js";
 import { DevBar } from "../components/DevBar.js";
@@ -5773,29 +5773,16 @@ export function REPL({
 			/>
 		) : null;
 
-	// Narrow terminals: companion collapses to a one-liner that REPL stacks
-	// on its own row (above input in fullscreen, below in scrollback) instead
-	// of row-beside. Wide terminals keep the row layout with sprite on the right.
-	const companionNarrow = transcriptCols < MIN_COLS_FOR_FULL_SPRITE;
-	// Hide the sprite when PromptInput early-returns BackgroundTasksDialog.
-	// The sprite sits as a row sibling of PromptInput, so the dialog's Pane
-	// divider draws at useTerminalSize() width but only gets terminalWidth -
-	// spriteWidth — divider stops short and dialog text wraps early. Don't
-	// check footerSelection: pill FOCUS (arrow-down to tasks pill) must keep
-	// the sprite visible so arrow-right can navigate to it.
-	const companionVisible =
-		!toolJSX?.shouldHidePromptInput && !focusedInputDialog && !showBashesDialog;
-
-	// In fullscreen, ALL local-jsx slash commands float in the modal slot —
-	// FullscreenLayout wraps them in an absolute-positioned bottom-anchored
-	// pane (▔ divider, ModalContext). Pane/Dialog inside detect the context
-	// and skip their own top-level frame. Non-fullscreen keeps the inline
-	// render paths below. Commands that used to route through bottom
-	// (immediate: /model, /mcp, /btw, ...) and scrollable (non-immediate:
-	// /config, /theme, /diff, ...) both go here now.
-	const toolJsxCentered =
-		isFullscreenEnvEnabled() && toolJSX?.isLocalJSXCommand === true;
-	const centeredModal: React.ReactNode = toolJsxCentered ? toolJSX!.jsx : null;
+	// companion 布局状态推导 (companionNarrow / companionVisible / toolJsxCentered / centeredModal)
+	// 已外移到 utils/companionLayoutState.ts。保留所有 useState/useRef 绑定在此,
+	// 仅纯计算外移, 下游读取同名 const (字节等价)。
+	const { companionNarrow, companionVisible, toolJsxCentered, centeredModal } =
+		deriveCompanionLayoutState({
+			transcriptCols,
+			toolJSX,
+			focusedInputDialog,
+			showBashesDialog,
+		});
 
 	// <AlternateScreen> at the root: everything below is inside its
 	// <Box height={rows}>. Handlers/contexts are zero-height so ScrollBox's
