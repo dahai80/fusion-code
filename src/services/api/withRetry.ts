@@ -41,6 +41,7 @@ import {
 	isAbortErrorLike,
 	isApiErrorLike,
 	isConnectionErrorLike,
+	isDeterministicError,
 } from "../llm/errors.js";
 import {
 	checkMockRateLimitError,
@@ -798,6 +799,17 @@ function shouldRetry(error: ApiErrorLike): boolean {
 	// Retry on 403 "token revoked" (same refresh logic as 401, see above)
 	if (isOAuthTokenRevokedError(error)) {
 		return true;
+	}
+
+	// audit 2.2.1 (CRITICAL): MLX 确定性错误不重试。5xx 本应可重试, 但 MLX 把
+	// OOM / 上下文超限 / model_not_found / 磁盘满 当 500 返回 (body 含确定性信号),
+	// 重试必复现 → 对共享 MLX 服务自伤 DoS。此检查优先于 5xx 兜底, 读 message 匹配
+	// 确定性信号串 → 不重试。无 status 的路径 (fetch throw) 走 isConnectionErrorLike。
+	if (error.message && isDeterministicError(error.message)) {
+		logForDebugging(
+			`[withRetry] non-retryable deterministic error (status=${error.status}): ${error.message.slice(0, 120)}`,
+		);
+		return false;
 	}
 
 	// Retry internal errors.

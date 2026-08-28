@@ -89,7 +89,12 @@ export type LlmErrorCode =
 	| "SERVER"
 	| "TIMEOUT"
 	| "TRANSPORT"
-	| "ABORTED";
+	| "ABORTED"
+	// audit 2.2.1 (CRITICAL): 确定性错误 (MLX OOM / model_not_found / 未识别兜底)
+	// 归 UNKNOWN — 不可重试。旧 classifyByMessage 兜底 return "SERVER" 把未匹配信息
+	// 全当 SERVER 重试 10×, 对共享 MLX 服务自伤 DoS (memory limit exceeded / Reduce
+	// context size / model not found 均确定性, 重试必复现)。
+	| "UNKNOWN";
 
 // Headers 形态兼容 SDK APIError.headers (支持 .get(name)) 与裸对象 (支持 ["retry-after"])。
 // httpClient 把 fetch Response.headers (原生 Headers, 自带 .get) 直接挂上即可。

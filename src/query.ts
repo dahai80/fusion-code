@@ -1680,7 +1680,16 @@ async function* queryLoop(
 					}
 					return null;
 				})
-				.catch(() => null);
+				// audit 2.2.5: 显式分类 + 日志, 不再静默吞。summary 失败 → 模型丢这轮工具
+				// 调用上下文 (业务关键), 旧 .catch(() => null) 让故障不可见。仍 fail-open
+				// (返回 null 让主流程继续), 但留下可定位日志。
+				.catch((err: unknown) => {
+					logForDebugging(
+						`[query] generateToolUseSummary failed (fail-open null): ${(err as Error)?.message ?? err}`,
+						{ level: "warn" },
+					);
+					return null;
+				});
 		}
 
 		// We were aborted during tool calls

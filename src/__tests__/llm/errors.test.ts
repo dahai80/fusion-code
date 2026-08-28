@@ -80,6 +80,58 @@ describe("isRetryable", () => {
     });
 });
 
+// audit 2.2.1 (CRITICAL): MLX 确定性错误 (OOM / model_not_found / 上下文超限 / 磁盘满)
+// 归 UNKNOWN — 不可重试。旧分类把它们当 SERVER (5xx) 重试 10×, 对共享 MLX 服务自伤 DoS。
+// 这些错误重试必复现 (资源/配置硬限), 必须短路重试循环。
+describe("classifyError deterministic MLX errors (audit 2.2.1)", () => {
+    test("500 + OOM message → UNKNOWN not SERVER (status override)", () => {
+        const err = new Error("500 Error: memory limit exceeded");
+        const f = classifyError(err, 500);
+        expect(f.code).toBe("UNKNOWN");
+        expect(isRetryable(f)).toBe(false);
+    });
+    test("500 + reduce context size → UNKNOWN", () => {
+        const f = classifyError(new Error("Reduce context size and try again"), 500);
+        expect(f.code).toBe("UNKNOWN");
+        expect(isRetryable(f)).toBe(false);
+    });
+    test("500 + model not found → UNKNOWN", () => {
+        const f = classifyError(new Error("model not found: qwen-foo"), 500);
+        expect(f.code).toBe("UNKNOWN");
+        expect(isRetryable(f)).toBe(false);
+    });
+    test("500 + model_not_found (underscore) → UNKNOWN", () => {
+        const f = classifyError(new Error("model_not_found"), 500);
+        expect(f.code).toBe("UNKNOWN");
+        expect(isRetryable(f)).toBe(false);
+    });
+    test("500 + out of memory → UNKNOWN", () => {
+        const f = classifyError(new Error("out of memory"), 500);
+        expect(f.code).toBe("UNKNOWN");
+        expect(isRetryable(f)).toBe(false);
+    });
+    test("500 + no space left on device → UNKNOWN", () => {
+        const f = classifyError(new Error("No space left on device"), 500);
+        expect(f.code).toBe("UNKNOWN");
+        expect(isRetryable(f)).toBe(false);
+    });
+    test("generic 500 without deterministic marker stays SERVER (retryable)", () => {
+        const f = classifyError(new Error("internal server error"), 500);
+        expect(f.code).toBe("SERVER");
+        expect(isRetryable(f)).toBe(true);
+    });
+    test("OOM message with no status → UNKNOWN (message path)", () => {
+        const f = classifyError(new Error("memory limit exceeded"));
+        expect(f.code).toBe("UNKNOWN");
+        expect(isRetryable(f)).toBe(false);
+    });
+    test("unmatched message fallback → UNKNOWN (was SERVER)", () => {
+        const f = classifyError(new Error("something totally weird"));
+        expect(f.code).toBe("UNKNOWN");
+        expect(isRetryable(f)).toBe(false);
+    });
+});
+
 describe("LlmRequestError", () => {
     test("carries failure with status and message", () => {
         try {
