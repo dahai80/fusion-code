@@ -18,7 +18,13 @@ import { getAPIMetadata } from "../services/api/claude.js";
 import { getAnthropicClient } from "../services/api/client.js";
 import { getModelBetas, modelSupportsStructuredOutputs } from "./betas.js";
 import { computeFingerprint } from "./fingerprint.js";
+import { getAPIProvider } from "./model/providers.js";
 import { normalizeModelStringForAPI } from "./model/model.js";
+import { getCwd } from "./cwd.js";
+import { getSessionId } from "../bootstrap/state.js";
+import { logForDebugging } from "./debug.js";
+import type { Ctx } from "../services/llm/ctx.js";
+import { createCtx } from "../services/llm/ctx.js";
 
 type MessageParam = Anthropic.MessageParam;
 type TextBlockParam = Anthropic.TextBlockParam;
@@ -129,13 +135,32 @@ export async function sideQuery(opts: SideQueryOptions): Promise<BetaMessage> {
 		source: "side_query",
 	});
 	const betas = [...getModelBetas(model)];
-	// Add structured-outputs beta if using output_format and provider supports it
-	if (
-		output_format &&
-		modelSupportsStructuredOutputs(model) &&
-		!betas.includes(STRUCTURED_OUTPUTS_BETA_HEADER)
-	) {
-		betas.push(STRUCTURED_OUTPUTS_BETA_HEADER);
+	// audit 1.1.2: wire ctx.llm capability seam — first real prod consumer.
+	// Only build a Ctx when output_format is in play (structured-output beta
+	// decision) AND provider is cloud (firstParty/foundry/bedrock/vertex/openai).
+	// fusionMlx stays on the old provider-if path: its capability reads MLX model
+	// keywords (qwen3/llama3/…) and would enable the beta for models the old path
+	// blanket-denied — a deliberate capability-authoritative divergence deferred
+	// until the MLX beta-header behavior is verified. Cloud path is byte-identical
+	// (firstParty 6-clause list matches; foundry/3P both return false). Fail-open:
+	// ctx build error → undefined ctx → old path (no new failure mode).
+	if (output_format) {
+		let ctx: Ctx | undefined;
+		if (getAPIProvider(model) !== "fusionMlx") {
+			try {
+				ctx = await createCtx(model, getCwd(), getSessionId());
+			} catch (e) {
+				logForDebugging(
+					`[sideQuery] ctx.llm build failed, falling back to provider-if: ${(e as Error).message}`,
+				);
+			}
+		}
+		if (
+			modelSupportsStructuredOutputs(model, ctx) &&
+			!betas.includes(STRUCTURED_OUTPUTS_BETA_HEADER)
+		) {
+			betas.push(STRUCTURED_OUTPUTS_BETA_HEADER);
+		}
 	}
 
 	// Extract first user message text for fingerprint
