@@ -112,7 +112,7 @@ import { registerSandboxPermissionCallback } from "../hooks/useSwarmPermissionPo
 import { useTeammateViewAutoExit } from "../hooks/useTeammateViewAutoExit.js";
 import { useTerminalSize } from "../hooks/useTerminalSize.js";
 import { useSearchHighlight } from "../ink/hooks/use-search-highlight.js";
-import type { TabStatusKind } from "../ink/hooks/use-tab-status.js";
+import { deriveTerminalApprovalState } from "../utils/terminalApprovalState.js";
 import { hasCursorUpViewportYankBug } from "../ink/terminal.js";
 import { useTerminalNotification } from "../ink/useTerminalNotification.js";
 // eslint-disable-next-line custom-rules/prefer-use-keybindings -- / n N Esc [ v are bare letters in transcript modal context, same class as g/G/j/k in ScrollKeybindingHandler
@@ -170,10 +170,7 @@ import {
 	mergeFileStateCaches,
 	READ_FILE_STATE_CACHE_SIZE,
 } from "../utils/fileStateCache.js";
-import {
-	formatDuration,
-	formatTokens,
-} from "../utils/format.js";
+import { formatDuration, formatTokens } from "../utils/format.js";
 import { isHumanTurn } from "../utils/messagePredicates.js";
 import { QueryGuard } from "../utils/QueryGuard.js";
 import { prependToShellHistoryCache } from "../utils/suggestions/shellHistoryCompletion.js";
@@ -1379,19 +1376,23 @@ export function REPL({
 	const agentTitle = mainThreadAgentDefinition?.agentType;
 	const terminalTitle =
 		sessionTitle ?? agentTitle ?? haikuTitle ?? "Fusion Code";
-	const isWaitingForApproval =
-		toolUseConfirmQueue.length > 0 ||
-		promptQueue.length > 0 ||
-		pendingWorkerRequest ||
-		pendingSandboxRequest;
-	// Local-jsx commands (like /plugin, /config) show user-facing dialogs that
-	// wait for input. Require jsx != null — if the flag is stuck true but jsx
-	// is null, treat as not-showing so TextInput focus and queue processor
-	// aren't deadlocked by a phantom overlay.
-	const isShowingLocalJSXCommand =
-		toolJSX?.isLocalJSXCommand === true && toolJSX?.jsx != null;
-	const titleIsAnimating =
-		isLoading && !isWaitingForApproval && !isShowingLocalJSXCommand;
+	// audit 1.1.1: terminal/approval 状态推导外移到 terminalApprovalState.ts (纯函数)。
+	// 5 个 derive 链式相依, REPL 保留 hook (useState/useRef/useEffect) 与 setHaikuTitle。
+	// 下游读取同名 const, 行为字节等价。
+	const {
+		isWaitingForApproval,
+		isShowingLocalJSXCommand,
+		titleIsAnimating,
+		sessionStatus,
+		waitingFor,
+	} = deriveTerminalApprovalState({
+		toolUseConfirmQueue,
+		promptQueue,
+		pendingWorkerRequest,
+		pendingSandboxRequest,
+		toolJSX,
+		isLoading,
+	});
 	// Title animation state lives in <AnimatedTerminalTitle> so the 960ms tick
 	// doesn't re-render REPL. titleDisabled/terminalTitle are still computed
 	// here because onQueryImpl reads them (background session description,
@@ -1404,24 +1405,6 @@ export function REPL({
 			return () => stopPreventSleep();
 		}
 	}, [isLoading, isWaitingForApproval, isShowingLocalJSXCommand]);
-	const sessionStatus: TabStatusKind =
-		isWaitingForApproval || isShowingLocalJSXCommand
-			? "waiting"
-			: isLoading
-				? "busy"
-				: "idle";
-	const waitingFor =
-		sessionStatus !== "waiting"
-			? undefined
-			: toolUseConfirmQueue.length > 0
-				? `approve ${toolUseConfirmQueue[0]!.tool.name}`
-				: pendingWorkerRequest
-					? "worker request"
-					: pendingSandboxRequest
-						? "sandbox request"
-						: isShowingLocalJSXCommand
-							? "dialog open"
-							: "input needed";
 
 	// Push status to the PID file for `claude ps`. Fire-and-forget; ps falls
 	// back to transcript-tail derivation when this is missing/stale.
