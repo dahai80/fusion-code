@@ -9,6 +9,7 @@
  */
 
 import { logForDebugging } from '../utils/debug.js'
+import { gracefulShutdownSync } from '../utils/gracefulShutdown.js'
 
 export interface RunnerConfig {
   apiUrl: string
@@ -97,14 +98,17 @@ async function pollLoop(config: RunnerConfig, _workerId: string): Promise<void> 
     poll()
     setInterval(poll, config.pollIntervalMs)
 
-    // Handle shutdown signals
+    // audit 2.1.4/3.1.3: SIGTERM/SIGINT 走 gracefulShutdown 而非 process.exit(0)
+    // 旁路会丢在飞会话持久化/analytics flush/已注册 cleanup。非交互无头进程:
+    // cleanupTerminalModes/printResumeHint 均 TTY+interactive gate → no-op, 仅跑
+    // runCleanupFunctions (analytics flush 等) + failsafe 兜底强制退出。
     process.on('SIGTERM', () => {
       logForDebugging('[SelfHostedRunner] Received SIGTERM, shutting down')
-      process.exit(0)
+      gracefulShutdownSync(0)
     })
     process.on('SIGINT', () => {
       logForDebugging('[SelfHostedRunner] Received SIGINT, shutting down')
-      process.exit(0)
+      gracefulShutdownSync(0)
     })
   })
 }
