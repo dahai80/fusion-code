@@ -172,6 +172,9 @@ import { applyToolPermissionContext as applyToolPermissionContextImpl } from "..
 import { applyComposedOnScroll as applyComposedOnScrollImpl } from "../utils/composedOnScroll.js";
 import { applySetMessages as applySetMessagesImpl } from "../utils/messagesSetter.js";
 import { applySetInputValue as applySetInputValueImpl } from "../utils/inputValueState.js";
+import {
+	applySetResponseLength as applySetResponseLengthImpl,
+} from "../utils/responseLengthState.js";
 import { startBackgroundHousekeeping } from "../utils/backgroundHousekeeping.js";
 import { getMemoryFiles } from "../utils/claudemd.js";
 import { logForDebugging } from "../utils/debug.js";
@@ -1678,22 +1681,14 @@ export function REPL({
 			endResponseLength: number;
 		}>
 	>([]);
-	const setResponseLength = useCallback((f: (prev: number) => number) => {
-		const prev = responseLengthRef.current;
-		responseLengthRef.current = f(prev);
-		// When content is added (not a compaction reset), update the latest
-		// metrics entry so OTPS reflects all content generation activity.
-		// Updating lastTokenTime here ensures the denominator includes both
-		// streaming time AND subagent execution time, preventing inflation.
-		if (responseLengthRef.current > prev) {
-			const entries = apiMetricsRef.current;
-			if (entries.length > 0) {
-				const lastEntry = entries.at(-1)!;
-				lastEntry.lastTokenTime = Date.now();
-				lastEntry.endResponseLength = responseLengthRef.current;
-			}
-		}
-	}, []);
+	const setResponseLength = useCallback(
+		(f: (prev: number) => number) =>
+			applySetResponseLengthImpl(f, {
+				responseLengthRef,
+				apiMetricsRef,
+			}),
+		[],
+	);
 
 	// Streaming text display: set state directly per delta (Ink's 16ms render
 	// throttle batches rapid updates). Cleared on message arrival (messages.ts)
