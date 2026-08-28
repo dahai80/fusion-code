@@ -166,6 +166,7 @@ import {
 	restoreMessageSync as restoreMessageSyncImpl,
 } from "../utils/rewindMessageState.js";
 import { pickNewSpinnerTip as pickNewSpinnerTipImpl } from "../utils/spinnerTipPicker.js";
+import { restoreReadFileState as restoreReadFileStateImpl } from "../utils/readFileStateRestore.js";
 import { startBackgroundHousekeeping } from "../utils/backgroundHousekeeping.js";
 import { getMemoryFiles } from "../utils/claudemd.js";
 import { logForDebugging } from "../utils/debug.js";
@@ -176,7 +177,6 @@ import { errorMessage } from "../utils/errors.js";
 import { renderMessagesToPlainText } from "../utils/exportRenderer.js";
 import {
 	createFileStateCacheWithSizeLimit,
-	mergeFileStateCaches,
 	READ_FILE_STATE_CACHE_SIZE,
 } from "../utils/fileStateCache.js";
 import { formatDuration, formatTokens } from "../utils/format.js";
@@ -379,7 +379,6 @@ import {
 import type { ProcessUserInputContext } from "../utils/processUserInput/processUserInput.js";
 import { getQuerySourceForREPL } from "../utils/promptCategory.js";
 import {
-	extractBashToolsFromMessages,
 	extractReadFilesFromMessages,
 } from "../utils/queryHelpers.js";
 import {
@@ -2370,18 +2369,10 @@ export function REPL({
 	// This allows Claude to edit files that were read in previous sessions
 	const restoreReadFileState = useCallback(
 		(messages: MessageType[], cwd: string) => {
-			const extracted = extractReadFilesFromMessages(
-				messages,
-				cwd,
-				READ_FILE_STATE_CACHE_SIZE,
-			);
-			readFileState.current = mergeFileStateCaches(
-				readFileState.current,
-				extracted,
-			);
-			for (const tool of extractBashToolsFromMessages(messages)) {
-				bashTools.current.add(tool);
-			}
+			restoreReadFileStateImpl(messages, cwd, {
+				readFileState,
+				bashTools,
+			});
 		},
 		[],
 	);
