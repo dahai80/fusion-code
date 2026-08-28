@@ -1,5 +1,8 @@
 import { describe, expect, it, mock, spyOn } from "bun:test";
-import type { UserMessage } from "../../types/message.js";
+import type {
+	Message as MessageType,
+	UserMessage,
+} from "../../types/message.js";
 import type {
 	RestoreMessageSetters,
 	RewindMessageSetters,
@@ -34,15 +37,16 @@ function makeUserMessage(opts: {
 	} as unknown as UserMessage;
 }
 
-// 构造 setters, 全部 mock, 捕获调用。
-function makeSetters(messages: unknown[]): {
+// 构造 setters, 全部 mock, 捕获调用。messagesRef 必须类型为 {current: Message[]}
+// 以匹配 RewindMessageSetters.messagesRef (REPL 中 useRef<MessageType[]> 的真实类型)。
+function makeSetters(messages: MessageType[]): {
 	setters: RewindMessageSetters;
 	setMessages: ReturnType<typeof mock>;
 	setConversationId: ReturnType<typeof mock>;
 	setAppState: ReturnType<typeof mock>;
-	messagesRef: { current: unknown[] };
+	messagesRef: { current: MessageType[] };
 } {
-	const setMessages = mock((_next: unknown[]) => {});
+	const setMessages = mock((_next: MessageType[]) => {});
 	const setConversationId = mock((_id: string) => {});
 	const setAppState = mock((updater: (prev: unknown) => unknown) =>
 		updater({}),
@@ -115,7 +119,9 @@ describe("rewindConversationTo", () => {
 		const result = setAppState.mock.calls[0][0](prev);
 		expect(result.toolPermissionContext.mode).toBe("plan");
 		expect(result.toolPermissionContext.extra).toBe("keep"); // spread preserved
-		expect(result.promptSuggestion).toEqual({
+		// prev.promptSuggestion 字面量推断窄为 {text:string}, toEqual 5 字段触发 excess-prop。
+		// 转 Record<string, unknown> 对齐真实 AppState.promptSuggestion 5 字段形状。
+		expect(result.promptSuggestion as Record<string, unknown>).toEqual({
 			text: null,
 			promptId: null,
 			shownAt: 0,
@@ -167,7 +173,7 @@ describe("rewindConversationTo", () => {
 	it("logs tengu_conversation_rewind with correct counts", () => {
 		const target = makeUserMessage({});
 		const messages = [makeUserMessage({}), target, makeUserMessage({})];
-		const logSpy = spyOn({ logEvent: () => {} }, "logEvent") as never;
+		const logSpy = spyOn({ logEvent: () => {} }, "logEvent");
 		// 临时替换模块内 logEvent: 用 require 拿到模块再 spy 不可行 (bun:test),
 		// 改为直接验证 setMessages 调用即可 (logEvent 已在上文隐式验证无抛错)。
 		logSpy.mockRestore();
@@ -178,7 +184,7 @@ describe("rewindConversationTo", () => {
 });
 
 describe("restoreMessageSync", () => {
-	function makeRestoreSetters(messages: unknown[]) {
+	function makeRestoreSetters(messages: MessageType[]) {
 		const base = makeSetters(messages);
 		const setInputValue = mock((_v: string) => {});
 		const setInputMode = mock((_v: unknown) => {});
