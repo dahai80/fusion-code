@@ -1,7 +1,6 @@
 import { feature } from "bun:bundle";
 import { chmod, open, rename, stat, unlink } from "fs/promises";
 import mapValues from "lodash-es/mapValues.js";
-import memoize from "lodash-es/memoize.js";
 import { dirname, join, parse } from "path";
 import { getPlatform } from "src/utils/platform.js";
 import type { PluginError } from "../../types/plugin.js";
@@ -1491,14 +1490,64 @@ export function parseMcpConfigFromFilePath(params: {
 	});
 }
 
-export const doesEnterpriseMcpConfigExist = memoize((): boolean => {
+// audit 1.3.2: 企业 MCP 配置永久 memoize 无失效 — 管理员滚动更新后已运行进程永不
+// 感知, 安全策略/工具白名单静默漂移。改 mtime-aware 缓存: 比对文件 mtime, 变更则
+// 重算。lodash memoize 永久缓存无 .cache.clear 调用点 (自验 grep 0 命中), 故替换。
+// 注: stat 失败 (文件删除/不存在) 视为 mtime=0, 不阻塞 — 仅触发重算 (config=null 路径)。
+let _enterpriseMcpCachedMtimeMs = -1;
+let _enterpriseMcpCachedResult: boolean | null = null;
+
+// 纯函数: 判定是否需要重算 (mtime 变化或首查)。抽出便于单测, 不耦合磁盘/环境。
+export function shouldRefreshEnterpriseMcpCache(
+	mtimeMs: number,
+	cachedMtimeMs: number,
+	cachedResult: boolean | null,
+): boolean {
+	if (cachedResult === null) return true;
+	return mtimeMs !== cachedMtimeMs;
+}
+
+export function doesEnterpriseMcpConfigExist(): boolean {
+	const filePath = getEnterpriseMcpFilePath();
+	let mtimeMs = 0;
+	try {
+		// stat 同步包装: 该函数在多处同步调用点使用 (config.ts:653/1089/1283), 保持同步签名。
+		// eslint-disable-next-line @typescript-eslint/no-require-imports
+		const { statSync } = require("node:fs") as typeof import("node:fs");
+		mtimeMs = statSync(filePath).mtimeMs;
+	} catch {
+		mtimeMs = 0;
+	}
+	if (
+		!shouldRefreshEnterpriseMcpCache(
+			mtimeMs,
+			_enterpriseMcpCachedMtimeMs,
+			_enterpriseMcpCachedResult,
+		)
+	) {
+		return _enterpriseMcpCachedResult as boolean;
+	}
 	const { config } = parseMcpConfigFromFilePath({
-		filePath: getEnterpriseMcpFilePath(),
+		filePath,
 		expandVars: true,
 		scope: "enterprise",
 	});
-	return config !== null;
-});
+	const result = config !== null;
+	if (result !== _enterpriseMcpCachedResult) {
+		logForDebugging(
+			`[mcp] enterprise config cache refreshed (mtime ${_enterpriseMcpCachedMtimeMs}→${mtimeMs}, exists=${result})`,
+		);
+	}
+	_enterpriseMcpCachedMtimeMs = mtimeMs;
+	_enterpriseMcpCachedResult = result;
+	return result;
+}
+
+// 测试用: 重置模块级缓存 (避免用例间污染)。仅 __tests__ 引用。
+export function _resetEnterpriseMcpCacheForTest(): void {
+	_enterpriseMcpCachedMtimeMs = -1;
+	_enterpriseMcpCachedResult = null;
+}
 
 /**
  * Check if MCP allowlist policy should only come from managed settings.
