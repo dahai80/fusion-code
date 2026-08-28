@@ -158,6 +158,7 @@ import {
 	onlySleepToolActive as onlySleepToolActiveFn,
 	stopHookSpinnerSuffix as stopHookSpinnerSuffixFn,
 } from "../utils/spinnerState.js";
+import { deriveMessageDisplayState } from "../utils/messageDisplayState.js";
 import { startBackgroundHousekeeping } from "../utils/backgroundHousekeeping.js";
 import { getMemoryFiles } from "../utils/claudemd.js";
 import { logForDebugging } from "../utils/debug.js";
@@ -5738,34 +5739,19 @@ export function REPL({
 	const viewedTeammateTask = getViewedTeammateTask(viewedTask);
 	const viewedAgentTask = getViewedAgentTask(viewedTask, viewedTeammateTask);
 
-	// Bypass useDeferredValue when streaming text is showing so Messages renders
-	// the final message in the same frame streaming text clears. Also bypass when
-	// not loading — deferredMessages only matters during streaming (keeps input
-	// responsive); after the turn ends, showing messages immediately prevents a
-	// jitter gap where the spinner is gone but the answer hasn't appeared yet.
-	// Only reducedMotion users keep the deferred path during loading.
-	const usesSyncMessages = showStreamingText || !isLoading;
-	// When viewing an agent, never fall through to leader — empty until
-	// bootstrap/stream fills. Closes the see-leader-type-agent footgun.
-	const displayedMessages = viewedAgentTask
-		? (viewedAgentTask.messages ?? [])
-		: usesSyncMessages
-			? messages
-			: deferredMessages;
-	// Show the placeholder until the real user message appears in
-	// displayedMessages. userInputOnProcessing stays set for the whole turn
-	// (cleared in resetLoadingState); this length check hides it once
-	// displayedMessages grows past the baseline captured at submit time.
-	// Covers both gaps: before setMessages is called (processUserInput), and
-	// while deferredMessages lags behind messages. Suppressed when viewing an
-	// agent — displayedMessages is a different array there, and onAgentSubmit
-	// doesn't use the placeholder anyway.
-	const placeholderText =
-		userInputOnProcessing &&
-		!viewedAgentTask &&
-		displayedMessages.length <= userInputBaselineRef.current
-			? userInputOnProcessing
-			: undefined;
+	// 消息显示状态推导 (usesSyncMessages / displayedMessages / placeholderText)
+	// 已外移到 utils/messageDisplayState.ts。保留 useDeferredValue(messages) 与
+	// ref 声明在此, 仅纯计算外移, 下游读取同名 const (字节等价)。
+	const { usesSyncMessages, displayedMessages, placeholderText } =
+		deriveMessageDisplayState({
+			showStreamingText,
+			isLoading,
+			viewedAgentTask,
+			messages,
+			deferredMessages,
+			userInputOnProcessing,
+			userInputBaseline: userInputBaselineRef.current,
+		});
 	const toolPermissionOverlay =
 		focusedInputDialog === "tool-permission" ? (
 			<PermissionRequest
