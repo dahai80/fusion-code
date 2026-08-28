@@ -171,6 +171,7 @@ import { applyToolJSXUpdate as applyToolJSXUpdateImpl } from "../utils/setToolJS
 import { applyToolPermissionContext as applyToolPermissionContextImpl } from "../utils/toolPermissionContextSetter.js";
 import { applyComposedOnScroll as applyComposedOnScrollImpl } from "../utils/composedOnScroll.js";
 import { applySetMessages as applySetMessagesImpl } from "../utils/messagesSetter.js";
+import { applySetInputValue as applySetInputValueImpl } from "../utils/inputValueState.js";
 import { startBackgroundHousekeeping } from "../utils/backgroundHousekeeping.js";
 import { getMemoryFiles } from "../utils/claudemd.js";
 import { logForDebugging } from "../utils/debug.js";
@@ -1560,31 +1561,16 @@ export function REPL({
 	// batches them into a single render, eliminating the extra render that
 	// the previous useEffect → setState pattern caused.
 	const setInputValue = useCallback(
-		(value: string) => {
-			if (trySuggestBgPRIntercept(inputValueRef.current, value)) return;
-			// In fullscreen mode, typing into an empty prompt re-pins scroll to
-			// bottom. Only fires on empty→non-empty so scrolling up to reference
-			// something while composing a message doesn't yank the view back on
-			// every keystroke. Restores the pre-fullscreen muscle memory of
-			// typing to snap back to the end of the conversation.
-			// Skipped if the user scrolled within the last 3s — they're actively
-			// reading, not lost. lastUserScrollTsRef starts at 0 so the first-
-			// ever keypress (no scroll yet) always repins.
-			if (
-				inputValueRef.current === "" &&
-				value !== "" &&
-				Date.now() - lastUserScrollTsRef.current >=
-					RECENT_SCROLL_REPIN_WINDOW_MS
-			) {
-				repinScroll();
-			}
-			// Sync ref immediately (like setMessages) so callers that read
-			// inputValueRef before React commits — e.g. the auto-restore finally
-			// block's `=== ''` guard — see the fresh value, not the stale render.
-			inputValueRef.current = value;
-			setInputValueRaw(value);
-			setIsPromptInputActive(value.trim().length > 0);
-		},
+		(value: string) =>
+			applySetInputValueImpl(value, {
+				trySuggestBgPRIntercept,
+				repinScroll,
+				setInputValueRaw,
+				setIsPromptInputActive,
+				inputValueRef,
+				lastUserScrollTsRef,
+				recentScrollRepinWindowMs: RECENT_SCROLL_REPIN_WINDOW_MS,
+			}),
 		[setIsPromptInputActive, repinScroll, trySuggestBgPRIntercept],
 	);
 
