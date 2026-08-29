@@ -76,6 +76,7 @@ import { runImmediateCommand } from "./immediateCommand.js";
 import { runExitFlow } from "./exitFlow.js";
 import { maybeScheduleIdleReturnHint } from "./idleReturnHint.js";
 import { maybeScheduleSafeYoloMessage } from "./safeYoloMessage.js";
+import { applyAgentTranscriptBootstrap } from "./agentTranscriptBootstrap.js";
 import { getSystemPrompt } from "../constants/prompts.js";
 import { useFpsMetrics } from "../context/fpsMetrics.js";
 import { useNotifications } from "../context/notifications.js";
@@ -147,7 +148,7 @@ import {
 	queuePendingMessage,
 } from "../tasks/LocalAgentTask/LocalAgentTask.js";
 import type { PromptRequest, PromptResponse } from "../types/hooks.js";
-import { asAgentId, asSessionId } from "../types/ids.js";
+import { asSessionId } from "../types/ids.js";
 import type {
 	PromptInputMode,
 	QueuedCommand,
@@ -390,7 +391,6 @@ import { processSessionStartHooks } from "../utils/sessionStart.js";
 import {
 	adoptResumedSessionFile,
 	clearSessionMetadata,
-	getAgentTranscript,
 	getCurrentSessionTitle,
 	isLoggableMessage,
 	recordAttributionSnapshot,
@@ -782,29 +782,7 @@ export function REPL({
 		!viewedLocalAgent.diskLoaded;
 	useEffect(() => {
 		if (!viewingAgentTaskId || !needsBootstrap) return;
-		const taskId = viewingAgentTaskId;
-		void getAgentTranscript(asAgentId(taskId)).then((result) => {
-			setAppState((prev) => {
-				const t = prev.tasks[taskId];
-				if (!isLocalAgentTask(t) || t.diskLoaded || !t.retain) return prev;
-				const live = t.messages ?? [];
-				const liveUuids = new Set(live.map((m) => m.uuid));
-				const diskOnly = result
-					? result.messages.filter((m) => !liveUuids.has(m.uuid))
-					: [];
-				return {
-					...prev,
-					tasks: {
-						...prev.tasks,
-						[taskId]: {
-							...t,
-							messages: [...diskOnly, ...live],
-							diskLoaded: true,
-						},
-					},
-				};
-			});
-		});
+		applyAgentTranscriptBootstrap({ viewingAgentTaskId, setAppState });
 	}, [viewingAgentTaskId, needsBootstrap, setAppState]);
 	const store = useAppStateStore();
 	const terminal = useTerminalNotification();
