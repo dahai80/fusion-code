@@ -73,6 +73,7 @@ import { maybeExtractHaikuTitle } from "../utils/haikuTitleExtraction.js";
 import { maybeTriggerIdleReturnDialog } from "../utils/idleReturnDialog.js";
 import { maybeSendIdleNotification } from "../utils/idleNotification.js";
 import { applyInitialMessage } from "./initialMessage.js";
+import { runImmediateCommand } from "./immediateCommand.js";
 import { getSystemPrompt } from "../constants/prompts.js";
 import { useFpsMetrics } from "../context/fpsMetrics.js";
 import { useNotifications } from "../context/notifications.js";
@@ -3586,100 +3587,21 @@ export function REPL({
 					});
 
 					// Execute the command directly
-					const executeImmediateCommand = async (): Promise<void> => {
-						let doneWasCalled = false;
-						const onDone = (
-							result?: string,
-							doneOptions?: {
-								display?: CommandResultDisplay;
-								metaMessages?: string[];
-							},
-						): void => {
-							doneWasCalled = true;
-							setToolJSX({
-								jsx: null,
-								shouldHidePromptInput: false,
-								clearLocalJSX: true,
-							});
-							const newMessages: MessageType[] = [];
-							if (result && doneOptions?.display !== "skip") {
-								addNotification({
-									key: `immediate-${matchingCommand.name}`,
-									text: result,
-									priority: "immediate",
-								});
-								// In fullscreen the command just showed as a centered modal
-								// pane — the notification above is enough feedback. Adding
-								// "❯ /config" + "⎿ dismissed" to the transcript is clutter
-								// (those messages are type:system subtype:local_command —
-								// user-visible but NOT sent to the model, so skipping them
-								// doesn't change model context). Outside fullscreen the
-								// transcript entry stays so scrollback shows what ran.
-								if (!isFullscreenEnvEnabled()) {
-									newMessages.push(
-										createCommandInputMessage(
-											formatCommandInputTags(
-												getCommandName(matchingCommand),
-												commandArgs,
-											),
-										),
-										createCommandInputMessage(
-											`<${LOCAL_COMMAND_STDOUT_TAG}>${escapeXml(result)}</${LOCAL_COMMAND_STDOUT_TAG}>`,
-										),
-									);
-								}
-							}
-							// Inject meta messages (model-visible, user-hidden) into the transcript
-							if (doneOptions?.metaMessages?.length) {
-								newMessages.push(
-									...doneOptions.metaMessages.map((content) =>
-										createUserMessage({
-											content,
-											isMeta: true,
-										}),
-									),
-								);
-							}
-							if (newMessages.length) {
-								setMessages((prev) => [...prev, ...newMessages]);
-							}
-							// Restore stashed prompt after local-jsx command completes.
-							// The normal stash restoration path (below) is skipped because
-							// local-jsx commands return early from onSubmit.
-							if (stashedPrompt !== undefined) {
-								setInputValue(stashedPrompt.text);
-								helpers.setCursorOffset(stashedPrompt.cursorOffset);
-								setPastedContents(stashedPrompt.pastedContents);
-								setStashedPrompt(undefined);
-							}
-						};
-
-						// Build context for the command (reuses existing getToolUseContext).
-						// Read messages via ref to keep onSubmit stable across message
-						// updates — matches the pattern at L2384/L2400/L2662 and avoids
-						// pinning stale REPL render scopes in downstream closures.
-						const context = getToolUseContext(
-							messagesRef.current,
-							[],
-							createAbortController(),
-							mainLoopModel,
-						);
-						const mod = await matchingCommand.load();
-						const jsx = await mod.call(onDone, context, commandArgs);
-
-						// Skip if onDone already fired — prevents stuck isLocalJSXCommand
-						// (see processSlashCommand.tsx local-jsx case for full mechanism).
-						if (jsx && !doneWasCalled) {
-							// shouldHidePromptInput: false keeps Notifications mounted
-							// so the onDone result isn't lost
-							setToolJSX({
-								jsx,
-								shouldHidePromptInput: false,
-								isLocalJSXCommand: true,
-							});
-						}
-					};
-					void executeImmediateCommand();
+					void runImmediateCommand({
+						matchingCommand,
+						commandArgs,
+						setToolJSX,
+						addNotification,
+						setMessages,
+						setInputValue,
+						helpers,
+						stashedPrompt,
+						setPastedContents,
+						setStashedPrompt,
+						getToolUseContext,
+						messagesRef,
+						mainLoopModel,
+					});
 					return; // Always return early - don't add to history or queue
 				}
 			}
