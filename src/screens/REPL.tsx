@@ -172,9 +172,7 @@ import { applyToolPermissionContext as applyToolPermissionContextImpl } from "..
 import { applyComposedOnScroll as applyComposedOnScrollImpl } from "../utils/composedOnScroll.js";
 import { applySetMessages as applySetMessagesImpl } from "../utils/messagesSetter.js";
 import { applySetInputValue as applySetInputValueImpl } from "../utils/inputValueState.js";
-import {
-	applySetResponseLength as applySetResponseLengthImpl,
-} from "../utils/responseLengthState.js";
+import { applySetResponseLength as applySetResponseLengthImpl } from "../utils/responseLengthState.js";
 import { applyOnCompactProgress as applyOnCompactProgressImpl } from "../utils/compactProgressState.js";
 import { applyNestedStateUpdater as applyNestedStateUpdaterImpl } from "../utils/nestedStateUpdater.js";
 import {
@@ -182,7 +180,6 @@ import {
 	handleWorkerSandboxUserResponse as handleWorkerSandboxUserResponseImpl,
 } from "../utils/sandboxPermissionResponse.js";
 import { startBackgroundHousekeeping } from "../utils/backgroundHousekeeping.js";
-import { getMemoryFiles } from "../utils/claudemd.js";
 import { logForDebugging } from "../utils/debug.js";
 import { consumeEarlyInput } from "../utils/earlyInput.js";
 import { openFileInExternalEditor } from "../utils/editor.js";
@@ -195,6 +192,7 @@ import {
 } from "../utils/fileStateCache.js";
 import { formatTokens } from "../utils/format.js";
 import { isHumanTurn } from "../utils/messagePredicates.js";
+import { applyOnInit as applyOnInitImpl } from "../utils/onInitState.js";
 import { QueryGuard } from "../utils/QueryGuard.js";
 import { prependToShellHistoryCache } from "../utils/suggestions/shellHistoryCompletion.js";
 import {
@@ -251,21 +249,21 @@ const getCoordinatorUserContext: (
 import { buildPermissionUpdates } from "../components/permissions/ExitPlanModePermissionRequest/ExitPlanModePermissionRequest.js";
 /* eslint-enable custom-rules/no-process-env-top-level, @typescript-eslint/no-require-imports */
 import useCanUseTool from "../hooks/useCanUseTool.js";
-import type { CompactProgressEvent, Tool, ToolPermissionContext } from "../Tool.js";
+import type {
+	CompactProgressEvent,
+	Tool,
+	ToolPermissionContext,
+} from "../Tool.js";
 import {
 	getScratchpadDir,
 	isScratchpadEnabled,
 } from "../utils/permissions/filesystem.js";
-import {
-	applyPermissionUpdates,
-} from "../utils/permissions/PermissionUpdate.js";
+import { applyPermissionUpdates } from "../utils/permissions/PermissionUpdate.js";
 import { stripDangerousPermissionsForAutoMode } from "../utils/permissions/permissionSetup.js";
 
 // Cloud-only tool stub (directory removed)
 const SLEEP_TOOL_NAME = "Sleep";
-import type {
-	ContentBlockParam,
-} from "src/types/anthropic-protocol.js";
+import type { ContentBlockParam } from "src/types/anthropic-protocol.js";
 import { randomUUID, type UUID } from "crypto";
 import { getFeatureValue_CACHED_MAY_BE_STALE } from "src/services/analytics/growthbook.js";
 import {
@@ -385,9 +383,7 @@ import {
 } from "../utils/plans.js";
 import type { ProcessUserInputContext } from "../utils/processUserInput/processUserInput.js";
 import { getQuerySourceForREPL } from "../utils/promptCategory.js";
-import {
-	extractReadFilesFromMessages,
-} from "../utils/queryHelpers.js";
+import { extractReadFilesFromMessages } from "../utils/queryHelpers.js";
 import {
 	logQueryProfileReport,
 	queryCheckpoint,
@@ -4524,42 +4520,7 @@ export function REPL({
 	const { enter: enterMessageActions, handlers: messageActionHandlers } =
 		useMessageActions(cursor, setCursor, cursorNavRef, messageActionCaps);
 	async function onInit() {
-		// Always verify API key on startup, so we can show the user an error in the
-		// bottom right corner of the screen if the API key is invalid.
-		void reverify();
-
-		// Populate readFileState with CLAUDE.md files at startup
-		const memoryFiles = await getMemoryFiles();
-		if (memoryFiles.length > 0) {
-			const fileList = memoryFiles
-				.map(
-					(f) =>
-						`  [${f.type}] ${f.path} (${f.content.length} chars)${f.parent ? ` (included by ${f.parent})` : ""}`,
-				)
-				.join("\n");
-			logForDebugging(
-				`Loaded ${memoryFiles.length} CLAUDE.md/rules files:\n${fileList}`,
-			);
-		} else {
-			logForDebugging("No CLAUDE.md/rules files found");
-		}
-		for (const file of memoryFiles) {
-			// When the injected content doesn't match disk (stripped HTML comments,
-			// stripped frontmatter, MEMORY.md truncation), cache the RAW disk bytes
-			// with isPartialView so Edit/Write require a real Read first while
-			// getChangedFiles + nested_memory dedup still work.
-			readFileState.current.set(file.path, {
-				content: file.contentDiffersFromDisk
-					? (file.rawContent ?? file.content)
-					: file.content,
-				timestamp: Date.now(),
-				offset: undefined,
-				limit: undefined,
-				isPartialView: file.contentDiffersFromDisk,
-			});
-		}
-
-		// Initial message handling is done via the initialMessage effect
+		await applyOnInitImpl({ reverify, readFileState });
 	}
 
 	// Register cost summary tracker
