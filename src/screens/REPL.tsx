@@ -19,7 +19,6 @@ import { c as _c } from "react/compiler-runtime";
 import {
 	getBudgetContinuationCount,
 	getCurrentTurnTokenBudget,
-	getLastInteractionTime,
 	getOriginalCwd,
 	getProjectRoot,
 	getSessionId,
@@ -72,6 +71,7 @@ import { captureApiMetrics } from "../utils/apiMetricsCapture.js";
 import { median } from "../utils/array.js";
 import { maybeExtractHaikuTitle } from "../utils/haikuTitleExtraction.js";
 import { maybeTriggerIdleReturnDialog } from "../utils/idleReturnDialog.js";
+import { maybeSendIdleNotification } from "../utils/idleNotification.js";
 import { getSystemPrompt } from "../constants/prompts.js";
 import { useFpsMetrics } from "../context/fpsMetrics.js";
 import { useNotifications } from "../context/notifications.js";
@@ -4486,30 +4486,15 @@ export function REPL({
 				focusedInputDialogRef,
 				terminal,
 			) => {
-				// Check if user has interacted since the response ended
-				const lastUserInteraction = getLastInteractionTime();
-				if (lastUserInteraction > lastQueryCompletionTime) {
-					// User has interacted since Claude finished - they're not idle, don't notify
-					return;
-				}
-
-				// User hasn't interacted since response ended, check other conditions
-				const idleTimeSinceResponse = Date.now() - lastQueryCompletionTime;
-				if (
-					!isLoading &&
-					!toolJSX &&
-					// Use ref to get current dialog state, avoiding stale closure
-					focusedInputDialogRef.current === undefined &&
-					idleTimeSinceResponse >= getGlobalConfig().messageIdleNotifThresholdMs
-				) {
-					void sendNotification(
-						{
-							message: "Claude is waiting for your input",
-							notificationType: "idle_prompt",
-						},
-						terminal,
-					);
-				}
+				// audit 1.1.1: idle-notification 回调体 → maybeSendIdleNotification (PURE-ROUTING SUB-BLOCK)。
+				// 5 个 setTimeout-arg 参数作 ctx 传入 (绕 stale closure), 行为字节等价。
+				maybeSendIdleNotification({
+					lastQueryCompletionTime,
+					isLoading,
+					toolJSX,
+					focusedInputDialogRef,
+					terminal,
+				});
 			},
 			getGlobalConfig().messageIdleNotifThresholdMs,
 			lastQueryCompletionTime,
