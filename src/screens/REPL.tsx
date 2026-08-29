@@ -1,6 +1,5 @@
 // biome-ignore-all assist/source/organizeImports: ANT-ONLY import markers must not be reordered
 import { feature } from "bun:bundle";
-import { spawnSync } from "child_process";
 import { writeFile } from "fs/promises";
 import { tmpdir } from "os";
 import { dirname, join } from "path";
@@ -74,6 +73,7 @@ import { maybeTriggerIdleReturnDialog } from "../utils/idleReturnDialog.js";
 import { maybeSendIdleNotification } from "../utils/idleNotification.js";
 import { applyInitialMessage } from "./initialMessage.js";
 import { runImmediateCommand } from "./immediateCommand.js";
+import { runExitFlow } from "./exitFlow.js";
 import { getSystemPrompt } from "../constants/prompts.js";
 import { useFpsMetrics } from "../context/fpsMetrics.js";
 import { useNotifications } from "../context/notifications.js";
@@ -323,7 +323,6 @@ import type { AutoUpdaterResult } from "../utils/autoUpdater.js";
 import { hasConsoleBillingAccess } from "../utils/billing.js";
 import { incrementPromptCount } from "../utils/commitAttribution.js";
 import {
-	isBgSession,
 	updateSessionActivity,
 	updateSessionName,
 } from "../utils/concurrentSessions.js";
@@ -3971,41 +3970,10 @@ export function REPL({
 	const handleOpenRateLimitOptions = useCallback(() => {
 		// /rate-limit-options command removed - cloud-only
 	}, []);
+	// audit 1.1.1 slice #33: handleExit 3 分支 (bg-detach/worktree-exit/exit.tsx modal) 外移到 exitFlow.tsx。
+	// 2 个 setter 经 ctx 传入 (稳定), 导入型 helper/ExitFlow/exit 命令直接 import, 行为字节等价。
 	const handleExit = useCallback(async () => {
-		setIsExiting(true);
-		// In bg sessions, always detach instead of kill — even when a worktree is
-		// active. Without this guard, the worktree branch below short-circuits into
-		// ExitFlow (which calls gracefulShutdown) before exit.tsx is ever loaded.
-		if (feature("BG_SESSIONS") && isBgSession()) {
-			spawnSync("tmux", ["detach-client"], {
-				stdio: "ignore",
-			});
-			setIsExiting(false);
-			return;
-		}
-		const showWorktree = getCurrentWorktreeSession() !== null;
-		if (showWorktree) {
-			setExitFlow(
-				<ExitFlow
-					showWorktree
-					onDone={() => {}}
-					onCancel={() => {
-						setExitFlow(null);
-						setIsExiting(false);
-					}}
-				/>,
-			);
-			return;
-		}
-		const exitMod = await exit.load();
-		const exitFlowResult = await exitMod.call(() => {});
-		setExitFlow(exitFlowResult);
-		// If call() returned without killing the process (bg session detach),
-		// clear isExiting so the UI is usable on reattach. No-op on the normal
-		// path — gracefulShutdown's process.exit() means we never get here.
-		if (exitFlowResult === null) {
-			setIsExiting(false);
-		}
+		await runExitFlow({ setExitFlow, setIsExiting });
 	}, []);
 	const handleShowMessageSelector = useCallback(() => {
 		setIsMessageSelectorVisible((prev) => !prev);
