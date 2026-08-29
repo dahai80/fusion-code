@@ -883,15 +883,30 @@ function anthropicToMlxMessages(
 	const messages: MLXChatMessage[] = [];
 
 	// System prompt — split on DYNAMIC_BOUNDARY for KV cache prefix reuse
+	// audit §1.3.1: preserve Anthropic cache_control from system blocks (array form).
+	// fusion-mlx _detect_prefix_cache_boundary reads message-level cache_control on
+	// system messages to set the KV prefix boundary. Adapter emits ONE system message,
+	// so carry the marker at message level (the only boundary fusion-mlx supports).
 	if (systemPrompt) {
 		let systemText: string;
+		// audit §1.3.1: track cache_control across the array flatten; pass through verbatim.
+		let systemCacheControl: Record<string, string> | undefined;
 		if (typeof systemPrompt === "string") {
 			systemText = systemPrompt;
 		} else if (Array.isArray(systemPrompt)) {
-			systemText = systemPrompt
-				.map((b: Record<string, unknown>) => (b.type === "text" ? b.text : ""))
-				.filter(Boolean)
-				.join("\n");
+			const texts: string[] = [];
+			for (const b of systemPrompt) {
+				if (b.type === "text") {
+					texts.push(b.text as string);
+				}
+				// audit §1.3.1: capture cache_control from any system block (last one wins,
+				// matching Anthropic's "last cache_control = boundary" convention).
+				const cc = (b as { cache_control?: Record<string, string> }).cache_control;
+				if (cc) {
+					systemCacheControl = cc;
+				}
+			}
+			systemText = texts.filter(Boolean).join("\n");
 		} else {
 			systemText = "";
 		}
@@ -912,9 +927,19 @@ function anthropicToMlxMessages(
 				messages.push({
 					role: "system",
 					content: staticPrefix + "\n" + dynamicSuffix,
+					...(systemCacheControl ? { cache_control: systemCacheControl } : {}),
 				});
 			} else {
-				messages.push({ role: "system", content: systemText });
+				messages.push({
+					role: "system",
+					content: systemText,
+					...(systemCacheControl ? { cache_control: systemCacheControl } : {}),
+				});
+			}
+			if (systemCacheControl) {
+				logForDebugging(
+					`[Fusion-MLX] cache_control preserved on system prefix (KV boundary enabled)`,
+				);
 			}
 		}
 	}
@@ -928,10 +953,19 @@ function anthropicToMlxMessages(
 					type: string;
 					text?: string;
 					image_url?: { url: string };
+					// audit §1.3.1: carry cache_control through content-block translation
+					cache_control?: Record<string, string>;
 				}> = [];
 				for (const block of msg.content) {
 					if (block.type === "text") {
-						parts.push({ type: "text", text: block.text as string });
+						// audit §1.3.1: preserve Anthropic cache_control on text content parts.
+						const cc = (block as { cache_control?: Record<string, string> })
+							.cache_control;
+						parts.push({
+							type: "text",
+							text: block.text as string,
+							...(cc ? { cache_control: cc } : {}),
+						});
 					} else if (block.type === "image") {
 						const source = block.source as {
 							type: string;

@@ -285,8 +285,8 @@ enhance-0819.md P1.2 动机："MLX 极重 KV-cache 复用；当前 hardCompact �
 
 **Step 3 — KV-cache 前缀边界协商：服务端已交付，客户端显式 breakpoint 冗余。**
 - fusion-mlx `/v1/messages` handler **已 honor `cache_control`**：`anthropic_routes.py:198` `_extract_prefix_cache_boundary` 从 system blocks 的 `cache_control` 提前缀边界，`anthropic_adapter.py:107-121` 算 boundary char 数。上游 issue #196（honor cache_control）/#241（prompt caching）/#289+#386（会话级 KV 复用，Fork 前缀）**全 CLOSED**。`memory_cache.py:721` = **自动前缀匹配**（exact + prefix + supersequence + longest-common-prefix）— KV 复用**无需显式 breakpoint**，命中即复用。
-- fusion-code MLX 路径 `createFusionMlxFetch`（`fusion-mlx-adapter.ts:1373`）拦截 `/v1/messages`（`:1516`）→ 翻译到 `/v1/chat/completions`（`:1637`），`anthropicToMlxMessages`（`:859`）**把 system 数组塌成单 string**，drop `cache_control`（`:894` 注释自标 "when fusion-mlx server adds cache-aware API, we can send as separate cached/uncached blocks" — 该 API 今已存，但 adapter 仍走 /v1/chat/completions）。`getPromptCachingEnabled`(`claude.ts:331`) 无 MLX gate，system blocks 带 `cache_control` 标记，但被翻译层丢。
-- **决策**：`/v1/chat/completions` 路径靠自动前缀匹配已得 KV 复用 → 显式 breakpoint 协商**冗余**。补全 = MLX 路径改直连 `/v1/messages`（绕过 1500+ 行翻译逻辑）= 大适配器重构，故意 OpenAI 兼容（adapter:7），无具体故障驱动（自动匹配覆盖）。违反 simplicity-first，defer。
+- fusion-code MLX 路径 `createFusionMlxFetch`（`fusion-mlx-adapter.ts:1424`）拦截 `/v1/messages`（`:1567`）→ 翻译到 `/v1/chat/completions`（`:1688`），`anthropicToMlxMessages`（`:876`）**曾把 system 数组塌成单 string 丢 `cache_control`**。`getPromptCachingEnabled`(`claude.ts:331`) 无 MLX gate，system blocks 带 `cache_control` 标记，但曾全被翻译层丢 → 长会话每轮重 tokenize + 重算 KV，O(n²) 成本（审计 §1.3.1 CRITICAL）。
+- **决策（已落地，审计 §1.3.1 fix）**：翻译层**保留** `cache_control` 而非绕过。`anthropicToMlxMessages` system 数组分支逐块追踪 `cache_control`（last-block-wins，匹配 Anthropic 边界约定），emit 到唯一 system 消息的 message-level `cache_control`（fusion-mlx `_detect_prefix_cache_boundary` 仅扫 `role=="system"` 取边界）；content-block 分支 text part 同样保留 part-level marker（round-trip fidelity）。条件 spread (`...(cc ? {cache_control} : {})`) 保证无 marker 时 byte-identical。无需直连 `/v1/messages`、无需大重构、无需 env gate（bugfix 非增量能力；marker 缺席则不 emit 该字段 = 与今日字段对字段一致）。`fusion-mlx-types.ts` `MLXChatMessage`/`MLXTextContent` 加 `cache_control?: Record<string,string>`（镜像 fusion-mlx `dict[str,str]`）。单测 `src/__tests__/llm/mlxCacheControl.test.ts` 7 case（含 byte-identical-when-no-markers diff proof + end-to-end body shape）。**无跨仓 issue**：fusion-gateway 0 `cache_control` Go 引用 → 透传 chat-completions body verbatim，不 strip。
 
 **Step 1+2 — 影子价裁剪：net-new，触碰活压缩路径，引用频次信号部分存在。**
 - 影子价 = 0 匹配（`shadowPrice`/`tool-result-pruner` net-new）。当前 `hardCompact.ts:42` `truncateString(s, headChars=200, tailChars=100)` = 固定 head/tail per-string 截断（`truncateToolResultContent`/`truncateAssistantText`），**不按代价模型**。
@@ -296,7 +296,7 @@ enhance-0819.md P1.2 动机："MLX 极重 KV-cache 复用；当前 hardCompact �
 
 **Step 4 — surfaceOp:replace：阻塞于 P0.2 defer（见上节，PR #143）。** 依赖 `SessionEvent`/`surfaceOp` 投影，P0.2 显式 defer 未解，本步骤不可独立落地。
 
-**跨仓只读边界**：fusion-mlx 侧 KV API（`cache_control` honor + 自动前缀匹配）已完整交付（issue #196/#241/#289/#386 全 CLOSED）。本 defer 纯 fusion-code 客户端决策，**无上游 issue 需提**（上游无缺口）。
+**跨仓只读边界**：fusion-mlx 侧 KV API（`cache_control` honor + 自动前缀匹配）已完整交付（issue #196/#241/#289/#386 全 CLOSED）。Step 3 翻译层 `cache_control` 保留已落地（审计 §1.3.1 fix），**无上游 issue 需提**（上游无缺口，gateway 透传不 strip）。
 
 ## Executor seam (Layer B 自研手接入)
 
