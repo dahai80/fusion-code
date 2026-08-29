@@ -24,13 +24,7 @@ import {
 	getProjectRoot,
 	getSessionId,
 	getTotalInputTokens,
-	getTurnClassifierCount,
-	getTurnClassifierDurationMs,
-	getTurnHookCount,
-	getTurnHookDurationMs,
 	getTurnOutputTokens,
-	getTurnToolCount,
-	getTurnToolDurationMs,
 	resetTurnClassifierDuration,
 	resetTurnHookDuration,
 	resetTurnToolDuration,
@@ -74,6 +68,7 @@ import type { JumpHandle } from "../components/VirtualMessageList.js";
 import { AnimatedTerminalTitle } from "../components/AnimatedTerminalTitle.js";
 import { TranscriptModeFooter } from "../components/TranscriptModeFooter.js";
 import { TranscriptSearchBar } from "../components/TranscriptSearchBar.js";
+import { captureApiMetrics } from "../utils/apiMetricsCapture.js";
 import { median } from "../utils/array.js";
 import { getSystemPrompt } from "../constants/prompts.js";
 import { useFpsMetrics } from "../context/fpsMetrics.js";
@@ -336,7 +331,6 @@ import {
 import type { PastedContent } from "../utils/config.js";
 import {
 	getGlobalConfig,
-	getGlobalConfigWriteCount,
 	saveGlobalConfig,
 } from "../utils/config.js";
 import { deserializeMessages } from "../utils/conversationRecovery.js";
@@ -361,7 +355,6 @@ import {
 } from "../utils/hooks.js";
 import {
 	createAgentsKilledMessage,
-	createApiMetricsMessage,
 	createAssistantMessage,
 	createCommandInputMessage,
 	createSystemMessage,
@@ -3297,44 +3290,8 @@ export function REPL({
 
 			// Capture ant-only API metrics before resetLoadingState clears the ref.
 			// For multi-request turns (tool use loops), compute P50 across all requests.
-			if (isInternalBuild() && apiMetricsRef.current.length > 0) {
-				const entries = apiMetricsRef.current;
-				const ttfts = entries.map((e) => e.ttftMs);
-				// Compute per-request OTPS using only active streaming time and
-				// streaming-only content. endResponseLength tracks content added by
-				// streaming deltas only, excluding subagent/compaction inflation.
-				const otpsValues = entries.map((e) => {
-					const delta = Math.round(
-						(e.endResponseLength - e.responseLengthBaseline) / 4,
-					);
-					const samplingMs = e.lastTokenTime - e.firstTokenTime;
-					return samplingMs > 0 ? Math.round(delta / (samplingMs / 1000)) : 0;
-				});
-				const isMultiRequest = entries.length > 1;
-				const hookMs = getTurnHookDurationMs();
-				const hookCount = getTurnHookCount();
-				const toolMs = getTurnToolDurationMs();
-				const toolCount = getTurnToolCount();
-				const classifierMs = getTurnClassifierDurationMs();
-				const classifierCount = getTurnClassifierCount();
-				const turnMs = Date.now() - loadingStartTimeRef.current;
-				setMessages((prev) => [
-					...prev,
-					createApiMetricsMessage({
-						ttftMs: isMultiRequest ? median(ttfts) : ttfts[0]!,
-						otps: isMultiRequest ? median(otpsValues) : otpsValues[0]!,
-						isP50: isMultiRequest,
-						hookDurationMs: hookMs > 0 ? hookMs : undefined,
-						hookCount: hookCount > 0 ? hookCount : undefined,
-						turnDurationMs: turnMs > 0 ? turnMs : undefined,
-						toolDurationMs: toolMs > 0 ? toolMs : undefined,
-						toolCount: toolCount > 0 ? toolCount : undefined,
-						classifierDurationMs: classifierMs > 0 ? classifierMs : undefined,
-						classifierCount: classifierCount > 0 ? classifierCount : undefined,
-						configWriteCount: getGlobalConfigWriteCount(),
-					}),
-				]);
-			}
+			// audit 1.1.1: 子块抽到 utils/apiMetricsCapture.ts (PURE-ROUTING SUB-BLOCK)。
+			captureApiMetrics({ apiMetricsRef, loadingStartTimeRef, setMessages });
 			resetLoadingState();
 
 			// Log query profiling report if enabled
