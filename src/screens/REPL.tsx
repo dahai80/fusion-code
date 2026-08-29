@@ -70,6 +70,7 @@ import { TranscriptModeFooter } from "../components/TranscriptModeFooter.js";
 import { TranscriptSearchBar } from "../components/TranscriptSearchBar.js";
 import { captureApiMetrics } from "../utils/apiMetricsCapture.js";
 import { median } from "../utils/array.js";
+import { maybeExtractHaikuTitle } from "../utils/haikuTitleExtraction.js";
 import { getSystemPrompt } from "../constants/prompts.js";
 import { useFpsMetrics } from "../context/fpsMetrics.js";
 import { useNotifications } from "../context/notifications.js";
@@ -269,12 +270,7 @@ import {
 import { Messages } from "../components/Messages.js";
 import { TaskListV2 } from "../components/TaskListV2.js";
 import { TeammateViewHeader } from "../components/TeammateViewHeader.js";
-import {
-	BASH_INPUT_TAG,
-	COMMAND_MESSAGE_TAG,
-	COMMAND_NAME_TAG,
-	LOCAL_COMMAND_STDOUT_TAG,
-} from "../constants/xml.js";
+import { LOCAL_COMMAND_STDOUT_TAG } from "../constants/xml.js";
 import {
 	type IDESelection,
 	useIdeSelection,
@@ -403,10 +399,6 @@ import {
 	restoreSessionMetadata,
 	saveWorktreeState,
 } from "../utils/sessionStorage.js";
-import {
-	extractFallbackTitle,
-	generateSessionTitle,
-} from "../utils/sessionTitle.js";
 import type { ThinkingConfig } from "../utils/thinking.js";
 import { mergeAndFilterTools } from "../utils/toolPool.js";
 import {
@@ -3091,51 +3083,15 @@ export function REPL({
 			// Mark onboarding as complete when any user message is sent to Claude
 			void maybeMarkProjectOnboardingComplete();
 
-			// Extract a session title from the first real user message. One-shot
-			// via ref (was tengu_birch_mist experiment: first-message-only to save
-			// Haiku calls). The ref replaces the old `messages.length <= 1` check,
-			// which was broken by SessionStart hook messages (prepended via
-			// useDeferredHookMessages) and attachment messages (appended by
-			// processTextPrompt) — both pushed length past 1 on turn one, so the
-			// title silently fell through to the "Fusion-Code" default.
-			if (
-				!titleDisabled &&
-				!sessionTitle &&
-				!agentTitle &&
-				!haikuTitleAttemptedRef.current
-			) {
-				const firstUserMessage = newMessages.find(
-					(m) => m.type === "user" && !m.isMeta,
-				);
-				const text =
-					firstUserMessage?.type === "user"
-						? getContentText(firstUserMessage.message.content)
-						: null;
-				// Skip synthetic breadcrumbs — slash-command output, prompt-skill
-				// expansions (/commit → <command-message>), local-command headers
-				// (/help → <command-name>), and bash-mode (!cmd → <bash-input>).
-				// None of these are the user's topic; wait for real prose.
-				if (
-					text &&
-					!text.startsWith(`<${LOCAL_COMMAND_STDOUT_TAG}>`) &&
-					!text.startsWith(`<${COMMAND_MESSAGE_TAG}>`) &&
-					!text.startsWith(`<${COMMAND_NAME_TAG}>`) &&
-					!text.startsWith(`<${BASH_INPUT_TAG}>`)
-				) {
-					haikuTitleAttemptedRef.current = true;
-					void generateSessionTitle(text, new AbortController().signal).then(
-						(title) => {
-							if (title) setHaikuTitle(title);
-							else {
-								setHaikuTitle(extractFallbackTitle(text));
-							}
-						},
-						() => {
-							setHaikuTitle(extractFallbackTitle(text));
-						},
-					);
-				}
-			}
+			// audit 1.1.1: haiku title 抽取外移到 haikuTitleExtraction.ts (PURE-ROUTING SUB-BLOCK)。
+			// one-shot ref 防 SessionStart/attachment 消息撑长 messages; 5 个闭包依赖经 ctx 传入, 行为字节等价。
+			maybeExtractHaikuTitle(newMessages, {
+				titleDisabled,
+				sessionTitle,
+				agentTitle,
+				haikuTitleAttemptedRef,
+				setHaikuTitle,
+			});
 
 			// Apply slash-command-scoped allowedTools (from skill frontmatter) to the
 			// store once per turn. This also covers the reset: the next non-skill turn
