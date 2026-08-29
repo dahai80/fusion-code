@@ -72,6 +72,7 @@ import { median } from "../utils/array.js";
 import { maybeExtractHaikuTitle } from "../utils/haikuTitleExtraction.js";
 import { maybeTriggerIdleReturnDialog } from "../utils/idleReturnDialog.js";
 import { maybeSendIdleNotification } from "../utils/idleNotification.js";
+import { applyInitialMessage } from "./initialMessage.js";
 import { getSystemPrompt } from "../constants/prompts.js";
 import { useFpsMetrics } from "../context/fpsMetrics.js";
 import { useNotifications } from "../context/notifications.js";
@@ -3459,138 +3460,25 @@ export function REPL({
 
 		// Mark as processing to prevent re-entry
 		initialMessageRef.current = true;
-		async function processInitialMessage(
-			initialMsg: NonNullable<typeof pending>,
-		) {
-			// Clear context if requested (plan mode exit)
-			if (initialMsg.clearContext) {
-				// Preserve the plan slug before clearing context, so the new session
-				// can access the same plan file after regenerateSessionId()
-				const oldPlanSlug = initialMsg.message.planContent
-					? getPlanSlug()
-					: undefined;
-				const { clearConversation } = await import(
-					"../commands/clear/conversation.js"
-				);
-				await clearConversation({
-					setMessages,
-					readFileState: readFileState.current,
-					discoveredSkillNames: discoveredSkillNamesRef.current,
-					loadedNestedMemoryPaths: loadedNestedMemoryPathsRef.current,
-					getAppState: () => store.getState(),
-					setAppState,
-					setConversationId,
-				});
-				haikuTitleAttemptedRef.current = false;
-				setHaikuTitle(undefined);
-				bashTools.current.clear();
-				bashToolsProcessedIdx.current = 0;
-
-				// Restore the plan slug for the new session so getPlan() finds the file
-				if (oldPlanSlug) {
-					setPlanSlug(getSessionId(), oldPlanSlug);
-				}
-			}
-
-			// Atomically: clear initial message, set permission mode and rules, and store plan for verification
-			const shouldStorePlanForVerification =
-				initialMsg.message.planContent &&
-				isInternalBuild() &&
-				isEnvTruthy(undefined);
-			setAppState((prev) => {
-				// Build and apply permission updates (mode + allowedPrompts rules)
-				let updatedToolPermissionContext = initialMsg.mode
-					? applyPermissionUpdates(
-							prev.toolPermissionContext,
-							buildPermissionUpdates(
-								initialMsg.mode,
-								initialMsg.allowedPrompts,
-							),
-						)
-					: prev.toolPermissionContext;
-				// For auto, override the mode (buildPermissionUpdates maps
-				// it to 'default' via toExternalPermissionMode) and strip dangerous rules
-				if (initialMsg.mode === "auto") {
-					updatedToolPermissionContext = stripDangerousPermissionsForAutoMode({
-						...updatedToolPermissionContext,
-						mode: "auto",
-						prePlanMode: undefined,
-					});
-				}
-				return {
-					...prev,
-					initialMessage: null,
-					toolPermissionContext: updatedToolPermissionContext,
-					...(shouldStorePlanForVerification && {
-						pendingPlanVerification: {
-							plan: initialMsg.message.planContent!,
-							verificationStarted: false,
-							verificationCompleted: false,
-						},
-					}),
-				};
-			});
-
-			// Create file history snapshot for code rewind
-			if (fileHistoryEnabled()) {
-				void fileHistoryMakeSnapshot(
-					(updater: (prev: FileHistoryState) => FileHistoryState) => {
-						setAppState((prev) => ({
-							...prev,
-							fileHistory: updater(prev.fileHistory),
-						}));
-					},
-					initialMsg.message.uuid,
-				);
-			}
-
-			// Ensure SessionStart hook context is available before the first API
-			// call. onSubmit calls this internally but the onQuery path below
-			// bypasses onSubmit — hoist here so both paths see hook messages.
-			await awaitPendingHooks();
-
-			// Route all initial prompts through onSubmit to ensure UserPromptSubmit hooks fire
-			// TODO: Simplify by always routing through onSubmit once it supports
-			// ContentBlockParam arrays (images) as input
-			const content = initialMsg.message.message.content;
-
-			// Route all string content through onSubmit to ensure hooks fire
-			// For complex content (images, etc.), fall back to direct onQuery
-			// Plan messages bypass onSubmit to preserve planContent metadata for rendering
-			if (typeof content === "string" && !initialMsg.message.planContent) {
-				// Route through onSubmit for proper processing including UserPromptSubmit hooks
-				void onSubmit(content, {
-					setCursorOffset: () => {},
-					clearBuffer: () => {},
-					resetHistory: () => {},
-				});
-			} else {
-				// Plan messages or complex content (images, etc.) - send directly to model
-				// Plan messages use onQuery to preserve planContent metadata for rendering
-				// TODO: Once onSubmit supports ContentBlockParam arrays, remove this branch
-				const newAbortController = createAbortController();
-				setAbortController(newAbortController);
-				void onQuery(
-					[initialMsg.message],
-					newAbortController,
-					true,
-					// shouldQuery
-					[],
-					// additionalAllowedTools
-					mainLoopModel,
-				);
-			}
-
-			// Reset ref after a delay to allow new initial messages
-			setTimeout(
-				(ref) => {
-					ref.current = false;
-				},
-				100,
-				initialMessageRef,
-			);
-		}
-		void processInitialMessage(pending);
+		void applyInitialMessage(pending, {
+			haikuTitleAttemptedRef,
+			bashTools,
+			bashToolsProcessedIdx,
+			discoveredSkillNamesRef,
+			loadedNestedMemoryPathsRef,
+			readFileState,
+			setMessages,
+			setAppState,
+			setConversationId,
+			setHaikuTitle,
+			setAbortController,
+			onQuery,
+			onSubmit,
+			awaitPendingHooks,
+			getAppState: () => store.getState(),
+			mainLoopModel,
+			initialMessageRef,
+		});
 	}, [
 		initialMessage,
 		isLoading,
