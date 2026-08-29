@@ -13,6 +13,10 @@ export interface MLXChatMessage {
   content: string | MLXContentPart[]
   name?: string
   tool_call_id?: string
+  // audit §1.3.1: Anthropic-compatible cache_control hint (message-level).
+  // fusion-mlx openai_models.py Message.cache_control + openai_routes.py
+  // _detect_prefix_cache_boundary honor this on system messages for KV prefix reuse.
+  cache_control?: Record<string, string>
 }
 
 export type MLXContentPart =
@@ -23,6 +27,10 @@ export type MLXContentPart =
 export interface MLXTextContent {
   type: 'text'
   text: string
+  // audit §1.3.1: Anthropic-compatible cache_control hint (part-level).
+  // fusion-mlx openai_models.py ContentPart.cache_control preserves the marker
+  // on text parts of system messages for KV prefix reuse.
+  cache_control?: Record<string, string>
 }
 
 export interface MLXImageContent {
