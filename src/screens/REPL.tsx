@@ -75,6 +75,7 @@ import { applyInitialMessage } from "./initialMessage.js";
 import { runImmediateCommand } from "./immediateCommand.js";
 import { runExitFlow } from "./exitFlow.js";
 import { maybeScheduleIdleReturnHint } from "./idleReturnHint.js";
+import { maybeScheduleSafeYoloMessage } from "./safeYoloMessage.js";
 import { getSystemPrompt } from "../constants/prompts.js";
 import { useFpsMetrics } from "../context/fpsMetrics.js";
 import { useNotifications } from "../context/notifications.js";
@@ -507,7 +508,6 @@ function FeedbackSurvey(_props: Record<string, unknown>) {
 	return null;
 } // log: accept any props to fix TS2322
 import { SANDBOX_NETWORK_ACCESS_TOOL_NAME } from "src/cli/structuredIO.js";
-import { AUTO_MODE_DESCRIPTION } from "src/components/AutoModeOptInDialog.js";
 import { PluginHintMenu } from "src/components/ClaudeCodeHint/PluginHintMenu.js";
 import {
 	DesktopUpsellStartup,
@@ -1833,35 +1833,14 @@ export function REPL({
 	// Only shown 3 times total across sessions.
 	const safeYoloMessageShownRef = useRef(false);
 	useEffect(() => {
-		if (toolPermissionContext.mode !== "auto") {
-			safeYoloMessageShownRef.current = false;
-			return;
-		}
-		if (safeYoloMessageShownRef.current) return;
-		const config = getGlobalConfig();
-		const count = config.autoPermissionsNotificationCount ?? 0;
-		if (count >= 3) return;
-		const timer = setTimeout(
-			(ref, setMessages) => {
-				ref.current = true;
-				saveGlobalConfig((prev) => {
-					const prevCount = prev.autoPermissionsNotificationCount ?? 0;
-					if (prevCount >= 3) return prev;
-					return {
-						...prev,
-						autoPermissionsNotificationCount: prevCount + 1,
-					};
-				});
-				setMessages((prev) => [
-					...prev,
-					createSystemMessage(AUTO_MODE_DESCRIPTION, "warn"),
-				]);
-			},
-			800,
+		const timer = maybeScheduleSafeYoloMessage({
+			mode: toolPermissionContext.mode,
 			safeYoloMessageShownRef,
 			setMessages,
-		);
-		return () => clearTimeout(timer);
+		});
+		return () => {
+			if (timer) clearTimeout(timer);
+		};
 	}, [toolPermissionContext.mode, setMessages]);
 
 	// If worktree creation was slow and sparse-checkout isn't configured,
