@@ -8,7 +8,7 @@ import {
 	getEffectiveContextWindowSize,
 	isAutoCompactEnabled,
 } from "../services/compact/autoCompact.js";
-import { useCompactWarningSuppression } from "../services/compact/compactWarningHook.js";
+import { useCompactWarningSuppression } from "../hooks/compactWarningHook.js";
 import { getUpgradeMessage } from "../utils/model/contextWindowUpgradeCheck.js";
 
 type Props = {

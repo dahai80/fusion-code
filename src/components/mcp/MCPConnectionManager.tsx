@@ -2,8 +2,8 @@ import { c as _c } from "react/compiler-runtime";
 import { createContext, type ReactNode, useContext } from 'react';
 import type { Command } from '../../commands.js';
 import type { Tool } from '../../Tool.js';
-import type { MCPServerConnection, ScopedMcpServerConfig, ServerResource } from './types.js';
-import { useManageMCPConnections } from './useManageMCPConnections.js';
+import type { MCPServerConnection, ScopedMcpServerConfig, ServerResource } from '../../services/mcp/types.js';
+import { useManageMCPConnections } from '../../hooks/mcp/useManageMCPConnections.js';
 interface MCPConnectionContextValue {
   reconnectMcpServer: (serverName: string) => Promise<{
     client: MCPServerConnection;

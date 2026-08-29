@@ -479,7 +479,7 @@ const shouldShowAntModelSwitch = isInternalBuild()
 const UndercoverAutoCallout = isInternalBuild()
 	? require("../components/UndercoverAutoCallout.js").UndercoverAutoCallout
 	: null;
-import { MCPConnectionManager } from "src/services/mcp/MCPConnectionManager.js";
+import { MCPConnectionManager } from "src/components/mcp/MCPConnectionManager.js";
 import { createAbortController } from "../utils/abortController.js";
 /* eslint-enable custom-rules/no-process-env-top-level, @typescript-eslint/no-require-imports */
 import { activityManager } from "../utils/activityManager.js";

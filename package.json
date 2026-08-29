@@ -25,7 +25,8 @@
 		"typecheck": "tsc --noEmit",
 		"lint": "biome lint src/ scripts/",
 		"lint:fix": "biome lint --write src/ scripts/",
-		"check": "bun run typecheck && bun run lint && bun run build"
+		"lint:layers": "bun run scripts/layer-lint.ts",
+		"check": "bun run typecheck && bun run lint && bun run lint:layers && bun run build"
 	},
 	"dependencies": {
 		"@alcalzone/ansi-tokenize": "^0.3.0",
