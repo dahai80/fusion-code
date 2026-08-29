@@ -261,7 +261,7 @@ import { stripDangerousPermissionsForAutoMode } from "../utils/permissions/permi
 
 // Cloud-only tool stub (directory removed)
 const SLEEP_TOOL_NAME = "Sleep";
-import type { ContentBlockParam } from "src/types/anthropic-protocol.js";
+import { buildRemoteMessageContent } from "../utils/remoteMessageContent.js";
 import { randomUUID, type UUID } from "crypto";
 import { getFeatureValue_CACHED_MAY_BE_STALE } from "src/services/analytics/growthbook.js";
 import {
@@ -326,10 +326,7 @@ import {
 	updateSessionName,
 } from "../utils/concurrentSessions.js";
 import type { PastedContent } from "../utils/config.js";
-import {
-	getGlobalConfig,
-	saveGlobalConfig,
-} from "../utils/config.js";
+import { getGlobalConfig, saveGlobalConfig } from "../utils/config.js";
 import { deserializeMessages } from "../utils/conversationRecovery.js";
 import { getCwd } from "../utils/cwd.js";
 import {
@@ -601,7 +598,6 @@ import {
 	isMouseTrackingEnabled,
 	maybeGetTmuxMouseHint,
 } from "../utils/fullscreen.js";
-import type { RemoteMessageContent } from "../utils/teleport/api.js";
 
 // Stable empty array for hooks that accept MCPServerConnection[] — avoids
 // creating a new [] literal on every render in remote mode, which would
@@ -4011,63 +4007,10 @@ export function REPL({
 					})?.type === "local-jsx"
 				)
 			) {
-				// Build content blocks when there are pasted attachments (images)
-				const pastedValues = Object.values(pastedContents);
-				const imageContents = pastedValues.filter((c) => c.type === "image");
-				const imagePasteIds =
-					imageContents.length > 0 ? imageContents.map((c) => c.id) : undefined;
-				let messageContent: string | ContentBlockParam[] = input.trim();
-				let remoteContent: RemoteMessageContent = input.trim();
-				if (pastedValues.length > 0) {
-					const contentBlocks: ContentBlockParam[] = [];
-					const remoteBlocks: Array<{
-						type: string;
-						[key: string]: unknown;
-					}> = [];
-					const trimmedInput = input.trim();
-					if (trimmedInput) {
-						contentBlocks.push({
-							type: "text",
-							text: trimmedInput,
-						});
-						remoteBlocks.push({
-							type: "text",
-							text: trimmedInput,
-						});
-					}
-					for (const pasted of pastedValues) {
-						if (pasted.type === "image") {
-							const source = {
-								type: "base64" as const,
-								media_type: (pasted.mediaType ?? "image/png") as
-									| "image/jpeg"
-									| "image/png"
-									| "image/gif"
-									| "image/webp",
-								data: pasted.content,
-							};
-							contentBlocks.push({
-								type: "image",
-								source,
-							});
-							remoteBlocks.push({
-								type: "image",
-								source,
-							});
-						} else {
-							contentBlocks.push({
-								type: "text",
-								text: pasted.content,
-							});
-							remoteBlocks.push({
-								type: "text",
-								text: pasted.content,
-							});
-						}
-					}
-					messageContent = contentBlocks;
-					remoteContent = remoteBlocks;
-				}
+				// audit 1.1.1: pasted-attachment content-block 构建 → buildRemoteMessageContent (PURE-ROUTING SUB-BLOCK)。
+				// 2 个闭包依赖 (input + pastedContents) 直接传入, 行为字节等价。输出 messageContent/remoteContent/imagePasteIds 3 locals。
+				const { messageContent, remoteContent, imagePasteIds } =
+					buildRemoteMessageContent(input, pastedContents);
 
 				// Create and add user message to UI
 				// Note: empty input already handled by early return above
