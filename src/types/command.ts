@@ -150,7 +150,7 @@ export type LocalJSXCommandModule = {
 	execute?: LocalJSXCommandCall; // log: fix TS2339
 };
 
-type LocalJSXCommand = {
+export type LocalJSXCommand = {
 	type: "local-jsx";
 	/**
 	 * Lazy-load the command implementation.
