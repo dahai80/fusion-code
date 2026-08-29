@@ -1,0 +1,22 @@
+{
+    "$schema": "https://biomejs.dev/schemas/2.5.5/schema.json",
+    "vcs": { "enabled": true, "clientKind": "git", "useIgnoreFile": true },
+    "files": { "includes": ["src/services/**"] },
+    "formatter": { "enabled": false },
+    "linter": {
+        "enabled": true,
+        "rules": {
+            "preset": "none",
+            "style": {
+                "noRestrictedImports": {
+                    "level": "error",
+                    "options": {
+                        "paths": {
+                            "react": "service layer must not import react (audit 1.1.3: service/UI bidirectional boundary). Move the React hook/component to src/hooks/ or src/components/."
+                        }
+                    }
+                }
+            }
+        }
+    }
+}

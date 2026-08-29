@@ -2,7 +2,7 @@ import { c as _c } from "react/compiler-runtime";
 import React, { useEffect, useRef } from 'react';
 import { MCPSettings } from '../../components/mcp/index.js';
 import { MCPReconnect } from '../../components/mcp/MCPReconnect.js';
-import { useMcpToggleEnabled } from '../../services/mcp/MCPConnectionManager.js';
+import { useMcpToggleEnabled } from '../../components/mcp/MCPConnectionManager.js';
 import { useAppState } from '../../state/AppState.js';
 import type { LocalJSXCommandOnDone } from '../../types/command.js';
 import { isInternalBuild } from '../../utils/buildConstants.js'

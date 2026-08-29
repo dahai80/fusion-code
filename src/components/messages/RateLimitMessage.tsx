@@ -3,7 +3,7 @@ import { useEffect, useState } from 'react';
 // extra-usage command removed - cloud-only. Stub for type compat:
 const extraUsage = { isEnabled: () => false };
 import { Box, Text } from 'src/ink.js';
-import { useClaudeAiLimits } from 'src/services/claudeAiLimitsHook.js';
+import { useClaudeAiLimits } from 'src/hooks/claudeAiLimitsHook.js';
 import { shouldProcessMockLimits } from 'src/services/rateLimitMocking.js'; // Used for /mock-limits command
 import { getRateLimitTier, getSubscriptionType, isClaudeAISubscriber } from 'src/utils/auth.js';
 import { hasClaudeAiBillingAccess } from 'src/utils/billing.js';

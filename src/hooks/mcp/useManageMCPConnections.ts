@@ -12,12 +12,12 @@ import {
 	fetchToolsForClient,
 	getMcpToolsCommandsAndResources,
 	reconnectMcpServerImpl,
-} from "./client.js";
+} from "../../services/mcp/client.js";
 import type {
 	MCPServerConnection,
 	ScopedMcpServerConfig,
 	ServerResource,
-} from "./types.js";
+} from "../../services/mcp/types.js";
 
 /* eslint-disable @typescript-eslint/no-require-imports */
 const fetchMcpSkillsForClient = feature("MCP_SKILLS")
@@ -27,7 +27,7 @@ const fetchMcpSkillsForClient = feature("MCP_SKILLS")
 	: null;
 const clearSkillIndexCache = feature("EXPERIMENTAL_SKILL_SEARCH")
 	? (
-			require("../skillSearch/localSearch.js") as typeof import("../skillSearch/localSearch.js")
+			require("../../services/skillSearch/localSearch.js") as typeof import("../../services/skillSearch/localSearch.js")
 		).clearSkillIndexCache
 	: null;
 
@@ -71,23 +71,23 @@ import {
 	findChannelEntry,
 	gateChannelServer,
 	wrapChannelMessage,
-} from "./channelNotification.js";
+} from "../../services/mcp/channelNotification.js";
 import {
 	type ChannelPermissionCallbacks,
 	createChannelPermissionCallbacks,
 	isChannelPermissionRelayEnabled,
-} from "./channelPermissions.js";
+} from "../../services/mcp/channelPermissions.js";
 import {
 	clearClaudeAIMcpConfigsCache,
 	fetchClaudeAIMcpConfigsIfEligible,
-} from "./claudeai.js";
-import { registerElicitationHandler } from "./elicitationHandler.js";
-import { getMcpPrefix } from "./mcpStringUtils.js";
+} from "../../services/mcp/claudeai.js";
+import { registerElicitationHandler } from "../../services/mcp/elicitationHandler.js";
+import { getMcpPrefix } from "../../services/mcp/mcpStringUtils.js";
 import {
 	commandBelongsToServer,
 	excludeStalePluginClients,
 	filterMcpToolsByConfig,
-} from "./utils.js";
+} from "../../services/mcp/utils.js";
 
 // Constants for reconnection with exponential backoff
 const MAX_RECONNECT_ATTEMPTS = 5;
