@@ -71,6 +71,7 @@ import { TranscriptSearchBar } from "../components/TranscriptSearchBar.js";
 import { captureApiMetrics } from "../utils/apiMetricsCapture.js";
 import { median } from "../utils/array.js";
 import { maybeExtractHaikuTitle } from "../utils/haikuTitleExtraction.js";
+import { maybeTriggerIdleReturnDialog } from "../utils/idleReturnDialog.js";
 import { getSystemPrompt } from "../constants/prompts.js";
 import { useFpsMetrics } from "../context/fpsMetrics.js";
 import { useNotifications } from "../context/notifications.js";
@@ -3862,42 +3863,19 @@ export function REPL({
 				return;
 			}
 
-			// Idle-return: prompt returning users to start fresh when the
-			// conversation is large and the cache is cold. tengu_willow_mode
-			// controls treatment: "dialog" (blocking), "hint" (notification), "off".
-			{
-				const willowMode = getFeatureValue_CACHED_MAY_BE_STALE(
-					"tengu_willow_mode",
-					"off",
-				);
-				const idleThresholdMin = Number(
-					process.env.CLAUDE_CODE_IDLE_THRESHOLD_MINUTES ?? 75,
-				);
-				const tokenThreshold = Number(
-					process.env.CLAUDE_CODE_IDLE_TOKEN_THRESHOLD ?? 100_000,
-				);
-				if (
-					willowMode !== "off" &&
-					!getGlobalConfig().idleReturnDismissed &&
-					!skipIdleCheckRef.current &&
-					!speculationAccept &&
-					!input.trim().startsWith("/") &&
-					lastQueryCompletionTimeRef.current > 0 &&
-					getTotalInputTokens() >= tokenThreshold
-				) {
-					const idleMs = Date.now() - lastQueryCompletionTimeRef.current;
-					const idleMinutes = idleMs / 60_000;
-					if (idleMinutes >= idleThresholdMin && willowMode === "dialog") {
-						setIdleReturnPending({
-							input,
-							idleMinutes,
-						});
-						setInputValue("");
-						helpers.setCursorOffset(0);
-						helpers.clearBuffer();
-						return;
-					}
-				}
+			// audit 1.1.1: idle-return gate 外移到 idleReturnDialog.ts (PURE-ROUTING SUB-BLOCK)。
+			// tengu_willow_mode 控制: "dialog"(阻塞)/"hint"/"off"。6 个闭包依赖经 ctx 传入, 行为字节等价。
+			if (
+				maybeTriggerIdleReturnDialog(input, {
+					skipIdleCheckRef,
+					lastQueryCompletionTimeRef,
+					speculationAccept,
+					setIdleReturnPending,
+					setInputValue,
+					helpers,
+				})
+			) {
+				return;
 			}
 
 			// Add to history for direct user submissions.
