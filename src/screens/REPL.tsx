@@ -1,8 +1,6 @@
 // biome-ignore-all assist/source/organizeImports: ANT-ONLY import markers must not be reordered
 import { feature } from "bun:bundle";
-import { writeFile } from "fs/promises";
-import { tmpdir } from "os";
-import { dirname, join } from "path";
+import { dirname } from "path";
 import * as React from "react";
 import {
 	type RefObject,
@@ -77,6 +75,7 @@ import { runExitFlow } from "./exitFlow.js";
 import { maybeScheduleIdleReturnHint } from "./idleReturnHint.js";
 import { maybeScheduleSafeYoloMessage } from "./safeYoloMessage.js";
 import { applyAgentTranscriptBootstrap } from "./agentTranscriptBootstrap.js";
+import { applyEditorOpenInExternalEditor } from "./editorStatusRender.js";
 import { getSystemPrompt } from "../constants/prompts.js";
 import { useFpsMetrics } from "../context/fpsMetrics.js";
 import { useNotifications } from "../context/notifications.js";
@@ -185,10 +184,8 @@ import {
 import { startBackgroundHousekeeping } from "../utils/backgroundHousekeeping.js";
 import { logForDebugging } from "../utils/debug.js";
 import { consumeEarlyInput } from "../utils/earlyInput.js";
-import { openFileInExternalEditor } from "../utils/editor.js";
 import { isEnvTruthy } from "../utils/envUtils.js";
 import { errorMessage } from "../utils/errors.js";
-import { renderMessagesToPlainText } from "../utils/exportRenderer.js";
 import {
 	createFileStateCacheWithSizeLimit,
 	READ_FILE_STATE_CACHE_SIZE,
@@ -4476,57 +4473,14 @@ export function REPL({
 				// openFileInExternalEditor handles alt-screen suspend/resume for
 				// terminal editors; GUI editors spawn detached.
 				event.stopImmediatePropagation();
-				// Drop double-taps: the render is async and a second press before it
-				// completes would run a second parallel render (double memory, two
-				// tempfiles, two editor spawns). editorGenRef only guards
-				// transcript-exit staleness, not same-session concurrency.
-				if (editorRenderingRef.current) return;
-				editorRenderingRef.current = true;
-				// Capture generation + make a staleness-aware setter. Each write
-				// checks gen (transcript exit bumps it → late writes from the
-				// async render go silent).
-				const gen = editorGenRef.current;
-				const setStatus = (s: string): void => {
-					if (gen !== editorGenRef.current) return;
-					clearTimeout(editorTimerRef.current);
-					setEditorStatus(s);
-				};
-				setStatus(`rendering ${deferredMessages.length} messages…`);
-				void (async () => {
-					try {
-						// Width = terminal minus vim's line-number gutter (4 digits +
-						// space + slack). Floor at 80. PassThrough has no .columns so
-						// without this Ink defaults to 80. Trailing-space strip: right-
-						// aligned timestamps still leave a flexbox spacer run at EOL.
-						// eslint-disable-next-line custom-rules/prefer-use-terminal-size -- one-shot at keypress time, not a reactive render dep
-						const w = Math.max(80, (process.stdout.columns ?? 80) - 6);
-						const raw = await renderMessagesToPlainText(
-							deferredMessages,
-							tools,
-							w,
-						);
-						const text = raw.replace(/[ \t]+$/gm, "");
-						const path = join(tmpdir(), `cc-transcript-${Date.now()}.txt`);
-						await writeFile(path, text);
-						const opened = openFileInExternalEditor(path);
-						setStatus(
-							opened
-								? `opening ${path}`
-								: `wrote ${path} · no $VISUAL/$EDITOR set`,
-						);
-					} catch (e) {
-						setStatus(
-							`render failed: ${e instanceof Error ? e.message : String(e)}`,
-						);
-					}
-					editorRenderingRef.current = false;
-					if (gen !== editorGenRef.current) return;
-					editorTimerRef.current = setTimeout(
-						(s) => s(""),
-						4000,
-						setEditorStatus,
-					);
-				})();
+				applyEditorOpenInExternalEditor({
+					editorGenRef,
+					editorTimerRef,
+					editorRenderingRef,
+					setEditorStatus,
+					deferredMessages,
+					tools,
+				});
 			}
 		},
 		// !searchOpen: typing 'v' or '[' in the search bar is search input, not
