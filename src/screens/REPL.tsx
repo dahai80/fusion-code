@@ -171,6 +171,7 @@ import { applyToolJSXUpdate as applyToolJSXUpdateImpl } from "../utils/setToolJS
 import { applyToolPermissionContext as applyToolPermissionContextImpl } from "../utils/toolPermissionContextSetter.js";
 import { applyComposedOnScroll as applyComposedOnScrollImpl } from "../utils/composedOnScroll.js";
 import { applySetMessages as applySetMessagesImpl } from "../utils/messagesSetter.js";
+import { submitIncomingPrompt } from "../utils/incomingPrompt.js";
 import { applySetInputValue as applySetInputValueImpl } from "../utils/inputValueState.js";
 import { applySetResponseLength as applySetResponseLengthImpl } from "../utils/responseLengthState.js";
 import { applyOnCompactProgress as applyOnCompactProgressImpl } from "../utils/compactProgressState.js";
@@ -473,7 +474,6 @@ import {
 } from "../utils/ide.js";
 import {
 	enqueue,
-	getCommandQueue,
 	getCommandQueueLength,
 	popAllEditable,
 	removeByFilter,
@@ -4767,32 +4767,13 @@ export function REPL({
 			options?: {
 				isMeta?: boolean;
 			},
-		): boolean => {
-			if (queryGuard.isActive) return false;
-
-			// Defer to user-queued commands — user input always takes priority
-			// over system messages (teammate messages, task list items, etc.)
-			// Read from the module-level store at call time (not the render-time
-			// snapshot) to avoid a stale closure — this callback's deps don't
-			// include the queue.
-			if (
-				getCommandQueue().some(
-					(cmd) => cmd.mode === "prompt" || cmd.mode === "bash",
-				)
-			) {
-				return false;
-			}
-			const newAbortController = createAbortController();
-			setAbortController(newAbortController);
-
-			// Create a user message with the formatted content (includes XML wrapper)
-			const userMessage = createUserMessage({
-				content,
-				isMeta: options?.isMeta ? true : undefined,
-			});
-			void onQuery([userMessage], newAbortController, true, [], mainLoopModel);
-			return true;
-		},
+		): boolean =>
+			submitIncomingPrompt(content, options, {
+				queryGuard,
+				setAbortController,
+				onQuery,
+				mainLoopModel,
+			}),
 		[onQuery, mainLoopModel, store],
 	);
 
