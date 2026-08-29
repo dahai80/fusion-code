@@ -74,6 +74,7 @@ import { maybeSendIdleNotification } from "../utils/idleNotification.js";
 import { applyInitialMessage } from "./initialMessage.js";
 import { runImmediateCommand } from "./immediateCommand.js";
 import { runExitFlow } from "./exitFlow.js";
+import { maybeScheduleIdleReturnHint } from "./idleReturnHint.js";
 import { getSystemPrompt } from "../constants/prompts.js";
 import { useFpsMetrics } from "../context/fpsMetrics.js";
 import { useNotifications } from "../context/notifications.js";
@@ -190,7 +191,6 @@ import {
 	createFileStateCacheWithSizeLimit,
 	READ_FILE_STATE_CACHE_SIZE,
 } from "../utils/fileStateCache.js";
-import { formatTokens } from "../utils/format.js";
 import { isHumanTurn } from "../utils/messagePredicates.js";
 import { applyOnInit as applyOnInitImpl } from "../utils/onInitState.js";
 import { QueryGuard } from "../utils/QueryGuard.js";
@@ -4229,70 +4229,19 @@ export function REPL({
 	// Idle-return hint: show notification when idle threshold is exceeded.
 	// Timer fires after the configured idle period; notification persists until
 	// dismissed or the user submits.
+	// audit 1.1.1 slice #34: effect body 外移到 idleReturnHint.tsx (PURE-ROUTING SUB-BLOCK, 6th — 像 #29)。
+	// 5 setTimeout-arg + 2 guard dep + cleanup 经 ctx 传入, helper 直接 import, 行为字节等价。返回 timer handle 供 cleanup clearTimeout。
 	useEffect(() => {
-		if (lastQueryCompletionTime === 0) return;
-		if (isLoading) return;
-		const willowMode: string = getFeatureValue_CACHED_MAY_BE_STALE(
-			"tengu_willow_mode",
-			"off",
-		);
-		if (willowMode !== "hint" && willowMode !== "hint_v2") return;
-		if (getGlobalConfig().idleReturnDismissed) return;
-		const tokenThreshold = Number(
-			process.env.CLAUDE_CODE_IDLE_TOKEN_THRESHOLD ?? 100_000,
-		);
-		if (getTotalInputTokens() < tokenThreshold) return;
-		const idleThresholdMs =
-			Number(process.env.CLAUDE_CODE_IDLE_THRESHOLD_MINUTES ?? 75) * 60_000;
-		const elapsed = Date.now() - lastQueryCompletionTime;
-		const remaining = idleThresholdMs - elapsed;
-		const timer = setTimeout(
-			(lqct, addNotif, msgsRef, mode, hintRef) => {
-				if (msgsRef.current.length === 0) return;
-				const totalTokens = getTotalInputTokens();
-				const formattedTokens = formatTokens(totalTokens);
-				const idleMinutes = (Date.now() - lqct) / 60_000;
-				addNotif({
-					key: "idle-return-hint",
-					jsx:
-						mode === "hint_v2" ? (
-							<>
-								<Text dimColor>new task? </Text>
-								<Text color="suggestion">/clear</Text>
-								<Text dimColor> to save </Text>
-								<Text color="suggestion">{formattedTokens} tokens</Text>
-							</>
-						) : (
-							<Text color="warning">
-								new task? /clear to save {formattedTokens} tokens
-							</Text>
-						),
-					priority: "medium",
-					// Persist until submit — the hint fires at T+75min idle, user may
-					// not return for hours. removeNotification in useEffect cleanup
-					// handles dismissal. 0x7FFFFFFF = setTimeout max (~24.8 days).
-					timeoutMs: 0x7fffffff,
-				});
-				hintRef.current = mode;
-				logEvent("tengu_idle_return_action", {
-					action:
-						"hint_shown" as AnalyticsMetadata_I_VERIFIED_THIS_IS_NOT_CODE_OR_FILEPATHS,
-					variant:
-						mode as AnalyticsMetadata_I_VERIFIED_THIS_IS_NOT_CODE_OR_FILEPATHS,
-					idleMinutes: Math.round(idleMinutes),
-					messageCount: msgsRef.current.length,
-					totalInputTokens: totalTokens,
-				});
-			},
-			Math.max(0, remaining),
+		const timer = maybeScheduleIdleReturnHint({
 			lastQueryCompletionTime,
+			isLoading,
 			addNotification,
 			messagesRef,
-			willowMode,
 			idleHintShownRef,
-		);
+			removeNotification,
+		});
 		return () => {
-			clearTimeout(timer);
+			if (timer) clearTimeout(timer);
 			removeNotification("idle-return-hint");
 			idleHintShownRef.current = false;
 		};
