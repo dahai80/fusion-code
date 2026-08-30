@@ -97,6 +97,7 @@ import { resolveAgentToolsRestrictions } from "./agentToolRestrictionsCheck.js";
 import { buildCancelRequestProps } from "./cancelRequestPropsCheck.js";
 import { restoreInitialMessages } from "./initialMessagesRestoreCheck.js";
 import { createOnCancel } from "./onCancelCheck.js";
+import { maybeInitSandbox } from "./sandboxInitCheck.js";
 import { getSystemPrompt } from "../constants/prompts.js";
 import { useFpsMetrics } from "../context/fpsMetrics.js";
 import { useNotifications } from "../context/notifications.js";
@@ -2330,12 +2331,8 @@ export function REPL({
 		[addNotification],
 	);
 	if (SandboxManager.isSandboxingEnabled()) {
-		// If sandboxing is enabled (setting.sandbox is defined, initialise the manager)
-		SandboxManager.initialize(sandboxAskCallback).catch((err) => {
-			// Initialization/validation failed - display error and exit
-			process.stderr.write(`\n❌ Sandbox Error: ${errorMessage(err)}\n`);
-			gracefulShutdownSync(1, "other");
-		});
+		// audit 1.1.1 slice #60: init+catch body 外移到 sandboxInitCheck.ts (PURE-ROUTING-SUB-BLOCK render-body)。
+		maybeInitSandbox({ sandboxAskCallback });
 	}
 	const setToolPermissionContext = useCallback(
 		(
