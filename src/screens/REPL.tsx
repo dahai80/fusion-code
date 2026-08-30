@@ -101,6 +101,7 @@ import { maybeInitSandbox } from "./sandboxInitCheck.js";
 import { reconstructResumeContentReplacement } from "./resumeContentReplacementCheck.js";
 import { restoreResumeAgentSetting } from "./resumeAgentSettingRestoreCheck.js";
 import { matchResumeCoordinatorMode } from "./resumeCoordinatorModeCheck.js";
+import { saveAndSwitchResumeSession } from "./resumeCostSessionSwitchCheck.js";
 import { getSystemPrompt } from "../constants/prompts.js";
 import { useFpsMetrics } from "../context/fpsMetrics.js";
 import { useNotifications } from "../context/notifications.js";
@@ -1954,29 +1955,14 @@ export function REPL({
 				setAbortController(null);
 				setConversationId(sessionId);
 
-				// Get target session's costs BEFORE saving current session
-				// (saveCurrentSessionCosts overwrites the config, so we need to read first)
-				const targetSessionCosts = getStoredSessionCosts(sessionId);
-
-				// Save current session's costs before switching to avoid losing accumulated costs
-				saveCurrentSessionCosts();
-
-				// Reset cost state for clean slate before restoring target session
-				resetCostState();
-
-				// Switch session (id + project dir atomically). fullPath may point to
-				// a different project (cross-worktree, /branch); null derives from
-				// current originalCwd.
-				switchSession(
-					asSessionId(sessionId),
-					log.fullPath ? dirname(log.fullPath) : null,
-				);
-				// Rename asciicast recording to match the resumed session ID
-				const { renameRecordingForSession } = await import(
-					"../utils/asciicast.js"
-				);
-				await renameRecordingForSession();
-				await resetSessionFilePointer();
+				// Get target session's costs BEFORE saving current session, then save
+				// current + reset + switch session + rename asciicast + reset file ptr.
+				// audit 1.1.1 slice #64: cost-save+session-switch 外移到 resumeCostSessionSwitchCheck.ts (resume chunked-extraction #4 final)。
+				// targetSessionCosts returned for later setCostStateForRestore (return-value-threading)。
+				const targetSessionCosts = await saveAndSwitchResumeSession({
+					sessionId,
+					fullPath: log.fullPath,
+				});
 
 				// Clear then restore session metadata so it's re-appended on exit via
 				// reAppendSessionMetadata. clearSessionMetadata must be called first:
