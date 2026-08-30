@@ -15,7 +15,7 @@ import {
 	resumeGoal,
 	setGoalBudget,
 	updateBudgetUsed,
-} from "../../../services/goal/goalState.js";
+} from "../../../services/goal/index.js";
 import { GoalGetTool } from "../../../tools/GoalGetTool/GoalGetTool.js";
 import { GoalSetBudgetTool } from "../../../tools/GoalSetBudgetTool/GoalSetBudgetTool.js";
 import { GoalUpdateTool } from "../../../tools/GoalUpdateTool/GoalUpdateTool.js";

@@ -3,7 +3,7 @@ import { getSessionId } from "../../bootstrap/state.js";
 import {
 	createGoal,
 	formatBudgetUsage,
-} from "../../services/goal/goalState.js";
+} from "../../services/goal/index.js";
 import { buildTool, type ToolDef } from "../../Tool.js";
 import { lazySchema } from "../../utils/lazySchema.js";
 import { GOAL_CREATE_TOOL_NAME } from "./constants.js";

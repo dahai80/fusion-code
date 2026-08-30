@@ -6,7 +6,7 @@ import {
 	getGoalById,
 	getGoalQueue,
 	isBudgetExceeded,
-} from "../../services/goal/goalState.js";
+} from "../../services/goal/index.js";
 import { buildTool, type ToolDef } from "../../Tool.js";
 import { lazySchema } from "../../utils/lazySchema.js";
 import { GOAL_GET_TOOL_NAME } from "./constants.js";

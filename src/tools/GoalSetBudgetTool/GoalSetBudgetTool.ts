@@ -5,7 +5,7 @@ import {
 	getActiveGoal,
 	getGoalById,
 	setGoalBudget,
-} from "../../services/goal/goalState.js";
+} from "../../services/goal/index.js";
 import { buildTool, type ToolDef } from "../../Tool.js";
 import { lazySchema } from "../../utils/lazySchema.js";
 import { GOAL_SET_BUDGET_TOOL_NAME } from "./constants.js";

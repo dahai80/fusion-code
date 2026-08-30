@@ -1,6 +1,6 @@
 {
 	"enforcedScope": { "root": "src", "exclude": ["src/services"] },
-	"migratedSubdirs": ["mcp", "api", "compact", "lsp"],
+	"migratedSubdirs": ["mcp", "api", "compact", "lsp", "goal"],
 	"allowDeepImports": [
 		{
 			"file": "src/utils/settings/validation.ts",

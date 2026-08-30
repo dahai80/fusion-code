@@ -16,8 +16,8 @@ import type {
 import { accumulateUsage, updateUsage } from "src/services/api/index.js";
 import type { NonNullableUsage } from "src/services/api/index.js";
 import { EMPTY_USAGE } from "src/services/api/index.js";
-import { checkBudget } from "src/services/goal/budgetEnforcer.js";
-import { getActiveGoal as getActiveGoalFromState, updateBudgetUsed } from "src/services/goal/goalState.js";
+import { checkBudget } from "src/services/goal/index.js";
+import { getActiveGoal as getActiveGoalFromState, updateBudgetUsed } from "src/services/goal/index.js";
 import type { ContentBlockParam } from "src/types/anthropic-protocol.js";
 import stripAnsi from "strip-ansi";
 import type { Command } from "./commands.js";

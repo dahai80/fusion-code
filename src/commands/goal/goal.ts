@@ -10,7 +10,7 @@ import {
 	pauseGoal,
 	replaceGoal,
 	resumeGoal,
-} from "../../services/goal/goalState.js";
+} from "../../services/goal/index.js";
 import type { LocalJSXCommandCall } from "../../types/command.js";
 import { logForDebugging } from "../../utils/debug.js";
 

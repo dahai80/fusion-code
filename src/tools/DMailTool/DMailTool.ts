@@ -1,7 +1,7 @@
 import { z } from "zod/v4";
 import { getSessionId } from "../../bootstrap/state.js";
 import { registerDmailSummary } from "../../services/dmail/checkpointManager.js";
-import { getActiveGoal } from "../../services/goal/goalState.js";
+import { getActiveGoal } from "../../services/goal/index.js";
 import { buildTool, type ToolDef } from "../../Tool.js";
 import { logForDebugging } from "../../utils/debug.js";
 import { lazySchema } from "../../utils/lazySchema.js";
