@@ -106,6 +106,7 @@ import { restoreResumeWorktree } from "./resumeWorktreeRestoreCheck.js";
 import { resetResumeMetadata } from "./resumeMetadataResetCheck.js";
 import { persistResumeMode } from "./resumeSaveModeCheck.js";
 import { runResumeSessionHooks } from "./resumeSessionHooksCheck.js";
+import { copyResumePlan } from "./resumePlanCopyCheck.js";
 import { getSystemPrompt } from "../constants/prompts.js";
 import { useFpsMetrics } from "../context/fpsMetrics.js";
 import { useNotifications } from "../context/notifications.js";
@@ -176,7 +177,6 @@ import {
 	queuePendingMessage,
 } from "../tasks/LocalAgentTask/LocalAgentTask.js";
 import type { PromptRequest, PromptResponse } from "../types/hooks.js";
-import { asSessionId } from "../types/ids.js";
 import type {
 	PromptInputMode,
 	QueuedCommand,
@@ -384,12 +384,6 @@ import {
 	type StreamingToolUse,
 	textForResubmit,
 } from "../utils/messages.js";
-import {
-	copyPlanForFork,
-	copyPlanForResume,
-	getPlanSlug,
-	setPlanSlug,
-} from "../utils/plans.js";
 import type { ProcessUserInputContext } from "../utils/processUserInput/processUserInput.js";
 import { getQuerySourceForREPL } from "../utils/promptCategory.js";
 import { extractReadFilesFromMessages } from "../utils/queryHelpers.js";
@@ -1907,11 +1901,8 @@ export function REPL({
 				// For forks, generate a new plan slug and copy the plan content so the
 				// original and forked sessions don't clobber each other's plan files.
 				// For regular resumes, reuse the original session's plan slug.
-				if (entrypoint === "fork") {
-					void copyPlanForFork(log, asSessionId(sessionId));
-				} else {
-					void copyPlanForResume(log, asSessionId(sessionId));
-				}
+				// audit 1.1.1 slice #69: fork plan-copy if/else 外移到 resumePlanCopyCheck.ts (resume chunked-extraction #9)。
+				copyResumePlan({ entrypoint, log, sessionId });
 
 				// Restore file history and attribution state from the resumed conversation
 				restoreSessionStateFromLog(log, setAppState);
