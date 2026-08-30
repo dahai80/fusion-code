@@ -90,6 +90,7 @@ import { maybeAccumulatePauseTiming } from "./pauseAccumulatorCheck.js";
 import { createSandboxAskHandler } from "./sandboxAskCheck.js";
 import { createFeedbackSurveyHandleSelect } from "./feedbackSurveyCheck.js";
 import { maybeShowTmuxMouseHint } from "./tmuxMouseHintCheck.js";
+import { createMessageActionCaps } from "./messageActionCapsFactory.js";
 import { getSystemPrompt } from "../constants/prompts.js";
 import { useFpsMetrics } from "../context/fpsMetrics.js";
 import { useNotifications } from "../context/notifications.js";
@@ -342,7 +343,6 @@ import {
 	type FileHistorySnapshot,
 	type FileHistoryState,
 	fileHistoryEnabled,
-	fileHistoryHasAnyChanges,
 	fileHistoryMakeSnapshot,
 	fileHistoryRewind,
 } from "../utils/fileHistory.js";
@@ -588,7 +588,6 @@ import { ScrollKeybindingHandler } from "../components/ScrollKeybindingHandler.j
 import { useIssueFlagBanner } from "../hooks/useIssueFlagBanner.js";
 import { AlternateScreen } from "../ink/components/AlternateScreen.js";
 import type { ScrollBoxHandle } from "../ink/components/ScrollBox.js";
-import { setClipboard } from "../ink/termio/osc.js";
 // Session manager removed - using AppState now
 import type { RemoteSessionConfig } from "../remote/RemoteSessionManager.js";
 import {
@@ -3760,47 +3759,16 @@ export function REPL({
 	);
 
 	// Not memoized — hook stores caps via ref, reads latest closure at dispatch.
-	// 24-char prefix: deriveUUID preserves first 24, renderable uuid prefix-matches raw source.
-	const findRawIndex = (uuid: string) => {
-		const prefix = uuid.slice(0, 24);
-		return messages.findIndex((m) => m.uuid.slice(0, 24) === prefix);
-	};
-	const messageActionCaps: MessageActionCaps = {
-		copy: (text) =>
-			// setClipboard RETURNS OSC 52 — caller must stdout.write (tmux side-effects load-buffer, but that's tmux-only).
-			void setClipboard(text).then((raw) => {
-				if (raw) process.stdout.write(raw);
-				addNotification({
-					// Same key as text-selection copy — repeated copies replace toast, don't queue.
-					key: "selection-copied",
-					text: "copied",
-					color: "success",
-					priority: "immediate",
-					timeoutMs: 2000,
-				});
-			}),
-		edit: async (msg) => {
-			// Same skip-confirm check as /rewind: lossless → direct, else confirm dialog.
-			const rawIdx = findRawIndex(msg.uuid);
-			const raw = rawIdx >= 0 ? messages[rawIdx] : undefined;
-			if (!raw || !selectableUserMessagesFilter(raw)) return;
-			const noFileChanges = !(await fileHistoryHasAnyChanges(
-				fileHistory,
-				raw.uuid,
-			));
-			const onlySynthetic = messagesAfterAreOnlySynthetic(messages, rawIdx);
-			if (noFileChanges && onlySynthetic) {
-				// rewindConversationTo's setMessages races stream appends — cancel first (idempotent).
-				onCancel();
-				// handleRestoreMessage also restores pasted images.
-				void handleRestoreMessage(raw);
-			} else {
-				// Dialog path: onPreRestore (= onCancel) fires when user CONFIRMS, not on nevermind.
-				setMessageSelectorPreselect(raw);
-				setIsMessageSelectorVisible(true);
-			}
-		},
-	};
+	// 24-char prefix findRawIndex + copy/edit caps extracted to messageActionCapsFactory.ts (audit 1.1.1 slice #52).
+	const messageActionCaps: MessageActionCaps = createMessageActionCaps({
+		addNotification,
+		messages,
+		fileHistory,
+		onCancel,
+		handleRestoreMessage,
+		setMessageSelectorPreselect,
+		setIsMessageSelectorVisible,
+	});
 	const { enter: enterMessageActions, handlers: messageActionHandlers } =
 		useMessageActions(cursor, setCursor, cursorNavRef, messageActionCaps);
 	async function onInit() {
