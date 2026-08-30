@@ -40,7 +40,7 @@ import { getAgentName, getTeamName, isTeammate } from "../utils/teammate.js";
 
 /* eslint-disable @typescript-eslint/no-require-imports */
 const extractMemoriesModule = feature("EXTRACT_MEMORIES")
-	? (require("../services/extractMemories/extractMemories.js") as typeof import("../services/extractMemories/extractMemories.js"))
+	? (require("../services/extractMemories/index.js") as typeof import("../services/extractMemories/index.js"))
 	: null;
 const jobClassifierModule = feature("TEMPLATES")
 	? (require("../jobs/classifier.js") as typeof import("../jobs/classifier.js"))

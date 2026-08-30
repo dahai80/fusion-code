@@ -382,7 +382,7 @@ const cronGate = feature("AGENT_TRIGGERS")
 	? { isKairosCronEnabled: () => false }
 	: null;
 const extractMemoriesModule = feature("EXTRACT_MEMORIES")
-	? (require("../services/extractMemories/extractMemories.js") as typeof import("../services/extractMemories/extractMemories.js"))
+	? (require("../services/extractMemories/index.js") as typeof import("../services/extractMemories/index.js"))
 	: null;
 /* eslint-enable @typescript-eslint/no-require-imports */
 

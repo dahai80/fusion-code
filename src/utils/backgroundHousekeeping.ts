@@ -5,7 +5,7 @@ import { initSkillImprovement } from './hooks/skillImprovement.js'
 
 /* eslint-disable @typescript-eslint/no-require-imports */
 const extractMemoriesModule = feature('EXTRACT_MEMORIES')
-  ? (require('../services/extractMemories/extractMemories.js') as typeof import('../services/extractMemories/extractMemories.js'))
+  ? (require('../services/extractMemories/index.js') as typeof import('../services/extractMemories/index.js'))
   : null
 const registerProtocolModule = feature('LODESTONE')
   ? (require('./deepLink/registerProtocol.js') as typeof import('./deepLink/registerProtocol.js'))
