@@ -85,6 +85,7 @@ import { maybeShowSandboxUnavailable } from "./sandboxUnavailableCheck.js";
 import { maybeCountQueueUse } from "./queueUseCountCheck.js";
 import { maybeShowSwarmTurnDuration } from "./swarmTurnDurationCheck.js";
 import { applyRemoteInit } from "./remoteInitCheck.js";
+import { maybeShowCostThreshold } from "./costThresholdCheck.js";
 import { getSystemPrompt } from "../constants/prompts.js";
 import { useFpsMetrics } from "../context/fpsMetrics.js";
 import { useNotifications } from "../context/notifications.js";
@@ -2391,17 +2392,12 @@ export function REPL({
 		streamMode,
 	};
 	useEffect(() => {
-		const totalCost = getTotalCost();
-		if (totalCost >= 5 /* $5 */ && !showCostDialog && !haveShownCostDialog) {
-			logEvent("tengu_cost_threshold_reached", {});
-			// Mark as shown even if the dialog won't render (no console billing
-			// access). Otherwise this effect re-fires on every message change for
-			// the rest of the session — 200k+ spurious events observed.
-			setHaveShownCostDialog(true);
-			if (hasConsoleBillingAccess()) {
-				setShowCostDialog(true);
-			}
-		}
+		maybeShowCostThreshold({
+			showCostDialog,
+			haveShownCostDialog,
+			setShowCostDialog,
+			setHaveShownCostDialog,
+		});
 	}, [messages, showCostDialog, haveShownCostDialog]);
 	const sandboxAskCallback: SandboxAskCallback = useCallback(
 		async (hostPattern: NetworkHostPattern) => {
