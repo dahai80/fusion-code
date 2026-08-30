@@ -78,6 +78,7 @@ import { applyAgentTranscriptBootstrap } from "./agentTranscriptBootstrap.js";
 import { applyEditorOpenInExternalEditor } from "./editorStatusRender.js";
 import { applyUndercoverCalloutCheck } from "./undercoverCalloutCheck.js";
 import { maybeClearStreamingThinking } from "./streamingThinkingClear.js";
+import { applySuspendResumeListener } from "./suspendResumeListener.js";
 import { getSystemPrompt } from "../constants/prompts.js";
 import { useFpsMetrics } from "../context/fpsMetrics.js";
 import { useNotifications } from "../context/notifications.js";
@@ -4302,25 +4303,10 @@ export function REPL({
 	// Listen for suspend/resume events
 	const { internal_eventEmitter } = useStdin();
 	const [remountKey, setRemountKey] = useState(0);
-	useEffect(() => {
-		const handleSuspend = () => {
-			// Print suspension instructions
-			process.stdout.write(
-				`\nFusion-Code has been suspended. Run \`fg\` to bring Fusion-Code back.\nNote: ctrl + z now suspends Fusion-Code, ctrl + _ undoes input.\n`,
-			);
-		};
-		const handleResume = () => {
-			// Force complete component tree replacement instead of terminal clear
-			// Ink now handles line count reset internally on SIGCONT
-			setRemountKey((prev) => prev + 1);
-		};
-		internal_eventEmitter?.on("suspend", handleSuspend);
-		internal_eventEmitter?.on("resume", handleResume);
-		return () => {
-			internal_eventEmitter?.off("suspend", handleSuspend);
-			internal_eventEmitter?.off("resume", handleResume);
-		};
-	}, [internal_eventEmitter]);
+	useEffect(
+		() => applySuspendResumeListener({ internal_eventEmitter, setRemountKey }),
+		[internal_eventEmitter],
+	);
 
 	// Derive stop hook spinner suffix from messages state
 	// audit 1.1.1: 纯推导移至 utils/spinnerState.ts, useMemo 仅缓存
