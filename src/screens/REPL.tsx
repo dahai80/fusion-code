@@ -76,6 +76,7 @@ import { maybeScheduleIdleReturnHint } from "./idleReturnHint.js";
 import { maybeScheduleSafeYoloMessage } from "./safeYoloMessage.js";
 import { applyAgentTranscriptBootstrap } from "./agentTranscriptBootstrap.js";
 import { applyEditorOpenInExternalEditor } from "./editorStatusRender.js";
+import { applyUndercoverCalloutCheck } from "./undercoverCalloutCheck.js";
 import { getSystemPrompt } from "../constants/prompts.js";
 import { useFpsMetrics } from "../context/fpsMetrics.js";
 import { useNotifications } from "../context/notifications.js";
@@ -1201,21 +1202,7 @@ export function REPL({
 	}, []);
 	const [showUndercoverCallout, setShowUndercoverCallout] = useState(false);
 	useEffect(() => {
-		if (isInternalBuild()) {
-			void (async () => {
-				// Wait for repo classification to settle (memoized, no-op if primed).
-				const { isInternalModelRepo } = await import(
-					"../utils/commitAttribution.js"
-				);
-				await isInternalModelRepo();
-				const { shouldShowUndercoverAutoNotice } = await import(
-					"../utils/undercover.js"
-				);
-				if (shouldShowUndercoverAutoNotice()) {
-					setShowUndercoverCallout(true);
-				}
-			})();
-		}
+		applyUndercoverCalloutCheck({ setShowUndercoverCallout });
 		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, []);
 	const [toolJSX, setToolJSXInternal] = useState<{
