@@ -2,7 +2,7 @@
 // 双门禁: feature("WORKFLOW_SCRIPTS") (编译期) AND FUSION_WORKFLOW_RUNTIME_ENABLED=1 (运行期)。
 // 禁用时 WorkflowTool.execute() 行为 byte-identical 旧桩。
 // agent() 用 runAgent drain → getAssistantMessageText 取最终文本, transcriptSubdir="workflows/<runId>"。
-// v1 DEFERRED: schema (agent 返回纯文本), 嵌套 workflow() (抛 NotImplemented), budget (stub)。
+// v1 DEFERRED: schema (agent 返回纯文本), 嵌套 workflow() (抛 NotImplemented)。budget 已落地 (audit 1.4.6)。
 
 import type { QuerySource } from "../../constants/querySource.js";
 import type { CanUseToolFn } from "../../hooks/useCanUseTool.js";
@@ -15,6 +15,7 @@ import {
 } from "../../utils/messages.js";
 import type { ModelAlias } from "../../utils/model/aliases.js";
 import { emitPerfettoInstant } from "../../utils/telemetry/perfettoTracing.js";
+import { getTokenCountFromUsage } from "../../utils/tokens.js";
 import type { AgentDefinition } from "../AgentTool/loadAgentsDir.js";
 import { runAgent } from "../AgentTool/runAgent.js";
 
@@ -57,6 +58,28 @@ export function workflowStaggerMs(): number {
 			`[Workflow] invalid PREFIX_STAGGER_MS "${raw}", defaulting to 0 (off)`,
 		);
 		return 0;
+	}
+	return parsed;
+}
+
+// ─── audit 1.4.6: workflow token 预算门 (原 budget STUB remaining()=>Infinity) ───
+//
+// budget 原语曾恒返 Infinity → workflow 脚本的自限预算逻辑静默失效, 长 workflow 无界跑。
+// 真实预算: AgentCtx.budgetUsedTokens 累加每次 agent() 全 loop token (runOneAgent 对
+// 所有 collected AssistantMessage.message.usage 求和, 非 AgentTool 1.4.5 的末轮估算),
+// budget.total 取 FUSION_WORKFLOW_BUDGET_TOKENS (null = 无强制 → remaining Infinity,
+// 与旧 STUB byte-identical); spent() 返累加器真值; remaining() = total==null ? Infinity
+// : max(0, total-spent)。env 未设 = total null = 旧行为。runtime 双门禁 (feature
+// WORKFLOW_SCRIPTS + FUSION_WORKFLOW_RUNTIME_ENABLED) 默认关 → off path byte-identical。
+export function workflowBudgetTotal(): number | null {
+	const raw = process.env.FUSION_WORKFLOW_BUDGET_TOKENS;
+	if (raw === undefined || raw === "") return null;
+	const parsed = Number(raw);
+	if (!Number.isFinite(parsed) || parsed < 0) {
+		logForDebugging(
+			`[Workflow] invalid FUSION_WORKFLOW_BUDGET_TOKENS "${raw}", defaulting to null (no cap)`,
+		);
+		return null;
 	}
 	return parsed;
 }
@@ -320,6 +343,9 @@ type AgentCtx = {
 	querySource: QuerySource;
 	abortController: AbortController;
 	onProgress?: (event: { type: string; [k: string]: unknown }) => void;
+	// audit 1.4.6: 每次 agent() 全 loop token 累加 (runOneAgent 求和所有
+	// collected usage)。budget.spent/remaining 读此真值, 替代 STUB 恒 0/Infinity。
+	budgetUsedTokens: number;
 };
 
 function createAgentPrimitive(ctx: AgentCtx): AgentPrimitive {
@@ -398,6 +424,15 @@ async function runOneAgent(
 	// 取最后一条 assistant 消息的文本 (finalizeAgentTool 太重, 直接取)。
 	const last = collected[collected.length - 1];
 	const text = last ? getAssistantMessageText(last) : null;
+
+	// audit 1.4.6: 累加本 agent 全 loop token (所有 collected assistant usage 求和,
+	// 非 AgentTool 1.4.5 末轮估算)。message.usage 可能 undefined (虚拟/错误消息) → guard。
+	// budget.spent/remaining 读此 ctx.budgetUsedTokens 真值, 替代 STUB 恒 0/Infinity。
+	for (const msg of collected) {
+		if (msg.message?.usage) {
+			ctx.budgetUsedTokens += getTokenCountFromUsage(msg.message.usage);
+		}
+	}
 	ctx.onProgress?.({
 		type: "agent_end",
 		label,
@@ -466,7 +501,9 @@ type BudgetStub = {
 	remaining: () => number;
 };
 
-function createMiscPrimitives(ctx: AgentCtx): {
+// audit 1.4.6: 导出供单测 (createMiscPrimitives 构建 budget/spent/remaining 读
+// ctx.budgetUsedTokens 真值; 测注入 fake ctx.budgetUsedTokens + env total)。
+export function createMiscPrimitives(ctx: AgentCtx): {
 	phase: (title: string) => void;
 	log: (message: string) => void;
 	workflow: WorkflowPrimitive;
@@ -491,11 +528,19 @@ function createMiscPrimitives(ctx: AgentCtx): {
 				"nested workflow() not supported in minimal runtime (v1)",
 			);
 		},
-		// budget DEFERRED v1: stub, 无真实 token 预算强制。
+		// audit 1.4.6: 真实 token 预算 (原 STUB remaining()=>Infinity 静默失效)。
+		// total = FUSION_WORKFLOW_BUDGET_TOKENS (null = 无强制 → remaining Infinity,
+		// 与旧 STUB byte-identical)。spent 读 ctx.budgetUsedTokens (runOneAgent
+		// 全 loop 累加)。remaining = total==null ? Infinity : max(0, total-spent)。
 		budget: {
-			total: null,
-			spent: () => 0,
-			remaining: () => Number.POSITIVE_INFINITY,
+			total: workflowBudgetTotal(),
+			spent: () => ctx.budgetUsedTokens,
+			remaining: () => {
+				const cap = workflowBudgetTotal();
+				return cap == null
+					? Number.POSITIVE_INFINITY
+					: Math.max(0, cap - ctx.budgetUsedTokens);
+			},
 		},
 	};
 }
@@ -525,6 +570,7 @@ export async function executeWorkflow(
 		querySource: params.querySource,
 		abortController: params.abortController,
 		onProgress: params.onProgress,
+		budgetUsedTokens: 0,
 	};
 	const agent = createAgentPrimitive(ctx);
 	const parallel = createParallelPrimitive();

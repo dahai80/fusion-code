@@ -3,11 +3,13 @@
  */
 import { afterEach, describe, expect, it } from "bun:test";
 import {
+	createMiscPrimitives,
 	type DelayFn,
 	evaluateScript,
 	extractMeta,
 	isWorkflowRuntimeEnabled,
 	runWithConcurrency,
+	workflowBudgetTotal,
 	workflowStaggerMs,
 } from "../tools/WorkflowTool/runtime.js";
 
@@ -420,5 +422,109 @@ describe("item 25B: runWithConcurrency stagger", () => {
 		const { delayCalls, delay, makeThunk } = makeClock();
 		await runWithConcurrency([makeThunk(0)], 4, 100, delay);
 		expect(delayCalls).toEqual([]);
+	});
+});
+
+// ─── audit 1.4.6: workflow budget 原语 (原 STUB remaining()=>Infinity) ───
+//
+// workflowBudgetTotal env 解析 + createMiscPrimitives 的 budget.spent/remaining 读
+// ctx.budgetUsedTokens 真值 (runOneAgent 全 loop 累加, 非 AgentTool 1.4.5 末轮估算)。
+// env 未设 = total null = remaining Infinity = 旧 STUB byte-identical。
+
+function makeBudgetCtx(used = 0) {
+	return { runId: "test", budgetUsedTokens: used } as unknown as Parameters<
+		typeof createMiscPrimitives
+	>[0];
+}
+
+describe("audit 1.4.6: workflowBudgetTotal env 解析", () => {
+	const orig = process.env.FUSION_WORKFLOW_BUDGET_TOKENS;
+	afterEach(() => {
+		if (orig === undefined) {
+			delete process.env.FUSION_WORKFLOW_BUDGET_TOKENS;
+		} else {
+			process.env.FUSION_WORKFLOW_BUDGET_TOKENS = orig;
+		}
+	});
+
+	it("env 未设 → null (无强制, byte-identical 旧 STUB total=null)", () => {
+		delete process.env.FUSION_WORKFLOW_BUDGET_TOKENS;
+		expect(workflowBudgetTotal()).toBeNull();
+	});
+
+	it("空串 → null", () => {
+		process.env.FUSION_WORKFLOW_BUDGET_TOKENS = "";
+		expect(workflowBudgetTotal()).toBeNull();
+	});
+
+	it("有效正整数 → 原样返回", () => {
+		process.env.FUSION_WORKFLOW_BUDGET_TOKENS = "500000";
+		expect(workflowBudgetTotal()).toBe(500000);
+	});
+
+	it("0 → 0 (合法, 立即耗尽)", () => {
+		process.env.FUSION_WORKFLOW_BUDGET_TOKENS = "0";
+		expect(workflowBudgetTotal()).toBe(0);
+	});
+
+	it("非法串 → fail-off null", () => {
+		process.env.FUSION_WORKFLOW_BUDGET_TOKENS = "abc";
+		expect(workflowBudgetTotal()).toBeNull();
+	});
+
+	it("负数 → fail-off null", () => {
+		process.env.FUSION_WORKFLOW_BUDGET_TOKENS = "-100";
+		expect(workflowBudgetTotal()).toBeNull();
+	});
+
+	it("Infinity 串 → fail-off null (Number(Infinity)=Infinity, 仍 finite 检查)", () => {
+		process.env.FUSION_WORKFLOW_BUDGET_TOKENS = "Infinity";
+		expect(workflowBudgetTotal()).toBeNull();
+	});
+});
+
+describe("audit 1.4.6: budget 原语真值 (替代 STUB)", () => {
+	const orig = process.env.FUSION_WORKFLOW_BUDGET_TOKENS;
+	afterEach(() => {
+		if (orig === undefined) {
+			delete process.env.FUSION_WORKFLOW_BUDGET_TOKENS;
+		} else {
+			process.env.FUSION_WORKFLOW_BUDGET_TOKENS = orig;
+		}
+	});
+
+	it("env 未设 → total null, remaining Infinity (byte-identical STUB)", () => {
+		delete process.env.FUSION_WORKFLOW_BUDGET_TOKENS;
+		const { budget } = createMiscPrimitives(makeBudgetCtx(12345));
+		expect(budget.total).toBeNull();
+		expect(budget.spent()).toBe(12345);
+		expect(budget.remaining()).toBe(Number.POSITIVE_INFINITY);
+	});
+
+	it("env 设 + 累加器 < total → remaining = total - spent", () => {
+		process.env.FUSION_WORKFLOW_BUDGET_TOKENS = "100000";
+		const { budget } = createMiscPrimitives(makeBudgetCtx(30000));
+		expect(budget.total).toBe(100000);
+		expect(budget.spent()).toBe(30000);
+		expect(budget.remaining()).toBe(70000);
+	});
+
+	it("累加器 == total → remaining 0 (耗尽, 不返负)", () => {
+		process.env.FUSION_WORKFLOW_BUDGET_TOKENS = "50000";
+		const { budget } = createMiscPrimitives(makeBudgetCtx(50000));
+		expect(budget.remaining()).toBe(0);
+	});
+
+	it("累加器 > total → remaining 0 (超支钳到 0, 不返负)", () => {
+		process.env.FUSION_WORKFLOW_BUDGET_TOKENS = "50000";
+		const { budget } = createMiscPrimitives(makeBudgetCtx(80000));
+		expect(budget.remaining()).toBe(0);
+	});
+
+	it("累加器 0 + total 设 → remaining = total (未花)", () => {
+		process.env.FUSION_WORKFLOW_BUDGET_TOKENS = "50000";
+		const { budget } = createMiscPrimitives(makeBudgetCtx(0));
+		expect(budget.spent()).toBe(0);
+		expect(budget.remaining()).toBe(50000);
 	});
 });
