@@ -102,6 +102,7 @@ import { reconstructResumeContentReplacement } from "./resumeContentReplacementC
 import { restoreResumeAgentSetting } from "./resumeAgentSettingRestoreCheck.js";
 import { matchResumeCoordinatorMode } from "./resumeCoordinatorModeCheck.js";
 import { saveAndSwitchResumeSession } from "./resumeCostSessionSwitchCheck.js";
+import { restoreResumeWorktree } from "./resumeWorktreeRestoreCheck.js";
 import { getSystemPrompt } from "../constants/prompts.js";
 import { useFpsMetrics } from "../context/fpsMetrics.js";
 import { useNotifications } from "../context/notifications.js";
@@ -1987,22 +1988,14 @@ export function REPL({
 				// this would kick the user out of a worktree they're still working
 				// in. Same fork skip as processResumedConversation for the adopt —
 				// fork materializes its own file via recordTranscript on REPL mount.
-				if (entrypoint !== "fork") {
-					exitRestoredWorktree();
-					restoreWorktreeForResume(log.worktreeSession);
-					adoptResumedSessionFile();
-					void restoreRemoteAgentTasks({
-						abortController: new AbortController(),
-						getAppState: () => store.getState(),
-						setAppState,
-					});
-				} else {
-					// Fork: same re-persist as /clear (conversation.ts). The clear
-					// above wiped currentSessionWorktree, forkLog doesn't carry it,
-					// and the process is still in the same worktree.
-					const ws = getCurrentWorktreeSession();
-					if (ws) saveWorktreeState(ws);
-				}
+				// audit 1.1.1 slice #65: worktree-restore if/else 外移到 resumeWorktreeRestoreCheck.ts (resume chunked-extraction #5)。
+				restoreResumeWorktree({
+					entrypoint,
+					worktreeSession: log.worktreeSession,
+					restoreRemoteAgentTasks,
+					store,
+					setAppState,
+				});
 
 				// Persist the current mode so future resumes know what mode this session was in
 				if (feature("COORDINATOR_MODE")) {
