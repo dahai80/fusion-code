@@ -94,6 +94,7 @@ import { createHandleQueuedCommandOnCancel } from "./handleQueuedCommandCancelCh
 import { maybeScheduleIdleNotification } from "./idleNotificationEffect.js";
 import { createResetLoadingState } from "./resetLoadingStateCheck.js";
 import { resolveAgentToolsRestrictions } from "./agentToolRestrictionsCheck.js";
+import { restoreInitialMessages } from "./initialMessagesRestoreCheck.js";
 import { getSystemPrompt } from "../constants/prompts.js";
 import { useFpsMetrics } from "../context/fpsMetrics.js";
 import { useNotifications } from "../context/notifications.js";
@@ -2136,14 +2137,13 @@ export function REPL({
 	// This handles CLI flag resume (--resume-session) and ResumeConversation screen
 	// where messages are passed as props rather than through the resume callback
 	useEffect(() => {
-		if (initialMessages && initialMessages.length > 0) {
-			restoreReadFileState(initialMessages, getOriginalCwd());
-			void restoreRemoteAgentTasks({
-				abortController: new AbortController(),
-				getAppState: () => store.getState(),
-				setAppState,
-			});
-		}
+		restoreInitialMessages({
+			initialMessages,
+			restoreReadFileState,
+			restoreRemoteAgentTasks,
+			store,
+			setAppState,
+		});
 		// Only run on mount - initialMessages shouldn't change during component lifetime
 		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, []);
