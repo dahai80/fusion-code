@@ -10,8 +10,8 @@ import {
 	recordTurnFailure,
 	rollbackToTurn,
 	takeTurnSnapshot,
-} from "../../../services/executor/turnSnapshot.js";
-import type { ExecutorClientLike } from "../../../services/executor/executorDriver.js";
+} from "../../../services/executor/index.js";
+import type { ExecutorClientLike } from "../../../services/executor/index.js";
 
 const TURN_SNAP_ENV = "FUSION_CODE_EXECUTOR_TURN_SNAPSHOT";
 

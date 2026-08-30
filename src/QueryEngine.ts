@@ -48,7 +48,7 @@ import {
 	recordTurnFailure,
 	takeTurnSnapshot,
 	lastHint as turnSnapshotHint,
-} from "./services/executor/turnSnapshot.js";
+} from "./services/executor/index.js";
 import type { MCPServerConnection } from "./services/mcp/index.js";
 import type { AppState } from "./state/AppState.js";
 import { type Tools, type ToolUseContext, toolMatchesName } from "./Tool.js";

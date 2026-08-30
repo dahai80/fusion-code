@@ -7,8 +7,8 @@ import {
 	type CallWriteParams,
 	callWriteViaExecutor,
 	isFileWriteRouteable,
-} from "../../services/executor/executorDriver.js";
-import type { EditResult } from "../../services/executor/types.js";
+} from "../../services/executor/index.js";
+import type { EditResult } from "../../services/executor/index.js";
 
 // #176 file-write delegation: callWriteViaExecutor delegates ONLY the final
 // disk-write step to the executor subprocess, fail-open (null) on ANY failure.

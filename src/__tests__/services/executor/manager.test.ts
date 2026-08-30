@@ -6,7 +6,7 @@ import {
 	initializeExecutorManager,
 	isExecutorConnected,
 	isExecutorEnabled,
-} from "../../../services/executor/manager.js";
+} from "../../../services/executor/index.js";
 
 const ENV_KEY = "FUSION_CODE_EXECUTOR_ENABLED";
 

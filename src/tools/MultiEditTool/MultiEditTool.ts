@@ -345,7 +345,7 @@ export const MultiEditTool = buildTool({
 				// #176: delegate disk-write to executor subprocess (fail-open to in-process)
 				const {
 					callWriteViaExecutor,
-				} = require("../../services/executor/executorDriver.js");
+				} = require("../../services/executor/index.js");
 				const writeResult = await callWriteViaExecutor({
 					filePath: absoluteFilePath,
 					content: updatedFile,

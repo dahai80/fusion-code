@@ -4,11 +4,11 @@ import {
 	callBashViaExecutor,
 	type ExecutorClientLike,
 	isExecutorRouteable,
-} from "../../../services/executor/executorDriver.js";
+} from "../../../services/executor/index.js";
 import type {
 	ExecutionRequest,
 	ExecutionResult,
-} from "../../../services/executor/types.js";
+} from "../../../services/executor/index.js";
 import type { ExecResult } from "../../../utils/ShellCommand.js";
 
 // isExecutorRouteable reads isExecutorEnabled() (env gate). We toggle the env

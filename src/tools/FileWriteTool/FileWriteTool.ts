@@ -303,7 +303,7 @@ export const FileWriteTool = buildTool({
     // files), which silently corrupted e.g. bash scripts with \r on Linux when
     // overwriting a CRLF file or when binaries in cwd poisoned the repo sample.
     // #176: delegate disk-write to executor subprocess (fail-open to in-process)
-    const { callWriteViaExecutor } = require('../../services/executor/executorDriver.js')
+    const { callWriteViaExecutor } = require('../../services/executor/index.js')
     const writeResult = await callWriteViaExecutor({
       filePath: fullFilePath,
       content,

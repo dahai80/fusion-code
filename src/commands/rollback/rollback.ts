@@ -2,7 +2,7 @@ import {
 	isTurnSnapshotEnabled,
 	listTurnSnapshots,
 	rollbackToTurn,
-} from "../../services/executor/turnSnapshot.js";
+} from "../../services/executor/index.js";
 import type {
 	LocalJSXCommandCall,
 	LocalJSXCommandOnDone,

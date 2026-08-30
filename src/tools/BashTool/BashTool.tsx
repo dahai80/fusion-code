@@ -651,11 +651,11 @@ export const BashTool = buildTool({
       let commandGenerator;
       let executorRouteable = false;
       if (isEnvTruthy(process.env.FUSION_CODE_EXECUTOR_ENABLED)) {
-        const { isExecutorRouteable } = require('../../services/executor/executorDriver.js');
+        const { isExecutorRouteable } = require('../../services/executor/index.js');
         executorRouteable = isExecutorRouteable(input);
       }
       if (executorRouteable) {
-        const { callBashViaExecutor } = require('../../services/executor/executorDriver.js');
+        const { callBashViaExecutor } = require('../../services/executor/index.js');
         commandGenerator = callBashViaExecutor(input, toolUseContext);
       } else {
         // Use the new async generator version of runShellCommand
@@ -701,7 +701,7 @@ export const BashTool = buildTool({
       // (binary missing / init failed / stream crashed). Fall back to in-process
       // runShellCommand so the user is never blocked by a Layer B outage.
       if (result === null) {
-        const { logExecutorFallback } = require('../../services/executor/executorDriver.js');
+        const { logExecutorFallback } = require('../../services/executor/index.js');
         logExecutorFallback(input.command);
         const fallbackGenerator = runShellCommand({
           input,

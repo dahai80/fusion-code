@@ -491,7 +491,7 @@ export const FileEditTool = buildTool({
     // routeable; fail-open to in-process writeTextContent on any executor failure.
     // All client-side coordination (staleness, quote-norm, patch) already ran above;
     // only the byte-write backend swaps. Byte-identical when executor disabled.
-    const { callWriteViaExecutor } = require('../../services/executor/executorDriver.js')
+    const { callWriteViaExecutor } = require('../../services/executor/index.js')
     const writeResult = await callWriteViaExecutor({
       filePath: absoluteFilePath,
       content: updatedFile,
