@@ -5,11 +5,11 @@ import {
 	isEventSourcingEnabled,
 	NOOP_RECORDER,
 	SessionEventRecorder,
-} from "../../../services/events/eventLog.js";
+} from "../../../services/events/index.js";
 import type {
 	SessionEvent,
 	SessionEventLog,
-} from "../../../services/events/SessionEvent.js";
+} from "../../../services/events/index.js";
 
 describe("appendEvent", () => {
 	it("returns new log, original untouched (immutable)", () => {

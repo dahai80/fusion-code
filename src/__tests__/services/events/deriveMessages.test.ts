@@ -1,7 +1,7 @@
 // ar-plan PR #8 (S2.2): deriveMessages 投影测。
 import { describe, expect, it } from "bun:test";
-import { deriveMessages } from "../../../services/events/deriveMessages.js";
-import type { SessionEventLog } from "../../../services/events/SessionEvent.js";
+import { deriveMessages } from "../../../services/events/index.js";
+import type { SessionEventLog } from "../../../services/events/index.js";
 import type {
 	AssistantMessage,
 	Message,

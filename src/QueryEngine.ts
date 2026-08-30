@@ -37,13 +37,13 @@ import { hasAutoMemPathOverride } from "./memdir/paths.js";
 import { query } from "./query.js";
 import { categorizeRetryableAPIError } from "./services/api/index.js";
 // ar-plan PR #8 (S2.2): 双写断言 (dev-only, prod byte-identical)
-import { assertDualWrite } from "./services/events/deriveMessages.js";
+import { assertDualWrite } from "./services/events/index.js";
 // ar-plan PR #7 (S2.1): 事件溯源旁路写
 import {
 	isEventSourcingEnabled,
 	NOOP_RECORDER,
 	SessionEventRecorder,
-} from "./services/events/eventLog.js";
+} from "./services/events/index.js";
 import {
 	recordTurnFailure,
 	takeTurnSnapshot,

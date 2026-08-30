@@ -1,7 +1,7 @@
 // ar-plan PR #8 (S2.2): assertDualWrite dev 断言测。
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
-import { assertDualWrite } from "../../../services/events/deriveMessages.js";
-import type { SessionEventLog } from "../../../services/events/SessionEvent.js";
+import { assertDualWrite } from "../../../services/events/index.js";
+import type { SessionEventLog } from "../../../services/events/index.js";
 import type {
 	AssistantMessage,
 	Message,
