@@ -94,6 +94,7 @@ import { createHandleQueuedCommandOnCancel } from "./handleQueuedCommandCancelCh
 import { maybeScheduleIdleNotification } from "./idleNotificationEffect.js";
 import { createResetLoadingState } from "./resetLoadingStateCheck.js";
 import { resolveAgentToolsRestrictions } from "./agentToolRestrictionsCheck.js";
+import { buildCancelRequestProps } from "./cancelRequestPropsCheck.js";
 import { restoreInitialMessages } from "./initialMessagesRestoreCheck.js";
 import { getSystemPrompt } from "../constants/prompts.js";
 import { useFpsMetrics } from "../context/fpsMetrics.js";
@@ -2318,23 +2319,25 @@ export function REPL({
 	);
 
 	// CancelRequestHandler props - rendered inside KeybindingSetup
-	const cancelRequestProps = {
+	// bundle body extracted to cancelRequestPropsCheck.ts (audit 1.1.1 slice #58).
+	const cancelRequestProps = buildCancelRequestProps({
 		setToolUseConfirmQueue,
 		onCancel,
-		onAgentsKilled: () =>
-			setMessages((prev) => [...prev, createAgentsKilledMessage()]),
-		isMessageSelectorVisible: isMessageSelectorVisible || !!showBashesDialog,
+		setMessages,
+		createAgentsKilledMessage,
+		isMessageSelectorVisible,
+		showBashesDialog,
 		screen,
-		abortSignal: abortController?.signal,
+		abortController,
 		popCommandFromQueue: handleQueuedCommandOnCancel,
 		vimMode,
-		isLocalJSXCommand: toolJSX?.isLocalJSXCommand,
+		toolJSX,
 		isSearchingHistory,
 		isHelpOpen,
 		inputMode,
 		inputValue,
 		streamMode,
-	};
+	});
 	useEffect(() => {
 		maybeShowCostThreshold({
 			showCostDialog,
