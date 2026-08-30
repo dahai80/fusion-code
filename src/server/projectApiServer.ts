@@ -600,7 +600,7 @@ routes.set("/api/model/status", async () => {
 routes.set("POST /api/kb/build", async (url) => {
 	const cwd = getCwdFromUrl(url);
 	try {
-		const { buildKB } = await import("../services/knowledgeBase/kbManager.js");
+		const { buildKB } = await import("../services/knowledgeBase/index.js");
 		const result = await buildKB(cwd);
 		return jsonResponse({ ok: true, message: result });
 	} catch (e) {
@@ -625,7 +625,7 @@ routes.set("POST /api/kb/query", async (url, body) => {
 		return errorResponse("topK must be a number between 1 and 100", 400);
 	}
 	try {
-		const { queryKB } = await import("../services/knowledgeBase/kbManager.js");
+		const { queryKB } = await import("../services/knowledgeBase/index.js");
 		const result = await queryKB(cwd, query, topK ?? 5);
 		return jsonResponse({ result });
 	} catch (e) {
@@ -639,7 +639,7 @@ routes.set("/api/kb/status", async (url) => {
 	const cwd = getCwdFromUrl(url);
 	try {
 		const { getKBStatus } = await import(
-			"../services/knowledgeBase/kbManager.js"
+			"../services/knowledgeBase/index.js"
 		);
 		const status = await getKBStatus(cwd);
 		return jsonResponse(status);

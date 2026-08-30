@@ -3,7 +3,7 @@ import {
 	getKBStatus,
 	queryKB,
 	resetKB,
-} from "../../services/knowledgeBase/kbManager.js";
+} from "../../services/knowledgeBase/index.js";
 import { logForDebugging } from "../../utils/debug.js";
 
 function parseArgs(args: string): {
