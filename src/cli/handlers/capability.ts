@@ -9,8 +9,8 @@
 // 评估而非照搬: RPC 网关远程控制面 defer (安全面)。
 
 import { getOriginalCwd } from "../../bootstrap/state.js";
-import { exportCapabilityManifest } from "../../services/capability/manifest.js";
-import { isCapabilityManifestEnabled } from "../../services/capability/runtime.js";
+import { exportCapabilityManifest } from "../../services/capability/index.js";
+import { isCapabilityManifestEnabled } from "../../services/capability/index.js";
 
 interface ParsedFlags {
 	noSchemas: boolean;

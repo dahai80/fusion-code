@@ -13,7 +13,7 @@ import { getAllBaseTools } from "../../../tools.js";
 import {
 	isCapabilityManifestEnabled,
 	type CapabilityManifestOptions,
-} from "../../../services/capability/runtime.js";
+} from "../../../services/capability/index.js";
 
 // Mock getCommands + loadAllPlugins before importing manifest (pure-mapping test,
 // avoid auth env + disk/network). getAllBaseTools stays real (sync, env-only).
@@ -36,7 +36,7 @@ await mock.module("../../../utils/plugins/pluginLoader.js", () => ({
 }));
 
 const { exportCapabilityManifest } = await import(
-	"../../../services/capability/manifest.js"
+	"../../../services/capability/index.js"
 );
 
 // 受控 Command fixtures (shape 匹配 types/command.ts Command 联合)。
