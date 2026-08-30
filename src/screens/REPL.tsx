@@ -77,6 +77,7 @@ import { maybeScheduleSafeYoloMessage } from "./safeYoloMessage.js";
 import { applyAgentTranscriptBootstrap } from "./agentTranscriptBootstrap.js";
 import { applyEditorOpenInExternalEditor } from "./editorStatusRender.js";
 import { applyUndercoverCalloutCheck } from "./undercoverCalloutCheck.js";
+import { maybeClearStreamingThinking } from "./streamingThinkingClear.js";
 import { getSystemPrompt } from "../constants/prompts.js";
 import { useFpsMetrics } from "../context/fpsMetrics.js";
 import { useNotifications } from "../context/notifications.js";
@@ -1020,22 +1021,14 @@ export function REPL({
 		useState<StreamingThinking | null>(null);
 
 	// Auto-hide streaming thinking after 30 seconds of being completed
-	useEffect(() => {
-		if (
-			streamingThinking &&
-			!streamingThinking.isStreaming &&
-			streamingThinking.streamingEndedAt
-		) {
-			const elapsed = Date.now() - streamingThinking.streamingEndedAt;
-			const remaining = 30000 - elapsed;
-			if (remaining > 0) {
-				const timer = setTimeout(setStreamingThinking, remaining, null);
-				return () => clearTimeout(timer);
-			} else {
-				setStreamingThinking(null);
-			}
-		}
-	}, [streamingThinking]);
+	useEffect(
+		() =>
+			maybeClearStreamingThinking({
+				streamingThinking,
+				setStreamingThinking,
+			}),
+		[streamingThinking],
+	);
 	const [abortController, setAbortController] =
 		useState<AbortController | null>(null);
 	// Ref that always points to the current abort controller, used by the
