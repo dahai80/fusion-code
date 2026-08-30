@@ -309,7 +309,7 @@ export function ResumeConversation({
 			if (feature("CONTEXT_COLLAPSE")) {
 				/* eslint-disable @typescript-eslint/no-require-imports */
 				(
-					require("../services/contextCollapse/persist.js") as typeof import("../services/contextCollapse/persist.js")
+					require("../services/contextCollapse/index.js") as typeof import("../services/contextCollapse/index.js")
 				).restoreFromEntries(
 					result_3.contextCollapseCommits ?? [],
 					result_3.contextCollapseSnapshot,

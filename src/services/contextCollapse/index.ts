@@ -355,3 +355,12 @@ export {
 	restoreFromEntries,
 	staged as _staged,
 };
+// #203 Phase B (audit 1.1.3): contextCollapse public barrel re-exports.
+// Consumers outside src/services/** must import from here, not deep files
+// (enforced by `bun run lint:layers:reverse`). projectView/restoreFromEntries
+// are already exported above (restoreFromEntries canonical, projectView aliased
+// to _projectView for the internal-test surface); `export *` below also exposes
+// projectView under its canonical name for the require()-cast consumers in
+// commands/context + screens/ResumeConversation + utils/sessionRestore.
+export * from "./operations.js";
+export * from "./persist.js";
