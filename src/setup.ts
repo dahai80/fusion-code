@@ -20,7 +20,7 @@ import {
   switchSession,
 } from './bootstrap/state.js'
 import { getCommands } from './commands.js'
-import { initSessionMemory } from './services/SessionMemory/sessionMemory.js'
+import { initSessionMemory } from './services/SessionMemory/index.js'
 import { asSessionId } from './types/ids.js'
 import { isAgentSwarmsEnabled } from './utils/agentSwarmsEnabled.js'
 import { checkAndRestoreTerminalBackup } from './utils/appleTerminalBackup.js'

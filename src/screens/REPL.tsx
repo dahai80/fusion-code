@@ -551,7 +551,7 @@ import {
 	useKickOffCheckAndDisableBypassPermissionsIfNeeded,
 } from "src/utils/permissions/bypassPermissionsKillswitch.js";
 import { performStartupChecks } from "src/utils/plugins/performStartupChecks.js";
-import { startTaskReaper } from "src/services/taskHealth/taskReaper.js";
+import { startTaskReaper } from "src/services/taskHealth/index.js";
 import { SandboxManager } from "src/utils/sandbox/sandbox-adapter.js";
 import type { Theme } from "src/utils/theme.js";
 import { AwsAuthStatusBox } from "../components/AwsAuthStatusBox.js";
