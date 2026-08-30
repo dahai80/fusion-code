@@ -68,7 +68,6 @@ import { captureApiMetrics } from "../utils/apiMetricsCapture.js";
 import { median } from "../utils/array.js";
 import { maybeExtractHaikuTitle } from "../utils/haikuTitleExtraction.js";
 import { maybeTriggerIdleReturnDialog } from "../utils/idleReturnDialog.js";
-import { maybeSendIdleNotification } from "../utils/idleNotification.js";
 import { applyInitialMessage } from "./initialMessage.js";
 import { runImmediateCommand } from "./immediateCommand.js";
 import { runExitFlow } from "./exitFlow.js";
@@ -92,6 +91,7 @@ import { createFeedbackSurveyHandleSelect } from "./feedbackSurveyCheck.js";
 import { maybeShowTmuxMouseHint } from "./tmuxMouseHintCheck.js";
 import { createMessageActionCaps } from "./messageActionCapsFactory.js";
 import { createHandleQueuedCommandOnCancel } from "./handleQueuedCommandCancelCheck.js";
+import { maybeScheduleIdleNotification } from "./idleNotificationEffect.js";
 import { getSystemPrompt } from "../constants/prompts.js";
 import { useFpsMetrics } from "../context/fpsMetrics.js";
 import { useNotifications } from "../context/notifications.js";
@@ -3875,44 +3875,20 @@ export function REPL({
 	}, [submitCount]);
 
 	// Show notification when Claude is done responding and user is idle
-	useEffect(() => {
-		// Don't set up notification if Claude is busy
-		if (isLoading) return;
-
-		// Only enable notifications after the first new interaction in this session
-		if (submitCount === 0) return;
-
-		// No query has completed yet
-		if (lastQueryCompletionTime === 0) return;
-
-		// Set timeout to check idle state
-		const timer = setTimeout(
-			(
-				lastQueryCompletionTime,
+	// audit 1.1.1 slice #54: effect body 外移到 idleNotificationEffect.ts (PURE-ROUTING SUB-BLOCK)。
+	// 6 个 dep (isLoading/toolJSX/submitCount/lastQueryCompletionTime/terminal + focusedInputDialogRef ref) 经 ctx 传入, helper 返 cleanup fn 或 undefined, 行为字节等价。
+	useEffect(
+		() =>
+			maybeScheduleIdleNotification({
 				isLoading,
+				submitCount,
+				lastQueryCompletionTime,
 				toolJSX,
 				focusedInputDialogRef,
 				terminal,
-			) => {
-				// audit 1.1.1: idle-notification 回调体 → maybeSendIdleNotification (PURE-ROUTING SUB-BLOCK)。
-				// 5 个 setTimeout-arg 参数作 ctx 传入 (绕 stale closure), 行为字节等价。
-				maybeSendIdleNotification({
-					lastQueryCompletionTime,
-					isLoading,
-					toolJSX,
-					focusedInputDialogRef,
-					terminal,
-				});
-			},
-			getGlobalConfig().messageIdleNotifThresholdMs,
-			lastQueryCompletionTime,
-			isLoading,
-			toolJSX,
-			focusedInputDialogRef,
-			terminal,
-		);
-		return () => clearTimeout(timer);
-	}, [isLoading, toolJSX, submitCount, lastQueryCompletionTime, terminal]);
+			}),
+		[isLoading, toolJSX, submitCount, lastQueryCompletionTime, terminal],
+	);
 
 	// Idle-return hint: show notification when idle threshold is exceeded.
 	// Timer fires after the configured idle period; notification persists until
