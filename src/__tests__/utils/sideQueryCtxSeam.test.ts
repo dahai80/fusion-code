@@ -6,7 +6,7 @@ import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 // Real adapter: MLX probe fail-opens to [] (MLX down in CI), heuristics derive
 // from model id alone — no flakiness (same stance as capability.test.ts).
 
-const { createCtx } = await import("../../services/llm/ctx.js");
+const { createCtx } = await import("../../services/llm/index.js");
 const { modelSupportsStructuredOutputs } = await import("../../utils/betas.js");
 const { getAPIProvider } = await import("../../utils/model/providers.js");
 

@@ -6,7 +6,7 @@ import { sideQuery } from '../sideQuery.js'
 import {
   isApiErrorLike,
   isConnectionErrorLike,
-} from '../../services/llm/errors.js'
+} from '../../services/llm/index.js'
 import { getModelStrings } from './modelStrings.js'
 
 // Cache valid models to avoid repeated API calls

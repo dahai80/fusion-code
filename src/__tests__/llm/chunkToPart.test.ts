@@ -4,8 +4,8 @@ import { describe, expect, test } from "bun:test";
 import {
 	chunkStreamToSdkParts,
 	chunkToSdkPart,
-} from "../../services/llm/chunkToPart.js";
-import type { StreamChunk } from "../../services/llm/types.js";
+} from "../../services/llm/index.js";
+import type { StreamChunk } from "../../services/llm/index.js";
 
 async function collect(chunks: StreamChunk[]) {
 	const out: { type: string; [k: string]: unknown }[] = [];

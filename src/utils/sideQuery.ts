@@ -23,8 +23,8 @@ import { normalizeModelStringForAPI } from "./model/model.js";
 import { getCwd } from "./cwd.js";
 import { getSessionId } from "../bootstrap/state.js";
 import { logForDebugging } from "./debug.js";
-import type { Ctx } from "../services/llm/ctx.js";
-import { createCtx } from "../services/llm/ctx.js";
+import type { Ctx } from "../services/llm/index.js";
+import { createCtx } from "../services/llm/index.js";
 
 type MessageParam = Anthropic.MessageParam;
 type TextBlockParam = Anthropic.TextBlockParam;

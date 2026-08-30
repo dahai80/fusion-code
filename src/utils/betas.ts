@@ -28,7 +28,7 @@ import { getCanonicalName } from './model/model.js'
 import { get3PModelCapabilityOverride } from './model/modelSupportOverrides.js'
 import { getAPIProvider } from './model/providers.js'
 import { getInitialSettings } from './settings/settings.js'
-import type { Ctx } from '../services/llm/ctx.js'
+import type { Ctx } from '../services/llm/index.js'
 
 /**
  * SDK-provided betas that are allowed for API key users.

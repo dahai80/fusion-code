@@ -12,8 +12,8 @@ const {
 	FirstPartyCapabilityProvider,
 	GatewayCapabilityProvider,
 	createLlmCapability,
-} = await import("../../../services/llm/capability.js");
-const { createCtx } = await import("../../../services/llm/ctx.js");
+} = await import("../../../services/llm/index.js");
+const { createCtx } = await import("../../../services/llm/index.js");
 
 // Isolate provider env: clear provider-redirect envs so factory picks firstParty
 // by default for non-MLX model ids. Restore after each test.

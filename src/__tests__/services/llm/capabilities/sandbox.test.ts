@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
 
 const { NoneSandboxProvider } = await import(
-	"../../../../services/llm/capabilities/sandbox.js"
+	"../../../../services/llm/index.js"
 );
 
 describe("NoneSandboxProvider", () => {

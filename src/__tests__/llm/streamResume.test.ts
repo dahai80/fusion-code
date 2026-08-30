@@ -14,7 +14,7 @@ import {
 	mergeResumedStream,
 	resumeStreamFetch,
 	teeCursor,
-} from "../../services/llm/streamResume.js";
+} from "../../services/llm/index.js";
 
 // ─── helpers ─────────────────────────────────────────────────
 

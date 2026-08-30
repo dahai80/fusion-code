@@ -5,8 +5,8 @@ import {
 	buildRequestBody,
 	type SseState,
 	sseToChunk,
-} from "../../services/llm/adapter.js";
-import type { GenerateOptions } from "../../services/llm/types.js";
+} from "../../services/llm/index.js";
+import type { GenerateOptions } from "../../services/llm/index.js";
 
 function baseOptions(over: Partial<GenerateOptions> = {}): GenerateOptions {
 	return {

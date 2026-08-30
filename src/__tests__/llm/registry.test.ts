@@ -4,7 +4,7 @@
 // 故 getLlmAdapter 必返回 null。on-path 行为由集成测试 (构建带 flag 的二进制) 覆盖。
 
 import { describe, expect, test } from "bun:test";
-import { getLlmAdapter, isLlmAdapterActive } from "../../services/llm/registry.js";
+import { getLlmAdapter, isLlmAdapterActive } from "../../services/llm/index.js";
 
 describe("getLlmAdapter (seam off by default)", () => {
     test("returns null when feature flag disabled (firstParty)", () => {

@@ -10,7 +10,7 @@ import type {
     LlmErrorCode,
     LlmFailure,
     StreamChunk,
-} from "../../services/llm/types.js";
+} from "../../services/llm/index.js";
 
 // 一个最小可用适配器: 把预设 chunk 流式吐出, 用于验证 LlmAdapter 契约。
 function makeFakeAdapter(chunks: StreamChunk[]): LlmAdapter {

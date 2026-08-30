@@ -5,7 +5,7 @@ import {
     classifyError,
     isRetryable,
     LlmRequestError,
-} from "../../services/llm/errors.js";
+} from "../../services/llm/index.js";
 
 describe("classifyError by status", () => {
     test("401 maps to AUTH", () => {

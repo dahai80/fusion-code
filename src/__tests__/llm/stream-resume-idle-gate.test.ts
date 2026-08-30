@@ -14,7 +14,7 @@ import {
 	isResumeEligibleError,
 	resolveResumeRefs,
 	shouldDeferIdleAbortToResume,
-} from "../../services/llm/streamResume.js";
+} from "../../services/llm/index.js";
 
 describe("audit 2.2.2 — idle-watchdog abort gate + refs survivor", () => {
 	// Defect 1 修复: 仅 resume-on + idle 跳过 throw。

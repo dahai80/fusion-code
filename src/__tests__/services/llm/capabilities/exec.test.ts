@@ -4,7 +4,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 
 const { InProcessExecCapability, ExecutorExecCapability } = await import(
-	"../../../../services/llm/capabilities/exec.js"
+	"../../../../services/llm/index.js"
 );
 
 let tmpDir: string;

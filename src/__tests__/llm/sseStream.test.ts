@@ -1,7 +1,7 @@
 // SSE 解析单测 — 覆盖多行 data / event / 注释 / 跨 chunk 边界 / 中断
 
 import { describe, expect, test } from "bun:test";
-import { parseSseStream, StallTimeoutError, type ParseSseOptions } from "../../services/llm/sseStream.js";
+import { parseSseStream, StallTimeoutError, type ParseSseOptions } from "../../services/llm/index.js";
 
 // 从字符串序列构造 ReadableStream (每个字符串模拟一个到达的 chunk)。
 function makeStream(chunks: string[]): ReadableStream<Uint8Array> {

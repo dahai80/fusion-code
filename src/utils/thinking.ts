@@ -7,7 +7,7 @@ import { get3PModelCapabilityOverride } from "./model/modelSupportOverrides.js";
 import { getAPIProvider } from "./model/providers.js";
 import { resolveAntModel } from "./model/antModels.js";
 import { getSettingsWithErrors } from "./settings/settings.js";
-import type { Ctx } from "../services/llm/ctx.js";
+import type { Ctx } from "../services/llm/index.js";
 
 export type ThinkingConfig =
 	| { type: "adaptive" }

@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 
 const { BaseToolsCapability } = await import(
-	"../../../../services/llm/capabilities/tools.js"
+	"../../../../services/llm/index.js"
 );
 const { getFusionRulesConfig, setFusionRulesConfig } = await import(
 	"../../../../utils/fusionRules.js"

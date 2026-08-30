@@ -4,7 +4,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 
 const { LocalFsCapability } = await import(
-	"../../../../services/llm/capabilities/fs.js"
+	"../../../../services/llm/index.js"
 );
 
 let tmpDir: string;
