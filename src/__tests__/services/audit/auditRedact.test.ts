@@ -2,7 +2,7 @@ import { describe, expect, it } from "bun:test";
 import {
 	createAuditEntry,
 	redactSecrets,
-} from "../../../services/audit/auditLog.js";
+} from "../../../services/audit/index.js";
 
 describe("audit redactSecrets (item 22)", () => {
 	it("masks JWT (3-segment eyJ...)", () => {

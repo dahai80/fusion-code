@@ -1125,7 +1125,7 @@ export function startProjectApiServer(config: ServerConfig): {
 				}
 				const wsClientIp = resolveClientIp(req, server);
 				const { checkOperationRateLimit: wsRateLimit } = await import(
-					"../services/audit/auditLog.js"
+					"../services/audit/index.js"
 				);
 				const wsRateResult = wsRateLimit(`api:${wsClientIp}`, 120);
 				if (!wsRateResult.allowed) {
@@ -1147,7 +1147,7 @@ export function startProjectApiServer(config: ServerConfig): {
 			// FUSION_CODE_TRUSTED_PROXY=1). See resolveClientIp.
 			const clientIp = resolveClientIp(req, server);
 			const { checkOperationRateLimit } = await import(
-				"../services/audit/auditLog.js"
+				"../services/audit/index.js"
 			);
 			const apiRateLimit = checkOperationRateLimit(`api:${clientIp}`, 120);
 			if (!apiRateLimit.allowed) {

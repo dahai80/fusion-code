@@ -228,7 +228,7 @@ export const CreateSessionSkillTool = buildTool({
 			// 仅元数据审计 (不记 markdown 正文 — 敏感/体积); target 技能名。
 			try {
 				const { appendAuditLog, createAuditEntry } = await import(
-					"../../services/audit/auditLog.js"
+					"../../services/audit/index.js"
 				);
 				await appendAuditLog(
 					createAuditEntry(

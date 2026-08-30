@@ -1,6 +1,6 @@
 import { readdir, readFile } from "fs/promises";
 import { join } from "path";
-import type { AuditLogEntry } from "../../services/audit/auditLog.js";
+import type { AuditLogEntry } from "../../services/audit/index.js";
 import { logForDebugging } from "../../utils/debug.js";
 import { getClaudeConfigHomeDir } from "../../utils/envUtils.js";
 
