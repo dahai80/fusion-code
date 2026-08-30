@@ -92,6 +92,7 @@ import { maybeShowTmuxMouseHint } from "./tmuxMouseHintCheck.js";
 import { createMessageActionCaps } from "./messageActionCapsFactory.js";
 import { createHandleQueuedCommandOnCancel } from "./handleQueuedCommandCancelCheck.js";
 import { maybeScheduleIdleNotification } from "./idleNotificationEffect.js";
+import { createResetLoadingState } from "./resetLoadingStateCheck.js";
 import { getSystemPrompt } from "../constants/prompts.js";
 import { useFpsMetrics } from "../context/fpsMetrics.js";
 import { useNotifications } from "../context/notifications.js";
@@ -218,7 +219,6 @@ import {
 import { setMemberActive } from "../utils/swarm/teamHelpers.js";
 import { buildEffectiveSystemPrompt } from "../utils/systemPrompt.js";
 import { getAgentName, getTeamName } from "../utils/teammate.js";
-import { endInteractionSpan } from "../utils/telemetry/sessionTracing.js";
 import { parseTokenBudget } from "../utils/tokenBudget.js";
 
 // Dead code elimination: conditional imports
@@ -319,7 +319,6 @@ import type { AgentColorName } from "../tools/AgentTool/agentColorManager.js";
 import { resolveAgentTools } from "../tools/AgentTool/agentToolUtils.js";
 import type { AgentDefinition } from "../tools/AgentTool/loadAgentsDir.js";
 import { resumeAgentBackground } from "../tools/AgentTool/resumeAgent.js";
-import { clearSpeculativeChecks } from "../tools/BashTool/bashPermissions.js";
 import { assembleToolPool, getTools } from "../tools.js";
 import type { LogOption } from "../types/logs.js";
 import type {
@@ -1709,27 +1708,22 @@ export function REPL({
 
 	// Resets UI loading state. Does NOT call onTurnComplete - that should be
 	// called explicitly only when a query turn actually completes.
-	const resetLoadingState = useCallback(() => {
-		// isLoading is now derived from queryGuard — no setter call needed.
-		// queryGuard.end() (onQuery finally) or cancelReservation() (executeUserInput
-		// finally) have already transitioned the guard to idle by the time this runs.
-		// External loading (remote/backgrounding) is reset separately by those hooks.
-		setIsExternalLoading(false);
-		setUserInputOnProcessing(undefined);
-		responseLengthRef.current = 0;
-		apiMetricsRef.current = [];
-		setStreamingText(null);
-		setStreamingToolUses([]);
-		setSpinnerMessage(null);
-		setSpinnerColor(null);
-		setSpinnerShimmerColor(null);
-		pickNewSpinnerTip();
-		endInteractionSpan();
-		// Speculative bash classifier checks are only valid for the current
-		// turn's commands — clear after each turn to avoid accumulating
-		// Promise chains for unconsumed checks (denied/aborted paths).
-		clearSpeculativeChecks();
-	}, [pickNewSpinnerTip]);
+	const resetLoadingState = useCallback(
+		() =>
+			createResetLoadingState({
+				setIsExternalLoading,
+				setUserInputOnProcessing,
+				responseLengthRef,
+				apiMetricsRef,
+				setStreamingText,
+				setStreamingToolUses,
+				setSpinnerMessage,
+				setSpinnerColor,
+				setSpinnerShimmerColor,
+				pickNewSpinnerTip,
+			})(),
+		[pickNewSpinnerTip],
+	);
 
 	// Session backgrounding — hook is below, after getToolUseContext
 
