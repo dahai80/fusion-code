@@ -17,7 +17,7 @@ import {
 	type FilesApiConfig,
 	type UploadResult, // log: fix TS2339
 	uploadSessionFiles,
-} from "../../services/api/filesApi.js";
+} from "../../services/api/index.js";
 import { getCwd } from "../cwd.js";
 import { errorMessage } from "../errors.js";
 import { logError } from "../log.js";

@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, spyOn } from "bun:test";
-import { _resetOriginalFetch } from "../../services/api/fusion-mlx-adapter.js";
+import { _resetOriginalFetch } from "../../services/api/index.js";
 import { detectMlxHealth } from "../../utils/doctorDiagnostic.js";
 
 // detectMlxHealth probes MLX via fetchMlxStatus (/api/tags) + fetchMlxPs

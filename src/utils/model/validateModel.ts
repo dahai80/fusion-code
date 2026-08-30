@@ -54,7 +54,7 @@ export async function validateModel(
   // For fusionMlx provider, check model availability locally
   if (getAPIProvider() === 'fusionMlx') {
     try {
-      const { getFusionMlxModels } = await import('../../services/api/fusion-mlx-adapter.js')
+      const { getFusionMlxModels } = await import('../../services/api/index.js')
       const models = await getFusionMlxModels()
       const found = models.some(m => m.id === normalizedModel || normalizedModel.includes(m.id) || m.id.includes(normalizedModel))
       if (found) {

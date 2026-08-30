@@ -4,7 +4,7 @@ import { logForDebugging } from '../../utils/debug.js'
 const call: LocalCommandCall = async () => {
     try {
         const { resetPromptCacheBreakDetection } = await import(
-            '../../services/api/promptCacheBreakDetection.js'
+            '../../services/api/index.js'
         )
         resetPromptCacheBreakDetection()
         logForDebugging('[break-cache] Prompt cache break detection state reset')

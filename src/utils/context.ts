@@ -29,7 +29,7 @@ export async function getMlxContextWindowForModel(
 	}
 	try {
 		const { getMlxModelCapabilities } = await import(
-			"../services/api/fusion-mlx-adapter.js"
+			"../services/api/index.js"
 		);
 		const caps = await getMlxModelCapabilities(modelId);
 		const ctx = caps.maxContextTokens;

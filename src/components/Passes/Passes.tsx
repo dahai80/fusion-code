@@ -8,7 +8,7 @@ import { setClipboard } from '../../ink/termio/osc.js';
 import { Box, Link, Text, useInput } from '../../ink.js';
 import { useKeybinding } from '../../keybindings/useKeybinding.js';
 import { logEvent } from '../../services/analytics/index.js';
-import { fetchReferralRedemptions, formatCreditAmount, getCachedOrFetchPassesEligibility } from '../../services/api/referral.js';
+import { fetchReferralRedemptions, formatCreditAmount, getCachedOrFetchPassesEligibility } from '../../services/api/index.js';
 import type { ReferralRedemptionsResponse, ReferrerRewardInfo } from '../../services/oauth/types.js';
 import { count } from '../../utils/array.js';
 import { logError } from '../../utils/log.js';

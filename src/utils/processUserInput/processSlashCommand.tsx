@@ -35,7 +35,7 @@ import {
 	type AnalyticsMetadata_I_VERIFIED_THIS_IS_PII_TAGGED,
 	logEvent,
 } from "../../services/analytics/index.js";
-import { getDumpPromptsPath } from "../../services/api/dumpPrompts.js";
+import { getDumpPromptsPath } from "../../services/api/index.js";
 import { buildPostCompactMessages } from "../../services/compact/compact.js";
 import { resetMicrocompactState } from "../../services/compact/microCompact.js";
 import type { Progress as AgentProgress } from "../../tools/AgentTool/AgentTool.js";

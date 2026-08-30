@@ -303,7 +303,7 @@ function getOpusPlanOption(): ModelOption {
 // Each user tier (ant, Max/Team Premium, Pro/Team Standard/Enterprise, PAYG 1P, PAYG 3P) has its own list.
 async function getLocalModelOptions(): Promise<ModelOption[]> {
 	const { getFusionMlxModels, getRecommendedCodeModel } = await import(
-		"../../services/api/fusion-mlx-adapter.js"
+		"../../services/api/index.js"
 	);
 	const excludeKeywords = [
 		"flux",

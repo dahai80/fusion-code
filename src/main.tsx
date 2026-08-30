@@ -47,14 +47,14 @@ import {
 	initializeGrowthBook,
 	refreshGrowthBookAfterAuthChange,
 } from "./services/analytics/growthbook.js";
-import { fetchBootstrapData } from "./services/api/bootstrap.js";
+import { fetchBootstrapData } from "./services/api/index.js";
 import {
 	type DownloadResult,
 	downloadSessionFiles,
 	type FilesApiConfig,
 	parseFileSpecs,
-} from "./services/api/filesApi.js";
-import { prefetchPassesEligibility } from "./services/api/referral.js";
+} from "./services/api/index.js";
+import { prefetchPassesEligibility } from "./services/api/index.js";
 import { prefetchOfficialMcpUrls } from "./services/mcp/index.js";
 import type {
 	McpSdkServerConfig,

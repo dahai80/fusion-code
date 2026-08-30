@@ -5,7 +5,7 @@ import type {
 } from "src/types/anthropic-protocol.js";
 import type { SDKAssistantMessageError } from "./entrypoints/agentSdkTypes.js";
 import type { CanUseToolFn } from "./hooks/useCanUseTool.js";
-import { FallbackTriggeredError } from "./services/api/withRetry.js";
+import { FallbackTriggeredError } from "./services/api/index.js";
 import {
 	calculateTokenWarningState,
 	isAutoCompactEnabled,
@@ -46,7 +46,7 @@ import { isEnvTruthy } from "./utils/envUtils.js";
 import {
 	PROMPT_TOO_LONG_ERROR_MESSAGE,
 	isPromptTooLongMessage,
-} from "./services/api/errors.js";
+} from "./services/api/index.js";
 import { logAntError, logForDebugging } from "./utils/debug.js";
 import {
 	createUserMessage,
@@ -96,7 +96,7 @@ const SLEEP_TOOL_NAME = "Sleep";
 import { executePostSamplingHooks } from "./utils/hooks/postSamplingHooks.js";
 import { executeStopFailureHooks } from "./utils/hooks.js";
 import type { QuerySource } from "./constants/querySource.js";
-import { createDumpPromptsFetch } from "./services/api/dumpPrompts.js";
+import { createDumpPromptsFetch } from "./services/api/index.js";
 import { StreamingToolExecutor } from "./services/tools/StreamingToolExecutor.js";
 import { queryCheckpoint } from "./utils/queryProfiler.js";
 import { runTools } from "./services/tools/toolOrchestration.js";

@@ -4,7 +4,7 @@
 // resumeStreamFetch GET 续连 / isResumeEligibleError drop 判定 / 门控 byte-identical。
 
 import { afterEach, describe, expect, test } from "bun:test";
-import { transformMLXStreamToAnthropic } from "../../services/api/fusion-mlx-stream.js";
+import { transformMLXStreamToAnthropic } from "../../services/api/index.js";
 import {
 	attachResumeRefs,
 	getResumeRefs,

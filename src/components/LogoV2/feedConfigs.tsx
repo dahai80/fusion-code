@@ -2,7 +2,7 @@ import figures from 'figures';
 import { homedir } from 'os';
 import { Box, Text } from '../../ink.js';
 import type { Step } from '../../projectOnboardingState.js';
-import { formatCreditAmount, getCachedReferrerReward } from '../../services/api/referral.js';
+import { formatCreditAmount, getCachedReferrerReward } from '../../services/api/index.js';
 import type { LogOption } from '../../types/logs.js';
 import { getCwd } from '../../utils/cwd.js';
 import { formatRelativeTimeAgo } from '../../utils/format.js';

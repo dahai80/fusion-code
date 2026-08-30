@@ -18,8 +18,8 @@ import { getSystemContext, getUserContext } from "../../context.js";
 import type { CanUseToolFn } from "../../hooks/useCanUseTool.js";
 import { query } from "../../query.js";
 import { getFeatureValue_CACHED_MAY_BE_STALE } from "../../services/analytics/growthbook.js";
-import { getDumpPromptsPath } from "../../services/api/dumpPrompts.js";
-import { cleanupAgentTracking } from "../../services/api/promptCacheBreakDetection.js";
+import { getDumpPromptsPath } from "../../services/api/index.js";
+import { cleanupAgentTracking } from "../../services/api/index.js";
 import {
 	connectToServer,
 	fetchToolsForClient,

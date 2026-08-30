@@ -1,7 +1,7 @@
 import { feature } from "bun:bundle";
 import { useEffect, useState } from "react";
 import { c as _c } from "react/compiler-runtime";
-import { getDumpPromptsPath } from "src/services/api/dumpPrompts.js";
+import { getDumpPromptsPath } from "src/services/api/index.js";
 import { getGlobalConfig, saveGlobalConfig } from "src/utils/config.js";
 import {
 	getDebugLogPath,

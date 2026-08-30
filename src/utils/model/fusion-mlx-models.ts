@@ -6,8 +6,8 @@
  * 同时也提供静态配置作为回退。
  */
 
-import type { MLXModelInfo } from '../../services/api/fusion-mlx-types.js'
-import { getFusionMlxModels } from '../../services/api/fusion-mlx-adapter.js'
+import type { MLXModelInfo } from '../../services/api/index.js'
+import { getFusionMlxModels } from '../../services/api/index.js'
 
 // ─── 本地模型配置 ────────────────────────────────────────────
 

@@ -18,11 +18,11 @@ import { getOauthConfig } from "../constants/oauth.js";
 import type { SDKMessage } from "../entrypoints/agentSdkTypes.js";
 import type { Root } from "../ink.js";
 import { KeybindingSetup } from "../keybindings/KeybindingProviderSetup.js";
-import { queryHaiku } from "../services/api/claude.js";
+import { queryHaiku } from "../services/api/index.js";
 import {
 	getSessionLogsViaOAuth,
 	getTeleportEvents,
-} from "../services/api/sessionIngress.js";
+} from "../services/api/index.js";
 import { getOrganizationUUID } from "../services/oauth/client.js";
 import { AppStateProvider } from "../state/AppState.js";
 import type { Message, SystemMessage } from "../types/message.js";

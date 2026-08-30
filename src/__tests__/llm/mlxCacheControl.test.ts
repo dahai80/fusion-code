@@ -12,7 +12,7 @@ import {
 	_resetOriginalFetch,
 	clearMlxCapabilitiesCache,
 	createFusionMlxFetch,
-} from "../../services/api/fusion-mlx-adapter.js";
+} from "../../services/api/index.js";
 
 type CapturedBody = {
 	messages: Array<{

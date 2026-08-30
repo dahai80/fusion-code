@@ -13,9 +13,9 @@ import type {
 	SDKStatus,
 	SDKUserMessageReplay,
 } from "src/entrypoints/sdk/types.js";
-import { accumulateUsage, updateUsage } from "src/services/api/claude.js";
-import type { NonNullableUsage } from "src/services/api/logging.js";
-import { EMPTY_USAGE } from "src/services/api/logging.js";
+import { accumulateUsage, updateUsage } from "src/services/api/index.js";
+import type { NonNullableUsage } from "src/services/api/index.js";
+import { EMPTY_USAGE } from "src/services/api/index.js";
 import { checkBudget } from "src/services/goal/budgetEnforcer.js";
 import { getActiveGoal as getActiveGoalFromState, updateBudgetUsed } from "src/services/goal/goalState.js";
 import type { ContentBlockParam } from "src/types/anthropic-protocol.js";
@@ -35,7 +35,7 @@ import type { CanUseToolFn } from "./hooks/useCanUseTool.js";
 import { loadMemoryPrompt } from "./memdir/memdir.js";
 import { hasAutoMemPathOverride } from "./memdir/paths.js";
 import { query } from "./query.js";
-import { categorizeRetryableAPIError } from "./services/api/errors.js";
+import { categorizeRetryableAPIError } from "./services/api/index.js";
 // ar-plan PR #8 (S2.2): 双写断言 (dev-only, prod byte-identical)
 import { assertDualWrite } from "./services/events/deriveMessages.js";
 // ar-plan PR #7 (S2.1): 事件溯源旁路写

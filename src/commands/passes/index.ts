@@ -2,7 +2,7 @@ import type { Command } from '../../commands.js'
 import {
   checkCachedPassesEligibility,
   getCachedReferrerReward,
-} from '../../services/api/referral.js'
+} from '../../services/api/index.js'
 
 export default {
   type: 'local-jsx',

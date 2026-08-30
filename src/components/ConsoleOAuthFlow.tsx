@@ -7,7 +7,7 @@ import { setClipboard } from '../ink/termio/osc.js';
 import { useTerminalNotification } from '../ink/useTerminalNotification.js';
 import { Box, Link, Text } from '../ink.js';
 import { useKeybinding } from '../keybindings/useKeybinding.js';
-import { getSSLErrorHint } from '../services/api/errorUtils.js';
+import { getSSLErrorHint } from '../services/api/index.js';
 import { sendNotification } from '../services/notifier.js';
 import { runCodexOAuthFlow } from '../services/oauth/codex-client.js';
 import { OAuthService } from '../services/oauth/index.js';

@@ -65,7 +65,7 @@ import {
 	registerProcessOutputErrorHandlers,
 } from "src/utils/process.js";
 import type { Stream } from "src/utils/stream.js";
-import { EMPTY_USAGE } from "src/services/api/logging.js";
+import { EMPTY_USAGE } from "src/services/api/index.js";
 import {
 	loadConversationForResume,
 	type TurnInterruptionState,
@@ -253,7 +253,7 @@ import { getAllMcpConfigs } from "src/services/mcp/index.js";
 import {
 	isQualifiedForGrove,
 	checkGroveForNonInteractive,
-} from "src/services/api/grove.js";
+} from "src/services/api/index.js";
 import {
 	toInternalMessages,
 	toSDKRateLimitInfo,

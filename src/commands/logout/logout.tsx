@@ -2,7 +2,7 @@ import * as React from 'react';
 import { clearTrustedDeviceTokenCache } from '../../bridge/trustedDevice.js';
 import { Text } from '../../ink.js';
 import { refreshGrowthBookAfterAuthChange } from '../../services/analytics/growthbook.js';
-import { getGroveNoticeConfig, getGroveSettings } from '../../services/api/grove.js';
+import { getGroveNoticeConfig, getGroveSettings } from '../../services/api/index.js';
 import { clearPolicyLimitsCache } from '../../services/policyLimits/index.js';
 // flushTelemetry is loaded lazily to avoid pulling in ~1.1MB of OpenTelemetry at startup
 import { clearRemoteManagedSettingsCache } from '../../services/remoteManagedSettings/index.js';

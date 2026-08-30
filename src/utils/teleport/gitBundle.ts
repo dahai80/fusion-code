@@ -18,7 +18,7 @@ import { getFeatureValue_CACHED_MAY_BE_STALE } from "../../services/analytics/gr
 import {
 	type FilesApiConfig,
 	uploadFile,
-} from "../../services/api/filesApi.js";
+} from "../../services/api/index.js";
 import { getCwd } from "../cwd.js";
 import { logForDebugging } from "../debug.js";
 import { execFileNoThrowWithCwd } from "../execFileNoThrow.js";

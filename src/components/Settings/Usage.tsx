@@ -8,7 +8,7 @@ import { getSubscriptionType } from 'src/utils/auth.js';
 import { useTerminalSize } from '../../hooks/useTerminalSize.js';
 import { Box, Text } from '../../ink.js';
 import { useKeybinding } from '../../keybindings/useKeybinding.js';
-import { type ExtraUsage, fetchUtilization, type RateLimit, type Utilization } from '../../services/api/usage.js';
+import { type ExtraUsage, fetchUtilization, type RateLimit, type Utilization } from '../../services/api/index.js';
 import { formatResetText } from '../../utils/format.js';
 import { logError } from '../../utils/log.js';
 import { jsonStringify } from '../../utils/slowOperations.js';

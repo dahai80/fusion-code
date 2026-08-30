@@ -495,7 +495,7 @@ async function main(): Promise<void> {
 	if (shouldAutoUseFusionMlx() && !hasCloudProvider) {
 		mlxReady = (async () => {
 			const { checkFusionMlxHealth } = await import(
-				"../services/api/fusion-mlx-adapter.js"
+				"../services/api/index.js"
 			);
 			const mlxStatus = await checkFusionMlxHealth();
 			if (mlxStatus.available) {

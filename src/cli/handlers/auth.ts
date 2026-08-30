@@ -8,8 +8,8 @@ import {
   type AnalyticsMetadata_I_VERIFIED_THIS_IS_NOT_CODE_OR_FILEPATHS,
   logEvent,
 } from '../../services/analytics/index.js'
-import { getSSLErrorHint } from '../../services/api/errorUtils.js'
-import { fetchAndStoreClaudeCodeFirstTokenDate } from '../../services/api/firstTokenDate.js'
+import { getSSLErrorHint } from '../../services/api/index.js'
+import { fetchAndStoreClaudeCodeFirstTokenDate } from '../../services/api/index.js'
 import {
   createAndStoreApiKey,
   fetchAndStoreUserRoles,

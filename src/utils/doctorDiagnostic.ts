@@ -47,7 +47,7 @@ import {
   fetchMlxPs,
   fetchMlxStatus,
 } from '../commands/model-status/model-status.js'
-import { fetchMlxHealth, requestMlxGC } from '../services/api/fusion-mlx-adapter.js'
+import { fetchMlxHealth, requestMlxGC } from '../services/api/index.js'
 
 export type InstallationType =
   | 'npm-global'
