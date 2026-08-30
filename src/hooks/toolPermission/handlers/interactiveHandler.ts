@@ -9,13 +9,13 @@ import {
   CHANNEL_PERMISSION_REQUEST_METHOD,
   type ChannelPermissionRequestParams,
   findChannelEntry,
-} from '../../../services/mcp/channelNotification.js'
-import type { ChannelPermissionCallbacks } from '../../../services/mcp/channelPermissions.js'
+} from '../../../services/mcp/index.js'
+import type { ChannelPermissionCallbacks } from '../../../services/mcp/index.js'
 import {
   filterPermissionRelayClients,
   shortRequestId,
   truncateForPreview,
-} from '../../../services/mcp/channelPermissions.js'
+} from '../../../services/mcp/index.js'
 import { executeAsyncClassifierCheck } from '../../../tools/BashTool/bashPermissions.js'
 import { BASH_TOOL_NAME } from '../../../tools/BashTool/toolName.js'
 import {

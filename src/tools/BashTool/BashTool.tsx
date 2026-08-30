@@ -9,7 +9,7 @@ import { TOOL_SUMMARY_MAX_LENGTH } from '../../constants/toolLimits.js';
 import { checkCommandLoop } from './commandLoopGuard.js';
 import { formatDiagnosticsForModel } from './bashDiagnostics.js';
 import { type AnalyticsMetadata_I_VERIFIED_THIS_IS_NOT_CODE_OR_FILEPATHS, logEvent } from '../../services/analytics/index.js';
-import { notifyVscodeFileUpdated } from '../../services/mcp/vscodeSdkMcp.js';
+import { notifyVscodeFileUpdated } from '../../services/mcp/index.js';
 import type { SetToolJSXFn, ToolCallProgress, ToolUseContext, ValidationResult } from '../../Tool.js';
 import { buildTool, type ToolDef } from '../../Tool.js';
 import { backgroundExistingForegroundTask, markTaskNotified, registerForeground, spawnShellTask, unregisterForeground } from '../../tasks/LocalShellTask/LocalShellTask.js';

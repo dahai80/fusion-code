@@ -17,6 +17,7 @@
  */
 
 import type { ServerCapabilities } from '@modelcontextprotocol/sdk/types.js'
+import { createRequire } from 'node:module'
 import { z } from 'zod/v4'
 import { type ChannelEntry, getAllowedChannels } from '../../bootstrap/state.js'
 import { CHANNEL_TAG } from '../../constants/xml.js'
@@ -26,13 +27,25 @@ import {
 } from '../../utils/auth.js'
 import { lazySchema } from '../../utils/lazySchema.js'
 import { parsePluginIdentifier } from '../../utils/plugins/pluginIdentifier.js'
-import { getSettingsForSource } from '../../utils/settings/settings.js'
 import { escapeXmlAttr } from '../../utils/xml.js'
 import {
   type ChannelAllowlistEntry,
   getChannelAllowlist,
   isChannelsEnabled,
 } from './channelAllowlist.js'
+
+// #203 Phase B: settings.js imported lazily to break the mcp→settings cycle
+// (see config.ts for the full rationale). The settings read here happens at
+// call time, so deferring the require is behavior-neutral.
+const lazySettingsRequire = createRequire(import.meta.url)
+type SettingsModule = typeof import('../../utils/settings/settings.js')
+let _settings: SettingsModule | null = null
+function settings(): SettingsModule {
+  if (_settings === null) {
+    _settings = lazySettingsRequire('../../utils/settings/settings.js')
+  }
+  return _settings
+}
 
 export const ChannelMessageNotificationSchema = lazySchema(() =>
   z.object({
@@ -234,7 +247,7 @@ export function gateChannelServer(
   // through to the unmanaged path.
   const sub = getSubscriptionType()
   const managed = sub === 'team' || sub === 'enterprise'
-  const policy = managed ? getSettingsForSource('policySettings') : undefined
+  const policy = managed ? settings().getSettingsForSource('policySettings') : undefined
   if (managed && policy?.channelsEnabled !== true) {
     return {
       action: 'skip',

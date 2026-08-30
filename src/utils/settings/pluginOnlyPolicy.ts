@@ -1,7 +1,23 @@
-import { getSettingsForSource } from './settings.js'
+import { createRequire } from 'node:module'
 import type { CUSTOMIZATION_SURFACES } from './types.js'
 
 export type CustomizationSurface = (typeof CUSTOMIZATION_SURFACES)[number]
+
+// #203 Phase B: settings.js imported lazily. The mcp barrel re-exports config,
+// which imports this module; permissionValidation (also in the settings cone)
+// consumes the barrel, forming settings→permissionValidation→barrel→config→
+// pluginOnlyPolicy→settings. An eager settings import here re-enters settings.ts
+// mid-init → isLoadingSettings TDZ. The read is at call time, so deferring the
+// require is behavior-neutral (matches figures.ts's lazyRequire convention).
+const lazySettingsRequire = createRequire(import.meta.url)
+type SettingsModule = typeof import('./settings.js')
+let _settings: SettingsModule | null = null
+function settings(): SettingsModule {
+  if (_settings === null) {
+    _settings = lazySettingsRequire('./settings.js')
+  }
+  return _settings
+}
 
 /**
  * Check whether a customization surface is locked to plugin-only sources
@@ -20,7 +36,7 @@ export function isRestrictedToPluginOnly(
   surface: CustomizationSurface,
 ): boolean {
   const policy =
-    getSettingsForSource('policySettings')?.strictPluginOnlyCustomization
+    settings().getSettingsForSource('policySettings')?.strictPluginOnlyCustomization
   if (policy === true) return true
   if (Array.isArray(policy)) return policy.includes(surface)
   return false

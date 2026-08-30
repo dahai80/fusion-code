@@ -11,7 +11,7 @@ import {
 import {
   type McpServerConfig,
   McpServerConfigSchema,
-} from '../../services/mcp/types.js'
+} from '../../services/mcp/index.js'
 import type { ToolUseContext } from '../../Tool.js'
 import { logForDebugging } from '../../utils/debug.js'
 import {

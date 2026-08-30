@@ -17,7 +17,7 @@ import {
   issuerKey,
   saveIdpClientSecret,
   saveIdpIdTokenFromJwt,
-} from '../../services/mcp/xaaIdpLogin.js'
+} from '../../services/mcp/index.js'
 import { errorMessage } from '../../utils/errors.js'
 import { updateSettingsForSource } from '../../utils/settings/settings.js'
 

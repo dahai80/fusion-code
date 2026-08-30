@@ -3,7 +3,7 @@ import type { CanUseToolFn } from "../../hooks/useCanUseTool.js";
 import {
 	getToolNameForPermissionCheck,
 	mcpInfoFromString,
-} from "../../services/mcp/mcpStringUtils.js";
+} from "../../services/mcp/index.js";
 import type {
 	Tool,
 	ToolPermissionContext,

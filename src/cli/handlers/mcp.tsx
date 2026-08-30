@@ -19,27 +19,27 @@ import {
 	getMcpClientConfig,
 	readClientSecret,
 	saveMcpClientSecret,
-} from "../../services/mcp/auth.js";
+} from "../../services/mcp/index.js";
 import {
 	connectToServer,
 	getMcpServerConnectionBatchSize,
-} from "../../services/mcp/client.js";
+} from "../../services/mcp/index.js";
 import {
 	addMcpConfig,
 	getAllMcpConfigs,
 	getMcpConfigByName,
 	getMcpConfigsByScope,
 	removeMcpConfig,
-} from "../../services/mcp/config.js";
+} from "../../services/mcp/index.js";
 import type {
 	ConfigScope,
 	ScopedMcpServerConfig,
-} from "../../services/mcp/types.js";
+} from "../../services/mcp/index.js";
 import {
 	describeMcpConfigFilePath,
 	ensureConfigScope,
 	getScopeLabel,
-} from "../../services/mcp/utils.js";
+} from "../../services/mcp/index.js";
 import { AppStateProvider } from "../../state/AppState.js";
 import {
 	getCurrentProjectConfig,
@@ -471,7 +471,7 @@ export async function mcpLoginHandler(name: string): Promise<void> {
 		return;
 	}
 	try {
-		const { performMCPOAuthFlow } = await import("../../services/mcp/auth.js");
+		const { performMCPOAuthFlow } = await import("../../services/mcp/index.js");
 		await performMCPOAuthFlow(name, serverConfig as any, (url: string) => {
 			cliOk(`Authorization URL opened for "${name}": ${url}`);
 		});

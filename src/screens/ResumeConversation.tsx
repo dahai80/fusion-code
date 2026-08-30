@@ -18,7 +18,7 @@ import {
 import type {
 	MCPServerConnection,
 	ScopedMcpServerConfig,
-} from "../services/mcp/types.js";
+} from "../services/mcp/index.js";
 import { useAppState, useSetAppState } from "../state/AppState.js";
 import type { Tool } from "../Tool.js";
 import type { AgentColorName } from "../tools/AgentTool/agentColorManager.js";

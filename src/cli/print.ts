@@ -74,17 +74,17 @@ import type {
 	MCPServerConnection,
 	McpSdkServerConfig,
 	ScopedMcpServerConfig,
-} from "src/services/mcp/types.js";
+} from "src/services/mcp/index.js";
 import {
 	ChannelMessageNotificationSchema,
 	gateChannelServer,
 	wrapChannelMessage,
 	findChannelEntry,
-} from "src/services/mcp/channelNotification.js";
+} from "src/services/mcp/index.js";
 import {
 	isChannelAllowlisted,
 	isChannelsEnabled,
-} from "src/services/mcp/channelAllowlist.js";
+} from "src/services/mcp/index.js";
 import { parsePluginIdentifier } from "src/utils/plugins/pluginIdentifier.js";
 import { validateUuid } from "src/utils/uuid.js";
 import { fromArray } from "src/utils/generators.js";
@@ -223,33 +223,33 @@ import {
 	fetchToolsForClient,
 	areMcpConfigsEqual,
 	reconnectMcpServerImpl,
-} from "src/services/mcp/client.js";
+} from "src/services/mcp/index.js";
 import {
 	filterMcpServersByPolicy,
 	getMcpConfigByName,
 	isMcpServerDisabled,
 	setMcpServerEnabled,
-} from "src/services/mcp/config.js";
+} from "src/services/mcp/index.js";
 import {
 	performMCPOAuthFlow,
 	revokeServerTokens,
-} from "src/services/mcp/auth.js";
+} from "src/services/mcp/index.js";
 import {
 	runElicitationHooks,
 	runElicitationResultHooks,
-} from "src/services/mcp/elicitationHandler.js";
+} from "src/services/mcp/index.js";
 import { executeNotificationHooks } from "src/utils/hooks.js";
 import {
 	ElicitRequestSchema,
 	ElicitationCompleteNotificationSchema,
 } from "@modelcontextprotocol/sdk/types.js";
-import { getMcpPrefix } from "src/services/mcp/mcpStringUtils.js";
+import { getMcpPrefix } from "src/services/mcp/index.js";
 import {
 	commandBelongsToServer,
 	filterToolsByServer,
-} from "src/services/mcp/utils.js";
-import { setupVscodeSdkMcp } from "src/services/mcp/vscodeSdkMcp.js";
-import { getAllMcpConfigs } from "src/services/mcp/config.js";
+} from "src/services/mcp/index.js";
+import { setupVscodeSdkMcp } from "src/services/mcp/index.js";
+import { getAllMcpConfigs } from "src/services/mcp/index.js";
 import {
 	isQualifiedForGrove,
 	checkGroveForNonInteractive,
@@ -1658,7 +1658,7 @@ function runHeadlessStreaming(
 				connection.config.type === undefined
 			) {
 				const stdioConfig =
-					connection.config as import("src/services/mcp/types.js").McpStdioServerConfig; // log: fix TS2339
+					connection.config as import("src/services/mcp/index.js").McpStdioServerConfig; // log: fix TS2339
 				config = {
 					type: "stdio" as const,
 					command: stdioConfig.command,

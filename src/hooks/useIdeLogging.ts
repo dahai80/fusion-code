@@ -1,7 +1,7 @@
 import { useEffect } from 'react'
 import { logEvent } from 'src/services/analytics/index.js'
 import { z } from 'zod/v4'
-import type { MCPServerConnection } from '../services/mcp/types.js'
+import type { MCPServerConnection } from '../services/mcp/index.js'
 import { getConnectedIdeClient } from '../utils/ide.js'
 import { lazySchema } from '../utils/lazySchema.js'
 

@@ -75,7 +75,7 @@ import {
 	useKeybinding,
 	useKeybindings,
 } from "../../keybindings/useKeybinding.js";
-import type { MCPServerConnection } from "../../services/mcp/types.js";
+import type { MCPServerConnection } from "../../services/mcp/index.js";
 import {
 	abortPromptSuggestion,
 	logSuggestionSuppressed,

@@ -9,7 +9,7 @@ import type { IDESelection } from '../../hooks/useIdeSelection.js';
 import { useSettings } from '../../hooks/useSettings.js';
 import { useTerminalSize } from '../../hooks/useTerminalSize.js';
 import { Box, Text } from '../../ink.js';
-import type { MCPServerConnection } from '../../services/mcp/types.js';
+import type { MCPServerConnection } from '../../services/mcp/index.js';
 import { useAppState } from '../../state/AppState.js';
 import type { ToolPermissionContext } from '../../Tool.js';
 import type { Message } from '../../types/message.js';

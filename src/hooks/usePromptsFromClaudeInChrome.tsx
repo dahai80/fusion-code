@@ -1,7 +1,7 @@
 import { c as _c } from "react/compiler-runtime";
 import { useEffect, useRef } from 'react';
-import { callIdeRpc } from '../services/mcp/client.js';
-import type { ConnectedMCPServer, MCPServerConnection } from '../services/mcp/types.js';
+import { callIdeRpc } from '../services/mcp/index.js';
+import type { ConnectedMCPServer, MCPServerConnection } from '../services/mcp/index.js';
 import { CLAUDE_IN_CHROME_MCP_SERVER_NAME } from '../utils/claudeInChrome/common.js';
 // Schema for the prompt notification from Chrome extension (JSON-RPC 2.0 format)
 // ClaudeInChromePromptNotificationSchema removed (unused)

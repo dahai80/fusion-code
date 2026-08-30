@@ -14,7 +14,7 @@ import { useVoiceEnabled } from '../../hooks/useVoiceEnabled.js';
 import { Box, Text } from '../../ink.js';
 import { useClaudeAiLimits } from '../../hooks/claudeAiLimitsHook.js';
 import { calculateTokenWarningState } from '../../services/compact/autoCompact.js';
-import type { MCPServerConnection } from '../../services/mcp/types.js';
+import type { MCPServerConnection } from '../../services/mcp/index.js';
 import type { Message } from '../../types/message.js';
 import { getApiKeyHelperElapsedMs, getConfiguredApiKeyHelper, getSubscriptionType, isAnthropicAuthEnabled } from '../../utils/auth.js';
 import { isFusionMlxProvider } from '../../utils/model/providers.js';

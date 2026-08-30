@@ -1,10 +1,10 @@
 import { join } from 'path'
-import { expandEnvVarsInString } from '../../services/mcp/envExpansion.js'
+import { expandEnvVarsInString } from '../../services/mcp/index.js'
 import {
   type McpServerConfig,
   McpServerConfigSchema,
   type ScopedMcpServerConfig,
-} from '../../services/mcp/types.js'
+} from '../../services/mcp/index.js'
 import type { LoadedPlugin, PluginError } from '../../types/plugin.js'
 import { logForDebugging } from '../debug.js'
 import { errorMessage, isENOENT } from '../errors.js'

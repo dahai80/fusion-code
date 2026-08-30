@@ -6,7 +6,7 @@ import type { CommanderCommand } from "./commandHelpers.js";
 import { createSortedHelpConfig } from "./commandHelpers.js";
 import { registerMcpAddCommand } from "../commands/mcp/addCommand.js";
 import { registerMcpXaaIdpCommand } from "../commands/mcp/xaaIdpCommand.js";
-import { isXaaEnabled } from "../services/mcp/xaaIdpLogin.js";
+import { isXaaEnabled } from "../services/mcp/index.js";
 
 export function registerMcpCommands(program: CommanderCommand): void {
 	// claude mcp

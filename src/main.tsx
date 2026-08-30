@@ -55,12 +55,12 @@ import {
 	parseFileSpecs,
 } from "./services/api/filesApi.js";
 import { prefetchPassesEligibility } from "./services/api/referral.js";
-import { prefetchOfficialMcpUrls } from "./services/mcp/officialRegistry.js";
+import { prefetchOfficialMcpUrls } from "./services/mcp/index.js";
 import type {
 	McpSdkServerConfig,
 	McpServerConfig,
 	ScopedMcpServerConfig,
-} from "./services/mcp/types.js";
+} from "./services/mcp/index.js";
 import {
 	isPolicyAllowed,
 	loadPolicyLimits,
@@ -184,7 +184,7 @@ import { checkQuotaStatus } from "./services/claudeAiLimits.js";
 import {
 	getMcpToolsCommandsAndResources,
 	prefetchAllMcpResources,
-} from "./services/mcp/client.js";
+} from "./services/mcp/index.js";
 import { initBundledSkills } from "./skills/bundled/index.js";
 import type { AgentColorName } from "./tools/AgentTool/agentColorManager.js";
 import {
@@ -293,8 +293,8 @@ import { registerMcpCommands } from "./main/mcpCommands.js";
 import { registerPluginCommands } from "./main/pluginCommands.js";
 import { registerAuthCommands } from "./main/miscCommands.js";
 import { registerAntCommands } from "./main/antCommands.js";
-import { fetchClaudeAIMcpConfigsIfEligible } from "src/services/mcp/claudeai.js";
-import { clearServerCache } from "src/services/mcp/client.js";
+import { fetchClaudeAIMcpConfigsIfEligible } from "src/services/mcp/index.js";
+import { clearServerCache } from "src/services/mcp/index.js";
 import {
 	areMcpConfigsAllowedWithEnterpriseMcpConfig,
 	dedupClaudeAiMcpServers,
@@ -304,11 +304,11 @@ import {
 	getMcpServerSignature,
 	parseMcpConfig,
 	parseMcpConfigFromFilePath,
-} from "src/services/mcp/config.js";
+} from "src/services/mcp/index.js";
 import {
 	excludeCommandsByServer,
 	excludeResourcesByServer,
-} from "src/services/mcp/utils.js";
+} from "src/services/mcp/index.js";
 import { getRelevantTips } from "src/services/tips/tipRegistry.js";
 import { logContextMetrics } from "src/utils/api.js";
 import {

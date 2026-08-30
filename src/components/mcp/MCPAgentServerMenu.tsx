@@ -7,7 +7,7 @@ import { useKeybinding } from "../../keybindings/useKeybinding.js";
 import {
 	AuthenticationCancelledError,
 	performMCPOAuthFlow,
-} from "../../services/mcp/auth.js";
+} from "../../services/mcp/index.js";
 import { capitalize } from "../../utils/stringUtils.js";
 import { ConfigurableShortcutHint } from "../ConfigurableShortcutHint.js";
 import { Select } from "../CustomSelect/index.js";

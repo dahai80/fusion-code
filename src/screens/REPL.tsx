@@ -319,7 +319,7 @@ import { runPostCompactCleanup } from "../services/compact/postCompactCleanup.js
 import type {
 	MCPServerConnection,
 	ScopedMcpServerConfig,
-} from "../services/mcp/types.js";
+} from "../services/mcp/index.js";
 import {
 	useAppState,
 	useAppStateStore,

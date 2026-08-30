@@ -12,12 +12,12 @@ import {
 	fetchToolsForClient,
 	getMcpToolsCommandsAndResources,
 	reconnectMcpServerImpl,
-} from "../../services/mcp/client.js";
+} from "../../services/mcp/index.js";
 import type {
 	MCPServerConnection,
 	ScopedMcpServerConfig,
 	ServerResource,
-} from "../../services/mcp/types.js";
+} from "../../services/mcp/index.js";
 
 /* eslint-disable @typescript-eslint/no-require-imports */
 const fetchMcpSkillsForClient = feature("MCP_SKILLS")
@@ -49,7 +49,7 @@ import {
 	getClaudeCodeMcpConfigs,
 	isMcpServerDisabled,
 	setMcpServerEnabled,
-} from "src/services/mcp/config.js";
+} from "src/services/mcp/index.js";
 import type { AppState } from "src/state/AppState.js";
 import type { PluginError } from "src/types/plugin.js";
 import { logForDebugging } from "src/utils/debug.js";
@@ -71,23 +71,23 @@ import {
 	findChannelEntry,
 	gateChannelServer,
 	wrapChannelMessage,
-} from "../../services/mcp/channelNotification.js";
+} from "../../services/mcp/index.js";
 import {
 	type ChannelPermissionCallbacks,
 	createChannelPermissionCallbacks,
 	isChannelPermissionRelayEnabled,
-} from "../../services/mcp/channelPermissions.js";
+} from "../../services/mcp/index.js";
 import {
 	clearClaudeAIMcpConfigsCache,
 	fetchClaudeAIMcpConfigsIfEligible,
-} from "../../services/mcp/claudeai.js";
-import { registerElicitationHandler } from "../../services/mcp/elicitationHandler.js";
-import { getMcpPrefix } from "../../services/mcp/mcpStringUtils.js";
+} from "../../services/mcp/index.js";
+import { registerElicitationHandler } from "../../services/mcp/index.js";
+import { getMcpPrefix } from "../../services/mcp/index.js";
 import {
 	commandBelongsToServer,
 	excludeStalePluginClients,
 	filterMcpToolsByConfig,
-} from "../../services/mcp/utils.js";
+} from "../../services/mcp/index.js";
 
 // Constants for reconnection with exponential backoff
 const MAX_RECONNECT_ATTEMPTS = 5;

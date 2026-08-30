@@ -2,7 +2,7 @@
 // 旧实现 lodash memoize 永久缓存, 配置变更永不感知。新实现按 mtime 失效。
 
 import { describe, expect, test } from "bun:test";
-import { shouldRefreshEnterpriseMcpCache } from "../../services/mcp/config.js";
+import { shouldRefreshEnterpriseMcpCache } from "../../services/mcp/index.js";
 
 describe("shouldRefreshEnterpriseMcpCache (audit 1.3.2)", () => {
 	test("首查 (cachedResult=null) → 刷新", () => {

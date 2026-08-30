@@ -16,6 +16,7 @@ import {
 	OpenIdProviderDiscoveryMetadataSchema,
 } from "@modelcontextprotocol/sdk/shared/auth.js";
 import { randomBytes } from "crypto";
+import { createRequire } from "node:module";
 import { createServer, type Server } from "http";
 import { parse } from "url";
 import xss from "xss";
@@ -25,9 +26,21 @@ import { toError } from "../../utils/errors.js";
 import { logMCPDebug } from "../../utils/log.js";
 import { getPlatform } from "../../utils/platform.js";
 import { getSecureStorage } from "../../utils/secureStorage/index.js";
-import { getInitialSettings } from "../../utils/settings/settings.js";
 import { jsonParse } from "../../utils/slowOperations.js";
 import { buildRedirectUri, findAvailablePort } from "./oauthPort.js";
+
+// #203 Phase B: settings.js imported lazily to break the mcp→settings cycle
+// (see config.ts for the full rationale). getXaaIdpSettings reads settings at
+// call time, so deferring the require is behavior-neutral.
+const lazySettingsRequire = createRequire(import.meta.url);
+type SettingsModule = typeof import("../../utils/settings/settings.js");
+let _settings: SettingsModule | null = null;
+function settings(): SettingsModule {
+    if (_settings === null) {
+        _settings = lazySettingsRequire("../../utils/settings/settings.js");
+    }
+    return _settings;
+}
 
 export function isXaaEnabled(): boolean {
 	return isEnvTruthy(process.env.FUSION_CODE_ENABLE_XAA);
@@ -45,7 +58,7 @@ export type XaaIdpSettings = {
  * type doesn't have it at compile time. This is the one cast.
  */
 export function getXaaIdpSettings(): XaaIdpSettings | undefined {
-	return (getInitialSettings() as { xaaIdp?: XaaIdpSettings }).xaaIdp;
+	return (settings().getInitialSettings() as { xaaIdp?: XaaIdpSettings }).xaaIdp;
 }
 
 const IDP_LOGIN_TIMEOUT_MS = 5 * 60 * 1000;

@@ -29,7 +29,7 @@ import { getOutputStyleConfig } from './outputStyles.js'
 import type {
   MCPServerConnection,
   ConnectedMCPServer,
-} from '../services/mcp/types.js'
+} from '../services/mcp/index.js'
 import { GLOB_TOOL_NAME } from 'src/tools/GlobTool/prompt.js'
 import { GREP_TOOL_NAME } from 'src/tools/GrepTool/prompt.js'
 import { hasEmbeddedSearchTools } from 'src/utils/embeddedTools.js'

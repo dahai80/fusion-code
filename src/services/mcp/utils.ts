@@ -1,4 +1,5 @@
 import { createHash } from 'crypto'
+import { createRequire } from 'node:module'
 import { join } from 'path'
 import { getIsNonInteractiveSession } from '../../bootstrap/state.js'
 import type { Command } from '../../commands.js'
@@ -8,14 +9,23 @@ import type { AgentDefinition } from '../../tools/AgentTool/loadAgentsDir.js'
 import { getCwd } from '../../utils/cwd.js'
 import { getGlobalClaudeFile } from '../../utils/env.js'
 import { isSettingSourceEnabled } from '../../utils/settings/constants.js'
-import {
-  getInitialSettings,
-  hasSkipDangerousModePermissionPrompt,
-} from '../../utils/settings/settings.js'
 import { jsonStringify } from '../../utils/slowOperations.js'
 import { getEnterpriseMcpFilePath, getMcpConfigByName } from './config.js'
 import { mcpInfoFromString } from './mcpStringUtils.js'
 import { normalizeNameForMCP } from './normalization.js'
+
+// #203 Phase B: settings.js imported lazily to break the mcp→settings cycle
+// (see config.ts for the full rationale). Both settings reads here happen at
+// call time, so deferring the require is behavior-neutral.
+const lazySettingsRequire = createRequire(import.meta.url)
+type SettingsModule = typeof import('../../utils/settings/settings.js')
+let _settings: SettingsModule | null = null
+function settings(): SettingsModule {
+  if (_settings === null) {
+    _settings = lazySettingsRequire('../../utils/settings/settings.js')
+  }
+  return _settings
+}
 import {
   type ConfigScope,
   ConfigScopeSchema,
@@ -381,13 +391,13 @@ export function parseHeaders(headerArray: string[]): Record<string, string> {
 export function getProjectMcpServerStatus(
   serverName: string,
 ): 'approved' | 'rejected' | 'pending' {
-  const settings = getInitialSettings()
+  const s = settings().getInitialSettings()
   const normalizedName = normalizeNameForMCP(serverName)
 
   // TODO: This fails an e2e test if the ?. is not present. This is likely a bug in the e2e test.
   // Will fix this in a follow-up PR.
   if (
-    settings?.disabledMcpjsonServers?.some(
+    s?.disabledMcpjsonServers?.some(
       name => normalizeNameForMCP(name) === normalizedName,
     )
   ) {
@@ -395,10 +405,10 @@ export function getProjectMcpServerStatus(
   }
 
   if (
-    settings?.enabledMcpjsonServers?.some(
+    s?.enabledMcpjsonServers?.some(
       name => normalizeNameForMCP(name) === normalizedName,
     ) ||
-    settings?.enableAllProjectMcpServers
+    s?.enableAllProjectMcpServers
   ) {
     return 'approved'
   }
@@ -414,7 +424,7 @@ export function getProjectMcpServerStatus(
   // sessionBypassPermissionsMode can be set from project settings before the dialog is shown,
   // which would allow RCE attacks via malicious project settings.
   if (
-    hasSkipDangerousModePermissionPrompt() &&
+    settings().hasSkipDangerousModePermissionPrompt() &&
     isSettingSourceEnabled('projectSettings')
   ) {
     return 'approved'

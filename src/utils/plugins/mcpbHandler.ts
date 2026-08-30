@@ -6,7 +6,7 @@ import axios from "axios";
 import { createHash } from "crypto";
 import { chmod, writeFile } from "fs/promises";
 import { dirname, join } from "path";
-import type { McpServerConfig } from "../../services/mcp/types.js";
+import type { McpServerConfig } from "../../services/mcp/index.js";
 import { logForDebugging } from "../debug.js";
 import { parseAndValidateManifestFromBytes } from "../dxt/helpers.js";
 import { parseZipModes, unzipFile } from "../dxt/zip.js";

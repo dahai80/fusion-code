@@ -3,7 +3,7 @@ import { logEvent } from "../services/analytics/index.js";
 import type {
 	ConnectedMCPServer,
 	MCPServerConnection,
-} from "../services/mcp/types.js";
+} from "../services/mcp/index.js";
 import type { Message } from "../types/message.js";
 import { isEnvDefinedFalsy, isEnvTruthy } from "./envUtils.js";
 

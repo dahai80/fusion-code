@@ -2,7 +2,7 @@ import { c as _c } from "react/compiler-runtime";
 import { useEffect, useRef } from 'react';
 import { useNotifications } from 'src/context/notifications.js';
 import { Text } from 'src/ink.js';
-import type { MCPServerConnection } from 'src/services/mcp/types.js';
+import type { MCPServerConnection } from 'src/services/mcp/index.js';
 import { getGlobalConfig, saveGlobalConfig } from 'src/utils/config.js';
 import { detectIDEs, type IDEExtensionInstallationStatus, isJetBrainsIde, isSupportedTerminal } from 'src/utils/ide.js';
 import { getIsRemoteMode } from '../../bootstrap/state.js';

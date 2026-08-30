@@ -1,19 +1,19 @@
 import reject from 'lodash-es/reject.js'
 import { z } from 'zod/v4'
-import { performMCPOAuthFlow } from '../../services/mcp/auth.js'
+import { performMCPOAuthFlow } from '../../services/mcp/index.js'
 import {
   clearMcpAuthCache,
   reconnectMcpServerImpl,
-} from '../../services/mcp/client.js'
+} from '../../services/mcp/index.js'
 import {
   buildMcpToolName,
   getMcpPrefix,
-} from '../../services/mcp/mcpStringUtils.js'
+} from '../../services/mcp/index.js'
 import type {
   McpHTTPServerConfig,
   McpSSEServerConfig,
   ScopedMcpServerConfig,
-} from '../../services/mcp/types.js'
+} from '../../services/mcp/index.js'
 import type { Tool } from '../../Tool.js'
 import { errorMessage } from '../../utils/errors.js'
 import { lazySchema } from '../../utils/lazySchema.js'

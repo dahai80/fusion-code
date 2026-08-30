@@ -1,6 +1,6 @@
 import { execFileSync } from "child_process";
 import { logEvent } from "../../services/analytics/index.js";
-import type { ScopedMcpServerConfig } from "../../services/mcp/types.js"; // log: fix TS2459 ScopedMcpServerConfig not exported from config.js
+import type { ScopedMcpServerConfig } from "../../services/mcp/index.js"; // log: fix TS2459 ScopedMcpServerConfig not exported from config.js
 import { logForDebugging } from "../debug.js";
 
 const AGENT_TYPES_THAT_NEED_GIT_CONTEXT = new Set([

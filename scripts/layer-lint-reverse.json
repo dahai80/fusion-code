@@ -1,0 +1,26 @@
+{
+	"enforcedScope": { "root": "src", "exclude": ["src/services"] },
+	"migratedSubdirs": ["mcp"],
+	"allowDeepImports": [
+		{
+			"file": "src/utils/settings/validation.ts",
+			"spec": "src/services/mcp/types.js",
+			"reason": "settings-layer leaf; barrel import eager-loads mcp/config → settings re-entry TDZ (audit 1.1.3 Phase B)"
+		},
+		{
+			"file": "src/utils/settings/allErrors.ts",
+			"spec": "../../services/mcp/config.js",
+			"reason": "settings-layer leaf; barrel import eager-loads mcp/config → settings re-entry TDZ (audit 1.1.3 Phase B)"
+		},
+		{
+			"file": "src/utils/settings/permissionValidation.ts",
+			"spec": "../../services/mcp/mcpStringUtils.js",
+			"reason": "settings-layer leaf; barrel import eager-loads mcp/config → settings re-entry TDZ (audit 1.1.3 Phase B)"
+		},
+		{
+			"file": "src/utils/plugins/schemas.ts",
+			"spec": "../../services/mcp/types.js",
+			"reason": "settings-cone leaf (imported by settings/types.ts); barrel import eager-loads mcp/config → settings re-entry TDZ (audit 1.1.3 Phase B)"
+		}
+	]
+}

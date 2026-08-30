@@ -49,7 +49,7 @@ import {
 	takeTurnSnapshot,
 	lastHint as turnSnapshotHint,
 } from "./services/executor/turnSnapshot.js";
-import type { MCPServerConnection } from "./services/mcp/types.js";
+import type { MCPServerConnection } from "./services/mcp/index.js";
 import type { AppState } from "./state/AppState.js";
 import { type Tools, type ToolUseContext, toolMatchesName } from "./Tool.js";
 import type { AgentDefinition } from "./tools/AgentTool/loadAgentsDir.js";

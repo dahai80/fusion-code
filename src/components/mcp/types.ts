@@ -5,7 +5,7 @@ import type {
 	McpHTTPServerConfig,
 	McpSSEServerConfig,
 	McpStdioServerConfig,
-} from "../../services/mcp/types.js";
+} from "../../services/mcp/index.js";
 
 // ServerInfo: discriminated union on `transport`
 // Constructed in MCPSettings.tsx from MCPServerConnection clients

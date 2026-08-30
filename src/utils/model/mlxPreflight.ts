@@ -1,4 +1,4 @@
-import { isMcpTool } from "../../services/mcp/utils.js";
+import { isMcpTool } from "../../services/mcp/index.js";
 import { roughTokenCountEstimation } from "../../services/tokenEstimation.js";
 import type { Tool } from "../../Tool.js";
 import type { Message } from "../../types/message.js";

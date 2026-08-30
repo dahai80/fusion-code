@@ -15,8 +15,8 @@ import {
   type AnalyticsMetadata_I_VERIFIED_THIS_IS_NOT_CODE_OR_FILEPATHS,
   logEvent,
 } from 'src/services/analytics/index.js'
-import { prefetchAllMcpResources } from 'src/services/mcp/client.js'
-import type { ScopedMcpServerConfig } from 'src/services/mcp/types.js'
+import { prefetchAllMcpResources } from 'src/services/mcp/index.js'
+import type { ScopedMcpServerConfig } from 'src/services/mcp/index.js'
 import { BashTool } from 'src/tools/BashTool/BashTool.js'
 import { FileEditTool } from 'src/tools/FileEditTool/FileEditTool.js'
 import {

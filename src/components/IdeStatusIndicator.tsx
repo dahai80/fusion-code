@@ -3,7 +3,7 @@ import { basename } from 'path';
 import { useIdeConnectionStatus } from '../hooks/useIdeConnectionStatus.js';
 import type { IDESelection } from '../hooks/useIdeSelection.js';
 import { Text } from '../ink.js';
-import type { MCPServerConnection } from '../services/mcp/types.js';
+import type { MCPServerConnection } from '../services/mcp/index.js';
 type IdeStatusIndicatorProps = {
   ideSelection: IDESelection | undefined;
   mcpClients?: MCPServerConnection[];

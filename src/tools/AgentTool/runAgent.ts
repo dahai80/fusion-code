@@ -23,12 +23,12 @@ import { cleanupAgentTracking } from "../../services/api/promptCacheBreakDetecti
 import {
 	connectToServer,
 	fetchToolsForClient,
-} from "../../services/mcp/client.js";
-import { getMcpConfigByName } from "../../services/mcp/config.js";
+} from "../../services/mcp/index.js";
+import { getMcpConfigByName } from "../../services/mcp/index.js";
 import type {
 	MCPServerConnection,
 	ScopedMcpServerConfig,
-} from "../../services/mcp/types.js";
+} from "../../services/mcp/index.js";
 import type { Tool, Tools, ToolUseContext } from "../../Tool.js";
 import { killShellTasksForAgent } from "../../tasks/LocalShellTask/killShellTasks.js";
 import type { Command } from "../../types/command.js";
