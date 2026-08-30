@@ -19,7 +19,7 @@ import {
 import {
 	runTrainerCli,
 	type TrainerFormat,
-} from "../../services/trajectory/trainerCli.js";
+} from "../../services/trajectory/index.js";
 
 interface ParsedFlags {
 	source: string;

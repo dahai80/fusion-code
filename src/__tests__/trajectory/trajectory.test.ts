@@ -9,17 +9,17 @@ import path from "node:path";
 import {
 	collectTrajectories,
 	readManifest,
-} from "../../services/trajectory/collector.js";
+} from "../../services/trajectory/index.js";
 import {
 	buildDPOPairs,
 	exportTrajectories,
 	toGRPOSample,
 	toSFTSample,
-} from "../../services/trajectory/exporters.js";
+} from "../../services/trajectory/index.js";
 import type {
 	CollectedTrajectory,
 	TrajectoryStep,
-} from "../../services/trajectory/types.js";
+} from "../../services/trajectory/index.js";
 
 let tmpRoot: string;
 let sourceDir: string;
