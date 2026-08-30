@@ -91,6 +91,7 @@ import { createSandboxAskHandler } from "./sandboxAskCheck.js";
 import { createFeedbackSurveyHandleSelect } from "./feedbackSurveyCheck.js";
 import { maybeShowTmuxMouseHint } from "./tmuxMouseHintCheck.js";
 import { createMessageActionCaps } from "./messageActionCapsFactory.js";
+import { createHandleQueuedCommandOnCancel } from "./handleQueuedCommandCancelCheck.js";
 import { getSystemPrompt } from "../constants/prompts.js";
 import { useFpsMetrics } from "../context/fpsMetrics.js";
 import { useNotifications } from "../context/notifications.js";
@@ -465,7 +466,6 @@ import {
 import {
 	enqueue,
 	getCommandQueueLength,
-	popAllEditable,
 	removeByFilter,
 	type SetAppState,
 } from "../utils/messageQueueManager.js";
@@ -2324,25 +2324,17 @@ export function REPL({
 	}
 
 	// Function to handle queued command when canceling a permission request
-	const handleQueuedCommandOnCancel = useCallback(() => {
-		const result = popAllEditable(inputValue, 0);
-		if (!result) return;
-		setInputValue(result.text);
-		setInputMode("prompt");
-
-		// Restore images from queued commands to pastedContents
-		if (result.images.length > 0) {
-			setPastedContents((prev) => {
-				const newContents = {
-					...prev,
-				};
-				for (const image of result.images) {
-					newContents[image.id] = image;
-				}
-				return newContents;
-			});
-		}
-	}, [setInputValue, setInputMode, inputValue, setPastedContents]);
+	// body extracted to handleQueuedCommandCancelCheck.ts (audit 1.1.1 slice #53).
+	const handleQueuedCommandOnCancel = useCallback(
+		() =>
+			createHandleQueuedCommandOnCancel({
+				inputValue,
+				setInputValue,
+				setInputMode,
+				setPastedContents,
+			})(),
+		[setInputValue, setInputMode, inputValue, setPastedContents],
+	);
 
 	// CancelRequestHandler props - rendered inside KeybindingSetup
 	const cancelRequestProps = {
