@@ -59,6 +59,14 @@ import {
 	replaceUltraplanKeyword,
 } from "../ultraplan/keyword.js";
 import { processTextPrompt } from "./processTextPrompt.js";
+import { logForDebugging } from "../debug.js";
+/* eslint-disable @typescript-eslint/no-require-imports */
+// fusion-memory retrieve half: 召回跨会话长期记忆注入本轮。无条件 require (无
+// feature() 门控, 与 stopHooks.ts commit 半边 memoryCommitModule 同惯例)。
+// retrieveMemorySection 内部 fail-empty: API key 未配置 / subagent / 空输入
+// 立即返 "" (无 fetch), 热路径零开销。
+const memoryRetrieveModule = require("../../services/memory/retrieveContext.js") as typeof import("../../services/memory/retrieveContext.js");
+/* eslint-enable @typescript-eslint/no-require-imports */
 export type ProcessUserInputContext = ToolUseContext & LocalJSXCommandContext;
 
 export type ProcessUserInputBaseResult = {
@@ -265,6 +273,36 @@ export async function processUserInput({
 		}
 	}
 	queryCheckpoint("query_hooks_end");
+
+	// fusion-memory: 召回跨会话长期记忆注入本轮 (主 agent only, 与 commit 半边
+	// 守卫一致)。AWAIT (非 fire-and-forget) — 调用方在 await processUserInput 后
+	// 同步读取 result.messages (handlePromptSubmit / QueryEngine push
+	// ...result.messages), fire-and-forget 的 .then 在 return 之后才触发 → 注入
+	// 丢失。故必须 await。fail-empty: API key 未配置 / subagent / 空输入 →
+	// retrieveMemorySection 立即返 "" (无 fetch)。
+	if (!context.agentId && result.shouldQuery && inputMessage) {
+		try {
+			const section = await memoryRetrieveModule.retrieveMemorySection({
+				inputText: inputMessage,
+				agentId: context.agentId,
+			});
+			if (section) {
+				result.messages.push(
+					createAttachmentMessage({
+						type: "hook_additional_context",
+						content: [applyTruncation(section)],
+						hookName: "FusionMemory",
+						toolUseID: `fm-${randomUUID()}`,
+						hookEvent: "UserPromptSubmit",
+					}),
+				);
+			}
+		} catch (err) {
+			logForDebugging(
+				`[Fusion-Memory] retrieve inject error: ${(err as Error).message}`,
+			);
+		}
+	}
 
 	// Happy path: onQuery will clear userInputOnProcessing via startTransition
 	// so it resolves in the same frame as deferredMessages (no flicker gap).
