@@ -100,6 +100,7 @@ import { createOnCancel } from "./onCancelCheck.js";
 import { maybeInitSandbox } from "./sandboxInitCheck.js";
 import { reconstructResumeContentReplacement } from "./resumeContentReplacementCheck.js";
 import { restoreResumeAgentSetting } from "./resumeAgentSettingRestoreCheck.js";
+import { matchResumeCoordinatorMode } from "./resumeCoordinatorModeCheck.js";
 import { getSystemPrompt } from "../constants/prompts.js";
 import { useFpsMetrics } from "../context/fpsMetrics.js";
 import { useNotifications } from "../context/notifications.js";
@@ -1876,37 +1877,12 @@ export function REPL({
 				const messages = deserializeMessages(log.messages);
 
 				// Match coordinator/normal mode to the resumed session
-				if (feature("COORDINATOR_MODE")) {
-					/* eslint-disable @typescript-eslint/no-require-imports */
-					const coordinatorModule =
-						require("../coordinator/coordinatorMode.js") as typeof import("../coordinator/coordinatorMode.js");
-					/* eslint-enable @typescript-eslint/no-require-imports */
-					const warning = coordinatorModule.matchSessionMode(log.mode);
-					if (warning) {
-						// Re-derive agent definitions after mode switch so built-in agents
-						// reflect the new coordinator/normal mode
-						/* eslint-disable @typescript-eslint/no-require-imports */
-						const {
-							getAgentDefinitionsWithOverrides,
-							getActiveAgentsFromList,
-						} =
-							require("../tools/AgentTool/loadAgentsDir.js") as typeof import("../tools/AgentTool/loadAgentsDir.js");
-						/* eslint-enable @typescript-eslint/no-require-imports */
-						getAgentDefinitionsWithOverrides.cache.clear?.();
-						const freshAgentDefs = await getAgentDefinitionsWithOverrides(
-							getOriginalCwd(),
-						);
-						setAppState((prev) => ({
-							...prev,
-							agentDefinitions: {
-								...freshAgentDefs,
-								allAgents: freshAgentDefs.allAgents,
-								activeAgents: getActiveAgentsFromList(freshAgentDefs.allAgents),
-							},
-						}));
-						messages.push(createSystemMessage(warning, "warn"));
-					}
-				}
+				// audit 1.1.1 slice #63: COORDINATOR_MODE match+agent-defs refresh 外移到 resumeCoordinatorModeCheck.ts (resume chunked-extraction #3)。
+				await matchResumeCoordinatorMode({
+					mode: log.mode,
+					messages,
+					setAppState,
+				});
 
 				// Fire SessionEnd hooks for the current session before starting the
 				// resumed one, mirroring the /clear flow in conversation.ts.
