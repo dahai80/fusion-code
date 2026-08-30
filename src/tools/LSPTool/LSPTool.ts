@@ -17,7 +17,7 @@ import {
   getLspServerManager,
   isLspConnected,
   waitForInitialization,
-} from '../../services/lsp/manager.js'
+} from '../../services/lsp/index.js'
 import type { ValidationResult } from '../../Tool.js'
 import { buildTool, type ToolDef } from '../../Tool.js'
 import { uniq } from '../../utils/array.js'

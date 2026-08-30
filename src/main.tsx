@@ -402,7 +402,7 @@ import {
 	createDirectConnectSession,
 	DirectConnectError,
 } from "./server/createDirectConnectSession.js";
-import { initializeLspServerManager } from "./services/lsp/manager.js";
+import { initializeLspServerManager } from "./services/lsp/index.js";
 import { initializeExecutorManager } from "./services/executor/manager.js";
 import { shouldEnablePromptSuggestion } from "./services/PromptSuggestion/promptSuggestion.js";
 import {

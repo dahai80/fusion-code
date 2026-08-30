@@ -5,7 +5,7 @@ import { asyncMemoize } from '../utils/asyncMemoize.js'
 // P3-17: 相对路径 (同 L2 '../bootstrap/state.js'), 非 'src/bootstrap/state.js' 绝对路径 —
 // 后者在 bun build --compile 下脆弱, 且与同文件 L2 不一致。
 import { getIsNonInteractiveSession } from '../bootstrap/state.js'
-import { shutdownLspServerManager } from '../services/lsp/manager.js'
+import { shutdownLspServerManager } from '../services/lsp/index.js'
 import { populateOAuthAccountInfoIfNeeded } from '../services/oauth/client.js'
 import {
   initializePolicyLimitsLoadingPromise,

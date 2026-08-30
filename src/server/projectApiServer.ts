@@ -339,7 +339,7 @@ routes.set("POST /api/lsp/operation", async (_url, body) => {
 			getLspServerManager,
 			waitForInitialization,
 			getInitializationStatus,
-		} = await import("../services/lsp/manager.js");
+		} = await import("../services/lsp/index.js");
 		const { pathToFileURL } = await import("url");
 		const { resolve: resolvePath } = await import("path");
 
