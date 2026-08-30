@@ -55,17 +55,15 @@ const BASE_PROMPT: string = feature('TRANSCRIPT_CLASSIFIER')
   ? txtRequire(require('./yolo-classifier-prompts/auto_mode_system_prompt.txt'))
   : ''
 
-// External template is loaded separately so it's available for
-// `claude auto-mode defaults` even in ant builds. Ant builds use
-// permissions_anthropic.txt at runtime but should dump external defaults.
-const EXTERNAL_PERMISSIONS_TEMPLATE: string = feature('TRANSCRIPT_CLASSIFIER')
-  ? txtRequire(require('./yolo-classifier-prompts/permissions_external.txt'))
-  : ''
+// permissions_external.txt + permissions_anthropic.txt were never committed
+// (no git history) — the require() targets don't exist. Dead in shipped builds
+// (TRANSCRIPT_CLASSIFIER off → DCE → '' branch) but unresolved when dev-full
+// force-enables the flag. Falling back to '' is byte-identical to the off
+// branch (the only path ever shipped). Restore the require()s if/when the
+// template files are actually added.
+const EXTERNAL_PERMISSIONS_TEMPLATE: string = ''
 
-const FUSION_PERMISSIONS_TEMPLATE: string =
-  feature('TRANSCRIPT_CLASSIFIER') && process.env.USER_TYPE === 'ant'
-    ? txtRequire(require('./yolo-classifier-prompts/permissions_anthropic.txt'))
-    : ''
+const FUSION_PERMISSIONS_TEMPLATE: string = ''
 /* eslint-enable custom-rules/no-process-env-top-level, @typescript-eslint/no-require-imports */
 
 function isUsingExternalPermissions(): boolean {

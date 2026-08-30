@@ -426,10 +426,13 @@ const proactiveModule =
 const PROACTIVE_NO_OP_SUBSCRIBE = (_cb: () => void) => () => {};
 const PROACTIVE_FALSE = () => false;
 const SUGGEST_BG_PR_NOOP = (_p: string, _n: string): boolean => false;
-const useProactive =
-	feature("PROACTIVE") || feature("KAIROS")
-		? require("../proactive/useProactive.js").useProactive
-		: null;
+// useProactive (React tick-loop driver hook) was never committed — the former
+// require("../proactive/useProactive.js") pointed at a module that doesn't
+// exist. Dead in shipped builds (PROACTIVE/KAIROS off → DCE) but unresolved
+// when dev-full force-enables the flags. Null is byte-identical to the old
+// off-branch; the call site (useProactive?.(...)) is already null-guarded.
+// Restore the require if/when the hook module is actually added.
+const useProactive = null;
 const useScheduledTasks = feature("AGENT_TRIGGERS")
 	? require("../hooks/useScheduledTasks.js").useScheduledTasks
 	: null;

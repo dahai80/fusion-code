@@ -29,19 +29,14 @@ export interface MCPSkill {
 }
 
 /**
- * Check if MCP skills are enabled.
- */
-export function isMcpSkillsEnabled(): boolean {
-	return feature("MCP_SKILLS");
-}
-
-/**
  * Discover MCP skills from all connected MCP servers.
  * Searches MCP servers for prompts, tools, and resources
  * that can be registered as skills.
  */
 export async function discoverMCPSkills(): Promise<MCPSkill[]> {
-	if (!isMcpSkillsEnabled()) {
+	// feature() must sit directly in the if (Bun bundler DCE constraint);
+	// wrapping it in isMcpSkillsEnabled() hid it from the dead-code pass.
+	if (!feature("MCP_SKILLS")) {
 		return [];
 	}
 
@@ -73,7 +68,7 @@ export async function discoverMCPSkills(): Promise<MCPSkill[]> {
  * Called when an MCP server connects and exposes prompts.
  */
 export function registerMCPSkill(skill: MCPSkill): void {
-	if (!isMcpSkillsEnabled()) {
+	if (!feature("MCP_SKILLS")) {
 		return;
 	}
 	logForDebugging(
@@ -86,7 +81,7 @@ export function registerMCPSkill(skill: MCPSkill): void {
  * Called when an MCP server disconnects.
  */
 export function unregisterMCPServerSkills(serverName: string): void {
-	if (!isMcpSkillsEnabled()) {
+	if (!feature("MCP_SKILLS")) {
 		return;
 	}
 	logForDebugging(`[MCPSkills] Unregistered skills for server: ${serverName}`);
@@ -113,7 +108,7 @@ const _mcpSkillsCache: McpSkillsCache = {
 };
 
 const _fetchMcpSkills = (_clientName: string): Promise<MCPSkill[]> => {
-	if (!isMcpSkillsEnabled()) {
+	if (!feature("MCP_SKILLS")) {
 		return Promise.resolve([]);
 	}
 	logForDebugging("[MCPSkills] fetchMcpSkillsForClient called");

@@ -54,18 +54,11 @@ export function initBundledSkills(): void {
   registerSantaLoopSkill()
   registerVerifyCompleteSkill()
   registerMemorySaveSkill()
-  if (feature('KAIROS') || feature('KAIROS_DREAM')) {
-    /* eslint-disable @typescript-eslint/no-require-imports */
-    const { registerDreamSkill } = require('./dream.js')
-    /* eslint-enable @typescript-eslint/no-require-imports */
-    registerDreamSkill()
-  }
-  if (feature('REVIEW_ARTIFACT')) {
-    /* eslint-disable @typescript-eslint/no-require-imports */
-    const { registerHunterSkill } = require('./hunter.js')
-    /* eslint-enable @typescript-eslint/no-require-imports */
-    registerHunterSkill()
-  }
+  // dream.js (KAIROS/KAIROS_DREAM) + hunter.js (REVIEW_ARTIFACT) removed: both
+  // require() targets were never committed — aspirational modules that don't
+  // exist. Dead in shipped builds (flags off → DCE) but unresolved when
+  // dev-full force-enables the flags. Restore the blocks if/when the modules
+  // are actually added.
   if (feature('AGENT_TRIGGERS')) {
     /* eslint-disable @typescript-eslint/no-require-imports */
     const { registerLoopSkill } = require('./loop.js')

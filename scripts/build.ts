@@ -29,7 +29,12 @@ const fullExperimentalFeatures = [
 	"BASH_CLASSIFIER",
 	"BG_SESSIONS",
 	"BREAK_CACHE_COMMAND",
-	"BRIDGE_MODE",
+	// BRIDGE_MODE dropped: remote-control subsystem (bridgeMain.ts) removed at
+	// 0.2.0 release (784815b); 19 feature("BRIDGE_MODE") gates wrap the dead
+	// import at cli.tsx:239 / main.tsx:5652. Force-enabling it in dev-full made
+	// the import non-DCE'd → unresolved → build:dev:full broken. Keep it off
+	// everywhere (already off by default) so dev-full compiles. If remote-
+	// control is reintroduced, restore the flag AND the bridgeMain module.
 	"BUDDY",
 	"BUILDING_CLAUDE_APPS",
 	"BUILTIN_EXPLORE_PLAN_AGENTS",

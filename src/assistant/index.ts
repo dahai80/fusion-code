@@ -28,18 +28,15 @@ export interface AssistantTeamContext {
   createdAt: number
 }
 
-/**
- * Check if KAIROS feature is enabled.
- */
-export function isKairosEnabled(): boolean {
-  return feature('KAIROS')
-}
+// isKairosEnabled() wrapper removed: feature() from bun:bundle can only sit
+// directly in an if/ternary (DCE constraint), not as a return value. Inlined
+// at the two call sites below.
 
 /**
  * Check if assistant mode is currently active.
  */
 export function isAssistantMode(): boolean {
-  if (!isKairosEnabled()) return false
+  if (!feature('KAIROS')) return false
   return _assistantMode || _assistantForced || isEnvTruthy(process.env.FUSION_CODE_ASSISTANT_MODE)
 }
 
@@ -109,7 +106,7 @@ export function setAssistantActivationPath(path: string): void {
  * Check if the assistant chat is pending (from CLI args).
  */
 export function isAssistantChatPending(): boolean {
-  if (!isKairosEnabled()) return false
+  if (!feature('KAIROS')) return false
   const config = getGlobalConfig()
   return !!(config as Record<string, unknown>).assistantChatPending
 }

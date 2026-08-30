@@ -4,7 +4,16 @@ import { registerBundledSkill } from '../bundledSkills.js'
 
 // claudeApiContent.js bundles 247KB of .md strings. Lazy-load inside
 // getPromptForCommand so they only enter memory when /claude-api is invoked.
-type SkillContent = typeof import('./claudeApiContent.js')
+// Local interface (not `typeof import('./claudeApiContent.js')`) so the bundler
+// doesn't statically pull claudeApiContent.ts, whose 26 `./claude-api/*.md`
+// imports point at a vendored doc tree that was never committed. Unreachable
+// in shipped builds (BUILDING_CLAUDE_APPS off → registerClaudeApiSkill DCE'd);
+// the dead imports only surface when dev-full force-enables the flag.
+interface SkillContent {
+  SKILL_MODEL_VARS: Record<string, string>
+  SKILL_PROMPT: string
+  SKILL_FILES: Record<string, string>
+}
 
 type DetectedLanguage =
   | 'python'
