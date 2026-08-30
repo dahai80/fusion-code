@@ -79,6 +79,7 @@ import { applyEditorOpenInExternalEditor } from "./editorStatusRender.js";
 import { applyUndercoverCalloutCheck } from "./undercoverCalloutCheck.js";
 import { maybeClearStreamingThinking } from "./streamingThinkingClear.js";
 import { applySuspendResumeListener } from "./suspendResumeListener.js";
+import { createRequestPrompt } from "./requestPromptFactory.js";
 import { getSystemPrompt } from "../constants/prompts.js";
 import { useFpsMetrics } from "../context/fpsMetrics.js";
 import { useNotifications } from "../context/notifications.js";
@@ -2618,20 +2619,10 @@ export function REPL({
 		setToolPermissionContext,
 	);
 	const requestPrompt = useCallback(
+		// audit 1.1.1 slice #41: curried Promise-queue factory body 外移到 requestPromptFactory.ts (PURE-ROUTING-CALLBACK)。
+		// setPromptQueue 经 ctx 传入 (闭包捕获), 行为字节等价。useCallback 直接返 factory (与原 inline 签名一致), deps [] 不变。
 		(title: string, toolInputSummary?: string | null) =>
-			(request: PromptRequest): Promise<PromptResponse> =>
-				new Promise<PromptResponse>((resolve, reject) => {
-					setPromptQueue((prev) => [
-						...prev,
-						{
-							request,
-							title,
-							toolInputSummary,
-							resolve,
-							reject,
-						},
-					]);
-				}),
+			createRequestPrompt({ setPromptQueue })(title, toolInputSummary),
 		[],
 	);
 	const getToolUseContext = useCallback(
