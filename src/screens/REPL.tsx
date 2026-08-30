@@ -93,6 +93,7 @@ import { createMessageActionCaps } from "./messageActionCapsFactory.js";
 import { createHandleQueuedCommandOnCancel } from "./handleQueuedCommandCancelCheck.js";
 import { maybeScheduleIdleNotification } from "./idleNotificationEffect.js";
 import { createResetLoadingState } from "./resetLoadingStateCheck.js";
+import { resolveAgentToolsRestrictions } from "./agentToolRestrictionsCheck.js";
 import { getSystemPrompt } from "../constants/prompts.js";
 import { useFpsMetrics } from "../context/fpsMetrics.js";
 import { useNotifications } from "../context/notifications.js";
@@ -965,24 +966,10 @@ export function REPL({
 	);
 
 	// Apply agent tool restrictions if mainThreadAgentDefinition is set
-	const { tools, allowedAgentTypes } = useMemo(() => {
-		if (!mainThreadAgentDefinition) {
-			return {
-				tools: mergedTools,
-				allowedAgentTypes: undefined as string[] | undefined,
-			};
-		}
-		const resolved = resolveAgentTools(
-			mainThreadAgentDefinition,
-			mergedTools,
-			false,
-			true,
-		);
-		return {
-			tools: resolved.resolvedTools,
-			allowedAgentTypes: resolved.allowedAgentTypes,
-		};
-	}, [mainThreadAgentDefinition, mergedTools]);
+	const { tools, allowedAgentTypes } = useMemo(
+		() => resolveAgentToolsRestrictions({ mainThreadAgentDefinition, mergedTools }),
+		[mainThreadAgentDefinition, mergedTools],
+	);
 
 	// Merge commands from local state, plugins, and MCP
 	const commandsWithPlugins = useMergedCommands(
