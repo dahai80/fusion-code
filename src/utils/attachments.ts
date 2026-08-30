@@ -81,7 +81,7 @@ import uniqBy from "lodash-es/uniqBy.js";
 import { getProjectRoot } from "../bootstrap/state.js";
 import { formatCommandsWithinBudget } from "../tools/SkillTool/prompt.js";
 import { getContextWindowForModel } from "./context.js";
-import type { DiscoverySignal } from "../services/skillSearch/signals.js";
+import type { DiscoverySignal } from "../services/skillSearch/index.js";
 // Conditional require for DCE. All skill-search string literals that would
 // otherwise leak into external builds live inside these modules. The only
 // surfaces in THIS file are: the maybe() call (gated via spread below) and
@@ -91,9 +91,9 @@ import type { DiscoverySignal } from "../services/skillSearch/signals.js";
 const skillSearchModules = feature("EXPERIMENTAL_SKILL_SEARCH")
 	? {
 			featureCheck:
-				require("../services/skillSearch/featureCheck.js") as typeof import("../services/skillSearch/featureCheck.js"),
+				require("../services/skillSearch/index.js") as typeof import("../services/skillSearch/index.js"),
 			prefetch:
-				require("../services/skillSearch/prefetch.js") as typeof import("../services/skillSearch/prefetch.js"),
+				require("../services/skillSearch/index.js") as typeof import("../services/skillSearch/index.js"),
 		}
 	: null;
 const autoModeStateModule =

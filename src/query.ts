@@ -69,7 +69,7 @@ import {
 } from "./utils/attachments.js";
 /* eslint-disable @typescript-eslint/no-require-imports */
 const skillPrefetch = feature("EXPERIMENTAL_SKILL_SEARCH")
-	? (require("./services/skillSearch/prefetch.js") as typeof import("./services/skillSearch/prefetch.js"))
+	? (require("./services/skillSearch/index.js") as typeof import("./services/skillSearch/index.js"))
 	: null;
 // jobClassifier removed (unused)
 /* eslint-enable @typescript-eslint/no-require-imports */
