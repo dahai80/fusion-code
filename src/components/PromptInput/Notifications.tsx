@@ -13,7 +13,7 @@ import { useMainLoopModel } from '../../hooks/useMainLoopModel.js';
 import { useVoiceEnabled } from '../../hooks/useVoiceEnabled.js';
 import { Box, Text } from '../../ink.js';
 import { useClaudeAiLimits } from '../../hooks/claudeAiLimitsHook.js';
-import { calculateTokenWarningState } from '../../services/compact/autoCompact.js';
+import { calculateTokenWarningState } from '../../services/compact/index.js';
 import type { MCPServerConnection } from '../../services/mcp/index.js';
 import type { Message } from '../../types/message.js';
 import { getApiKeyHelperElapsedMs, getConfiguredApiKeyHelper, getSubscriptionType, isAnthropicAuthEnabled } from '../../utils/auth.js';

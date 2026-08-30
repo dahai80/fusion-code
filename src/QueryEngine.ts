@@ -136,10 +136,10 @@ const getCoordinatorUserContext: (
 // Dead code elimination: conditional import for snip compaction
 /* eslint-disable @typescript-eslint/no-require-imports */
 const snipModule = feature("HISTORY_SNIP")
-	? (require("./services/compact/snipCompact.js") as typeof import("./services/compact/snipCompact.js"))
+	? (require("./services/compact/index.js") as typeof import("./services/compact/index.js"))
 	: null;
 const snipProjection = feature("HISTORY_SNIP")
-	? (require("./services/compact/snipProjection.js") as typeof import("./services/compact/snipProjection.js"))
+	? (require("./services/compact/index.js") as typeof import("./services/compact/index.js"))
 	: null;
 /* eslint-enable @typescript-eslint/no-require-imports */
 

@@ -69,7 +69,7 @@ import { isFusionMlxProvider } from '../utils/model/providers.js'
 /* eslint-disable @typescript-eslint/no-require-imports */
 const getCachedMCConfigForFRC = feature('CACHED_MICROCOMPACT')
   ? (
-      require('../services/compact/cachedMCConfig.js') as typeof import('../services/compact/cachedMCConfig.js')
+      require('../services/compact/index.js') as typeof import('../services/compact/index.js')
     ).getCachedMCConfig
   : null
 

@@ -10,14 +10,14 @@ import {
 	calculateTokenWarningState,
 	isAutoCompactEnabled,
 	type AutoCompactTrackingState,
-} from "./services/compact/autoCompact.js";
+} from "./services/compact/index.js";
 import {
 	buildPostCompactMessages,
 	compactConversation,
-} from "./services/compact/compact.js";
+} from "./services/compact/index.js";
 /* eslint-disable @typescript-eslint/no-require-imports */
 const reactiveCompact = feature("REACTIVE_COMPACT")
-	? (require("./services/compact/reactiveCompact.js") as typeof import("./services/compact/reactiveCompact.js"))
+	? (require("./services/compact/index.js") as typeof import("./services/compact/index.js"))
 	: null;
 const contextCollapse = feature("CONTEXT_COLLAPSE")
 	? (require("./services/contextCollapse/index.js") as typeof import("./services/contextCollapse/index.js"))
@@ -116,12 +116,12 @@ import {
 import { createBudgetTracker, checkTokenBudget } from "./query/tokenBudget.js";
 import { count } from "./utils/array.js";
 import { preflightMlxQueryCheck } from "./utils/model/mlxPreflight.js";
-import { ERROR_MESSAGE_MLX_MEMORY_LIMIT } from "./services/compact/compact.js";
+import { ERROR_MESSAGE_MLX_MEMORY_LIMIT } from "./services/compact/index.js";
 import { isFusionMlxProvider } from "./utils/model/providers.js";
 
 /* eslint-disable @typescript-eslint/no-require-imports */
 const snipModule = feature("HISTORY_SNIP")
-	? (require("./services/compact/snipCompact.js") as typeof import("./services/compact/snipCompact.js"))
+	? (require("./services/compact/index.js") as typeof import("./services/compact/index.js"))
 	: null;
 const taskSummaryModule = feature("BG_SESSIONS")
 	? (require("./utils/taskSummary.js") as typeof import("./utils/taskSummary.js"))

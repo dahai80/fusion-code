@@ -1,5 +1,5 @@
 import { feature } from 'bun:bundle'
-import { microcompactMessages } from '../../services/compact/microCompact.js'
+import { microcompactMessages } from '../../services/compact/index.js'
 import type { AppState } from '../../state/AppStateStore.js'
 import type { Tools, ToolUseContext } from '../../Tool.js'
 import type { AgentDefinitionsResult } from '../../tools/AgentTool/loadAgentsDir.js'

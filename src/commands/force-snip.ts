@@ -8,7 +8,7 @@
  */
 
 import type { Command } from '../types/command.js'
-import { isSnipRuntimeEnabled } from '../services/compact/snipCompact.js'
+import { isSnipRuntimeEnabled } from '../services/compact/index.js'
 
 const command: Command = {
   name: 'force-snip',

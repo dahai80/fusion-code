@@ -210,7 +210,7 @@ import {
 import {
 	getEffectiveContextWindowSize,
 	isAutoCompactEnabled,
-} from "../services/compact/autoCompact.js";
+} from "../services/compact/index.js";
 import { getFeatureValue_CACHED_MAY_BE_STALE } from "../services/analytics/growthbook.js";
 import {
 	hasInstructionsLoadedHook,
@@ -4010,7 +4010,7 @@ export function getContextEfficiencyAttachment(
 	// isn't in the tool list. Lazy require keeps this file snip-string-free.
 	const { isSnipRuntimeEnabled, shouldNudgeForSnips } =
 		// eslint-disable-next-line @typescript-eslint/no-require-imports
-		require("../services/compact/snipCompact.js") as typeof import("../services/compact/snipCompact.js");
+		require("../services/compact/index.js") as typeof import("../services/compact/index.js");
 	if (!isSnipRuntimeEnabled()) {
 		return [];
 	}

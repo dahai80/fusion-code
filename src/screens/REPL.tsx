@@ -314,8 +314,8 @@ import { useSkillsChange } from "../hooks/useSkillsChange.js";
 import { useTasksV2WithCollapseEffect } from "../hooks/useTasksV2.js";
 import { maybeMarkProjectOnboardingComplete } from "../projectOnboardingState.js";
 import { query } from "../query.js";
-import { partialCompactConversation } from "../services/compact/compact.js";
-import { runPostCompactCleanup } from "../services/compact/postCompactCleanup.js";
+import { partialCompactConversation } from "../services/compact/index.js";
+import { runPostCompactCleanup } from "../services/compact/index.js";
 import type {
 	MCPServerConnection,
 	ScopedMcpServerConfig,

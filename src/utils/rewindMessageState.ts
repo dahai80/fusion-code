@@ -12,7 +12,7 @@
 import { feature } from "bun:bundle";
 import { randomUUID } from "node:crypto";
 import { logEvent } from "../services/analytics/index.js";
-import { resetMicrocompactState } from "../services/compact/microCompact.js";
+import { resetMicrocompactState } from "../services/compact/index.js";
 import type { AppState } from "../state/AppStateStore.js";
 import type { ImageBlockParam } from "../types/anthropic-protocol.js";
 import type { Message as MessageType, UserMessage } from "../types/message.js";

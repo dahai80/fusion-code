@@ -7,7 +7,7 @@ import {
 	calculateTokenWarningState,
 	getEffectiveContextWindowSize,
 	isAutoCompactEnabled,
-} from "../services/compact/autoCompact.js";
+} from "../services/compact/index.js";
 import { useCompactWarningSuppression } from "../hooks/compactWarningHook.js";
 import { getUpgradeMessage } from "../utils/model/contextWindowUpgradeCheck.js";
 

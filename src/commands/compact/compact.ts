@@ -12,11 +12,11 @@ import {
 	ERROR_MESSAGE_NOT_ENOUGH_MESSAGES,
 	ERROR_MESSAGE_USER_ABORT,
 	mergeHookInstructions,
-} from "../../services/compact/compact.js";
-import { suppressCompactWarning } from "../../services/compact/compactWarningState.js";
-import { microcompactMessages } from "../../services/compact/microCompact.js";
-import { runPostCompactCleanup } from "../../services/compact/postCompactCleanup.js";
-import { trySessionMemoryCompaction } from "../../services/compact/sessionMemoryCompact.js";
+} from "../../services/compact/index.js";
+import { suppressCompactWarning } from "../../services/compact/index.js";
+import { microcompactMessages } from "../../services/compact/index.js";
+import { runPostCompactCleanup } from "../../services/compact/index.js";
+import { trySessionMemoryCompaction } from "../../services/compact/index.js";
 import { setLastSummarizedMessageId } from "../../services/SessionMemory/sessionMemoryUtils.js";
 import type { ToolUseContext } from "../../Tool.js";
 import type { LocalCommandCall } from "../../types/command.js";
@@ -33,7 +33,7 @@ import {
 
 /* eslint-disable @typescript-eslint/no-require-imports */
 const reactiveCompact = feature("REACTIVE_COMPACT")
-	? (require("../../services/compact/reactiveCompact.js") as typeof import("../../services/compact/reactiveCompact.js"))
+	? (require("../../services/compact/index.js") as typeof import("../../services/compact/index.js"))
 	: null;
 /* eslint-enable @typescript-eslint/no-require-imports */
 

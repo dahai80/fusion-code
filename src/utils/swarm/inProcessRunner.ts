@@ -23,13 +23,13 @@ import {
   type AnalyticsMetadata_I_VERIFIED_THIS_IS_NOT_CODE_OR_FILEPATHS,
   logEvent,
 } from '../../services/analytics/index.js'
-import { getAutoCompactThreshold } from '../../services/compact/autoCompact.js'
+import { getAutoCompactThreshold } from '../../services/compact/index.js'
 import {
   buildPostCompactMessages,
   compactConversation,
   ERROR_MESSAGE_USER_ABORT,
-} from '../../services/compact/compact.js'
-import { resetMicrocompactState } from '../../services/compact/microCompact.js'
+} from '../../services/compact/index.js'
+import { resetMicrocompactState } from '../../services/compact/index.js'
 import type { AppState } from '../../state/AppState.js'
 import type { Tool, ToolUseContext } from '../../Tool.js'
 import { appendTeammateMessage } from '../../tasks/InProcessTeammateTask/InProcessTeammateTask.js'

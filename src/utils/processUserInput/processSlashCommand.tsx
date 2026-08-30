@@ -36,8 +36,8 @@ import {
 	logEvent,
 } from "../../services/analytics/index.js";
 import { getDumpPromptsPath } from "../../services/api/index.js";
-import { buildPostCompactMessages } from "../../services/compact/compact.js";
-import { resetMicrocompactState } from "../../services/compact/microCompact.js";
+import { buildPostCompactMessages } from "../../services/compact/index.js";
+import { resetMicrocompactState } from "../../services/compact/index.js";
 import type { Progress as AgentProgress } from "../../tools/AgentTool/AgentTool.js";
 import { runAgent } from "../../tools/AgentTool/runAgent.js";
 import { renderToolUseProgressMessage } from "../../tools/AgentTool/UI.js";

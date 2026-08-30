@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it } from "bun:test";
-import { startCompactStallTimer } from "../services/compact/compact.js";
+import { startCompactStallTimer } from "../services/compact/index.js";
 import type { CompactProgressEvent } from "../Tool.js";
 
 // item 16 (CC 2.1.228): compact retry/stall 可见性测试。

@@ -2382,7 +2382,7 @@ export function normalizeMessagesForAPI(
 	if (feature("HISTORY_SNIP") && process.env.NODE_ENV !== "test") {
 		const { isSnipRuntimeEnabled } =
 			// eslint-disable-next-line @typescript-eslint/no-require-imports
-			require("../services/compact/snipCompact.js") as typeof import("../services/compact/snipCompact.js");
+			require("../services/compact/index.js") as typeof import("../services/compact/index.js");
 		if (isSnipRuntimeEnabled()) {
 			for (let i = 0; i < sanitized.length; i++) {
 				if (sanitized[i]!.type === "user") {
@@ -2452,7 +2452,7 @@ export function mergeUserMessages(a: UserMessage, b: UserMessage): UserMessage {
 		// for all ants.
 		const { isSnipRuntimeEnabled } =
 			// eslint-disable-next-line @typescript-eslint/no-require-imports
-			require("../services/compact/snipCompact.js") as typeof import("../services/compact/snipCompact.js");
+			require("../services/compact/index.js") as typeof import("../services/compact/index.js");
 		if (isSnipRuntimeEnabled()) {
 			return {
 				...a,
@@ -4187,7 +4187,7 @@ You have exited auto mode. The user may now want to interact more directly. You 
 			if (feature("HISTORY_SNIP")) {
 				const { SNIP_NUDGE_TEXT } =
 					// eslint-disable-next-line @typescript-eslint/no-require-imports
-					require("../services/compact/snipCompact.js") as typeof import("../services/compact/snipCompact.js");
+					require("../services/compact/index.js") as typeof import("../services/compact/index.js");
 				return wrapMessagesInSystemReminder([
 					createUserMessage({
 						content: SNIP_NUDGE_TEXT,
@@ -4687,7 +4687,7 @@ export function getMessagesAfterCompactBoundary<
 	if (!options?.includeSnipped && feature("HISTORY_SNIP")) {
 		/* eslint-disable @typescript-eslint/no-require-imports */
 		const { projectSnippedView } =
-			require("../services/compact/snipProjection.js") as typeof import("../services/compact/snipProjection.js");
+			require("../services/compact/index.js") as typeof import("../services/compact/index.js");
 		/* eslint-enable @typescript-eslint/no-require-imports */
 		return projectSnippedView(sliced as Message[]) as T[];
 	}
