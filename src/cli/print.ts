@@ -186,7 +186,7 @@ import {
 	logSuggestionOutcome,
 	logSuggestionSuppressed,
 	type PromptVariant,
-} from "src/services/PromptSuggestion/promptSuggestion.js";
+} from "src/services/PromptSuggestion/index.js";
 import { getLastCacheSafeParams } from "src/utils/forkedAgent.js";
 import { getAccountInformation } from "src/utils/auth.js";
 import { OAuthService } from "src/services/oauth/index.js";

@@ -404,7 +404,7 @@ import {
 } from "./server/createDirectConnectSession.js";
 import { initializeLspServerManager } from "./services/lsp/index.js";
 import { initializeExecutorManager } from "./services/executor/index.js";
-import { shouldEnablePromptSuggestion } from "./services/PromptSuggestion/promptSuggestion.js";
+import { shouldEnablePromptSuggestion } from "./services/PromptSuggestion/index.js";
 import {
 	type AppState,
 	getDefaultAppState,

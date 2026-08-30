@@ -8,7 +8,7 @@ import type {
   MCPServerConnection,
   ServerResource,
 } from '../services/mcp/index.js'
-import { shouldEnablePromptSuggestion } from '../services/PromptSuggestion/promptSuggestion.js'
+import { shouldEnablePromptSuggestion } from '../services/PromptSuggestion/index.js'
 import {
   getEmptyToolPermissionContext,
   type Tool,

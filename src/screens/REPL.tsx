@@ -453,7 +453,7 @@ import { diagnosticTracker } from "../services/diagnosticTracking.js";
 import {
 	type ActiveSpeculationState,
 	handleSpeculationAccept,
-} from "../services/PromptSuggestion/speculation.js";
+} from "../services/PromptSuggestion/index.js";
 import { startBackgroundSession } from "../tasks/LocalMainSessionTask.js";
 /* eslint-enable @typescript-eslint/no-require-imports */
 import { isAgentSwarmsEnabled } from "../utils/agentSwarmsEnabled.js";

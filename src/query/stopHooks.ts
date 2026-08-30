@@ -52,7 +52,7 @@ const memoryCommitModule =
 
 import type { QuerySource } from "../constants/querySource.js";
 import { executeAutoDream } from "../services/autoDream/autoDream.js";
-import { executePromptSuggestion } from "../services/PromptSuggestion/promptSuggestion.js";
+import { executePromptSuggestion } from "../services/PromptSuggestion/index.js";
 import { isBareMode, isEnvDefinedFalsy } from "../utils/envUtils.js";
 import {
 	createCacheSafeParams,

@@ -79,11 +79,11 @@ import type { MCPServerConnection } from "../../services/mcp/index.js";
 import {
 	abortPromptSuggestion,
 	logSuggestionSuppressed,
-} from "../../services/PromptSuggestion/promptSuggestion.js";
+} from "../../services/PromptSuggestion/index.js";
 import {
 	type ActiveSpeculationState,
 	abortSpeculation,
-} from "../../services/PromptSuggestion/speculation.js";
+} from "../../services/PromptSuggestion/index.js";
 import {
 	getActiveAgentForInput,
 	getViewedTeammateTask,
