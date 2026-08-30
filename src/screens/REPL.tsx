@@ -98,6 +98,7 @@ import { buildCancelRequestProps } from "./cancelRequestPropsCheck.js";
 import { restoreInitialMessages } from "./initialMessagesRestoreCheck.js";
 import { createOnCancel } from "./onCancelCheck.js";
 import { maybeInitSandbox } from "./sandboxInitCheck.js";
+import { reconstructResumeContentReplacement } from "./resumeContentReplacementCheck.js";
 import { getSystemPrompt } from "../constants/prompts.js";
 import { useFpsMetrics } from "../context/fpsMetrics.js";
 import { useNotifications } from "../context/notifications.js";
@@ -2069,11 +2070,13 @@ export function REPL({
 				// createFork() does write content-replacement entries to the forked
 				// JSONL with the fork's sessionId, so `claude -r {forkId}` also works.
 				if (contentReplacementStateRef.current && entrypoint !== "fork") {
-					contentReplacementStateRef.current =
-						reconstructContentReplacementState(
-							messages,
-							log.contentReplacements ?? [],
-						);
+					// audit 1.1.1 slice #61: reconstruct body 外移到 resumeContentReplacementCheck.ts (resume chunked-extraction #1)。
+					reconstructResumeContentReplacement({
+						contentReplacementStateRef,
+						entrypoint,
+						messages,
+						contentReplacements: log.contentReplacements ?? [],
+					});
 				}
 
 				// Reset messages to the provided initial messages
