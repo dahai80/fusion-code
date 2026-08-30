@@ -65,6 +65,22 @@ export function tokenCountFromLastAPIResponse(messages: Message[]): number {
 	return 0;
 }
 
+// audit 1.4.5: sum real (non-synthetic) token spend across ALL assistant turns
+// in a loop — not just the last turn. getTokenUsage filters synthetic/placeholder
+// messages (zero usage), so the sum reflects true generation cost. Replaces the
+// last-turn-only estimate in finalizeAgentTool that undercounted multi-loop
+// agents and defeated the subagent budget brake.
+export function sumAssistantMessageTokens(messages: Message[]): number {
+	let total = 0;
+	for (const message of messages) {
+		const usage = getTokenUsage(message);
+		if (usage) {
+			total += getTokenCountFromUsage(usage);
+		}
+	}
+	return total;
+}
+
 /**
  * Final context window size from the last API response's usage.iterations[-1].
  * Used for task_budget.remaining computation across compaction boundaries —
