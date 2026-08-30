@@ -99,6 +99,7 @@ import { restoreInitialMessages } from "./initialMessagesRestoreCheck.js";
 import { createOnCancel } from "./onCancelCheck.js";
 import { maybeInitSandbox } from "./sandboxInitCheck.js";
 import { reconstructResumeContentReplacement } from "./resumeContentReplacementCheck.js";
+import { restoreResumeAgentSetting } from "./resumeAgentSettingRestoreCheck.js";
 import { getSystemPrompt } from "../constants/prompts.js";
 import { useFpsMetrics } from "../context/fpsMetrics.js";
 import { useNotifications } from "../context/notifications.js";
@@ -1949,16 +1950,14 @@ export function REPL({
 				// Restore agent setting from the resumed conversation
 				// Always reset to the new session's values (or clear if none),
 				// matching the standaloneAgentContext pattern below
-				const { agentDefinition: restoredAgent } = restoreAgentFromSession(
-					log.agentSetting,
+				// audit 1.1.1 slice #62: restore body 外移到 resumeAgentSettingRestoreCheck.ts (resume chunked-extraction #2)。
+				restoreResumeAgentSetting({
+					agentSetting: log.agentSetting,
 					initialMainThreadAgentDefinition,
 					agentDefinitions,
-				);
-				setMainThreadAgentDefinition(restoredAgent);
-				setAppState((prev) => ({
-					...prev,
-					agent: restoredAgent?.agentType,
-				}));
+					setMainThreadAgentDefinition,
+					setAppState,
+				});
 
 				// Restore standalone agent context from the resumed conversation
 				// Always reset to the new session's values (or clear if none)
