@@ -86,6 +86,7 @@ import { maybeCountQueueUse } from "./queueUseCountCheck.js";
 import { maybeShowSwarmTurnDuration } from "./swarmTurnDurationCheck.js";
 import { applyRemoteInit } from "./remoteInitCheck.js";
 import { maybeShowCostThreshold } from "./costThresholdCheck.js";
+import { maybeAccumulatePauseTiming } from "./pauseAccumulatorCheck.js";
 import { getSystemPrompt } from "../constants/prompts.js";
 import { useFpsMetrics } from "../context/fpsMetrics.js";
 import { useNotifications } from "../context/notifications.js";
@@ -2258,19 +2259,16 @@ export function REPL({
 	// Immediately capture pause/resume when focusedInputDialog changes
 	// This ensures accurate timing even under high system load, rather than
 	// relying on the 100ms polling interval to detect state changes
-	useEffect(() => {
-		if (!isLoading) return;
-		const isPaused = focusedInputDialog === "tool-permission";
-		const now = Date.now();
-		if (isPaused && pauseStartTimeRef.current === null) {
-			// Just entered pause state - record the exact moment
-			pauseStartTimeRef.current = now;
-		} else if (!isPaused && pauseStartTimeRef.current !== null) {
-			// Just exited pause state - accumulate paused time immediately
-			totalPausedMsRef.current += now - pauseStartTimeRef.current;
-			pauseStartTimeRef.current = null;
-		}
-	}, [focusedInputDialog, isLoading]);
+	useEffect(
+		() =>
+			maybeAccumulatePauseTiming({
+				focusedInputDialog,
+				isLoading,
+				pauseStartTimeRef,
+				totalPausedMsRef,
+			}),
+		[focusedInputDialog, isLoading],
+	);
 
 	// Re-pin scroll to bottom whenever the permission overlay appears or
 	// dismisses. Overlay now renders below messages inside the same
