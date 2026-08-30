@@ -108,6 +108,7 @@ import { persistResumeMode } from "./resumeSaveModeCheck.js";
 import { runResumeSessionHooks } from "./resumeSessionHooksCheck.js";
 import { copyResumePlan } from "./resumePlanCopyCheck.js";
 import { restoreResumeFileHistory } from "./resumeFileHistoryRestoreCheck.js";
+import { restoreResumeStandaloneAgent } from "./resumeStandaloneAgentCheck.js";
 import { getSystemPrompt } from "../constants/prompts.js";
 import { useFpsMetrics } from "../context/fpsMetrics.js";
 import { useNotifications } from "../context/notifications.js";
@@ -346,7 +347,6 @@ import { hasConsoleBillingAccess } from "../utils/billing.js";
 import { incrementPromptCount } from "../utils/commitAttribution.js";
 import {
 	updateSessionActivity,
-	updateSessionName,
 } from "../utils/concurrentSessions.js";
 import type { PastedContent } from "../utils/config.js";
 import { getGlobalConfig, saveGlobalConfig } from "../utils/config.js";
@@ -389,9 +389,6 @@ import {
 	logQueryProfileReport,
 	queryCheckpoint,
 } from "../utils/queryProfiler.js";
-import {
-	computeStandaloneAgentContext,
-} from "../utils/sessionRestore.js";
 import { createStreamMessageDispatch } from "../utils/streamMessageDispatch.js";
 import { processSessionStartHooks } from "../utils/sessionStart.js";
 import {
@@ -1916,14 +1913,8 @@ export function REPL({
 
 				// Restore standalone agent context from the resumed conversation
 				// Always reset to the new session's values (or clear if none)
-				setAppState((prev) => ({
-					...prev,
-					standaloneAgentContext: computeStandaloneAgentContext(
-						log.agentName,
-						log.agentColor,
-					),
-				}));
-				void updateSessionName(log.agentName);
+				// audit 1.1.1 slice #71: standalone agent context 外移到 resumeStandaloneAgentCheck.ts (resume chunked-extraction #11)。
+				restoreResumeStandaloneAgent({ log, setAppState });
 
 				// Restore read file state from the message history
 				restoreReadFileState(messages, log.projectPath ?? getOriginalCwd());
