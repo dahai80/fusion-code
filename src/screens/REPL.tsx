@@ -88,6 +88,7 @@ import { applyRemoteInit } from "./remoteInitCheck.js";
 import { maybeShowCostThreshold } from "./costThresholdCheck.js";
 import { maybeAccumulatePauseTiming } from "./pauseAccumulatorCheck.js";
 import { createSandboxAskHandler } from "./sandboxAskCheck.js";
+import { createFeedbackSurveyHandleSelect } from "./feedbackSurveyCheck.js";
 import { getSystemPrompt } from "../constants/prompts.js";
 import { useFpsMetrics } from "../context/fpsMetrics.js";
 import { useNotifications } from "../context/notifications.js";
@@ -557,7 +558,6 @@ import {
 	type AutoRunIssueReason,
 	getAutoRunCommand,
 	getAutoRunIssueReasonText,
-	shouldAutoRunIssue,
 } from "../utils/autoRunIssue.js";
 
 // Cloud-only tool stub (directory removed)
@@ -1839,21 +1839,11 @@ export function REPL({
 	const feedbackSurvey = useMemo(
 		() => ({
 			...feedbackSurveyOriginal,
-			handleSelect: (selected: "dismissed" | "bad" | "fine" | "good") => {
-				// Reset the ref when a new survey response comes in
-				didAutoRunIssueRef.current = false;
-				const showedTranscriptPrompt =
-					feedbackSurveyOriginal.handleSelect(selected);
-				// Auto-run /issue for "bad" if transcript prompt wasn't shown
-				if (
-					selected === "bad" &&
-					!showedTranscriptPrompt &&
-					shouldAutoRunIssue("feedback_survey_bad")
-				) {
-					setAutoRunIssueReason("feedback_survey_bad");
-					didAutoRunIssueRef.current = true;
-				}
-			},
+			handleSelect: createFeedbackSurveyHandleSelect({
+				feedbackSurveyOriginal,
+				didAutoRunIssueRef,
+				setAutoRunIssueReason,
+			}),
 		}),
 		[feedbackSurveyOriginal],
 	);
