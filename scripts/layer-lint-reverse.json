@@ -1,6 +1,6 @@
 {
 	"enforcedScope": { "root": "src", "exclude": ["src/services"] },
-	"migratedSubdirs": ["mcp", "api", "compact", "lsp", "goal", "oauth", "llm", "executor", "skillSearch", "PromptSuggestion", "events", "contextCollapse", "autoDream", "teamMemorySync", "extractMemories", "capability", "audit", "profile", "plugins", "trajectory", "tools", "memory", "knowledgeBase"],
+	"migratedSubdirs": ["mcp", "api", "compact", "lsp", "goal", "oauth", "llm", "executor", "skillSearch", "PromptSuggestion", "events", "contextCollapse", "autoDream", "teamMemorySync", "extractMemories", "capability", "audit", "profile", "plugins", "trajectory", "tools", "memory", "knowledgeBase", "workflowTemplates"],
 	"allowDeepImports": [
 		{
 			"file": "src/utils/settings/validation.ts",

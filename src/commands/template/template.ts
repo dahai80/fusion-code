@@ -1,7 +1,7 @@
 import {
 	getBuiltinTemplate,
 	getBuiltinTemplates,
-} from "../../services/workflowTemplates/builtinTemplates.js";
+} from "../../services/workflowTemplates/index.js";
 import {
 	deleteTemplate,
 	exportTemplate,
@@ -10,7 +10,7 @@ import {
 	loadTemplate,
 	saveTemplate,
 	type WorkflowTemplate,
-} from "../../services/workflowTemplates/templateManager.js";
+} from "../../services/workflowTemplates/index.js";
 import { logForDebugging } from "../../utils/debug.js";
 
 function parseArgs(args: string): {

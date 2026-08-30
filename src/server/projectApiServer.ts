@@ -654,10 +654,10 @@ routes.set("/api/templates", async (url) => {
 	const cwd = getCwdFromUrl(url);
 	try {
 		const { listTemplates } = await import(
-			"../services/workflowTemplates/templateManager.js"
+			"../services/workflowTemplates/index.js"
 		);
 		const { getBuiltinTemplates } = await import(
-			"../services/workflowTemplates/builtinTemplates.js"
+			"../services/workflowTemplates/index.js"
 		);
 		const saved = await listTemplates(cwd);
 		const builtinList = getBuiltinTemplates();
