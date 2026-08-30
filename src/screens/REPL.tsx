@@ -87,6 +87,7 @@ import { maybeShowSwarmTurnDuration } from "./swarmTurnDurationCheck.js";
 import { applyRemoteInit } from "./remoteInitCheck.js";
 import { maybeShowCostThreshold } from "./costThresholdCheck.js";
 import { maybeAccumulatePauseTiming } from "./pauseAccumulatorCheck.js";
+import { createSandboxAskHandler } from "./sandboxAskCheck.js";
 import { getSystemPrompt } from "../constants/prompts.js";
 import { useFpsMetrics } from "../context/fpsMetrics.js";
 import { useNotifications } from "../context/notifications.js";
@@ -120,7 +121,6 @@ import { useReplBridge } from "../hooks/useReplBridge.js";
 import { useSkillImprovementSurvey } from "../hooks/useSkillImprovementSurvey.js";
 import { useSSHSession } from "../hooks/useSSHSession.js";
 import { useSwarmInitialization } from "../hooks/useSwarmInitialization.js";
-import { registerSandboxPermissionCallback } from "../hooks/useSwarmPermissionPoller.js";
 import { useTeammateViewAutoExit } from "../hooks/useTeammateViewAutoExit.js";
 import { useTerminalSize } from "../hooks/useTerminalSize.js";
 import { useSearchHighlight } from "../ink/hooks/use-search-highlight.js";
@@ -211,11 +211,6 @@ import {
 	unregisterLeaderSetToolPermissionContext,
 	unregisterLeaderToolUseConfirmQueue,
 } from "../utils/swarm/leaderPermissionBridge.js";
-import {
-	generateSandboxRequestId,
-	isSwarmWorker,
-	sendSandboxPermissionRequestViaMailbox,
-} from "../utils/swarm/permissionSync.js";
 import { setMemberActive } from "../utils/swarm/teamHelpers.js";
 import { buildEffectiveSystemPrompt } from "../utils/systemPrompt.js";
 import { getAgentName, getTeamName } from "../utils/teammate.js";
@@ -515,7 +510,6 @@ const usePostCompactSurvey = (..._args: unknown[]) => ({
 function FeedbackSurvey(_props: Record<string, unknown>) {
 	return null;
 } // log: accept any props to fix TS2322
-import { SANDBOX_NETWORK_ACCESS_TOOL_NAME } from "src/cli/structuredIO.js";
 import { PluginHintMenu } from "src/components/ClaudeCodeHint/PluginHintMenu.js";
 import {
 	DesktopUpsellStartup,
@@ -2398,129 +2392,13 @@ export function REPL({
 		});
 	}, [messages, showCostDialog, haveShownCostDialog]);
 	const sandboxAskCallback: SandboxAskCallback = useCallback(
-		async (hostPattern: NetworkHostPattern) => {
-			// If running as a swarm worker, forward the request to the leader via mailbox
-			if (isAgentSwarmsEnabled() && isSwarmWorker()) {
-				const requestId = generateSandboxRequestId();
-
-				// Send the request to the leader via mailbox
-				const sent = await sendSandboxPermissionRequestViaMailbox(
-					hostPattern.host,
-					requestId,
-				);
-				return new Promise((resolveShouldAllowHost) => {
-					if (!sent) {
-						// If we couldn't send via mailbox, fall back to local handling
-						setSandboxPermissionRequestQueue((prev) => [
-							...prev,
-							{
-								hostPattern,
-								resolvePromise: resolveShouldAllowHost,
-							},
-						]);
-						return;
-					}
-
-					// Register the callback for when the leader responds
-					registerSandboxPermissionCallback({
-						requestId,
-						host: hostPattern.host,
-						resolve: resolveShouldAllowHost,
-					});
-
-					// Update AppState to show pending indicator
-					setAppState((prev) => ({
-						...prev,
-						pendingSandboxRequest: {
-							requestId,
-							host: hostPattern.host,
-						},
-					}));
-				});
-			}
-
-			// Normal flow for non-workers: show local UI and optionally race
-			// against the REPL bridge (Remote Control) if connected.
-			return new Promise((resolveShouldAllowHost) => {
-				let resolved = false;
-				function resolveOnce(allow: boolean): void {
-					if (resolved) return;
-					resolved = true;
-					resolveShouldAllowHost(allow);
-				}
-
-				// Queue the local sandbox permission dialog
-				setSandboxPermissionRequestQueue((prev) => [
-					...prev,
-					{
-						hostPattern,
-						resolvePromise: resolveOnce,
-					},
-				]);
-
-				// When the REPL bridge is connected, also forward the sandbox
-				// permission request as a can_use_tool control_request so the
-				// remote user (e.g. on claude.ai) can approve it too.
-				if (feature("BRIDGE_MODE")) {
-					const bridgeCallbacks =
-						store.getState().replBridgePermissionCallbacks;
-					if (bridgeCallbacks) {
-						const bridgeRequestId = randomUUID();
-						bridgeCallbacks.sendRequest(
-							bridgeRequestId,
-							SANDBOX_NETWORK_ACCESS_TOOL_NAME,
-							{
-								host: hostPattern.host,
-							},
-							randomUUID(),
-							`Allow network connection to ${hostPattern.host}?`,
-						);
-						const unsubscribe = bridgeCallbacks.onResponse(
-							bridgeRequestId,
-							(response) => {
-								unsubscribe();
-								const allow = response.behavior === "allow";
-								// Resolve ALL pending requests for the same host, not just
-								// this one — mirrors the local dialog handler pattern.
-								setSandboxPermissionRequestQueue((queue) => {
-									queue
-										.filter(
-											(item) => item.hostPattern.host === hostPattern.host,
-										)
-										.forEach((item) => item.resolvePromise(allow));
-									return queue.filter(
-										(item) => item.hostPattern.host !== hostPattern.host,
-									);
-								});
-								// Clean up all sibling bridge subscriptions for this host
-								// (other concurrent same-host requests) before deleting.
-								const siblingCleanups = sandboxBridgeCleanupRef.current.get(
-									hostPattern.host,
-								);
-								if (siblingCleanups) {
-									for (const fn of siblingCleanups) {
-										fn();
-									}
-									sandboxBridgeCleanupRef.current.delete(hostPattern.host);
-								}
-							},
-						);
-
-						// Register cleanup so the local dialog handler can cancel
-						// the remote prompt and unsubscribe when the local user
-						// responds first.
-						const cleanup = () => {
-							unsubscribe();
-							bridgeCallbacks.cancelRequest(bridgeRequestId);
-						};
-						const existing =
-							sandboxBridgeCleanupRef.current.get(hostPattern.host) ?? [];
-						existing.push(cleanup);
-						sandboxBridgeCleanupRef.current.set(hostPattern.host, existing);
-					}
-				}
-			});
-		},
+		(hostPattern: NetworkHostPattern) =>
+			createSandboxAskHandler({
+				setAppState,
+				store,
+				setSandboxPermissionRequestQueue,
+				sandboxBridgeCleanupRef,
+			})(hostPattern),
 		[setAppState, store],
 	);
 
