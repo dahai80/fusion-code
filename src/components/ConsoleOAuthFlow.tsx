@@ -9,7 +9,7 @@ import { Box, Link, Text } from '../ink.js';
 import { useKeybinding } from '../keybindings/useKeybinding.js';
 import { getSSLErrorHint } from '../services/api/index.js';
 import { sendNotification } from '../services/notifier.js';
-import { runCodexOAuthFlow } from '../services/oauth/codex-client.js';
+import { runCodexOAuthFlow } from '../services/oauth/index.js';
 import { OAuthService } from '../services/oauth/index.js';
 import { getOauthAccountInfo, saveCodexOAuthTokens, validateForceLoginOrg } from '../utils/auth.js';
 import { logError } from '../utils/log.js';

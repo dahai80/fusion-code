@@ -220,3 +220,12 @@ export class OAuthService {
     this.manualAuthCodeResolver = null
   }
 }
+
+// #203 Phase B (audit 1.1.3): oauth public barrel re-exports. Consumers
+// outside src/services/** must import these from here, not deep files
+// (enforced by `bun run lint:layers:reverse`). Internal-only files
+// (auth-code-listener/crypto) deliberately NOT re-exported — private.
+export * from "./types.js";
+export * from "./client.js";
+export * from "./getOauthProfile.js";
+export * from "./codex-client.js";

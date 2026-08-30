@@ -26,10 +26,10 @@ import {
 	isOAuthTokenExpired,
 	refreshOAuthToken,
 	shouldUseClaudeAIAuth,
-} from "../services/oauth/client.js";
-import type { CodexTokens } from "../services/oauth/codex-client.js";
-import { getOauthProfileFromOauthToken } from "../services/oauth/getOauthProfile.js";
-import type { OAuthTokens, SubscriptionType } from "../services/oauth/types.js";
+} from "../services/oauth/index.js";
+import type { CodexTokens } from "../services/oauth/index.js";
+import { getOauthProfileFromOauthToken } from "../services/oauth/index.js";
+import type { OAuthTokens, SubscriptionType } from "../services/oauth/index.js";
 import {
 	getApiKeyFromFileDescriptor,
 	getOAuthTokenFromFileDescriptor,

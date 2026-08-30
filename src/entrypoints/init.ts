@@ -6,7 +6,7 @@ import { asyncMemoize } from '../utils/asyncMemoize.js'
 // 后者在 bun build --compile 下脆弱, 且与同文件 L2 不一致。
 import { getIsNonInteractiveSession } from '../bootstrap/state.js'
 import { shutdownLspServerManager } from '../services/lsp/index.js'
-import { populateOAuthAccountInfoIfNeeded } from '../services/oauth/client.js'
+import { populateOAuthAccountInfoIfNeeded } from '../services/oauth/index.js'
 import {
   initializePolicyLimitsLoadingPromise,
   isPolicyLimitsEligible,

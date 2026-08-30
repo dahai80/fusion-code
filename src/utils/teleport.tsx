@@ -23,7 +23,7 @@ import {
 	getSessionLogsViaOAuth,
 	getTeleportEvents,
 } from "../services/api/index.js";
-import { getOrganizationUUID } from "../services/oauth/client.js";
+import { getOrganizationUUID } from "../services/oauth/index.js";
 import { AppStateProvider } from "../state/AppState.js";
 import type { Message, SystemMessage } from "../types/message.js";
 import type { PermissionMode } from "../types/permissions.js";
