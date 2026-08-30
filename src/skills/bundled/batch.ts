@@ -1,5 +1,5 @@
 import { AGENT_TOOL_NAME } from '../../tools/AgentTool/constants.js'
-import { DEFAULT_MAX_CONCURRENT_SUBAGENTS } from '../../tools/AgentTool/subagentGuardrails.js'
+import { getMaxConcurrentSubagents } from '../../tools/AgentTool/subagentGuardrails.js'
 import { ASK_USER_QUESTION_TOOL_NAME } from '../../tools/AskUserQuestionTool/prompt.js'
 import { ENTER_PLAN_MODE_TOOL_NAME } from '../../tools/EnterPlanModeTool/constants.js'
 import { EXIT_PLAN_MODE_TOOL_NAME } from '../../tools/ExitPlanModeTool/constants.js'
@@ -9,9 +9,16 @@ import { registerBundledSkill } from '../bundledSkills.js'
 
 const MIN_AGENTS = 5
 // audit 1.4.7: prompt 上限必须 ≤ AgentTool 硬并发上限, 否则 model 按提示 spawn
-// 30, 第 21 个起被 subagentGuardrails 拒绝, model 重试/error-spin。取硬上限默认值
-// (FUSION_MAX_CONCURRENT_SUBAGENTS 默认 20) 作 prompt 上限, 二者同源不再漂移。
-const MAX_AGENTS = DEFAULT_MAX_CONCURRENT_SUBAGENTS
+// 30, 第 21 个起被 subagentGuardrails 拒绝, model 重试/error-spin。原取硬上限默认
+// 常量 (DEFAULT_MAX_CONCURRENT_SUBAGENTS=20) 作 prompt 上限, 但用户改
+// FUSION_MAX_CONCURRENT_SUBAGENTS env 时硬上限跟着变、prompt 上限不变 → 漂移复现。
+// 改读 env-aware getMaxConcurrentSubagents() (与 checkSubagentGuardrails 同源), 二者
+// 真同源。floor 到 MIN_AGENTS, 防 env 设过小导致 MIN>MAX, 模板 "5–3" 崩。
+export const MIN_BATCH_AGENTS = MIN_AGENTS
+export function resolveBatchMaxAgents(): number {
+    return Math.max(MIN_BATCH_AGENTS, getMaxConcurrentSubagents())
+}
+const MAX_AGENTS = resolveBatchMaxAgents()
 
 const WORKER_INSTRUCTIONS = `After you finish implementing the change:
 1. **Simplify** — Invoke the \`${SKILL_TOOL_NAME}\` tool with \`skill: "simplify"\` to review and clean up your changes.
