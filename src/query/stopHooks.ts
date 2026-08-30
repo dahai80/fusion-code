@@ -46,7 +46,7 @@ const jobClassifierModule = feature("TEMPLATES")
 	? (require("../jobs/classifier.js") as typeof import("../jobs/classifier.js"))
 	: null;
 const memoryCommitModule =
-	require("../services/memory/commitTurn.js") as typeof import("../services/memory/commitTurn.js");
+	require("../services/memory/index.js") as typeof import("../services/memory/index.js");
 
 /* eslint-enable @typescript-eslint/no-require-imports */
 

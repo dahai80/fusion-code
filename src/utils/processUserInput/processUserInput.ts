@@ -65,7 +65,7 @@ import { logForDebugging } from "../debug.js";
 // feature() 门控, 与 stopHooks.ts commit 半边 memoryCommitModule 同惯例)。
 // retrieveMemorySection 内部 fail-empty: API key 未配置 / subagent / 空输入
 // 立即返 "" (无 fetch), 热路径零开销。
-const memoryRetrieveModule = require("../../services/memory/retrieveContext.js") as typeof import("../../services/memory/retrieveContext.js");
+const memoryRetrieveModule = require("../../services/memory/index.js") as typeof import("../../services/memory/index.js");
 /* eslint-enable @typescript-eslint/no-require-imports */
 export type ProcessUserInputContext = ToolUseContext & LocalJSXCommandContext;
 
