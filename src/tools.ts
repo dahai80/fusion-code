@@ -102,16 +102,15 @@ export {
 	ASYNC_AGENT_ALLOWED_TOOLS,
 	COORDINATOR_MODE_ALLOWED_TOOLS,
 } from "./constants/tools.js";
-import { feature } from "bun:bundle";
-// Dead code elimination: conditional imports for retained feature-gated tools
-/* eslint-disable custom-rules/no-process-env-top-level, @typescript-eslint/no-require-imports */
-const SnipTool = feature("HISTORY_SNIP")
-	? require("./tools/SnipTool/SnipTool.js").SnipTool
-	: null;
-const ListPeersTool = feature("UDS_INBOX")
-	? require("./tools/ListPeersTool/ListPeersTool.js").ListPeersTool
-	: null;
-/* eslint-enable custom-rules/no-process-env-top-level, @typescript-eslint/no-require-imports */
+// SnipTool (HISTORY_SNIP) + ListPeersTool (UDS_INBOX) require() blocks removed:
+// both targets were never committed — the tool-class modules don't exist. Dead
+// in shipped builds (flags off → feature() DCE) but unresolved when dev-full
+// force-enables the flags. The HISTORY_SNIP/UDS_INBOX *wiring* (snipCompact,
+// snipProjection, prompt.ts) remains; only the tool registration is gated on
+// modules that were never added. Restore the blocks if/when the tool classes
+// are actually committed.
+const SnipTool: unknown = null;
+const ListPeersTool: unknown = null;
 import type { ToolPermissionContext } from "./Tool.js";
 import { getDenyRuleForTool } from "./utils/permissions/permissions.js";
 import { hasEmbeddedSearchTools } from "./utils/embeddedTools.js";
