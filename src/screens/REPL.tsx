@@ -81,6 +81,7 @@ import { maybeClearStreamingThinking } from "./streamingThinkingClear.js";
 import { applySuspendResumeListener } from "./suspendResumeListener.js";
 import { createRequestPrompt } from "./requestPromptFactory.js";
 import { maybeShowWorktreeTip } from "./worktreeTipCheck.js";
+import { maybeShowSandboxUnavailable } from "./sandboxUnavailableCheck.js";
 import { getSystemPrompt } from "../constants/prompts.js";
 import { useFpsMetrics } from "../context/fpsMetrics.js";
 import { useNotifications } from "../context/notifications.js";
@@ -2556,31 +2557,12 @@ export function REPL({
 	// mount so users know their security config isn't being enforced. Full
 	// reason goes to debug log; notification points to /sandbox for details.
 	// addNotification is stable (useCallback) so the effect fires once.
-	useEffect(() => {
-		const reason = SandboxManager.getSandboxUnavailableReason();
-		if (!reason) return;
-		if (SandboxManager.isSandboxRequired()) {
-			process.stderr.write(
-				`\nError: sandbox required but unavailable: ${reason}\n` +
-					`  sandbox.failIfUnavailable is set — refusing to start without a working sandbox.\n\n`,
-			);
-			gracefulShutdownSync(1, "other");
-			return;
-		}
-		logForDebugging(`sandbox disabled: ${reason}`, {
-			level: "warn",
-		});
-		addNotification({
-			key: "sandbox-unavailable",
-			jsx: (
-				<>
-					<Text color="warning">sandbox disabled</Text>
-					<Text dimColor> · /sandbox</Text>
-				</>
-			),
-			priority: "medium",
-		});
-	}, [addNotification]);
+	// audit 1.1.1 slice #43: effect body 外移到 sandboxUnavailableCheck.tsx (PURE-ROUTING-SUB-BLOCK)。
+	// addNotification 经 ctx 传入 (闭包捕获), 行为字节等价。deps [addNotification] 不变。
+	useEffect(
+		() => maybeShowSandboxUnavailable({ addNotification }),
+		[addNotification],
+	);
 	if (SandboxManager.isSandboxingEnabled()) {
 		// If sandboxing is enabled (setting.sandbox is defined, initialise the manager)
 		SandboxManager.initialize(sandboxAskCallback).catch((err) => {
