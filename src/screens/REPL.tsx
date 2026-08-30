@@ -89,6 +89,7 @@ import { maybeShowCostThreshold } from "./costThresholdCheck.js";
 import { maybeAccumulatePauseTiming } from "./pauseAccumulatorCheck.js";
 import { createSandboxAskHandler } from "./sandboxAskCheck.js";
 import { createFeedbackSurveyHandleSelect } from "./feedbackSurveyCheck.js";
+import { maybeShowTmuxMouseHint } from "./tmuxMouseHintCheck.js";
 import { getSystemPrompt } from "../constants/prompts.js";
 import { useFpsMetrics } from "../context/fpsMetrics.js";
 import { useNotifications } from "../context/notifications.js";
@@ -598,7 +599,6 @@ import { isInternalBuild } from "../utils/buildConstants.js";
 import {
 	isFullscreenEnvEnabled,
 	isMouseTrackingEnabled,
-	maybeGetTmuxMouseHint,
 } from "../utils/fullscreen.js";
 
 // Stable empty array for hooks that accept MCPServerConnection[] — avoids
@@ -1182,17 +1182,7 @@ export function REPL({
 	// We no longer mutate tmux's session-scoped mouse option (it poisoned
 	// sibling panes); tmux users already know this tradeoff from vim/less.
 	useEffect(() => {
-		if (isFullscreenEnvEnabled()) {
-			void maybeGetTmuxMouseHint().then((hint) => {
-				if (hint) {
-					addNotification({
-						key: "tmux-mouse-hint",
-						text: hint,
-						priority: "low",
-					});
-				}
-			});
-		}
+		void maybeShowTmuxMouseHint({ addNotification });
 		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, []);
 	const [showUndercoverCallout, setShowUndercoverCallout] = useState(false);
