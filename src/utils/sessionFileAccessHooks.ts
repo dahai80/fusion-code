@@ -36,7 +36,7 @@ const teamMemPaths = feature("TEAMMEM")
 	? (require("../memdir/teamMemPaths.js") as typeof import("../memdir/teamMemPaths.js"))
 	: null;
 const teamMemWatcher = feature("TEAMMEM")
-	? (require("../services/teamMemorySync/watcher.js") as typeof import("../services/teamMemorySync/watcher.js"))
+	? (require("../services/teamMemorySync/index.js") as typeof import("../services/teamMemorySync/index.js"))
 	: null;
 const memoryShapeTelemetry = feature("MEMORY_SHAPE_TELEMETRY")
 	? (require("../memdir/memoryShapeTelemetry.js") as typeof import("../memdir/memoryShapeTelemetry.js"))

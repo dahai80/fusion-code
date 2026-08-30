@@ -1282,3 +1282,15 @@ function logPush(
     }),
   })
 }
+
+// #203 Phase B (audit 1.1.3): teamMemorySync public barrel re-exports.
+// Consumers outside src/services/** must import from here, not deep files
+// (enforced by `bun run lint:layers:reverse`). The sibling files below are
+// public surface (each has >=1 external consumer: teamMemSecretGuard via the
+// edit/write tools, watcher via setup.ts + sessionFileAccessHooks). types +
+// secretScanner are re-exported too (watcher/teamMemSecretGuard depend on
+// them; no name collisions with this file's own exports).
+export * from './teamMemSecretGuard.js'
+export * from './secretScanner.js'
+export * from './types.js'
+export * from './watcher.js'
