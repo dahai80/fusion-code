@@ -96,6 +96,7 @@ import { createResetLoadingState } from "./resetLoadingStateCheck.js";
 import { resolveAgentToolsRestrictions } from "./agentToolRestrictionsCheck.js";
 import { buildCancelRequestProps } from "./cancelRequestPropsCheck.js";
 import { restoreInitialMessages } from "./initialMessagesRestoreCheck.js";
+import { createOnCancel } from "./onCancelCheck.js";
 import { getSystemPrompt } from "../constants/prompts.js";
 import { useFpsMetrics } from "../context/fpsMetrics.js";
 import { useNotifications } from "../context/notifications.js";
@@ -2241,69 +2242,29 @@ export function REPL({
 		if (was !== now) repinScroll();
 		prevDialogRef.current = focusedInputDialog;
 	}, [focusedInputDialog, repinScroll]);
-	function onCancel() {
-		if (focusedInputDialog === "elicitation") {
-			// Elicitation dialog handles its own Escape, and closing it shouldn't affect any loading state.
-			return;
-		}
-		logForDebugging(
-			`[onCancel] focusedInputDialog=${focusedInputDialog} streamMode=${streamMode}`,
-		);
-
-		// Pause proactive mode so the user gets control back.
-		// It will resume when they submit their next input (see onSubmit).
-		if (feature("PROACTIVE") || feature("KAIROS")) {
-			proactiveModule?.pauseProactive();
-		}
-		queryGuard.forceEnd();
-		skipIdleCheckRef.current = false;
-
-		// Preserve partially-streamed text so the user can read what was
-		// generated before pressing Esc. Pushed before resetLoadingState clears
-		// streamingText, and before query.ts yields the async interrupt marker,
-		// giving final order [user, partial-assistant, [Request interrupted by user]].
-		if (streamingText?.trim()) {
-			setMessages((prev) => [
-				...prev,
-				createAssistantMessage({
-					content: streamingText,
-				}),
-			]);
-		}
-		resetLoadingState();
-
-		// Clear any active token budget so the backstop doesn't fire on
-		// a stale budget if the query generator hasn't exited yet.
-		if (feature("TOKEN_BUDGET")) {
-			snapshotOutputTokensForTurn(null);
-		}
-		if (focusedInputDialog === "tool-permission") {
-			// Tool use confirm handles the abort signal itself
-			toolUseConfirmQueue[0]?.onAbort();
-			setToolUseConfirmQueue([]);
-		} else if (focusedInputDialog === "prompt") {
-			// Reject all pending prompts and clear the queue
-			for (const item of promptQueue) {
-				item.reject(new Error("Prompt cancelled by user"));
-			}
-			setPromptQueue([]);
-			abortController?.abort("user-cancel");
-		} else if (activeRemote.isRemoteMode) {
-			// Remote mode: send interrupt signal to CCR
-			activeRemote.cancelRequest();
-		} else {
-			abortController?.abort("user-cancel");
-		}
-
-		// Clear the controller so subsequent Escape presses don't see a stale
-		// aborted signal. Without this, canCancelRunningTask is false (signal
-		// defined but .aborted === true), so isActive becomes false if no other
-		// activating conditions hold — leaving the Escape keybinding inactive.
-		setAbortController(null);
-
-		// forceEnd() skips the finally path — fire directly (aborted=true).
-		void mrOnTurnComplete(messagesRef.current, true);
-	}
+	// audit 1.1.1 slice #59: onCancel body 外移到 onCancelCheck.ts (INLINE-CALLBACK curried-factory)。
+	// 每 render 调 createOnCancel(ctx) 取新闭包 (与原 function decl 重建语义字节等价, 非 memo);
+	// onCancel 经 ref 透传 cancelRequestProps / createMessageActionCaps / <MessageSelector onPreRestore>。
+	const onCancel = createOnCancel({
+		focusedInputDialog,
+		streamMode,
+		proactiveModule,
+		queryGuard,
+		skipIdleCheckRef,
+		streamingText,
+		setMessages,
+		resetLoadingState,
+		snapshotOutputTokensForTurn,
+		toolUseConfirmQueue,
+		setToolUseConfirmQueue,
+		promptQueue,
+		setPromptQueue,
+		abortController,
+		setAbortController,
+		activeRemote,
+		mrOnTurnComplete,
+		messagesRef,
+	});
 
 	// Function to handle queued command when canceling a permission request
 	// body extracted to handleQueuedCommandCancelCheck.ts (audit 1.1.1 slice #53).
