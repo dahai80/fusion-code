@@ -83,6 +83,7 @@ import { createRequestPrompt } from "./requestPromptFactory.js";
 import { maybeShowWorktreeTip } from "./worktreeTipCheck.js";
 import { maybeShowSandboxUnavailable } from "./sandboxUnavailableCheck.js";
 import { maybeCountQueueUse } from "./queueUseCountCheck.js";
+import { maybeShowSwarmTurnDuration } from "./swarmTurnDurationCheck.js";
 import { getSystemPrompt } from "../constants/prompts.js";
 import { useFpsMetrics } from "../context/fpsMetrics.js";
 import { useNotifications } from "../context/notifications.js";
@@ -1766,25 +1767,12 @@ export function REPL({
 
 	// Show deferred turn duration message once all swarm teammates finish
 	useEffect(() => {
-		if (!hasRunningTeammates && swarmStartTimeRef.current !== null) {
-			const totalMs = Date.now() - swarmStartTimeRef.current;
-			const deferredBudget = swarmBudgetInfoRef.current;
-			swarmStartTimeRef.current = null;
-			swarmBudgetInfoRef.current = undefined;
-			setMessages((prev) => [
-				...prev,
-				createTurnDurationMessage(
-					totalMs,
-					deferredBudget,
-					// Count only what recordTranscript will persist — ephemeral
-					// progress ticks and non-ant attachments are filtered by
-					// isLoggableMessage and never reach disk. Using raw prev.length
-					// would make checkResumeConsistency report false delta<0 for
-					// every turn that ran a progress-emitting tool.
-					count(prev, isLoggableMessage),
-				),
-			]);
-		}
+		maybeShowSwarmTurnDuration({
+			hasRunningTeammates,
+			swarmStartTimeRef,
+			swarmBudgetInfoRef,
+			setMessages,
+		});
 	}, [hasRunningTeammates, setMessages]);
 
 	// Show auto permissions warning when entering auto mode
