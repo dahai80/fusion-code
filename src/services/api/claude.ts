@@ -225,6 +225,7 @@ import { isApiErrorLike } from "../llm/errors.js";
 import { streamViaSeam } from "../llm/seam.js";
 // stream-resume (gw#123 client half): 本地 MLX 流掉线时带 Last-Event-ID 重连续流。
 // default-off (FUSION_CODE_STREAM_RESUME_ENABLED), off = byte-identical。
+// audit 2.2.2: resolveResumeRefs + shouldDeferIdleAbortToResume = idle-abort 门控 + refs survivor (catch 落 resume 的 tested contract)。
 import {
 	attachResumeRefs,
 	getResumeRefs,
@@ -232,7 +233,10 @@ import {
 	isStreamResumeEnabled,
 	maxAttempts,
 	mergeResumedStream,
+	type ResumeRefs,
+	resolveResumeRefs,
 	resumeStreamFetch,
+	shouldDeferIdleAbortToResume,
 } from "../llm/streamResume.js";
 import { getInitializationStatus } from "../lsp/manager.js";
 import { isToolFromMcpServer } from "../mcp/utils.js";
@@ -1891,6 +1895,10 @@ async function* queryModel(
 			parseInt(process.env.CLAUDE_STREAM_IDLE_TIMEOUT_MS || "", 10) || 300_000;
 		const STREAM_IDLE_WARNING_MS = STREAM_IDLE_TIMEOUT_MS / 2;
 		let streamIdleAborted = false;
+		// audit 2.2.2: resume-refs survivor — watchdog 触发时在 releaseStreamResources
+		// null streamResponse 前捕获 (WeakMap 项键 Response, 强引用断即 GC → catch 取不到)。
+		// catch 经 resolveResumeRefs 回退 survivor, idle drop 才能真起 resume。resume-off 不捕获 (byte-identical)。
+		let idleAbortResumeRefs: ResumeRefs | undefined;
 		// performance.now() snapshot when watchdog fires, for measuring abort propagation delay
 		let streamWatchdogFiredAt: number | null = null;
 		let streamIdleWarningTimer: ReturnType<typeof setTimeout> | null = null;
@@ -1936,6 +1944,14 @@ async function* queryModel(
 						"unknown") as AnalyticsMetadata_I_VERIFIED_THIS_IS_NOT_CODE_OR_FILEPATHS,
 					timeout_ms: STREAM_IDLE_TIMEOUT_MS,
 				});
+				// audit 2.2.2: capture resume refs into survivor BEFORE releaseStreamResources
+				// nulls streamResponse (WeakMap 项键 Response, 强引用断即 GC → catch 取不到 refs →
+				// resume 跳过)。门控 resume flag: resume-off 不捕获 (survivor 保持 undefined, byte-identical)。
+				if (isStreamResumeEnabled() && streamResponse) {
+					idleAbortResumeRefs = getResumeRefs(
+						streamResponse as unknown as Response,
+					);
+				}
 				releaseStreamResources();
 			}, STREAM_IDLE_TIMEOUT_MS);
 		}
@@ -2512,16 +2528,33 @@ async function* queryModel(
 							}
 							throw streamingError;
 						} else {
-							// The SDK threw an abort but our signal wasn't aborted
-							// This means it's a timeout from the SDK's internal timeout
-							logForDebugging(
-								`Streaming timeout (SDK abort): ${streamingError.message}`,
-								{ level: "error" },
-							);
-							// log: 不依赖 SDK 的 APIConnectionTimeoutError — 构造具名 timeout 错误
-							const timeoutErr = new Error("Request timed out");
-							timeoutErr.name = "APIConnectionTimeoutError";
-							throw timeoutErr;
+							// audit 2.2.2: abort 形错误无 user signal 是二义 — SDK 内部 timeout (旧假设)
+							// OR idle-watchdog body-cancel (streamIdleAborted, body.cancel() 非 signal.abort())。
+							// resume 开 AND idle 触发 → 落 resume 检查 (:2532, isResumeEligibleError(_,true)=true),
+							// 不 throw synthetic timeout (短路 resume 且旁路 fallback_cause watchdog 遥测)。
+							// resume-off: 旧 throw verbatim (byte-identical)。
+							if (
+								shouldDeferIdleAbortToResume(
+									streamIdleAborted,
+									isStreamResumeEnabled(),
+								)
+							) {
+								logForDebugging(
+									`Streaming idle-watchdog abort, deferring to stream-resume check`,
+									{ level: "warn" },
+								);
+							} else {
+								// The SDK threw an abort but our signal wasn't aborted
+								// This means it's a timeout from the SDK's internal timeout
+								logForDebugging(
+									`Streaming timeout (SDK abort): ${streamingError.message}`,
+									{ level: "error" },
+								);
+								// log: 不依赖 SDK 的 APIConnectionTimeoutError — 构造具名 timeout 错误
+								const timeoutErr = new Error("Request timed out");
+								timeoutErr.name = "APIConnectionTimeoutError";
+								throw timeoutErr;
+							}
 						}
 					}
 
@@ -2533,9 +2566,10 @@ async function* queryModel(
 						isStreamResumeEnabled() &&
 						isResumeEligibleError(streamingError, streamIdleAborted)
 					) {
-						const refs = streamResponse
-							? getResumeRefs(streamResponse as unknown as Response)
-							: undefined;
+						const refs = resolveResumeRefs(
+							streamResponse as unknown as Response | undefined,
+							idleAbortResumeRefs,
+						);
 						if (
 							refs?.sid &&
 							refs.cursorRef.current &&
@@ -2594,6 +2628,8 @@ async function* queryModel(
 								stream = merged as unknown as Stream<BetaRawMessageStreamEvent>;
 								streamIdleAborted = false;
 								streamWatchdogFiredAt = null;
+								// audit 2.2.2: survivor 已消费; 清掉防后续非-idle drop 误用 stale survivor
+								idleAbortResumeRefs = undefined;
 								resetStreamIdleTimer();
 								continue;
 							} catch (resumeErr) {

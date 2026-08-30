@@ -252,4 +252,32 @@ export function getResumeRefs(response: Response): ResumeRefs | undefined {
 	return resumeRefsByResponse.get(response);
 }
 
+// ─── audit 2.2.2: idle-watchdog abort gate + refs survivor ────────────
+// 两处 claude.ts 纯判定外移成 tested contract (原 bug = 这段逻辑内联且无测覆盖)。
+
+// audit 2.2.2: abort 形错误 (无 user signal) 应否跳过 synthetic-timeout throw,
+// 落到 resume 检查? 仅当 idle-watchdog 触发 AND resume 开启 — 否则 byte-identical
+// 旧 throw 路径。idle body.cancel() 非 signal.abort() → signal.aborted=false →
+// 旧 else 无条件 throw, 短路 resume (:2532)。此处门控让 idle 落到 resume 检查。
+export function shouldDeferIdleAbortToResume(
+	streamIdleAborted: boolean,
+	resumeEnabled: boolean,
+): boolean {
+	return streamIdleAborted && resumeEnabled;
+}
+
+// audit 2.2.2: 从 live Response 解析 refs, fallback 到 survivor。watchdog 的
+// releaseStreamResources() 先于 catch 把 streamResponse=null, WeakMap 项键 Response
+// 一旦唯一强引用断即 GC → getResumeRefs 返回 undefined → refs?.sid=false →
+// resume try-block 跳过 (bug 未修)。survivor = watchdog 触发时在 release 前捕获的
+// refs 对象本身 (小独立分配, resume 本就需其 stateRef 做 seedState)。live Response
+// 在场时优先 (race 安全: 第二次 drop 时 streamResponse 已重赋 resumed Response)。
+export function resolveResumeRefs(
+	response: Response | undefined,
+	survivor: ResumeRefs | undefined,
+): ResumeRefs | undefined {
+	if (response) return getResumeRefs(response);
+	return survivor;
+}
+
 export type { StreamState };
