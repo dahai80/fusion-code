@@ -103,6 +103,7 @@ import { restoreResumeAgentSetting } from "./resumeAgentSettingRestoreCheck.js";
 import { matchResumeCoordinatorMode } from "./resumeCoordinatorModeCheck.js";
 import { saveAndSwitchResumeSession } from "./resumeCostSessionSwitchCheck.js";
 import { restoreResumeWorktree } from "./resumeWorktreeRestoreCheck.js";
+import { resetResumeMetadata } from "./resumeMetadataResetCheck.js";
 import { getSystemPrompt } from "../constants/prompts.js";
 import { useFpsMetrics } from "../context/fpsMetrics.js";
 import { useNotifications } from "../context/notifications.js";
@@ -1970,13 +1971,12 @@ export function REPL({
 				// restoreSessionMetadata only sets-if-truthy, so without the clear,
 				// a session without an agent name would inherit the previous session's
 				// cached name and write it to the wrong transcript on first message.
-				clearSessionMetadata();
-				restoreSessionMetadata(log);
-				// Resumed sessions shouldn't re-title from mid-conversation context
-				// (same reasoning as the useRef seed), and the previous session's
-				// Haiku title shouldn't carry over.
-				haikuTitleAttemptedRef.current = true;
-				setHaikuTitle(undefined);
+				// audit 1.1.1 slice #66: metadata-clear + haiku-reset 外移到 resumeMetadataResetCheck.ts (resume chunked-extraction #6)。
+				resetResumeMetadata({
+					log,
+					haikuTitleAttemptedRef,
+					setHaikuTitle,
+				});
 
 				// Exit any worktree a prior /resume entered, then cd into the one
 				// this session was in. Without the exit, resuming from worktree B
