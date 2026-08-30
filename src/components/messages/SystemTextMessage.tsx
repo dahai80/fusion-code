@@ -24,7 +24,7 @@ const teamMemSaved = feature("TEAMMEM")
 import { TURN_COMPLETION_VERBS } from "../../constants/turnCompletionVerbs.js";
 import { useTerminalSize } from "../../hooks/useTerminalSize.js";
 import Link from "../../ink/components/Link.js";
-import { HOOK_TIMING_DISPLAY_THRESHOLD_MS } from "../../services/tools/toolExecution.js";
+import { HOOK_TIMING_DISPLAY_THRESHOLD_MS } from "../../services/tools/index.js";
 import { useAppStateStore } from "../../state/AppState.js";
 import { getPillLabel } from "../../tasks/pillLabel.js";
 import { isBackgroundTask, type TaskState } from "../../tasks/types.js";
