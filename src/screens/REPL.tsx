@@ -104,6 +104,7 @@ import { matchResumeCoordinatorMode } from "./resumeCoordinatorModeCheck.js";
 import { saveAndSwitchResumeSession } from "./resumeCostSessionSwitchCheck.js";
 import { restoreResumeWorktree } from "./resumeWorktreeRestoreCheck.js";
 import { resetResumeMetadata } from "./resumeMetadataResetCheck.js";
+import { persistResumeMode } from "./resumeSaveModeCheck.js";
 import { getSystemPrompt } from "../constants/prompts.js";
 import { useFpsMetrics } from "../context/fpsMetrics.js";
 import { useNotifications } from "../context/notifications.js";
@@ -1998,14 +1999,8 @@ export function REPL({
 				});
 
 				// Persist the current mode so future resumes know what mode this session was in
-				if (feature("COORDINATOR_MODE")) {
-					/* eslint-disable @typescript-eslint/no-require-imports */
-					const { saveMode } = require("../utils/sessionStorage.js");
-					const { isCoordinatorMode } =
-						require("../coordinator/coordinatorMode.js") as typeof import("../coordinator/coordinatorMode.js");
-					/* eslint-enable @typescript-eslint/no-require-imports */
-					saveMode(isCoordinatorMode() ? "coordinator" : "normal");
-				}
+				// audit 1.1.1 slice #67: COORDINATOR_MODE saveMode 外移到 resumeSaveModeCheck.ts (resume chunked-extraction #7)。
+				persistResumeMode();
 
 				// Restore target session's costs from the data we read earlier
 				if (targetSessionCosts) {
