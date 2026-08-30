@@ -15,8 +15,8 @@
  */
 
 import { feature } from 'bun:bundle'
-import { initAutoDream, isAutoDreamRunning } from './services/autoDream/autoDream.js'
-import { isAutoDreamEnabled } from './services/autoDream/config.js'
+import { initAutoDream, isAutoDreamRunning } from './services/autoDream/index.js'
+import { isAutoDreamEnabled } from './services/autoDream/index.js'
 import { logForDebugging } from './utils/debug.js'
 
 export interface DreamState {

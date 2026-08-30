@@ -51,7 +51,7 @@ const memoryCommitModule =
 /* eslint-enable @typescript-eslint/no-require-imports */
 
 import type { QuerySource } from "../constants/querySource.js";
-import { executeAutoDream } from "../services/autoDream/autoDream.js";
+import { executeAutoDream } from "../services/autoDream/index.js";
 import { executePromptSuggestion } from "../services/PromptSuggestion/index.js";
 import { isBareMode, isEnvDefinedFalsy } from "../utils/envUtils.js";
 import {
