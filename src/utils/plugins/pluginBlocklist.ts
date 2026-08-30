@@ -8,7 +8,7 @@
  * for UI reason/text only. If re-introduced, serve from downloads.claude.ai.
  */
 
-import { uninstallPluginOp } from "../../services/plugins/pluginOperations.js";
+import { uninstallPluginOp } from "../../services/plugins/index.js";
 import { logForDebugging } from "../debug.js";
 import { errorMessage } from "../errors.js";
 import { loadInstalledPluginsV2 } from "./installedPluginsManager.js";

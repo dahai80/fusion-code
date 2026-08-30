@@ -10,7 +10,7 @@
  * but users can disable it per-marketplace.
  */
 
-import { updatePluginOp } from "../../services/plugins/pluginOperations.js";
+import { updatePluginOp } from "../../services/plugins/index.js";
 import { shouldSkipPluginAutoupdate } from "../config.js";
 import { logForDebugging } from "../debug.js";
 import { errorMessage } from "../errors.js";

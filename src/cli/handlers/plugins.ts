@@ -20,7 +20,7 @@ import {
 	updatePluginCli,
 	VALID_INSTALLABLE_SCOPES,
 	VALID_UPDATE_SCOPES,
-} from "../../services/plugins/pluginCliCommands.js";
+} from "../../services/plugins/index.js";
 import { getPluginErrorMessage } from "../../types/plugin.js";
 import { errorMessage } from "../../utils/errors.js";
 import { logError } from "../../utils/log.js";

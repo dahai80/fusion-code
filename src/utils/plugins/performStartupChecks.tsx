@@ -1,4 +1,4 @@
-import { performBackgroundPluginInstallations } from "../../services/plugins/PluginInstallationManager.js";
+import { performBackgroundPluginInstallations } from "../../services/plugins/index.js";
 import type { AppState } from "../../state/AppState.js";
 import { checkHasTrustDialogAccepted } from "../config.js";
 import { logForDebugging } from "../debug.js";

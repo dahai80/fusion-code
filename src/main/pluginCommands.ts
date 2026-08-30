@@ -8,7 +8,7 @@ import { createSortedHelpConfig } from "./commandHelpers.js";
 import {
 	VALID_INSTALLABLE_SCOPES,
 	VALID_UPDATE_SCOPES,
-} from "../services/plugins/pluginCliCommands.js";
+} from "../services/plugins/index.js";
 
 export function registerPluginCommands(program: CommanderCommand): void {
 	// Hidden flag on all plugin/marketplace subcommands to target cowork_plugins.
