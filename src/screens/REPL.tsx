@@ -84,6 +84,7 @@ import { maybeShowWorktreeTip } from "./worktreeTipCheck.js";
 import { maybeShowSandboxUnavailable } from "./sandboxUnavailableCheck.js";
 import { maybeCountQueueUse } from "./queueUseCountCheck.js";
 import { maybeShowSwarmTurnDuration } from "./swarmTurnDurationCheck.js";
+import { applyRemoteInit } from "./remoteInitCheck.js";
 import { getSystemPrompt } from "../constants/prompts.js";
 import { useFpsMetrics } from "../context/fpsMetrics.js";
 import { useNotifications } from "../context/notifications.js";
@@ -571,7 +572,6 @@ import {
 	CompanionFloatingBubble,
 	CompanionSprite,
 } from "../buddy/CompanionSprite.js";
-import { filterCommandsForRemoteMode } from "../commands.js";
 import { DevBar } from "../components/DevBar.js";
 import {
 	computeUnseenDivider,
@@ -1539,19 +1539,8 @@ export function REPL({
 
 	// Callback to filter commands based on CCR's available slash commands
 	const handleRemoteInit = useCallback(
-		(remoteSlashCommands: string[]) => {
-			const remoteCommandSet = new Set(remoteSlashCommands);
-			// Keep commands that CCR lists OR that are safe for remote mode
-			setLocalCommands((prev) =>
-				filterCommandsForRemoteMode(prev).length > 0
-					? prev.filter(
-							(cmd) =>
-								remoteCommandSet.has(cmd.name) ||
-								filterCommandsForRemoteMode([cmd]).length > 0,
-						)
-					: prev.filter((cmd) => remoteCommandSet.has(cmd.name)),
-			);
-		},
+		(remoteSlashCommands: string[]) =>
+			applyRemoteInit({ setLocalCommands })(remoteSlashCommands),
 		[setLocalCommands],
 	);
 	const [inProgressToolUseIDs, setInProgressToolUseIDs] = useState<Set<string>>(
