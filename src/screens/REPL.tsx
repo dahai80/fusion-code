@@ -107,6 +107,7 @@ import { resetResumeMetadata } from "./resumeMetadataResetCheck.js";
 import { persistResumeMode } from "./resumeSaveModeCheck.js";
 import { runResumeSessionHooks } from "./resumeSessionHooksCheck.js";
 import { copyResumePlan } from "./resumePlanCopyCheck.js";
+import { restoreResumeFileHistory } from "./resumeFileHistoryRestoreCheck.js";
 import { getSystemPrompt } from "../constants/prompts.js";
 import { useFpsMetrics } from "../context/fpsMetrics.js";
 import { useNotifications } from "../context/notifications.js";
@@ -352,11 +353,8 @@ import { getGlobalConfig, saveGlobalConfig } from "../utils/config.js";
 import { deserializeMessages } from "../utils/conversationRecovery.js";
 import { getCwd } from "../utils/cwd.js";
 import {
-	copyFileHistoryForResume,
 	type FileHistorySnapshot,
 	type FileHistoryState,
-	fileHistoryEnabled,
-	fileHistoryMakeSnapshot,
 	fileHistoryRewind,
 } from "../utils/fileHistory.js";
 import { gracefulShutdownSync } from "../utils/gracefulShutdown.js";
@@ -393,10 +391,6 @@ import {
 } from "../utils/queryProfiler.js";
 import {
 	computeStandaloneAgentContext,
-	exitRestoredWorktree,
-	restoreAgentFromSession,
-	restoreSessionStateFromLog,
-	restoreWorktreeForResume,
 } from "../utils/sessionRestore.js";
 import { createStreamMessageDispatch } from "../utils/streamMessageDispatch.js";
 import { processSessionStartHooks } from "../utils/sessionStart.js";
@@ -1905,10 +1899,8 @@ export function REPL({
 				copyResumePlan({ entrypoint, log, sessionId });
 
 				// Restore file history and attribution state from the resumed conversation
-				restoreSessionStateFromLog(log, setAppState);
-				if (log.fileHistorySnapshots) {
-					void copyFileHistoryForResume(log);
-				}
+				// audit 1.1.1 slice #70: file-history restore 外移到 resumeFileHistoryRestoreCheck.ts (resume chunked-extraction #10)。
+				restoreResumeFileHistory({ log, setAppState });
 
 				// Restore agent setting from the resumed conversation
 				// Always reset to the new session's values (or clear if none),
