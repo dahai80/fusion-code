@@ -105,6 +105,7 @@ import { saveAndSwitchResumeSession } from "./resumeCostSessionSwitchCheck.js";
 import { restoreResumeWorktree } from "./resumeWorktreeRestoreCheck.js";
 import { resetResumeMetadata } from "./resumeMetadataResetCheck.js";
 import { persistResumeMode } from "./resumeSaveModeCheck.js";
+import { runResumeSessionHooks } from "./resumeSessionHooksCheck.js";
 import { getSystemPrompt } from "../constants/prompts.js";
 import { useFpsMetrics } from "../context/fpsMetrics.js";
 import { useNotifications } from "../context/notifications.js";
@@ -1889,29 +1890,20 @@ export function REPL({
 				});
 
 				// Fire SessionEnd hooks for the current session before starting the
-				// resumed one, mirroring the /clear flow in conversation.ts.
-				const sessionEndTimeoutMs = getSessionEndHookTimeoutMs();
-				await executeSessionEndHooks("resume", {
-					getAppState: () => store.getState(),
+				// resumed one, then process session start hooks for resume (Fork 会话
+				// 报告 source "fork" per CC 2.1.214 issue #79, 让 hook 区分 fork 与
+				// 普通 resume), appending hook messages to the conversation.
+				// audit 1.1.1 slice #68: sessionEnd+sessionStart hooks 外移到 resumeSessionHooksCheck.ts (resume chunked-extraction #8)。
+				// hookMessages → messages.push 经 ctx 直接 push (return-value-threading)。
+				await runResumeSessionHooks({
+					entrypoint,
+					sessionId,
+					messages,
+					store,
 					setAppState,
-					signal: AbortSignal.timeout(sessionEndTimeoutMs),
-					timeoutMs: sessionEndTimeoutMs,
+					mainThreadAgentDefinition,
+					mainLoopModel,
 				});
-
-				// Process session start hooks for resume. Fork 会话报告 source "fork"
-				// (CC 2.1.214, issue #79), 让 hook 区分 fork 与普通 resume。
-				const sessionStartSource = entrypoint === "fork" ? "fork" : "resume";
-				const hookMessages = await processSessionStartHooks(
-					sessionStartSource,
-					{
-						sessionId,
-						agentType: mainThreadAgentDefinition?.agentType,
-						model: mainLoopModel,
-					},
-				);
-
-				// Append hook messages to the conversation
-				messages.push(...hookMessages);
 				// For forks, generate a new plan slug and copy the plan content so the
 				// original and forked sessions don't clobber each other's plan files.
 				// For regular resumes, reuse the original session's plan slug.
