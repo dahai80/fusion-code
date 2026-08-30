@@ -109,6 +109,7 @@ import { runResumeSessionHooks } from "./resumeSessionHooksCheck.js";
 import { copyResumePlan } from "./resumePlanCopyCheck.js";
 import { restoreResumeFileHistory } from "./resumeFileHistoryRestoreCheck.js";
 import { restoreResumeStandaloneAgent } from "./resumeStandaloneAgentCheck.js";
+import { finalizeResume } from "./resumeFinalizeCheck.js";
 import { getSystemPrompt } from "../constants/prompts.js";
 import { useFpsMetrics } from "../context/fpsMetrics.js";
 import { useNotifications } from "../context/notifications.js";
@@ -1994,20 +1995,17 @@ export function REPL({
 					});
 				}
 
-				// Reset messages to the provided initial messages
-				// Use a callback to ensure we're not dependent on stale state
-				setMessages(() => messages);
-
-				// Clear any active tool JSX
-				setToolJSX(null);
-
-				// Clear input to ensure no residual state
-				setInputValue("");
-				logEvent("tengu_session_resumed", {
-					entrypoint:
-						entrypoint as AnalyticsMetadata_I_VERIFIED_THIS_IS_NOT_CODE_OR_FILEPATHS,
-					success: true,
-					resume_duration_ms: Math.round(performance.now() - resumeStart),
+				// Reset messages + clear tool JSX/input + success telemetry。
+				// audit 1.1.1 slice #72: finalize UI-state + success-telemetry 外移到 resumeFinalizeCheck.ts (resume chunked-extraction #12)。
+				// messages (resume-local), entrypoint (resume param), resumeStart (try 外 body-local) + setMessages/setToolJSX/setInputValue (REPL state) 经 ctx 传入, 行为字节等价。
+				// catch 分支 logEvent(success:false) 留此 (与 try 结构耦合)。
+				finalizeResume({
+					messages,
+					entrypoint,
+					resumeStart,
+					setMessages,
+					setToolJSX,
+					setInputValue,
 				});
 			} catch (error) {
 				logEvent("tengu_session_resumed", {
