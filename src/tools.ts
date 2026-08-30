@@ -3,7 +3,7 @@ import { toolMatchesName, type Tool, type Tools } from "./Tool.js";
 import {
 	filterToolsByProfile,
 	getSessionProfile,
-} from "./services/profile/profile.js";
+} from "./services/profile/index.js";
 import { AgentTool } from "./tools/AgentTool/AgentTool.js";
 import { SkillTool } from "./tools/SkillTool/SkillTool.js";
 import { BashTool } from "./tools/BashTool/BashTool.js";

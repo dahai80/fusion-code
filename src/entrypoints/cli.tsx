@@ -154,7 +154,7 @@ async function main(): Promise<void> {
 			setSessionProfile,
 			validateProfileRequiresFlags,
 			enabledFlagsChecker,
-		} = await import("../services/profile/profile.js");
+		} = await import("../services/profile/index.js");
 		// 解析 --model / --profile
 		const modelIdx = args.indexOf("--model");
 		const model = (modelIdx !== -1 && args[modelIdx + 1]) || getMainLoopModel();
@@ -461,7 +461,7 @@ async function main(): Promise<void> {
 			setSessionProfile,
 			validateProfileRequiresFlags,
 			enabledFlagsChecker,
-		} = await import("../services/profile/profile.js");
+		} = await import("../services/profile/index.js");
 		const profileName = args[profileFlagIdx + 1];
 		const profile = loadProfile(profileName);
 		if (profile) {

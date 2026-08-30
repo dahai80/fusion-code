@@ -11,7 +11,7 @@ import {
 	loadProfile,
 	setSessionProfile,
 	validateProfileRequiresFlags,
-} from "../../../services/profile/profile.js";
+} from "../../../services/profile/index.js";
 import type { Tool } from "../../../Tool.js";
 
 // 轻量假 tool: filterToolsByProfile 只读 tool.name。
