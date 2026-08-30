@@ -15,6 +15,7 @@ import { errorMessage } from "../../utils/errors.js";
 import { logError } from "../../utils/log.js";
 import { subprocessEnv } from "../../utils/subprocessEnv.js";
 import type {
+	EditResult,
 	ExecutionRequest,
 	ExecutionResult,
 	ExecutorStreamChunk,
@@ -40,6 +41,11 @@ export type ExecutorClient = {
 	) => Promise<ExecutionResult>;
 	snapshotCreate: (cwd: string) => Promise<SnapshotResult>;
 	rollback: (snapshotId: string, cwd: string) => Promise<RollbackResult>;
+	writeFile: (params: {
+		path: string;
+		content: string;
+		cwd?: string;
+	}) => Promise<EditResult>;
 	stop: () => Promise<void>;
 };
 
@@ -370,6 +376,18 @@ export function createExecutorClient(
 				cwd,
 			});
 			return promise as Promise<RollbackResult>;
+		},
+
+		async writeFile(params: {
+			path: string;
+			content: string;
+			cwd?: string;
+		}): Promise<EditResult> {
+			// #176 file-write delegation: raw UTF-8 byte write. Staleness/quote-norm/
+			// patch already done client-side; executor only persists final bytes.
+			// Fail-open in driver (transport error / ok:false → null → in-process).
+			const { promise } = sendRequest("executor.write_file", params);
+			return promise as Promise<EditResult>;
 		},
 
 		async stop(): Promise<void> {

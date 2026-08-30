@@ -6,6 +6,7 @@
 // and simulated-sed stay on the in-process path. Fail-open: if no client, returns
 // null so BashTool.call falls through to runShellCommand.
 
+import { existsSync, lstatSync } from "node:fs";
 import { getCwd } from "../../utils/cwd.js";
 import { logForDebugging } from "../../utils/debug.js";
 import { isEnvTruthy } from "../../utils/envUtils.js";
@@ -13,6 +14,7 @@ import type { ExecResult } from "../../utils/ShellCommand.js";
 import { getDefaultBashTimeoutMs } from "../../utils/timeouts.js";
 import { getExecutorClient, isExecutorEnabled } from "./manager.js";
 import type {
+	EditResult,
 	ExecutionRequest,
 	ExecutionResult,
 	ExecutorStreamChunk,
@@ -105,6 +107,11 @@ export type ExecutorClientLike = {
 	) => Promise<ExecutionResult>;
 	snapshotCreate: (cwd: string) => Promise<SnapshotResult>;
 	rollback: (snapshotId: string, cwd: string) => Promise<RollbackResult>;
+	writeFile?: (params: {
+		path: string;
+		content: string;
+		cwd?: string;
+	}) => Promise<EditResult>;
 };
 
 let _testClient: ExecutorClientLike | undefined;
@@ -247,4 +254,79 @@ function makeProgress(
 		totalLines,
 		totalBytes: fullOutput.length,
 	};
+}
+
+// #176 file-write delegation — delegate ONLY the final disk-write step
+// (writeTextContent), AFTER fusion-code completes staleness/quote-norm/patch/
+// LSP coordination. Executor write_file writes raw UTF-8 bytes (no CRLF-norm,
+// no encoding, no symlink-preserve). Fail-open to in-process writeTextContent
+// on ANY divergence (non-utf8, symlink, >64MB, transport error, ok:false).
+export function isFileWriteRouteable(): boolean {
+	return isExecutorEnabled();
+}
+
+export type CallWriteParams = {
+	filePath: string;
+	content: string;
+	encoding: BufferEncoding;
+	endings: "LF" | "CRLF";
+};
+
+// Returns EditResult (ok:true) on executor success, null on ANY failure
+// (fail-open). Caller does in-process writeTextContent when result is null.
+export async function callWriteViaExecutor(
+	params: CallWriteParams,
+): Promise<EditResult | null> {
+	if (!isFileWriteRouteable()) return null;
+	// divergent cases → fail-open to in-process (which handles them correctly)
+	if (params.encoding !== "utf8") {
+		logForDebugging(
+			`[Executor] write skip: non-utf8 encoding "${params.encoding}" → in-process`,
+		);
+		return null;
+	}
+	let isSymlink = false;
+	try {
+		if (existsSync(params.filePath)) {
+			isSymlink = lstatSync(params.filePath).isSymbolicLink();
+		}
+	} catch {
+		return null; // stat failed → don't route
+	}
+	if (isSymlink) {
+		logForDebugging(
+			"[Executor] write skip: symlink path → in-process (preserve link)",
+		);
+		return null;
+	}
+	// CRLF-normalize client-side (executor write_file writes raw bytes)
+	let toWrite = params.content;
+	if (params.endings === "CRLF") {
+		toWrite = params.content.replaceAll("\r\n", "\n").split("\n").join("\r\n");
+	}
+	if (Buffer.byteLength(toWrite, "utf8") > 64 * 1024 * 1024) {
+		logForDebugging("[Executor] write skip: >64MB → in-process");
+		return null;
+	}
+	const client = _testClient ?? getExecutorClient();
+	if (!client?.writeFile) return null;
+	try {
+		const result = await client.writeFile({
+			path: params.filePath,
+			content: toWrite,
+			cwd: getCwd(),
+		});
+		if (!result?.ok) {
+			logForDebugging(
+				`[Executor] write_file failed: ${result?.error ?? "unknown"} → in-process`,
+			);
+			return null;
+		}
+		return result;
+	} catch (error) {
+		logForDebugging(
+			`[Executor] write_file transport error: ${(error as Error).message} → in-process`,
+		);
+		return null;
+	}
 }

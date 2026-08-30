@@ -342,7 +342,19 @@ export const MultiEditTool = buildTool({
 					edits: fileEditsResolved,
 				});
 
-				writeTextContent(absoluteFilePath, updatedFile, encoding, endings);
+				// #176: delegate disk-write to executor subprocess (fail-open to in-process)
+				const {
+					callWriteViaExecutor,
+				} = require("../../services/executor/executorDriver.js");
+				const writeResult = await callWriteViaExecutor({
+					filePath: absoluteFilePath,
+					content: updatedFile,
+					encoding,
+					endings,
+				});
+				if (writeResult === null) {
+					writeTextContent(absoluteFilePath, updatedFile, encoding, endings);
+				}
 
 				const lspManager = getLspServerManager();
 				if (lspManager) {

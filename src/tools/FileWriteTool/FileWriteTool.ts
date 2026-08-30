@@ -302,7 +302,17 @@ export const FileWriteTool = buildTool({
     // the old file's line endings (or sampled the repo via ripgrep for new
     // files), which silently corrupted e.g. bash scripts with \r on Linux when
     // overwriting a CRLF file or when binaries in cwd poisoned the repo sample.
-    writeTextContent(fullFilePath, content, enc, 'LF')
+    // #176: delegate disk-write to executor subprocess (fail-open to in-process)
+    const { callWriteViaExecutor } = require('../../services/executor/executorDriver.js')
+    const writeResult = await callWriteViaExecutor({
+      filePath: fullFilePath,
+      content,
+      encoding: enc,
+      endings: 'LF',
+    })
+    if (writeResult === null) {
+      writeTextContent(fullFilePath, content, enc, 'LF')
+    }
 
     // Notify LSP servers about file modification (didChange) and save (didSave)
     const lspManager = getLspServerManager()

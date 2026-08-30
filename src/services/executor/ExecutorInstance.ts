@@ -9,6 +9,7 @@ import { logError } from "../../utils/log.js";
 import { sleep } from "../../utils/sleep.js";
 import type { ExecutorClient, ExecutorHealth } from "./ExecutorClient.js";
 import type {
+	EditResult,
 	ExecutionRequest,
 	ExecutionResult,
 	ExecutorStreamChunk,
@@ -37,6 +38,11 @@ export type ExecutorInstance = {
 	) => Promise<ExecutionResult>;
 	snapshotCreate: (cwd: string) => Promise<SnapshotResult>;
 	rollback: (snapshotId: string, cwd: string) => Promise<RollbackResult>;
+	writeFile: (params: {
+		path: string;
+		content: string;
+		cwd?: string;
+	}) => Promise<EditResult>;
 	health: () => Promise<ExecutorHealth>;
 };
 
@@ -235,6 +241,25 @@ export function createExecutorInstance(name: string): ExecutorInstance {
 		return client.rollback(snapshotId, cwd);
 	}
 
+	// #176 file-write delegation: raw UTF-8 byte write. Caller (driver) already
+	// verified utf8/symlink/size gates; no retry (write mutates disk; retry
+	// would double-write). Throws on transport error → driver fail-opens.
+	async function writeFile(params: {
+		path: string;
+		content: string;
+		cwd?: string;
+	}): Promise<EditResult> {
+		await ensureStarted();
+		if (!isHealthyFn()) {
+			const error = new Error(
+				`executor '${name}' not healthy for writeFile (state=${state})`,
+			);
+			logError(error);
+			throw error;
+		}
+		return client.writeFile(params);
+	}
+
 	async function health(): Promise<ExecutorHealth> {
 		if (!client.isRunning) {
 			return { ok: false };
@@ -256,6 +281,7 @@ export function createExecutorInstance(name: string): ExecutorInstance {
 		executeStream,
 		snapshotCreate,
 		rollback,
+		writeFile,
 		health,
 	};
 }

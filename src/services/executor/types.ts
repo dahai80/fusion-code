@@ -55,6 +55,18 @@ export type ExecutorStreamChunk =
 	| { type: "chunk"; data: string }
 	| { type: "done"; result: ExecutionResult };
 
+// Wire type for executor file-tool responses (file_edit/write_file/multi_edit/
+// apply_patch). Source of truth: fusion-executor crates/fe-tools/src/lib.rs:54
+// `EditResult{ok:bool, path:Option<String>, error:Option<String>, matches:u32}`.
+// File-tool writes carry NO executor Diagnostics (unlike bash execute) —
+// EditResult.error is the failure signal; ok:true is the success signal.
+export type EditResult = {
+	ok: boolean;
+	path?: string;
+	error?: string;
+	matches?: number;
+};
+
 // Exit code constants mirror fe-core EXIT_OK/EXIT_TIMEOUT/EXIT_BLOCKED.
 export const EXECUTOR_EXIT_OK = 0;
 export const EXECUTOR_EXIT_TIMEOUT = -124;

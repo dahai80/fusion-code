@@ -487,8 +487,20 @@ export const FileEditTool = buildTool({
       replaceAll: replace_all,
     })
 
-    // 5. Write to disk
-    writeTextContent(absoluteFilePath, updatedFile, encoding, endings)
+    // 5. Write to disk — delegate final bytes to executor (Layer B "hands") when
+    // routeable; fail-open to in-process writeTextContent on any executor failure.
+    // All client-side coordination (staleness, quote-norm, patch) already ran above;
+    // only the byte-write backend swaps. Byte-identical when executor disabled.
+    const { callWriteViaExecutor } = require('../../services/executor/executorDriver.js')
+    const writeResult = await callWriteViaExecutor({
+      filePath: absoluteFilePath,
+      content: updatedFile,
+      encoding,
+      endings,
+    })
+    if (writeResult === null) {
+      writeTextContent(absoluteFilePath, updatedFile, encoding, endings)
+    }
 
     // Notify LSP servers about file modification (didChange) and save (didSave)
     const lspManager = getLspServerManager()
