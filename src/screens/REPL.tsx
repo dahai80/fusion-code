@@ -80,6 +80,7 @@ import { applyUndercoverCalloutCheck } from "./undercoverCalloutCheck.js";
 import { maybeClearStreamingThinking } from "./streamingThinkingClear.js";
 import { applySuspendResumeListener } from "./suspendResumeListener.js";
 import { createRequestPrompt } from "./requestPromptFactory.js";
+import { maybeShowWorktreeTip } from "./worktreeTipCheck.js";
 import { getSystemPrompt } from "../constants/prompts.js";
 import { useFpsMetrics } from "../context/fpsMetrics.js";
 import { useNotifications } from "../context/notifications.js";
@@ -1802,22 +1803,13 @@ export function REPL({
 
 	// If worktree creation was slow and sparse-checkout isn't configured,
 	// nudge the user toward settings.worktree.sparsePaths.
+	// audit 1.1.1 slice #42: effect body 外移到 worktreeTipCheck.ts (PURE-ROUTING-SUB-BLOCK)。
+	// worktreeTipShownRef (ref) + setMessages 经 ctx 传入 (闭包捕获), 行为字节等价。deps [setMessages] 不变。
 	const worktreeTipShownRef = useRef(false);
-	useEffect(() => {
-		if (worktreeTipShownRef.current) return;
-		const wt = getCurrentWorktreeSession();
-		if (!wt?.creationDurationMs || wt.usedSparsePaths) return;
-		if (wt.creationDurationMs < 15_000) return;
-		worktreeTipShownRef.current = true;
-		const secs = Math.round(wt.creationDurationMs / 1000);
-		setMessages((prev) => [
-			...prev,
-			createSystemMessage(
-				`Worktree creation took ${secs}s. For large repos, set \`worktree.sparsePaths\` in .claude/settings.json to check out only the directories you need — e.g. \`{"worktree": {"sparsePaths": ["src", "packages/foo"]}}\`.`,
-				"info",
-			),
-		]);
-	}, [setMessages]);
+	useEffect(
+		() => maybeShowWorktreeTip({ worktreeTipShownRef, setMessages }),
+		[setMessages],
+	);
 
 	// Hide spinner when the only in-progress tool is Sleep
 	// audit 1.1.1: 纯推导移至 utils/spinnerState.ts, useMemo 仅缓存
