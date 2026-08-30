@@ -82,6 +82,7 @@ import { applySuspendResumeListener } from "./suspendResumeListener.js";
 import { createRequestPrompt } from "./requestPromptFactory.js";
 import { maybeShowWorktreeTip } from "./worktreeTipCheck.js";
 import { maybeShowSandboxUnavailable } from "./sandboxUnavailableCheck.js";
+import { maybeCountQueueUse } from "./queueUseCountCheck.js";
 import { getSystemPrompt } from "../constants/prompts.js";
 import { useFpsMetrics } from "../context/fpsMetrics.js";
 import { useNotifications } from "../context/notifications.js";
@@ -4005,18 +4006,16 @@ export function REPL({
 	// That write storm is the primary trigger for ~/.claude.json corruption
 	// (GH #3117).
 	const hasCountedQueueUseRef = useRef(false);
-	useEffect(() => {
-		if (queuedCommands.length < 1) {
-			hasCountedQueueUseRef.current = false;
-			return;
-		}
-		if (hasCountedQueueUseRef.current) return;
-		hasCountedQueueUseRef.current = true;
-		saveGlobalConfig((current) => ({
-			...current,
-			promptQueueUseCount: (current.promptQueueUseCount ?? 0) + 1,
-		}));
-	}, [queuedCommands.length]);
+	// audit 1.1.1 slice #44: effect body 外移到 queueUseCountCheck.ts (PURE-ROUTING-SUB-BLOCK)。
+	// hasCountedQueueUseRef (ref) + queueLen (queuedCommands.length, derived dep) 经 ctx 传入, 行为字节等价。deps [queuedCommands.length] 不变。
+	useEffect(
+		() =>
+			maybeCountQueueUse({
+				hasCountedQueueUseRef,
+				queueLen: queuedCommands.length,
+			}),
+		[queuedCommands.length],
+	);
 
 	// Process queued commands when query completes and queue has items
 
