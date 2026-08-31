@@ -1,10 +1,10 @@
-import { GrowthBook } from '@growthbook/growthbook'
+import type { GrowthBook } from '@growthbook/growthbook'
+import { feature } from 'bun:bundle'
 import { isEqual, memoize } from 'lodash-es'
 import {
   getIsNonInteractiveSession,
   getSessionTrustAccepted,
 } from '../../bootstrap/state.js'
-import { getGrowthBookClientKey } from '../../constants/keys.js'
 import {
   checkHasTrustDialogAccepted,
   getGlobalConfig,
@@ -12,6 +12,7 @@ import {
 } from '../../utils/config.js'
 import { logForDebugging } from '../../utils/debug.js'
 import { toError } from '../../utils/errors.js'
+import { isEnvTruthy } from '../../utils/envUtils.js'
 import { getAuthHeaders } from '../../utils/http.js'
 import { logError } from '../../utils/log.js'
 import { createSignal } from '../../utils/signal.js'
@@ -489,12 +490,45 @@ function getUserAttributes(): GrowthBookUserAttributes {
  */
 const getGrowthBookClient = memoize(
   (): { client: GrowthBook; initialized: Promise<void> } | null => {
+    // P0-2 (audit R3): compile-time telemetry removal. TELEMETRY flag is off
+    // in all builds (OSS + dev-full) — feature() is a build-time constant, so
+    // !feature('TELEMETRY') is true and the entire client-creation body below
+    // (new GrowthBook + api.anthropic.com apiHost + hardcoded clientKey +
+    // remoteEval HTTP) is dead-code-eliminated by the bundler. This removes
+    // the telemetry surface from the binary, not just runtime-gates it.
+    // Replaces the runtime-only isGrowthBookEnabled() gate (fragile: single
+    // function return patched/build-config-changed → GrowthBook phones home
+    // deviceId/sessionId/email/orgUUID to api.anthropic.com). Compile-time DCE
+    // is the stable enterprise "zero-telemetry / local-first" guarantee.
+    // SDK value (new GrowthBook) lazy-required inside the gate so the @growthbook
+    // module never enters the bundle when TELEMETRY is off; type-only import
+    // above erases at compile (GrowthBook type refs in signatures are types).
+    if (!feature('TELEMETRY')) {
+      return null
+    }
+    // Runtime secondary gate retained: even if a future build enables TELEMETRY,
+    // isGrowthBookEnabled() must still be true (1P event logging on) to create
+    // a client. Defense-in-depth, not the primary DCE boundary.
     if (!isGrowthBookEnabled()) {
       return null
     }
 
     const attributes = getUserAttributes()
-    const clientKey = getGrowthBookClientKey()
+    // P0-2 (audit R3): clientKey logic inlined inside the feature('TELEMETRY')
+    // gate (this whole body is DCE'd when TELEMETRY off). Previous lazy require
+    // of constants/keys.js was NOT DCE'd — require() resolves the module into
+    // the bundle graph at transform time, before feature() constant-folding,
+    // so the hardcoded clientKey literals leaked into the binary. Inlining puts
+    // the literals directly in the dead branch → DCE removes them.
+    const useExperimentalClientKey =
+      isEnvTruthy(process.env.FUSION_CODE_EXPERIMENTAL_BUILD) ||
+      (process.env.USER_TYPE === 'ant' &&
+        isEnvTruthy(process.env.ENABLE_GROWTHBOOK_DEV))
+    const clientKey = useExperimentalClientKey
+      ? 'sdk-yZQvlplybuXjYh6L'
+      : process.env.USER_TYPE === 'ant'
+        ? 'sdk-xRVcrliHIlrg4og4'
+        : 'sdk-zAZezfDKGoZuXXKe'
     if (process.env.USER_TYPE === 'ant') {
       logForDebugging(
         `GrowthBook: Creating client with clientKey=${clientKey}, attributes: ${jsonStringify(attributes)}`,
@@ -522,8 +556,12 @@ const getGrowthBookClient = memoize(
     clientCreatedWithAuth = hasAuth
 
     // Capture in local variable so the init callback operates on THIS client,
-    // not a later client if reinitialization happens before init completes
-    const thisClient = new GrowthBook({
+    // not a later client if reinitialization happens before init completes.
+    // Lazy require: @growthbook/growthbook is only pulled into the bundle when
+    // feature('TELEMETRY') is on (above). Type-only import erased elsewhere.
+    const { GrowthBook: GrowthBookCtor } =
+      require('@growthbook/growthbook') as typeof import('@growthbook/growthbook')
+    const thisClient = new GrowthBookCtor({
       apiHost: baseUrl,
       clientKey,
       attributes,
