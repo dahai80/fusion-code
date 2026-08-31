@@ -3,6 +3,6 @@
 // `bun run lint:layers:reverse`). Internal-only files (ExecutorClient /
 // ExecutorInstance) deliberately NOT re-exported — private executor internals.
 export * from "./executorDriver.js";
+export * from "./manager.js";
 export * from "./turnSnapshot.js";
 export * from "./types.js";
-export * from "./manager.js";

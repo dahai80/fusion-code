@@ -3,6 +3,7 @@
 // `bun run lint:layers:reverse`). Internal-only files (config / LSPClient /
 // LSPServerInstance / LSPServerManager / passiveFeedback) deliberately NOT
 // re-exported — they are private lsp internals.
-export * from "./manager.js";
+
 export * from "./LSPDiagnosticRegistry.js";
+export * from "./manager.js";
 export * from "./types.js";

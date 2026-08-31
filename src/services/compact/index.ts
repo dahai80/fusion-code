@@ -4,13 +4,14 @@
 // cachedMicrocompact / grouping / hardCompact / prompt / smartCompactV2 /
 // timeBasedMCConfig) deliberately NOT re-exported — they are private
 // compact internals.
-export * from "./compact.js";
+
 export * from "./autoCompact.js";
+export * from "./cachedMCConfig.js";
+export * from "./compact.js";
+export * from "./compactWarningState.js";
 export * from "./microCompact.js";
+export * from "./postCompactCleanup.js";
+export * from "./reactiveCompact.js";
+export * from "./sessionMemoryCompact.js";
 export * from "./snipCompact.js";
 export * from "./snipProjection.js";
-export * from "./reactiveCompact.js";
-export * from "./postCompactCleanup.js";
-export * from "./compactWarningState.js";
-export * from "./cachedMCConfig.js";
-export * from "./sessionMemoryCompact.js";

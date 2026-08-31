@@ -5,13 +5,14 @@
 // pluginCliCommands.js re-exports them — to avoid export * TS2308 collision,
 // re-export only pluginCliCommands's OWN functions here (not the re-exported
 // consts, which arrive via pluginOperations export *).
-export * from "./pluginOperations.js";
+
 export * from "./PluginInstallationManager.js";
 export {
-    installPlugin,
-    uninstallPlugin,
-    enablePlugin,
-    disablePlugin,
-    disableAllPlugins,
-    updatePluginCli,
+	disableAllPlugins,
+	disablePlugin,
+	enablePlugin,
+	installPlugin,
+	uninstallPlugin,
+	updatePluginCli,
 } from "./pluginCliCommands.js";
+export * from "./pluginOperations.js";

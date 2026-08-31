@@ -157,7 +157,6 @@ export function subscribe(callback: () => void): () => void {
 
 // findMessageIndexByUuid removed (unused)
 
-
 function findCollapsibleSpan(messages: unknown[]): {
 	startIdx: number;
 	endIdx: number;
@@ -349,12 +348,6 @@ export function isWithheldPromptTooLong(
 	return isPromptTooLongMessage(message);
 }
 
-export {
-	commits as _commits,
-	projectView as _projectView,
-	restoreFromEntries,
-	staged as _staged,
-};
 // #203 Phase B (audit 1.1.3): contextCollapse public barrel re-exports.
 // Consumers outside src/services/** must import from here, not deep files
 // (enforced by `bun run lint:layers:reverse`). projectView/restoreFromEntries
@@ -364,3 +357,9 @@ export {
 // commands/context + screens/ResumeConversation + utils/sessionRestore.
 export * from "./operations.js";
 export * from "./persist.js";
+export {
+	commits as _commits,
+	projectView as _projectView,
+	restoreFromEntries,
+	staged as _staged,
+};

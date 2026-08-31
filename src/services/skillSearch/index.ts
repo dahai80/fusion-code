@@ -6,10 +6,15 @@
 // featureCheck's as the canonical name, localSearch's aliased to avoid the
 // export * collision (TS2308).
 export * from "./featureCheck.js";
+export {
+	clearSkillIndexCache,
+	getSkillIndex,
+	isSkillSearchEnabled as isSkillSearchEnabledLocal,
+	SkillIndex,
+	searchSkills,
+} from "./localSearch.js";
 export * from "./prefetch.js";
-export * from "./telemetry.js";
-export * from "./remoteSkillState.js";
 export * from "./remoteSkillLoader.js";
-export { clearSkillIndexCache, getSkillIndex, searchSkills, SkillIndex } from "./localSearch.js";
-export { isSkillSearchEnabled as isSkillSearchEnabledLocal } from "./localSearch.js";
+export * from "./remoteSkillState.js";
 export * from "./signals.js";
+export * from "./telemetry.js";
