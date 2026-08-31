@@ -46,6 +46,14 @@ describe("isSensitiveFilePath", () => {
 		expect(isSensitiveFilePath("/home/user/.gitconfig")).toBe(true);
 	});
 
+	it("blocks API server auth token (server.token)", () => {
+		// P0-1 (audit R1): ~/.fusion-code/server.token = API server 认证 token, AI 读即本地 RCE 面
+		expect(isSensitiveFilePath("/home/user/.fusion-code/server.token")).toBe(true);
+		expect(isSensitiveFilePath("server.token")).toBe(true);
+		// 非同名 token 文件不被误伤
+		expect(isSensitiveFilePath("/project/src/serverToken.ts")).toBe(false);
+	});
+
 	it("allows non-sensitive paths", () => {
 		expect(isSensitiveFilePath("/project/src/index.ts")).toBe(false);
 		expect(isSensitiveFilePath("/project/package.json")).toBe(false);

@@ -42,6 +42,10 @@ const SENSITIVE_PATTERNS: RegExp[] = [
 	/\.docker\/config\.json$/i,
 	/\.git-credentials$/i,
 	/\.github-token$/i,
+	// P0-1 (audit R1): API server auth token — ~/.fusion-code/server.token (mode 0600).
+	// AI 读该 token 即获本地 API server 控制权 (/api/code/generate + WS chat spawn 子进程 = RCE)。
+	// 不纳入保护则 token 经 FileRead/Bash cat 泄露。锚定结尾 `server.token` 覆盖任意目录下的同名文件。
+	/server\.token$/i,
 ];
 
 const SENSITIVE_DIR_PATTERNS: RegExp[] = [
@@ -116,6 +120,8 @@ const SENSITIVE_BASENAMES = [
 	".netrc",
 	".git-credentials",
 	".github-token",
+	// P0-1 (audit R1): Bash `cat ~/.fusion-code/server.token` 提取守卫
+	"server.token",
 ];
 
 export function extractCandidatePathsFromCommand(command: string): string[] {
