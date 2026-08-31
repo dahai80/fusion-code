@@ -182,23 +182,25 @@ export async function installFromArchive(
 		await unlink(tmpPath).catch(() => {});
 	}
 
-	// SHA-256 锁定 (可选) — 提供则校验, mismatch refuse 不解压
+	// SHA-256 锁定 — 提供则校验, mismatch refuse 不解压
 	if (source.sha256) {
 		verifyArchiveIntegrity(zipBuf, source.sha256, safeUrl);
 		logForDebugging(`archive source: SHA-256 verified for ${safeUrl}`);
 	} else {
-		// ar-plan PR #6 (E2): STRICT 模式下缺 sha256 也抛错 (fail-visible),
-		// 强制供应链锁定。env 未设 = 仍 fail-open (byte-identical, 兼容期渐进)。
-		if (isEnvTruthy(process.env.FUSION_CODE_PLUGIN_SHA256_STRICT)) {
+		// P0-3 (audit R2): 默认 strict — 缺 sha256 即拒绝 (fail-closed), 强制供应链锁定。
+		// 企业级基线: 插件 archive 源必须带 sha256 pin, 否则 HTTPS 传输被篡改无校验拦截。
+		// LENIENT 模式 (FUSION_CODE_PLUGIN_SHA256_LENIENT=1) 保留 fail-open 兼容期
+		// (信任 HTTPS 传输, 不校验) — 仅用于受信 registry 渐进迁移。
+		if (!isEnvTruthy(process.env.FUSION_CODE_PLUGIN_SHA256_LENIENT)) {
 			throw new Error(
 				`archive source missing sha256 pin for ${safeUrl}: ` +
-					"FUSION_CODE_PLUGIN_SHA256_STRICT=1 requires integrity pinning. " +
-					"Add a sha256 field to the archive source.",
+					"integrity pinning required by default (enterprise supply-chain baseline). " +
+					"Add a sha256 field to the archive source, or set " +
+					"FUSION_CODE_PLUGIN_SHA256_LENIENT=1 to allow unpinned (fail-open).",
 			);
 		}
-		// fail-open 告知 (不阻断, 但记日志 — 无校验 = 信任 HTTPS 传输)
 		logForDebugging(
-			`archive source: no sha256 pin provided for ${safeUrl}, skipping integrity check`,
+			`archive source: no sha256 pin provided for ${safeUrl}, LENIENT mode skipping integrity check`,
 		);
 	}
 

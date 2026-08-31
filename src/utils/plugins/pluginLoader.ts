@@ -90,6 +90,7 @@ import { installFromArchive } from "./archiveSource.js";
 import { verifyAndDemote } from "./dependencyResolver.js";
 import { classifyFetchError, logPluginFetch } from "./fetchTelemetry.js";
 import { checkGitAvailable } from "./gitAvailability.js";
+import { requireGitShaPin } from "./gitShaPin.js";
 import { getInMemoryInstalledPlugins } from "./installedPluginsManager.js";
 import { getManagedPluginNames } from "./managedPlugins.js";
 import {
@@ -944,6 +945,9 @@ export function generateTemporaryCacheNameForPlugin(
 	return `temp_${prefix}_${timestamp}_${random}`;
 }
 
+// P0-3 (audit R2): requireGitShaPin git-family commit-pin gate 抽出到 ./gitShaPin.js
+// (独立纯模块, 无 settings 加载链, 单测可直接 import 不触发 TDZ)。
+
 /**
  * Cache a plugin from an external source
  */
@@ -981,6 +985,7 @@ export async function cachePlugin(
 					});
 					break;
 				case "github":
+					requireGitShaPin("github", source.repo, source.sha);
 					await installFromGitHub(
 						source.repo,
 						tempPath,
@@ -989,9 +994,11 @@ export async function cachePlugin(
 					);
 					break;
 				case "url":
+					requireGitShaPin("url", source.url, source.sha);
 					await installFromGit(source.url, tempPath, source.ref, source.sha);
 					break;
 				case "git-subdir":
+					requireGitShaPin("git-subdir", source.url, source.sha);
 					gitCommitSha = await installFromGitSubdir(
 						source.url,
 						tempPath,

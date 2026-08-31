@@ -1,13 +1,13 @@
 /**
- * ar-plan PR #6 (E2): archive 源 STRICT gate — 缺 sha256 行为单测。
+ * P0-3 (audit R2): archive 源 sha256 gate — 缺 sha256 行为单测。
  *
- * - 缺 sha256 + FUSION_CODE_PLUGIN_SHA256_STRICT=1 → throw (fail-visible)
- * - 缺 sha256 + STRICT 未设 → fail-open (不抛, byte-identical)
+ * - 缺 sha256 + 默认 (LENIENT 未设) → throw (fail-closed, 企业级供应链基线)
+ * - 缺 sha256 + LENIENT=1 → fail-open (走到解压, extractArchiveBuffer throw "0 files")
  * - schemaVersion=0 接受 (PluginManifestSchema, 兼容窗口)
  *
  * installFromArchive 先 axios.get 下载再查 sha256 (archiveSource.ts:97-125),
  * 故 mock axios 供 zip 字节 (同 discover.test.ts mock.module 模式)。
- * pure 安全逻辑 (verify/extract) 见 archiveSource.test.ts, 此处只测 STRICT gate。
+ * pure 安全逻辑 (verify/extract) 见 archiveSource.test.ts, 此处只测 sha256 gate。
  */
 
 import { afterEach, beforeEach, describe, expect, it, mock } from "bun:test";
@@ -40,42 +40,43 @@ const { PluginManifestSchema } = await import("../utils/plugins/schemas.js");
 const savedEnv: Record<string, string | undefined> = {};
 
 beforeEach(() => {
-	savedEnv.FUSION_CODE_PLUGIN_SHA256_STRICT =
-		process.env.FUSION_CODE_PLUGIN_SHA256_STRICT;
-	delete process.env.FUSION_CODE_PLUGIN_SHA256_STRICT;
+	savedEnv.FUSION_CODE_PLUGIN_SHA256_LENIENT =
+		process.env.FUSION_CODE_PLUGIN_SHA256_LENIENT;
+	delete process.env.FUSION_CODE_PLUGIN_SHA256_LENIENT;
 });
 
 afterEach(() => {
-	if (savedEnv.FUSION_CODE_PLUGIN_SHA256_STRICT !== undefined) {
-		process.env.FUSION_CODE_PLUGIN_SHA256_STRICT =
-			savedEnv.FUSION_CODE_PLUGIN_SHA256_STRICT;
+	if (savedEnv.FUSION_CODE_PLUGIN_SHA256_LENIENT !== undefined) {
+		process.env.FUSION_CODE_PLUGIN_SHA256_LENIENT =
+			savedEnv.FUSION_CODE_PLUGIN_SHA256_LENIENT;
 	} else {
-		delete process.env.FUSION_CODE_PLUGIN_SHA256_STRICT;
+		delete process.env.FUSION_CODE_PLUGIN_SHA256_LENIENT;
 	}
 });
 
-describe("installFromArchive — STRICT gate (ar-plan PR #6 E2)", () => {
-	it("缺 sha256 + STRICT=1 → throw (fail-visible, 强制锁定)", async () => {
+describe("installFromArchive — sha256 gate (P0-3 audit R2)", () => {
+	it("缺 sha256 + 默认 → throw (fail-closed, 企业级供应链基线)", async () => {
 		const tmpRoot = await mkdtemp(join(tmpdir(), "archive-strict-"));
 		try {
-			process.env.FUSION_CODE_PLUGIN_SHA256_STRICT = "1";
+			// LENIENT 未设 = 默认 strict (fail-closed)。企业级基线强制 pin。
 			await expect(
 				installFromArchive(
 					{ source: "archive", url: "https://example.com/p.zip" },
 					tmpRoot,
 				),
-			).rejects.toThrow(/FUSION_CODE_PLUGIN_SHA256_STRICT=1 requires/);
+			).rejects.toThrow(/integrity pinning required by default/);
 		} finally {
 			await rm(tmpRoot, { recursive: true, force: true });
 		}
 	});
 
-	it("缺 sha256 + STRICT 未设 → fail-open (不抛, byte-identical)", async () => {
+	it("缺 sha256 + LENIENT=1 → fail-open (走到解压, byte-identical 兼容期)", async () => {
 		const tmpRoot = await mkdtemp(join(tmpdir(), "archive-open-"));
 		try {
-			// STRICT unset = 默认 fail-open (兼容期渐进)。
+			// LENIENT=1 = fail-open (受信 registry 渐进迁移)。
 			// mock axios 返回空 zip → extractArchiveBuffer throw "0 files",
 			// 但那在 sha256 gate 之后, 证明 gate 未拦 (走到解压步)。
+			process.env.FUSION_CODE_PLUGIN_SHA256_LENIENT = "1";
 			await expect(
 				installFromArchive(
 					{ source: "archive", url: "https://example.com/p.zip" },
@@ -87,31 +88,31 @@ describe("installFromArchive — STRICT gate (ar-plan PR #6 E2)", () => {
 		}
 	});
 
-	it("缺 sha256 + STRICT=0 → fail-open (falsy 不触发)", async () => {
-		const tmpRoot = await mkdtemp(join(tmpdir(), "archive-strict0-"));
+	it("缺 sha256 + LENIENT=0 → throw (falsy 不触发 fail-open, 仍 strict)", async () => {
+		const tmpRoot = await mkdtemp(join(tmpdir(), "archive-lenient0-"));
 		try {
-			process.env.FUSION_CODE_PLUGIN_SHA256_STRICT = "0";
+			process.env.FUSION_CODE_PLUGIN_SHA256_LENIENT = "0";
 			await expect(
 				installFromArchive(
 					{ source: "archive", url: "https://example.com/p.zip" },
 					tmpRoot,
 				),
-			).rejects.toThrow(/0 files/);
+			).rejects.toThrow(/integrity pinning required by default/);
 		} finally {
 			await rm(tmpRoot, { recursive: true, force: true });
 		}
 	});
 
-	it("缺 sha256 + STRICT=空串 → fail-open (falsy 不触发)", async () => {
+	it("缺 sha256 + LENIENT=空串 → throw (falsy 不触发 fail-open, 仍 strict)", async () => {
 		const tmpRoot = await mkdtemp(join(tmpdir(), "archive-emptystr-"));
 		try {
-			process.env.FUSION_CODE_PLUGIN_SHA256_STRICT = "";
+			process.env.FUSION_CODE_PLUGIN_SHA256_LENIENT = "";
 			await expect(
 				installFromArchive(
 					{ source: "archive", url: "https://example.com/p.zip" },
 					tmpRoot,
 				),
-			).rejects.toThrow(/0 files/);
+			).rejects.toThrow(/integrity pinning required by default/);
 		} finally {
 			await rm(tmpRoot, { recursive: true, force: true });
 		}
