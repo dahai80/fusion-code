@@ -276,9 +276,7 @@ function useCanUseTool(setToolUseConfirmQueue, setToolPermissionContext) {
 										awaitAutomatedChecksBeforeDialog:
 											appState.toolPermissionContext
 												.awaitAutomatedChecksBeforeDialog,
-										bridgeCallbacks: feature("BRIDGE_MODE")
-											? appState.replBridgePermissionCallbacks
-											: undefined,
+										bridgeCallbacks: undefined,
 										channelCallbacks:
 											feature("KAIROS") || feature("KAIROS_CHANNELS")
 												? appState.channelPermissionCallbacks

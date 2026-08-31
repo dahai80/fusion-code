@@ -3458,21 +3458,6 @@ async function run(): Promise<CommanderCommand> {
 					`[STARTUP] showSetupScreens() completed in ${Date.now() - setupScreensStart}ms`,
 				);
 
-				// Now that trust is established and GrowthBook has auth headers,
-				// resolve the --remote-control / --rc entitlement gate.
-				if (feature("BRIDGE_MODE") && remoteControlOption !== undefined) {
-					const { getBridgeDisabledReason } = await import(
-						"./bridge/bridgeEnabled.js"
-					);
-					const disabledReason = await getBridgeDisabledReason();
-					remoteControl = disabledReason === null;
-					if (disabledReason) {
-						process.stderr.write(
-							chalk.yellow(`${disabledReason}\n--rc flag ignored.\n`),
-						);
-					}
-				}
-
 				// Check for pending agent memory snapshot updates (only for --agent mode, ant-only)
 				if (
 					feature("AGENT_MEMORY_SNAPSHOT") &&
@@ -5649,21 +5634,6 @@ async function run(): Promise<CommanderCommand> {
 			"Create a remote session with the given description",
 		).hideHelp(),
 	);
-	if (feature("BRIDGE_MODE")) {
-		program.addOption(
-			new Option(
-				"--remote-control [name]",
-				"Start an interactive session with Remote Control enabled (optionally named)",
-			)
-				.argParser((value) => value || true)
-				.hideHelp(),
-		);
-		program.addOption(
-			new Option("--rc [name]", "Alias for --remote-control")
-				.argParser((value) => value || true)
-				.hideHelp(),
-		);
-	}
 	if (feature("HARD_FAIL")) {
 		program.addOption(
 			new Option(
@@ -5980,22 +5950,6 @@ async function run(): Promise<CommanderCommand> {
 	// false via the try/catch — but not before paying ~65ms of side effects
 	// (25ms settings Zod parse + 40ms sync `security` keychain subprocess).
 	// The dynamic visibility never worked; the command was always hidden.
-	if (feature("BRIDGE_MODE")) {
-		program
-			.command("remote-control", {
-				hidden: true,
-			})
-			.alias("rc")
-			.description(
-				"Connect your local environment for remote-control sessions via claude.ai/code",
-			)
-			.action(async () => {
-				// Unreachable — cli.tsx fast-path handles this command before main.tsx loads.
-				// If somehow reached, delegate to bridgeMain.
-				const { bridgeMain } = await import("./bridge/bridgeMain.js");
-				await bridgeMain(process.argv.slice(3));
-			});
-	}
 	if (feature("KAIROS")) {
 		program
 			.command("assistant [sessionId]")
