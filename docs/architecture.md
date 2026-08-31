@@ -74,7 +74,6 @@ fast-path 的意义是避免加载完整 REPL 依赖树，`--version` 可做到�
 | `fusion-mlx-stream.ts` | MLX 流式响应转 Anthropic SSE 格式 |
 | `fusion-mlx-tool-validator.ts` | 工具调用 JSON 校验与修复 |
 | `fusion-mlx-types.ts` | MLX 类型定义 |
-| `codex-fetch-adapter.ts` | OpenAI Codex 适配（feature-gated） |
 | `withRetry.ts` | API 重试策略 |
 | `errors.ts` | 错误分类与处理 |
 

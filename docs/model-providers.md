@@ -156,42 +156,47 @@ FUSION_MLX_DISABLED=1 \
 
 ### openai
 
+> ⚠️ 进程内 OpenAI 直连已随 `@anthropic-ai/sdk` 移除（P0-4 audit R6）。设 `FUSION_CODE_USE_OPENAI=1` 会**显式抛错**引导走 fusion-gateway，不再静默落入 firstParty（语义错配 → 401/404）。OpenAI OAuth 凭据（`codex-client`/`codex-oauth`，登录流/凭据存储）仍保留，用于网关鉴权透传。
+
+经 fusion-gateway（Anthropic 兼容接口代理 OpenAI 签名）：
+
 ```bash
-FUSION_CODE_USE_OPENAI=1 \
-OPENAI_API_KEY=sk-xxx \
+FUSION_GATEWAY_ENABLED=1 \
+FUSION_GATEWAY_URL=http://127.0.0.1:11432 \
 ./fusion-code
 ```
 
+网关负责 OpenAI（Azure AD / Bearer）签名并以 `/v1/messages` 暴露。本仓不做进程内 OpenAI 直连（`codex-fetch-adapter` 死代码已删）。
+
 ### foundry（Azure）
 
+> ⚠️ 进程内 Foundry 直连已随 `@anthropic-ai/sdk` 移除。设 `FUSION_CODE_USE_FOUNDRY=1` 会**显式抛错**引导走 fusion-gateway。网关负责 Azure AD 签名并以 `/v1/messages` 暴露。
+
 ```bash
-FUSION_CODE_USE_FOUNDRY=1 \
-AZURE_FOUNDRY_API_KEY=xxx \
+FUSION_GATEWAY_ENABLED=1 \
+FUSION_GATEWAY_URL=http://127.0.0.1:11432 \
 ./fusion-code
 ```
 
 ### bedrock（AWS）
 
+> ⚠️ 进程内 Bedrock 直连已随 `@anthropic-ai/bedrock-sdk` 移除。设 `FUSION_CODE_USE_BEDROCK=1` 会**显式抛错**引导走 fusion-gateway。网关负责 AWS SigV4 签名并以 `/v1/messages` 暴露。
+
 ```bash
-FUSION_CODE_USE_BEDROCK=1 \
-AWS_REGION=us-east-1 \
-AWS_ACCESS_KEY_ID=xxx \
-AWS_SECRET_ACCESS_KEY=xxx \
+FUSION_GATEWAY_ENABLED=1 \
+FUSION_GATEWAY_URL=http://127.0.0.1:11432 \
 ./fusion-code
 ```
-
-注：当前 fork 中 bedrock 分支已禁用，需恢复源码中 `if (false)` 分支才能使用。
 
 ### vertex（GCP）
 
+> ⚠️ 进程内 Vertex AI 直连已随 `@anthropic-ai/vertex-sdk` 移除。设 `FUSION_CODE_USE_VERTEX=1` 会**显式抛错**引导走 fusion-gateway。网关负责 GCP 凭据并以 `/v1/messages` 暴露。
+
 ```bash
-FUSION_CODE_USE_VERTEX=1 \
-CLOUD_ML_REGION=us-east5 \
-ANTHROPIC_VERTEX_PROJECT_ID=xxx \
+FUSION_GATEWAY_ENABLED=1 \
+FUSION_GATEWAY_URL=http://127.0.0.1:11432 \
 ./fusion-code
 ```
-
-注：当前 fork 中 vertex 分支已禁用，需恢复源码中 `if (false)` 分支才能使用。
 
 ## LLM Adapter 接缝 (div-anthropic, SDK 已彻底移除)
 
