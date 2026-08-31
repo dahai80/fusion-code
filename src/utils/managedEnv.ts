@@ -1,4 +1,4 @@
-import { isRemoteManagedSettingsEligible } from '../services/remoteManagedSettings/syncCache.js'
+import { isRemoteManagedSettingsEligible } from '../services/remoteManagedSettings/index.js'
 import { clearCACertsCache } from './caCerts.js'
 import { getGlobalConfig } from './config.js'
 import { logForDebugging } from './debug.js'

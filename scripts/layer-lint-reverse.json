@@ -1,6 +1,6 @@
 {
 	"enforcedScope": { "root": "src", "exclude": ["src/services"] },
-	"migratedSubdirs": ["mcp", "api", "compact", "lsp", "goal", "oauth", "llm", "executor", "skillSearch", "PromptSuggestion", "events", "contextCollapse", "autoDream", "teamMemorySync", "extractMemories", "capability", "audit", "profile", "plugins", "trajectory", "tools", "memory", "knowledgeBase", "workflowTemplates", "taskHealth", "SessionMemory", "steer", "sessionTranscript", "MagicDocs", "AgentSummary"],
+	"migratedSubdirs": ["mcp", "api", "compact", "lsp", "goal", "oauth", "llm", "executor", "skillSearch", "PromptSuggestion", "events", "contextCollapse", "autoDream", "teamMemorySync", "extractMemories", "capability", "audit", "profile", "plugins", "trajectory", "tools", "memory", "knowledgeBase", "workflowTemplates", "taskHealth", "SessionMemory", "steer", "sessionTranscript", "MagicDocs", "AgentSummary", "remoteManagedSettings"],
 	"allowDeepImports": [
 		{
 			"file": "src/utils/settings/validation.ts",
@@ -21,6 +21,11 @@
 			"file": "src/utils/plugins/schemas.ts",
 			"spec": "../../services/mcp/types.js",
 			"reason": "settings-cone leaf (imported by settings/types.ts); barrel import eager-loads mcp/config → settings re-entry TDZ (audit 1.1.3 Phase B)"
+		},
+		{
+			"file": "src/utils/settings/settings.ts",
+			"spec": "../../services/remoteManagedSettings/syncCacheState.js",
+			"reason": "settings-layer leaf; barrel import eager-loads index.ts → settingsChangeDetector → ./settings.js re-entry TDZ (audit 1.1.3 Phase B)"
 		}
 	]
 }

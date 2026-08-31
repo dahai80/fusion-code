@@ -667,3 +667,15 @@ export function stopBackgroundPolling(): void {
     pollingIntervalId = null
   }
 }
+
+// #203 Phase B (audit 1.1.3): remoteManagedSettings barrel re-export completion.
+// Consumers outside src/services/ must import from here, not deep files (enforced
+// by bun run lint:layers:reverse). index.ts is the existing real implementation
+// barrel (9 own exports above). Appended named re-exports cover the 2 sibling
+// symbols external consumers reach via deep imports. NOTE: resetSyncCache is
+// exported by BOTH syncCache.ts and syncCacheState.ts — NOT re-exported here (no
+// external consumer needs it; index.ts imports its own copy internally) to avoid
+// an export * TS2308 collision. securityCheck.tsx + types.ts have no external
+// deep consumers → not re-exported (Rule 2).
+export { isRemoteManagedSettingsEligible } from "./syncCache.js";
+export { getRemoteManagedSettingsSyncFromCache } from "./syncCacheState.js";
