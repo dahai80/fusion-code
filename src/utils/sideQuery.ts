@@ -13,7 +13,7 @@ import {
 	getCLISyspromptPrefix,
 } from "../constants/system.js";
 import { logEvent } from "../services/analytics/index.js";
-import type { AnalyticsMetadata_I_VERIFIED_THIS_IS_NOT_CODE_OR_FILEPATHS } from "../services/analytics/metadata.js";
+import type { AnalyticsMetadata_I_VERIFIED_THIS_IS_NOT_CODE_OR_FILEPATHS } from "../services/analytics/index.js";
 import { getAPIMetadata } from "../services/api/index.js";
 import { getAnthropicClient } from "../services/api/index.js";
 import { getModelBetas, modelSupportsStructuredOutputs } from "./betas.js";

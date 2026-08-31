@@ -7,7 +7,7 @@ import type { MutableRefObject } from "react";
 import { getTotalInputTokens } from "../bootstrap/state.js";
 import type { Notification } from "../context/notifications.js";
 import { Text } from "../ink.js";
-import { getFeatureValue_CACHED_MAY_BE_STALE } from "../services/analytics/growthbook.js";
+import { getFeatureValue_CACHED_MAY_BE_STALE } from "../services/analytics/index.js";
 import {
 	type AnalyticsMetadata_I_VERIFIED_THIS_IS_NOT_CODE_OR_FILEPATHS,
 	logEvent,

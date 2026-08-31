@@ -90,7 +90,7 @@ import {
 	tokenCountWithEstimation,
 } from "./utils/tokens.js";
 import { ESCALATED_MAX_TOKENS } from "./utils/context.js";
-import { getFeatureValue_CACHED_MAY_BE_STALE } from "./services/analytics/growthbook.js";
+import { getFeatureValue_CACHED_MAY_BE_STALE } from "./services/analytics/index.js";
 // Cloud-only tool stub (directory removed)
 const SLEEP_TOOL_NAME = "Sleep";
 import { executePostSamplingHooks } from "./utils/hooks/postSamplingHooks.js";

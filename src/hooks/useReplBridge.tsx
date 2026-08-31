@@ -21,7 +21,7 @@ import type {
 } from "../entrypoints/agentSdkTypes.js";
 import type { SDKControlResponse } from "../entrypoints/sdk/controlTypes.js";
 import { Text } from "../ink.js";
-import { getFeatureValue_CACHED_MAY_BE_STALE } from "../services/analytics/growthbook.js";
+import { getFeatureValue_CACHED_MAY_BE_STALE } from "../services/analytics/index.js";
 import {
 	useAppState,
 	useAppStateStore,

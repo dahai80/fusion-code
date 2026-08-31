@@ -134,7 +134,7 @@ import {
 import type { QuerySource } from "src/constants/querySource.js";
 import type { Notification } from "src/context/notifications.js";
 import { addToTotalSessionCost } from "src/cost-tracker.js";
-import { getFeatureValue_CACHED_MAY_BE_STALE } from "src/services/analytics/growthbook.js";
+import { getFeatureValue_CACHED_MAY_BE_STALE } from "src/services/analytics/index.js";
 import type { ClientOptions } from "src/types/anthropic-protocol.js";
 import type { AgentId } from "src/types/ids.js";
 import {

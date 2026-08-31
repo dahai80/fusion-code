@@ -1,6 +1,6 @@
 import { z } from 'zod/v4'
 import { logEvent } from '../../services/analytics/index.js'
-import { sanitizeToolNameForAnalytics } from '../../services/analytics/metadata.js'
+import { sanitizeToolNameForAnalytics } from '../../services/analytics/index.js'
 import type { AssistantMessage, Message } from '../../types/message.js'
 import { getGlobalConfig } from '../config.js'
 import { logForDebugging } from '../debug.js'

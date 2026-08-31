@@ -1,5 +1,5 @@
 import type { SDKMessage } from 'src/entrypoints/sdk/types.js'
-import { checkGate_CACHED_OR_BLOCKING } from '../../../services/analytics/growthbook.js'
+import { checkGate_CACHED_OR_BLOCKING } from '../../../services/analytics/index.js'
 import { isPolicyAllowed } from '../../../services/policyLimits/index.js'
 import { detectCurrentRepositoryWithHost } from '../../detectRepository.js'
 import { isEnvTruthy } from '../../envUtils.js'

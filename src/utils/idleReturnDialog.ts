@@ -10,7 +10,7 @@
 // ctx 携带 REPL 闭包依赖 (skipIdleCheckRef + lastQueryCompletionTimeRef + speculationAccept + setIdleReturnPending + setInputValue + helpers),
 //   input 为 onSubmit 参数。getFeatureValue_CACHED_MAY_BE_STALE/getGlobalConfig/getTotalInputTokens 为独立 module import。
 import { getTotalInputTokens } from "../bootstrap/state.js";
-import { getFeatureValue_CACHED_MAY_BE_STALE } from "../services/analytics/growthbook.js";
+import { getFeatureValue_CACHED_MAY_BE_STALE } from "../services/analytics/index.js";
 import type { ActiveSpeculationState } from "../services/PromptSuggestion/index.js";
 import { getGlobalConfig } from "./config.js";
 import type { PromptInputHelpers } from "./handlePromptSubmit.js";

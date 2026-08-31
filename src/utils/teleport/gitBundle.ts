@@ -14,7 +14,7 @@ import {
 	type AnalyticsMetadata_I_VERIFIED_THIS_IS_NOT_CODE_OR_FILEPATHS,
 	logEvent,
 } from "src/services/analytics/index.js";
-import { getFeatureValue_CACHED_MAY_BE_STALE } from "../../services/analytics/growthbook.js";
+import { getFeatureValue_CACHED_MAY_BE_STALE } from "../../services/analytics/index.js";
 import {
 	type FilesApiConfig,
 	uploadFile,

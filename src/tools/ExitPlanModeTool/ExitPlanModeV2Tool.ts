@@ -9,7 +9,7 @@ import {
   setNeedsPlanModeExitAttachment,
 } from '../../bootstrap/state.js'
 import { logEvent } from '../../services/analytics/index.js'
-import type { AnalyticsMetadata_I_VERIFIED_THIS_IS_NOT_CODE_OR_FILEPATHS } from '../../services/analytics/metadata.js'
+import type { AnalyticsMetadata_I_VERIFIED_THIS_IS_NOT_CODE_OR_FILEPATHS } from '../../services/analytics/index.js'
 import {
   buildTool,
   type Tool,

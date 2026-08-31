@@ -4,7 +4,7 @@ import {
   type AnalyticsMetadata_I_VERIFIED_THIS_IS_NOT_CODE_OR_FILEPATHS,
   logEvent,
 } from 'src/services/analytics/index.js'
-import { sanitizeToolNameForAnalytics } from 'src/services/analytics/metadata.js'
+import { sanitizeToolNameForAnalytics } from 'src/services/analytics/index.js'
 import { BashTool } from 'src/tools/BashTool/BashTool.js'
 import { splitCommand } from 'src/utils/bash/commands.js'
 import type {

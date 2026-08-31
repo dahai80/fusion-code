@@ -17,7 +17,7 @@ import {
 	isToolDetailsLoggingEnabled,
 	mcpToolDetailsForAnalytics,
 	sanitizeToolNameForAnalytics,
-} from "src/services/analytics/metadata.js";
+} from "src/services/analytics/index.js";
 import {
 	addToToolDuration,
 	getCodeEditToolDecisionCounter,

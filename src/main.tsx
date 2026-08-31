@@ -46,7 +46,7 @@ import {
 	hasGrowthBookEnvOverride,
 	initializeGrowthBook,
 	refreshGrowthBookAfterAuthChange,
-} from "./services/analytics/growthbook.js";
+} from "./services/analytics/index.js";
 import { fetchBootstrapData } from "./services/api/index.js";
 import {
 	type DownloadResult,
@@ -144,13 +144,13 @@ const kairosGate = feature("KAIROS")
 	: null;
 
 import { relative, resolve } from "path";
-import { isAnalyticsDisabled } from "src/services/analytics/config.js";
-import { getFeatureValue_CACHED_MAY_BE_STALE } from "src/services/analytics/growthbook.js";
+import { isAnalyticsDisabled } from "src/services/analytics/index.js";
+import { getFeatureValue_CACHED_MAY_BE_STALE } from "src/services/analytics/index.js";
 import {
 	type AnalyticsMetadata_I_VERIFIED_THIS_IS_NOT_CODE_OR_FILEPATHS,
 	logEvent,
 } from "src/services/analytics/index.js";
-import { initializeAnalyticsGates } from "src/services/analytics/sink.js";
+import { initializeAnalyticsGates } from "src/services/analytics/index.js";
 import {
 	getOriginalCwd,
 	setAdditionalDirectoriesForClaudeMd,

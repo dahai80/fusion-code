@@ -290,7 +290,7 @@ import { stripDangerousPermissionsForAutoMode } from "../utils/permissions/permi
 const SLEEP_TOOL_NAME = "Sleep";
 import { buildRemoteMessageContent } from "../utils/remoteMessageContent.js";
 import { randomUUID, type UUID } from "crypto";
-import { getFeatureValue_CACHED_MAY_BE_STALE } from "src/services/analytics/growthbook.js";
+import { getFeatureValue_CACHED_MAY_BE_STALE } from "src/services/analytics/index.js";
 import {
 	type AnalyticsMetadata_I_VERIFIED_THIS_IS_NOT_CODE_OR_FILEPATHS,
 	logEvent,

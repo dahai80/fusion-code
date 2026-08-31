@@ -38,3 +38,22 @@ export async function logEventAsync(
 ): Promise<void> {}
 
 export function _resetForTesting(): void {}
+
+// #203 Phase B (audit 1.1.3): analytics barrel re-export completion.
+// Consumers outside src/services/ must import from here, not deep files (enforced
+// by bun run lint:layers:reverse). The inert stubs above (logEvent/attachAnalyticsSink/
+// stripProtoFields/_resetForTesting/AnalyticsSink/logEventAsync) remain the
+// compatibility boundary for the open build's no-telemetry API. The real
+// implementation files below are ALREADY bundled in the open build (89+ consumers
+// deep-import growthbook alone) — `export *` here re-routes the import graph
+// through the barrel without adding code (tree-shaken at symbol level). No name
+// collision: real impl uses distinct names (logEventTo1P/initializeAnalyticsSink/
+// GrowthBook-*) vs the inert stubs above. firstPartyEventLoggingExporter.ts is
+// internal-only (consumed within firstPartyEventLogger.ts) → NOT re-exported.
+export * from "./config.js";
+export * from "./datadog.js";
+export * from "./firstPartyEventLogger.js";
+export * from "./growthbook.js";
+export * from "./metadata.js";
+export * from "./sink.js";
+export * from "./sinkKillswitch.js";
