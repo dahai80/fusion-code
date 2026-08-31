@@ -1,5 +1,5 @@
 import type { CommandContext, LocalCommandResult } from '../../types/command.js'
-import { getSteerQueue } from '../../services/steer/steerQueue.js'
+import { getSteerQueue } from '../../services/steer/index.js'
 
 export async function execute(
     _context: CommandContext,

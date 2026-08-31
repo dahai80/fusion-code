@@ -199,7 +199,7 @@ const BRIEF_TOOL_NAME: string | null =
 			).BRIEF_TOOL_NAME
 		: null;
 const sessionTranscriptModule = feature("KAIROS")
-	? (require("../services/sessionTranscript/sessionTranscript.js") as typeof import("../services/sessionTranscript/sessionTranscript.js"))
+	? (require("../services/sessionTranscript/index.js") as typeof import("../services/sessionTranscript/index.js"))
 	: null;
 /* eslint-enable @typescript-eslint/no-require-imports */
 import { hasUltrathinkKeyword, isUltrathinkEnabled } from "./thinking.js";

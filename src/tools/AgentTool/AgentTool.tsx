@@ -15,7 +15,7 @@ import {
 	getSystemPrompt,
 } from "../../constants/prompts.js";
 import { isCoordinatorMode } from "../../coordinator/coordinatorMode.js";
-import { startAgentSummarization } from "../../services/AgentSummary/agentSummary.js";
+import { startAgentSummarization } from "../../services/AgentSummary/index.js";
 import { getFeatureValue_CACHED_MAY_BE_STALE } from "../../services/analytics/growthbook.js";
 import {
 	type AnalyticsMetadata_I_VERIFIED_THIS_IS_NOT_CODE_OR_FILEPATHS,
