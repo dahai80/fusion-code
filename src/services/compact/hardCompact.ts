@@ -17,12 +17,16 @@ import { getMainLoopModel } from "../../utils/model/model.js";
 import { isFusionMlxProvider } from "../../utils/model/providers.js";
 import { roughTokenCountEstimationForMessages } from "../tokenEstimation.js";
 import { groupMessagesByApiRound } from "./grouping.js";
+import {
+	isShadowPriceCompactEnabled,
+	shadowPriceCompactMessages,
+} from "./shadowPrice.js";
 
-const TOOL_RESULT_HEAD_CHARS = 200;
-const TOOL_RESULT_TAIL_CHARS = 100;
+export const TOOL_RESULT_HEAD_CHARS = 200;
+export const TOOL_RESULT_TAIL_CHARS = 100;
 const ASSISTANT_TEXT_MAX_TOKENS = 500;
-const ASSISTANT_TEXT_TRUNCATE_THRESHOLD_TOKENS = 1000;
-const CHARS_PER_TOKEN_ESTIMATE = 4;
+export const ASSISTANT_TEXT_TRUNCATE_THRESHOLD_TOKENS = 1000;
+export const CHARS_PER_TOKEN_ESTIMATE = 4;
 const DEFAULT_KEEP_RECENT_ROUNDS = 3;
 
 export interface HardCompactResult {
@@ -39,7 +43,7 @@ function estimateTokensFromChars(charCount: number): number {
 	return Math.ceil(charCount / CHARS_PER_TOKEN_ESTIMATE);
 }
 
-function truncateString(
+export function truncateString(
 	s: string,
 	headChars: number,
 	tailChars: number,
@@ -51,7 +55,7 @@ function truncateString(
 	return `${head}\n[truncated: ${removed} chars removed]\n${tail}`;
 }
 
-function truncateToolResultContent(
+export function truncateToolResultContent(
 	content: string | Array<Record<string, unknown>>,
 ): string | Array<Record<string, unknown>> {
 	if (typeof content === "string") {
@@ -101,7 +105,7 @@ function truncateToolResultContent(
 	return truncated > 0 ? newContent : content;
 }
 
-function truncateAssistantText(text: string): string {
+export function truncateAssistantText(text: string): string {
 	const estimatedTokens = estimateTokensFromChars(text.length);
 	if (estimatedTokens <= ASSISTANT_TEXT_TRUNCATE_THRESHOLD_TOKENS) return text;
 	const maxChars = ASSISTANT_TEXT_MAX_TOKENS * CHARS_PER_TOKEN_ESTIMATE;
@@ -118,6 +122,22 @@ export function hardCompactMessages(
 	const preCompactTokens = roughTokenCountEstimationForMessages(
 		messages as Parameters<typeof roughTokenCountEstimationForMessages>[0],
 	); // log: cast Message[] for param type
+
+	// P1.2 (audit): 影子价压缩 — 选择性裁剪高价工具结果, 保可复用前缀。
+	// default-off (FUSION_CODE_SHADOW_PRICE_COMPACT=1)。off 走下方原 head/tail 路径, byte-identical。
+	if (isShadowPriceCompactEnabled()) {
+		const sp = shadowPriceCompactMessages(messages, keepRecentRounds);
+		return {
+			messages: sp.messages,
+			truncatedToolResults: sp.truncatedToolResults,
+			truncatedAssistantTexts: sp.truncatedAssistantTexts,
+			roundsKeptIntact: sp.roundsKeptIntact,
+			roundsProcessed: sp.roundsProcessed,
+			preCompactTokens: sp.preCompactTokens,
+			postCompactTokens: sp.postCompactTokens,
+		};
+	}
+
 	let truncatedToolResults = 0;
 	let truncatedAssistantTexts = 0;
 
