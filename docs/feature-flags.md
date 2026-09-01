@@ -235,7 +235,7 @@ FUSION_CODE_VERIFY_PLAN
 
 典型:
 
-- `VOICE_MODE`: 需 claude.ai OAuth + 录音后端 (原生模块或 SoX fallback)
+- `VOICE_MODE`: 需 claude.ai OAuth + 录音后端 (原生模块或 SoX fallback)。**MLX provider 下不可用** — voice 显式三重门禁: `isVoiceGrowthBookEnabled()` MLX 返 false + `hasVoiceAuth()` 需 Anthropic OAuth + `isVoiceStreamAvailable()` MLX 返 false; STT 硬编码 Anthropic WebSocket (`voiceStreamSTT.ts`), 非 bug 而是有意禁用 (P2-3/R19)。详见 `docs/model-providers.md` MLX 能力表。
 - `NATIVE_CLIPBOARD_IMAGE`: 需 `image-processor-napi` 才加速
 - `CCR_*`: 运行时受 OAuth + GrowthBook 控制 (`BRIDGE_MODE` 已随 P0-5 移除, 见 build.ts 注释)
 - `CHICAGO_MCP`: 编译通过但运行时 reaches `@ant/computer-use-*`

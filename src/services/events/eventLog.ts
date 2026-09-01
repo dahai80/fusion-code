@@ -60,7 +60,7 @@ export class SessionEventRecorder {
 	record(
 		type: SessionEventType,
 		data: unknown,
-		opts?: { surfaceOp?: string; sourceEventSeqs?: number[] },
+		opts?: { sourceEventSeqs?: number[] },
 	): void {
 		if (!isEventSourcingEnabled()) {
 			return;
@@ -72,7 +72,6 @@ export class SessionEventRecorder {
 				seq: this.seq,
 				type,
 				data,
-				surfaceOp: opts?.surfaceOp,
 				sourceEventSeqs: opts?.sourceEventSeqs,
 			};
 			// P1-10: 原地 push (非 appendEvent spread) — 避免 O(n²) 拷贝; 带上限。
@@ -92,12 +91,8 @@ export class SessionEventRecorder {
 	}
 
 	// 记录 sourceEventSeqs (compact causation 链) — compact 事件用。
-	recordCompact(
-		data: unknown,
-		sourceEventSeqs: number[],
-		surfaceOp?: string,
-	): void {
-		this.record("compact", data, { surfaceOp, sourceEventSeqs });
+	recordCompact(data: unknown, sourceEventSeqs: number[]): void {
+		this.record("compact", data, { sourceEventSeqs });
 	}
 }
 

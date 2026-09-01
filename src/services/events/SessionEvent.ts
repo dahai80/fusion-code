@@ -19,13 +19,12 @@ export type SessionEventType =
 	| "turn_end";
 
 // 单条事件。seq = 单调递增内存计数器 (非 Date.now — 脚本禁用时间源)。
-// surfaceOp 关联 UI surface (arch-ecosystem §2.2); sourceEventSeqs = causation 链
-// (compact 事件指向被压事件 seq)。
+// sourceEventSeqs = causation 链 (compact 事件指向被压事件 seq)。
+// surfaceOp 字段已移除 (audit P2-2/R18): 写-only 死字段, 0 生产读取方。
 export interface SessionEvent {
 	seq: number;
 	type: SessionEventType;
 	data: unknown;
-	surfaceOp?: string;
 	sourceEventSeqs?: number[];
 }
 

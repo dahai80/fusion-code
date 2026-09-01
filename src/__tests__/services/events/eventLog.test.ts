@@ -1,14 +1,14 @@
 // ar-plan PR #7 (S2.1): eventLog 纯函数 + recorder 测。
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
+import type {
+	SessionEvent,
+	SessionEventLog,
+} from "../../../services/events/index.js";
 import {
 	appendEvent,
 	isEventSourcingEnabled,
 	NOOP_RECORDER,
 	SessionEventRecorder,
-} from "../../../services/events/index.js";
-import type {
-	SessionEvent,
-	SessionEventLog,
 } from "../../../services/events/index.js";
 
 describe("appendEvent", () => {
@@ -59,14 +59,12 @@ describe("SessionEventRecorder", () => {
 		]);
 	});
 
-	it("records surfaceOp + sourceEventSeqs", () => {
+	it("records sourceEventSeqs (compact causation chain)", () => {
 		const rec = new SessionEventRecorder("s1");
-		rec.record("user_message", "q", { surfaceOp: "repl_submit" });
-		rec.recordCompact({ reason: "threshold" }, [1, 2], "auto_compact");
+		rec.recordCompact({ reason: "threshold" }, [1, 2]);
 		const log = rec.getLog();
-		expect(log[0].surfaceOp).toBe("repl_submit");
-		expect(log[1].sourceEventSeqs).toEqual([1, 2]);
-		expect(log[1].type).toBe("compact");
+		expect(log[0].sourceEventSeqs).toEqual([1, 2]);
+		expect(log[0].type).toBe("compact");
 	});
 
 	it("fail-open: bad data does not throw", () => {

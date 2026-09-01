@@ -90,6 +90,19 @@ export type APIProvider =
 
 所有阈值通过 `isFusionMlxProvider()` 自动切换。
 
+### MLX Voice 不可用 (P2-3 / R19)
+
+`fusionMlx` provider 下 **voice 不可用** — 三重显式门禁 (非静默断裂):
+
+| 门禁 | 位置 | MLX 行为 |
+|------|------|----------|
+| `isVoiceGrowthBookEnabled()` | `src/voice/voiceModeEnabled.ts:19` | 返 false |
+| `hasVoiceAuth()` | `src/voice/voiceModeEnabled.ts:39-41` | 需 Anthropic OAuth (MLX 无 OAuth) |
+| `isVoiceStreamAvailable()` | `src/services/voiceStreamSTT.ts:98-107` | 返 false |
+
+STT 通道硬编码 Anthropic WebSocket (`voiceStreamSTT.ts:36`, base URL `api.anthropic.com` `:132-136`), MLX 本地无对应端点。`isVoiceModeEnabled()` (`:55-57`) 汇聚三门禁, 任一 false 即禁用。**有意禁用, 非 bug** — MLX voice 适配器属未来工作 (deferred)。MLX provider 用户需 voice 时切 `firstParty` (配 `ANTHROPIC_API_KEY` + OAuth)。
+
+
 ## 模型解析优先级
 
 ```

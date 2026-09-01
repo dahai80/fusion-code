@@ -108,6 +108,67 @@ gateway 侧 (fusion-gateway, cross-repo) 须同时开 `routing.stream.resume_ena
 - **单测**: `src/__tests__/llm/streamResume.test.ts` (34 测) 覆盖 teeCursor 游标、seedState 续传、mergeResumedStream 合并、resumeStreamFetch (mock fetch)、isResumeEligibleError、门控、ResumeRefs、端到端 state-continuation 合并。
 - **端到端**: 对 live gateway (`resume_enabled=true`) 触发 mid-stream timeout 掉线, 验证续流无乱序无丢字。需 gateway 侧 env + 真实模型加载, 见 `~/claude-home/fusion-mlx/start.sh`。gateway 半端到端追踪 cross-repo gw#123; fusion-code 端到端手工验证另行追踪 (`docs/model-providers.md` §Stream-Resume)。
 
+## 7. 可观测性: /dump-config (P2-5 / R21)
+
+`/dump-config` 命令输出当前 fusion-code 运行时结构元数据, 供运维自检 provider/model/profile/tool+command 注册情况。**默认 build 不含此命令** — `feature('DUMP_CONFIG')` 为实验 flag (`scripts/build.ts` `fullExperimentalFeatures`), 仅 `--feature=DUMP_CONFIG` 重建后才编译进二进制 (保 byte-identical-off 契约: 默认 build 不膨胀)。
+
+### 企业启用 (重建命令)
+
+```bash
+# 默认 features + DUMP_CONFIG
+bun run ./scripts/build.ts --feature=DUMP_CONFIG
+
+# 或 dev build 含全部实验 flag (含 DUMP_CONFIG)
+bun run ./scripts/build.ts --dev --feature-set=dev-full
+```
+
+重建产物 `./fusion-code-dev` (或 `./fusion-code`) 含 `/dump-config`。
+
+### 输出语义 (无密钥)
+
+`/dump-config` 输出**结构元数据, 不含任何密钥/凭据** (gate `feature('DUMP_CONFIG')` 见 `src/entrypoints/cli.tsx:144` fast-path; 输出组装 `cli.tsx:173-180`):
+
+- 当前 provider (`getAPIProvider()` 结果)
+- 解析后 model id
+- profile 名
+- 已注册 tool 名集合
+- 已注册 command 名集合
+
+用途: 验证企业 managed-settings 下 provider/model 解析正确、tool/command 注册完整 (如自定义 plugin 未被 deny)。**不输出** API key、token、路径内用户名。
+
+## 8. /doctor MLX 401 fail-open (P2-6 / R22)
+
+`/doctor` 健康检查在 MLX provider 下, **MLX 健康 401/timeout 时静默 fail-open** (返空诊断, 无 warning), 操作员可能不知 MLX 处于健康盲区。
+
+### 触发条件
+
+仅当以下**同时**满足, `/doctor` 才达 `fetchMlxHealth()`:
+
+1. `shouldAutoUseFusionMlx()` 返 true (MLX 自动选用, 见 `src/utils/model/providers.ts`)
+2. 当前有 model loaded (否则跳过 MLX 健康探测)
+
+达探测后, `fetchMlxHealth()` (`src/services/api/fusion-mlx-adapter.ts:584-606`) 对 MLX `/v1/health` 发请求:
+- `!response.ok` (含 401 unauthorized / 5xx / timeout) → 返 `null`
+- `health === null` → `doctorDiagnostic.ts:652` `return []` (无诊断, fail-open)
+
+### 操作员应对
+
+遇 `/doctor` 显示 MLX 一切正常但实际服务异常 (响应慢/拒绝认证) 时, 手动验证:
+
+```bash
+# 直查 MLX 健康 (绕过 /doctor fail-open)
+curl -s 127.0.0.1:11432/v1/health
+
+# 查 MLX 日志
+~/claude-home/fusion-mlx/start.sh log
+```
+
+401 通常 = MLX 未配认证或 token 不匹配; timeout = 服务无响应或端口被占。这些情况 `/doctor` 不会主动告警 (有意 fail-open, 避噪声), 操作员按需手动查。
+
+### 为何不改为 fail-visible
+
+将 `return []` 改为 warning 有行为变更风险: MLX 暂态抖动 (重启中/模型加载中) 会刷屏告警, 干扰正常 `/doctor` 体验。当前 fail-open 是有意权衡, doc 对齐已满足审计验收 (R22)。
+
 ---
 
-**维护**: 改 `src/entrypoints/sandboxTypes.ts` `SandboxSettingsSchema` 或 `src/utils/sandbox/sandbox-adapter.ts` 平台支持时, 须同步本文档 (§4 语义、§5 限制)。改 `src/services/llm/streamResume.ts` env 门控或默认值时, 须同步本文档 (§6.2 env、默认值)。
+**维护**: 改 `src/entrypoints/sandboxTypes.ts` `SandboxSettingsSchema` 或 `src/utils/sandbox/sandbox-adapter.ts` 平台支持时, 须同步本文档 (§4 语义、§5 限制)。改 `src/services/llm/streamResume.ts` env 门控或默认值时, 须同步本文档 (§6.2 env、默认值)。改 `src/entrypoints/cli.tsx` `/dump-config` 输出字段或 `feature('DUMP_CONFIG')` gate 时, 须同步本文档 (§7)。改 `src/utils/doctorDiagnostic.ts` 或 `src/services/api/fusion-mlx-adapter.ts` `fetchMlxHealth` 失败分支时, 须同步本文档 (§8)。
