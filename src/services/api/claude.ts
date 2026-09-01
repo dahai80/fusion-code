@@ -2564,7 +2564,11 @@ async function* queryModel(
 					// → 落到下方既有 disableFallback/fallback (byte-identical 原路径)。default-off。
 					if (
 						isStreamResumeEnabled() &&
-						isResumeEligibleError(streamingError, streamIdleAborted)
+						isResumeEligibleError(
+							streamingError,
+							streamIdleAborted,
+							contentBlocks.length > 0,
+						)
 					) {
 						const refs = resolveResumeRefs(
 							streamResponse as unknown as Response | undefined,

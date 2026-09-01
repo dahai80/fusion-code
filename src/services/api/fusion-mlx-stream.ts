@@ -1290,13 +1290,31 @@ export async function encodeStreamToAnthropicSSE(
 		},
 	});
 
+	// P1-2 (audit 0901): do NOT blind-forward all upstream headers. Spreading
+	// ...Object.fromEntries(originalResponse.headers.entries()) propagated
+	// hop-by-hop headers: a stale `content-length` (we're streaming, body
+	// length unknown) and `content-encoding: gzip` (fetch already decompressed
+	// → clients would double-decompress). Allowlist only the safe end-to-end
+	// headers we actually want to carry; set the SSE/transport headers
+	// explicitly above and skip the rest.
+	const SAFE_FORWARD_HEADERS = new Set([
+		"x-request-id",
+		"x-fusion-stream-id",
+		"retry-after",
+	]);
+	const forwarded: Record<string, string> = {};
+	for (const [key, value] of originalResponse.headers.entries()) {
+		if (SAFE_FORWARD_HEADERS.has(key.toLowerCase())) {
+			forwarded[key] = value;
+		}
+	}
 	return new Response(streamBody, {
 		status: 200,
 		headers: {
 			"content-type": "text/event-stream",
 			"cache-control": "no-cache",
 			connection: "keep-alive",
-			...Object.fromEntries(originalResponse.headers.entries()),
+			...forwarded,
 		},
 	});
 }

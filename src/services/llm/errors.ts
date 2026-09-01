@@ -3,6 +3,7 @@
 // 替代 src/services/api/errors.ts / withRetry.ts 中的 instanceof APIError 判定。
 // 把 fetch 异常与 HTTP 非 2xx 归为稳定 LlmFailure.code, withRetry 据此判重试。
 
+import { logForDebugging } from "../../utils/debug.js";
 import type { LlmErrorCode, LlmFailure } from "./types.js";
 
 // 从 HTTP 状态码 + 错误信息推断稳定错误码。
@@ -107,6 +108,17 @@ export function classifyError(
 		code = classifyByStatus(status);
 	} else {
 		code = classifyByMessage(message);
+	}
+	// P1-7 (audit 0901): 错误分类判定依据显式日志 — 尤其兜底 UNKNOWN (无 status 的
+	// generic Error 落保守分类不可重试) 与 message 类分 (无 status 时靠 shape 猜分),
+	// 让重试 vs 抛的决策点可追溯, 不再静默误判。
+	if (code === "UNKNOWN" || (typeof status !== "number" && code !== "ABORTED")) {
+		logForDebugging(
+			`[llm:errors] classifyError code=${code} status=${
+				status ?? "none"
+			} byMessage=${typeof status !== "number"} msg="${message.slice(0, 200)}"`,
+			{ level: "warn" },
+		);
 	}
 
 	// provider Retry-After 头 (秒) 转 ms, 仅对 RATE_LIMIT 有意义

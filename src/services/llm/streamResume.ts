@@ -217,13 +217,21 @@ export async function* mergeResumedStream(
 export function isResumeEligibleError(
 	error: unknown,
 	streamIdleAborted: boolean,
+	producedContent = false,
 ): boolean {
 	if (!(error instanceof Error)) return false;
+	// idle-watchdog abort = claude.ts 300s 无新块 = 管道已排空 (drained, lag=0)。
+	// 即便此前已有 content, cursor 记录了最后交付事件 → 重放从 cursor 起, 无重复。
+	// 故 idle-abort 恒安全 (与 producedContent 无关)。
+	if (streamIdleAborted) return true;
 	// timeout 类: MLX idle (msg "Idle timeout" / "timeout") / seam StallTimeoutError
 	// (name 含 Timeout) / claude.ts watchdog idle。isTimeoutErrorLike 已覆盖 message 含
 	// "timeout" (大小写不敏感, 含 "Idle timeout") + name 含 "Timeout"。
-	if (isTimeoutErrorLike(error)) return true;
-	if (streamIdleAborted) return true;
+	// P1-4 (audit 0901): generic timeout 不保证管道已排空 — 一个请求级硬超时可在
+	// 流中段触发, 此时 cursor 可能落后服务端已持久化的事件 → 重放产生重复内容。
+	// 仅当尚未产出任何 content (first-token 阶段 = 确为 drained) 时, generic timeout
+	// 才视为可 resume。已产出 content 的 generic timeout 走原 fallback (byte-identical)。
+	if (isTimeoutErrorLike(error)) return !producedContent;
 	return false;
 }
 

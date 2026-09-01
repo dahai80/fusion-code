@@ -661,6 +661,31 @@ describe("isResumeEligibleError", () => {
 		abortErr.name = "AbortError";
 		expect(isResumeEligibleError(abortErr, false)).toBe(false);
 	});
+
+	// P1-4 (audit 0901): generic timeout with content already produced is NOT
+	// resumable — the pipe may not be drained and cursor can lag the server,
+	// replaying duplicates. Idle-abort stays eligible regardless (cursor handles
+	// replay from last delivered event).
+	test("generic timeout + producedContent=true -> false (mid-stream dup guard)", () => {
+		expect(
+			isResumeEligibleError(new Error("stream timeout reached"), false, true),
+		).toBe(false);
+		expect(
+			isResumeEligibleError(new Error("Idle timeout: no data"), false, true),
+		).toBe(false);
+	});
+
+	test("generic timeout + producedContent=false -> true (first-token drained)", () => {
+		expect(
+			isResumeEligibleError(new Error("stream timeout reached"), false, false),
+		).toBe(true);
+	});
+
+	test("idle-abort + producedContent=true -> true (cursor handles replay)", () => {
+		expect(
+			isResumeEligibleError(new Error("watchdog idle abort"), true, true),
+		).toBe(true);
+	});
 });
 
 // ─── gate (isStreamResumeEnabled / maxAttempts) ──────────────

@@ -209,28 +209,78 @@ export function createSeamClient(
 
 		async *listModels(opts) {
 			const ep = resolveSeamEndpoint(model);
-			const url = joinUrl(ep.baseUrl, "/v1/models?limit=1000");
 			logForDebugging(
 				`[llm:client] listModels model=${model} baseUrl=${ep.baseUrl}`,
 			);
-			const json = await rawFetchJson({
-				url,
-				method: "GET",
-				apiKey: ep.apiKey,
-				firstParty: ep.firstParty,
-				signal: opts?.signal,
-				betas: opts?.betas,
-				extraHeaders: mergeHeaders(),
-				fetchFn: fetchOverride ?? ep.fetchFn,
-			});
-			// /v1/models 返回 { data: ModelEntry[], has_more, ... }
-			const data = (json as { data?: unknown }).data;
-			if (Array.isArray(data)) {
-				for (const entry of data) {
-					if (entry && typeof entry === "object" && "id" in entry) {
-						yield entry as ModelListEntry;
+			// P1-6 (audit 0901): 旧实现单页 limit=1000 不分页 — 上游返 has_more=true
+			// 时静默截断 → /model 列表缺模型, 用户选不到真实存在的模型。改游标分页:
+			// Anthropic /v1/models 用 after=<last_id> + has_more 翻页。设最大页数上限
+			// (MAX_PAGES) 防恶意/失控上游无限翻页; 达上限显眼日志 (非静默截断)。
+			const MAX_PAGES = Number.isFinite(
+				parseInt(
+					process.env.FUSION_CODE_LISTMODELS_MAX_PAGES ?? "",
+					10,
+				),
+			)
+				? parseInt(process.env.FUSION_CODE_LISTMODELS_MAX_PAGES ?? "", 10)
+				: 10;
+			let page = 0;
+			let afterId: string | undefined;
+			let totalYielded = 0;
+			let truncatedAt: number | undefined;
+			while (page < MAX_PAGES) {
+				page++;
+				const qs = afterId
+					? `/v1/models?limit=1000&after=${encodeURIComponent(afterId)}`
+					: "/v1/models?limit=1000";
+				const url = joinUrl(ep.baseUrl, qs);
+				const json = await rawFetchJson({
+					url,
+					method: "GET",
+					apiKey: ep.apiKey,
+					firstParty: ep.firstParty,
+					signal: opts?.signal,
+					betas: opts?.betas,
+					extraHeaders: mergeHeaders(),
+					fetchFn: fetchOverride ?? ep.fetchFn,
+				});
+				// /v1/models 返回 { data: ModelEntry[], has_more, last_id, ... }
+				const parsed = json as {
+					data?: unknown;
+					has_more?: boolean;
+					last_id?: string;
+				};
+				const data = parsed.data;
+				let pageYielded = 0;
+				let lastSeenId: string | undefined;
+				if (Array.isArray(data)) {
+					for (const entry of data) {
+						if (entry && typeof entry === "object" && "id" in entry) {
+							yield entry as ModelListEntry;
+							pageYielded++;
+							lastSeenId = (entry as { id: string }).id;
+						}
 					}
 				}
+				totalYielded += pageYielded;
+				// 服务端 has_more + last_id 明示有更多 → 续翻; 否则终止。
+				if (!parsed.has_more || !parsed.last_id) {
+					afterId = undefined;
+					break;
+				}
+				// 优先用服务端 last_id; 若缺则用本页末条 id 作 fallback 游标。
+				afterId = parsed.last_id ?? lastSeenId;
+				if (!afterId || pageYielded === 0) break; // 无游标/空页 → 终止防死循环
+				if (page >= MAX_PAGES) {
+					truncatedAt = totalYielded;
+				}
+			}
+			if (truncatedAt !== undefined) {
+				// 非静默截断: 达页数上限仍有 has_more → 显眼日志, 用户可知列表不全。
+				logForDebugging(
+					`[llm:client] listModels TRUNCATED at ${truncatedAt} models (hit MAX_PAGES=${MAX_PAGES}; upstream has_more=true). Raise FUSION_CODE_LISTMODELS_MAX_PAGES to fetch all.`,
+					{ level: "warn" },
+				);
 			}
 		},
 	};

@@ -100,6 +100,9 @@ async function readWithStallGuard(
     }
 
     let timer: ReturnType<typeof setTimeout> | undefined;
+    // P1-5 (audit 0901): holder captures onAbort outside the executor so the
+    // settle handler below can removeEventListener on every terminal path.
+    const abortHolder: { onAbort?: () => void } = {};
 
     type ReadResult = Awaited<ReturnType<typeof reader.read>>;
     const armed = new Promise<ReadResult>((resolve, reject) => {
@@ -138,15 +141,38 @@ async function readWithStallGuard(
                 reject(new DOMException("SSE stream aborted", "AbortError"));
             };
             if (signal.aborted) onAbort();
-            else signal.addEventListener("abort", onAbort, { once: true });
+            else {
+                signal.addEventListener("abort", onAbort, { once: true });
+                abortHolder.onAbort = onAbort;
+            }
         }
     });
 
-    return armed.catch((err: Error) => {
-        // Ensure any in-flight timer is cleared on rejection path.
-        if (timer) clearTimeout(timer);
-        throw err;
-    });
+    // P1-5 (audit 0901): remove the abort listener on every terminal path
+    // EXCEPT abort itself ({ once: true } already removed it there). Without
+    // this, every successful read (done or data chunk) leaves a dangling
+    // listener on the AbortSignal — a reused/long-lived signal accumulates
+    // one listener per read() call = O(n) leak across a stream, retained
+    // until the signal itself is GC'd. removeEventListener is a safe no-op
+    // on an already-removed listener (the abort-fired path).
+    const cleanup = () => {
+        if (abortHolder.onAbort && signal) {
+            signal.removeEventListener("abort", abortHolder.onAbort);
+            abortHolder.onAbort = undefined;
+        }
+    };
+    return armed.then(
+        (r) => {
+            cleanup();
+            return r;
+        },
+        (err: Error) => {
+            cleanup();
+            // Ensure any in-flight timer is cleared on rejection path.
+            if (timer) clearTimeout(timer);
+            throw err;
+        },
+    );
 }
 
 // 把一个 ReadableStream<Uint8Array> (fetch Response.body) 解析成 SseEvent 异步迭代器。

@@ -972,7 +972,17 @@ export class QueryEngine {
 								return;
 							}
 						} catch (_budgetErr) {
-							// budget tracking skipped
+							// P1-3 (audit 0901): budget tracking error must be
+							// visible, not silently swallowed — a thrown
+							// updateBudgetUsed/checkBudget masks a real bug
+							// (corrupt budget state) and the turn proceeds with
+							// no budget enforcement at all. Log so operators see
+							// it; turn continues (budget is best-effort, must not
+							// block the model), but the failure is no longer silent.
+							logForDebugging(
+								`[goal] budget tracking error: ${(_budgetErr as Error)?.message ?? _budgetErr}`,
+								{ level: "warn" },
+							);
 						}
 					}
 

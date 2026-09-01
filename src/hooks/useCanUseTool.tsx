@@ -71,9 +71,31 @@ function useCanUseTool(setToolUseConfirmQueue, setToolPermissionContext) {
 				if (ctx.resolveIfAborted(resolve)) {
 					return;
 				}
+				// P1-1 (audit 0901): forceDecision short-circuited ALL permission
+				// checks — an "allow" forceDecision would bypass settings.json
+				// deny/ask rules with no audit. In practice forceDecision is only
+				// ever the "ask" passthrough from a PreToolUse hook (toolHooks.ts
+				// sets it solely when hook behavior === "ask"), so an allow never
+				// arrives today. But the API must be safe-by-construction: honor
+				// only deny/ask from forceDecision; an "allow" is dropped and the
+				// normal rule-based check runs (never force-allow). Deny/ask are
+				// also audited so a forced decision is never silent.
+				const safeForceDecision =
+					forceDecision !== undefined &&
+					forceDecision.behavior !== "allow"
+						? forceDecision
+						: undefined;
+				if (forceDecision !== undefined && forceDecision.behavior === "allow") {
+					logError(
+						new Error(
+							`[permissions] forceDecision=allow ignored for ${tool.name} — ` +
+								"forceDecision may only force deny/ask, never bypass allow",
+						),
+					);
+				}
 				const decisionPromise =
-					forceDecision !== undefined
-						? Promise.resolve(forceDecision)
+					safeForceDecision !== undefined
+						? Promise.resolve(safeForceDecision)
 						: hasPermissionsToUseTool(
 								tool,
 								input,
