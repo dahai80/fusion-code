@@ -132,6 +132,15 @@ class CircuitBreaker {
 			);
 		}
 	}
+
+	// Test seam: reset to initial closed state (isolates test cases from the
+	// module-global mlxApiCircuit accumulating failures across prior tests).
+	reset(): void {
+		this.state = "closed";
+		this.failureCount = 0;
+		this.successCount = 0;
+		this.lastFailureTime = 0;
+	}
 }
 
 const mlxApiCircuit = new CircuitBreaker();
@@ -464,16 +473,25 @@ async function mlxFetchWithRetry(
 		);
 
 		// 延迟期间监听用户中断,ESC 立即生效而非等满
+		// P3-1 (audit 0901): timer 正常 resolve 时 abort 监听器不自动移除 ({ once:true }
+		// 仅 abort 触发时自移除) → 复用/长寿命 signal 每 retry 累一监听器 + 闭包, O(n) 泄漏
+		// 至 signal GC。holder + finally removeEventListener 清理 (abort 已触发路径 no-op)。
+		const promiseHolder: { onAbort?: () => void } = {};
 		await new Promise<void>((resolve, reject) => {
 			const timer = setTimeout(resolve, retryDelay);
-			init.signal?.addEventListener(
-				"abort",
-				() => {
-					clearTimeout(timer);
-					reject(error);
-				},
-				{ once: true },
-			);
+			const onAbort = () => {
+				clearTimeout(timer);
+				reject(error);
+			};
+			if (init.signal) {
+				init.signal.addEventListener("abort", onAbort, { once: true });
+				promiseHolder.onAbort = onAbort;
+			}
+		}).finally(() => {
+			if (init.signal && promiseHolder.onAbort) {
+				init.signal.removeEventListener("abort", promiseHolder.onAbort);
+				promiseHolder.onAbort = undefined;
+			}
 		});
 
 		// 重试前再次检查用户是否已中断
@@ -900,7 +918,8 @@ function anthropicToMlxMessages(
 				}
 				// audit §1.3.1: capture cache_control from any system block (last one wins,
 				// matching Anthropic's "last cache_control = boundary" convention).
-				const cc = (b as { cache_control?: Record<string, string> }).cache_control;
+				const cc = (b as { cache_control?: Record<string, string> })
+					.cache_control;
 				if (cc) {
 					systemCacheControl = cc;
 				}
@@ -1418,6 +1437,12 @@ function getOriginalFetch(): typeof globalThis.fetch {
 }
 export function _resetOriginalFetch(): void {
 	_originalFetch = null;
+}
+
+// Test seam: reset module-global circuit breaker (P3-1 test isolates from
+// prior connection-failure tests opening the breaker).
+export function _resetMlxCircuitBreaker(): void {
+	mlxApiCircuit.reset();
 }
 
 export function createFusionMlxFetch(model: string): typeof globalThis.fetch {

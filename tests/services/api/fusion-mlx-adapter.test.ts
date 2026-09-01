@@ -13,6 +13,7 @@
  */
 import { afterEach, beforeEach, describe, expect, it, spyOn } from "bun:test";
 import {
+	_resetMlxCircuitBreaker,
 	_resetOriginalFetch,
 	checkFusionMlxHealth,
 	createFusionMlxFetch,
@@ -30,6 +31,7 @@ const DEFAULT_MLX_URL = "http://127.0.0.1:11432";
 
 beforeEach(() => {
 	_resetOriginalFetch();
+	_resetMlxCircuitBreaker();
 });
 
 /**
@@ -1043,6 +1045,75 @@ describe("createFusionMlxFetch", () => {
 			expect(gcCalled).toBe(false); // 非 OOM 不触发 gc
 		} finally {
 			mockFetch.mockRestore();
+		}
+	});
+
+	// ─── P3-1 (audit 0901): retry-delay abort listener leak ───
+	// 连接错误触发 mlxFetchWithRetry 重试延迟路径 (line 466-486)。timer 正常 resolve
+	// 时, 之前注册的 abort 监听器 ({ once:true } 仅 abort 触发自移除) 残留在 signal 上
+	// → 复用/长寿命 signal 每 retry 累一监听器 + 闭包, O(n) 泄漏。修复 = finally 显式
+	// removeEventListener。此测试用 spy 计 add/remove, 断言净残留 = 0。
+	it("P3-1: connection retry 不在 signal 上残留 abort 监听器", async () => {
+		const fetchFn = createFusionMlxFetch("test-model");
+		const ac = new AbortController();
+		let chatCallCount = 0;
+		const mockFetch = spyOn(globalThis, "fetch").mockImplementation(
+			async (url) => {
+				const urlStr = String(url);
+				if (urlStr.includes("/v1/chat/completions")) {
+					chatCallCount++;
+					if (chatCallCount === 1) {
+						// 首次连接错误 → 触发重试延迟路径
+						throw new Error("fetch failed: ECONNREFUSED");
+					}
+					// 重试成功
+					return mockResponse({
+						id: "retry-ok",
+						object: "chat.completion",
+						created: 100,
+						model: "test-model",
+						choices: [
+							{ index: 0, message: { role: "assistant", content: "ok" }, finish_reason: "stop" },
+						],
+						usage: { prompt_tokens: 5, completion_tokens: 3, total_tokens: 8 },
+					});
+				}
+				return mockResponse({});
+			},
+		);
+		// Spy add/removeEventListener 计净残留 abort 监听器
+		let netListeners = 0;
+		const addSpy = spyOn(ac.signal, "addEventListener").mockImplementation(
+			(type: string, listener: EventListenerOrEventListenerObject) => {
+				if (type === "abort") netListeners++;
+				return EventTarget.prototype.addEventListener.call(ac.signal, type, listener);
+			},
+		);
+		const removeSpy = spyOn(ac.signal, "removeEventListener").mockImplementation(
+			(type: string, listener: EventListenerOrEventListenerObject) => {
+				if (type === "abort") netListeners--;
+				return EventTarget.prototype.removeEventListener.call(ac.signal, type, listener);
+			},
+		);
+
+		try {
+			const res = await fetchFn("http://localhost/v1/messages", {
+				method: "POST",
+				headers: { "content-type": "application/json" },
+				body: JSON.stringify({
+					model: "test",
+					messages: [{ role: "user", content: "Hi" }],
+				}),
+				signal: ac.signal,
+			});
+			expect(res.status).toBe(200);
+			expect(chatCallCount).toBe(2); // 首次连接错误 + 重试成功
+			// P3-1 核心: add/remove 配平, signal 上无残留 abort 监听器
+			expect(netListeners).toBe(0);
+		} finally {
+			mockFetch.mockRestore();
+			addSpy.mockRestore();
+			removeSpy.mockRestore();
 		}
 	});
 });
