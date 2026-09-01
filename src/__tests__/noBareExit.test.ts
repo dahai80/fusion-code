@@ -17,9 +17,10 @@ import { fileURLToPath } from "node:url";
 //   - post-REPL cluster: lines already prefixed by `await gracefulShutdown(N)`
 //     — the trailing process.exit is dead code after forceExit, kept to match
 //     the upstream pattern. Detected by "preceding line is await gracefulShutdown".
-//   - subcommand handlers (server/ssh/agents/auto-mode): separate command
-//     lifecycle, no REPL to clean up. Detected by being inside a `.action(`
-//     block registered AFTER the REPL command.
+//   - subcommand handlers (open connect, plus server/ssh/agents/auto-mode now
+//     extracted to ./main/*SubCommands.ts): separate command lifecycle, no
+//     REPL to clean up. Detected by being inside a `.action(` block registered
+//     AFTER the REPL command.
 //
 // Both are detected structurally, so line-number drift does not silently
 // weaken the contract — a new bare exit fails loudly until classified.
@@ -82,13 +83,17 @@ describe("P1-5 no bare process.exit after init (audit R11)", () => {
 		const initLine = findInitBoundary();
 		// Subcommand registrations begin after the main REPL command tree.
 		// Locate the first top-level subcommand `.command(` following the REPL
-		// body. We use the known structural anchor: the `server` subcommand
-		// (`.command("server")`) marks where independent-lifecycle handlers
-		// start. If that anchor moves, this test fails loudly with a clear
-		// message to update it — preferable to silent weakening.
+		// body. We use the known structural anchor: the first subcommand still
+		// registered inline in main.tsx. (server/ssh/agents/auto-mode were
+		// extracted to ./main/*SubCommands.ts per audit P2-1/R17 god-module
+		// split — slice C2+C3 — leaving only the `open` connect subcommand
+		// inline; its `.action()` bare exits are a separate lifecycle.) If that
+		// anchor moves (e.g. `open` later extracted as slice C4), this test
+		// fails loudly with a clear message to update it — preferable to silent
+		// weakening.
 		let subcmdStart = lines.length;
 		for (let i = 0; i < lines.length; i++) {
-			if (/\.command\(\s*["']server["']/.test(lines[i])) {
+			if (/\.command\(\s*["']open <cc-url>["']/.test(lines[i])) {
 				subcmdStart = i + 1;
 				break;
 			}

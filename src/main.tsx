@@ -47,20 +47,20 @@ import {
 	initializeGrowthBook,
 	refreshGrowthBookAfterAuthChange,
 } from "./services/analytics/index.js";
-import { fetchBootstrapData } from "./services/api/index.js";
 import {
 	type DownloadResult,
 	downloadSessionFiles,
 	type FilesApiConfig,
+	fetchBootstrapData,
 	parseFileSpecs,
+	prefetchPassesEligibility,
 } from "./services/api/index.js";
-import { prefetchPassesEligibility } from "./services/api/index.js";
-import { prefetchOfficialMcpUrls } from "./services/mcp/index.js";
 import type {
 	McpSdkServerConfig,
 	McpServerConfig,
 	ScopedMcpServerConfig,
 } from "./services/mcp/index.js";
+import { prefetchOfficialMcpUrls } from "./services/mcp/index.js";
 import {
 	isPolicyAllowed,
 	loadPolicyLimits,
@@ -144,13 +144,13 @@ const kairosGate = feature("KAIROS")
 	: null;
 
 import { relative, resolve } from "path";
-import { isAnalyticsDisabled } from "src/services/analytics/index.js";
-import { getFeatureValue_CACHED_MAY_BE_STALE } from "src/services/analytics/index.js";
 import {
 	type AnalyticsMetadata_I_VERIFIED_THIS_IS_NOT_CODE_OR_FILEPATHS,
+	getFeatureValue_CACHED_MAY_BE_STALE,
+	initializeAnalyticsGates,
+	isAnalyticsDisabled,
 	logEvent,
 } from "src/services/analytics/index.js";
-import { initializeAnalyticsGates } from "src/services/analytics/index.js";
 import {
 	getOriginalCwd,
 	setAdditionalDirectoriesForClaudeMd,
@@ -276,9 +276,7 @@ import {
 } from "./utils/settings/settings.js";
 import { resetSettingsCache } from "./utils/settings/settingsCache.js";
 import type { ValidationError } from "./utils/settings/validation.js";
-import {
-	DEFAULT_TASKS_MODE_TASK_LIST_ID,
-} from "./utils/tasks.js";
+import { DEFAULT_TASKS_MODE_TASK_LIST_ID } from "./utils/tasks.js";
 import {
 	logPluginLoadErrors,
 	logPluginsEnabledForSession,
@@ -289,26 +287,19 @@ import { validateUuid } from "./utils/uuid.js";
 // Plugin startup checks are now handled non-blockingly in REPL.tsx
 
 import { logPermissionContextForAnts } from "src/services/internalLogging.js";
-import { registerMcpCommands } from "./main/mcpCommands.js";
-import { registerPluginCommands } from "./main/pluginCommands.js";
-import { registerAuthCommands } from "./main/miscCommands.js";
-import { registerAntCommands } from "./main/antCommands.js";
-import { registerMiscSubCommands } from "./main/miscSubCommands.js";
-import { fetchClaudeAIMcpConfigsIfEligible } from "src/services/mcp/index.js";
-import { clearServerCache } from "src/services/mcp/index.js";
 import {
 	areMcpConfigsAllowedWithEnterpriseMcpConfig,
+	clearServerCache,
 	dedupClaudeAiMcpServers,
 	doesEnterpriseMcpConfigExist,
+	excludeCommandsByServer,
+	excludeResourcesByServer,
+	fetchClaudeAIMcpConfigsIfEligible,
 	filterMcpServersByPolicy,
 	getClaudeCodeMcpConfigs,
 	getMcpServerSignature,
 	parseMcpConfig,
 	parseMcpConfigFromFilePath,
-} from "src/services/mcp/index.js";
-import {
-	excludeCommandsByServer,
-	excludeResourcesByServer,
 } from "src/services/mcp/index.js";
 import { getRelevantTips } from "src/services/tips/tipRegistry.js";
 import { logContextMetrics } from "src/utils/api.js";
@@ -326,7 +317,6 @@ import {
 } from "src/utils/concurrentSessions.js";
 import { getCwd } from "src/utils/cwd.js";
 import { logForDebugging, setHasFormattedOutput } from "src/utils/debug.js";
-
 import {
 	errorMessage,
 	getErrnoCode,
@@ -379,6 +369,12 @@ import {
 	setUserMsgOptIn,
 	switchSession,
 } from "./bootstrap/state.js";
+import { registerAntCommands } from "./main/antCommands.js";
+import { registerMcpCommands } from "./main/mcpCommands.js";
+import { registerAuthCommands } from "./main/miscCommands.js";
+import { registerMiscSubCommands } from "./main/miscSubCommands.js";
+import { registerServerSubCommands } from "./main/serverSubCommands.js";
+import { registerPluginCommands } from "./main/pluginCommands.js";
 
 /* eslint-disable @typescript-eslint/no-require-imports */
 const autoModeStateModule =
@@ -403,8 +399,8 @@ import {
 	createDirectConnectSession,
 	DirectConnectError,
 } from "./server/createDirectConnectSession.js";
-import { initializeLspServerManager } from "./services/lsp/index.js";
 import { initializeExecutorManager } from "./services/executor/index.js";
+import { initializeLspServerManager } from "./services/lsp/index.js";
 import { shouldEnablePromptSuggestion } from "./services/PromptSuggestion/index.js";
 import {
 	type AppState,
@@ -2169,7 +2165,7 @@ async function run(): Promise<CommanderCommand> {
 				).rc;
 			// Actual bridge check is deferred to after showSetupScreens() so that
 			// trust is established and GrowthBook has auth headers.
-			let remoteControl = false;
+			const remoteControl = false;
 			const remoteControlName =
 				typeof remoteControlOption === "string" &&
 				remoteControlOption.length > 0
@@ -5669,140 +5665,10 @@ async function run(): Promise<CommanderCommand> {
 	// claude mcp — subcommand group extracted to ./main/mcpCommands.ts (issue #133)
 	registerMcpCommands(program);
 
-	// claude server
-	if (feature("DIRECT_CONNECT")) {
-		program
-			.command("server")
-			.description("Start a Fusion-Code session server")
-			.option("--port <number>", "HTTP port", "0")
-			.option("--host <string>", "Bind address", "127.0.0.1")
-			.option("--auth-token <token>", "Bearer token for auth")
-			.option("--unix <path>", "Listen on a unix domain socket")
-			.option(
-				"--workspace <dir>",
-				"Default working directory for sessions that do not specify cwd",
-			)
-			.option(
-				"--idle-timeout <ms>",
-				"Idle timeout for detached sessions in ms (0 = never expire)",
-				"600000",
-			)
-			.option(
-				"--max-sessions <n>",
-				"Maximum concurrent sessions (0 = unlimited)",
-				"32",
-			)
-			.action(
-				async (opts: {
-					port: string;
-					host: string;
-					authToken?: string;
-					unix?: string;
-					workspace?: string;
-					idleTimeout: string;
-					maxSessions: string;
-				}) => {
-					const { randomBytes } = await import("crypto");
-					const { startServer } = await import("./server/server.js");
-					const { SessionManager } = await import("./server/sessionManager.js");
-					const { DangerousBackend } = await import(
-						"./server/backends/dangerousBackend.js"
-					);
-					const { printBanner } = await import("./server/serverBanner.js");
-					const { createServerLogger } = await import("./server/serverLog.js");
-					const { writeServerLock, removeServerLock, probeRunningServer } =
-						await import("./server/lockfile.js");
-					const existing = await probeRunningServer();
-					if (existing) {
-						process.stderr.write(
-							`A claude server is already running (pid ${existing.pid}) at ${existing.httpUrl}\n`,
-						);
-						process.exit(1);
-					}
-					const authToken =
-						opts.authToken ??
-						`sk-fc-cc-${randomBytes(16).toString("base64url")}`;
-					const config = {
-						port: parseInt(opts.port, 10),
-						host: opts.host,
-						authToken,
-						unix: opts.unix,
-						workspace: opts.workspace,
-						idleTimeoutMs: parseInt(opts.idleTimeout, 10),
-						maxSessions: parseInt(opts.maxSessions, 10),
-					};
-					const backend = new DangerousBackend();
-					const sessionManager = new SessionManager(backend, {
-						idleTimeoutMs: config.idleTimeoutMs,
-						maxSessions: config.maxSessions,
-					});
-					const logger = createServerLogger();
-					const server = startServer(config, sessionManager, logger);
-					const actualPort = server.port ?? config.port;
-					printBanner(config, authToken, actualPort);
-					await writeServerLock({
-						pid: process.pid,
-						port: actualPort,
-						host: config.host,
-						httpUrl: config.unix
-							? `unix:${config.unix}`
-							: `http://${config.host}:${actualPort}`,
-						startedAt: Date.now(),
-					});
-					let shuttingDown = false;
-					const shutdown = async () => {
-						if (shuttingDown) return;
-						shuttingDown = true;
-						// Stop accepting new connections before tearing down sessions.
-						server.stop(true);
-						await sessionManager.destroyAll();
-						await removeServerLock();
-						process.exit(0);
-					};
-					process.once("SIGINT", () => void shutdown());
-					process.once("SIGTERM", () => void shutdown());
-				},
-			);
-	}
-
-	// `claude ssh <host> [dir]` — registered here only so --help shows it.
-	// The actual interactive flow is handled by early argv rewriting in main()
-	// (parallels the DIRECT_CONNECT/cc:// pattern above). If commander reaches
-	// this action it means the argv rewrite didn't fire (e.g. user ran
-	// `claude ssh` with no host) — just print usage.
-	if (feature("SSH_REMOTE")) {
-		program
-			.command("ssh <host> [dir]")
-			.description(
-				"Run Fusion-Code on a remote host over SSH. Deploys the binary and " +
-					"tunnels API auth back through your local machine — no remote setup needed.",
-			)
-			.option(
-				"--permission-mode <mode>",
-				"Permission mode for the remote session",
-			)
-			.option(
-				"--dangerously-skip-permissions",
-				"Skip all permission prompts on the remote (dangerous)",
-			)
-			.option(
-				"--local",
-				"e2e test mode — spawn the child CLI locally (skip ssh/deploy). " +
-					"Exercises the auth proxy and unix-socket plumbing without a remote host.",
-			)
-			.action(async () => {
-				// Argv rewriting in main() should have consumed `ssh <host>` before
-				// commander runs. Reaching here means host was missing or the
-				// rewrite predicate didn't match.
-				process.stderr.write(
-					"Usage: fusion-code ssh <user@host | ssh-config-alias> [dir]\n\n" +
-						"Runs Fusion-Code on a remote Linux host. You don't need to install\n" +
-						"anything on the remote or run `claude auth login` there — the binary is\n" +
-						"deployed over SSH and API auth tunnels back through your local machine.\n",
-				);
-				process.exit(1);
-			});
-	}
+	// claude server + ssh subcommand group (server/ssh), feature-gated
+	// (DIRECT_CONNECT/SSH_REMOTE). extracted to ./main/serverSubCommands.ts
+	// (audit P2-1 / R17 god-module split, slice C3).
+	registerServerSubCommands(program);
 
 	// claude connect — subcommand only handles -p (headless) mode.
 	// Interactive mode (without -p) is handled by early argv rewriting in main()
@@ -5869,7 +5735,6 @@ async function run(): Promise<CommanderCommand> {
 
 	// claude plugin — subcommand group extracted to ./main/pluginCommands.ts (issue #133)
 	registerPluginCommands(program);
-
 
 	// misc subcommand group (setup-token/agents/auto-mode/assistant/doctor/update/up/rollback/install)
 	// extracted to ./main/miscSubCommands.ts (audit P2-1 / R17 god-module split, slice C2).
