@@ -13,7 +13,7 @@ src/entrypoints/cli.tsx
   ├─ fast-path 分发
   │    ├─ --version / -v          零依赖输出
   │    ├─ --dump-system-prompt     渲染 system prompt 后退出
-  │    ├─ bridge/daemon/ps 模式    子命令直接派发
+  │    ├─ bridge/ps 模式          子命令直接派发
   │    └─ bg 模式                  后台会话
   └─ 兜底 -> src/main.js -> cliMain() -> src/screens/REPL.tsx
 ```
