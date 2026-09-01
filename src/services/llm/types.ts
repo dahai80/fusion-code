@@ -169,7 +169,7 @@ export type NeutralSystemBlock = {
 
 // ─── 适配器接口 ─────────────────────────────────────────────
 // 参考 dsh abstract class LlmAdapter: 唯一必需方法 stream()。
-// fusion-code 用静态分派 (registry.ts 按 APIProvider 返回实例), 不引入 Cordis 运行时注册。
+// fusion-code 用直接构造 (client.ts→seam.ts 按 APIProvider 构造请求), 不引入 Cordis 运行时注册。
 export interface LlmAdapter {
 	// 唯一必需方法: 把一次模型调用流式吐成中立 chunk。实现须遵守 options.signal。
 	stream(options: GenerateOptions): AsyncIterable<StreamChunk>;

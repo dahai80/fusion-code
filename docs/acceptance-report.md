@@ -52,17 +52,10 @@ PASS (数量修正: 68 个 distinct flag, 非用户所述 88)
   BRIDGE_MODE ✓ WEB_BROWSER_TOOL ✓ WORKFLOW_SCRIPTS ✓ (全部存在于源码 feature() 调用)
 - DCE 反向验证: 默认构建 binary 中 `feature("` 调用 0 残留, ULTRAPLAN 专属字符串 0.
 
-## 3. MLX Prompt Tiering
+## 3. MLX Prompt Tiering (已移除)
 
-PASS
-
-- `src/services/model-router/modelRouter.ts` 实现 4 级 TaskComplexity: trivial/standard/complex/safety-critical
-- 每级 `ModelTierConfig` 含 localSmall/localMain/localLarge/cloud (如 standard: qwen2.5-coder-0.5b/qwen2.5-coder/qwen2.5-coder-32b/claude-sonnet-5)
-- `COMPLEXITY_KEYWORDS` 按任务关键词分类 (trivial: list/show/cat/ls; standard: edit/fix/refactor; ...)
-- 按任务复杂度 auto-scale 选择模型规模 (本地小/中/大 + 云端 fallback)
-- MLX 上下文阈值 (docs/model-providers.md Phase 5): auto-compact 60%, per-message budget 60K,
-  工具结果持久化阈值 15K, 全部通过 `isFusionMlxProvider()` 自动切换.
-- MLX 模型能力分层: ≤3B 5 core tools, 7-9B 10 tools, 其余 full set; 工具描述截断 200 chars.
+REMOVED — `src/services/model-router/` 死代码已删除 (audit R8 / P1-2)。0 引用,
+DEFAULT_TIER_CONFIG 模型名陈旧。MLX 上下文阈值与模型能力分层见 `docs/model-providers.md`。
 
 ## 4. 权限模式 (4 模式) + Safe Mode
 

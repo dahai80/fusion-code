@@ -882,11 +882,12 @@ export async function main() {
 	process.on("SIGINT", () => {
 		// In print mode, print.ts registers its own SIGINT handler that aborts
 		// the in-flight query and calls gracefulShutdown; skip here to avoid
-		// preempting it with a synchronous process.exit().
+		// preempting it with a bare process.exit that raced the async
+		// gracefulShutdown registered in gracefulShutdown.ts (P1-5).
 		if (process.argv.includes("-p") || process.argv.includes("--print")) {
 			return;
 		}
-		process.exit(0);
+		gracefulShutdownSync(0);
 	});
 	profileCheckpoint("main_warning_handler_initialized");
 
@@ -2019,13 +2020,13 @@ async function run(): Promise<CommanderCommand> {
 					process.stderr.write(
 						chalk.red("Error: --tmux requires --worktree\n"),
 					);
-					process.exit(1);
+					gracefulShutdownSync(1);
 				}
 				if (getPlatform() === "windows") {
 					process.stderr.write(
 						chalk.red("Error: --tmux is not supported on Windows\n"),
 					);
-					process.exit(1);
+					gracefulShutdownSync(1);
 				}
 				if (!(await isTmuxAvailable())) {
 					process.stderr.write(
@@ -2033,7 +2034,7 @@ async function run(): Promise<CommanderCommand> {
 							`Error: tmux is not installed.\n${getTmuxInstallInstructions()}\n`,
 						),
 					);
-					process.exit(1);
+					gracefulShutdownSync(1);
 				}
 			}
 
@@ -2064,7 +2065,7 @@ async function run(): Promise<CommanderCommand> {
 							"Error: --agent-id, --agent-name, and --team-name must all be provided together\n",
 						),
 					);
-					process.exit(1);
+					gracefulShutdownSync(1);
 				}
 
 				// If teammate identity is provided via CLI, set up dynamicTeamContext
@@ -2185,7 +2186,7 @@ async function run(): Promise<CommanderCommand> {
 							"Error: --session-id can only be used with --continue or --resume if --fork-session is also specified.\n",
 						),
 					);
-					process.exit(1);
+					gracefulShutdownSync(1);
 				}
 
 				// When --sdk-url is provided (bridge/remote mode), the session ID is a
@@ -2198,7 +2199,7 @@ async function run(): Promise<CommanderCommand> {
 						process.stderr.write(
 							chalk.red("Error: Invalid session ID. Must be a valid UUID.\n"),
 						);
-						process.exit(1);
+						gracefulShutdownSync(1);
 					}
 
 					// Check if session ID already exists
@@ -2209,7 +2210,7 @@ async function run(): Promise<CommanderCommand> {
 								`Error: Session ID ${validatedSessionId} is already in use.\n`,
 							),
 						);
-						process.exit(1);
+						gracefulShutdownSync(1);
 					}
 				}
 			}
@@ -2231,7 +2232,7 @@ async function run(): Promise<CommanderCommand> {
 							"Error: Session token required for file downloads. CLAUDE_CODE_SESSION_ACCESS_TOKEN must be set.\n",
 						),
 					);
-					process.exit(1);
+					gracefulShutdownSync(1);
 				}
 
 				// Resolve session ID: prefer remote session ID, fall back to internal session ID
@@ -2270,7 +2271,7 @@ async function run(): Promise<CommanderCommand> {
 						"Error: Fallback model cannot be the same as the main model. Please specify a different model for --fallback-model.\n",
 					),
 				);
-				process.exit(1);
+				gracefulShutdownSync(1);
 			}
 
 			// Handle system prompt options
@@ -2282,7 +2283,7 @@ async function run(): Promise<CommanderCommand> {
 							"Error: Cannot use both --system-prompt and --system-prompt-file. Please use only one.\n",
 						),
 					);
-					process.exit(1);
+					gracefulShutdownSync(1);
 				}
 				try {
 					const filePath = resolve(options.systemPromptFile);
@@ -2295,14 +2296,14 @@ async function run(): Promise<CommanderCommand> {
 								`Error: System prompt file not found: ${resolve(options.systemPromptFile)}\n`,
 							),
 						);
-						process.exit(1);
+						gracefulShutdownSync(1);
 					}
 					process.stderr.write(
 						chalk.red(
 							`Error reading system prompt file: ${errorMessage(error)}\n`,
 						),
 					);
-					process.exit(1);
+					gracefulShutdownSync(1);
 				}
 			}
 
@@ -2315,7 +2316,7 @@ async function run(): Promise<CommanderCommand> {
 							"Error: Cannot use both --append-system-prompt and --append-system-prompt-file. Please use only one.\n",
 						),
 					);
-					process.exit(1);
+					gracefulShutdownSync(1);
 				}
 				try {
 					const filePath = resolve(options.appendSystemPromptFile);
@@ -2328,14 +2329,14 @@ async function run(): Promise<CommanderCommand> {
 								`Error: Append system prompt file not found: ${resolve(options.appendSystemPromptFile)}\n`,
 							),
 						);
-						process.exit(1);
+						gracefulShutdownSync(1);
 					}
 					process.stderr.write(
 						chalk.red(
 							`Error reading append system prompt file: ${errorMessage(error)}\n`,
 						),
 					);
-					process.exit(1);
+					gracefulShutdownSync(1);
 				}
 			}
 
@@ -2441,7 +2442,7 @@ async function run(): Promise<CommanderCommand> {
 					process.stderr.write(
 						`Error: Invalid MCP configuration:\n${formattedErrors}\n`,
 					);
-					process.exit(1);
+					gracefulShutdownSync(1);
 				}
 				if (Object.keys(allConfigs).length > 0) {
 					// SDK hosts (Nest/Desktop) own their server naming and may reuse
@@ -2464,7 +2465,7 @@ async function run(): Promise<CommanderCommand> {
 						// stderr+exit(1) — a throw here becomes a silent unhandled
 						// rejection in stream-json mode (void main() in cli.tsx).
 						process.stderr.write(`Error: ${reservedNameError}\n`);
-						process.exit(1);
+						gracefulShutdownSync(1);
 					}
 
 					// Add dynamic scope to all configs. type:'sdk' entries pass through
@@ -2540,7 +2541,7 @@ async function run(): Promise<CommanderCommand> {
 					logError(error);
 					// biome-ignore lint/suspicious/noConsole:: intentional console output
 					console.error(`Error: Failed to run with Claude in Chrome.`);
-					process.exit(1);
+					gracefulShutdownSync(1);
 				}
 			} else if (autoEnableClaudeInChrome) {
 				try {
@@ -2576,7 +2577,7 @@ async function run(): Promise<CommanderCommand> {
 							"You cannot use --strict-mcp-config when an enterprise MCP config is present",
 						),
 					);
-					process.exit(1);
+					gracefulShutdownSync(1);
 				}
 
 				// For --mcp-config, allow if all servers are internal types (sdk)
@@ -2589,7 +2590,7 @@ async function run(): Promise<CommanderCommand> {
 							"You cannot dynamically configure MCP servers when an enterprise MCP config is present",
 						),
 					);
-					process.exit(1);
+					gracefulShutdownSync(1);
 				}
 			}
 
@@ -2685,7 +2686,7 @@ async function run(): Promise<CommanderCommand> {
 									`  server:<name>                — manually configured MCP server\n`,
 							),
 						);
-						process.exit(1);
+						gracefulShutdownSync(1);
 					}
 					return entries;
 				};
@@ -2870,13 +2871,13 @@ async function run(): Promise<CommanderCommand> {
 				inputFormat !== "stream-json"
 			) {
 				console.error(`Error: Invalid input format "${inputFormat}".`);
-				process.exit(1);
+				gracefulShutdownSync(1);
 			}
 			if (inputFormat === "stream-json" && outputFormat !== "stream-json") {
 				console.error(
 					`Error: --input-format=stream-json requires output-format=stream-json.`,
 				);
-				process.exit(1);
+				gracefulShutdownSync(1);
 			}
 			if (
 				sdkUrl &&
@@ -2885,7 +2886,7 @@ async function run(): Promise<CommanderCommand> {
 				console.error(
 					`Error: --sdk-url requires both --input-format=stream-json and --output-format=stream-json.`,
 				);
-				process.exit(1);
+				gracefulShutdownSync(1);
 			}
 			if (
 				options.replayUserMessages &&
@@ -2894,7 +2895,7 @@ async function run(): Promise<CommanderCommand> {
 				console.error(
 					`Error: --replay-user-messages requires both --input-format=stream-json and --output-format=stream-json.`,
 				);
-				process.exit(1);
+				gracefulShutdownSync(1);
 			}
 			if (
 				effectiveIncludePartialMessages &&
@@ -2903,13 +2904,13 @@ async function run(): Promise<CommanderCommand> {
 				writeToStderr(
 					`Error: --include-partial-messages requires --print and --output-format=stream-json.`,
 				);
-				process.exit(1);
+				gracefulShutdownSync(1);
 			}
 			if (options.sessionPersistence === false && !isNonInteractiveSession) {
 				writeToStderr(
 					`Error: --no-session-persistence can only be used with --print mode.`,
 				);
-				process.exit(1);
+				gracefulShutdownSync(1);
 			}
 			const effectivePrompt = prompt || "";
 			let inputPrompt = await getInputPrompt(
@@ -3283,7 +3284,7 @@ async function run(): Promise<CommanderCommand> {
 								`Error: The model "${resolvedInitialModel}" does not support the advisor tool.\n`,
 							),
 						);
-						process.exit(1);
+						gracefulShutdownSync(1);
 					}
 					const normalizedAdvisorModel = normalizeModelStringForAPI(
 						parseUserSpecifiedModel(advisorOption),
@@ -3294,7 +3295,7 @@ async function run(): Promise<CommanderCommand> {
 								`Error: The model "${advisorOption}" cannot be used as an advisor.\n`,
 							),
 						);
-						process.exit(1);
+						gracefulShutdownSync(1);
 					}
 				}
 				advisorModel = canUserConfigureAdvisor()
@@ -3908,7 +3909,7 @@ async function run(): Promise<CommanderCommand> {
 				const orgValidation = await validateForceLoginOrg();
 				if (!orgValidation.valid) {
 					process.stderr.write(orgValidation.message + "\n");
-					process.exit(1);
+					gracefulShutdownSync(1);
 				}
 
 				// Headless mode supports all prompt commands and some local commands
@@ -4552,7 +4553,7 @@ async function run(): Promise<CommanderCommand> {
 						});
 					}
 					logError(error);
-					process.exit(1);
+					gracefulShutdownSync(1);
 				}
 			} else if (feature("DIRECT_CONNECT") && _pendingConnect?.url) {
 				// `claude connect <url>` — full interactive TUI connected to a remote server
@@ -5846,7 +5847,7 @@ async function run(): Promise<CommanderCommand> {
 					console.error(
 						err instanceof DirectConnectError ? err.message : String(err),
 					);
-					process.exit(1);
+					gracefulShutdownSync(1);
 				}
 				const { runConnectHeadless } = await import(
 					"./server/connectHeadless.js"

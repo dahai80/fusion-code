@@ -1,7 +1,7 @@
 // LLM 接缝 — 极简 HTTP 客户端 (POST /v1/messages -> SSE 流)
 //
 // 替代 Anthropic SDK 客户端: 直接 fetch + 复用现有 auth/proxy/cch 工具, 不经 SDK。
-// 适配器 (adapter.ts/mlxAdapter.ts) 调此函数拿到 SSE 流后, 用 sseStream.parseSseStream 消费。
+// 适配器 (adapter.ts) 调此函数拿到 SSE 流后, 用 sseStream.parseSseStream 消费。
 //
 // 复用 (不重写) 既有逻辑:
 //   src/utils/http.ts      getUserAgent
