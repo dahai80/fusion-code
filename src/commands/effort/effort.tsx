@@ -6,6 +6,7 @@ import { useAppState, useSetAppState } from '../../state/AppState.js';
 import type { LocalJSXCommandOnDone } from '../../types/command.js';
 import { type EffortValue, getDisplayedEffortLevel, getEffortEnvOverride, getEffortValueDescription, isEffortLevel, toPersistableEffort } from '../../utils/effort.js';
 import { updateSettingsForSource } from '../../utils/settings/settings.js';
+import { EffortPicker } from '../../components/EffortPicker.js';
 const COMMON_HELP_ARGS = ['help', '-h', '--help'];
 type EffortCommandResult = {
   message: string;
@@ -128,6 +129,37 @@ function ShowCurrentEffort(t0) {
   onDone(message);
   return null;
 }
+// Interactive effort picker for the /effort no-args case. Shows the
+// picker with the current effective effort pre-selected; on selection
+// routes through the same executeEffort + ApplyEffortAndClose apply path
+// as /effort <level>. Cancels back to the status line.
+function EffortPickerWithApply(t0) {
+  const {
+    onDone
+  } = t0;
+  const effortValue = useAppState(_temp);
+  const model = useMainLoopModel();
+  const [pendingResult, setPendingResult] = React.useState(null);
+  const envOverride = getEffortEnvOverride();
+  const effective = envOverride === null ? undefined : envOverride ?? effortValue;
+  // Default selection: the effective level string ('low'|'medium'|'high'|
+  // 'max'), or 'auto' when unset. Numeric EffortValue maps to a level via
+  // getDisplayedEffortLevel so the picker only ever offers the 5 labels.
+  const initialEffort = typeof effective === 'string' ? effective : effective === undefined ? 'auto' : getDisplayedEffortLevel(model, effortValue);
+  const handleComplete = React.useCallback(level => {
+    setPendingResult(executeEffort(level));
+  }, []);
+  const handleCancel = React.useCallback(() => {
+    const {
+      message
+    } = showCurrentEffort(effortValue, model);
+    onDone(message);
+  }, [effortValue, model, onDone]);
+  if (pendingResult !== null) {
+    return <ApplyEffortAndClose result={pendingResult} onDone={onDone} />;
+  }
+  return <EffortPicker initialEffort={initialEffort} onComplete={handleComplete} onCancel={handleCancel} isStandaloneCommand={true} />;
+}
 function _temp(s) {
   return s.effortValue;
 }
@@ -174,7 +206,10 @@ export async function call(onDone: LocalJSXCommandOnDone, _context: unknown, arg
     onDone('Usage: /effort [low|medium|high|max|auto]\n\nEffort levels:\n- low: Quick, straightforward implementation\n- medium: Balanced approach with standard testing\n- high: Comprehensive implementation with extensive testing\n- max: Maximum capability with deepest reasoning (Opus 4.6 only)\n- auto: Use the default effort level for your model');
     return;
   }
-  if (!args || args === 'current' || args === 'status') {
+  if (!args) {
+    return <EffortPickerWithApply onDone={onDone} />;
+  }
+  if (args === 'current' || args === 'status') {
     return <ShowCurrentEffort onDone={onDone} />;
   }
   const result = executeEffort(args);
