@@ -1806,6 +1806,18 @@ export function REPL({
 	const skillImprovementSurvey = useSkillImprovementSurvey(setMessages);
 	const showIssueFlagBanner = useIssueFlagBanner(messages, submitCount);
 
+	// Auto-run /issue state. Declared here (above the feedbackSurvey useMemo
+	// below) because the useMemo factory closes over didAutoRunIssueRef and
+	// setAutoRunIssueReason and runs during first render — declaring them
+	// later in the component body caused a temporal-dead-zone access
+	// ("Cannot access 'xV_' before initialization") crash at REPL startup.
+	const [autoRunIssueReason, setAutoRunIssueReason] =
+		useState<AutoRunIssueReason | null>(null);
+	// Ref to track if autoRunIssue was triggered this survey cycle,
+	// so we can suppress the [1] follow-up prompt even after
+	// autoRunIssueReason is cleared.
+	const didAutoRunIssueRef = useRef(false);
+
 	// Wrap feedback survey handler to trigger auto-run /issue
 	const feedbackSurvey = useMemo(
 		() => ({
@@ -2070,14 +2082,6 @@ export function REPL({
 		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, []);
 	const { status: apiKeyStatus, reverify } = useApiKeyVerification();
-
-	// Auto-run /issue state
-	const [autoRunIssueReason, setAutoRunIssueReason] =
-		useState<AutoRunIssueReason | null>(null);
-	// Ref to track if autoRunIssue was triggered this survey cycle,
-	// so we can suppress the [1] follow-up prompt even after
-	// autoRunIssueReason is cleared.
-	const didAutoRunIssueRef = useRef(false);
 
 	// State for exit feedback flow
 	const [exitFlow, setExitFlow] = useState<React.ReactNode>(null);
