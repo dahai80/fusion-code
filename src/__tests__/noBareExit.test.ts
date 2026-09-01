@@ -14,15 +14,20 @@ import { fileURLToPath } from "node:url";
 // hooks, analytics flush) runs.
 //
 // Allowlist (post-init bare process.exit that is intentionally kept):
+//   - pre-REPL fast paths: deep-link / URL-scheme handlers (and similar) that
+//     process a URI and exit with the handler's result before the main REPL
+//     command action runs. Separate lifecycle, no REPL to clean up. Detected
+//     by "preceding non-blank line is an allowlisted fast-path result call".
 //   - post-REPL cluster: lines already prefixed by `await gracefulShutdown(N)`
 //     — the trailing process.exit is dead code after forceExit, kept to match
-//     the upstream pattern. Detected by "preceding line is await gracefulShutdown".
-//   - subcommand handlers (open connect, plus server/ssh/agents/auto-mode now
-//     extracted to ./main/*SubCommands.ts): separate command lifecycle, no
-//     REPL to clean up. Detected by being inside a `.action(` block registered
-//     AFTER the REPL command.
+//     the upstream pattern. Detected by "preceding non-blank line is
+//     await gracefulShutdown".
+//   - named subcommands (server/ssh/agents/auto-mode/open/...): extracted to
+//     ./main/*SubCommands.ts per audit P2-1/R17 god-module split (slices
+//     C2-C4), so their bare exits live outside main.tsx and are not scanned
+//     here at all.
 //
-// Both are detected structurally, so line-number drift does not silently
+// All are detected structurally, so line-number drift does not silently
 // weaken the contract — a new bare exit fails loudly until classified.
 
 const here = dirname(fileURLToPath(import.meta.url));
@@ -62,16 +67,26 @@ function precededByAwaitGracefulShutdown(idx: number): boolean {
 	return false;
 }
 
-// Subcommand handler: a `.action(async () => {` registered as a top-level
-// command action (server/ssh/agents/auto-mode). We detect by the line being
-// inside a commander `.action(` block that is NOT the main REPL action.
-// Heuristic robust enough for this contract: the nearest preceding
-// `.action(` is within a `program.command(...)` subcommand registration,
-// detected by an indented `.command(` or `.action(` under a named subcommand.
-// To keep this deterministic and stable, we allowlist by the known
-// subcommand-region line ranges (re-derived from structure below).
-function isSubcommandRegion(idx: number, subcmdStart: number): boolean {
-	return idx + 1 >= subcmdStart;
+// Pre-REPL fast-path pattern: a separate-lifecycle exit reached before the
+// main REPL command action runs — e.g. a deep-link/URL-scheme handler that
+// processes the URI and exits with the handler's result code. Detected by the
+// line immediately above being a call whose result feeds the exit. This is
+// the post-subcommand-extraction shape: all named subcommands
+// (server/ssh/agents/auto-mode/open/...) were extracted to ./main/*SubCommands.ts
+// per audit P2-1/R17 god-module split (slices C2-C4), so no inline
+// `.command(` subcommand region remains in main.tsx. The remaining allowlisted
+// exits are (a) these pre-REPL fast paths and (b) post-REPL dead code above.
+const FAST_PATH_RESULT_CALLS = [
+	/handleDeepLinkUri\s*\(/,
+	/handleUrlSchemeLaunch\s*\(/,
+];
+function isPreReplFastPath(idx: number): boolean {
+	for (let j = idx - 1; j >= 0; j--) {
+		const t = lines[j].trim();
+		if (t === "") continue;
+		return FAST_PATH_RESULT_CALLS.some((re) => re.test(lines[j]));
+	}
+	return false;
 }
 
 describe("P1-5 no bare process.exit after init (audit R11)", () => {
@@ -79,26 +94,18 @@ describe("P1-5 no bare process.exit after init (audit R11)", () => {
 		expect(() => findInitBoundary()).not.toThrow();
 	});
 
-	it("every post-init process.exit is allowlisted (post-REPL or subcommand)", () => {
+	it("every post-init process.exit is allowlisted (post-REPL or pre-REPL fast path)", () => {
 		const initLine = findInitBoundary();
-		// Subcommand registrations begin after the main REPL command tree.
-		// Locate the first top-level subcommand `.command(` following the REPL
-		// body. We use the known structural anchor: the first subcommand still
-		// registered inline in main.tsx. (server/ssh/agents/auto-mode were
+		// All named subcommands (server/ssh/agents/auto-mode/open/...) were
 		// extracted to ./main/*SubCommands.ts per audit P2-1/R17 god-module
-		// split — slice C2+C3 — leaving only the `open` connect subcommand
-		// inline; its `.action()` bare exits are a separate lifecycle.) If that
-		// anchor moves (e.g. `open` later extracted as slice C4), this test
-		// fails loudly with a clear message to update it — preferable to silent
-		// weakening.
-		let subcmdStart = lines.length;
-		for (let i = 0; i < lines.length; i++) {
-			if (/\.command\(\s*["']open <cc-url>["']/.test(lines[i])) {
-				subcmdStart = i + 1;
-				break;
-			}
-		}
-		expect(subcmdStart).toBeLessThan(lines.length);
+		// split (slices C2-C4), so no inline `.command(` subcommand region
+		// remains in main.tsx. The remaining allowlisted exits post-init are:
+		//   - pre-REPL fast paths (deep-link/URL-scheme handlers): separate
+		//     lifecycle, process the URI then exit, no REPL to clean up.
+		//   - post-REPL dead code: a trailing process.exit already preceded by
+		//     `await gracefulShutdown(N)` (the real exit).
+		// Both are detected structurally, so a new bare exit that fits neither
+		// fails loudly until classified — preferable to silent weakening.
 
 		const violations: string[] = [];
 		for (let i = 0; i < lines.length; i++) {
@@ -106,10 +113,10 @@ describe("P1-5 no bare process.exit after init (audit R11)", () => {
 			if (ln <= initLine) continue; // PRE-stage: allowed
 			if (!isBareExitCall(lines[i])) continue;
 
-			const inSubcommand = isSubcommandRegion(i, subcmdStart);
+			const isFastPath = isPreReplFastPath(i);
 			const isPostReplDeadCode = precededByAwaitGracefulShutdown(i);
 
-			if (!inSubcommand && !isPostReplDeadCode) {
+			if (!isFastPath && !isPostReplDeadCode) {
 				violations.push(`  line ${ln}: ${lines[i].trim()}`);
 			}
 		}

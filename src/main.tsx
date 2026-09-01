@@ -374,6 +374,7 @@ import { registerMcpCommands } from "./main/mcpCommands.js";
 import { registerAuthCommands } from "./main/miscCommands.js";
 import { registerMiscSubCommands } from "./main/miscSubCommands.js";
 import { registerServerSubCommands } from "./main/serverSubCommands.js";
+import { registerOpenCommand } from "./main/openSubCommands.js";
 import { registerPluginCommands } from "./main/pluginCommands.js";
 
 /* eslint-disable @typescript-eslint/no-require-imports */
@@ -5673,62 +5674,9 @@ async function run(): Promise<CommanderCommand> {
 	// claude connect — subcommand only handles -p (headless) mode.
 	// Interactive mode (without -p) is handled by early argv rewriting in main()
 	// which redirects to the main command with full TUI support.
-	if (feature("DIRECT_CONNECT")) {
-		program
-			.command("open <cc-url>")
-			.description(
-				"Connect to a Fusion-Code server (internal — use cc:// URLs)",
-			)
-			.option("-p, --print [prompt]", "Print mode (headless)")
-			.option(
-				"--output-format <format>",
-				"Output format: text, json, stream-json",
-				"text",
-			)
-			.action((async (
-				ccUrl: string,
-				opts: {
-					print?: string | boolean;
-					outputFormat: string;
-				},
-			) => {
-				const { parseConnectUrl } = await import("./server/parseConnectUrl.js");
-				const { serverUrl, authToken } = parseConnectUrl(ccUrl);
-				let connectConfig;
-				try {
-					const session = await createDirectConnectSession({
-						serverUrl,
-						authToken,
-						cwd: getOriginalCwd(),
-						dangerouslySkipPermissions:
-							_pendingConnect?.dangerouslySkipPermissions,
-					});
-					if (session.workDir) {
-						setOriginalCwd(session.workDir);
-						setCwdState(session.workDir);
-					}
-					setDirectConnectServerUrl(serverUrl);
-					connectConfig = session.config;
-				} catch (err) {
-					// biome-ignore lint/suspicious/noConsole: intentional error output
-					console.error(
-						err instanceof DirectConnectError ? err.message : String(err),
-					);
-					gracefulShutdownSync(1);
-				}
-				const { runConnectHeadless } = await import(
-					"./server/connectHeadless.js"
-				);
-				const prompt = typeof opts.print === "string" ? opts.print : "";
-				const interactive = opts.print === true;
-				await runConnectHeadless(
-					connectConfig,
-					prompt,
-					opts.outputFormat,
-					interactive,
-				);
-			}) as any);
-	}
+	// (DIRECT_CONNECT). extracted to ./main/openSubCommands.ts
+	// (audit P2-1 / R17 god-module split, slice C4).
+	registerOpenCommand(program, () => _pendingConnect?.dangerouslySkipPermissions ?? false);
 
 	// claude auth — subcommand group extracted to ./main/miscCommands.ts (issue #133)
 	registerAuthCommands(program);
