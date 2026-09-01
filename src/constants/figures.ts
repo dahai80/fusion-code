@@ -1,4 +1,3 @@
-import { createRequire } from 'node:module'
 import { env } from '../utils/env.js'
 
 // NOTE: getInitialSettings is intentionally NOT imported at module top level.
@@ -7,8 +6,10 @@ import { env } from '../utils/env.js'
 // settings import creates a cycle: figures → settings → settings/types →
 // PermissionMode → figures (PAUSE_ICON before initialization = TDZ).
 // getFigures() resolves settings lazily on first call (render time, after all
-// modules are initialized), breaking the cycle.
-const lazyRequire = createRequire(import.meta.url)
+// modules are initialized), breaking the cycle. NOTE: bare require() (not
+// createRequire) so Bun's bundler rewrites the static string literal into a
+// bundle reference — createRequire(import.meta.url) resolves to the bundle
+// root in `bun build --compile` and fails to find the in-bundle module.
 
 // The former is better vertically aligned, but isn't usually supported on Windows/Linux
 export const BLACK_CIRCLE = env.platform === 'darwin' ? '⏺' : '●'
@@ -150,7 +151,7 @@ let cachedFiguresReducedMotion: boolean | null = null
 export function getFigures(): FigureSet {
   // Lazy settings resolution \u2014 breaks the figures\u2194settings\u2194PermissionMode
   // cycle (see top-of-file NOTE). Render-time only, after module init.
-  const { getInitialSettings } = lazyRequire('../utils/settings/settings.js')
+  const { getInitialSettings } = require('../utils/settings/settings.js')
   const reducedMotion = getInitialSettings().prefersReducedMotion === true
   if (cachedFigures && cachedFiguresReducedMotion === reducedMotion) {
     return cachedFigures

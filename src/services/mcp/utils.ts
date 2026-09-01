@@ -1,5 +1,4 @@
 import { createHash } from 'crypto'
-import { createRequire } from 'node:module'
 import { join } from 'path'
 import { getIsNonInteractiveSession } from '../../bootstrap/state.js'
 import type { Command } from '../../commands.js'
@@ -16,13 +15,15 @@ import { normalizeNameForMCP } from './normalization.js'
 
 // #203 Phase B: settings.js imported lazily to break the mcp→settings cycle
 // (see config.ts for the full rationale). Both settings reads here happen at
-// call time, so deferring the require is behavior-neutral.
-const lazySettingsRequire = createRequire(import.meta.url)
+// call time, so deferring the require is behavior-neutral. NOTE: bare require()
+// (not createRequire) so Bun's bundler rewrites the static string literal into
+// a bundle reference — createRequire(import.meta.url) resolves to the bundle
+// root in `bun build --compile` and fails to find the in-bundle module.
 type SettingsModule = typeof import('../../utils/settings/settings.js')
 let _settings: SettingsModule | null = null
 function settings(): SettingsModule {
   if (_settings === null) {
-    _settings = lazySettingsRequire('../../utils/settings/settings.js')
+    _settings = require('../../utils/settings/settings.js')
   }
   return _settings
 }

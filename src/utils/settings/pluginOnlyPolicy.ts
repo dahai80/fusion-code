@@ -1,4 +1,3 @@
-import { createRequire } from 'node:module'
 import type { CUSTOMIZATION_SURFACES } from './types.js'
 
 export type CustomizationSurface = (typeof CUSTOMIZATION_SURFACES)[number]
@@ -9,12 +8,20 @@ export type CustomizationSurface = (typeof CUSTOMIZATION_SURFACES)[number]
 // pluginOnlyPolicy→settings. An eager settings import here re-enters settings.ts
 // mid-init → isLoadingSettings TDZ. The read is at call time, so deferring the
 // require is behavior-neutral (matches figures.ts's lazyRequire convention).
-const lazySettingsRequire = createRequire(import.meta.url)
+// #203 Phase B: settings.js imported lazily. The mcp barrel re-exports config,
+// which imports this module; permissionValidation (also in the settings cone)
+// consumes the barrel, forming settings→permissionValidation→barrel→config→
+// pluginOnlyPolicy→settings. An eager settings import here re-enters settings.ts
+// mid-init → isLoadingSettings TDZ. The read is at call time, so deferring the
+// require is behavior-neutral. NOTE: bare require() (not createRequire) so Bun's
+// bundler rewrites the static string literal into a bundle reference —
+// createRequire(import.meta.url) resolves to the bundle root in `bun build
+// --compile` and fails to find the in-bundle module (regression bcfdbfc).
 type SettingsModule = typeof import('./settings.js')
 let _settings: SettingsModule | null = null
 function settings(): SettingsModule {
   if (_settings === null) {
-    _settings = lazySettingsRequire('./settings.js')
+    _settings = require('./settings.js')
   }
   return _settings
 }

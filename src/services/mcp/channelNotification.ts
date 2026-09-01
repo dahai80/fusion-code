@@ -17,7 +17,6 @@
  */
 
 import type { ServerCapabilities } from '@modelcontextprotocol/sdk/types.js'
-import { createRequire } from 'node:module'
 import { z } from 'zod/v4'
 import { type ChannelEntry, getAllowedChannels } from '../../bootstrap/state.js'
 import { CHANNEL_TAG } from '../../constants/xml.js'
@@ -36,13 +35,15 @@ import {
 
 // #203 Phase B: settings.js imported lazily to break the mcp→settings cycle
 // (see config.ts for the full rationale). The settings read here happens at
-// call time, so deferring the require is behavior-neutral.
-const lazySettingsRequire = createRequire(import.meta.url)
+// call time, so deferring the require is behavior-neutral. NOTE: bare require()
+// (not createRequire) so Bun's bundler rewrites the static string literal into
+// a bundle reference — createRequire(import.meta.url) resolves to the bundle
+// root in `bun build --compile` and fails to find the in-bundle module.
 type SettingsModule = typeof import('../../utils/settings/settings.js')
 let _settings: SettingsModule | null = null
 function settings(): SettingsModule {
   if (_settings === null) {
-    _settings = lazySettingsRequire('../../utils/settings/settings.js')
+    _settings = require('../../utils/settings/settings.js')
   }
   return _settings
 }
