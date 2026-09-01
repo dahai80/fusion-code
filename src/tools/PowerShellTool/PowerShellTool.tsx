@@ -7,6 +7,7 @@ import { z } from 'zod/v4';
 import { getKairosActive } from '../../bootstrap/state.js';
 import { TOOL_SUMMARY_MAX_LENGTH } from '../../constants/toolLimits.js';
 import { type AnalyticsMetadata_I_VERIFIED_THIS_IS_NOT_CODE_OR_FILEPATHS, logEvent } from '../../services/analytics/index.js';
+import { redactSecrets } from '../../services/audit/index.js';
 import type { SetToolJSXFn, Tool, ToolCallProgress, ValidationResult } from '../../Tool.js';
 import { buildTool, type ToolDef } from '../../Tool.js';
 import { backgroundExistingForegroundTask, markTaskNotified, registerForeground, spawnShellTask, unregisterForeground } from '../../tasks/LocalShellTask/LocalShellTask.js';
@@ -397,7 +398,7 @@ export const PowerShellTool = buildTool({
     }
     let processedStdout = stdout;
     if (persistedOutputPath) {
-      const trimmed = stdout ? stdout.replace(/^(\s*\n)+/, '').trimEnd() : '';
+      const trimmed = redactSecrets(stdout ? stdout.replace(/^(\s*\n)+/, '').trimEnd() : '');
       const preview = generatePreview(trimmed, PREVIEW_SIZE_BYTES);
       processedStdout = buildLargeToolResultMessage({
         filepath: persistedOutputPath,
@@ -411,7 +412,11 @@ export const PowerShellTool = buildTool({
       processedStdout = stdout.replace(/^(\s*\n)+/, '');
       processedStdout = processedStdout.trimEnd();
     }
-    let errorMessage = stderr.trim();
+    // P1-9 (audit R16): scrub embedded secrets from command stdout before the
+    // tool result reaches the model. Single source of truth in auditLog.redactSecrets.
+    processedStdout = redactSecrets(processedStdout);
+    // P1-9 (audit R16): scrub embedded secrets from stderr too.
+    let errorMessage = redactSecrets(stderr.trim());
     if (interrupted) {
       if (stderr) errorMessage += EOL;
       errorMessage += '<error>Command was aborted before completion</error>';

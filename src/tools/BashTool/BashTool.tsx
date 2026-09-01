@@ -10,6 +10,7 @@ import { checkCommandLoop } from './commandLoopGuard.js';
 import { formatDiagnosticsForModel } from './bashDiagnostics.js';
 import { type AnalyticsMetadata_I_VERIFIED_THIS_IS_NOT_CODE_OR_FILEPATHS, logEvent } from '../../services/analytics/index.js';
 import { notifyVscodeFileUpdated } from '../../services/mcp/index.js';
+import { redactSecrets } from '../../services/audit/index.js';
 import type { SetToolJSXFn, ToolCallProgress, ToolUseContext, ValidationResult } from '../../Tool.js';
 import { buildTool, type ToolDef } from '../../Tool.js';
 import { backgroundExistingForegroundTask, markTaskNotified, registerForeground, spawnShellTask, unregisterForeground } from '../../tasks/LocalShellTask/LocalShellTask.js';
@@ -586,6 +587,9 @@ export const BashTool = buildTool({
       // Still trim the end as before
       processedStdout = processedStdout.trimEnd();
     }
+    // P1-9 (audit R16): scrub embedded secrets from command stdout before the
+    // tool result reaches the model. Single source of truth in auditLog.redactSecrets.
+    processedStdout = redactSecrets(processedStdout);
 
     // For large output that was persisted to disk, build <persisted-output>
     // message for the model. The UI never sees this — it uses data.stdout.
@@ -600,7 +604,8 @@ export const BashTool = buildTool({
         tailPreview: preview.tailPreview,
       });
     }
-    let errorMessage = stderr.trim();
+    // P1-9 (audit R16): scrub embedded secrets from stderr too.
+    let errorMessage = redactSecrets(stderr.trim());
     if (interrupted) {
       if (stderr) errorMessage += EOL;
       errorMessage += '<error>Command was aborted before completion</error>';

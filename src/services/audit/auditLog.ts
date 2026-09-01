@@ -147,8 +147,12 @@ export async function appendAuditLog(entry: AuditLogEntry): Promise<void> {
 // Alternation order is irrelevant for overlap: the regex scans left-to-right,
 // so for `Authorization: Bearer <jwt>` the Bearer branch wins (Bearer appears
 // before eyJ), masking the whole token — equivalent result to the JWT branch.
+// P1-9 (audit R16): expanded with 6 more families — sk-ant-api03 (Anthropic),
+// gh[pousr]_ (GitHub PAT/app/oauth/refresh), xox[abprs]- (Slack), glpat-
+// (GitLab), and multiline PEM `-----BEGIN…PRIVATE KEY-----`. Patterns reused
+// from src/services/teamMemorySync/secretScanner.ts (single source of truth).
 const SECRET_RE =
-	/(\beyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\b)|(\bBearer\s+[A-Za-z0-9._~+/=-]+)|(X-Amz-Signature=[0-9a-fA-F]+)|([xX]-[aA][pP][iI]-[kK][eE][yY]:\s*[^\s,;]+)|(Authorization:\s*Basic\s+[A-Za-z0-9._~+/=-]+)/g;
+	/(\beyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\b)|(\bBearer\s+[A-Za-z0-9._~+/=-]+)|(X-Amz-Signature=[0-9a-fA-F]+)|([xX]-[aA][pP][iI]-[kK][eE][yY]:\s*[^\s,;]+)|(Authorization:\s*Basic\s+[A-Za-z0-9._~+/=-]+)|(\bsk-ant-[A-Za-z0-9_-]{20,})|(\bgh[pousr]_[A-Za-z0-9]{36,})|(\bxox[abprs]-[0-9]{10,13}-[0-9]{10,13}[A-Za-z0-9-]*)|(\bglpat-[A-Za-z0-9_-]{20})|(-----BEGIN[A-Z0-9_ -]{0,100}PRIVATE KEY(?: BLOCK)?-----[\s\S]{64,}?-----END[A-Z0-9_ -]{0,100}PRIVATE KEY(?: BLOCK)?-----)/g;
 
 function maskSecretSpan(match: string): string {
 	if (match.startsWith("Bearer")) {
