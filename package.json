@@ -27,7 +27,8 @@
 		"lint:fix": "biome lint --write src/ scripts/",
 		"lint:layers": "bun run scripts/layer-lint.ts && bun run scripts/layer-lint-reverse.ts",
 		"lint:layers:reverse": "bun run scripts/layer-lint-reverse.ts",
-		"check": "bun run typecheck && bun run lint && bun run lint:layers && bun run build"
+		"lint:flags": "bun run scripts/check-feature-flags.ts",
+		"check": "bun run typecheck && bun run lint && bun run lint:layers && bun run lint:flags && bun run build"
 	},
 	"dependencies": {
 		"@alcalzone/ansi-tokenize": "^0.3.0",

@@ -12,11 +12,12 @@ const args = process.argv.slice(2);
 const compile = args.includes("--compile");
 const dev = args.includes("--dev");
 
-// P1-30: fullExperimentalFeatures — regenerated from the 91 unique feature('X')
+// P1-30: fullExperimentalFeatures — regenerated from the 90 unique feature('X')
 // call sites in src/. `--feature-set=dev-full` now flips ALL flags the bundle
 // references, so dead-code-eliminated experimental paths actually compile in.
 // Keep this list in sync: re-run `grep -rhoE "feature\(\"[A-Z_]+\"\)" src/ | sort -u`
 // when adding new feature() gates. Sorted alphabetically for stable diffs.
+// P1-4 (audit R10): kept in sync by scripts/check-feature-flags.ts (CI gate).
 const fullExperimentalFeatures = [
 	"ABLATION_BASELINE",
 	"AGENT_MEMORY_SNAPSHOT",
@@ -36,7 +37,6 @@ const fullExperimentalFeatures = [
 	// everywhere (already off by default) so dev-full compiles. If remote-
 	// control is reintroduced, restore the flag AND the bridgeMain module.
 	"BUDDY",
-	"BUILDING_CLAUDE_APPS",
 	"BUILTIN_EXPLORE_PLAN_AGENTS",
 	"BYOC_ENVIRONMENT_RUNNER",
 	"CACHED_MICROCOMPACT",
@@ -99,6 +99,7 @@ const fullExperimentalFeatures = [
 	"STREAMLINED_OUTPUT",
 	"TEAMMEM",
 	"TEMPLATES",
+	"TELEMETRY",
 	"TERMINAL_PANEL",
 	"TOKEN_BUDGET",
 	"TORCH",

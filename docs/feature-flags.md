@@ -11,7 +11,7 @@ fusion-code 有**两套**语义重叠但机制不同的 flag:
 |------|---------------------------|----------------------------------------------------------|
 | 机制 | Bun bundler 编译时宏, 死代码消除 | 进程启动读 env, 运行时条件分支 |
 | 文件 | `import { feature } from 'bun:bundle'` | `isEnvTruthy(process.env.X)` (envUtils.ts) |
-| 数量 | **91** distinct flag / **915** call site | **88** distinct flag / **177** call site |
+| 数量 | **90** distinct flag / **904** call site | **88** distinct flag / **177** call site |
 | 默认 | 仅 `VOICE_MODE` 进产物, 其余 DCE 移除 | unset = off, byte-identical |
 | 改变需 | 重新 `bun run build` | 重启进程, 无需重编译 |
 
@@ -31,9 +31,9 @@ fusion-code 有**两套**语义重叠但机制不同的 flag:
 
 `scripts/build.ts` `defaultFeatures = ['VOICE_MODE']`, 所有构建变体含 `VOICE_MODE`。
 
-## dev-full: 91 Flags
+## dev-full: 90 Flags
 
-`scripts/build.ts` `fullExperimentalFeatures` 列出全部 91 个 build-time flag, `--feature-set=dev-full` 一次性全部启用, 使所有 DCE-eligible 实验路径进入二进制编译。该列表与 `src/` 实际 `feature('X')` 调用**逐一核对一致** (0 dead entry, 0 active miss, 核对命令见末节)。
+`scripts/build.ts` `fullExperimentalFeatures` 列出全部 90 个 build-time flag, `--feature-set=dev-full` 一次性全部启用, 使所有 DCE-eligible 实验路径进入二进制编译。该列表与 `src/` 实际 `feature('X')` 调用**逐一核对一致**并由 `bun run lint:flags` (`scripts/check-feature-flags.ts`) 强制 — 0 dead entry, 0 active miss (audit P1-4 R10; 2026-09-01 复核: 删 BRIDGE_MODE/BUILDING_CLAUDE_APPS 死条目, 补 TELEMETRY 活动漏项)。
 
 ```
 ABLATION_BASELINE
@@ -47,9 +47,7 @@ AWAY_SUMMARY
 BASH_CLASSIFIER
 BG_SESSIONS
 BREAK_CACHE_COMMAND
-BRIDGE_MODE
 BUDDY
-BUILDING_CLAUDE_APPS
 BUILTIN_EXPLORE_PLAN_AGENTS
 BYOC_ENVIRONMENT_RUNNER
 CACHED_MICROCOMPACT
@@ -112,6 +110,7 @@ SSH_REMOTE
 STREAMLINED_OUTPUT
 TEAMMEM
 TEMPLATES
+TELEMETRY
 TERMINAL_PANEL
 TOKEN_BUDGET
 TORCH
@@ -239,7 +238,7 @@ FUSION_CODE_VERIFY_PLAN
 
 - `VOICE_MODE`: 需 claude.ai OAuth + 录音后端 (原生模块或 SoX fallback)
 - `NATIVE_CLIPBOARD_IMAGE`: 需 `image-processor-napi` 才加速
-- `BRIDGE_MODE` / `CCR_*`: 运行时受 OAuth + GrowthBook 控制
+- `CCR_*`: 运行时受 OAuth + GrowthBook 控制 (`BRIDGE_MODE` 已随 P0-5 移除, 见 build.ts 注释)
 - `CHICAGO_MCP`: 编译通过但运行时 reaches `@ant/computer-use-*`
 - `TEAMMEM`: 需 team-memory 配置实际启用才有用
 
@@ -257,7 +256,7 @@ bun run ./scripts/build.ts --feature=ULTRAPLAN
 bun run ./scripts/build.ts --feature=ULTRAPLAN --feature=ULTRATHINK
 ```
 
-### build-time 全部 91 实验 flag (dev-full)
+### build-time 全部 90 实验 flag (dev-full)
 
 ```bash
 bun run ./scripts/build.ts --dev --feature-set=dev-full
@@ -265,7 +264,7 @@ bun run ./scripts/build.ts --dev --feature-set=dev-full
 
 ### dev-full + 额外 flag
 
-`--feature-set=dev-full` 已含全部 91 个 `fullExperimentalFeatures`, 故额外 `--feature=` 仅对**列表外**的 flag 有效 (理论上不应有, 因列表与源码一致; 若源码新增 flag 需同步列表, 见末节核对)。
+`--feature-set=dev-full` 已含全部 90 个 `fullExperimentalFeatures`, 故额外 `--feature=` 仅对**列表外**的 flag 有效 (理论上不应有, 因列表与源码一致; 若源码新增 flag 需同步列表, 见末节核对)。
 
 ### runtime env-gate
 
@@ -324,19 +323,28 @@ runtime flag 不会出现在 `strings` (非编译时), 验证靠日志或行为�
 
 审计 §3.2 原结论 "141 个标志 918 调用点, 组合爆炸不可测" 基于审计时 (2026-08-27) 的 grep, 当时将 build-time 与 runtime 混计。重新核对后:
 
-- build-time `feature('X')`: **91** distinct / **915** call site (单/双引号合并统计 — 审计 grep 可能只匹配单一引号风格, 遗漏单引号调用)
+- build-time `feature('X')`: 审计时 **91** distinct / **915** call site (单/双引号合并统计 — 审计 grep 可能只匹配单一引号风格, 遗漏单引号调用); P1-4 (2026-09-01) 复核后 **90** distinct / **904** call site (删 BRIDGE_MODE/BUILDING_CLAUDE_APPS 死条目, 补 TELEMETRY 活动漏项), 见顶部计数表
 - runtime `isEnvTruthy(process.env.FUSION_CODE_*)`: **88** distinct / **177** call site
-- 二者机制不同 (build DCE vs runtime 条件分支), 非同一 "141 标志" 组合空间; 审计 3.2.1 的 2^141 指的是二者合并后的概念空间, 实际 build-time 子空间为 2^91, runtime 子空间为 2^88, 但 runtime flag 多有依赖关系 (非全独立)。
+- 二者机制不同 (build DCE vs runtime 条件分支), 非同一 "141 标志" 组合空间; 审计 3.2.1 的 2^141 指的是二者合并后的概念空间, 实际 build-time 子空间为 2^90 (P1-4 后), runtime 子空间为 2^88, 但 runtime flag 多有依赖关系 (非全独立)。
 
 审计 3.2.2 (feature() 字面量约束制造 DCE/运行时二分) **成立** — 两套机制共存是已知设计 (build-time 控产物大小, runtime 控运行时行为), 混用风险靠约定 + 本文档说明缓解, 无静态检查。
 
-审计 3.2.3 (默认关 byte-identical 靠人工维持无强制) **成立** — 当前无自动化 off-path 校验, 靠 reviewer + 多 PR memory 纪律维持。
+审计 3.2.3 (默认关 byte-identical 靠人工维持无强制) **已部分缓解** — off-path 校验仍靠 reviewer 纪律, 但 build-time flag 列表与源码一致性已有自动化 gate: `bun run lint:flags` (`scripts/check-feature-flags.ts`, P1-4 R10), 集成进 `bun run check`。src↔build 漂移 (dead entry / 活动漏项) 会被 CI 拦截。
 
 审计 3.2.4 (命名无前缀约定) **部分成立** — runtime flag 统一 `FUSION_CODE_` 前缀; `FUSION_*` (非 `FUSION_CODE_`) 为 SDK 兼容映射, `CLAUDE_CODE_*` 为上游兼容遗留。build-time flag 无统一前缀 (历史命名)。
 
 ### 列表与源码一致性核对命令
 
-新增 `feature('X')` gate 后, 需同步 `scripts/build.ts` `fullExperimentalFeatures` 列表。核对:
+新增 `feature('X')` gate 后, 需同步 `scripts/build.ts` `fullExperimentalFeatures` 列表。
+
+**自动化 gate (推荐, P1-4 R10):** `bun run lint:flags` (`scripts/check-feature-flags.ts`) — 纯进程内扫描 (Bun.Glob + readFileSync + matchAll, 不依赖 rg/grep, 免受工具重写代理干扰), diff src `feature('X')` 调用点与 build.ts `fullExperimentalFeatures` 数组, 或phan (build 有 src 无) / miss (src 有 build 无) 任一非零即 exit 1。已集成进 `bun run check`。
+
+```bash
+bun run lint:flags
+# [check-feature-flags] src=90 build=90 orphans=0 misses=0 → OK exit 0
+```
+
+**手动核对 (fallback / 复算引号风格):**
 
 ```bash
 # src/ 实际 feature() 调用 (单/双引号合并)
@@ -349,7 +357,7 @@ LC_ALL=C comm -23 /tmp/build-flags.txt /tmp/src-flags.txt   # build.ts 有但 sr
 LC_ALL=C comm -13 /tmp/build-flags.txt /tmp/src-flags.txt   # src 有但 build.ts 无 = dev-full 漏
 ```
 
-`comm` 要求 `LC_ALL=C` 保证排序规则一致, 否则跨 locale 出现假差异。
+`comm` 要求 `LC_ALL=C` 保证排序规则一致, 否则跨 locale 出现假差异。手动核对与自动化 gate 应结论一致; 若不一致以 `lint:flags` 为准 (其引号/注释行处理更精确)。
 
 ## 调试日志
 
