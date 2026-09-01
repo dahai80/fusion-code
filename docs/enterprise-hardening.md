@@ -1,8 +1,9 @@
 # Enterprise Hardening Guide
 
-> 企业级硬化配置基线 — 沙箱姿态、三层纵深防御、合规配置模板。
-> 对应审计 `~/fusion/audit/fusion-code-audit-result-product-0831.md` P1-1 (R4)。
-> Schema 语义权威源: `src/entrypoints/sandboxTypes.ts` (`SandboxSettingsSchema`)。
+> 企业级硬化配置基线 — 沙箱姿态、三层纵深防御、流断续传、合规配置模板。
+> 对应审计 `~/fusion/audit/fusion-code-audit-result-product-0831.md` P1-1 (R4) + P1-6 (R12)。
+> 沙箱 Schema 语义权威源: `src/entrypoints/sandboxTypes.ts` (`SandboxSettingsSchema`)。
+> 流断续传 env 权威源: `src/services/llm/streamResume.ts`。
 
 ## 1. 沙箱定位
 
@@ -78,6 +79,35 @@
 - `enableWeakerNetworkIsolation` 降级安全性, 仅在 Go 系 CLI + MITM 代理场景按需启用。
 - 非 macOS 平台沙箱支持较新, 建议先用 `enabledPlatforms: ["macos"]` 渐进铺开。
 
+## 6. MLX 流断续传 (Stream Resume)
+
+本地 MLX 流式生成中途掉线 (timeout 类, 非用户中断) 时, 客户端可重连 `GET /v1/messages/{stream_id}/events` 携带 `Last-Event-ID: <sid>:<seq>` 游标, 合并 replay 缓存帧 + live tail 续流, 而非整轮重发 (PR #163; gateway 半 cross-repo gw#123)。**两端必须同时启用** — 客户端 env 与 gateway `routing.stream.resume_enabled` 任一关 = byte-identical off, 整轮重发 (今天行为)。
+
+### 6.1 机制要点
+
+- **触发条件**: 仅 timeout 类掉线 (`isTimeoutErrorLike` / stream-idle-aborted) 才 resume — 管道已排空 lag=0, cursor+state 一致安全。硬传输 reset / 用户中断 / 4xx **不** resume (会腐败或无意义)。
+- **状态续传 (STATE-CONTINUATION)**: 重连后用掉线前 `StreamState` 深克隆种子续传 transform, 索引连续、只发新文本、mid-tool args 追加同块 — 避免重合 `message_start` + 索引错位 `RangeError`。
+- **失败兜底**: resume 端点 404 / 超限 / 重复传输错 → 落到既有 non-streaming fallback。无新失败模式, 最坏 = 今天行为。
+- **仅本地 MLX**: `route == LocalBackend` 才 resume; cloud/first-party 不可恢复。
+
+### 6.2 企业启用配置
+
+客户端 env (进程启动读, 无需重编译):
+
+```bash
+FUSION_CODE_STREAM_RESUME_ENABLED=1
+# 可选调参 (留空走默认)
+FUSION_CODE_STREAM_RESUME_MAX_ATTEMPTS=3        # 每轮 resume 重连上限, 默认 3
+FUSION_CODE_STREAM_RESUME_FETCH_TIMEOUT_MS=30000  # resume GET 硬超时 ms, 默认 30000
+```
+
+gateway 侧 (fusion-gateway, cross-repo) 须同时开 `routing.stream.resume_enabled: true` (默认 false)。两端口令对齐后 MLX 流断续传生效。客户端 env 默认关 = `NOOP_RECORDER` 等价路径, 二进制行为 byte-identical。
+
+### 6.3 验证
+
+- **单测**: `src/__tests__/llm/streamResume.test.ts` (34 测) 覆盖 teeCursor 游标、seedState 续传、mergeResumedStream 合并、resumeStreamFetch (mock fetch)、isResumeEligibleError、门控、ResumeRefs、端到端 state-continuation 合并。
+- **端到端**: 对 live gateway (`resume_enabled=true`) 触发 mid-stream timeout 掉线, 验证续流无乱序无丢字。需 gateway 侧 env + 真实模型加载, 见 `~/claude-home/fusion-mlx/start.sh`。gateway 半端到端追踪 cross-repo gw#123; fusion-code 端到端手工验证另行追踪 (`docs/model-providers.md` §Stream-Resume)。
+
 ---
 
-**维护**: 改 `src/entrypoints/sandboxTypes.ts` `SandboxSettingsSchema` 或 `src/utils/sandbox/sandbox-adapter.ts` 平台支持时, 须同步本文档 (§4 语义、§5 限制)。
+**维护**: 改 `src/entrypoints/sandboxTypes.ts` `SandboxSettingsSchema` 或 `src/utils/sandbox/sandbox-adapter.ts` 平台支持时, 须同步本文档 (§4 语义、§5 限制)。改 `src/services/llm/streamResume.ts` env 门控或默认值时, 须同步本文档 (§6.2 env、默认值)。
