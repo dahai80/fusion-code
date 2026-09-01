@@ -7,7 +7,7 @@
 
 import { type ChildProcess, spawn } from "node:child_process";
 import { randomBytes } from "node:crypto";
-import { existsSync, mkdirSync, unlinkSync } from "node:fs";
+import { existsSync, lstatSync, mkdirSync, unlinkSync } from "node:fs";
 import { createConnection, type Socket } from "node:net";
 import { join } from "node:path";
 import { logForDebugging } from "../../utils/debug.js";
@@ -75,10 +75,23 @@ function executorSocketDir(): string {
 function defaultSocketPath(): string {
 	const dir = executorSocketDir();
 	try {
-		if (!existsSync(dir)) mkdirSync(dir, { recursive: true, mode: 0o700 });
+		// P2-5 (audit 0901): 拒符号链接 — 攻击者预创 dir 为指向其控制目录的 symlink
+		// → executor 在被劫持目录建 socket → 攻击者 connect() 跑任意 bash。lstat 不跟随
+		// 符号链接, 是符号链接则 throw 拒用此路径 (回退让 socket bind 失败 = fail-visible,
+		// 优于静默用被劫持目录)。仅当目录不存在时创建 0700 私有目录。
+		if (existsSync(dir)) {
+			if (lstatSync(dir).isSymbolicLink()) {
+				throw new Error(
+					`executor socket dir ${dir} is a symlink (possible hijack) — refusing`,
+				);
+			}
+		} else {
+			mkdirSync(dir, { recursive: true, mode: 0o700 });
+		}
 	} catch (e) {
 		logForDebugging(
-			`executor client: failed to create 0700 socket dir ${dir}: ${errorMessage(e)}`,
+			`executor client: socket dir ${dir} unusable: ${errorMessage(e)}`,
+			{ level: "warn" },
 		);
 	}
 	const rand = randomBytes(8).toString("hex");
@@ -92,6 +105,37 @@ function resolveSocketPath(override?: string): string {
 	return defaultSocketPath();
 }
 
+// P2-4 (audit 0901): stop() 发 SIGTERM 后等待子进程退出的宽限时间, 超时则 SIGKILL
+// tree-kill 兜底。2s 给 fusion-executor server 优雅 flush, 不阻塞 CLI 关闭太久。
+const P2_4_STOP_GRACE_MS = Number.isFinite(
+	parseInt(process.env.FUSION_CODE_EXECUTOR_STOP_GRACE_MS ?? "", 10),
+)
+	? parseInt(process.env.FUSION_CODE_EXECUTOR_STOP_GRACE_MS ?? "", 10)
+	: 2000;
+
+// P2-4 (audit 0901): 等待子进程退出, 超时 resolve(false) (调用方据此发 SIGKILL)。
+// 不 reject — stop() 用此判需否升级 kill, reject 会污染 finally 流程。
+function waitForProcessExit(
+	child: ChildProcess,
+	timeoutMs: number,
+): Promise<boolean> {
+	return new Promise((resolve) => {
+		if (child.killed || child.exitCode !== null) {
+			resolve(true);
+			return;
+		}
+		const onExit = (): void => {
+			clearTimeout(timer);
+			resolve(true);
+		};
+		const timer = setTimeout(() => {
+			child.removeListener("exit", onExit);
+			resolve(false);
+		}, timeoutMs);
+		child.once("exit", onExit);
+	});
+}
+
 export function createExecutorClient(
 	onCrash?: (error: Error) => void,
 ): ExecutorClient {
@@ -103,7 +147,13 @@ export function createExecutorClient(
 	let startFailed = false;
 	let startError: Error | undefined;
 	// NDJSON line buffer — frames split on \n, partial frames held across data events.
+	// P3-2 (audit 0901): 偏移量游标替代每行 slice 重建串。旧 lineBuffer = lineBuffer.slice(idx+1)
+	// 每行 O(n) 拷贝剩余缓冲 → N 行 O(n²) (长 build log CPU 飙升)。改用 lineOffset 游标,
+	// 行提取用 slice(offset, idx) 不动原串, offset 前进; 仅当残留未消费 prefix 超阈值时
+	// 一次性 compact (摊销 O(n)), 避免游标无限增长。
 	let lineBuffer = "";
+	let lineOffset = 0;
+	const LINE_BUFFER_COMPACT_THRESHOLD = 65536;
 	const pending = new Map<number, PendingRequest>();
 	// P3-2: per-client counter (was module-level → cross-client ID collision).
 	let requestCounter = 0;
@@ -162,12 +212,14 @@ export function createExecutorClient(
 	}
 
 	function processBuffer(): void {
-		let idx = lineBuffer.indexOf("\n");
+		// P3-2: 用 lineOffset 游标扫描, 不每行 slice 重建 lineBuffer。idx 为绝对位置,
+		// 行内容 = slice(lineOffset, idx); 消费后 lineOffset = idx + 1。
+		let idx = lineBuffer.indexOf("\n", lineOffset);
 		while (idx !== -1) {
-			const line = lineBuffer.slice(0, idx).trim();
-			lineBuffer = lineBuffer.slice(idx + 1);
+			const line = lineBuffer.slice(lineOffset, idx).trim();
+			lineOffset = idx + 1;
 			if (!line) {
-				idx = lineBuffer.indexOf("\n");
+				idx = lineBuffer.indexOf("\n", lineOffset);
 				continue;
 			}
 			let parsed: unknown;
@@ -177,11 +229,16 @@ export function createExecutorClient(
 				logForDebugging(
 					`executor client: skipping unparseable frame: ${errorMessage(e)}`,
 				);
-				idx = lineBuffer.indexOf("\n");
+				idx = lineBuffer.indexOf("\n", lineOffset);
 				continue;
 			}
 			handleFrame(parsed);
-			idx = lineBuffer.indexOf("\n");
+			idx = lineBuffer.indexOf("\n", lineOffset);
+		}
+		// Compact: 残留未消费 prefix 超 threshold 时一次性切掉, 摊销 O(n) 非每行。
+		if (lineOffset > LINE_BUFFER_COMPACT_THRESHOLD) {
+			lineBuffer = lineBuffer.slice(lineOffset);
+			lineOffset = 0;
 		}
 	}
 
@@ -220,10 +277,15 @@ export function createExecutorClient(
 			socketPath = resolveSocketPath();
 			try {
 				// Spawn fusion-executor --serve --sock <path> (persistent UDS server).
+				// P2-4 (audit 0901): detached:true 让 executor 进入独立进程组 (pgid=proc.pid),
+				// 使 stop() 可用 process.kill(-proc.pid) tree-kill 其子进程树 (server 起的
+				// bash 子进程), 否则 proc.kill() 只杀顶层 server → bash 孤儿继续跑。detached
+				// 不 unref — 生命周期仍由 stop()/exit-handler 管理, 仅改变进程组归属。
 				proc = spawn("fusion-executor", ["--serve", "--sock", socketPath], {
 					stdio: ["ignore", "pipe", "pipe"],
 					env: { ...subprocessEnv(), FUSION_EXECUTOR_SOCK: socketPath },
 					windowsHide: true,
+					detached: true,
 				});
 
 				// spawn-gate (mirror LSPClient:115-131): await spawn/error before
@@ -419,7 +481,23 @@ export function createExecutorClient(
 				if (proc) {
 					try {
 						proc.removeAllListeners();
-						proc.kill();
+						// P2-4 (audit 0901): tree-kill 整个进程组 (executor server + 其 bash 子树)。
+						// detached spawn 让 proc.pid = pgid, process.kill(-pid) 杀全组。
+						// 先 SIGTERM (graceful), P2-4_STOP_GRACE_MS 后未退出则 SIGKILL 兜底。
+						try {
+							process.kill(-proc.pid, "SIGTERM");
+						} catch {
+							// 进程组不存在/已退出 (ESRCH) 或权限不足 → 回退单进程 kill。
+							proc.kill();
+						}
+						await waitForProcessExit(proc, P2_4_STOP_GRACE_MS);
+						if (!proc.killed) {
+							try {
+								process.kill(-proc.pid, "SIGKILL");
+							} catch {
+								proc.kill("SIGKILL");
+							}
+						}
 					} catch {
 						/* may be dead */
 					}

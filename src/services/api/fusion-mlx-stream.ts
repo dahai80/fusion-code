@@ -318,50 +318,63 @@ export async function* transformMLXStreamToAnthropic(
 	const MLX_STREAM_IDLE_TIMEOUT_MS =
 		parseInt(process.env.FUSION_MLX_STREAM_IDLE_TIMEOUT_MS || "", 10) || 90_000;
 
-	while (true) {
-		const { done, value } = await readMLXChunkWithIdleTimeout(
-			reader,
-			MLX_STREAM_IDLE_TIMEOUT_MS,
-		);
-		if (done) break;
-		chunkIdx++;
-
-		buffer += decoder.decode(value, { stream: true });
-
-		// Parse SSE events
-		const lines = buffer.split("\n");
-		buffer = lines.pop() || ""; // Keep incomplete line in buffer
-
-		for (const line of lines) {
-			if (line.startsWith("data: ")) {
-				const data = line.slice(6).trim();
-				if (data === "[DONE]") continue;
-
-				let parsed: MLXStreamChunk;
-				try {
-					parsed = JSON.parse(data) as MLXStreamChunk;
-				} catch {
-					// Skip unparseable chunks
-					continue;
-				}
-				// 检测 MLX 流式 error chunk(fusion-mlx 生成中错误时可能发 {error:...}),fail visibly 而非静默跳过
-				const errField = (parsed as unknown as Record<string, unknown>).error; // log: intermediate unknown cast
-				if (errField) {
-					const errObj = errField as { message?: string };
-					const errMsg = (errObj && errObj.message) || JSON.stringify(errField);
-					logForDebugging(
-						`[Fusion-MLX Stream] Mid-stream error chunk: ${errMsg}`,
-						{ level: "error" },
-					);
-					throw new Error(
-						`[Fusion-MLX Stream] MLX mid-stream error: ${errMsg}`,
-					);
-				}
-				const events = processChunk(parsed, state);
-				for (const event of events) {
-					yield event;
+	// P3-5 (audit 0901): reader 锁释放 — 消费方 cancel (generator return) 或中途 throw
+	// (mid-stream error chunk) 时 reader 仍持锁 → response.body 锁泄漏。try/finally 保证释放。
+	// reader 在外层声明 (finally 需引用); decoder/buffer 也在外层 (循环后 buffer 处理需引用)。
+	try {
+		while (true) {
+			const { done, value } = await readMLXChunkWithIdleTimeout(
+				reader,
+				MLX_STREAM_IDLE_TIMEOUT_MS,
+			);
+			if (done) break;
+			chunkIdx++;
+	
+			buffer += decoder.decode(value, { stream: true });
+	
+			// Parse SSE events
+			const lines = buffer.split("\n");
+			buffer = lines.pop() || ""; // Keep incomplete line in buffer
+	
+			for (const line of lines) {
+				if (line.startsWith("data: ")) {
+					const data = line.slice(6).trim();
+					if (data === "[DONE]") continue;
+	
+					let parsed: MLXStreamChunk;
+					try {
+						parsed = JSON.parse(data) as MLXStreamChunk;
+					} catch {
+						// Skip unparseable chunks
+						continue;
+					}
+					// 检测 MLX 流式 error chunk(fusion-mlx 生成中错误时可能发 {error:...}),fail visibly 而非静默跳过
+					const errField = (parsed as unknown as Record<string, unknown>).error; // log: intermediate unknown cast
+					if (errField) {
+						const errObj = errField as { message?: string };
+						const errMsg = (errObj && errObj.message) || JSON.stringify(errField);
+						logForDebugging(
+							`[Fusion-MLX Stream] Mid-stream error chunk: ${errMsg}`,
+							{ level: "error" },
+						);
+						throw new Error(
+							`[Fusion-MLX Stream] MLX mid-stream error: ${errMsg}`,
+						);
+					}
+					const events = processChunk(parsed, state);
+					for (const event of events) {
+						yield event;
+					}
 				}
 			}
+		}
+	} finally {
+		// P3-5: 消费方 cancel (generator .return) 或中途 throw 时 reader 仍持锁 →
+		// response.body 锁泄漏。releaseLock 释放锁; 已 done/已释放则忽略 (try/catch 静默)。
+		try {
+			reader.releaseLock();
+		} catch {
+			// reader 已释放或流已关闭 — 无需处理
 		}
 	}
 

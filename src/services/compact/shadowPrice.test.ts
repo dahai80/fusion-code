@@ -179,7 +179,7 @@ describe("collectShadowPriceCandidates", () => {
 });
 
 describe("shadowPriceCompactMessages", () => {
-	it("近期全保留 → 原样返回 (引用相等), 无裁剪, prefix boundary = length", () => {
+	it("近期全保留 → 原样返回 (引用相等), 无裁剪", () => {
 		const msgs: Message[] = [
 			makeAssistant(`${UUID_BASE}2`, "a"),
 			makeToolResultUser(`${UUID_BASE}1`, "tu_1", "x".repeat(100)),
@@ -187,7 +187,6 @@ describe("shadowPriceCompactMessages", () => {
 		const res = shadowPriceCompactMessages(msgs, 3, 2.0);
 		expect(res.messages).toBe(msgs);
 		expect(res.truncatedToolResults).toBe(0);
-		expect(res.prefixBoundaryIndex).toBe(msgs.length);
 		expect(res.prunedCandidateCount).toBe(0);
 	});
 
@@ -206,7 +205,6 @@ describe("shadowPriceCompactMessages", () => {
 		expect(res.truncatedToolResults).toBe(1);
 		expect(res.prunedCandidateCount).toBe(1);
 		expect(res.postCompactTokens).toBeLessThan(res.preCompactTokens);
-		expect(res.prefixBoundaryIndex).toBeLessThan(res.messages.length);
 	});
 
 	it("阈值高 → 无结果达裁剪线 → 全保留, 引用相等", () => {
@@ -223,16 +221,15 @@ describe("shadowPriceCompactMessages", () => {
 		expect(res.messages).toBe(msgs);
 	});
 
-	it("无 mutation 时 prefix boundary = length", () => {
+	it("无 mutation 时返回原引用 (引用相等)", () => {
 		const msgs: Message[] = [
 			makeAssistant(`${UUID_BASE}2`, "a"),
 			makeToolResultUser(`${UUID_BASE}1`, "tu_1", "x".repeat(100)),
 			makeAssistant(`${UUID_BASE}4`, "b"),
 			makeToolResultUser(`${UUID_BASE}3`, "tu_2", "y".repeat(100)),
 		];
-		// keep 2 → 无旧轮 → 无 mutation。
+		// keep 2 → 无旧轮 → 无 mutation → 返回原引用。
 		const res = shadowPriceCompactMessages(msgs, 2, 0.1);
-		expect(res.prefixBoundaryIndex).toBe(msgs.length);
 		expect(res.messages).toBe(msgs);
 	});
 

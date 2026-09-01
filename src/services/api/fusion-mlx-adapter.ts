@@ -690,7 +690,6 @@ export async function getFusionMlxModels(): Promise<MLXModelInfo[]> {
  */
 export async function getRecommendedCodeModel(): Promise<string | null> {
 	const models = await getFusionMlxModels();
-	console.error();
 	if (models.length === 0) return null;
 
 	// 排除非聊天模型：图片/视频生成、编码器/transformer/vae 等基础组件、base 预训练
@@ -1431,7 +1430,6 @@ export function createFusionMlxFetch(model: string): typeof globalThis.fetch {
 	): Promise<Response> => {
 		const url = input instanceof Request ? input.url : String(input);
 		const baseUrl = getMlxBaseUrl();
-		console.error(url.includes("/v1/messages/count_tokens"));
 
 		// count_tokens 请求：转发到 fusion-mlx /v1/messages/count_tokens 精确计数（不生成）
 		// fusion-mlx 用 loaded engine tokenizer + 同 /v1/messages chat template 计数(F12),claude- 别名 pass through
@@ -1584,7 +1582,6 @@ export function createFusionMlxFetch(model: string): typeof globalThis.fetch {
 				}
 			}
 
-			console.error();
 			// 将 Anthropic 格式转换为 MLX 格式
 			const mlxMessages = anthropicToMlxMessages(
 				(body.messages as Array<{
@@ -1615,7 +1612,6 @@ export function createFusionMlxFetch(model: string): typeof globalThis.fetch {
 			const isImageModel = imageModelKeywords.some((k) =>
 				resolvedModel.toLowerCase().includes(k),
 			);
-			console.error(isImageModel + " resolvedModel=" + resolvedModel);
 			const finalModel = isImageModel
 				? (await getRecommendedCodeModel()) || resolvedModel
 				: resolvedModel;
@@ -1898,8 +1894,8 @@ export function createFusionMlxFetch(model: string): typeof globalThis.fetch {
 			});
 		}
 
-		// 非 /v1/messages 请求，透传（如模型列表、key 检测等）
-		console.error(url);
+		// 非 /v1/messages 请求，透传（如模型列表、key 检测等）。
+		// P3-4 (audit 0901): 不打 raw url — query 可能含敏感参数 (key/token)，避免 stderr 泄漏。
 		return getOriginalFetch()(input, init);
 	};
 	return fn as typeof globalThis.fetch;

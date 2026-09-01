@@ -173,7 +173,6 @@ export interface ShadowPriceCompactResult {
 	roundsProcessed: number;
 	preCompactTokens: number;
 	postCompactTokens: number;
-	prefixBoundaryIndex: number; // 首个被改消息索引 (可复用前缀到此为止)
 	prunedCandidateCount: number;
 }
 
@@ -205,7 +204,6 @@ export function shadowPriceCompactMessages(
 			roundsProcessed: 0,
 			preCompactTokens,
 			postCompactTokens: preCompactTokens,
-			prefixBoundaryIndex: messages.length,
 			prunedCandidateCount: 0,
 		};
 	}
@@ -313,18 +311,18 @@ export function shadowPriceCompactMessages(
 	}
 
 	// 无 mutation → 返回原数组引用 (no-op 契约: 调用方可安全 === 判等)。
-	// 有 mutation → 返回新数组, prefixBoundaryIndex = 首个被改索引 (可复用前缀到此)。
+	// 有 mutation → 返回新数组。选择性裁剪保留未被触及的前缀 → 可复用前缀更长。
+	// P2-2 (audit 0901): 移除 prefixBoundaryIndex 字段 — 下游无 cache_control
+	// breakpoint 消费方 (hardCompact/QueryEngine 不按索引打 cache_control), 算了就丢。
+	// 删字段 (YAGNI, Rule 2) 避免误导。可复用前缀由选择性裁剪本身保证, 非显式标记。
 	const finalMessages = firstMutatedIndex === -1 ? messages : result;
 	const postCompactTokens = roughTokenCountEstimationForMessages(
 		finalMessages as Parameters<typeof roughTokenCountEstimationForMessages>[0],
 	);
-	const prefixBoundaryIndex =
-		firstMutatedIndex === -1 ? messages.length : firstMutatedIndex;
 	logForDebugging(
 		`[ShadowPrice] Processed ${roundsToProcess}/${totalRounds} rounds, ` +
 			`pruned ${truncatedToolResults} tool_results (candidates=${prunedCandidateCount}), ` +
 			`truncated ${truncatedAssistantTexts} assistant texts, ` +
-			`prefix boundary = ${prefixBoundaryIndex}, ` +
 			`tokens ${preCompactTokens} → ${postCompactTokens}`,
 	);
 
@@ -336,7 +334,6 @@ export function shadowPriceCompactMessages(
 		roundsProcessed: roundsToProcess,
 		preCompactTokens,
 		postCompactTokens,
-		prefixBoundaryIndex,
 		prunedCandidateCount,
 	};
 }

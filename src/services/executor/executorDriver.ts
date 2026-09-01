@@ -150,9 +150,19 @@ export async function* callBashViaExecutor(
 
 	const req = buildRequest(input, toolUseContext.toolUseId);
 	let fullOutput = "";
-	let totalLines = 0;
+	let totalLines = 1; // P3-3: split("\n").length = 段数 = 换行数+1, 初始化 1 匹配段语义
+	let totalBytes = 0; // P3-3: 真实字节数 (不受 cap 截断影响, 反映命令实际输出量)
+	let outputTruncated = false; // P3-3: fullOutput 超 cap 截断标志
 	const startTime = Date.now();
 	const abort = toolUseContext.abortController.signal;
+	// P3-3 (audit 0901): fullOutput 无界累积 → GB 级输出 (find /, 大 log) OOM 崩进程。
+	// 超过 FULL_OUTPUT_MAX_BYTES 后停止拼接, 仅保留尾部窗口供显示 (output: slice(-4096)),
+	// 置 outputTruncated=true 让上层知道输出被截断。totalBytes 继续累真实量 (不受 cap 影响)。
+	const FULL_OUTPUT_MAX_BYTES = Number.isFinite(
+		parseInt(process.env.FUSION_CODE_EXECUTOR_OUTPUT_MAX_BYTES ?? "", 10),
+	)
+		? parseInt(process.env.FUSION_CODE_EXECUTOR_OUTPUT_MAX_BYTES ?? "", 10)
+		: 10 * 1024 * 1024; // 10MB cap
 
 	// Queue bridge: onChunk pushes chunk strings; generator drains them as
 	// progress frames. drainResolve is just a wake signal — the generator
@@ -176,9 +186,25 @@ export async function* callBashViaExecutor(
 			req,
 			(chunk: ExecutorStreamChunk) => {
 				if (chunk.type === "chunk") {
-					fullOutput += chunk.data;
-					totalLines = fullOutput.split("\n").length;
-					queue.push(chunk.data);
+					const data = chunk.data;
+					// P3-3: totalBytes 累真实量 (不受 cap 影响), totalLines 增量计 (避免每 chunk O(n) split)。
+					totalBytes += data.length;
+					for (let i = 0; i < data.length; i++) {
+						if (data.charCodeAt(i) === 10) totalLines++;
+					}
+					// P3-3: 超 cap 后停止全量拼接, 仅保滚动尾部窗口 (边收边弃), 防 GB 级输出 OOM。
+					// fullOutput 上限 ~2*cap, 超 2*cap 才 trim 到 cap → 摊还 O(n), 非每 chunk O(n)。
+					if (!outputTruncated && fullOutput.length + data.length > FULL_OUTPUT_MAX_BYTES) {
+						outputTruncated = true;
+						logForDebugging(
+							`executor output exceeded ${FULL_OUTPUT_MAX_BYTES} bytes (totalBytes=${totalBytes}) — switching to tail window`,
+						);
+					}
+					fullOutput += data;
+					if (outputTruncated && fullOutput.length > FULL_OUTPUT_MAX_BYTES * 2) {
+						fullOutput = fullOutput.slice(-FULL_OUTPUT_MAX_BYTES);
+					}
+					queue.push(data);
 					wake();
 				}
 			},
@@ -198,7 +224,7 @@ export async function* callBashViaExecutor(
 	// Drain queued chunks as progress frames until the stream completes.
 	while (!streamDone || queue.length > 0) {
 		if (queue.length > 0) {
-			yield makeProgress(fullOutput, totalLines, startTime);
+			yield makeProgress(fullOutput, totalLines, totalBytes, startTime);
 			queue.length = 0;
 		} else if (!streamDone) {
 			// Wait for the next chunk push (wake) or stream completion.
@@ -237,6 +263,7 @@ export async function* callBashViaExecutor(
 function makeProgress(
 	fullOutput: string,
 	totalLines: number,
+	totalBytes: number,
 	startTime: number,
 ): {
 	type: "progress";
@@ -248,11 +275,13 @@ function makeProgress(
 } {
 	return {
 		type: "progress",
+		// P3-3: fullOutput 超 cap 后仅保尾部窗口, output slice 仍取末 4KB 供实时显示。
 		output: fullOutput.slice(-4096),
 		fullOutput,
 		elapsedTimeSeconds: (Date.now() - startTime) / 1000,
 		totalLines,
-		totalBytes: fullOutput.length,
+		// P3-3: totalBytes 反映命令真实输出量 (不受 cap 截断影响), 而非 fullOutput.length。
+		totalBytes,
 	};
 }
 
