@@ -124,31 +124,79 @@ const SENSITIVE_BASENAMES = [
 	"server.token",
 ];
 
+// P0-1 (audit 0901): shells pass `bash -c '<script>'` — the script body lives
+// inside ONE quoted token. The old splitter split that single token out of its
+// surrounding pair and was done, leaving `cat ~/.env'` (trailing quote) which
+// regex `\.env$` did NOT match → secret leaked. Fix is two-part:
+//   1. Aggressive leading/trailing quote strip (any run of ' or ") so a single
+//      dangling quote can't survive into the pattern test.
+//   2. `bash -c`/`sh -c`/`zsh -c`/`-c` script recursion — after stripping the
+//      `-c` wrapper quotes, re-scan the script body for path tokens. Without
+//      this, `bash -c 'cat ~/.ssh/id_rsa'` hides the key path one level down.
+// Loop-bounded (script nesting depth cap) so a crafted `bash -c 'bash -c ...'`
+// chain can't recurse forever.
+const SHELL_C_FLAGS = new Set(["bash", "sh", "zsh", "dash", "ksh"]);
+const MAX_SCRIPT_DEPTH = 4;
+
+function stripQuotes(tok: string): string {
+	let s = tok;
+	// strip any leading run of quotes, then any trailing run of quotes.
+	// `bash -c 'cat ~/.env'` → after split the -c operand is `'cat ~/.env'`;
+	// we want `cat ~/.env`. Aggressive strip also kills a lone dangling quote
+	// that survived a partial split (`~/.env'`).
+	s = s.replace(/^['"]+/, "").replace(/['"]+$/, "");
+	return s;
+}
+
 export function extractCandidatePathsFromCommand(command: string): string[] {
-	const tokens = command.split(/[\s|&;<>]+/).filter(Boolean);
 	const candidates: string[] = [];
 	const seen = new Set<string>();
-	for (const raw of tokens) {
-		// strip matching surrounding quotes
-		let tok = raw;
-		if (
-			(tok.startsWith('"') && tok.endsWith('"')) ||
-			(tok.startsWith("'") && tok.endsWith("'"))
-		) {
-			tok = tok.slice(1, -1);
-		}
-		if (!tok) continue;
-		// skip flags (-x / --x) and command verbs (first token of a segment)
-		if (tok.startsWith("-")) continue;
+	const addCandidate = (tok: string) => {
+		if (!tok) return;
+		if (tok.startsWith("-")) return;
 		const looksLikePath = tok.includes("/") || tok.includes("\\");
-		const matchesSensitiveBasename = SENSITIVE_BASENAMES.some((b) =>
-			tok === b || tok.endsWith("/" + b) || tok.endsWith("\\" + b),
+		const matchesSensitiveBasename = SENSITIVE_BASENAMES.some(
+			(b) => tok === b || tok.endsWith("/" + b) || tok.endsWith("\\" + b),
 		);
-		if (!looksLikePath && !matchesSensitiveBasename) continue;
-		if (seen.has(tok)) continue;
+		if (!looksLikePath && !matchesSensitiveBasename) return;
+		if (seen.has(tok)) return;
 		seen.add(tok);
 		candidates.push(tok);
-	}
+	};
+
+	const scan = (cmd: string, depth: number) => {
+		if (depth > MAX_SCRIPT_DEPTH) return;
+		const tokens = cmd.split(/[\s|&;<>]+/).filter(Boolean);
+		for (let i = 0; i < tokens.length; i++) {
+			const raw = tokens[i];
+			const tok = stripQuotes(raw);
+			if (!tok) continue;
+			// `-c '<script>'` recursion: when we see a shell verb followed by
+			// `-c`, the NEXT token is the inline script — strip its quotes and
+			// recurse into it (its own path tokens + nested -c).
+			if (SHELL_C_FLAGS.has(tok) || tok === "-c") {
+				// find the -c flag position
+				let j = i;
+				if (SHELL_C_FLAGS.has(tok)) {
+					// advance to -c
+					if (i + 1 < tokens.length && stripQuotes(tokens[i + 1]) === "-c") {
+						j = i + 1;
+					} else {
+						continue;
+					}
+				}
+				// script token follows -c
+				if (j + 1 < tokens.length) {
+					const scriptBody = stripQuotes(tokens[j + 1]);
+					if (scriptBody) scan(scriptBody, depth + 1);
+				}
+				continue;
+			}
+			addCandidate(tok);
+		}
+	};
+
+	scan(command, 0);
 	return candidates;
 }
 

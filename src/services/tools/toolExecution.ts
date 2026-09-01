@@ -819,6 +819,36 @@ async function checkPermissionsAndCallTool(
 			...extractCandidatePathsFromCommand(parsedInput.data.command),
 		);
 	}
+	// P0-2 (audit 0901): the field-name whitelist above (file_path/edits/path/
+	// command) missed new tool fields — e.g. BriefTool `attachments` (string[])
+	// attached `~/.env` and uploaded it unblocked. Deep-scan ALL string values in
+	// the parsed input as a backstop, restricted to path-looking tokens (contain
+	// a separator or match a sensitive basename) to avoid false positives on
+	// free-text fields like `message`/`prompt`. This makes the gate capability-
+	// based rather than field-name-based.
+	const collectedDeep = new Set<string>();
+	const collectPathLikeStrings = (value: unknown, depth: number) => {
+		if (depth > 6) return; // bound recursion over nested objects/arrays
+		if (typeof value === "string") {
+			if (value.includes("/") || value.includes("\\")) {
+				collectedDeep.add(value);
+			}
+			return;
+		}
+		if (Array.isArray(value)) {
+			for (const v of value) collectPathLikeStrings(v, depth + 1);
+			return;
+		}
+		if (value && typeof value === "object") {
+			for (const v of Object.values(value as Record<string, unknown>)) {
+				collectPathLikeStrings(v, depth + 1);
+			}
+		}
+	};
+	collectPathLikeStrings(parsedInput.data, 0);
+	for (const p of collectedDeep) {
+		if (!sensitivePaths.includes(p)) sensitivePaths.push(p);
+	}
 	// P2-1: 字符串 pattern 检查 (快速路径, 阻直接命中)。
 	let blockedPath = sensitivePaths.find((p) => isSensitiveFilePath(p));
 	// P2-1: 符号链接穿透守卫。`ln -s ~/.env ./link` → 规范化串不含 `.env`,

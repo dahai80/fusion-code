@@ -11,6 +11,11 @@ import { getCwd } from '../../utils/cwd.js'
 import { getErrnoCode } from '../../utils/errors.js'
 import { IMAGE_EXTENSION_REGEX } from '../../utils/imagePaste.js'
 import { expandPath } from '../../utils/path.js'
+import {
+    isSensitiveFilePath,
+    isSymlinkBypassingSensitiveGate,
+    getSensitiveFileDenialMessage,
+} from '../../utils/sensitiveFiles.js'
 
 export type ResolvedAttachment = {
   path: string
@@ -25,6 +30,24 @@ export async function validateAttachmentPaths(
   const cwd = getCwd()
   for (const rawPath of rawPaths) {
     const fullPath = expandPath(rawPath)
+    // P0-2 (audit 0901): SendUserFile/SendUserMessage attachments bypassed the
+    // sensitive-file gate entirely — AI attached `~/.env` / `~/.ssh/id_rsa` and
+    // the file was uploaded to the cloud transcript unblocked. Block at the
+    // attachment validator (string check first, then symlink-resolution guard).
+    if (isSensitiveFilePath(fullPath)) {
+      return {
+        result: false,
+        message: getSensitiveFileDenialMessage(rawPath),
+        errorCode: 1,
+      }
+    }
+    if (await isSymlinkBypassingSensitiveGate(fullPath)) {
+      return {
+        result: false,
+        message: getSensitiveFileDenialMessage(rawPath),
+        errorCode: 1,
+      }
+    }
     try {
       const stats = await stat(fullPath)
       if (!stats.isFile()) {

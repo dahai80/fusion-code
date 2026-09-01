@@ -69,8 +69,41 @@ function cacheFile(): string {
 // Default official registry. Overridable via FUSION_CODE_PLUGIN_REGISTRY_URL
 // so tests + staging can point elsewhere without code changes.
 export function defaultRegistryUrl(): string {
+	const override = process.env.FUSION_CODE_PLUGIN_REGISTRY_URL;
+	if (override) {
+		// P0-3 (audit 0901): supply-chain trust boundary. The registry index
+		// carries per-plugin sha256 pins, BUT when the override URL points at a
+		// non-default host, the pin and the payload come from the same channel —
+		// a compromised/attacker registry can poison both consistently and the
+		// sha256 check passes. The default registry is the only trusted origin;
+		// an override is an explicit user opt-out of that trust. Fail visibly:
+		// warn loudly so operators know they left a MITM-shaped env var set, and
+		// refuse plaintext HTTP (localhost exempted for local testing).
+		const lower = override.toLowerCase();
+		const isLoopback =
+			lower.startsWith("http://localhost") ||
+			lower.startsWith("http://127.0.0.1") ||
+			lower.startsWith("http://[::1]");
+		if (!lower.startsWith("https://") && !isLoopback) {
+			// Refuse: a plaintext remote registry can be tampered in transit and
+			// the sha256 pin (also fetched in the clear) proves nothing.
+			throw new Error(
+				`[registry] FUSION_CODE_PLUGIN_REGISTRY_URL must be HTTPS (got "${override}"). ` +
+					"Plaintext HTTP is only permitted for loopback (localhost/127.0.0.1). " +
+					"A non-HTTPS registry can be tampered in transit and its sha256 pins " +
+					"provide no integrity guarantee. Set a https:// URL or unset the env.",
+			);
+		}
+		// HTTPS (or loopback) override: warn but proceed. The operator opted in.
+		const hostHint = isLoopback ? "loopback" : "remote";
+		logForDebugging(
+			`[registry] WARNING: using non-default registry via FUSION_CODE_PLUGIN_REGISTRY_URL (${hostHint}: ${override}). ` +
+				"sha256 pins are sourced from THIS registry, not the official one — " +
+				"only trust an override you control.",
+		);
+	}
 	return (
-		process.env.FUSION_CODE_PLUGIN_REGISTRY_URL ??
+		override ??
 		"https://raw.githubusercontent.com/dahai80/fusion-plugins-official/main/registry.json"
 	);
 }

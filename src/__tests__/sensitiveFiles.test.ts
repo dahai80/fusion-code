@@ -1,5 +1,8 @@
 import { describe, expect, it } from "bun:test";
-import { isSensitiveFilePath } from "../utils/sensitiveFiles.js";
+import {
+	extractCandidatePathsFromCommand,
+	isSensitiveFilePath,
+} from "../utils/sensitiveFiles.js";
 
 describe("isSensitiveFilePath", () => {
 	it("blocks .env files", () => {
@@ -48,7 +51,9 @@ describe("isSensitiveFilePath", () => {
 
 	it("blocks API server auth token (server.token)", () => {
 		// P0-1 (audit R1): ~/.fusion-code/server.token = API server 认证 token, AI 读即本地 RCE 面
-		expect(isSensitiveFilePath("/home/user/.fusion-code/server.token")).toBe(true);
+		expect(isSensitiveFilePath("/home/user/.fusion-code/server.token")).toBe(
+			true,
+		);
 		expect(isSensitiveFilePath("server.token")).toBe(true);
 		// 非同名 token 文件不被误伤
 		expect(isSensitiveFilePath("/project/src/serverToken.ts")).toBe(false);
@@ -63,5 +68,64 @@ describe("isSensitiveFilePath", () => {
 	it("handles bare filenames", () => {
 		expect(isSensitiveFilePath(".env")).toBe(true);
 		expect(isSensitiveFilePath("id_rsa")).toBe(true);
+	});
+});
+
+describe("extractCandidatePathsFromCommand", () => {
+	it("extracts plain sensitive paths", () => {
+		expect(extractCandidatePathsFromCommand("cat ~/.env")).toContain("~/.env");
+		expect(
+			extractCandidatePathsFromCommand("grep foo ~/.ssh/id_rsa"),
+		).toContain("~/.ssh/id_rsa");
+	});
+
+	it("strips a dangling trailing quote (bash -c 'cat ~/.env')", () => {
+		// P0-1 (audit 0901): trailing-quote bypass. The old splitter left
+		// `~/.env'` which regex `\.env$` failed to match → secret leaked.
+		const cands = extractCandidatePathsFromCommand("bash -c 'cat ~/.env'");
+		expect(cands).toContain("~/.env");
+	});
+
+	it("strips a dangling leading quote", () => {
+		const cands = extractCandidatePathsFromCommand("cat '~/.env");
+		expect(cands).toContain("~/.env");
+	});
+
+	it("recurses into bash -c script bodies", () => {
+		const cands = extractCandidatePathsFromCommand(
+			"bash -c 'cat ~/.ssh/id_rsa'",
+		);
+		expect(cands).toContain("~/.ssh/id_rsa");
+	});
+
+	it("recurses into nested -c scripts", () => {
+		const cands = extractCandidatePathsFromCommand(
+			"bash -c 'sh -c \"cat ~/.env\"'",
+		);
+		expect(cands).toContain("~/.env");
+	});
+
+	it("recurses into sh -c with double-quoted script", () => {
+		const cands = extractCandidatePathsFromCommand(
+			'sh -c "grep x ~/.npmrc"',
+		);
+		expect(cands).toContain("~/.npmrc");
+	});
+
+	it("extracts server.token from bash -c", () => {
+		const cands = extractCandidatePathsFromCommand(
+			"bash -c 'cat ~/.fusion-code/server.token'",
+		);
+		expect(cands).toContain("~/.fusion-code/server.token");
+	});
+
+	it("does not false-positive on flags", () => {
+		const cands = extractCandidatePathsFromCommand("ls -la /project/src");
+		expect(cands).not.toContain("-la");
+	});
+
+	it("returns empty for non-sensitive commands", () => {
+		const cands = extractCandidatePathsFromCommand("echo hello world");
+		expect(cands).toEqual([]);
 	});
 });
