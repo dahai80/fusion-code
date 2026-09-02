@@ -1,17 +1,6 @@
 // Local type stubs for exports stripped from the Anthropic SDK fork.
 // These are type-only declarations; no runtime code is generated.
 
-// Missing export from src/utils/betas.js
-declare module "../../utils/betas.js" {
-	export function getBedrockExtraBodyParamsBetas(): string[];
-}
-
-// log: stub for TS2307 — @anthropic-ai/mcpb external package
-declare module "@anthropic-ai/mcpb/dist/schemas/any.js" {
-	import type { ZodTypeAny } from "zod/v4";
-	export const McpbManifestSchema: ZodTypeAny;
-}
-
 declare module "@ant/computer-use-mcp" {
 	export const API_RESIZE_PARAMS: Record<string, unknown>;
 	export function targetImageSize(
@@ -315,85 +304,6 @@ declare module "@ant/computer-use-swift" {
 	const _mod: ComputerUseAPI;
 	export default _mod;
 	export type { ComputerUseAPI };
-}
-
-declare module "@anthropic-ai/mcpb" {
-	export type McpbSourceType =
-		| { source: "url"; url: string; headers?: Record<string, string> }
-		| {
-				source: "github";
-				repo: string;
-				ref?: string;
-				path?: string;
-				sparsePaths?: string[];
-		  }
-		| {
-				source: "git";
-				url: string;
-				ref?: string;
-				path?: string;
-				sparsePaths?: string[];
-		  }
-		| { source: "npm"; package: string; version?: string }
-		| { source: "pypi"; package: string; version?: string }
-		| { source: "local"; path: string }
-		| { source: "filesystem"; path: string }
-		| { source: "mcpb-registry"; id: string; version?: string };
-
-	export interface McpbUserConfigurationOption {
-		description: string;
-		title: string;
-		type: "string" | "number" | "boolean" | "file" | "directory";
-		required?: boolean;
-		default?: string | number | boolean | string[];
-		multiple?: boolean;
-		sensitive?: boolean;
-		min?: number;
-		max?: number;
-	}
-
-	export type UserConfigSchema = Record<string, McpbUserConfigurationOption>;
-
-	export interface McpbPluginEntry {
-		name: string;
-		description: string;
-		strict?: boolean;
-		userConfig?: UserConfigSchema;
-		mcpServers?: Record<string, unknown>;
-		hooks?: Record<string, unknown>;
-		tags?: string[];
-	}
-
-	export interface McpbManifest {
-		name: string;
-		version?: string;
-		display_name?: string;
-		description?: string;
-		author?: { name: string; email?: string; url?: string };
-		owner?: { name: string; email?: string; url?: string };
-		plugins?: McpbPluginEntry[];
-		forceRemoveDeletedPlugins?: boolean;
-		mcpServers?: Record<string, unknown>;
-		hooks?: Record<string, unknown>;
-		user_config?: UserConfigSchema;
-		server?: unknown;
-		dxt_version?: string;
-		manifest_version?: string;
-	}
-
-	export function getMcpConfigForManifest(options: {
-		manifest: McpbManifest;
-		extensionPath: string;
-		systemDirs: unknown;
-		userConfig?: Record<string, unknown>;
-		pathSeparator?: string;
-	}): Promise<Record<string, unknown> | undefined>;
-}
-
-declare module "@anthropic-ai/mcpb/dist/types.js" {
-	export type McpbManifestAny = import("@anthropic-ai/mcpb").McpbManifest & {
-		[key: string]: unknown;
-	};
 }
 
 // Widen process.env.USER_TYPE from literal "external" (set by build.ts define)

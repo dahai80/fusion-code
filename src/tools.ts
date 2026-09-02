@@ -16,17 +16,10 @@ import { NotebookEditTool } from "./tools/NotebookEditTool/NotebookEditTool.js";
 import { WebFetchTool } from "./tools/WebFetchTool/WebFetchTool.js";
 import { TaskStopTool } from "./tools/TaskStopTool/TaskStopTool.js";
 import { BriefTool } from "./tools/BriefTool/BriefTool.js";
-// Dead code elimination: conditional import for ant-only tools
-/* eslint-disable custom-rules/no-process-env-top-level, @typescript-eslint/no-require-imports */
-const REPLTool =
-	process.env.USER_TYPE === "ant"
-		? require("./tools/REPLTool/REPLTool.js").REPLTool
-		: null;
-const SuggestBackgroundPRTool =
-	process.env.USER_TYPE === "ant"
-		? require("./tools/SuggestBackgroundPRTool/SuggestBackgroundPRTool.js")
-				.SuggestBackgroundPRTool
-		: null;
+// log: REPLTool + SuggestBackgroundPRTool ant-only require() blocks removed —
+// target modules never existed (only REPLTool/constants.js is live). Dead in
+// shipped builds (USER_TYPE==="external"→false) but require() in a dead branch
+// does NOT DCE (transform-time resolve), so they survived in the bundle.
 import { SleepTool } from "./tools/SleepTool/SleepTool.js";
 // Cloud-only tools removed: RemoteTriggerTool, MonitorTool, SendUserFileTool,
 // PushNotificationTool, SubscribePRTool
@@ -192,7 +185,6 @@ export function getAllBaseTools(): Tools {
 		SkillTool,
 		EnterPlanModeTool,
 		...(process.env.USER_TYPE === "ant" ? [ConfigTool] : []),
-		...(SuggestBackgroundPRTool ? [SuggestBackgroundPRTool] : []),
 		...(isTodoV2Enabled()
 			? [TaskCreateTool, TaskGetTool, TaskUpdateTool, TaskListTool]
 			: []),
@@ -221,7 +213,6 @@ export function getAllBaseTools(): Tools {
 		...(TeamDeleteTool ? [TeamDeleteTool] : []),
 		getSendMessageTool(),
 		...(ListPeersTool ? [ListPeersTool] : []),
-		...(process.env.USER_TYPE === "ant" && REPLTool ? [REPLTool] : []),
 		BriefTool,
 		ArtifactCreateTool,
 		ArtifactUpdateTool,
@@ -327,10 +318,9 @@ export const getTools = (permissionContext: ToolPermissionContext): Tools => {
 		// --bare + REPL mode: REPL wraps Bash/Read/Edit/etc inside the VM, so
 		// return REPL instead of the raw primitives. Matches the non-bare path
 		// below which also hides REPL_ONLY_TOOLS when REPL is enabled.
-		if (isReplModeEnabled() && REPLTool) {
-			const replSimple: Tool[] = [REPLTool];
-			return filterToolsByDenyRules(replSimple, permissionContext);
-		}
+		// log: REPLTool class never committed (only constants.js exists), so the
+		// --bare+REPL short-circuit is currently unreachable — fall through to
+		// raw primitives. Restore the REPLTool branch if/when the tool class lands.
 		const simpleTools: Tool[] = [BashTool, FileReadTool, FileEditTool];
 		return filterToolsByDenyRules(simpleTools, permissionContext);
 	}
