@@ -190,20 +190,19 @@ if (outDir !== ".") {
 	mkdirSync(outDir, { recursive: true });
 }
 
-// Externalized syntax-highlight libs (highlight.js ~2M + cli-highlight ~1.2M =
-// ~3.2M, ~30% of the JS bundle). In `--compile` mode there is no node_modules
-// at runtime, so these throw → fail-open to plain text (color-diff.hljs() +
-// cliHighlight.getCliHighlightPromise() both catch). In source/dev runs
-// node_modules present → syntax highlighting works. Net: compiled binary
-// smaller, dev runs unchanged. See memory: binary-size-reduce.
+// @pondwader/socks5-server was dropped during div-anthropic dep slim. The
+// vendored sandbox-runtime socks-proxy.js lazy-imports it; externalizing keeps
+// the build from hard-failing when the vendored file is present, and the lazy
+// import + fail-open path throws a clear error if the SOCKS proxy feature is
+// ever invoked without the dep. syntax-highlight libs (highlight.js +
+// cli-highlight) stay BUNDLED so the compiled binary keeps code highlighting
+// (user requirement: "还是要保留代码高亮，否则开发者不会用的").
 const externals = [
 	"@ant/*",
 	"audio-capture-napi",
 	"image-processor-napi",
 	"modifiers-napi",
 	"url-handler-napi",
-	"highlight.js",
-	"cli-highlight",
 	"@pondwader/socks5-server",
 ];
 
