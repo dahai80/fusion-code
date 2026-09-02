@@ -2,7 +2,8 @@ export type PermissionMode =
 	| "default"
 	| "acceptEdits"
 	| "bypassPermissions"
-	| "plan";
+	| "plan"
+	| "readOnly";
 
 export type ExitReason =
 	| "clear"

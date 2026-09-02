@@ -69,6 +69,10 @@ export function getNextPermissionMode(
         case 'dontAsk':
             return 'default'
 
+        case 'readOnly':
+            // Read-only is a terminal-ish restricted mode; cycle back to default.
+            return 'default'
+
         default:
             return 'default'
     }

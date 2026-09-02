@@ -3,6 +3,7 @@ export type PermissionMode =
   | 'acceptEdits'
   | 'bypassPermissions'
   | 'plan'
+  | 'readOnly'
 
 export type ExitReason =
   | 'clear'

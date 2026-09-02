@@ -89,6 +89,7 @@ import {
 	buildClassifierUnavailableMessage,
 	buildYoloRejectionMessage,
 	DONT_ASK_REJECT_MESSAGE,
+	READ_ONLY_REJECT_MESSAGE,
 } from "../messages.js";
 import { calculateCostFromTokens } from "../modelCost.js";
 /* eslint-enable @typescript-eslint/no-require-imports */
@@ -519,6 +520,26 @@ export const hasPermissionsToUseTool: CanUseToolFn = async (
 				},
 				message: DONT_ASK_REJECT_MESSAGE(tool.name),
 			};
+		}
+		// Read-only mode (insight-0902 G4): deny non-read tools. A tool's
+		// isReadOnly() marker is the per-tool battle-tested classifier (Read/
+		// Glob/Grep/WebFetch/WebSearch/AskUserQuestion etc. return true; Write/
+		// Edit/Bash/TaskCreate return false). Read tools pass through unchanged
+		// so existing allow rules still apply; only write/exec tools are denied.
+		// Opt-in by selecting the mode — byte-identical when user stays on
+		// existing modes.
+		if (appState.toolPermissionContext.mode === "readOnly") {
+			const isReadOnlyTool = tool.isReadOnly?.(input) === true;
+			if (!isReadOnlyTool) {
+				return {
+					behavior: "deny",
+					decisionReason: {
+						type: "mode",
+						mode: "readOnly",
+					},
+					message: READ_ONLY_REJECT_MESSAGE(tool.name),
+				};
+			}
 		}
 		// Deterministic auto mode: auto-approve safe operations without LLM classifier
 		// This runs for ALL users when mode is 'auto' and TRANSCRIPT_CLASSIFIER is not active.

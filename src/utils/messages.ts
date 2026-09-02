@@ -237,6 +237,9 @@ export function AUTO_REJECT_MESSAGE(toolName: string): string {
 export function DONT_ASK_REJECT_MESSAGE(toolName: string): string {
 	return `Permission to use ${toolName} has been denied because Fusion-Code is running in don't ask mode. ${DENIAL_WORKAROUND_GUIDANCE}`;
 }
+export function READ_ONLY_REJECT_MESSAGE(toolName: string): string {
+	return `Permission to use ${toolName} has been denied because Fusion-Code is running in read-only mode (only read tools are allowed). ${DENIAL_WORKAROUND_GUIDANCE}`;
+}
 export const NO_RESPONSE_REQUESTED = "No response requested.";
 
 // Synthetic tool_result content inserted by ensureToolResultPairing when a

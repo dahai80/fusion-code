@@ -76,6 +76,13 @@ const PERMISSION_MODE_CONFIG: Partial<
     color: 'error',
     external: 'dontAsk',
   },
+  readOnly: {
+    title: 'Read-only',
+    shortTitle: 'ReadOnly',
+    symbol: '🔒',
+    color: 'permission',
+    external: 'readOnly',
+  },
   auto: {
     title: 'Auto mode',
     shortTitle: 'Auto',
