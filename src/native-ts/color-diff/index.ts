@@ -38,15 +38,25 @@ type HLJSApi = typeof hljsNamespace & {
 		options: hljsNamespace.HighlightOptions,
 	) => hljsNamespace.HighlightResult;
 };
-let cachedHljs: HLJSApi | null = null;
-function hljs(): HLJSApi {
-	if (cachedHljs) return cachedHljs;
-	// eslint-disable-next-line @typescript-eslint/no-require-imports
-	const mod = require("highlight.js");
-	// highlight.js uses `export =` (CJS). Under bun/ESM the interop wraps it
-	// in .default; under node CJS the module IS the API. Check at runtime.
-	cachedHljs = "default" in mod && mod.default ? mod.default : mod;
-	return cachedHljs!;
+// Fail-open: highlight.js is externalized (scripts/build.ts externals) to
+// slim the compiled binary (~2M). In the compiled binary there is no
+// node_modules, so require("highlight.js") throws → syntax highlighting
+// degrades to plain text (callers already fall back to defaultStyle). In
+// `bun run dev` / source runs, node_modules present → highlight works.
+let cachedHljs: HLJSApi | null | undefined;
+function hljs(): HLJSApi | null {
+	if (cachedHljs !== undefined) return cachedHljs ?? null;
+	try {
+		// eslint-disable-next-line @typescript-eslint/no-require-imports
+		const mod = require("highlight.js");
+		// highlight.js uses `export =` (CJS). Under bun/ESM the interop wraps it
+		// in .default; under node CJS the module IS the API. Check at runtime.
+		cachedHljs = "default" in mod && mod.default ? mod.default : mod;
+	} catch (err) {
+		logError(new Error(`color-diff: highlight.js unavailable (externalized). Syntax highlighting disabled. cause: ${err}`));
+		cachedHljs = null;
+	}
+	return cachedHljs;
 }
 
 import { stringWidth } from "../../ink/stringWidth.js";
@@ -436,9 +446,10 @@ function detectLanguage(
 	// Filename-based lookup (handles Dockerfile, Makefile, CMakeLists.txt, etc.)
 	const stem = base.split(".")[0] ?? "";
 	const byName = FILENAME_LANGS[base] ?? FILENAME_LANGS[stem];
-	if (byName && hljs().getLanguage(byName)) return byName;
+	const api = hljs();
+	if (byName && api?.getLanguage(byName)) return byName;
 	if (ext) {
-		const lang = hljs().getLanguage(ext);
+		const lang = api?.getLanguage(ext);
 		if (lang) return ext;
 	}
 	// Shebang / first-line detection (strip UTF-8 BOM)
@@ -520,9 +531,13 @@ function highlightLine(
 	if (!state.lang) {
 		return [[defaultStyle(theme), code]];
 	}
+	const api = hljs();
+	if (!api) {
+		return [[defaultStyle(theme), code]];
+	}
 	let result;
 	try {
-		result = hljs().highlight(code, {
+		result = api.highlight(code, {
 			language: state.lang,
 			ignoreIllegals: true,
 		});

@@ -190,12 +190,21 @@ if (outDir !== ".") {
 	mkdirSync(outDir, { recursive: true });
 }
 
+// Externalized syntax-highlight libs (highlight.js ~2M + cli-highlight ~1.2M =
+// ~3.2M, ~30% of the JS bundle). In `--compile` mode there is no node_modules
+// at runtime, so these throw → fail-open to plain text (color-diff.hljs() +
+// cliHighlight.getCliHighlightPromise() both catch). In source/dev runs
+// node_modules present → syntax highlighting works. Net: compiled binary
+// smaller, dev runs unchanged. See memory: binary-size-reduce.
 const externals = [
 	"@ant/*",
 	"audio-capture-napi",
 	"image-processor-napi",
 	"modifiers-napi",
 	"url-handler-napi",
+	"highlight.js",
+	"cli-highlight",
+	"@pondwader/socks5-server",
 ];
 
 const defines = {
@@ -221,6 +230,15 @@ const defines = {
 	),
 } as const;
 
+// --bytecode precompiles JS to V8/JSC bytecode embedded in the binary.
+// Speeds cold start (~100-300ms) but nearly DOUBLES binary size (+72M: 71M→143M).
+// Default OFF: binary-size priority over cold-start speed (fusion-code is a
+// long-session REPL, cold start happens once). Opt back in with
+// FUSION_CODE_BYTECODE=1 for the fast-start build. See memory: binary-size-reduce.
+const useBytecode = ["1", "true", "yes"].includes(
+	(process.env.FUSION_CODE_BYTECODE ?? "").toLowerCase(),
+);
+
 const cmd = [
 	"bun",
 	"build",
@@ -233,12 +251,14 @@ const cmd = [
 	"--outfile",
 	outfile,
 	"--minify",
-	"--bytecode",
 	"--packages",
 	"bundle",
 	"--conditions",
 	"bun",
 ];
+if (useBytecode) {
+	cmd.push("--bytecode");
+}
 
 for (const external of externals) {
 	cmd.push("--external", external);
