@@ -153,6 +153,11 @@ export const getHookEventMetadata = memoize(
           values: ['manual', 'auto'],
         },
       },
+      ContextWindowWarning: {
+        summary: 'Before context window fills to compact threshold',
+        description:
+          'Input to command is JSON with context usage percent and threshold percent, fired when usage reaches the compact threshold but before compaction runs.\nExit code 0 - stdout shown to user\nOther exit codes - show stderr to user only',
+      },
       SessionEnd: {
         summary: 'When a session is ending',
         description:
@@ -307,6 +312,7 @@ export function groupHooksByEventAndMatcher(
     CwdChanged: {},
     FileChanged: {},
     DirectoryAdded: {},
+    ContextWindowWarning: {},
   }
 
   const metadata = getHookEventMetadata(toolNames)

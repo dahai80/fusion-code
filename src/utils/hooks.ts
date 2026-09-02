@@ -82,6 +82,7 @@ import type {
 	PermissionDeniedHookInput,
 	PreCompactHookInput,
 	PostCompactHookInput,
+	ContextWindowWarningHookInput,
 	PreToolUseHookInput,
 	SessionStartHookInput,
 	SessionEndHookInput,
@@ -4160,6 +4161,81 @@ export async function executePostCompactHooks(
 		userDisplayMessage:
 			displayMessages.length > 0 ? displayMessages.join("\n") : undefined,
 	};
+}
+
+/**
+ * Execute context-window warning hooks if configured.
+ * insight-0902 E2: fires when context usage reaches the compact threshold
+ * but before compaction actually runs, letting third-party hooks attach
+ * pre-compact alerts or external compression. fail-open: never throws into
+ * the compact path. Default-off via env gate at the dispatch site.
+ */
+export async function executeContextWindowWarningHooks(
+	warningData: {
+		contextUsagePercent: number;
+		thresholdPercent: number;
+		tokenUsage?: number;
+		contextWindow?: number;
+	},
+	signal?: AbortSignal,
+	timeoutMs: number = TOOL_HOOK_EXECUTION_TIMEOUT_MS,
+): Promise<{
+	userDisplayMessage?: string;
+}> {
+	try {
+		const hookInput: ContextWindowWarningHookInput = {
+			...createBaseHookInput(undefined),
+			hook_event_name: "ContextWindowWarning",
+			context_usage_percent: warningData.contextUsagePercent,
+			threshold_percent: warningData.thresholdPercent,
+			token_usage: warningData.tokenUsage,
+			context_window: warningData.contextWindow,
+		};
+
+		const results = await executeHooksOutsideREPL({
+			hookInput,
+			matchQuery: undefined,
+			signal,
+			timeoutMs,
+		});
+
+		if (results.length === 0) {
+			return {};
+		}
+
+		const displayMessages: string[] = [];
+		for (const result of results) {
+			if (result.succeeded) {
+				if (result.output.trim()) {
+					displayMessages.push(
+						`ContextWindowWarning [${result.command}] completed successfully: ${result.output.trim()}`,
+					);
+				} else {
+					displayMessages.push(
+						`ContextWindowWarning [${result.command}] completed successfully`,
+					);
+				}
+			} else {
+				if (result.output.trim()) {
+					displayMessages.push(
+						`ContextWindowWarning [${result.command}] failed: ${result.output.trim()}`,
+					);
+				} else {
+					displayMessages.push(
+						`ContextWindowWarning [${result.command}] failed`,
+					);
+				}
+			}
+		}
+
+		return {
+			userDisplayMessage:
+				displayMessages.length > 0 ? displayMessages.join("\n") : undefined,
+		};
+	} catch (error) {
+		logForDebugging(`ContextWindowWarning hooks failed: ${String(error)}`);
+		return {};
+	}
 }
 
 /**

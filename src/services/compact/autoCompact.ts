@@ -10,6 +10,7 @@ import { logForDebugging } from '../../utils/debug.js'
 import { isEnvTruthy } from '../../utils/envUtils.js'
 import { hasExactErrorMessage } from '../../utils/errors.js'
 import type { CacheSafeParams } from '../../utils/forkedAgent.js'
+import { executeContextWindowWarningHooks } from '../../utils/hooks.js'
 import { logError } from '../../utils/log.js'
 import { isFusionMlxProvider } from '../../utils/model/providers.js'
 import { tokenCountWithEstimation } from '../../utils/tokens.js'
@@ -187,6 +188,37 @@ export function calculateTokenWarningState(
   }
 }
 
+/**
+ * insight-0902 E2: decide whether to fire the ContextWindowWarning hook and
+ * compute the values to pass. Pure (no side effects) so it is unit-testable
+ * without mocking hooks/utilities. Env-gate default-off = byte-identical-off.
+ */
+export function computeContextWindowWarning(
+  model: string,
+  messages: Message[],
+  snipTokensFreed = 0,
+): {
+  fire: boolean
+  usagePercent: number
+  thresholdPercent: number
+  tokenUsage: number
+  contextWindow: number
+} {
+  if (!isEnvTruthy(process.env.FUSION_CODE_CONTEXT_WINDOW_WARNING_HOOK)) {
+    return { fire: false, usagePercent: 0, thresholdPercent: 0, tokenUsage: 0, contextWindow: 0 }
+  }
+  const contextWindow = getEffectiveContextWindowSize(model)
+  const tokenUsage = tokenCountWithEstimation(messages) - snipTokensFreed
+  const threshold = getAutoCompactThreshold(model)
+  const usagePercent = contextWindow > 0
+    ? Math.round((tokenUsage / contextWindow) * 100)
+    : 100
+  const thresholdPercent = contextWindow > 0
+    ? Math.round((threshold / contextWindow) * 100)
+    : 80
+  return { fire: true, usagePercent, thresholdPercent, tokenUsage, contextWindow }
+}
+
 export function isAutoCompactEnabled(): boolean {
   if (isEnvTruthy(process.env.DISABLE_COMPACT)) {
     return false
@@ -317,6 +349,25 @@ export async function autoCompactIfNeeded(
 
   if (!shouldCompact) {
     return { wasCompacted: false }
+  }
+
+  // insight-0902 E2: context window reached the compact threshold but
+  // compaction has not run yet. Fire the ContextWindowWarning hook so
+  // third parties can attach pre-compact alerts or external compression.
+  // Default-off env gate = byte-identical-off; fire-and-forget, fail-open.
+  const warning = computeContextWindowWarning(model, messages, snipTokensFreed)
+  if (warning.fire) {
+    logForDebugging(
+      `ContextWindowWarning: usage=${warning.usagePercent}% threshold=${warning.thresholdPercent}% tokens=${warning.tokenUsage}/${warning.contextWindow}`,
+    )
+    void executeContextWindowWarningHooks({
+      contextUsagePercent: warning.usagePercent,
+      thresholdPercent: warning.thresholdPercent,
+      tokenUsage: warning.tokenUsage,
+      contextWindow: warning.contextWindow,
+    }).catch((e) => {
+      logForDebugging(`ContextWindowWarning hook dispatch failed: ${String(e)}`)
+    })
   }
 
   const recompactionInfo: RecompactionInfo = {

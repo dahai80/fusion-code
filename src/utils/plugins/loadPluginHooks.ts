@@ -57,6 +57,7 @@ function convertPluginHooksToMatchers(
     CwdChanged: [],
     FileChanged: [],
     DirectoryAdded: [],
+    ContextWindowWarning: [],
   }
 
   if (!plugin.hooksConfig) {
@@ -120,6 +121,7 @@ export const loadPluginHooks = asyncMemoize(async (): Promise<void> => {
     CwdChanged: [],
     FileChanged: [],
     DirectoryAdded: [],
+    ContextWindowWarning: [],
   }
 
   // Process each enabled plugin

@@ -41,6 +41,7 @@ export type HookEvent =
   | 'CwdChanged'
   | 'FileChanged'
   | 'DirectoryAdded'
+  | 'ContextWindowWarning'
 
 export type ModelUsage = {
   costUSD?: number
@@ -231,6 +232,13 @@ export type PostCompactHookInput = HookInput & {
   was_auto_compact?: boolean
   pre_tokens?: number
   post_tokens?: number
+}
+export type ContextWindowWarningHookInput = HookInput & {
+  hook_event_name: 'ContextWindowWarning'
+  context_usage_percent: number
+  threshold_percent: number
+  token_usage?: number
+  context_window?: number
 }
 export type PreToolUseHookInput = HookInput & {
   hook_event_name: 'PreToolUse'

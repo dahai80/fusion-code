@@ -81,6 +81,7 @@ export const HOOK_EVENTS = [
 	"CwdChanged",
 	"FileChanged",
 	"DirectoryAdded",
+	"ContextWindowWarning",
 ] as const;
 
 export const EXIT_REASONS = [
