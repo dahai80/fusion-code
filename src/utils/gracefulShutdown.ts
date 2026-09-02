@@ -31,6 +31,7 @@ import {
 } from '../ink/termio/osc.js'
 import { shutdownDatadog } from '../services/analytics/index.js'
 import { shutdown1PEventLogging } from '../services/analytics/index.js'
+import { autoCollectTrajectoryOnSessionEnd } from '../services/trajectory/index.js'
 import {
   type AnalyticsMetadata_I_VERIFIED_THIS_IS_NOT_CODE_OR_FILEPATHS,
   logEvent,
@@ -506,6 +507,14 @@ export async function gracefulShutdown(
       last_request_id:
         lastRequestId as AnalyticsMetadata_I_VERIFIED_THIS_IS_NOT_CODE_OR_FILEPATHS,
     })
+  }
+
+  // Auto-collect trajectory on session end — 训练飞轮自动闭环 (insight-0902 E1)。
+  // 门控 FUSION_CODE_TRAJECTORY_AUTOCOLLECT=1 (默认关 = 不执行); fail-open 不阻塞退出。
+  try {
+    await autoCollectTrajectoryOnSessionEnd()
+  } catch {
+    // fail-open: 自动收集失败不影响会话退出
   }
 
   // Flush analytics — capped at 500ms. Previously unbounded: the 1P exporter
