@@ -15,6 +15,7 @@
 import axios from 'axios'
 import { createHash } from 'crypto'
 import { open, unlink } from 'fs/promises'
+import { O_CREAT, O_NOFOLLOW, O_TRUNC, O_WRONLY } from 'node:constants'
 import { getOauthConfig, OAUTH_BETA_HEADER } from '../../constants/oauth.js'
 import {
   checkAndRefreshOAuthTokenIfNeeded,
@@ -278,6 +279,12 @@ async function fetchRemoteManagedSettings(
     const response = await axios.get(endpoint, {
       headers,
       timeout: SETTINGS_TIMEOUT_MS,
+      // audit-0902 P2-1: do NOT follow redirects. axios defaults to maxRedirects=5,
+      // so a compromised/misconfigured settings endpoint or a MITM could 302 the
+      // fetch to an attacker host; the OAuth Bearer header would then be sent to
+      // that host, leaking enterprise credentials. Settings endpoints are fixed
+      // URLs — a legitimate one never redirects. 0 = reject any 3xx.
+      maxRedirects: 0,
       // Allow 204, 304, and 404 responses without treating them as errors.
       // 204/404 are returned when no settings exist for the user or the feature flag is off.
       validateStatus: status =>
@@ -398,7 +405,18 @@ async function fetchRemoteManagedSettings(
 async function saveSettings(settings: SettingsJson): Promise<void> {
   try {
     const path = getSettingsPath()
-    const handle = await open(path, 'w', 0o600)
+    // audit-0902 P2-1: plain 'w' follows symlinks. A pre-placed symlink at the
+    // settings path (attacker or a prior compromise) would redirect the managed-
+    // settings write into an attacker-chosen target — overwriting an arbitrary
+    // owner-writable file with settings JSON, or losing the settings silently.
+    // O_NOFOLLOW opens the path only if it is NOT a symlink (ELOOP otherwise),
+    // so a symlinked settings file cannot be hijacked. O_TRUNC replaces contents
+    // of an existing regular file (same as 'w'), O_CREAT creates if absent.
+    const handle = await open(
+      path,
+      O_WRONLY | O_CREAT | O_TRUNC | O_NOFOLLOW,
+      0o600,
+    )
     try {
       await handle.writeFile(jsonStringify(settings, null, 2), {
         encoding: 'utf-8',

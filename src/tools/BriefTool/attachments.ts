@@ -7,6 +7,14 @@ import { stat } from 'fs/promises'
 
 import type { ValidationResult } from '../../Tool.js'
 
+// audit-0902 P2-3: cap attachment size. validateAttachmentPaths checked the
+// sensitive-file gate + isFile but NOT size — a 10GB attachment passed and was
+// uploaded to the cloud transcript, exhausting token budget / memory. Cloud
+// providers cap file uploads well under this; enforce a local bound so a
+// pathologically large (or adversarially crafted) file is rejected before
+// upload. 25MB mirrors the typical cloud attachment ceiling.
+const MAX_ATTACHMENT_SIZE = 25 * 1024 * 1024
+
 import { getCwd } from '../../utils/cwd.js'
 import { getErrnoCode } from '../../utils/errors.js'
 import { IMAGE_EXTENSION_REGEX } from '../../utils/imagePaste.js'
@@ -54,6 +62,17 @@ export async function validateAttachmentPaths(
         return {
           result: false,
           message: `Attachment "${rawPath}" is not a regular file.`,
+          errorCode: 1,
+        }
+      }
+      // audit-0902 P2-3: reject oversized attachments before upload. Without a
+      // cap, a huge file (or a symlink'd large target) is uploaded to the cloud
+      // transcript, blowing the token/memory budget. Checked after isFile so
+      // directories/devices (size = FS block estimate) aren't misreported here.
+      if (stats.size > MAX_ATTACHMENT_SIZE) {
+        return {
+          result: false,
+          message: `Attachment "${rawPath}" is ${stats.size} bytes, exceeding the ${MAX_ATTACHMENT_SIZE} byte (${Math.round(MAX_ATTACHMENT_SIZE / 1024 / 1024)}MB) limit. Use a smaller file.`,
           errorCode: 1,
         }
       }

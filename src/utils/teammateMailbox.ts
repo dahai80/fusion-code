@@ -33,8 +33,13 @@ import { getAgentName, getTeammateColor, getTeamName } from './teammate.js'
 // lockSync API blocked the event loop; the async API needs explicit retries
 // to achieve the same serialization semantics.
 const LOCK_OPTIONS = {
+  // audit-0902 P2-2: bumped 10 -> 30 to match tasks.ts swarm budget. Under
+  // sustained contention (>10 concurrent writers in a large swarm) the old
+  // 10-retry budget exhausted and the catch below silently dropped the message
+  // (logError + fall-through, caller unaware). 30 retries gives ~2.6s wait,
+  // enough for the last writer in a 10-way race to acquire the lock.
   retries: {
-    retries: 10,
+    retries: 30,
     minTimeout: 5,
     maxTimeout: 100,
   },
@@ -182,7 +187,14 @@ export async function writeToMailbox(
       `[TeammateMailbox] Wrote message to ${recipientName}'s inbox from ${message.from}`,
     )
   } catch (error) {
-    logForDebugging(`Failed to write to inbox for ${recipientName}: ${error}`)
+    // audit-0902 P2-2: fail-silent was invisible — caller had no signal the
+    // message was dropped. Still fail-open (writeToMailbox has 15+ callers, most
+    // do not catch, so rethrowing would propagate unhandled), but make the drop
+    // LOUD: logError is surfaced to the user-visible error stream, and the
+    // debug line names the dropped message so the lost delivery is traceable.
+    logForDebugging(
+      `[TeammateMailbox] MESSAGE DROPPED (caller unaware) — failed to write to inbox for ${recipientName} from ${message.from}: ${error}`,
+    )
     logError(error)
   } finally {
     if (release) {
