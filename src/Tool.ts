@@ -449,6 +449,12 @@ export type Tool<
 	requiresUserInteraction?(): boolean;
 	isMcp?: boolean;
 	isLsp?: boolean;
+	// insight-0902 G2: opt-in marker for MCP/plugin-sourced tools that can
+	// execute shell-equivalent commands. Drives the execpolicy capability-deny
+	// block in toolExecution.ts (FUSION_CODE_EXECPOLICY_STRICT=1, default-off).
+	// Explicit opt-in — NOT inferred by heuristic — to avoid false positives on
+	// legit non-shell tools.
+	isShellCapable?: boolean;
 	/**
 	 * When true, this tool is deferred (sent with defer_loading: true) and requires
 	 * ToolSearch to be used before it can be called.

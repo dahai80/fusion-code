@@ -139,6 +139,33 @@ export const SandboxSettingsSchema = lazySchema(() =>
         })
         .optional()
         .describe('Custom ripgrep configuration for bundled ripgrep support'),
+      // insight-0902 G2: declarative execution-policy capability lists, branded
+      // as `execpolicy`. Extends the existing Bash-only declarative permission
+      // engine (bashPermissions) to MCP/plugin-sourced shell-capable tools via
+      // the capability-deny block in toolExecution.ts. Enforced only when
+      // FUSION_CODE_EXECPOLICY_STRICT=1 (default-off = byte-identical-off).
+      execpolicy: z
+        .object({
+          allow: z.array(z.string()).optional(),
+          deny: z.array(z.string()).optional(),
+          ask: z.array(z.string()).optional(),
+        })
+        .optional()
+        .describe(
+          'Declarative execution-policy capability lists for shell-capable MCP/plugin tools. ' +
+            'When FUSION_CODE_EXECPOLICY_STRICT=1, tools whose name matches a `deny` pattern ' +
+            'are blocked at the tool-execution gate (same audit-log + is_error shape as FUSION.rules).',
+        ),
+      // insight-0902 G2: managed-hooks-only lifecycle gate. When true (set in
+      // managed/policy settings) OR FUSION_CODE_MANAGED_HOOKS_ONLY=1, plugin
+      // hooks are NOT registered — only managed/builtin hooks survive. Default
+      // off = byte-identical-off.
+      managed_hooks_only: z
+        .boolean()
+        .optional()
+        .describe(
+          'When true (managed/policy settings), skip loading plugin hooks entirely — only managed/builtin hooks are registered.',
+        ),
     })
     .passthrough(),
 )

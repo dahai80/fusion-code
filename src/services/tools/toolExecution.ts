@@ -1,23 +1,21 @@
 import { feature } from "bun:bundle";
-import type {
-	ContentBlockParam,
-	ToolResultBlockParam,
-	ToolUseBlock,
-} from "src/types/anthropic-protocol.js";
 import {
 	type AnalyticsMetadata_I_VERIFIED_THIS_IS_NOT_CODE_OR_FILEPATHS,
-	logEvent,
-} from "src/services/analytics/index.js";
-import {
 	extractMcpToolDetails,
 	extractSkillName,
 	extractToolInputForTelemetry,
 	getFileExtensionForAnalytics,
 	getFileExtensionsFromBashCommand,
 	isToolDetailsLoggingEnabled,
+	logEvent,
 	mcpToolDetailsForAnalytics,
 	sanitizeToolNameForAnalytics,
 } from "src/services/analytics/index.js";
+import type {
+	ContentBlockParam,
+	ToolResultBlockParam,
+	ToolUseBlock,
+} from "src/types/anthropic-protocol.js";
 import {
 	addToToolDuration,
 	getCodeEditToolDecisionCounter,
@@ -789,6 +787,60 @@ async function checkPermissionsAndCallTool(
 		];
 	}
 
+	// insight-0902 G2: execpolicy capability-deny for shell-capable MCP/plugin
+	// tools. Default-off (FUSION_CODE_EXECPOLICY_STRICT=1) = byte-identical-off:
+	// isExecPolicyDenied returns false unconditionally when the env gate is off,
+	// so this block is a no-op pass-through. Extends the existing Bash-only
+	// declarative permission engine to MCP/plugin-sourced tools that opt in via
+	// isShellCapable === true (explicit, not heuristic).
+	const {
+		isExecPolicyDenied,
+		isExecPolicyStrictEnabled,
+	} = await import("./execPolicy.js");
+	if (isExecPolicyStrictEnabled()) {
+		const { getSettingsForSource } = await import(
+			"../../utils/settings/settings.js"
+		);
+		const policy = getSettingsForSource("policySettings");
+		const execPolicy = policy?.sandbox?.execpolicy;
+		if (isExecPolicyDenied(tool, execPolicy, true)) {
+			logForDebugging(
+				`${tool.name} blocked by execpolicy capability-deny`,
+			);
+			const { appendAuditLog, createAuditEntry } = await import(
+				"../audit/auditLog.js"
+			);
+			await appendAuditLog(
+				createAuditEntry(
+					getSessionId(),
+					tool.name,
+					"denied",
+					"execpolicy",
+					{
+						success: false,
+						error: "denied by execpolicy",
+					},
+				),
+			);
+			return [
+				{
+					message: createUserMessage({
+						content: [
+							{
+								type: "tool_result",
+								content: `Tool "${tool.name}" is denied by the execpolicy configuration (managed settings) and cannot be used in this project.`,
+								is_error: true,
+								tool_use_id: toolUseID,
+							},
+						],
+						toolUseResult: `execpolicy: ${tool.name} denied`,
+						sourceToolAssistantUUID: assistantMessage.uuid,
+					}),
+				},
+			];
+		}
+	}
+
 	// Sensitive file protection — block reads/writes to secrets/keys
 	const {
 		isSensitiveFilePath,
@@ -814,7 +866,10 @@ async function checkPermissionsAndCallTool(
 	}
 	// P0-5: Bash tool `command` bypassed the gate entirely — `cat ~/.ssh/id_rsa`
 	// or `grep x .env` reached secrets. Extract path-looking operands and check.
-	if ("command" in parsedInput.data && typeof parsedInput.data.command === "string") {
+	if (
+		"command" in parsedInput.data &&
+		typeof parsedInput.data.command === "string"
+	) {
 		sensitivePaths.push(
 			...extractCandidatePathsFromCommand(parsedInput.data.command),
 		);

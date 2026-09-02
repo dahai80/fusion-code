@@ -124,18 +124,33 @@ export const loadPluginHooks = asyncMemoize(async (): Promise<void> => {
     ContextWindowWarning: [],
   }
 
+  // insight-0902 G2: managed-hooks-only lifecycle gate. When active (policy
+  // settings sandbox.managed_hooks_only === true OR
+  // FUSION_CODE_MANAGED_HOOKS_ONLY=1), skip loading ALL plugin hooks — only
+  // managed/builtin hooks survive. Default-off = byte-identical-off.
+  const policySettings = getSettingsForSource('policySettings')
+  const managedHooksOnly =
+    policySettings?.sandbox?.managed_hooks_only === true ||
+    process.env.FUSION_CODE_MANAGED_HOOKS_ONLY === '1'
+
   // Process each enabled plugin
-  for (const plugin of enabled) {
-    if (!plugin.hooksConfig) {
-      continue
-    }
+  if (managedHooksOnly) {
+    logForDebugging(
+      'managed_hooks_only active: skipping all plugin hooks (managed/builtin only)',
+    )
+  } else {
+    for (const plugin of enabled) {
+      if (!plugin.hooksConfig) {
+        continue
+      }
 
-    logForDebugging(`Loading hooks from plugin: ${plugin.name}`)
-    const pluginMatchers = convertPluginHooksToMatchers(plugin)
+      logForDebugging(`Loading hooks from plugin: ${plugin.name}`)
+      const pluginMatchers = convertPluginHooksToMatchers(plugin)
 
-    // Merge plugin hooks into the main collection
-    for (const event of Object.keys(pluginMatchers) as HookEvent[]) {
-      allPluginHooks[event].push(...pluginMatchers[event])
+      // Merge plugin hooks into the main collection
+      for (const event of Object.keys(pluginMatchers) as HookEvent[]) {
+        allPluginHooks[event].push(...pluginMatchers[event])
+      }
     }
   }
 
@@ -247,6 +262,9 @@ export function getPluginAffectingSettingsSnapshot(): string {
     extraKnownMarketplaces: sortKeys(merged.extraKnownMarketplaces),
     strictKnownMarketplaces: policy?.strictKnownMarketplaces ?? [],
     blockedMarketplaces: policy?.blockedMarketplaces ?? [],
+    // insight-0902 G2: managed_hooks_only gate lives on sandbox config —
+    // include it so a remote policy flip hot-reloads plugin hooks.
+    managedHooksOnly: policy?.sandbox?.managed_hooks_only ?? false,
   })
 }
 
