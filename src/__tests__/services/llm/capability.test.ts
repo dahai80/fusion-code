@@ -14,6 +14,9 @@ const {
 	createLlmCapability,
 } = await import("../../../services/llm/index.js");
 const { createCtx } = await import("../../../services/llm/index.js");
+const { modelSupportsISP, modelSupportsContextManagement } = await import(
+	"../../../utils/betas.js"
+);
 
 // Isolate provider env: clear provider-redirect envs so factory picks firstParty
 // by default for non-MLX model ids. Restore after each test.
@@ -283,5 +286,52 @@ describe("createCtx fs/tools/exec seams (PR #4)", () => {
 		} finally {
 			delete process.env.FUSION_CODE_CTX_EXEC_ENABLED;
 		}
+	});
+});
+
+// insight-0902 G1: ctx seam migration of ISP + context-management capabilities.
+// Asserts the 3 invariants: no-ctx = canonical baseline, matching ctx =
+// provider value, mismatching ctx = fallback (guard fires). byte-identical-off
+// because every existing caller passes no ctx.
+describe("modelSupportsISP / modelSupportsContextManagement ctx seam (G1)", () => {
+	test("no ctx = canonical baseline (firstParty sonnet-4 → true)", () => {
+		// FUSION_API_KEY set in beforeEach → firstParty. claude-3-haiku → claude-3- → false.
+		expect(modelSupportsISP("claude-sonnet-4-6")).toBe(true);
+		expect(modelSupportsISP("claude-3-haiku")).toBe(false);
+		expect(modelSupportsContextManagement("claude-sonnet-4-6")).toBe(true);
+		expect(modelSupportsContextManagement("claude-3-haiku")).toBe(false);
+	});
+
+	test("ctx matching modelId = provider value (delegates to capability)", async () => {
+		const ctx = await createCtx("claude-sonnet-4-6", "/tmp", "sess-isp");
+		expect(ctx.llm.supportsISP()).toBe(true);
+		expect(ctx.llm.supportsContextManagement()).toBe(true);
+		// Seam: passing the matching ctx returns the capability value.
+		expect(modelSupportsISP("claude-sonnet-4-6", ctx)).toBe(true);
+		expect(modelSupportsContextManagement("claude-sonnet-4-6", ctx)).toBe(true);
+
+		const ctxHaiku = await createCtx("claude-3-haiku", "/tmp", "sess-isp-h");
+		expect(modelSupportsISP("claude-3-haiku", ctxHaiku)).toBe(false);
+		expect(modelSupportsContextManagement("claude-3-haiku", ctxHaiku)).toBe(
+			false,
+		);
+	});
+
+	test("ctx modelId mismatch = fallback to canonical (guard fires)", async () => {
+		// ctx built for sonnet-4-6, but queried model is claude-3-haiku → guard
+		// `ctx.llm.modelId === model` fails → falls through to canonical path.
+		const ctx = await createCtx("claude-sonnet-4-6", "/tmp", "sess-mismatch");
+		expect(modelSupportsISP("claude-3-haiku", ctx)).toBe(false);
+		expect(modelSupportsContextManagement("claude-3-haiku", ctx)).toBe(false);
+		// And the reverse: ctx for claude-3-haiku, queried sonnet-4-6 → canonical true.
+		const ctxHaiku = await createCtx(
+			"claude-3-haiku",
+			"/tmp",
+			"sess-mismatch2",
+		);
+		expect(modelSupportsISP("claude-sonnet-4-6", ctxHaiku)).toBe(true);
+		expect(modelSupportsContextManagement("claude-sonnet-4-6", ctxHaiku)).toBe(
+			true,
+		);
 	});
 });

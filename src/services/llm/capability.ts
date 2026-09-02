@@ -18,6 +18,8 @@ export interface LlmCapability {
 	supportsToolCalling(): boolean;
 	supportsStructuredOutput(): boolean;
 	supportsThinking(): boolean;
+	supportsISP(): boolean;
+	supportsContextManagement(): boolean;
 	maxInputTokens(): number;
 	maxOutputTokens(): number;
 }
@@ -93,6 +95,22 @@ export class MlxCapabilityProvider implements LlmCapability {
 		// Local models lack the thinking protocol; keep parity.
 		return false;
 	}
+	supportsISP(): boolean {
+		// Mirrors modelSupportsISP() 3P fallback (MLX is neither foundry nor
+		// firstParty): sonnet-4/opus-4 only. Local model ids never match → false.
+		return (
+			this.modelId.includes("claude-opus-4") ||
+			this.modelId.includes("claude-sonnet-4")
+		);
+	}
+	supportsContextManagement(): boolean {
+		// Mirrors modelSupportsContextManagement() 3P fallback: +haiku-4.
+		return (
+			this.modelId.includes("claude-opus-4") ||
+			this.modelId.includes("claude-sonnet-4") ||
+			this.modelId.includes("claude-haiku-4")
+		);
+	}
 	maxInputTokens(): number {
 		return this.caps.maxContextTokens;
 	}
@@ -127,6 +145,14 @@ export class FirstPartyCapabilityProvider implements LlmCapability {
 	}
 	supportsThinking(): boolean {
 		// Mirrors modelSupportsThinking() 1P branch: all non-claude-3- models.
+		return !this.canonical.includes("claude-3-");
+	}
+	supportsISP(): boolean {
+		// Mirrors modelSupportsISP() 1P branch: all non-claude-3- models.
+		return !this.canonical.includes("claude-3-");
+	}
+	supportsContextManagement(): boolean {
+		// Mirrors modelSupportsContextManagement() 1P branch: all non-claude-3-.
 		return !this.canonical.includes("claude-3-");
 	}
 	maxInputTokens(): number {
@@ -175,6 +201,29 @@ export class GatewayCapabilityProvider implements LlmCapability {
 		return (
 			this.canonical.includes("sonnet-4") ||
 			this.canonical.includes("opus-4")
+		);
+	}
+	supportsISP(): boolean {
+		// Foundry mirrors 1P (all non-claude-3-). Bedrock/Vertex/OpenAI:
+		// sonnet-4/opus-4 per modelSupportsISP() 3P branch.
+		if (this.provider === "foundry") {
+			return !this.canonical.includes("claude-3-");
+		}
+		return (
+			this.canonical.includes("claude-opus-4") ||
+			this.canonical.includes("claude-sonnet-4")
+		);
+	}
+	supportsContextManagement(): boolean {
+		// Foundry mirrors 1P. Bedrock/Vertex/OpenAI: +haiku-4 per
+		// modelSupportsContextManagement() 3P branch.
+		if (this.provider === "foundry") {
+			return !this.canonical.includes("claude-3-");
+		}
+		return (
+			this.canonical.includes("claude-opus-4") ||
+			this.canonical.includes("claude-sonnet-4") ||
+			this.canonical.includes("claude-haiku-4")
 		);
 	}
 	maxInputTokens(): number {

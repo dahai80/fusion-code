@@ -89,13 +89,21 @@ export function filterAllowedSdkBetas(
 // Generally, foundry supports all 1P features;
 // however out of an abundance of caution, we do not enable any which are behind an experiment
 
-export function modelSupportsISP(model: string): boolean {
+export function modelSupportsISP(model: string, ctx?: Ctx): boolean {
+  // 3P override takes precedence over both the ctx seam and the canonical
+  // provider-if path — preserves the original semantics (override wins).
   const supported3P = get3PModelCapabilityOverride(
     model,
     'interleaved_thinking',
   )
   if (supported3P !== undefined) {
     return supported3P
+  }
+  // ctx seam (insight-0902 G1): when a Ctx is passed and matches this model,
+  // read the centralized capability. Falls back to old provider-if when ctx
+  // absent (all current callers) or model mismatches — byte-identical.
+  if (ctx && ctx.llm.modelId === model) {
+    return ctx.llm.supportsISP()
   }
   const canonical = getCanonicalName(model)
   const provider = getAPIProvider()
@@ -111,7 +119,13 @@ export function modelSupportsISP(model: string): boolean {
   )
 }
 
-export function modelSupportsContextManagement(model: string): boolean {
+export function modelSupportsContextManagement(model: string, ctx?: Ctx): boolean {
+  // ctx seam (insight-0902 G1): when a Ctx is passed and matches this model,
+  // read the centralized capability. Falls back to old provider-if when ctx
+  // absent (all current callers) or model mismatches — byte-identical.
+  if (ctx && ctx.llm.modelId === model) {
+    return ctx.llm.supportsContextManagement()
+  }
   const canonical = getCanonicalName(model)
   const provider = getAPIProvider()
   if (provider === 'foundry') {
