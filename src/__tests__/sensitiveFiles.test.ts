@@ -59,6 +59,16 @@ describe("isSensitiveFilePath", () => {
 		expect(isSensitiveFilePath("/project/src/serverToken.ts")).toBe(false);
 	});
 
+	it("blocks direnv .envrc (audit-0902 P1-2)", () => {
+		// .envrc = .env+rc (no dot after .env) → slipped past `\.env\.` regex.
+		// Holds shell-injected secrets loaded by direnv on cd.
+		expect(isSensitiveFilePath("/project/.envrc")).toBe(true);
+		expect(isSensitiveFilePath(".envrc")).toBe(true);
+		expect(isSensitiveFilePath("/home/user/.config/direnv/.envrc")).toBe(true);
+		// Non-sensitive envrc-prefixed source file not over-blocked.
+		expect(isSensitiveFilePath("/project/src/envrcHelper.ts")).toBe(false);
+	});
+
 	it("allows non-sensitive paths", () => {
 		expect(isSensitiveFilePath("/project/src/index.ts")).toBe(false);
 		expect(isSensitiveFilePath("/project/package.json")).toBe(false);
@@ -117,6 +127,13 @@ describe("extractCandidatePathsFromCommand", () => {
 			"bash -c 'cat ~/.fusion-code/server.token'",
 		);
 		expect(cands).toContain("~/.fusion-code/server.token");
+	});
+
+	it("extracts .envrc from a bash command (audit-0902 P1-2)", () => {
+		// SENSITIVE_BASENAMES missed .envrc → `cat ~/.envrc` reached direnv secrets.
+		expect(
+			extractCandidatePathsFromCommand("cat ~/.envrc"),
+		).toContain("~/.envrc");
 	});
 
 	it("does not false-positive on flags", () => {

@@ -5,6 +5,7 @@ import {
 	readdir,
 	readFile,
 	rm,
+	symlink,
 	writeFile,
 } from "node:fs/promises";
 import { tmpdir } from "node:os";
@@ -229,5 +230,40 @@ describe("auditLog persist + rotate + rate-limit + fail-closed (P1-8)", () => {
 		});
 		// No throw = pass; line persisted verified in first test.
 		expect(true).toBe(true);
+	});
+
+	it("rejects a symlinked audit file via O_NOFOLLOW (audit-0902 P1-3)", async () => {
+		// A same-user process swaps the audit file for a symlink → appendFile would
+		// follow it, redirecting audit appends into the attacker's target. O_NOFOLLOW
+		// opens the path only if it is NOT a symlink (ELOOP otherwise), so the append
+		// fails closed and the victim file stays untouched.
+		const dir = join(auditRoot, "audit");
+		await import("node:fs/promises").then((fs) =>
+			fs.mkdir(dir, { recursive: true }),
+		);
+		const today = new Date().toISOString().slice(0, 10);
+		const auditPath = join(dir, `audit-${today}.jsonl`);
+		const victimPath = join(auditRoot, "victim.txt");
+		await writeFile(victimPath, "untouched\n", "utf8");
+		await symlink(victimPath, auditPath);
+		let threw = false;
+		try {
+			await appendAuditLog({
+				timestamp: new Date().toISOString(),
+				session_id: "s1",
+				tool_name: "Bash",
+				operation: "execute",
+				target: "symlink-hijack-attempt",
+				success: true,
+			});
+		} catch {
+			threw = true;
+		}
+		// ELOOP from O_NOFOLLOW → fail-closed rethrow.
+		expect(threw).toBe(true);
+		// Victim file must NOT contain the audit entry.
+		const victim = await readFile(victimPath, "utf8");
+		expect(victim).toBe("untouched\n");
+		expect(victim).not.toContain("symlink-hijack-attempt");
 	});
 });

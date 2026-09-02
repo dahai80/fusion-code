@@ -13,6 +13,11 @@ const SENSITIVE_PATTERNS: RegExp[] = [
 	/\.env$/i,
 	/\.env\./i,
 	/\.env~/i,
+	// audit-0902 P1-2: direnv .envrc — holds shell-injected secrets (export FOO=...),
+	// loaded by direnv on cd. `\.env\.` needs a literal dot after `.env`; `.envrc`
+	// is `.env`+`rc` (no dot) so it slipped past. Anchored to catch any path
+	// ending in `.envrc`.
+	/\.envrc$/i,
 	/\.env_local$/i,
 	/\.env_production$/i,
 	/\.env_staging$/i,
@@ -110,6 +115,10 @@ export async function isSymlinkBypassingSensitiveGate(
 // legitimate read (loud, reversible); a false negative leaks a secret.
 const SENSITIVE_BASENAMES = [
 	".env",
+	// audit-0902 P1-2: direnv .envrc — same miss as SENSITIVE_PATTERNS; the Bash
+	// command-token extractor (addCandidate) only flags bare names in this list,
+	// so `cat ~/.envrc` reached the secret unblocked.
+	".envrc",
 	"id_rsa",
 	"id_ed25519",
 	"id_ecdsa",

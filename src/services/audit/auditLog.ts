@@ -8,7 +8,8 @@
  * Rotation: files rotate when exceeding maxFileSize (default 10MB).
  */
 
-import { appendFile, chmod, mkdir, readdir, stat, unlink } from "fs/promises";
+import { chmod, mkdir, open, readdir, stat, unlink, writeFile } from "fs/promises";
+import { O_APPEND, O_CREAT, O_NOFOLLOW, O_WRONLY } from "node:constants";
 import { join } from "path";
 import { logForDebugging } from "../../utils/debug.js";
 import { getClaudeConfigHomeDir } from "../../utils/envUtils.js";
@@ -109,6 +110,9 @@ const AUDIT_FAIL_CLOSED_CODES = new Set([
 	"EDQUOT",
 	"ENOTDIR",
 	"EISDIR",
+	// audit-0902 P1-3: O_NOFOLLOW rejects a symlinked audit file with ELOOP —
+	// a tampering attempt, audit integrity cannot be guaranteed, fail-closed.
+	"ELOOP",
 ]);
 
 export async function appendAuditLog(entry: AuditLogEntry): Promise<void> {
@@ -116,9 +120,20 @@ export async function appendAuditLog(entry: AuditLogEntry): Promise<void> {
 		await ensureAuditDir();
 		await rotateIfNeeded();
 		const line = JSON.stringify(entry) + "\n";
-		await appendFile(getAuditFilePath(), line, {
-			mode: 0o600, // Owner read/write only
-		});
+		// audit-0902 P1-3: appendFile follows symlinks. A same-user process that
+		// swaps audit-YYYY-MM-DD.jsonl for a symlink (dir 0700 blocks creation
+		// but NOT same-user swap of an existing entry) would redirect audit
+		// appends into an attacker-chosen target — silently losing the audit
+		// trail or corrupting another file. O_NOFOLLOW opens the path itself
+		// only if it is NOT a symlink (ELOOP otherwise), so the audit file
+		// cannot be hijacked mid-session. O_APPEND preserves atomic append
+		// semantics. Mode 0600 = owner-only.
+		const handle = await open(getAuditFilePath(), O_WRONLY | O_APPEND | O_CREAT | O_NOFOLLOW, 0o600);
+		try {
+			await writeFile(handle, line);
+		} finally {
+			await handle.close();
+		}
 	} catch (e) {
 		const code = (e as NodeJS.ErrnoException).code;
 		const msg = (e as Error).message;
