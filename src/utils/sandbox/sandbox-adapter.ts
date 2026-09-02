@@ -1,7 +1,7 @@
 /**
- * Adapter layer that wraps @anthropic-ai/sandbox-runtime with Claude CLI-specific integrations.
- * This file provides the bridge between the external sandbox-runtime package and Claude CLI's
- * settings system, tool integration, and additional features.
+ * Adapter layer that wraps the vendored sandbox-runtime (Apache-2.0, copied from
+ * @anthropic-ai/sandbox-runtime into src/vendor/sandbox-runtime — div-anthropic refactor)
+ * with Fusion-Code-specific integrations: settings system, tool integration, extra features.
  */
 
 import type {
@@ -14,12 +14,11 @@ import type {
 	SandboxDependencyCheck,
 	SandboxRuntimeConfig,
 	SandboxViolationEvent,
-} from "@anthropic-ai/sandbox-runtime";
+} from "../../vendor/sandbox-runtime/dist/index.js";
 import {
 	SandboxManager as BaseSandboxManager,
-	SandboxRuntimeConfigSchema,
 	SandboxViolationStore,
-} from "@anthropic-ai/sandbox-runtime";
+} from "../../vendor/sandbox-runtime/dist/index.js";
 import { rmSync, statSync } from "fs";
 import { readFile } from "fs/promises";
 import { memoize } from "lodash-es";
@@ -483,10 +482,9 @@ const isEnterpriseManagedDeployment = memoize((): boolean => {
 		const policy = getSettingsForSource("policySettings");
 		return policy !== undefined && Object.keys(policy ?? {}).length > 0;
 	} catch (error) {
-		logForDebugging(
-			`[sandbox] enterprise-managed detection failed: ${error}`,
-			{ level: "warn" },
-		);
+		logForDebugging(`[sandbox] enterprise-managed detection failed: ${error}`, {
+			level: "warn",
+		});
 		return false;
 	}
 });
@@ -507,8 +505,7 @@ function isSandboxRequired(): boolean {
 		getSandboxEnabledSetting() &&
 		// 企业 managed 部署: 默认 true (沙箱不可用则 fail, 非 fail-open)。
 		// 默认部署: 仍 false (不破坏现有行为)。
-		(settings?.sandbox?.failIfUnavailable ??
-			isEnterpriseManagedDeployment())
+		(settings?.sandbox?.failIfUnavailable ?? isEnterpriseManagedDeployment())
 	);
 }
 
@@ -1010,4 +1007,4 @@ export type {
 	SandboxViolationEvent,
 };
 
-export { SandboxRuntimeConfigSchema, SandboxViolationStore };
+export { SandboxViolationStore };

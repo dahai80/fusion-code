@@ -32,8 +32,6 @@
 	},
 	"dependencies": {
 		"@alcalzone/ansi-tokenize": "^0.3.0",
-		"@anthropic-ai/mcpb": "^2.1.2",
-		"@anthropic-ai/sandbox-runtime": "^0.0.44",
 		"@azure/identity": "^4.13.1",
 		"@commander-js/extra-typings": "^14.0.0",
 		"@growthbook/growthbook": "^1.6.5",

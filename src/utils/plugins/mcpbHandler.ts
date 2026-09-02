@@ -417,9 +417,11 @@ async function generateMcpConfig(
 	extractedPath: string,
 	userConfig: UserConfigValues = {},
 ): Promise<McpServerConfig> {
-	// Lazy import: @anthropic-ai/mcpb barrel pulls in zod v3 schemas (~700KB of
-	// bound closures). See dxt/helpers.ts for details.
-	const { getMcpConfigForManifest } = await import("@anthropic-ai/mcpb");
+	// log: vendored from @anthropic-ai/mcpb (MIT) into src/vendor/mcpb — div-anthropic refactor.
+	// Lazy import: zod v3 schema closure build pulled in only when this path runs.
+	const { getMcpConfigForManifest } = await import(
+		"../../vendor/mcpb/shared/config.js"
+	);
 	const mcpConfig = await getMcpConfigForManifest({
 		manifest: manifest as any, // log: cast for McpbManifestAny type mismatch
 		extensionPath: extractedPath,

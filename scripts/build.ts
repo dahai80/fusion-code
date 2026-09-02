@@ -194,7 +194,6 @@ if (outDir !== ".") {
 
 const externals = [
 	"@ant/*",
-	"@anthropic-ai/mcpb",
 	"audio-capture-napi",
 	"image-processor-napi",
 	"modifiers-napi",

@@ -1,4 +1,4 @@
-import type { McpbManifestAny } from "@anthropic-ai/mcpb/dist/types.js"; // log: fix TS2724 McpbManifest -> McpbManifestAny from types.js
+import type { McpbManifestAny } from "../../vendor/mcpb/types.js"; // log: vendored from @anthropic-ai/mcpb (MIT) — div-anthropic refactor
 import { errorMessage } from "../errors.js";
 import { jsonParse } from "../slowOperations.js";
 
@@ -6,7 +6,7 @@ export async function validateManifest(
 	manifestJson: unknown,
 ): Promise<McpbManifestAny> {
 	const { McpbManifestSchema } = await import(
-		"@anthropic-ai/mcpb/dist/schemas/any.js"
+		"../../vendor/mcpb/schemas/any.js"
 	);
 	const parseResult = McpbManifestSchema.safeParse(manifestJson);
 
