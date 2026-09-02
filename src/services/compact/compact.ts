@@ -136,6 +136,7 @@ import {
 	hardCompactMessages,
 	shouldUseHardCompact,
 } from "./hardCompact.js";
+import { recordCompactionSnapshot } from "./lastCompactionSnapshot.js";
 import {
 	getCompactPrompt,
 	getCompactUserSummaryMessage,
@@ -643,6 +644,26 @@ export async function compactConversation(
 		// compact 触发时已接近上下文上限,再发全量消息做摘要只会 OOM
 		if (shouldUseHardCompact()) {
 			const hardResult = hardCompactMessages(messages);
+			// insight-0902 E3: 旁路记录压缩快照, 供 /diff-compaction 审计 (fail-open)。
+			recordCompactionSnapshot({
+				timestamp: Date.now(),
+				provider:
+					hardResult.candidates !== undefined ? "shadow-price" : "hard-tail",
+				candidates: hardResult.candidates ?? [],
+				priceThreshold: hardResult.priceThreshold,
+				truncatedToolResults: hardResult.truncatedToolResults,
+				truncatedAssistantTexts: hardResult.truncatedAssistantTexts,
+				roundsKeptIntact: hardResult.roundsKeptIntact,
+				roundsProcessed: hardResult.roundsProcessed,
+				preCompactTokens: hardResult.preCompactTokens,
+				postCompactTokens: hardResult.postCompactTokens,
+				prunedCandidateCount:
+					hardResult.candidates?.filter(
+						(c) =>
+							hardResult.priceThreshold !== undefined &&
+							c.shadowPrice >= hardResult.priceThreshold,
+					).length ?? 0,
+			});
 			const hardBudget = getHardCompactTokenBudget();
 			logEvent("tengu_compact_hard", {
 				originalMessageCount: messages.length,

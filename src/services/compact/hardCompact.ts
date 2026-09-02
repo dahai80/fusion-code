@@ -19,6 +19,7 @@ import { roughTokenCountEstimationForMessages } from "../tokenEstimation.js";
 import { groupMessagesByApiRound } from "./grouping.js";
 import {
 	isShadowPriceCompactEnabled,
+	type PruneCandidate,
 	shadowPriceCompactMessages,
 } from "./shadowPrice.js";
 
@@ -37,6 +38,9 @@ export interface HardCompactResult {
 	roundsProcessed: number;
 	preCompactTokens: number;
 	postCompactTokens: number;
+	// insight-0902 E3: 影子价候选评分表 (仅 shadow-price 路径填充), 供 /diff-compaction 审计。
+	candidates?: PruneCandidate[];
+	priceThreshold?: number;
 }
 
 function estimateTokensFromChars(charCount: number): number {
@@ -135,6 +139,8 @@ export function hardCompactMessages(
 			roundsProcessed: sp.roundsProcessed,
 			preCompactTokens: sp.preCompactTokens,
 			postCompactTokens: sp.postCompactTokens,
+			candidates: sp.candidates,
+			priceThreshold: sp.priceThreshold,
 		};
 	}
 

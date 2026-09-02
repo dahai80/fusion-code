@@ -14,6 +14,7 @@ import config from "./commands/config/index.js";
 import { context, contextNonInteractive } from "./commands/context/index.js";
 // cost is now an alias of usage (stats command)
 import diff from "./commands/diff/index.js";
+import diffCompaction from "./commands/diff-compaction/index.js";
 import ctx_viz from "./commands/ctx_viz/index.js";
 import doctor from "./commands/doctor/index.js";
 import memory from "./commands/memory/index.js";
@@ -206,6 +207,7 @@ const COMMANDS = memoize((): Command[] => [
 	contextNonInteractive,
 	ctx_viz,
 	diff,
+	diffCompaction,
 	doctor,
 	effort,
 	env,

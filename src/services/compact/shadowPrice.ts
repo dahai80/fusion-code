@@ -174,6 +174,9 @@ export interface ShadowPriceCompactResult {
 	preCompactTokens: number;
 	postCompactTokens: number;
 	prunedCandidateCount: number;
+	// insight-0902 E3: 候选评分表 (降序), 供 /diff-compaction 审计展示。
+	candidates: PruneCandidate[];
+	priceThreshold: number;
 }
 
 // 选择性影子价裁剪。仅裁高价工具结果 (高于阈值), 低价保留原样 → 可复用前缀更长。
@@ -205,6 +208,8 @@ export function shadowPriceCompactMessages(
 			preCompactTokens,
 			postCompactTokens: preCompactTokens,
 			prunedCandidateCount: 0,
+			candidates: [],
+			priceThreshold,
 		};
 	}
 
@@ -335,6 +340,8 @@ export function shadowPriceCompactMessages(
 		preCompactTokens,
 		postCompactTokens,
 		prunedCandidateCount,
+		candidates,
+		priceThreshold,
 	};
 }
 
