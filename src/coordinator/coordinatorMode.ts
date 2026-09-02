@@ -1,4 +1,6 @@
 import { feature } from 'bun:bundle'
+import { readFileSync, readdirSync } from 'node:fs'
+import { join } from 'node:path'
 import { ASYNC_AGENT_ALLOWED_TOOLS } from '../constants/tools.js'
 import { checkStatsigFeatureGate_CACHED_MAY_BE_STALE } from '../services/analytics/index.js'
 import {
@@ -15,7 +17,11 @@ import { TASK_STOP_TOOL_NAME } from '../tools/TaskStopTool/prompt.js'
 // Cloud-only tool stubs (directories removed)
 const TEAM_CREATE_TOOL_NAME = 'TeamCreate'
 const TEAM_DELETE_TOOL_NAME = 'TeamDelete'
+import { getSessionCreatedTeams } from '../bootstrap/state.js'
 import { isEnvTruthy } from '../utils/envUtils.js'
+import { getTaskListId, getTasksDir } from '../utils/tasks.js'
+import { readTeamFile } from '../utils/swarm/teamHelpers.js'
+import { logForDebugging } from '../utils/debug.js'
 
 // Checks the same gate as isScratchpadEnabled() in
 // utils/permissions/filesystem.ts. Duplicated here because importing
@@ -106,7 +112,115 @@ export function getCoordinatorUserContext(
     content += `\n\nScratchpad directory: ${scratchpadDir}\nWorkers can read and write here without permission prompts. Use this for durable cross-worker knowledge — structure files however fits the work.`
   }
 
+  const teamContext = buildCoordinatorTeamContext()
+  if (teamContext) {
+    content += `\n\n${teamContext}`
+  }
+
   return { workerToolsContext: content }
+}
+
+/**
+ * insight-0902 G3: wire Coordinator mode to the existing durable team roster
+ * + task board. When FUSION_CODE_COORDINATOR_TEAM=1 (default-off), inject a
+ * context block listing the current session's team rosters and open tasks so
+ * the coordinator can direct SendMessage / task tools at named teammates
+ * (the tools already exist). Fail-open: any read failure logs + returns empty
+ * (coordinator keeps running scratchpad-only). Byte-identical when gate off.
+ */
+function buildCoordinatorTeamContext(): string | null {
+  if (!isEnvTruthy(process.env.FUSION_CODE_COORDINATOR_TEAM)) {
+    return null
+  }
+  try {
+    const teamNames = Array.from(getSessionCreatedTeams())
+    if (teamNames.length === 0) return null
+
+    const rosterLines: string[] = []
+    for (const name of teamNames) {
+      const teamFile = readTeamFile(name)
+      if (!teamFile) continue
+      const memberList = teamFile.members
+        .map(m => `${m.name} (agentId: ${m.agentId}${m.isActive === false ? ', idle' : ''})`)
+        .join(', ')
+      rosterLines.push(
+        `Team "${name}": ${teamFile.members.length} member(s) — ${memberList}`,
+      )
+    }
+    if (rosterLines.length === 0) return null
+
+    let block = `## Active Team Roster\n\n${rosterLines.join('\n')}`
+
+    try {
+      const tasks = listTasksSync()
+      if (tasks.length > 0) {
+        const taskLines = tasks
+          .map(t => `  - [${t.status ?? 'pending'}] ${t.description ?? t.content ?? '(no description)'} (id: ${t.id})`)
+          .join('\n')
+        block += `\n\n## Open Task Board (${tasks.length})\n\n${taskLines}`
+      }
+    } catch (e) {
+      logForDebugging(`buildCoordinatorTeamContext: task board read failed: ${String(e)}`)
+    }
+
+    block += `\n\nYou may use ${SEND_MESSAGE_TOOL_NAME} to address a named teammate by agentId, and task tools to manage the shared task board.`
+    return block
+  } catch (e) {
+    logForDebugging(
+      `buildCoordinatorTeamContext: team context build failed, running scratchpad-only: ${String(e)}`,
+    )
+    return null
+  }
+}
+
+// listTasks is async + lock-file guarded; the coordinator user context is
+// built synchronously on the hot path. For a read-only best-effort snapshot we
+// read the task files directly (fail-open: unreadable files skipped).
+function listTasksSync(): Array<{
+  id: string
+  status?: string
+  description?: string
+  content?: string
+}> {
+  try {
+    const dir = getTasksDir(getTaskListId())
+    let files: string[]
+    try {
+      files = readdirSync(dir)
+    } catch {
+      return []
+    }
+    const tasks: Array<{
+      id: string
+      status?: string
+      description?: string
+      content?: string
+    }> = []
+    for (const f of files) {
+      if (!f.endsWith('.json')) continue
+      try {
+        const raw = readFileSync(join(dir, f), 'utf-8')
+        const parsed = JSON.parse(raw) as {
+          id?: string
+          status?: string
+          description?: string
+          content?: string
+        }
+        tasks.push({
+          id: parsed.id ?? f.replace(/\.json$/, ''),
+          status: parsed.status,
+          description: parsed.description,
+          content: parsed.content,
+        })
+      } catch {
+        // skip unreadable task file
+      }
+    }
+    return tasks
+  } catch (e) {
+    logForDebugging(`listTasksSync: failed: ${String(e)}`)
+    return []
+  }
 }
 
 export function getCoordinatorSystemPrompt(): string {

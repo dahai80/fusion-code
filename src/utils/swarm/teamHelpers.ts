@@ -69,6 +69,10 @@ export type TeamFile = {
   leadSessionId?: string // Actual session UUID of the leader (for discovery)
   hiddenPaneIds?: string[] // Pane IDs that are currently hidden from the UI
   teamAllowedPaths?: TeamAllowedPath[] // Paths all teammates can edit without asking
+  // insight-0902 G3: opt-in cross-session persistence. When true,
+  // cleanupSessionTeams skips this team so it survives leader exit. Teams are
+  // created transient by default (cleaned on session end).
+  persistent?: boolean
   members: Array<{
     agentId: string
     name: string
@@ -570,13 +574,38 @@ export function unregisterTeamForSessionCleanup(teamName: string): void {
 }
 
 /**
+ * insight-0902 G3: filter out teams flagged persistent so they survive
+ * session cleanup. Pure + exported for unit testing. A missing/unreadable
+ * team file falls through to cleanup (transient default).
+ */
+export function filterTransientTeams(
+  teamNames: Iterable<string>,
+  read: (name: string) => TeamFile | null = readTeamFile,
+): string[] {
+  return Array.from(teamNames).filter(name => {
+    const teamFile = read(name)
+    if (teamFile?.persistent === true) {
+      logForDebugging(`cleanupSessionTeams: skipping persistent team ${name}`)
+      return false
+    }
+    return true
+  })
+}
+
+/**
  * Clean up all teams created this session that weren't explicitly deleted.
  * Registered with gracefulShutdown from init.ts.
  */
 export async function cleanupSessionTeams(): Promise<void> {
   const sessionCreatedTeams = getSessionCreatedTeams()
   if (sessionCreatedTeams.size === 0) return
-  const teams = Array.from(sessionCreatedTeams)
+  // insight-0902 G3: persist teams flagged persistent — skip cleanup so they
+  // survive leader exit for cross-session resumption.
+  const teams = filterTransientTeams(sessionCreatedTeams)
+  if (teams.length === 0) {
+    sessionCreatedTeams.clear()
+    return
+  }
   logForDebugging(
     `cleanupSessionTeams: removing ${teams.length} orphan team dir(s): ${teams.join(', ')}`,
   )
