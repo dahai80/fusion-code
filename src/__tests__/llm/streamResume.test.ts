@@ -615,6 +615,61 @@ describe("resumeStreamFetch", () => {
 			globalThis.fetch = origFetch;
 		}
 	});
+
+	// audit-0902 P0-3: a pure resume-fetch timeout (AbortSignal.timeout fired,
+	// NOT user turn-abort) must throw a non-retryable error. classifyError maps
+	// a generic TimeoutError -> TIMEOUT -> isRetryable -> withRetry retries the
+	// FULL turn from zero, duplicating tokens and defeating resume. The fix
+	// marks the pure-timeout throw as .name "AbortError" (non-retryable).
+	test("pure resume-fetch timeout -> throws AbortError (non-retryable), not TimeoutError", async () => {
+		const origFetch = globalThis.fetch;
+		globalThis.fetch = (async () => {
+			throw new DOMException("The operation timed out", "TimeoutError");
+		}) as unknown as typeof fetch;
+		let thrown: unknown;
+		try {
+			const userSignal = new AbortController().signal;
+			await resumeStreamFetch(
+				"sid",
+				"sid:1",
+				"http://127.0.0.1:11432",
+				{},
+				userSignal,
+			);
+		} catch (err) {
+			thrown = err;
+		} finally {
+			globalThis.fetch = origFetch;
+		}
+		expect(thrown).toBeInstanceOf(Error);
+		expect((thrown as Error).name).toBe("AbortError");
+		expect((thrown as Error).message).toContain("timed out");
+	});
+
+	test("user turn-abort propagates as-is (not remapped)", async () => {
+		const origFetch = globalThis.fetch;
+		globalThis.fetch = (async () => {
+			throw new DOMException("The user aborted a request", "AbortError");
+		}) as unknown as typeof fetch;
+		let thrown: unknown;
+		try {
+			const ac = new AbortController();
+			ac.abort();
+			await resumeStreamFetch(
+				"sid",
+				"sid:1",
+				"http://127.0.0.1:11432",
+				{},
+				ac.signal,
+			);
+		} catch (err) {
+			thrown = err;
+		} finally {
+			globalThis.fetch = origFetch;
+		}
+		expect(thrown).toBeInstanceOf(DOMException);
+		expect((thrown as DOMException).name).toBe("AbortError");
+	});
 });
 
 // ─── isResumeEligibleError ───────────────────────────────────

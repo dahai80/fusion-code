@@ -145,11 +145,37 @@ export async function resumeStreamFetch(
 	const combinedSignal = signal
 		? AbortSignal.any([signal, timeoutSignal])
 		: timeoutSignal;
-	const resp = await fetch(url, {
-		method: "GET",
-		headers,
-		signal: combinedSignal,
-	});
+	let resp: Response;
+	try {
+		resp = await fetch(url, {
+			method: "GET",
+			headers,
+			signal: combinedSignal,
+		});
+	} catch (fetchErr) {
+		// audit-0902 P0-3: a pure resume-fetch timeout (timeoutSignal fired,
+		// NOT the user turn-abort signal) must NOT escape as a generic
+		// timeout. classifyError would map it to TIMEOUT → isRetryable true →
+		// withRetry retries the FULL turn from zero, duplicating all
+		// generated tokens and defeating resume entirely. The user-abort path
+		// (signal.aborted) stays ABORTED (also non-retryable). Mark the
+		// pure-timeout case with .name "AbortError" so classifyError (line 90)
+		// classifies it ABORTED = non-retryable → falls through to fallback,
+		// not a full-turn retry.
+		if (
+			!signal?.aborted &&
+			(fetchErr instanceof DOMException
+				? fetchErr.name === "TimeoutError"
+				: /timed?\s*out|timeout/i.test((fetchErr as Error)?.message ?? ""))
+		) {
+			const err = new Error(
+				`[Stream-Resume] Resume fetch timed out after ${RESUME_FETCH_TIMEOUT_MS}ms`,
+			);
+			err.name = "AbortError";
+			throw err;
+		}
+		throw fetchErr;
+	}
 	if (!resp.ok) {
 		// 404 = 服务端 disabled/unknown/evicted → 不可 resume, 抛错落到 fallback。
 		const bodyText = await resp.text().catch(() => "");

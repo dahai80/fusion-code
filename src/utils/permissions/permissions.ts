@@ -486,6 +486,26 @@ export const hasPermissionsToUseTool: CanUseToolFn = async (
 ): Promise<PermissionDecision> => {
 	const result = await hasPermissionsToUseToolInner(tool, input, context);
 
+	// audit-0902 P0-1: readOnly hard-deny MUST run before the allow
+	// short-circuit below. Previously the readOnly gate only fired when
+	// result.behavior === "ask", so a stale alwaysAllowRule (inner returns
+	// "allow") or a hook allow bypassed readOnly mode entirely — a write
+	// tool ran in read-only mode. readOnly is a hard contract (no writes,
+	// regardless of allow rules), so deny non-read tools here unconditionally.
+	// Read tools (isReadOnly()===true) pass through; existing allow rules
+	// still apply to them. Byte-identical when mode !== "readOnly".
+	if (
+		context.getAppState().toolPermissionContext.mode === "readOnly" &&
+		result.behavior === "allow" &&
+		tool.isReadOnly?.(input) !== true
+	) {
+		return {
+			behavior: "deny",
+			decisionReason: { type: "mode", mode: "readOnly" },
+			message: READ_ONLY_REJECT_MESSAGE(tool.name),
+		};
+	}
+
 	// Reset consecutive denials on any allowed tool use in auto mode.
 	// This ensures that a successful tool use (even one auto-allowed by rules)
 	// breaks the consecutive denial streak.

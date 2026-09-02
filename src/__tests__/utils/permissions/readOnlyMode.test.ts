@@ -110,6 +110,53 @@ describe("readOnly permission mode (insight-0902 G4)", () => {
 		expect(decision.behavior).not.toBe("deny");
 	});
 
+	it("audit-0902 P0-1: readOnly hard-denies a write tool even when an alwaysAllowRule matches", async () => {
+		// Regression: stale alwaysAllowRules made inner return "allow",
+		// which short-circuited past the readOnly gate (only fired on "ask").
+		// The write tool must be denied regardless of allow rules.
+		const appState: AppState = {
+			toolPermissionContext: {
+				mode: "readOnly",
+				additionalWorkingDirectories: new Map(),
+				alwaysAllowRules: { Edit: ["Edit"] },
+				alwaysDenyRules: {},
+				alwaysAskRules: {},
+				isBypassPermissionsModeAvailable: false,
+			},
+		} as unknown as AppState;
+		const context: ToolUseContext = {
+			options: {
+				commands: [],
+				debug: false,
+				mainLoopModel: "test-model",
+				tools: [],
+				verbose: false,
+				thinkingConfig: { type: "disabled" },
+				mcpClients: [],
+				mcpResources: {},
+				isNonInteractiveSession: false,
+				agentDefinitions: { tools: [], agents: [] },
+			},
+			abortController: new AbortController(),
+			readFileState: new Map(),
+			getAppState: () => appState,
+			setAppState: () => {},
+		} as unknown as ToolUseContext;
+		const writeTool = makeTool({ name: "Edit", isReadOnly: false });
+		const decision = await hasPermissionsToUseTool(
+			writeTool,
+			{ file_path: "/tmp/x", content: "x" },
+			context,
+			undefined,
+			"tu-bypass-1",
+		);
+		expect(decision.behavior).toBe("deny");
+		expect(decision.decisionReason).toEqual({
+			type: "mode",
+			mode: "readOnly",
+		});
+	});
+
 	it("does not deny write tools when mode is default (byte-identical baseline)", async () => {
 		const context = ctxMode("default");
 		const writeTool = makeTool({ name: "Edit", isReadOnly: false });

@@ -109,7 +109,12 @@ export function getAPIProviderForStatsig(): AnalyticsMetadata_I_VERIFIED_THIS_IS
 }
 
 export function isFirstPartyAnthropicBaseUrl(): boolean {
-	const baseUrl = process.env.FUSION_BASE_URL;
+	// audit-0902 P1-1: must read the SAME source as resolveFirstPartyBaseUrl()
+	// (seam.ts) — FUSION_BASE_URL || ANTHROPIC_BASE_URL. Previously this read
+	// ONLY FUSION_BASE_URL, so setting only ANTHROPIC_BASE_URL=https://attacker
+	// left firstParty=true while the request went to the attacker host,
+	// leaking x-api-key + OAuth Bearer. Both unset => canonical Anthropic.
+	const baseUrl = process.env.FUSION_BASE_URL || process.env.ANTHROPIC_BASE_URL;
 	if (!baseUrl) {
 		return true;
 	}
