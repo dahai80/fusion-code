@@ -1756,21 +1756,24 @@ async function* queryModel(
 		const logBetas = useBetas ? (queryParams.betas ?? []) : [];
 		const logThinkingType = queryParams.thinking?.type ?? "disabled";
 		const logEffortValue = queryParams.output_config?.effort;
-		void options.getToolPermissionContext().then((permissionContext) => {
-			logAPIQuery({
-				model: options.model,
-				messagesLength: logMessagesLength,
-				temperature: options.temperatureOverride ?? 1,
-				betas: logBetas,
-				permissionMode: permissionContext.mode,
-				querySource: options.querySource,
-				queryTracking: options.queryTracking,
-				thinkingType: logThinkingType,
-				effortValue: logEffortValue,
-				fastMode: isFastMode,
-				previousRequestId,
-			});
-		});
+		void options
+			.getToolPermissionContext()
+			.then((permissionContext) => {
+				logAPIQuery({
+					model: options.model,
+					messagesLength: logMessagesLength,
+					temperature: options.temperatureOverride ?? 1,
+					betas: logBetas,
+					permissionMode: permissionContext.mode,
+					querySource: options.querySource,
+					queryTracking: options.queryTracking,
+					thinkingType: logThinkingType,
+					effortValue: logEffortValue,
+					fastMode: isFastMode,
+					previousRequestId,
+				});
+			})
+			.catch(logError);
 	}
 
 	const newMessages: AssistantMessage[] = [];
@@ -3059,38 +3062,41 @@ async function* queryModel(
 	// limit) until getToolPermissionContext() resolves.
 	const logMessageCount = messagesForAPI.length;
 	const logMessageTokens = tokenCountFromLastAPIResponse(messagesForAPI);
-	void options.getToolPermissionContext().then((permissionContext) => {
-		logAPISuccessAndDuration({
-			model:
-				newMessages[0]?.message.model ?? partialMessage?.model ?? options.model,
-			preNormalizedModel: options.model,
-			usage,
-			start,
-			startIncludingRetries,
-			attempt: attemptNumber,
-			messageCount: logMessageCount,
-			messageTokens: logMessageTokens,
-			requestId: streamRequestId ?? null,
-			stopReason,
-			ttftMs,
-			didFallBackToNonStreaming,
-			querySource: options.querySource,
-			headers: responseHeaders,
-			costUSD,
-			queryTracking: options.queryTracking,
-			permissionMode: permissionContext.mode,
-			// Pass newMessages for beta tracing - extraction happens in logging.ts
-			// only when beta tracing is enabled
-			newMessages,
-			llmSpan,
-			globalCacheStrategy,
-			requestSetupMs: start - startIncludingRetries,
-			attemptStartTimes,
-			fastMode: isFastModeRequest,
-			previousRequestId,
-			betas: lastRequestBetas,
-		});
-	});
+	void options
+		.getToolPermissionContext()
+		.then((permissionContext) => {
+			logAPISuccessAndDuration({
+				model:
+					newMessages[0]?.message.model ?? partialMessage?.model ?? options.model,
+				preNormalizedModel: options.model,
+				usage,
+				start,
+				startIncludingRetries,
+				attempt: attemptNumber,
+				messageCount: logMessageCount,
+				messageTokens: logMessageTokens,
+				requestId: streamRequestId ?? null,
+				stopReason,
+				ttftMs,
+				didFallBackToNonStreaming,
+				querySource: options.querySource,
+				headers: responseHeaders,
+				costUSD,
+				queryTracking: options.queryTracking,
+				permissionMode: permissionContext.mode,
+				// Pass newMessages for beta tracing - extraction happens in logging.ts
+				// only when beta tracing is enabled
+				newMessages,
+				llmSpan,
+				globalCacheStrategy,
+				requestSetupMs: start - startIncludingRetries,
+				attemptStartTimes,
+				fastMode: isFastModeRequest,
+				previousRequestId,
+				betas: lastRequestBetas,
+			});
+		})
+		.catch(logError);
 
 	// Defensive: also release on normal completion (no-op if finally already ran).
 	releaseStreamResources();

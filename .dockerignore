@@ -1,0 +1,15 @@
+node_modules
+.git
+dist
+fusion-code
+fusion-code-dev
+*.log
+logs
+README*.md
+docs
+architecture
+tests
+src/__tests__
+bunfig.toml
+.codegraph
+.remember

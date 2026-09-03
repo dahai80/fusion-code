@@ -220,6 +220,11 @@ async function main(): Promise<void> {
 			args.find((a) => a.startsWith("--port="))?.slice(7) ?? "11441",
 			10,
 		);
+		// Issue #215: allow container/host binding. Default 127.0.0.1 keeps
+		// loopback-only behavior byte-identical for non-container launches.
+		const host =
+			args.find((a) => a.startsWith("--host="))?.slice(7) ??
+			(process.env.FUSION_CODE_HOST ?? "127.0.0.1");
 		const authToken =
 			args.find((a) => a.startsWith("--auth="))?.slice(7) ??
 			process.env.FUSION_CODE_AUTH_TOKEN ??
@@ -230,12 +235,12 @@ async function main(): Promise<void> {
 			(process.env.FUSION_CODE_NO_AUTH ?? "") === "1" ||
 			(process.env.FUSION_CODE_NO_AUTH ?? "").toLowerCase() === "true";
 		const instance = startServer(
-			{ port, host: "127.0.0.1", authToken, authDisabled },
+			{ port, host, authToken, authDisabled },
 			null,
 			null,
 		);
 		console.log(
-			`Fusion-Code API server listening on http://127.0.0.1:${instance.port}`,
+			`Fusion-Code API server listening on http://${host}:${instance.port}`,
 		);
 		// Keep process alive until SIGINT
 		await new Promise<void>((resolve) => {
