@@ -252,7 +252,13 @@ function isAllowedMlxHostname(hostname: string): boolean {
 	return false;
 }
 
+// PERF-4 (0903 P3): base URL 是 env 派生、进程内不可变,但 getMlxApiUrl /
+// isGatewayBaseUrl / getMlxAuthHeaders 每次请求各自调用,导致 new URL() 解析
+// + isAllowedMlxHostname 正则每请求重复 2-3 次。首次解析后缓存(与 _cachedMlxApiKey
+// 同模式);安全告警仅首调发出一次。
+let _cachedMlxBaseUrl: string | null = null;
 function getMlxBaseUrl(): string {
+	if (_cachedMlxBaseUrl !== null) return _cachedMlxBaseUrl;
 	const url =
 		process.env.FUSION_GATEWAY_URL ||
 		process.env.FUSION_MLX_BASE_URL ||
@@ -275,8 +281,10 @@ function getMlxBaseUrl(): string {
 		console.error(
 			`[Fusion-MLX] Invalid MLX base URL: ${url}, falling back to default`,
 		);
+		_cachedMlxBaseUrl = DEFAULT_MLX_BASE_URL;
 		return DEFAULT_MLX_BASE_URL;
 	}
+	_cachedMlxBaseUrl = url;
 	return url;
 }
 
@@ -436,6 +444,12 @@ async function mlxFetchWithRetry(
 				response.status === 401
 					? `鉴权失败 (${layer} 层)。请检查 ${layer === "gateway" ? "FUSION_GATEWAY_API_KEY 是否匹配 fusion-gateway config.yaml 的 auth.api_keys" : "FUSION_MLX_API_KEY 是否匹配 ~/.fusion-mlx/settings.json 的 auth.api_key"}`
 					: `route_guard 拒绝 (X-Fusion-Route 头缺失或值不被接受)。当前头: X-Fusion-Route=${process.env.FUSION_ROUTE_HEADER || DEFAULT_FUSION_ROUTE_HEADER}`;
+			// ERR-3 (0903 P3): auth/route failure must be observable in production.
+			// logForDebugging is gated by debug-mode (shouldLogDebugMessage returns
+			// false for non-ant + debug off), so the 401/403 diagnostic was silent
+			// in prod — a fail-open gap. Mirror getMlxBaseUrl's security-warn shape:
+			// console.error (always visible) + logForDebugging (debug capture).
+			console.error(`[Fusion-MLX] 请求被 ${response.status} 拒绝 — ${hint}`);
 			logForDebugging(`[Fusion-MLX] 请求被 ${response.status} 拒绝 — ${hint}`, {
 				level: "warn",
 			});
