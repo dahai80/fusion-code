@@ -923,8 +923,9 @@ function filterRulesByContentsMatchingInput(
 								}
 								return cmdToMatch.startsWith(xargsPrefix + " ");
 							}
+							default:
+								return false;
 						}
-						break;
 					case "wildcard":
 						// SECURITY FIX: In exact match mode, wildcards must NOT match because we're
 						// checking the full unparsed command. Wildcard matching on unparsed commands
@@ -941,6 +942,8 @@ function filterRulesByContentsMatchingInput(
 						}
 						// In prefix mode (after splitting), wildcards can safely match subcommands
 						return matchWildcardPattern(bashRule.pattern, cmdToMatch);
+					default:
+						return false;
 				}
 			});
 		})
