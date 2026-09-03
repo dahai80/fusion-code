@@ -1,4 +1,4 @@
-import { describe, expect, it, mock } from "bun:test";
+import { beforeEach, describe, expect, it, mock } from "bun:test";
 
 // Tool-name VALUES the builder gates enabledTools against. Inlined as literals:
 // statically importing the tool-const modules hoists them ABOVE mock.module()
@@ -427,6 +427,20 @@ describe("buildMlxSystemPrompt memory truncation", () => {
     // string and assert: (1) no 4000-char element survives, (2) a truncated
     // element (<~3020 chars) carrying the truncation marker appears. Non-compact
     // tiers pass memoryPrompt through untruncated.
+    //
+    // audit-0903 P1 PERF-1: buildMlxSystemPrompt now reuses the session
+    // systemPromptSection cache (bootstrap/state.ts) for memory/project_context,
+    // so the FIRST call's value is cached for the session. These subtests each
+    // drive a DIFFERENT mockMemoryPrompt in one process, so they must clear the
+    // cache between runs — otherwise the second subtest reads the first's stale
+    // cached value. In production /clear (clearSystemPromptSectionState) does
+    // this at session boundaries; here we clear per-subtest for isolation.
+    beforeEach(async () => {
+        const { clearSystemPromptSectionState } = await import(
+            "../../bootstrap/state.js"
+        );
+        clearSystemPromptSectionState();
+    });
 
     it("compact truncates memory > 3000 chars; no long element survives", async () => {
         mockMemoryPrompt = "M".repeat(4000);

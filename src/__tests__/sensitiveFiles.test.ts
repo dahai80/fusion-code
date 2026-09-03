@@ -69,6 +69,20 @@ describe("isSensitiveFilePath", () => {
 		expect(isSensitiveFilePath("/project/src/envrcHelper.ts")).toBe(false);
 	});
 
+	it("blocks additional credential files (audit-0903 P2 SEC-3)", () => {
+		// 6 categories slipped past the prior pattern list, each holds plaintext
+		// creds readable by a single `cat`.
+		expect(isSensitiveFilePath("/home/user/.pgpass")).toBe(true);
+		expect(isSensitiveFilePath("/home/user/.my.cnf")).toBe(true);
+		expect(isSensitiveFilePath("/etc/apache/.htpasswd")).toBe(true);
+		expect(isSensitiveFilePath("/project/.secret")).toBe(true);
+		expect(isSensitiveFilePath("/project/.token")).toBe(true);
+		expect(isSensitiveFilePath("/etc/dovecot/.passwd")).toBe(true);
+		// Non-secret namesakes not over-blocked.
+		expect(isSensitiveFilePath("/project/src/myToken.ts")).toBe(false);
+		expect(isSensitiveFilePath("/project/passwd-helpers.txt")).toBe(false);
+	});
+
 	it("allows non-sensitive paths", () => {
 		expect(isSensitiveFilePath("/project/src/index.ts")).toBe(false);
 		expect(isSensitiveFilePath("/project/package.json")).toBe(false);

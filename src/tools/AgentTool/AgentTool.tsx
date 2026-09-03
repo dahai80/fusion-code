@@ -899,9 +899,19 @@ export const AgentTool = buildTool({
 		// permission mode, so they aren't affected by the parent's tool
 		// restrictions. This is computed here so that runAgent doesn't need to
 		// import from tools.ts (which would create a circular dependency).
+		const parentMode = appState.toolPermissionContext.mode;
+		// audit-0903 P0 SEC-1: readOnly is a hard contract (no writes/exec).
+		// A sub-agent must NEVER escape a parent readOnly session — the worker
+		// mode is clamped to readOnly when the parent is readOnly, regardless of
+		// the agent definition's own permissionMode. Previously the worker fell
+		// back to "acceptEdits", silently widening permissions under readOnly.
+		const workerMode =
+			parentMode === "readOnly"
+				? "readOnly"
+				: selectedAgent.permissionMode ?? "acceptEdits";
 		const workerPermissionContext = {
 			...appState.toolPermissionContext,
-			mode: selectedAgent.permissionMode ?? "acceptEdits",
+			mode: workerMode,
 		};
 		const workerTools = assembleToolPool(
 			workerPermissionContext,

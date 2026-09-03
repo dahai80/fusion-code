@@ -7,7 +7,8 @@
  * Note: Inboxes are keyed by agent name within a team.
  */
 
-import { mkdir, readFile, writeFile } from 'fs/promises'
+import { mkdir, readFile, writeFile, open } from 'fs/promises'
+import { O_CREAT, O_NOFOLLOW, O_TRUNC, O_WRONLY } from 'node:constants'
 import { join } from 'path'
 import { z } from 'zod/v4'
 import { TEAMMATE_MESSAGE_TAG } from '../constants/xml.js'
@@ -43,6 +44,19 @@ const LOCK_OPTIONS = {
     minTimeout: 5,
     maxTimeout: 100,
   },
+}
+
+// audit-0903 P1 SEC-2: writeFile with the default 'w' flag follows a symlink.
+// A same-user process that swaps an inbox file for a symlink could redirect
+// agent messages to an arbitrary target. O_NOFOLLOW opens the path itself only
+// if it is NOT a symlink (ELOOP otherwise), matching the auditLog defense.
+async function writeInboxNoFollow(inboxPath: string, data: string): Promise<void> {
+  const handle = await open(inboxPath, O_WRONLY | O_TRUNC | O_CREAT | O_NOFOLLOW)
+  try {
+    await handle.writeFile(data)
+  } finally {
+    await handle.close()
+  }
 }
 
 export type TeammateMessage = {
@@ -182,7 +196,7 @@ export async function writeToMailbox(
 
     messages.push(newMessage)
 
-    await writeFile(inboxPath, jsonStringify(messages, null, 2), 'utf-8')
+    await writeInboxNoFollow(inboxPath, jsonStringify(messages, null, 2))
     logForDebugging(
       `[TeammateMailbox] Wrote message to ${recipientName}'s inbox from ${message.from}`,
     )
@@ -256,7 +270,7 @@ export async function markMessageAsReadByIndex(
 
     messages[messageIndex] = { ...message, read: true }
 
-    await writeFile(inboxPath, jsonStringify(messages, null, 2), 'utf-8')
+    await writeInboxNoFollow(inboxPath, jsonStringify(messages, null, 2))
     logForDebugging(
       `[TeammateMailbox] markMessageAsReadByIndex: marked message at index ${messageIndex} as read`,
     )
@@ -329,7 +343,7 @@ export async function markMessagesAsRead(
     // messages comes from jsonParse — fresh, unshared objects safe to mutate
     for (const m of messages) m.read = true
 
-    await writeFile(inboxPath, jsonStringify(messages, null, 2), 'utf-8')
+    await writeInboxNoFollow(inboxPath, jsonStringify(messages, null, 2))
     logForDebugging(
       `[TeammateMailbox] markMessagesAsRead: WROTE ${unreadCount} message(s) as read to ${inboxPath}`,
     )
@@ -365,9 +379,10 @@ export async function clearMailbox(
   const inboxPath = getInboxPath(agentName, teamName)
 
   try {
-    // flag 'r+' throws ENOENT if the file doesn't exist, so we don't
-    // accidentally create an inbox file that wasn't there.
-    await writeFile(inboxPath, '[]', { encoding: 'utf-8', flag: 'r+' })
+    // O_NOFOLLOW + no O_CREAT: throws ENOENT if the file doesn't exist (so we
+    // don't accidentally create an inbox that wasn't there) and rejects a
+    // symlinked inbox (audit-0903 P1 SEC-2).
+    await writeInboxNoFollow(inboxPath, '[]')
     logForDebugging(`[TeammateMailbox] Cleared inbox for ${agentName}`)
   } catch (error) {
     const code = getErrnoCode(error)
@@ -1135,7 +1150,7 @@ export async function markMessagesAsReadByPredicate(
       !m.read && predicate(m) ? { ...m, read: true } : m,
     )
 
-    await writeFile(inboxPath, jsonStringify(updatedMessages, null, 2), 'utf-8')
+    await writeInboxNoFollow(inboxPath, jsonStringify(updatedMessages, null, 2))
   } catch (error) {
     const code = getErrnoCode(error)
     if (code === 'ENOENT') {

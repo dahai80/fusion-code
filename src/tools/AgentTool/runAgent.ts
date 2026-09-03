@@ -422,11 +422,15 @@ export async function* runAgent({
 		const state = toolUseContext.getAppState();
 		let toolPermissionContext = state.toolPermissionContext;
 
-		// Override permission mode if agent defines one (unless parent is bypassPermissions, acceptEdits, or auto)
+		// Override permission mode if agent defines one (unless parent is
+		// bypassPermissions, acceptEdits, readOnly, or auto). readOnly is a hard
+		// contract (audit-0903 P0 SEC-1): a sub-agent must not widen permissions
+		// out of a parent readOnly session, so the parent mode wins.
 		if (
 			agentPermissionMode &&
 			state.toolPermissionContext.mode !== "bypassPermissions" &&
 			state.toolPermissionContext.mode !== "acceptEdits" &&
+			state.toolPermissionContext.mode !== "readOnly" &&
 			!(
 				feature("TRANSCRIPT_CLASSIFIER") &&
 				state.toolPermissionContext.mode === "auto"

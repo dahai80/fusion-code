@@ -47,6 +47,15 @@ const SENSITIVE_PATTERNS: RegExp[] = [
 	/\.docker\/config\.json$/i,
 	/\.git-credentials$/i,
 	/\.github-token$/i,
+	// audit-0903 P2 SEC-3: additional secret-bearing files that slipped past
+	// the prior pattern list. Each holds plaintext credentials readable by a
+	// single `cat`, so deny them like the SSH/AWS entries above.
+	/\.pgpass$/i, // PostgreSQL .pgpass — host:port:db:user:password
+	/\.my\.cnf$/i, // MySQL client creds (user/password under [client])
+	/\.htpasswd$/i, // Apache basic-auth htpasswd — bcrypt/MD5 hashes
+	/\.secret$/i, // generic .secret / Rails secrets.yml key files
+	/\.token$/i, // generic .token — catch-all for API token files
+	/\.passwd$/i, // Dovecot .passwd / shadow-adjacent credential files
 	// P0-1 (audit R1): API server auth token — ~/.fusion-code/server.token (mode 0600).
 	// AI 读该 token 即获本地 API server 控制权 (/api/code/generate + WS chat spawn 子进程 = RCE)。
 	// 不纳入保护则 token 经 FileRead/Bash cat 泄露。锚定结尾 `server.token` 覆盖任意目录下的同名文件。

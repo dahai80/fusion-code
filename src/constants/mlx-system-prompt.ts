@@ -1,4 +1,5 @@
 import { loadMemoryPrompt } from "../memdir/memdir.js";
+import { getSystemPromptSectionCache } from "../bootstrap/state.js";
 import type { Tools } from "../Tool.js";
 import { AGENT_TOOL_NAME } from "../tools/AgentTool/constants.js";
 import { BASH_TOOL_NAME } from "../tools/BashTool/toolName.js";
@@ -640,8 +641,26 @@ export async function buildMlxSystemPrompt(
 	const tier = getPromptTier(paramCount, contextWindow);
 	const cwd = getCwd();
 	const [isGit, unameSR] = await Promise.all([getIsGit(), getUnameSR()]);
-	const memoryPrompt = await loadMemoryPrompt();
-	const projectContext = await getCompactProjectContext(cwd);
+	// audit-0903 P1 PERF-1: the non-MLX path wraps these in
+	// systemPromptSection('memory'/'project_context') so they are read from disk
+	// once per session (getSystemPromptSectionCache). The MLX branch bypassed
+	// that cache and re-read memory files + project manifests every turn
+	// (readFileSync + readdir + up to 8 readFile per turn). Reuse the SAME
+	// session cache so the MLX path pays the I/O only on the first turn, then
+	// /clear (clearSystemPromptSectionCache) invalidates it for a new session.
+	const sectionCache = getSystemPromptSectionCache();
+	const memoryPrompt =
+		sectionCache.has("memory")
+			? (sectionCache.get("memory") as string | null) ?? ""
+			: await loadMemoryPrompt();
+	if (!sectionCache.has("memory"))
+		sectionCache.set("memory", memoryPrompt);
+	const projectContext =
+		sectionCache.has("project_context")
+			? (sectionCache.get("project_context") as string | null) ?? ""
+			: await getCompactProjectContext(cwd);
+	if (!sectionCache.has("project_context"))
+		sectionCache.set("project_context", projectContext);
 	const enabledTools = new Set(tools.map((t) => t.name));
 
 	const sections: (string | null)[] = [];
