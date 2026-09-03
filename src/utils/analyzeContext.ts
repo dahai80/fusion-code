@@ -276,7 +276,7 @@ async function countSystemTokens(
   systemPromptSections: SystemPromptSectionDetail[]
 }> {
   // Get system context (gitStatus, etc.) which is always included
-  const systemContext = await getSystemContext()
+  const systemContext = (await getSystemContext()) as Record<string, string>
 
   // Build named entries: system prompt parts + system context values
   // Skip empty strings and the global-cache boundary marker

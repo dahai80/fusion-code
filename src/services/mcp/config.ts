@@ -1291,7 +1291,7 @@ export async function getAllMcpConfigs(): Promise<{
 		claudeaiPromise,
 	);
 	const { allowed: claudeaiMcpServers } = filterMcpServersByPolicy(
-		await claudeaiPromise,
+		(await claudeaiPromise) as Record<string, ScopedMcpServerConfig>,
 	);
 
 	// Suppress claude.ai connectors that duplicate an enabled manual server.

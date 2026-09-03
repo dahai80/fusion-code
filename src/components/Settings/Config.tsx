@@ -14,6 +14,7 @@ import {
 	getExternalClaudeMdIncludes,
 	getMemoryFiles,
 	hasExternalClaudeMdIncludes,
+	type MemoryFileInfo,
 } from "src/utils/claudemd.js";
 import { isEnvTruthy, isRunningOnHomespace } from "src/utils/envUtils.js";
 import { getUserMsgOptIn, setUserMsgOptIn } from "../../bootstrap/state.js";
@@ -298,7 +299,7 @@ export function Config({
 	const isFileCheckpointingAvailable = !isEnvTruthy(
 		process.env.CLAUDE_CODE_DISABLE_FILE_CHECKPOINTING,
 	);
-	const memoryFiles = React.use(getMemoryFiles(true));
+	const memoryFiles = React.use(getMemoryFiles(true)) as MemoryFileInfo[];
 	const shouldShowExternalIncludesToggle =
 		hasExternalClaudeMdIncludes(memoryFiles);
 	const autoUpdaterDisabledReason = getAutoUpdaterDisabledReason();

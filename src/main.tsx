@@ -2484,7 +2484,7 @@ async function run(): Promise<CommanderCommand> {
 					const scopedConfigs = mapValues(allConfigs, (config) => ({
 						...config,
 						scope: "dynamic" as const,
-					}));
+					})) as Record<string, ScopedMcpServerConfig>;
 
 					// Enforce managed policy (allowedMcpServers / deniedMcpServers) on
 					// --mcp-config servers. Without this, the CLI flag bypasses the
