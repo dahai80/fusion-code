@@ -11,7 +11,7 @@ fusion-code 有**两套**语义重叠但机制不同的 flag:
 |------|---------------------------|----------------------------------------------------------|
 | 机制 | Bun bundler 编译时宏, 死代码消除 | 进程启动读 env, 运行时条件分支 |
 | 文件 | `import { feature } from 'bun:bundle'` | `isEnvTruthy(process.env.X)` (envUtils.ts) |
-| 数量 | **89** distinct flag / **904** call site | **88** distinct flag / **177** call site |
+| 数量 | **88** distinct flag / **904** call site | **88** distinct flag / **177** call site |
 | 默认 | 仅 `VOICE_MODE` 进产物, 其余 DCE 移除 | unset = off, byte-identical |
 | 改变需 | 重新 `bun run build` | 重启进程, 无需重编译 |
 
@@ -31,9 +31,9 @@ fusion-code 有**两套**语义重叠但机制不同的 flag:
 
 `scripts/build.ts` `defaultFeatures = ['VOICE_MODE']`, 所有构建变体含 `VOICE_MODE`。
 
-## dev-full: 89 Flags
+## dev-full: 88 Flags
 
-`scripts/build.ts` `fullExperimentalFeatures` 列出全部 89 个 build-time flag, `--feature-set=dev-full` 一次性全部启用, 使所有 DCE-eligible 实验路径进入二进制编译。该列表与 `src/` 实际 `feature('X')` 调用**逐一核对一致**并由 `bun run lint:flags` (`scripts/check-feature-flags.ts`) 强制 — 0 dead entry, 0 active miss (audit P1-4 R10; 2026-09-01 复核: 删 BRIDGE_MODE/BUILDING_CLAUDE_APPS 死条目, 补 TELEMETRY 活动漏项; P1-7 删 DAEMON stub 子系统)。
+`scripts/build.ts` `fullExperimentalFeatures` 列出全部 88 个 build-time flag, `--feature-set=dev-full` 一次性全部启用, 使所有 DCE-eligible 实验路径进入二进制编译。该列表与 `src/` 实际 `feature('X')` 调用**逐一核对一致**并由 `bun run lint:flags` (`scripts/check-feature-flags.ts`) 强制 — 0 dead entry, 0 active miss (audit P1-4 R10; 2026-09-01 复核: 删 BRIDGE_MODE/BUILDING_CLAUDE_APPS 死条目, 补 TELEMETRY 活动漏项; P1-7 删 DAEMON stub 子系统; 2026-09-03 补 CHROME gate claudeInChrome 子树)。
 
 ```
 ABLATION_BASELINE
@@ -55,6 +55,7 @@ CAPABILITY_MANIFEST
 CCR_AUTO_CONNECT
 CCR_MIRROR
 CHICAGO_MCP
+CHROME
 COMMIT_ATTRIBUTION
 COMPACTION_REMINDERS
 CONNECTOR_TEXT
@@ -255,7 +256,7 @@ bun run ./scripts/build.ts --feature=ULTRAPLAN
 bun run ./scripts/build.ts --feature=ULTRAPLAN --feature=ULTRATHINK
 ```
 
-### build-time 全部 89 实验 flag (dev-full)
+### build-time 全部 88 实验 flag (dev-full)
 
 ```bash
 bun run ./scripts/build.ts --dev --feature-set=dev-full
@@ -263,7 +264,7 @@ bun run ./scripts/build.ts --dev --feature-set=dev-full
 
 ### dev-full + 额外 flag
 
-`--feature-set=dev-full` 已含全部 89 个 `fullExperimentalFeatures`, 故额外 `--feature=` 仅对**列表外**的 flag 有效 (理论上不应有, 因列表与源码一致; 若源码新增 flag 需同步列表, 见末节核对)。
+`--feature-set=dev-full` 已含全部 88 个 `fullExperimentalFeatures`, 故额外 `--feature=` 仅对**列表外**的 flag 有效 (理论上不应有, 因列表与源码一致; 若源码新增 flag 需同步列表, 见末节核对)。
 
 ### runtime env-gate
 
@@ -340,7 +341,7 @@ runtime flag 不会出现在 `strings` (非编译时), 验证靠日志或行为�
 
 ```bash
 bun run lint:flags
-# [check-feature-flags] src=89 build=89 orphans=0 misses=0 → OK exit 0
+# [check-feature-flags] src=88 build=88 orphans=0 misses=0 → OK exit 0
 ```
 
 **手动核对 (fallback / 复算引号风格):**

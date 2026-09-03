@@ -180,14 +180,14 @@ async function main(): Promise<void> {
 		console.log(JSON.stringify(configDump, null, 2));
 		return;
 	}
-	if (process.argv[2] === "--claude-in-chrome-mcp") {
+	if (feature("CHROME") && process.argv[2] === "--claude-in-chrome-mcp") {
 		profileCheckpoint("cli_claude_in_chrome_mcp_path");
 		const { runClaudeInChromeMcpServer } = await import(
 			"../utils/claudeInChrome/mcpServer.js"
 		);
 		await runClaudeInChromeMcpServer();
 		return;
-	} else if (process.argv[2] === "--chrome-native-host") {
+	} else if (feature("CHROME") && process.argv[2] === "--chrome-native-host") {
 		profileCheckpoint("cli_chrome_native_host_path");
 		const { runChromeNativeHost } = await import(
 			"../utils/claudeInChrome/chromeNativeHost.js"

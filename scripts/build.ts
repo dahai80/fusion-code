@@ -44,6 +44,11 @@ const fullExperimentalFeatures = [
 	"CCR_AUTO_CONNECT",
 	"CCR_MIRROR",
 	"CHICAGO_MCP",
+	// CHROME: gates the claudeInChrome browser-automation subtree
+	// (src/utils/claudeInChrome/*). Default-off so the subtree (and its
+	// Anthropic/Chrome branding strings) is DCE'd from shipping builds; on
+	// here in dev-full only to compile-test the path.
+	"CHROME",
 	"COMMIT_ATTRIBUTION",
 	"COMPACTION_REMINDERS",
 	"CONNECTOR_TEXT",

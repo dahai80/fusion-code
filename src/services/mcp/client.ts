@@ -362,13 +362,15 @@ async function backgroundMcpCall({
 	};
 }
 
-import { isClaudeInChromeMCPServer } from "../../utils/claudeInChrome/common.js";
+import { isClaudeInChromeMCPServer } from "../../utils/claudeInChromeGate.js";
 
-// Lazy: toolRendering.tsx pulls React/ink; only needed when Claude-in-Chrome MCP server is connected
+// Lazy: toolRendering.tsx pulls React/ink; only needed when Claude-in-Chrome MCP server is connected.
+// feature("CHROME") gate keeps the require() target DCE'd when the subtree is off.
 /* eslint-disable @typescript-eslint/no-require-imports */
-const claudeInChromeToolRendering =
-	(): typeof import("../../utils/claudeInChrome/toolRendering.js") =>
-		require("../../utils/claudeInChrome/toolRendering.js");
+const claudeInChromeToolRendering = feature("CHROME")
+	? (): typeof import("../../utils/claudeInChrome/toolRendering.js") =>
+			require("../../utils/claudeInChrome/toolRendering.js")
+	: undefined;
 // Lazy: wrapper.tsx → hostAdapter.ts → executor.ts pulls both native modules
 // (@ant/computer-use-input + @ant/computer-use-swift). Runtime-gated by
 // GrowthBook tengu_malort_pedway (see gates.ts).
@@ -1039,11 +1041,14 @@ export const connectToServer = memoize(
 				);
 				logMCPDebug(name, `claude.ai proxy transport created successfully`);
 			} else if (
+				feature("CHROME") &&
 				((serverRef as ScopedMcpServerConfig).type === "stdio" ||
 					!(serverRef as ScopedMcpServerConfig).type) &&
 				isClaudeInChromeMCPServer(name)
 			) {
 				// Run the Chrome MCP server in-process to avoid spawning a ~325 MB subprocess
+				// Dead code elimination: feature("CHROME") guards the whole block so the
+				// claudeInChrome subtree imports are absent from default (CHROME-off) builds.
 				const { createChromeContext } = await import(
 					"../../utils/claudeInChrome/mcpServer.js"
 				);
@@ -2375,7 +2380,7 @@ export const fetchToolsForClient = memoizeWithLRU(
 						},
 						...(isClaudeInChromeMCPServer(client.name) &&
 						(client.config.type === "stdio" || !client.config.type)
-							? claudeInChromeToolRendering().getClaudeInChromeMCPToolOverrides(
+							? claudeInChromeToolRendering!().getClaudeInChromeMCPToolOverrides(
 									tool.name,
 								)
 							: {}),

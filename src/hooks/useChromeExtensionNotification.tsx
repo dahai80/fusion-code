@@ -1,9 +1,10 @@
+import { feature } from "bun:bundle";
 import { Text } from "../ink.js";
 import { isClaudeAISubscriber } from "../utils/auth.js";
 import {
 	isChromeExtensionInstalled,
 	shouldEnableClaudeInChrome,
-} from "../utils/claudeInChrome/setup.js";
+} from "../utils/claudeInChromeGate.js";
 import { isRunningOnHomespace } from "../utils/envUtils.js";
 import { useStartupNotification } from "./notifs/useStartupNotification.js";
 
@@ -24,6 +25,9 @@ export function useChromeExtensionNotification() {
 	); // log: widen return type
 }
 async function _temp() {
+	if (!feature("CHROME")) {
+		return null;
+	}
 	const chromeFlag = getChromeFlag();
 	if (!shouldEnableClaudeInChrome(chromeFlag)) {
 		return null;

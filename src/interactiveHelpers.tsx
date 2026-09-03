@@ -287,7 +287,9 @@ export async function showSetupScreens(root: Root, permissionMode: PermissionMod
   }
 
   // Show Chrome onboarding for first-time Claude in Chrome users
-  if (claudeInChrome && !getGlobalConfig().hasCompletedClaudeInChromeOnboarding) {
+  // Dead code elimination: feature("CHROME") guards the block so the
+  // ClaudeInChromeOnboarding component import is tree-shaken from default builds.
+  if (feature('CHROME') && claudeInChrome && !getGlobalConfig().hasCompletedClaudeInChromeOnboarding) {
     const {
       ClaudeInChromeOnboarding
     } = await import('./components/ClaudeInChromeOnboarding.js');

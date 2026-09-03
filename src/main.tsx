@@ -200,12 +200,10 @@ import { assertMinVersion } from "./utils/autoUpdater.js";
 import {
 	CLAUDE_IN_CHROME_SKILL_HINT,
 	CLAUDE_IN_CHROME_SKILL_HINT_WITH_WEBBROWSER,
-} from "./utils/claudeInChrome/prompt.js";
-import {
 	setupClaudeInChrome,
 	shouldAutoEnableClaudeInChrome,
 	shouldEnableClaudeInChrome,
-} from "./utils/claudeInChrome/setup.js";
+} from "./utils/claudeInChromeGate.js";
 import { getContextWindowForModel } from "./utils/context.js";
 import { loadConversationForResume } from "./utils/conversationRecovery.js";
 import { buildDeepLinkBanner } from "./utils/deepLink/banner.js";
@@ -306,7 +304,7 @@ import { logContextMetrics } from "src/utils/api.js";
 import {
 	CLAUDE_IN_CHROME_MCP_SERVER_NAME,
 	isClaudeInChromeMCPServer,
-} from "src/utils/claudeInChrome/common.js";
+} from "src/utils/claudeInChromeGate.js";
 import { registerCleanup } from "src/utils/cleanupRegistry.js";
 import { eagerParseCliFlag } from "src/utils/cliArgs.js";
 import { createEmptyAttributionState } from "src/utils/commitAttribution.js";
@@ -1726,8 +1724,18 @@ async function run(): Promise<CommanderCommand> {
 			[] as string[],
 		)
 		.option("--disable-slash-commands", "Disable all skills", () => true)
-		.option("--chrome", "Enable Claude in Chrome integration")
-		.option("--no-chrome", "Disable Claude in Chrome integration")
+		.option(
+			"--chrome",
+			feature("CHROME")
+				? "Enable Claude in Chrome integration"
+				: "Enable browser integration",
+		)
+		.option(
+			"--no-chrome",
+			feature("CHROME")
+				? "Disable Claude in Chrome integration"
+				: "Disable browser integration",
+		)
 		.option(
 			"--file <specs...>",
 			"File resources to download at startup. Format: file_id:relative_path (e.g., --file file_abc:doc.txt file_def:img.png)",
@@ -2508,7 +2516,7 @@ async function run(): Promise<CommanderCommand> {
 				(isInternalBuild() || isClaudeAISubscriber());
 			const autoEnableClaudeInChrome =
 				!enableClaudeInChrome && shouldAutoEnableClaudeInChrome();
-			if (enableClaudeInChrome) {
+			if (feature("CHROME") && enableClaudeInChrome) {
 				const platform = getPlatform();
 				try {
 					logEvent("tengu_claude_in_chrome_setup", {
@@ -2541,7 +2549,7 @@ async function run(): Promise<CommanderCommand> {
 					console.error(`Error: Failed to run with Claude in Chrome.`);
 					gracefulShutdownSync(1);
 				}
-			} else if (autoEnableClaudeInChrome) {
+			} else if (feature("CHROME") && autoEnableClaudeInChrome) {
 				try {
 					const { mcpConfig: chromeMcpConfig } = setupClaudeInChrome();
 					dynamicMcpConfig = {

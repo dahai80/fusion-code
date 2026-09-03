@@ -1,8 +1,15 @@
 import { feature } from "bun:bundle";
-import { shouldAutoEnableClaudeInChrome } from "src/utils/claudeInChrome/setup.js";
+import { shouldAutoEnableClaudeInChrome } from "src/utils/claudeInChromeGate.js";
 import { registerBatchSkill } from "./batch.js";
 import { registerBrainstormSkill } from "./brainstorm.js";
-import { registerClaudeInChromeSkill } from "./claudeInChrome.js";
+// Dead code elimination: conditional import — claudeInChrome.ts (and its subtree
+// imports) are tree-shaken from default (CHROME-off) builds.
+/* eslint-disable @typescript-eslint/no-require-imports */
+const registerClaudeInChromeSkill: typeof import("./claudeInChrome.js").registerClaudeInChromeSkill =
+	feature("CHROME")
+		? require("./claudeInChrome.js").registerClaudeInChromeSkill
+		: () => {};
+/* eslint-enable @typescript-eslint/no-require-imports */
 import { registerCodeReviewSkill } from "./codeReview.js";
 import { registerDatavizSkill } from "./dataviz.js";
 import { registerDebugSkill } from "./debug.js";
