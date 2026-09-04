@@ -11,7 +11,7 @@ import type { AppState } from "../../state/AppState.js";
 import { logForDebugging } from "../../utils/debug.js";
 import { isEnvTruthy } from "../../utils/envUtils.js";
 import { registerCleanup } from "../../utils/cleanupRegistry.js";
-import { stopTask } from "../../tasks/stopTask.js";
+import { killAllActive, stopTask } from "../../tasks/stopTask.js";
 
 // stopTask 的 context 形状 (StopTaskContext 未导出, 此处内联)。
 type ReapTaskContext = {
@@ -24,6 +24,7 @@ const DEFAULT_REAPER_INTERVAL_MS = 60 * 1000; // scan every 60s
 
 let reaperTimer: ReturnType<typeof setInterval> | null = null;
 let cleanupRegistered = false;
+let killCleanupRegistered = false;
 
 // 注入的 store 访问器 (REPL mount 时注入)。stopTask 需要 StopTaskContext。
 let injectedGetAppState: (() => AppState) | null = null;
@@ -103,6 +104,46 @@ export function startTaskReaper(accessors: {
 }): () => void {
 	injectedGetAppState = accessors.getAppState;
 	injectedSetAppState = accessors.setAppState;
+	// audit 0905 P0-A (zombie leak): 进程退出时 kill 所有 running 后台 task。
+	// 旧实现: gracefulShutdown 只跑 runCleanupFunctions, 各 task 自己的 registerCleanup
+	// 仅从 state 删条目 (setAppState delete), 不调 taskImpl.kill → 子进程被 init 收养
+	// 成 zombie, 永占 MLX 内存/FD/worktree 锁。此 cleanup 走 killAllActive 真实 kill 路径。
+	// 不受 FUSION_CODE_TASK_REAPER_ENABLED 门控 (reaper 周期扫描是可选优化; 退出 kill 是
+	// 必需清理)。byte-safe: 无注入 accessor (headless/-p, 无 task) 或无 running task → no-op。
+	// FUSION_CODE_TASK_KILL_ON_SHUTDOWN=0 可显式禁用 (兼容旧无 kill 行为)。
+	if (!killCleanupRegistered) {
+		killCleanupRegistered = true;
+		registerCleanup(async () => {
+			// default-on: killAllActive only acts when accessors + running tasks exist.
+			// FUSION_CODE_TASK_KILL_ON_SHUTDOWN=0 显式禁用 (兼容旧无 kill 行为)。
+			if (
+				process.env.FUSION_CODE_TASK_KILL_ON_SHUTDOWN === "0" ||
+				!injectedGetAppState ||
+				!injectedSetAppState
+			) {
+				return;
+			}
+			try {
+				const killed = await killAllActive(
+					{
+						getAppState: injectedGetAppState,
+						setAppState: injectedSetAppState,
+					},
+					"CLI session shutdown",
+				);
+				if (killed.length > 0) {
+					logForDebugging(
+						`[taskReaper] shutdown killed ${killed.length} active task(s): ${killed.join(", ")}`,
+					);
+				}
+			} catch (err) {
+				logForDebugging(
+					`[taskReaper] shutdown killAllActive failed: ${(err as Error).message}`,
+					{ level: "warn" },
+				);
+			}
+		});
+	}
 	if (!isEnvTruthy(process.env.FUSION_CODE_TASK_REAPER_ENABLED)) {
 		return stopTaskReaper;
 	}

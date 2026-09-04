@@ -48,6 +48,49 @@ const MAX_RETRIES = 1; // retry once on connection failure
 // MLX_MAX_TOKENS_ESCALATION_RETRIES // unused // retry once when max_tokens hit
 const MLX_MAX_TOKENS_ESCALATION_FACTOR = 2; // double max_tokens on escalation
 
+// ─── Concurrency Semaphore (audit 0905 P0-B) ─────────────────
+// audit 0905 P0-B: MLX 单推理槽, 但客户端无并发闸 → 20 subagent 并发 20 请求
+// 轰入 127.0.0.1:11432, 其余在 OS socket 排队或被拒, 连接失败触发 MAX_RETRIES=1
+// 重试 = 请求率翻倍 thundering herd。semaphore 限并发, 超限排队 (backpressure)。
+// 默认 2 (MLX 可服务 1-2 并发); FUSION_MLX_MAX_CONCURRENT=0 = 无上限 (byte-identical 旧行为)。
+const DEFAULT_MLX_MAX_CONCURRENT = 2;
+
+function mlxMaxConcurrent(): number {
+	const raw = process.env.FUSION_MLX_MAX_CONCURRENT;
+	if (raw === undefined || raw === "") return DEFAULT_MLX_MAX_CONCURRENT;
+	const parsed = Number(raw);
+	if (!Number.isFinite(parsed) || parsed < 0) {
+		return DEFAULT_MLX_MAX_CONCURRENT;
+	}
+	return Math.floor(parsed);
+}
+
+let _semActive = 0;
+const _semQueue: Array<() => void> = [];
+
+async function acquireMlxSlot(): Promise<void> {
+	const cap = mlxMaxConcurrent();
+	if (cap === 0) return; // unlimited
+	if (_semActive < cap) {
+		_semActive++;
+		return;
+	}
+	await new Promise<void>((resolve) => {
+		_semQueue.push(() => {
+			_semActive++;
+			resolve();
+		});
+	});
+}
+
+function releaseMlxSlot(): void {
+	const cap = mlxMaxConcurrent();
+	if (cap === 0) return; // unlimited
+	_semActive = Math.max(0, _semActive - 1);
+	const next = _semQueue.shift();
+	if (next) next();
+}
+
 // ─── Circuit Breaker ──────────────────────────────────────────
 
 type CircuitState = "closed" | "open" | "half_open";
@@ -391,8 +434,22 @@ function getMlxTimeout(streaming: boolean): number {
 /**
  * Fetch with retry on connection failure.
  * Local MLX may be still warming up (loading model weights) on first call.
+ * audit 0905 P0-B: 外层 acquire/release 信号量限并发; 内部递归重试不重入信号量。
  */
 async function mlxFetchWithRetry(
+	url: string,
+	init: RequestInit,
+	retries: number = MAX_RETRIES,
+): Promise<Response> {
+	await acquireMlxSlot();
+	try {
+		return await mlxFetchWithRetryInner(url, init, retries);
+	} finally {
+		releaseMlxSlot();
+	}
+}
+
+async function mlxFetchWithRetryInner(
 	url: string,
 	init: RequestInit,
 	retries: number = MAX_RETRIES,
@@ -530,7 +587,7 @@ async function mlxFetchWithRetry(
 		} catch (retryError) {
 			mlxApiCircuit.recordFailure();
 			if (retries - 1 <= 0) throw retryError;
-			return mlxFetchWithRetry(url, init, retries - 1);
+			return mlxFetchWithRetryInner(url, init, retries - 1);
 		}
 	}
 }

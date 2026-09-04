@@ -76,18 +76,23 @@ export function getActiveRuns(): Array<{
 	}));
 }
 
-// audit 1.4.1/2.1.3 (CRITICAL/HIGH): 无全局 workflow 准入, 并发 workflow 相乘 OOM。
-// 默认 off: env 未设 → 无上限 (byte-identical 旧无界行为)。显式设正整数才启用。
+// audit 1.4.1/2.1.3 + 0905 P0-C: 无全局 workflow 准入, 并发 workflow 相乘 OOM。
+// 默认有限 cap (旧=Infinity 无界 = N 个 workflow × 16 agent × MLX 请求 = OOM)。
+// FUSION_MAX_CONCURRENT_WORKFLOWS 显式设正整数覆盖; "0" 显式无界 (兼容旧行为)。
+const DEFAULT_MAX_CONCURRENT_WORKFLOWS = 4;
 function maxConcurrentWorkflows(): number {
 	const raw = process.env.FUSION_MAX_CONCURRENT_WORKFLOWS;
-	if (raw === undefined || raw === "") return Infinity;
+	if (raw === undefined || raw === "") {
+		return DEFAULT_MAX_CONCURRENT_WORKFLOWS;
+	}
 	const parsed = Number(raw);
 	if (!Number.isFinite(parsed) || parsed < 0) {
 		logForDebugging(
-			`[Workflow] invalid FUSION_MAX_CONCURRENT_WORKFLOWS "${raw}", defaulting to Infinity (off)`,
+			`[Workflow] invalid FUSION_MAX_CONCURRENT_WORKFLOWS "${raw}", defaulting to ${DEFAULT_MAX_CONCURRENT_WORKFLOWS}`,
 		);
-		return Infinity;
+		return DEFAULT_MAX_CONCURRENT_WORKFLOWS;
 	}
+	if (parsed === 0) return Infinity; // 显式无界 (兼容旧无界行为)
 	return Math.floor(parsed);
 }
 
