@@ -296,6 +296,19 @@ async function main(): Promise<void> {
 		gracefulShutdownSync(0);
 	}
 
+	// Fast-path for `fusion-code visual-feedback ...`: issue #216 视觉反馈协议。
+	// osagent code-debug loop (F5.2) 生成结构化报告 → 本端校验 schema +
+	// 可选 --auto-fix 落盘 agent prompt 段供编排器启动修复。与 trajectory 同构:
+	// 无状态 CLI handler, 不在进程内拉 REPL agent。
+	if (args[0] === "visual-feedback") {
+		profileCheckpoint("cli_visual_feedback_path");
+		const { visualFeedbackMain } = await import(
+			"../cli/handlers/visualFeedback.js"
+		);
+		await visualFeedbackMain(args.slice(1));
+		gracefulShutdownSync(0);
+	}
+
 	// P5.5 能力清单 (Typert 类型图): 从工具/技能/插件定义生成类型图 (JSON 导出)。
 	// 双门禁: feature("CAPABILITY_MANIFEST") 编译期 (此 if 内, feature 宏必须直接
 	// 用于 if 条件) + FUSION_CODE_CAPABILITY_MANIFEST_ENABLED=1 运行期 (handler 内)。
