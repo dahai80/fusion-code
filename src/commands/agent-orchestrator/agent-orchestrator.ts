@@ -18,6 +18,12 @@ export const call: LocalCommandCall = async (args, _context) => {
         }
         const task = parts.slice(2).join(' ') || `General ${role} task`
         const agent = spawnAgent(role, task)
+        if (!agent) {
+            return {
+                type: 'text',
+                value: `Spawn denied: orchestrator agent cap reached. Remove completed agents or raise FUSION_MAX_ORCHESTRATOR_AGENTS.`,
+            } satisfies LocalCommandResult
+        }
         return {
             type: 'text',
             value: `Spawned agent: ${agent.id} (${role})\nTask: ${task}\nTools: ${agent.config.allowedTools.join(', ')}`,

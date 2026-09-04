@@ -1,4 +1,5 @@
 import { EventEmitter } from 'events'
+import { logForDebugging } from '../../utils/debug.js'
 
 export type AgentRole = 'researcher' | 'coder' | 'reviewer' | 'tester' | 'deployer'
 
@@ -53,6 +54,25 @@ export interface AgentInstance {
     completedAt?: number
 }
 
+// audit 0905 P1-R5: 无并发 cap, activeAgents Map 无界增长 (N 个 spawn 累积, 即
+// 使完成也不清), 间接放大下游负载。有限 cap (默认 16), env 覆盖, 0=无界 (兼容)。
+// 与 subagentGuardrails 的 FUSION_MAX_CONCURRENT_SUBAGENTS 区分: 此 cap 限本
+// orchestrator 注册表内 (含 idle/completed 残留), subagentGuardrails 限真实子进程。
+const DEFAULT_MAX_ORCHESTRATOR_AGENTS = 16
+function maxOrchestratorAgents(): number {
+    const raw = process.env.FUSION_MAX_ORCHESTRATOR_AGENTS
+    if (raw === undefined || raw === '') return DEFAULT_MAX_ORCHESTRATOR_AGENTS
+    const n = Number(raw)
+    if (!Number.isFinite(n) || n < 0) {
+        logForDebugging(
+            `[agentOrchestrator] invalid FUSION_MAX_ORCHESTRATOR_AGENTS "${raw}", defaulting to ${DEFAULT_MAX_ORCHESTRATOR_AGENTS}`,
+        )
+        return DEFAULT_MAX_ORCHESTRATOR_AGENTS
+    }
+    if (n === 0) return Infinity
+    return Math.floor(n)
+}
+
 const agentBus = new EventEmitter()
 agentBus.setMaxListeners(50)
 
@@ -67,7 +87,19 @@ export function createAgentConfig(role: AgentRole, customName?: string): AgentCo
     }
 }
 
-export function spawnAgent(role: AgentRole, task: string, customName?: string): AgentInstance {
+export function spawnAgent(
+    role: AgentRole,
+    task: string,
+    customName?: string,
+): AgentInstance | null {
+    const cap = maxOrchestratorAgents()
+    if (activeAgents.size >= cap) {
+        logForDebugging(
+            `[agentOrchestrator] spawn denied: ${activeAgents.size} registered >= cap ${cap} (FUSION_MAX_ORCHESTRATOR_AGENTS)`,
+            { level: 'warn' },
+        )
+        return null
+    }
     const config = createAgentConfig(role, customName)
     const instance: AgentInstance = {
         id: config.name,

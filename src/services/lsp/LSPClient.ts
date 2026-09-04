@@ -210,18 +210,22 @@ export function createLSPClient(
         connection.listen()
 
         // 3.5. Enable protocol tracing for debugging
+        // audit 0905 E2: Trace.Verbose 在 prod 默认刷盘淹真实问题。门控:
+        // FUSION_CODE_LSP_TRACE=1 显式开 (Verbose), 默认 off=Trace.Off 不刷协议日志。
         // Note: trace() sends a $/setTrace notification which can fail if the server
         // process has already exited. We catch and log the error rather than letting
         // it become an unhandled promise rejection.
+        const lspTraceEnabled = globalThis.process?.env?.FUSION_CODE_LSP_TRACE === '1'
+        const lspTraceValue = lspTraceEnabled ? Trace.Verbose : Trace.Off
         connection
-          .trace(Trace.Verbose, {
+          .trace(lspTraceValue, {
             log: (message: string) => {
               logForDebugging(`[LSP PROTOCOL ${serverName}] ${message}`)
             },
           })
           .catch((error: Error) => {
             logForDebugging(
-              `Failed to enable tracing for ${serverName}: ${error.message}`,
+              `Failed to set tracing for ${serverName}: ${error.message}`,
             )
           })
 

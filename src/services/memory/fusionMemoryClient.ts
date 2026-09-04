@@ -19,6 +19,54 @@ import { logForDebugging } from "../../utils/debug.js";
 
 const DEFAULT_MEMORY_BASE_URL = "http://127.0.0.1:11440";
 
+// ─── Circuit Breaker (audit 0905 E3) ──────────────────────────
+// fusion-memory 故障时每次 rpc 仍等 AbortSignal.timeout (10s) → 主流程被拖死。
+// 独立熔断器: 连续失败 ≥ threshold → open, 快速 fail (null, 不等 timeout)。
+// cooldown 后 half-open 探测一次。env 覆盖: FUSION_MEMORY_CB_THRESHOLD /
+// FUSION_MEMORY_CB_COOLDOWN_MS。默认 threshold=5, cooldown=30s。
+function memCbThreshold(): number {
+	const raw = process.env.FUSION_MEMORY_CB_THRESHOLD;
+	const n = Number(raw);
+	return Number.isFinite(n) && n > 0 ? Math.floor(n) : 5;
+}
+function memCbCooldownMs(): number {
+	const raw = process.env.FUSION_MEMORY_CB_COOLDOWN_MS;
+	const n = Number(raw);
+	return Number.isFinite(n) && n > 0 ? Math.floor(n) : 30_000;
+}
+
+let _cbFailures = 0;
+let _cbOpenSince: number | null = null;
+
+function memCircuitAllow(): boolean {
+	if (_cbOpenSince === null) return true;
+	// open → cooldown 到了转 half-open (放一个探测请求)
+	if (Date.now() - _cbOpenSince >= memCbCooldownMs()) {
+		logForDebugging("[Fusion-Memory] circuit half-open (probing)");
+		_cbOpenSince = null;
+		return true;
+	}
+	return false;
+}
+
+function memCircuitRecordSuccess(): void {
+	if (_cbFailures > 0) {
+		logForDebugging("[Fusion-Memory] circuit closed (recovered)");
+	}
+	_cbFailures = 0;
+	_cbOpenSince = null;
+}
+
+function memCircuitRecordFailure(): void {
+	_cbFailures += 1;
+	if (_cbFailures >= memCbThreshold() && _cbOpenSince === null) {
+		_cbOpenSince = Date.now();
+		logForDebugging(
+			`[Fusion-Memory] circuit OPEN after ${_cbFailures} failures (cooldown ${memCbCooldownMs()}ms)`,
+		);
+	}
+}
+
 function getMemoryBaseUrl(): string {
 	return process.env.FUSION_MEMORY_BASE_URL || DEFAULT_MEMORY_BASE_URL;
 }
@@ -96,6 +144,14 @@ async function rpc<T>(
 ): Promise<T | null> {
 	const apiKey = getMemoryApiKey();
 	if (!apiKey) return null;
+	// audit 0905 E3: 熔断 open 时快速 fail, 不等 timeout, 避免拖死主流程。
+	if (!memCircuitAllow()) {
+		logForDebugging(
+			`[Fusion-Memory] ${method} skipped (circuit OPEN)`,
+			{ level: "warn" },
+		);
+		return null;
+	}
 	try {
 		const res = await fetch(`${getMemoryBaseUrl()}/v1/memory/${method}`, {
 			method: "POST",
@@ -110,6 +166,7 @@ async function rpc<T>(
 			logForDebugging(
 				`[Fusion-Memory] ${method} HTTP ${res.status} ${res.statusText}`,
 			);
+			memCircuitRecordFailure();
 			return null;
 		}
 		const data = (await res.json()) as RpcResponse<T>;
@@ -117,13 +174,16 @@ async function rpc<T>(
 			logForDebugging(
 				`[Fusion-Memory] ${method} RPC ${data.error.code}: ${data.error.message}`,
 			);
+			memCircuitRecordFailure();
 			return null;
 		}
+		memCircuitRecordSuccess();
 		return (data.result ?? null) as T | null;
 	} catch (error) {
 		logForDebugging(
 			`[Fusion-Memory] ${method} error: ${(error as Error).message}`,
 		);
+		memCircuitRecordFailure();
 		return null;
 	}
 }

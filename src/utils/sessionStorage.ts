@@ -2705,6 +2705,46 @@ export async function fetchLogs(limit?: number): Promise<LogOption[]> {
  * Append an entry to a session file. Creates the parent dir if missing.
  */
 /* eslint-disable custom-rules/no-sync-fs -- sync callers (exit cleanup, materialize) */
+// audit 0905 E1: session jsonl 无磁盘增长管控。trajectory collector 全量扫描
+// 源 jsonl, 截断/rotate 会破坏 collect 语义 (丢早 turn / sessionId 拆分)。
+// 故采非破坏性软告警: 每文件超阈值仅 log 一次 (operator 收到信号手动处理),
+// 不截断不 rotate, 零数据丢失。FUSION_CODE_SESSION_JSONL_WARN_BYTES 默认 50MB,
+// "0" 禁用。采样: 每 _SIZE_CHECK_INTERVAL 次写 fstat 一次 (避免每写 stat 开销)。
+const DEFAULT_SESSION_JSONL_WARN_BYTES = 50 * 1024 * 1024;
+const _SIZE_CHECK_INTERVAL = 256;
+let _writeCounter = 0;
+const _warnedFiles = new Set<string>();
+
+function sessionJsonlWarnBytes(): number {
+	const raw = process.env.FUSION_CODE_SESSION_JSONL_WARN_BYTES;
+	if (raw === undefined || raw === "") return DEFAULT_SESSION_JSONL_WARN_BYTES;
+	const n = Number(raw);
+	return Number.isFinite(n) && n >= 0 ? Math.floor(n) : DEFAULT_SESSION_JSONL_WARN_BYTES;
+}
+
+function maybeWarnSessionJsonlSize(fullPath: string): void {
+	const warnBytes = sessionJsonlWarnBytes();
+	if (warnBytes === 0) return;
+	_writeCounter = (_writeCounter + 1) % _SIZE_CHECK_INTERVAL;
+	if (_writeCounter !== 0) return;
+	if (_warnedFiles.has(fullPath)) return;
+	try {
+		const fs = getFsImplementation();
+		const st = fs.statSync(fullPath);
+		if (st.size >= warnBytes) {
+			_warnedFiles.add(fullPath);
+			logForDebugging(
+				`[sessionStorage] ${fullPath} reached ${st.size} bytes (>= ${warnBytes}). ` +
+					`Long sessions grow this file unbounded; archive or prune old sessions. ` +
+					`Set FUSION_CODE_SESSION_JSONL_WARN_BYTES=0 to silence.`,
+				{ level: "warn" },
+			);
+		}
+	} catch {
+		// stat 失败 (文件刚建/竞态) → 静默, 下次采样重试。
+	}
+}
+
 function appendEntryToFile(
 	fullPath: string,
 	entry: Record<string, unknown>,
@@ -2729,6 +2769,8 @@ function appendEntryToFile(
 		fs.mkdirSync(dirname(fullPath), { mode: 0o700 });
 		fs.appendFileSync(fullPath, line, { mode: 0o600 });
 	}
+	// audit 0905 E1: 非破坏性软告警 (采样, 每文件一次)。不截断。
+	maybeWarnSessionJsonlSize(fullPath);
 }
 
 /**
