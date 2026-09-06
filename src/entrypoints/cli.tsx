@@ -296,16 +296,36 @@ async function main(): Promise<void> {
 		gracefulShutdownSync(0);
 	}
 
-	// Fast-path for `fusion-code visual-feedback ...`: issue #216 视觉反馈协议。
-	// osagent code-debug loop (F5.2) 生成结构化报告 → 本端校验 schema +
-	// 可选 --auto-fix 落盘 agent prompt 段供编排器启动修复。与 trajectory 同构:
-	// 无状态 CLI handler, 不在进程内拉 REPL agent。
+	// Fast-path for `fusion-code visual-feedback ...`: issue #216/#217 视觉反馈协议。
+	// osagent code-debug loop (F5.2) 生成结构化报告 → 本端校验 schema (1.1
+	// osagent-native / 1.0 legacy) + 可选 --auto-fix / --auto-fix-loop 落盘 agent
+	// prompt 段 + re-fix plan 供编排器启动修复。与 trajectory 同构: 无状态 CLI
+	// handler, 不在进程内拉 REPL agent。
 	if (args[0] === "visual-feedback") {
 		profileCheckpoint("cli_visual_feedback_path");
 		const { visualFeedbackMain } = await import(
 			"../cli/handlers/visualFeedback.js"
 		);
 		await visualFeedbackMain(args.slice(1));
+		gracefulShutdownSync(0);
+	}
+
+	// Fast-path for `fusion-code --visual-feedback <path>`: issue #217 re-fix
+	// trigger 入口。osagent code_debug.CodeDebugLoop.trigger_refix 调用此 flag
+	// (而非子命令) 启动修复子循环。等价于 `visual-feedback ingest <path>
+	// --auto-fix-loop` — 校验报告 + 落盘 agent prompt + 输出 re-fix plan JSON,
+	// 由 osagent 编排器执行 build/rerun/reverify。
+	if (args[0] === "--visual-feedback") {
+		profileCheckpoint("cli_visual_feedback_flag_path");
+		const reportPath = args[1];
+		if (!reportPath) {
+			console.error("Error: --visual-feedback requires <path> argument");
+			gracefulShutdownSync(1);
+		}
+		const { visualFeedbackMain } = await import(
+			"../cli/handlers/visualFeedback.js"
+		);
+		await visualFeedbackMain(["ingest", reportPath, "--auto-fix", "--auto-fix-loop"]);
 		gracefulShutdownSync(0);
 	}
 
