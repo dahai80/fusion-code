@@ -277,6 +277,64 @@ export function startCompactStallTimer(
 // 留 30%给 KV cache 开销(32B 模型长上下文 KV cache 可占 30%+内存)
 const MLX_COMPACT_TOKEN_SAFETY_FACTOR = 0.7;
 
+// 云/网关模型 compact 输出 token 安全余量。从 contextWindow - input 中
+// 预留这部分给 system prompt + tool defs + 摘要请求自身的开销,
+// 避免 input + maxOutputTokens 精确卡死导致 400。
+const COMPACT_OUTPUT_SAFETY_MARGIN = 4_096;
+// compact 输出 token 下限:即使 input 接近窗口上限, 也留这点输出让模型
+// 生成有意义摘要, 不至于 max_tokens=0 或个位数无法成文。
+const COMPACT_OUTPUT_TOKEN_FLOOR = 2_048;
+
+/**
+ * 计算当前 compact 请求的 maxOutputTokens 上限。
+ * MLX 已有 preflightMlxTokenTruncate 截断输入, 这里只补 cloud/gateway:
+ * 当 input + 默认输出预算 > contextWindow 时, 把输出预算压到
+ * contextWindow - input - 安全余量, 至少留 COMPACT_OUTPUT_TOKEN_FLOOR。
+ * 返回 undefined 表示无需改写 (用现有固定值/模型默认值), 保持 byte-identical。
+ *
+ * @param model - mainLoopModel (用于查 context window + 默认输出预算)
+ * @param estimatedInputTokens - 待摘要消息的估算 token 数
+ */
+export function getCompactOutputTokenCap(
+    model: string,
+    estimatedInputTokens: number,
+): number | undefined {
+    // MLX 走 preflightMlxTokenTruncate, 不在此处理
+    if (isFusionMlxProvider()) return undefined;
+    const contextWindow = getContextWindowForModel(model);
+    if (!contextWindow || contextWindow <= 0) return undefined;
+    const modelDefaultOutput = getMaxOutputTokensForModel(model);
+    // 候选输出预算: COMPACT_MAX_OUTPUT_TOKENS 与模型默认中的较小值
+    const candidate = Math.min(COMPACT_MAX_OUTPUT_TOKENS, modelDefaultOutput);
+    // 只有当 input + candidate 会触及/超窗口时才压缩, 否则保持现状 (byte-identical)
+    // 用 < (非 <=): 精确相等也算满, 压输出留安全余量, 避免 input+output 恰好卡死。
+    if (estimatedInputTokens + candidate < contextWindow) return undefined;
+    const capped = contextWindow - estimatedInputTokens - COMPACT_OUTPUT_SAFETY_MARGIN;
+    const safeCap = Math.max(COMPACT_OUTPUT_TOKEN_FLOOR, capped);
+    logForDebugging(
+        `[Compact] context-aware output cap: input=${estimatedInputTokens} ctx=${contextWindow} candidate=${candidate} → capped=${safeCap}`,
+        { level: "warn" },
+    );
+    return safeCap;
+}
+
+/**
+ * 检测 litellm/gateway 的上下文窗口超限错误 (ContextWindowExceededError)。
+ * 云网关 (如 litellm + glm5.2) 在 input + max_tokens 超过模型上下文窗口时
+ * 返回 400, 错误体含 "ContextWindowExceeded" / "maximum context length of" /
+ * "input tokens" + "output tokens" + "> <max>"。这类错误语义等同 prompt-too-long:
+ * 应截断输入重试, 而非直接抛错卡住用户。
+ */
+export function isContextWindowExceededError(summary: string | null): boolean {
+    if (!summary) return false;
+    return (
+        summary.includes("ContextWindowExceeded") ||
+        (summary.includes("maximum context length of") &&
+            summary.includes("input tokens") &&
+            summary.includes("output tokens"))
+    );
+}
+
 /**
  * Drops the oldest API-round groups from messages until tokenGap is covered.
  * Falls back to dropping 20% of groups when the gap is unparseable (some
@@ -770,10 +828,14 @@ export async function compactConversation(
 				summary &&
 				(summary.includes("process memory limit exceeded") ||
 					summary.includes("Fusion-MLX API error: 5"));
+			// 云/网关 (litellm/gateway) 上下文窗口超限: input + max_tokens 超窗口 →
+			// 400 ContextWindowExceededError。语义同 prompt-too-long, 截断输入重试。
+			const isContextWindowOverflow = isContextWindowExceededError(summary);
 			const needsTruncateRetry =
 				summary?.startsWith(PROMPT_TOO_LONG_ERROR_MESSAGE) ||
 				isEmptyMlxOom ||
-				isMlxServerError;
+				isMlxServerError ||
+				isContextWindowOverflow;
 			if (isEmptyMlxOom) {
 				logForDebugging(
 					`[Compact] 空响应(疑似 fusion-mlx 内存撞顶),触发截断重试`,
@@ -783,6 +845,12 @@ export async function compactConversation(
 			if (isMlxServerError) {
 				logForDebugging(
 					`[Compact] MLX 服务端错误,触发截断重试: ${summary?.slice(0, 200)}`,
+					{ level: "warn" },
+				);
+			}
+			if (isContextWindowOverflow) {
+				logForDebugging(
+					`[Compact] 云网关上下文窗口超限,触发截断重试: ${summary?.slice(0, 200)}`,
 					{ level: "warn" },
 				);
 			}
@@ -800,7 +868,9 @@ export async function compactConversation(
 					? "mlx_memory"
 					: isMlxServerError
 						? "mlx_server_error"
-						: "prompt_too_long",
+						: isContextWindowOverflow
+							? "context_window_exceeded"
+							: "prompt_too_long",
 			});
 			const truncated =
 				ptlAttempts <= MAX_PTL_RETRIES
@@ -817,7 +887,9 @@ export async function compactConversation(
 				throw new Error(
 					isEmptyMlxOom || isMlxServerError
 						? ERROR_MESSAGE_MLX_MEMORY_LIMIT
-						: ERROR_MESSAGE_PROMPT_TOO_LONG,
+						: isContextWindowOverflow
+							? "Context window exceeded after truncation retries"
+							: ERROR_MESSAGE_PROMPT_TOO_LONG,
 				);
 			}
 			logEvent("tengu_compact_ptl_retry", {
@@ -1292,10 +1364,13 @@ export async function partialCompactConversation(
 				summary &&
 				(summary.includes("process memory limit exceeded") ||
 					summary.includes("Fusion-MLX API error: 5"));
+			// 云/网关上下文窗口超限 (litellm ContextWindowExceededError) → 截断重试
+			const isContextWindowOverflow = isContextWindowExceededError(summary);
 			const needsTruncateRetry =
 				summary?.startsWith(PROMPT_TOO_LONG_ERROR_MESSAGE) ||
 				isEmptyMlxOom ||
-				isMlxServerError;
+				isMlxServerError ||
+				isContextWindowOverflow;
 			if (isEmptyMlxOom) {
 				logForDebugging(
 					`[Partial Compact] 空响应(疑似 fusion-mlx 内存撞顶),触发截断重试`,
@@ -1305,6 +1380,12 @@ export async function partialCompactConversation(
 			if (isMlxServerError) {
 				logForDebugging(
 					`[Partial Compact] MLX 服务端错误,触发截断重试: ${summary?.slice(0, 200)}`,
+					{ level: "warn" },
+				);
+			}
+			if (isContextWindowOverflow) {
+				logForDebugging(
+					`[Partial Compact] 云网关上下文窗口超限,触发截断重试: ${summary?.slice(0, 200)}`,
 					{ level: "warn" },
 				);
 			}
@@ -1320,7 +1401,9 @@ export async function partialCompactConversation(
 					? "mlx_memory"
 					: isMlxServerError
 						? "mlx_server_error"
-						: "prompt_too_long",
+						: isContextWindowOverflow
+							? "context_window_exceeded"
+							: "prompt_too_long",
 			});
 			const truncated =
 				ptlAttempts <= MAX_PTL_RETRIES
@@ -1336,7 +1419,9 @@ export async function partialCompactConversation(
 				throw new Error(
 					isEmptyMlxOom || isMlxServerError
 						? ERROR_MESSAGE_MLX_MEMORY_LIMIT
-						: ERROR_MESSAGE_PROMPT_TOO_LONG,
+						: isContextWindowOverflow
+							? "Context window exceeded after truncation retries"
+							: ERROR_MESSAGE_PROMPT_TOO_LONG,
 				);
 			}
 			logEvent("tengu_compact_ptl_retry", {
@@ -1640,8 +1725,25 @@ async function streamCompactSummary({
 			)
 		: undefined;
 
+	// 云/网关模型: 当 input + 默认输出预算超 contextWindow 时, 压缩输出 token
+	// 避免 400 ContextWindowExceededError。undefined = 不超窗口, 保持原值。
+	// 在函数入口算一次: fork 路径据此决定是否跳过 (避免 400 后才回落 streaming),
+	// streaming 路径复用同一值作为 maxOutputTokensOverride。
+	const compactOutputCap = getCompactOutputTokenCap(
+		context.options.mainLoopModel,
+		tokenCountWithEstimation(messages),
+	);
+	const defaultCompactMaxOutputTokens = Math.min(
+		COMPACT_MAX_OUTPUT_TOKENS,
+		getMaxOutputTokensForModel(context.options.mainLoopModel),
+	);
+
 	try {
-		if (promptCacheSharingEnabled) {
+		// 当输入接近窗口上限 (compactOutputCap 已触发压缩) 时, fork 路径继承
+		// 模型默认 maxOutputTokens (~32K), input+default 同样超窗口 → 必 400。
+		// 此场景无有效 cache prefix 可复用 (输入已满), 跳过 fork 直接走 streaming,
+		// streaming 已按 compactOutputCap 压缩输出, 避免一次必失败的 fork 调用。
+		if (promptCacheSharingEnabled && compactOutputCap === undefined) {
 			try {
 				// DO NOT set maxOutputTokens here. The fork piggybacks on the main thread's
 				// prompt cache by sending identical cache-key params (system, tools, model,
@@ -1770,6 +1872,11 @@ async function streamCompactSummary({
 					)
 				: [FileReadTool];
 
+			// 复用函数入口算的 compactOutputCap: 压缩输出避免 400
+			// (undefined = 不超窗口, 用原固定值, byte-identical)。
+			const streamingMaxOutputTokens =
+				compactOutputCap ?? defaultCompactMaxOutputTokens;
+
 			const streamingGen = queryModelWithStreaming({
 				messages: normalizeMessagesForAPI(
 					stripImagesFromMessages(
@@ -1795,10 +1902,7 @@ async function streamCompactSummary({
 					toolChoice: undefined,
 					isNonInteractiveSession: context.options.isNonInteractiveSession,
 					hasAppendSystemPrompt: !!context.options.appendSystemPrompt,
-					maxOutputTokensOverride: Math.min(
-						COMPACT_MAX_OUTPUT_TOKENS,
-						getMaxOutputTokensForModel(context.options.mainLoopModel),
-					),
+					maxOutputTokensOverride: streamingMaxOutputTokens,
 					querySource: "compact",
 					agents: context.options.agentDefinitions.activeAgents,
 					mcpTools: [],
