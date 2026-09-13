@@ -138,39 +138,40 @@ export async function getAnthropicClient({
 		return createSeamClient(fusionMlxModel, undefined, defaultHeaders);
 	}
 
-	// ── 云端提供商：需要 OAuth / API Key 认证 ──
-	// Bedrock / Vertex / Foundry / OpenAI 的 SDK 签名已剥离, 统一引导走 fusion-gateway。
+	// ── 云端提供商：SDK 签名已剥离，统一引导用户直连自建/第三方 endpoint ──
+	// 语义与 firstParty 相同: FUSION_BASE_URL 指向任意 Anthropic 兼容 /v1/messages
+	// endpoint, FUSION_API_KEY 为鉴权 key。不再强制要求 fusion-gateway。
 	if (isEnvTruthy(process.env.FUSION_CODE_USE_FOUNDRY)) {
 		throw new Error(
 			"Foundry (Azure) 直连已随 @anthropic-ai/sdk 一并移除。\n" +
-				"请改用 fusion-gateway: 设置 FUSION_GATEWAY_URL 指向网关并 FUSION_GATEWAY_ENABLED=1,\n" +
-				"网关负责 Azure AD 签名并以 Anthropic 兼容接口暴露 /v1/messages。",
+				"请设置 FUSION_BASE_URL 指向 Anthropic 兼容 endpoint 并配置 FUSION_API_KEY,\n" +
+				"由该 endpoint 负责 Azure AD 签名 (或去掉 FUSION_CODE_USE_FOUNDRY 走 firstParty)。",
 		);
 	}
 	// P0-4 (audit R6): openai 专属分支。此前 FUSION_CODE_USE_OPENAI=1 无 dedicated
 	// 分支 → 沉默落入下方 firstParty → 用 OpenAI key/model 名打 api.anthropic.com
-	// (语义错配, 401/404 静默失败)。显式 throw 引导走 fusion-gateway (云签名在网关),
+	// (语义错配, 401/404 静默失败)。显式 throw 指引用户配置直连 endpoint,
 	// 与 bedrock/vertex/foundry 同构。本仓不做进程内 OpenAI 直连 (codex-fetch-adapter
-	// 死代码已删); OpenAI OAuth 凭据 (codex-client/codex-oauth) 仍保留用于网关鉴权透传。
+	// 死代码已删); OpenAI OAuth 凭据 (codex-client/codex-oauth) 仍保留用于 endpoint 鉴权透传。
 	if (isEnvTruthy(process.env.FUSION_CODE_USE_OPENAI)) {
 		throw new Error(
 			"OpenAI 直连已随 @anthropic-ai/sdk 一并移除。\n" +
-				"请改用 fusion-gateway: 设置 FUSION_GATEWAY_URL 指向网关并 FUSION_GATEWAY_ENABLED=1,\n" +
-				"网关负责 OpenAI (Azure/Bearer) 签名并以 Anthropic 兼容接口暴露 /v1/messages。",
+				"请设置 FUSION_BASE_URL 指向 Anthropic 兼容 endpoint 并配置 FUSION_API_KEY,\n" +
+				"由该 endpoint 负责 OpenAI (Azure/Bearer) 签名 (或去掉 FUSION_CODE_USE_OPENAI 走 firstParty)。",
 		);
 	}
 	if (isBedrockProvider()) {
 		throw new Error(
 			"Bedrock 直连已随 @anthropic-ai/bedrock-sdk 一并移除。\n" +
-				"请改用 fusion-gateway: 设置 FUSION_GATEWAY_URL 指向网关并 FUSION_GATEWAY_ENABLED=1,\n" +
-				"网关负责 AWS SigV4 签名并以 Anthropic 兼容接口暴露 /v1/messages。",
+				"请设置 FUSION_BASE_URL 指向 Anthropic 兼容 endpoint 并配置 FUSION_API_KEY,\n" +
+				"由该 endpoint 负责 AWS SigV4 签名 (或去掉 FUSION_CODE_USE_BEDROCK 走 firstParty)。",
 		);
 	}
 	if (isVertexProvider()) {
 		throw new Error(
 			"Vertex AI 直连已随 @anthropic-ai/vertex-sdk 一并移除。\n" +
-				"请改用 fusion-gateway: 设置 FUSION_GATEWAY_URL 指向网关并 FUSION_GATEWAY_ENABLED=1,\n" +
-				"网关负责 GCP 凭据并以 Anthropic 兼容接口暴露 /v1/messages。",
+				"请设置 FUSION_BASE_URL 指向 Anthropic 兼容 endpoint 并配置 FUSION_API_KEY,\n" +
+				"由该 endpoint 负责 GCP 凭据 (或去掉 FUSION_CODE_USE_VERTEX 走 firstParty)。",
 		);
 	}
 

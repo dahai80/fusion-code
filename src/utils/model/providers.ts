@@ -63,7 +63,10 @@ export function getAPIProvider(model?: string): APIProvider {
 	if (fusionKey) return "firstParty";
 	// ANTHROPIC_API_KEY only counts if it's a valid Anthropic key (sk-ant-)
 	// OR if a third-party proxy base URL is configured (FUSION_BASE_URL → non-Anthropic host)
-	// A stale/invalid ANTHROPIC_API_KEY without proxy config should fall through to MLX
+	// Canonical config: FUSION_BASE_URL + FUSION_API_KEY → firstParty direct connect.
+	// Without explicit MLX/gateway env gates there is NO implicit local-MLX
+	// fallback — an unset key surfaces a clear auth error instead of silently
+	// routing to 127.0.0.1:11432.
 	if (isAnthropicApiKey(anthropicKey) || hasThirdPartyProxyConfigured()) {
 		return "firstParty";
 	}
@@ -73,7 +76,7 @@ export function getAPIProvider(model?: string): APIProvider {
 	) {
 		return "fusionMlx";
 	}
-	return "fusionMlx";
+	return "firstParty";
 }
 
 export function isFusionMlxProvider(model?: string): boolean {

@@ -453,110 +453,12 @@ async function main(): Promise<void> {
 	const { startCapturingEarlyInput } = await import("../utils/earlyInput.js");
 	startCapturingEarlyInput();
 
-	// ── Fusion-MLX 启动检测 ─────────────────────────────────
-	// 当没有设置云 API 密钥时，自动检测本地 fusion-mlx 服务
 	// 仅在未设置 NO_COLOR 时强制 FORCE_COLOR=1（尊重 NO_COLOR，避免 Bun 冲突警告）
 	if (!process.env.NO_COLOR) process.env.FORCE_COLOR = "1";
-	const { shouldAutoUseFusionMlx } = await import(
-		"../utils/model/providers.js"
-	);
-	// 防御性检查：已配置云 API 时不应触发 MLX 检测
-	// 即使 shouldAutoUseFusionMlx() 误返回 true，有 API key 就不需要 MLX
-	const hasCloudProvider =
-		!!process.env.FUSION_API_KEY ||
-		!!process.env.ANTHROPIC_API_KEY ||
-		!!process.env.FUSION_AUTH_TOKEN;
-	// Fire-and-forget: 不阻塞启动流程，MLX 状态在首次 API 调用前按需 await
-	// 结果存入 globalThis 供后续消费
-	let mlxReady: Promise<boolean> | null = null;
-	if (shouldAutoUseFusionMlx() && !hasCloudProvider) {
-		mlxReady = (async () => {
-			const { checkFusionMlxHealth } = await import("../services/api/index.js");
-			const mlxStatus = await checkFusionMlxHealth();
-			if (mlxStatus.available) {
-				process.env.FUSION_GATEWAY_ENABLED = "1";
-				process.env.FUSION_MLX_ENABLED = "1";
-				const models = mlxStatus.models;
-				if (models.length > 0 && !process.env.FUSION_MLX_MODEL) {
-					const excludeKeywords = [
-						"flux",
-						"skyreels",
-						"image",
-						"video",
-						"ltx",
-						"a2v",
-						"v2v",
-						"r2v",
-						"klein",
-						"txt2vid",
-						"img2vid",
-						"tts",
-						"whisper",
-						"embed",
-						"bge",
-						"deepseek_v4",
-						"dspark",
-						"claude-",
-					];
-					const knownTextModels = [
-						"llama",
-						"qwen",
-						"mistral",
-						"gemma",
-						"phi",
-						"deepseek",
-						"codestral",
-					];
-					const textModels = models.filter(
-						(m: string) =>
-							!excludeKeywords.some((k) => m.toLowerCase().includes(k)),
-					);
-					let selectedModel: string | null = null;
-					for (const keyword of knownTextModels) {
-						selectedModel =
-							textModels.find((m: string) =>
-								m.toLowerCase().includes(keyword),
-							) || null;
-						if (selectedModel) break;
-					}
-					if (!selectedModel && textModels.length > 0) {
-						selectedModel = textModels[0];
-					}
-					if (selectedModel) {
-						process.env.FUSION_MLX_MODEL = selectedModel;
-					}
-				}
-				// Prefetch local model options for the ModelPicker
-				const { prefetchLocalModelOptions } = await import(
-					"../utils/model/modelOptions.js"
-				);
-				await prefetchLocalModelOptions();
-				return true;
-			} else {
-				// 后端不可用时的降级提示：让用户立刻知道"该起 fusion-mlx"而不是闷头敲第一句话后挂死。
-				// 走 stderr 不污染 stdout，不带 ANSI 色避免在非真终端炸；FUSION_MLX_QUIET=1 可静默。
-				if (!process.env.FUSION_MLX_QUIET) {
-					const baseUrl =
-						process.env.FUSION_GATEWAY_URL ||
-						process.env.FUSION_MLX_BASE_URL ||
-						"http://127.0.0.1:11432";
-					process.stderr.write(
-						`\n⚠ fusion-mlx backend not reachable at ${baseUrl}\n` +
-							`  AI features will fail until it is running. Start it with:\n` +
-							`  fusion service start mlx     (or launch your fusion-mlx process)\n\n`,
-					);
-				}
-				return false;
-			}
-		})().catch((e) => {
-			if (!process.env.FUSION_MLX_QUIET) {
-				process.stderr.write(`\n⚠ fusion-mlx health check failed: ${e}\n\n`);
-			}
-			return false;
-		});
-		// 存储到 globalThis 供首次 API 调用前 await
-		(globalThis as any).__fusionMlxReady = mlxReady;
-	}
+	// 本地 MLX/gateway 自动检测已移除 (audit 0913): 不再探测 127.0.0.1:11432、
+	// 不再自动写入 FUSION_GATEWAY_ENABLED/FUSION_MLX_ENABLED 劫持 provider 选择。
+	// 访问 LLM 只需 FUSION_BASE_URL + FUSION_API_KEY (直连)，或显式设置
+	// FUSION_MLX_ENABLED=1 选择性启用本地推理。
 
 	profileCheckpoint("cli_before_main_import");
 	const { main: cliMain } = await import("../main.js");

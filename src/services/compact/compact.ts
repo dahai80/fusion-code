@@ -166,6 +166,31 @@ const MAX_COMPACT_STREAMING_RETRIES = 2;
  * tool_result content from tools). Assistant messages contain text, tool_use,
  * and thinking blocks but not images.
  */
+/**
+ * Whether any user message carries an image/document block (top-level or
+ * nested in tool_result). Mirrors what stripImagesFromMessages would replace.
+ */
+export function messagesContainMediaBlocks(messages: Message[]): boolean {
+	return messages.some((message) => {
+		if (message.type !== "user") return false;
+		const content = message.message.content;
+		if (!Array.isArray(content)) return false;
+		return content.some((block) => {
+			if (block.type === "image" || block.type === "document") return true;
+			if (
+				block.type === "tool_result" &&
+				Array.isArray(block.content) &&
+				block.content.some(
+					(item) => item.type === "image" || item.type === "document",
+				)
+			) {
+				return true;
+			}
+			return false;
+		});
+	});
+}
+
 export function stripImagesFromMessages(messages: Message[]): Message[] {
 	return messages.map((message) => {
 		if (message.type !== "user") {
@@ -405,6 +430,160 @@ export function truncateHeadForPTLRetry(
 	return sliced;
 }
 
+type TruncateRetryLogExtra = Record<
+	string,
+	| AnalyticsMetadata_I_VERIFIED_THIS_IS_NOT_CODE_OR_FILEPATHS
+	| number
+	| boolean
+>;
+
+type CompactSummaryRetryOptions = {
+	messages: Message[];
+	summaryRequest: UserMessage;
+	appState: Awaited<ReturnType<ToolUseContext["getAppState"]>>;
+	context: ToolUseContext;
+	preCompactTokenCount: number;
+	cacheSafeParams: CacheSafeParams;
+	// Debug-log prefix distinguishing full vs partial compact ("[Compact]" / "[Partial Compact]")
+	logPrefix: string;
+	// Caller-owned failure event (the two paths log different event names/fields)
+	logFailed: (ptlAttempts: number) => void;
+	// Extra fields appended to tengu_compact_ptl_retry (e.g. path: "partial")
+	retryLogExtra?: TruncateRetryLogExtra;
+};
+
+/**
+ * Shared compact-summary request loop with PTL/MLX-OOM/context-window
+ * truncate-retry (CC-1180 + item 16). Previously duplicated ~90 lines across
+ * compactConversation and partialCompactConversation with only event names,
+ * log prefixes, and forkContextMessages initialization differing — now those
+ * differences are injected via opts, keeping the retry semantics identical:
+ *
+ * - prompt-too-long / MLX empty-OOM / MLX 5xx / context-window-overflow all
+ *   trigger head-truncation retry (up to MAX_PTL_RETRIES), emitting
+ *   compact_retry progress each attempt.
+ * - When nothing more can be truncated, logs the caller-owned failure event
+ *   and throws the matching user-facing error.
+ * - The forked-agent path reads forkContextMessages (not `messages`), so each
+ *   truncation is threaded through cacheSafeParams as well.
+ */
+async function runCompactSummaryWithTruncateRetry(
+	opts: CompactSummaryRetryOptions,
+): Promise<{ summaryResponse: AssistantMessage; summary: string | null }> {
+	const {
+		messages,
+		summaryRequest,
+		appState,
+		context,
+		preCompactTokenCount,
+		cacheSafeParams,
+		logPrefix,
+		logFailed,
+		retryLogExtra,
+	} = opts;
+	let currentMessages = messages;
+	let currentParams = cacheSafeParams;
+	let ptlAttempts = 0;
+	for (;;) {
+		const summaryResponse = await streamCompactSummary({
+			messages: currentMessages,
+			summaryRequest,
+			appState,
+			context,
+			preCompactTokenCount,
+			cacheSafeParams: currentParams,
+		});
+		const summary = getAssistantMessageText(summaryResponse);
+		// fusion-mlx 内存撞顶时返回 200 + 空内容流(prefill 阶段 abort,无 error 事件),
+		// summary 为空且无错误文本 -> 上层抛 "no valid text content"。MLX 空响应几乎必为
+		// 内存撞顶,复用 prompt-too-long 截断重试:逐轮丢弃最旧 API 轮次直到 prefill 落入
+		// 内存上限,让 /compact 在超大对话上也能成功;无法再截断则抛明确内存上限错误。
+		const isEmptyMlxOom = !summary && isFusionMlxProvider();
+		// fusion-mlx 引擎路由 bug(AttributeError)或 OOM(RuntimeError)会返回 500 错误,
+		// MLX adapter 将其转为 "Fusion-MLX API error: 500 ..." 或 mid-stream error,
+		// compact 流式路径将其作为 API Error summary 返回。检测此类错误也触发截断重试。
+		// (不匹配通用 Python 异常名,避免合法 Python 调试摘要触发误判)
+		const isMlxServerError =
+			isFusionMlxProvider() &&
+			summary &&
+			(summary.includes("process memory limit exceeded") ||
+				summary.includes("Fusion-MLX API error: 5"));
+		// 云/网关 (litellm/gateway) 上下文窗口超限: input + max_tokens 超窗口 →
+		// 400 ContextWindowExceededError。语义同 prompt-too-long, 截断输入重试。
+		const isContextWindowOverflow = isContextWindowExceededError(summary);
+		const needsTruncateRetry =
+			summary?.startsWith(PROMPT_TOO_LONG_ERROR_MESSAGE) ||
+			isEmptyMlxOom ||
+			isMlxServerError ||
+			isContextWindowOverflow;
+		if (isEmptyMlxOom) {
+			logForDebugging(
+				`${logPrefix} 空响应(疑似 fusion-mlx 内存撞顶),触发截断重试`,
+				{ level: "warn" },
+			);
+		}
+		if (isMlxServerError) {
+			logForDebugging(
+				`${logPrefix} MLX 服务端错误,触发截断重试: ${summary?.slice(0, 200)}`,
+				{ level: "warn" },
+			);
+		}
+		if (isContextWindowOverflow) {
+			logForDebugging(
+				`${logPrefix} 云网关上下文窗口超限,触发截断重试: ${summary?.slice(0, 200)}`,
+				{ level: "warn" },
+			);
+		}
+		if (!needsTruncateRetry) {
+			return { summaryResponse, summary };
+		}
+
+		// CC-1180: compact request itself hit prompt-too-long. Truncate the
+		// oldest API-round groups and retry rather than leaving the user stuck.
+		ptlAttempts++;
+		// item 16 (CC 2.1.228): emit 用户可见重试进度 (复用已算的判定, 不重判)
+		context.onCompactProgress?.({
+			type: "compact_retry",
+			attempt: ptlAttempts,
+			maxRetries: MAX_PTL_RETRIES,
+			reason: isEmptyMlxOom
+				? "mlx_memory"
+				: isMlxServerError
+					? "mlx_server_error"
+					: isContextWindowOverflow
+						? "context_window_exceeded"
+						: "prompt_too_long",
+		});
+		const truncated =
+			ptlAttempts <= MAX_PTL_RETRIES
+				? truncateHeadForPTLRetry(currentMessages, summaryResponse)
+				: null;
+		if (!truncated) {
+			logFailed(ptlAttempts);
+			throw new Error(
+				isEmptyMlxOom || isMlxServerError
+					? ERROR_MESSAGE_MLX_MEMORY_LIMIT
+					: isContextWindowOverflow
+						? "Context window exceeded after truncation retries"
+						: ERROR_MESSAGE_PROMPT_TOO_LONG,
+			);
+		}
+		logEvent("tengu_compact_ptl_retry", {
+			attempt: ptlAttempts,
+			droppedMessages: currentMessages.length - truncated.length,
+			remainingMessages: truncated.length,
+			...retryLogExtra,
+		});
+		currentMessages = truncated;
+		// The forked-agent path reads from cacheSafeParams.forkContextMessages,
+		// not the messages param — thread the truncated set through both paths.
+		currentParams = {
+			...currentParams,
+			forkContextMessages: truncated,
+		};
+	}
+}
+
 /**
  * Pre-flight token budget check for local MLX models.
  * Compact sends the ENTIRE conversation to the model for summarization.
@@ -453,16 +632,19 @@ export function preflightMlxTokenTruncate(
 	// truncating messages to safeBudget leaves no room for system+tools,
 	// and the compact call itself OOMs on 32K windows.
 	const systemStr = systemPrompt ? systemPrompt.join("\n") : "";
-	const estimatedSystemTokens = Math.floor(systemStr.length / 3.5);
+	// Single estimation source (audit v2-0912 P2): use roughTokenCountEstimation
+	// (4 chars/token) instead of an ad-hoc /3.5 divisor — same heuristic as
+	// tokenCountWithEstimation below, so budget math uses one consistent ratio.
+	const estimatedSystemTokens = roughTokenCountEstimation(systemStr);
 	const toolDefs = toolUseContext?.options?.tools;
 	const estimatedToolTokens = toolDefs
-		? Math.floor(
+		? roughTokenCountEstimation(
 				JSON.stringify(
 					toolDefs.map((t) => ({
 						name: t.name,
 						description: (t as any).description ?? "",
 					})),
-				).length / 3.5,
+				),
 			)
 		: 0;
 	const messageBudget =
@@ -805,106 +987,27 @@ export async function compactConversation(
 			: cacheSafeParams;
 		let summaryResponse: AssistantMessage;
 		let summary: string | null;
-		let ptlAttempts = 0;
-		for (;;) {
-			summaryResponse = await streamCompactSummary({
+		{
+			const result = await runCompactSummaryWithTruncateRetry({
 				messages: messagesToSummarize,
 				summaryRequest,
 				appState,
 				context,
 				preCompactTokenCount,
 				cacheSafeParams: retryCacheSafeParams,
+				logPrefix: "[Compact]",
+				logFailed: (ptlAttempts) => {
+					logEvent("tengu_compact_failed", {
+						reason:
+							"prompt_too_long" as AnalyticsMetadata_I_VERIFIED_THIS_IS_NOT_CODE_OR_FILEPATHS,
+						preCompactTokenCount,
+						promptCacheSharingEnabled,
+						ptlAttempts,
+					});
+				},
 			});
-			summary = getAssistantMessageText(summaryResponse);
-			// fusion-mlx 内存撞顶时返回 200 + 空内容流(prefill 阶段 abort,无 error 事件),
-			// summary 为空且无错误文本 -> 上层抛 "no valid text content"。MLX 空响应几乎必为
-			// 内存撞顶,复用 prompt-too-long 截断重试:逐轮丢弃最旧 API 轮次直到 prefill 落入
-			// 内存上限,让 /compact 在超大对话上也能成功;无法再截断则抛明确内存上限错误。
-			const isEmptyMlxOom = !summary && isFusionMlxProvider();
-			// fusion-mlx 引擎路由 bug(AttributeError)或 OOM(RuntimeError)会返回 500 错误,
-			// MLX adapter 将其转为 "Fusion-MLX API error: 500 ..." 或 mid-stream error,
-			// compact 流式路径将其作为 API Error summary 返回。检测此类错误也触发截断重试。
-			const isMlxServerError =
-				isFusionMlxProvider() &&
-				summary &&
-				(summary.includes("process memory limit exceeded") ||
-					summary.includes("Fusion-MLX API error: 5"));
-			// 云/网关 (litellm/gateway) 上下文窗口超限: input + max_tokens 超窗口 →
-			// 400 ContextWindowExceededError。语义同 prompt-too-long, 截断输入重试。
-			const isContextWindowOverflow = isContextWindowExceededError(summary);
-			const needsTruncateRetry =
-				summary?.startsWith(PROMPT_TOO_LONG_ERROR_MESSAGE) ||
-				isEmptyMlxOom ||
-				isMlxServerError ||
-				isContextWindowOverflow;
-			if (isEmptyMlxOom) {
-				logForDebugging(
-					`[Compact] 空响应(疑似 fusion-mlx 内存撞顶),触发截断重试`,
-					{ level: "warn" },
-				);
-			}
-			if (isMlxServerError) {
-				logForDebugging(
-					`[Compact] MLX 服务端错误,触发截断重试: ${summary?.slice(0, 200)}`,
-					{ level: "warn" },
-				);
-			}
-			if (isContextWindowOverflow) {
-				logForDebugging(
-					`[Compact] 云网关上下文窗口超限,触发截断重试: ${summary?.slice(0, 200)}`,
-					{ level: "warn" },
-				);
-			}
-			if (!needsTruncateRetry) break;
-
-			// CC-1180: compact request itself hit prompt-too-long. Truncate the
-			// oldest API-round groups and retry rather than leaving the user stuck.
-			ptlAttempts++;
-			// item 16 (CC 2.1.228): emit 用户可见重试进度 (复用已算的判定, 不重判)
-			context.onCompactProgress?.({
-				type: "compact_retry",
-				attempt: ptlAttempts,
-				maxRetries: MAX_PTL_RETRIES,
-				reason: isEmptyMlxOom
-					? "mlx_memory"
-					: isMlxServerError
-						? "mlx_server_error"
-						: isContextWindowOverflow
-							? "context_window_exceeded"
-							: "prompt_too_long",
-			});
-			const truncated =
-				ptlAttempts <= MAX_PTL_RETRIES
-					? truncateHeadForPTLRetry(messagesToSummarize, summaryResponse)
-					: null;
-			if (!truncated) {
-				logEvent("tengu_compact_failed", {
-					reason:
-						"prompt_too_long" as AnalyticsMetadata_I_VERIFIED_THIS_IS_NOT_CODE_OR_FILEPATHS,
-					preCompactTokenCount,
-					promptCacheSharingEnabled,
-					ptlAttempts,
-				});
-				throw new Error(
-					isEmptyMlxOom || isMlxServerError
-						? ERROR_MESSAGE_MLX_MEMORY_LIMIT
-						: isContextWindowOverflow
-							? "Context window exceeded after truncation retries"
-							: ERROR_MESSAGE_PROMPT_TOO_LONG,
-				);
-			}
-			logEvent("tengu_compact_ptl_retry", {
-				attempt: ptlAttempts,
-				droppedMessages: messagesToSummarize.length - truncated.length,
-				remainingMessages: truncated.length,
-			});
-			messagesToSummarize = truncated;
-			// The forked-agent path reads from cacheSafeParams.forkContextMessages,
-			// not the messages param — thread the truncated set through both paths.
-			retryCacheSafeParams = {
-				...retryCacheSafeParams,
-				forkContextMessages: truncated,
-			};
+			summaryResponse = result.summaryResponse;
+			summary = result.summary;
 		}
 
 		if (!summary) {
@@ -1345,97 +1448,29 @@ export async function partialCompactConversation(
 					: cacheSafeParams;
 		let summaryResponse: AssistantMessage;
 		let summary: string | null;
-		let ptlAttempts = 0;
-		for (;;) {
-			summaryResponse = await streamCompactSummary({
+		{
+			const result = await runCompactSummaryWithTruncateRetry({
 				messages: apiMessages,
 				summaryRequest,
 				appState: context.getAppState(),
 				context,
 				preCompactTokenCount,
 				cacheSafeParams: retryCacheSafeParams,
+				logPrefix: "[Partial Compact]",
+				logFailed: (ptlAttempts) => {
+					logEvent("tengu_partial_compact_failed", {
+						reason:
+							"prompt_too_long" as AnalyticsMetadata_I_VERIFIED_THIS_IS_NOT_CODE_OR_FILEPATHS,
+						...failureMetadata,
+						ptlAttempts,
+					});
+				},
+				retryLogExtra: {
+					path: "partial" as AnalyticsMetadata_I_VERIFIED_THIS_IS_NOT_CODE_OR_FILEPATHS,
+				},
 			});
-			summary = getAssistantMessageText(summaryResponse);
-			// MLX 内存撞顶返回空响应(见 compactConversation 同名处理),复用截断重试。
-			const isEmptyMlxOom = !summary && isFusionMlxProvider();
-			// MLX 服务端错误(OOM/500)也触发截断重试;不再匹配通用 Python 异常名
-			// (AttributeError/RuntimeError),避免合法 Python 调试摘要触发误判
-			const isMlxServerError =
-				isFusionMlxProvider() &&
-				summary &&
-				(summary.includes("process memory limit exceeded") ||
-					summary.includes("Fusion-MLX API error: 5"));
-			// 云/网关上下文窗口超限 (litellm ContextWindowExceededError) → 截断重试
-			const isContextWindowOverflow = isContextWindowExceededError(summary);
-			const needsTruncateRetry =
-				summary?.startsWith(PROMPT_TOO_LONG_ERROR_MESSAGE) ||
-				isEmptyMlxOom ||
-				isMlxServerError ||
-				isContextWindowOverflow;
-			if (isEmptyMlxOom) {
-				logForDebugging(
-					`[Partial Compact] 空响应(疑似 fusion-mlx 内存撞顶),触发截断重试`,
-					{ level: "warn" },
-				);
-			}
-			if (isMlxServerError) {
-				logForDebugging(
-					`[Partial Compact] MLX 服务端错误,触发截断重试: ${summary?.slice(0, 200)}`,
-					{ level: "warn" },
-				);
-			}
-			if (isContextWindowOverflow) {
-				logForDebugging(
-					`[Partial Compact] 云网关上下文窗口超限,触发截断重试: ${summary?.slice(0, 200)}`,
-					{ level: "warn" },
-				);
-			}
-			if (!needsTruncateRetry) break;
-
-			ptlAttempts++;
-			// item 16 (CC 2.1.228): emit 用户可见重试进度 (partial 路径)
-			context.onCompactProgress?.({
-				type: "compact_retry",
-				attempt: ptlAttempts,
-				maxRetries: MAX_PTL_RETRIES,
-				reason: isEmptyMlxOom
-					? "mlx_memory"
-					: isMlxServerError
-						? "mlx_server_error"
-						: isContextWindowOverflow
-							? "context_window_exceeded"
-							: "prompt_too_long",
-			});
-			const truncated =
-				ptlAttempts <= MAX_PTL_RETRIES
-					? truncateHeadForPTLRetry(apiMessages, summaryResponse)
-					: null;
-			if (!truncated) {
-				logEvent("tengu_partial_compact_failed", {
-					reason:
-						"prompt_too_long" as AnalyticsMetadata_I_VERIFIED_THIS_IS_NOT_CODE_OR_FILEPATHS,
-					...failureMetadata,
-					ptlAttempts,
-				});
-				throw new Error(
-					isEmptyMlxOom || isMlxServerError
-						? ERROR_MESSAGE_MLX_MEMORY_LIMIT
-						: isContextWindowOverflow
-							? "Context window exceeded after truncation retries"
-							: ERROR_MESSAGE_PROMPT_TOO_LONG,
-				);
-			}
-			logEvent("tengu_compact_ptl_retry", {
-				attempt: ptlAttempts,
-				droppedMessages: apiMessages.length - truncated.length,
-				remainingMessages: truncated.length,
-				path: "partial" as AnalyticsMetadata_I_VERIFIED_THIS_IS_NOT_CODE_OR_FILEPATHS,
-			});
-			apiMessages = truncated;
-			retryCacheSafeParams = {
-				...retryCacheSafeParams,
-				forkContextMessages: truncated,
-			};
+			summaryResponse = result.summaryResponse;
+			summary = result.summary;
 		}
 		if (!summary) {
 			logEvent("tengu_partial_compact_failed", {
@@ -1744,7 +1779,14 @@ async function streamCompactSummary({
 		// 模型默认 maxOutputTokens (~32K), input+default 同样超窗口 → 必 400。
 		// 此场景无有效 cache prefix 可复用 (输入已满), 跳过 fork 直接走 streaming,
 		// streaming 已按 compactOutputCap 压缩输出, 避免一次必失败的 fork 调用。
-		if (promptCacheSharingEnabled && compactOutputCap === undefined) {
+		// 含图片/文档时同样跳过 fork: fork 原样发送消息以保持 cache 前缀一致
+		// (不能剥离媒体块, 否则 cache miss), 而 streaming 路径会剥离媒体块 —
+		// 与其让 fork 吃图片体积后靠失败回落 streaming, 不如直接走 streaming。
+		if (
+			promptCacheSharingEnabled &&
+			compactOutputCap === undefined &&
+			!messagesContainMediaBlocks(messages)
+		) {
 			try {
 				// DO NOT set maxOutputTokens here. The fork piggybacks on the main thread's
 				// prompt cache by sending identical cache-key params (system, tools, model,

@@ -18,14 +18,14 @@ export type APIProvider =
 
 | Provider | 类型 | 说明 |
 |----------|------|------|
-| `fusionMlx` | 本地 | MLX 推理，127.0.0.1:11432，默认 provider |
-| `firstParty` | 云端 | Anthropic API（`FUSION_API_KEY` / `ANTHROPIC_API_KEY`） |
-| `openai` | 云端 | OpenAI（`FUSION_CODE_USE_OPENAI=1`） |
-| `foundry` | 云端 | Azure Foundry（`FUSION_CODE_USE_FOUNDRY=1`） |
-| `bedrock` | 云端 | AWS Bedrock（`FUSION_CODE_USE_BEDROCK=1`） |
-| `vertex` | 云端 | GCP Vertex（`FUSION_CODE_USE_VERTEX=1`） |
+| `firstParty` | 云端 | **默认 provider**。直连 `FUSION_BASE_URL`（Anthropic 兼容 endpoint，默认 `api.anthropic.com`），`FUSION_API_KEY` / `ANTHROPIC_API_KEY` 鉴权 |
+| `fusionMlx` | 本地 | MLX 推理，127.0.0.1:11432，**显式 opt-in**（`FUSION_MLX_ENABLED=1` 或 `FUSION_GATEWAY_ENABLED=1`，或模型名为 `mlx-*`） |
+| `openai` | 云端 | OpenAI（`FUSION_CODE_USE_OPENAI=1`，直连已移除 → 抛错引导） |
+| `foundry` | 云端 | Azure Foundry（`FUSION_CODE_USE_FOUNDRY=1`，直连已移除 → 抛错引导） |
+| `bedrock` | 云端 | AWS Bedrock（`FUSION_CODE_USE_BEDROCK=1`，直连已移除 → 抛错引导） |
+| `vertex` | 云端 | GCP Vertex（`FUSION_CODE_USE_VERTEX=1`，直连已移除 → 抛错引导） |
 
-`fusionMlx` 是 fusion-code 的默认本地 provider，无需任何 API key，零配置即可使用（前提是 fusion-mlx 服务在 11432 端口运行）。
+`firstParty` 是 fusion-code 的默认 provider：配置 `FUSION_BASE_URL` + `FUSION_API_KEY` 两个环境变量即可直连任意 Anthropic 兼容 endpoint。**无隐式本地 fallback**——key 缺失会给出明确的鉴权错误，不再静默路由到 127.0.0.1:11432；本地 MLX 需显式 opt-in。
 
 ## getAPIProvider() 选择逻辑
 
@@ -37,30 +37,41 @@ export type APIProvider =
    ├─ FUSION_CODE_USE_OPENAI=1  -> openai
    └─ else                      -> firstParty
 
-2. FUSION_MLX_ENABLED=1 -> fusionMlx
+2. 模型名为 MLX 模型 (mlx-* / mlx-community/*) -> fusionMlx
 
 3. FUSION_CODE_USE_FOUNDRY=1 -> foundry
 4. FUSION_CODE_USE_OPENAI=1  -> openai
 
-5. 无 FUSION_API_KEY -> fusionMlx（本地零配置默认）
+5. FUSION_API_KEY 已设置          -> firstParty
+   ANTHROPIC_API_KEY 为 sk-ant-   -> firstParty
+   FUSION_BASE_URL 指向非 Anthropic host -> firstParty (第三方代理直连)
 
-6. else -> firstParty
+6. FUSION_GATEWAY_ENABLED=1 / FUSION_MLX_ENABLED=1 (显式 opt-in) -> fusionMlx
+
+7. else -> firstParty (无隐式本地 fallback)
 ```
 
 关键设计：
 
 - `FUSION_MLX_DISABLED=1` 是总开关，显式跳过本地路径走云端
-- `FUSION_MLX_ENABLED=1` 显式锁定本地，即使有 API key 也走本地
-- 无 API key 时自动落到 `fusionMlx`，实现零配置本地启动
+- **API key 优先于 MLX/gateway 环境变量**：配置 `FUSION_BASE_URL` + `FUSION_API_KEY` 永远直连，不会被本地推理劫持
+- `FUSION_MLX_ENABLED=1` / `FUSION_GATEWAY_ENABLED=1` 均为显式 opt-in，代码不会自动写入
+- 无 key 无 baseUrl → `firstParty` + 明确鉴权错误（不再静默落本地 MLX）
 - bedrock / vertex 在当前 fork 中已禁用（源码中对应分支为 `if (false)`），保留类型定义供未来恢复
 
 ## shouldAutoUseFusionMlx()
 
-自动检测函数，判断是否应使用本地 MLX：
+自动检测函数，判断是否应使用本地 MLX。**已收紧为 opt-in 语义**：
 
-1. 检测 `127.0.0.1:11432` 端口可用性
-2. 端口可用时，自动选择一个 code-capable 文本模型
-3. 配合 `getMlxModelCapabilities(modelId)` 检测能力：
+1. 已配置 `FUSION_API_KEY` / `ANTHROPIC_API_KEY` → 直接 false（key 优先，localhost baseUrl 也不劫持）
+2. `FUSION_GATEWAY_ENABLED=1` / `FUSION_MLX_ENABLED=1` 显式设置 → true
+3. `FUSION_MLX_AUTO=1` 且无任何 key → true
+4. 无 key 且 baseUrl 指向 localhost → true
+5. 其余情况 → false
+
+> ⚠️ 启动时的 11432 端口自动探测与 `FUSION_GATEWAY_ENABLED` 自动写入已移除（audit 0913）：fusion-code 不再自动检测本地推理服务。要用本地 MLX，请显式设置 `FUSION_MLX_ENABLED=1`。
+
+配合 `getMlxModelCapabilities(modelId)` 检测能力：
    - tool calling 支持
    - vision 支持
    - streaming 支持
@@ -169,46 +180,52 @@ FUSION_MLX_DISABLED=1 \
 
 ### openai
 
-> ⚠️ 进程内 OpenAI 直连已随 `@anthropic-ai/sdk` 移除（P0-4 audit R6）。设 `FUSION_CODE_USE_OPENAI=1` 会**显式抛错**引导走 fusion-gateway，不再静默落入 firstParty（语义错配 → 401/404）。OpenAI OAuth 凭据（`codex-client`/`codex-oauth`，登录流/凭据存储）仍保留，用于网关鉴权透传。
+> ⚠️ 进程内 OpenAI 直连已随 `@anthropic-ai/sdk` 移除（P0-4 audit R6）。设 `FUSION_CODE_USE_OPENAI=1` 会**显式抛错**引导直连配置，不再静默落入 firstParty（语义错配 → 401/404）。OpenAI OAuth 凭据（`codex-client`/`codex-oauth`，登录流/凭据存储）仍保留，用于 endpoint 鉴权透传。
 
-经 fusion-gateway（Anthropic 兼容接口代理 OpenAI 签名）：
+直连任意 Anthropic 兼容 endpoint（由该 endpoint 负责 OpenAI/Azure 签名）：
 
 ```bash
-FUSION_GATEWAY_ENABLED=1 \
-FUSION_GATEWAY_URL=http://127.0.0.1:11432 \
-./fusion-code
+FUSION_BASE_URL=https://your-endpoint.example.com \
+FUSION_API_KEY=sk-... \
+fusion-code
 ```
 
 网关负责 OpenAI（Azure AD / Bearer）签名并以 `/v1/messages` 暴露。本仓不做进程内 OpenAI 直连（`codex-fetch-adapter` 死代码已删）。
 
 ### foundry（Azure）
 
-> ⚠️ 进程内 Foundry 直连已随 `@anthropic-ai/sdk` 移除。设 `FUSION_CODE_USE_FOUNDRY=1` 会**显式抛错**引导走 fusion-gateway。网关负责 Azure AD 签名并以 `/v1/messages` 暴露。
+> ⚠️ 进程内 Foundry 直连已随 `@anthropic-ai/sdk` 移除。设 `FUSION_CODE_USE_FOUNDRY=1` 会**显式抛错**引导直连 Anthropic 兼容 endpoint（由该 endpoint 负责 Azure AD 签名并以 `/v1/messages` 暴露）。
+
+直连任意 Anthropic 兼容 endpoint：
 
 ```bash
-FUSION_GATEWAY_ENABLED=1 \
-FUSION_GATEWAY_URL=http://127.0.0.1:11432 \
-./fusion-code
+FUSION_BASE_URL=https://your-endpoint.example.com \
+FUSION_API_KEY=sk-... \
+fusion-code
 ```
 
 ### bedrock（AWS）
 
-> ⚠️ 进程内 Bedrock 直连已随 `@anthropic-ai/bedrock-sdk` 移除。设 `FUSION_CODE_USE_BEDROCK=1` 会**显式抛错**引导走 fusion-gateway。网关负责 AWS SigV4 签名并以 `/v1/messages` 暴露。
+> ⚠️ 进程内 Bedrock 直连已随 `@anthropic-ai/bedrock-sdk` 移除。设 `FUSION_CODE_USE_BEDROCK=1` 会**显式抛错**引导直连 Anthropic 兼容 endpoint（由该 endpoint 负责 AWS SigV4 签名并以 `/v1/messages` 暴露）。
+
+直连任意 Anthropic 兼容 endpoint：
 
 ```bash
-FUSION_GATEWAY_ENABLED=1 \
-FUSION_GATEWAY_URL=http://127.0.0.1:11432 \
-./fusion-code
+FUSION_BASE_URL=https://your-endpoint.example.com \
+FUSION_API_KEY=sk-... \
+fusion-code
 ```
 
 ### vertex（GCP）
 
-> ⚠️ 进程内 Vertex AI 直连已随 `@anthropic-ai/vertex-sdk` 移除。设 `FUSION_CODE_USE_VERTEX=1` 会**显式抛错**引导走 fusion-gateway。网关负责 GCP 凭据并以 `/v1/messages` 暴露。
+> ⚠️ 进程内 Vertex AI 直连已随 `@anthropic-ai/vertex-sdk` 移除。设 `FUSION_CODE_USE_VERTEX=1` 会**显式抛错**引导直连 Anthropic 兼容 endpoint（由该 endpoint 负责 GCP 凭据并以 `/v1/messages` 暴露）。
+
+直连任意 Anthropic 兼容 endpoint：
 
 ```bash
-FUSION_GATEWAY_ENABLED=1 \
-FUSION_GATEWAY_URL=http://127.0.0.1:11432 \
-./fusion-code
+FUSION_BASE_URL=https://your-endpoint.example.com \
+FUSION_API_KEY=sk-... \
+fusion-code
 ```
 
 ## LLM Adapter 接缝 (div-anthropic, SDK 已彻底移除)
@@ -226,7 +243,7 @@ claude.ts queryModel()
             └─ chunkStreamToSdkParts()                      ← StreamChunk → SDK part (喂下方既有 switch, 零改动)
 ```
 
-`getAnthropicClient()` 返回 `LlmClient`：firstParty + fusionMlx 经 `createSeamClient(model, fetchOverride, defaultHeaders)` 构造；bedrock / vertex / foundry **抛错**引导走 fusion-gateway（云端签名在网关完成）。`streamViaSeam` 返回 `{ stream, requestId, response }`，填充 `streamRequestId`/`streamResponse`，保留与旧 SDK `.withResponse()` 一致的 request_id 追踪与 body 取消能力。
+`getAnthropicClient()` 返回 `LlmClient`：firstParty + fusionMlx 经 `createSeamClient(model, fetchOverride, defaultHeaders)` 构造；bedrock / vertex / foundry / openai **抛错**引导直连 Anthropic 兼容 endpoint（`FUSION_BASE_URL` + `FUSION_API_KEY`，云端签名由 endpoint 完成）。`streamViaSeam` 返回 `{ stream, requestId, response }`，填充 `streamRequestId`/`streamResponse`，保留与旧 SDK `.withResponse()` 一致的 request_id 追踪与 body 取消能力。
 
 ### LlmClient 5 方法（替代 SDK API）
 
@@ -256,7 +273,7 @@ claude.ts queryModel()
 - **已完成**：`package.json` 移除 `@anthropic-ai/sdk` + `@anthropic-ai/foundry-sdk` + `@anthropic-ai/claude-agent-sdk`；`client.ts` 不再 `new Anthropic(...)`；全部 8 处 SDK 方法调用点迁移到 LlmClient；编译后二进制 0 处功能性 `@anthropic-ai/sdk` 引用（残留 1 处为 bedrock/vertex/foundry 抛错的用户可见提示串）。
 - **D3 三包评估完成**（issue #65, PR #68）：`@anthropic-ai/claude-agent-sdk` **彻底移除**（print.ts:132 纯 `import type`，本地 `PermissionMode` 6 模式等价覆盖；附带切断 claude-agent-sdk 顶层 deps 含 `@anthropic-ai/sdk` 的传递拉取，连 8 平台原生子包一并移除）；`@anthropic-ai/sandbox-runtime` **保留**（OS 级沙箱执行，无原生等价）；`@anthropic-ai/mcpb` **保留**（Bundle manifest 解包独有，`@modelcontextprotocol/sdk` 无覆盖，已懒加载）。最终 `package.json` 仅余此两运行时必需包。
 - **typecheck 0 错误；build + build:dev:full 通过；514 测试全过**。
-- **遗留（见 fusion-gateway issue）**：bedrock / vertex / foundry 云 provider 直连已移除，需经 fusion-gateway 签名。
+- **遗留（已由直连配置替代）**：bedrock / vertex / foundry 云 provider 直连已移除，设 `FUSION_BASE_URL` + `FUSION_API_KEY` 指向负责签名的 Anthropic 兼容 endpoint 即可。
 
 ### P0.1 Capability Seam 三角色 — 现状（enhance-0819.md:449）
 
