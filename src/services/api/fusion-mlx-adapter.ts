@@ -626,8 +626,8 @@ export async function checkFusionMlxHealth(): Promise<FusionMlxStatus> {
 			// 但输出明确诊断引导,而非静默误判。
 			if (response.status === 401) {
 				const hint = isGatewayBaseUrl()
-					? "gateway 层鉴权失败,请检查 FUSION_GATEWAY_API_KEY 是否匹配 fusion-gateway config.yaml 的 auth.api_keys (注意 gateway key 与 MLX key 是两套)"
-					: "MLX 层鉴权失败,请检查 FUSION_MLX_API_KEY 是否匹配 ~/.fusion-mlx/settings.json 的 auth.api_key";
+					? "gateway 层鉴权失败。请优先检查 FUSION_API_KEY / FUSION_AUTH_TOKEN 是否匹配该 endpoint 的鉴权配置；历史专用 key FUSION_GATEWAY_API_KEY (匹配 fusion-gateway config.yaml 的 auth.api_keys) 仍作为回退被读取"
+					: "MLX 层鉴权失败。请优先检查 FUSION_API_KEY / FUSION_AUTH_TOKEN；历史专用 key FUSION_MLX_API_KEY (匹配 ~/.fusion-mlx/settings.json 的 auth.api_key) 仍作为回退被读取";
 				logForDebugging(
 					`[Fusion-MLX] Health check got 401 — server running, auth failed. ${hint}`,
 					{ level: "warn" },
