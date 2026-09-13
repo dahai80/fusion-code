@@ -33,15 +33,16 @@ import { createSeamClient, type LlmClient } from "../llm/client.js";
  * Environment variables for different client types:
  *
  * Direct API (firstParty) / Fusion-MLX (local):
- * - FUSION_API_KEY: Required for direct API access
- * - FUSION_GATEWAY_URL / FUSION_MLX_BASE_URL: local inference endpoint (default 127.0.0.1:11432)
+ * - FUSION_API_KEY + FUSION_BASE_URL: direct connect to any Anthropic-compatible
+ *   /v1/messages endpoint (FUSION_BASE_URL defaults to api.anthropic.com)
+ * - FUSION_MLX_BASE_URL / FUSION_GATEWAY_URL: local inference endpoint
+ *   (default 127.0.0.1:11432), opt-in via FUSION_MLX_ENABLED=1
  *
- * Cloud providers (Bedrock / Vertex / Foundry):
+ * Cloud providers (Bedrock / Vertex / Foundry / OpenAI):
  * - SDK removal: these signing paths are no longer bundled in-process.
- *   Route them through fusion-gateway (https) which speaks the provider's
- *   native auth and exposes an Anthropic-compatible /v1/messages endpoint.
- *   Set FUSION_GATEWAY_URL to the gateway and FUSION_GATEWAY_ENABLED=1, or
- *   keep FUSION_CODE_USE_BEDROCK/VERTEX/FOUNDRY unset to fall back to firstParty.
+ *   Point FUSION_BASE_URL at an Anthropic-compatible endpoint that performs
+ *   the provider's native auth, and set FUSION_API_KEY — or keep the
+ *   FUSION_CODE_USE_* vars unset to use firstParty directly.
  */
 
 /**
@@ -49,7 +50,8 @@ import { createSeamClient, type LlmClient } from "../llm/client.js";
  *
  * - firstParty + fusionMlx: createSeamClient(model, fetchOverride, defaultHeaders)
  *   直接 POST /v1/messages 并 SSE 翻译, 不经 SDK。
- * - bedrock / vertex / foundry: 抛错, 引导走 fusion-gateway (云端签名在网关完成)。
+ * - bedrock / vertex / foundry / openai: 抛错, 引导配置 FUSION_BASE_URL +
+ *   FUSION_API_KEY 直连 Anthropic 兼容 endpoint (云端签名由该 endpoint 完成)。
  */
 export async function getAnthropicClient({
 	apiKey,

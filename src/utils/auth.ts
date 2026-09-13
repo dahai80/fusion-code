@@ -919,7 +919,8 @@ const GCP_CREDENTIALS_CHECK_TIMEOUT_MS = 5_000;
 export async function checkGcpCredentialsValid(): Promise<boolean> {
 	try {
 		// Dynamically import to avoid loading google-auth-library unnecessarily.
-		// The dependency is optional (Vertex routes via fusion-gateway); the
+		// The dependency is optional (Vertex direct connect is removed — clients
+		// point FUSION_BASE_URL at an Anthropic-compatible endpoint instead); the
 		// surrounding try/catch handles the runtime ImportError when absent.
 		// @ts-expect-error — no type declarations shipped for this optional dep
 		const { GoogleAuth } = await import("google-auth-library");

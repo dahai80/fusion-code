@@ -9,8 +9,8 @@
 // 本客户端用接缝层 (postMessages + 直接 fetch) 复刻全部, 不经 @anthropic-ai/sdk。
 //
 // claude.ts / client.ts (api) 改为持有 LlmClient, 调 streamMessages()/createMessage() 等。
-// firstParty+fusionMlx 由 createSeamClient 构造; bedrock/vertex/foundry 在 client.ts 抛错
-// 引导走 fusion-gateway。
+// firstParty+fusionMlx 由 createSeamClient 构造; bedrock/vertex/foundry/openai 在 client.ts
+// 抛错, 引导配置 FUSION_BASE_URL + FUSION_API_KEY 直连 Anthropic 兼容 endpoint。
 
 import type { SdkFetch } from "../../types/anthropic-protocol.js";
 import { getAnthropicApiKey } from "../../utils/auth.js";
