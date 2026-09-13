@@ -8,7 +8,13 @@
  */
 
 import { mkdir, readFile, writeFile, open } from 'fs/promises'
-import { O_CREAT, O_NOFOLLOW, O_TRUNC, O_WRONLY } from 'node:constants'
+// SECURITY: O_NOFOLLOW prevents symlink-following attacks on the inbox file.
+// Import as `constants` from 'fs' (namespace-style), NOT named imports from
+// 'node:constants': on Windows, Bun's node:constants has no O_* exports, and a
+// missing named export fails at module-link time (SyntaxError) crashing the
+// whole binary. O_NOFOLLOW is meaningless on win32 anyway; `?? 0` degrades it
+// to a no-op flag (same pattern as Shell.ts).
+import { constants as fsConstants } from 'fs'
 import { join } from 'path'
 import { z } from 'zod/v4'
 import { TEAMMATE_MESSAGE_TAG } from '../constants/xml.js'
@@ -51,7 +57,13 @@ const LOCK_OPTIONS = {
 // agent messages to an arbitrary target. O_NOFOLLOW opens the path itself only
 // if it is NOT a symlink (ELOOP otherwise), matching the auditLog defense.
 async function writeInboxNoFollow(inboxPath: string, data: string): Promise<void> {
-  const handle = await open(inboxPath, O_WRONLY | O_TRUNC | O_CREAT | O_NOFOLLOW)
+  const handle = await open(
+    inboxPath,
+    fsConstants.O_WRONLY |
+      fsConstants.O_TRUNC |
+      fsConstants.O_CREAT |
+      (fsConstants.O_NOFOLLOW ?? 0),
+  )
   try {
     await handle.writeFile(data)
   } finally {

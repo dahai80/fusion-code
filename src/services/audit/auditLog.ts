@@ -9,7 +9,11 @@
  */
 
 import { chmod, mkdir, open, readdir, stat, unlink, writeFile } from "fs/promises";
-import { O_APPEND, O_CREAT, O_NOFOLLOW, O_WRONLY } from "node:constants";
+// SECURITY: O_NOFOLLOW protects the audit file from symlink hijack. Named
+// imports from 'node:constants' crash on Windows (Bun's node:constants has no
+// O_* exports → module-link SyntaxError); use `constants` from 'fs' instead.
+// O_NOFOLLOW is meaningless on win32; `?? 0` degrades it to a no-op flag.
+import { constants as fsConstants } from "fs";
 import { join } from "path";
 import { logForDebugging } from "../../utils/debug.js";
 import { getClaudeConfigHomeDir } from "../../utils/envUtils.js";
@@ -128,7 +132,14 @@ export async function appendAuditLog(entry: AuditLogEntry): Promise<void> {
 		// only if it is NOT a symlink (ELOOP otherwise), so the audit file
 		// cannot be hijacked mid-session. O_APPEND preserves atomic append
 		// semantics. Mode 0600 = owner-only.
-		const handle = await open(getAuditFilePath(), O_WRONLY | O_APPEND | O_CREAT | O_NOFOLLOW, 0o600);
+		const handle = await open(
+			getAuditFilePath(),
+			fsConstants.O_WRONLY |
+				fsConstants.O_APPEND |
+				fsConstants.O_CREAT |
+				(fsConstants.O_NOFOLLOW ?? 0),
+			0o600,
+		);
 		try {
 			await writeFile(handle, line);
 		} finally {

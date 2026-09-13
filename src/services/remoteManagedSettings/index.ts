@@ -15,7 +15,11 @@
 import axios from 'axios'
 import { createHash } from 'crypto'
 import { open, unlink } from 'fs/promises'
-import { O_CREAT, O_NOFOLLOW, O_TRUNC, O_WRONLY } from 'node:constants'
+// SECURITY: O_NOFOLLOW prevents symlink attacks on settings files. Named
+// imports from 'node:constants' crash on Windows (Bun's node:constants has no
+// O_* exports → module-link SyntaxError); use `constants` from 'fs' instead.
+// O_NOFOLLOW is meaningless on win32; `?? 0` degrades it to a no-op flag.
+import { constants as fsConstants } from 'fs'
 import { getOauthConfig, OAUTH_BETA_HEADER } from '../../constants/oauth.js'
 import {
   checkAndRefreshOAuthTokenIfNeeded,
@@ -414,7 +418,10 @@ async function saveSettings(settings: SettingsJson): Promise<void> {
     // of an existing regular file (same as 'w'), O_CREAT creates if absent.
     const handle = await open(
       path,
-      O_WRONLY | O_CREAT | O_TRUNC | O_NOFOLLOW,
+      fsConstants.O_WRONLY |
+        fsConstants.O_CREAT |
+        fsConstants.O_TRUNC |
+        (fsConstants.O_NOFOLLOW ?? 0),
       0o600,
     )
     try {
