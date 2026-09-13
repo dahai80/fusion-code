@@ -38,9 +38,6 @@ export function getAPIProvider(model?: string): APIProvider {
 		if (isEnvTruthy(process.env.FUSION_CODE_USE_OPENAI)) return "openai";
 		return "firstParty";
 	}
-	if (isEnvTruthy(process.env.FUSION_GATEWAY_ENABLED) || isEnvTruthy(process.env.FUSION_MLX_ENABLED)) {
-		return "fusionMlx";
-	}
 	// If the model name is clearly an MLX model, use fusionMlx regardless of API keys
 	if (isMlxModelName(model)) {
 		return "fusionMlx";
@@ -57,16 +54,24 @@ export function getAPIProvider(model?: string): APIProvider {
 	if (isEnvTruthy(process.env.FUSION_CODE_USE_OPENAI)) {
 		return "openai";
 	}
-	// Check FUSION_API_KEY first — it's the canonical key for this CLI
+	// API key 优先于 gateway/MLX 环境变量：用户显式配置 FUSION_API_KEY
+	// （+ FUSION_BASE_URL）即直连该 endpoint，不再被 gateway/MLX 接管。
+	// 修复：此前 gateway/MLX env 判断在最前，设置过 FUSION_GATEWAY_ENABLED 的
+	// 环境会劫持已配 key 的会话，导致 /init 等 API 调用失败。
 	const fusionKey = process.env.FUSION_API_KEY;
 	const anthropicKey = process.env.ANTHROPIC_API_KEY;
-	// If FUSION_API_KEY is set, use firstParty (it maps to ANTHROPIC_API_KEY in cli.tsx)
 	if (fusionKey) return "firstParty";
 	// ANTHROPIC_API_KEY only counts if it's a valid Anthropic key (sk-ant-)
 	// OR if a third-party proxy base URL is configured (FUSION_BASE_URL → non-Anthropic host)
 	// A stale/invalid ANTHROPIC_API_KEY without proxy config should fall through to MLX
 	if (isAnthropicApiKey(anthropicKey) || hasThirdPartyProxyConfigured()) {
 		return "firstParty";
+	}
+	if (
+		isEnvTruthy(process.env.FUSION_GATEWAY_ENABLED) ||
+		isEnvTruthy(process.env.FUSION_MLX_ENABLED)
+	) {
+		return "fusionMlx";
 	}
 	return "fusionMlx";
 }
@@ -77,6 +82,12 @@ export function isFusionMlxProvider(model?: string): boolean {
 
 export function shouldAutoUseFusionMlx(): boolean {
 	if (isEnvTruthy(process.env.FUSION_MLX_DISABLED)) return false;
+	// API key 优先：用户已配置 FUSION_API_KEY（+ FUSION_BASE_URL）即直连云端，
+	// 即使 baseUrl 指向 localhost（第三方网关常见）也不自动切到本地 MLX。
+	// 修复：此前 localhost 检查在 key 检查之前，劫持了已配 key 的会话。
+	if (process.env.FUSION_API_KEY || process.env.ANTHROPIC_API_KEY) {
+		return false;
+	}
 	if (isEnvTruthy(process.env.FUSION_GATEWAY_ENABLED) || isEnvTruthy(process.env.FUSION_MLX_ENABLED)) return true;
 	if (isEnvTruthy(process.env.FUSION_MLX_AUTO)) {
 		return !process.env.FUSION_API_KEY && !process.env.ANTHROPIC_API_KEY;
