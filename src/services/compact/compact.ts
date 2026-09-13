@@ -450,6 +450,8 @@ type CompactSummaryRetryOptions = {
 	logFailed: (ptlAttempts: number) => void;
 	// Extra fields appended to tengu_compact_ptl_retry (e.g. path: "partial")
 	retryLogExtra?: TruncateRetryLogExtra;
+	// 测试缝 (DI): 默认生产实现; 断言用例注入受控 stub 模拟 PTL 重试轮次。
+	streamFn?: typeof streamCompactSummary;
 };
 
 /**
@@ -467,9 +469,15 @@ type CompactSummaryRetryOptions = {
  * - The forked-agent path reads forkContextMessages (not `messages`), so each
  *   truncation is threaded through cacheSafeParams as well.
  */
-async function runCompactSummaryWithTruncateRetry(
-	opts: CompactSummaryRetryOptions,
-): Promise<{ summaryResponse: AssistantMessage; summary: string | null }> {
+export async function runCompactSummaryWithTruncateRetry(opts: CompactSummaryRetryOptions): Promise<{
+	summaryResponse: AssistantMessage;
+	summary: string | null;
+	// 审计 v3-0913 P1 修复: 截断重试后实际发送的轮次数 (未截断时 = opts.messages.length)。
+	// caller 的局部变量不再被循环回写 (回写封闭在本函数内), 元数据统计
+	// (summarizeMetadata.messagesSummarized) 必须用此值才能反映真实口径。
+	finalMessageCount: number;
+}> {
+	const streamSummary = opts.streamFn ?? streamCompactSummary;
 	const {
 		messages,
 		summaryRequest,
@@ -485,7 +493,7 @@ async function runCompactSummaryWithTruncateRetry(
 	let currentParams = cacheSafeParams;
 	let ptlAttempts = 0;
 	for (;;) {
-		const summaryResponse = await streamCompactSummary({
+		const summaryResponse = await streamSummary({
 			messages: currentMessages,
 			summaryRequest,
 			appState,
@@ -535,7 +543,11 @@ async function runCompactSummaryWithTruncateRetry(
 			);
 		}
 		if (!needsTruncateRetry) {
-			return { summaryResponse, summary };
+			return {
+				summaryResponse,
+				summary,
+				finalMessageCount: currentMessages.length,
+			};
 		}
 
 		// CC-1180: compact request itself hit prompt-too-long. Truncate the
@@ -987,6 +999,7 @@ export async function compactConversation(
 			: cacheSafeParams;
 		let summaryResponse: AssistantMessage;
 		let summary: string | null;
+		let finalMessageCount: number;
 		{
 			const result = await runCompactSummaryWithTruncateRetry({
 				messages: messagesToSummarize,
@@ -1008,6 +1021,7 @@ export async function compactConversation(
 			});
 			summaryResponse = result.summaryResponse;
 			summary = result.summary;
+			finalMessageCount = result.finalMessageCount;
 		}
 
 		if (!summary) {
@@ -1448,6 +1462,7 @@ export async function partialCompactConversation(
 					: cacheSafeParams;
 		let summaryResponse: AssistantMessage;
 		let summary: string | null;
+		let finalMessageCount: number;
 		{
 			const result = await runCompactSummaryWithTruncateRetry({
 				messages: apiMessages,
@@ -1471,6 +1486,7 @@ export async function partialCompactConversation(
 			});
 			summaryResponse = result.summaryResponse;
 			summary = result.summary;
+			finalMessageCount = result.finalMessageCount;
 		}
 		if (!summary) {
 			logEvent("tengu_partial_compact_failed", {
@@ -1575,7 +1591,9 @@ export async function partialCompactConversation(
 			preCompactTokenCount,
 			postCompactTokenCount,
 			messagesKept: messagesToKeep.length,
-			messagesSummarized: messagesToSummarize.length,
+			// 截断重试后的实际轮次 (审计 v3-0913 P1): caller 局部变量不再被
+			// 循环回写, 原始长度会虚报统计口径
+			messagesSummarized: finalMessageCount,
 			direction:
 				direction as AnalyticsMetadata_I_VERIFIED_THIS_IS_NOT_CODE_OR_FILEPATHS,
 			hasUserFeedback: !!userFeedback,
@@ -1620,7 +1638,7 @@ export async function partialCompactConversation(
 				...(messagesToKeep.length > 0
 					? {
 							summarizeMetadata: {
-								messagesSummarized: messagesToSummarize.length,
+								messagesSummarized: finalMessageCount,
 								userContext: userFeedback,
 								direction,
 							},
