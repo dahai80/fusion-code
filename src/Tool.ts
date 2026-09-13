@@ -159,10 +159,10 @@ export type CompactProgressEvent =
 			attempt: number;
 			maxRetries: number;
 			reason:
-			| "prompt_too_long"
-			| "mlx_memory"
-			| "mlx_server_error"
-			| "context_window_exceeded";
+				| "prompt_too_long"
+				| "mlx_memory"
+				| "mlx_server_error"
+				| "context_window_exceeded";
 	  }
 	| { type: "compact_stall"; elapsedMs: number };
 

@@ -296,26 +296,27 @@ const COMPACT_OUTPUT_TOKEN_FLOOR = 2_048;
  * @param estimatedInputTokens - 待摘要消息的估算 token 数
  */
 export function getCompactOutputTokenCap(
-    model: string,
-    estimatedInputTokens: number,
+	model: string,
+	estimatedInputTokens: number,
 ): number | undefined {
-    // MLX 走 preflightMlxTokenTruncate, 不在此处理
-    if (isFusionMlxProvider()) return undefined;
-    const contextWindow = getContextWindowForModel(model);
-    if (!contextWindow || contextWindow <= 0) return undefined;
-    const modelDefaultOutput = getMaxOutputTokensForModel(model);
-    // 候选输出预算: COMPACT_MAX_OUTPUT_TOKENS 与模型默认中的较小值
-    const candidate = Math.min(COMPACT_MAX_OUTPUT_TOKENS, modelDefaultOutput);
-    // 只有当 input + candidate 会触及/超窗口时才压缩, 否则保持现状 (byte-identical)
-    // 用 < (非 <=): 精确相等也算满, 压输出留安全余量, 避免 input+output 恰好卡死。
-    if (estimatedInputTokens + candidate < contextWindow) return undefined;
-    const capped = contextWindow - estimatedInputTokens - COMPACT_OUTPUT_SAFETY_MARGIN;
-    const safeCap = Math.max(COMPACT_OUTPUT_TOKEN_FLOOR, capped);
-    logForDebugging(
-        `[Compact] context-aware output cap: input=${estimatedInputTokens} ctx=${contextWindow} candidate=${candidate} → capped=${safeCap}`,
-        { level: "warn" },
-    );
-    return safeCap;
+	// MLX 走 preflightMlxTokenTruncate, 不在此处理
+	if (isFusionMlxProvider()) return undefined;
+	const contextWindow = getContextWindowForModel(model);
+	if (!contextWindow || contextWindow <= 0) return undefined;
+	const modelDefaultOutput = getMaxOutputTokensForModel(model);
+	// 候选输出预算: COMPACT_MAX_OUTPUT_TOKENS 与模型默认中的较小值
+	const candidate = Math.min(COMPACT_MAX_OUTPUT_TOKENS, modelDefaultOutput);
+	// 只有当 input + candidate 会触及/超窗口时才压缩, 否则保持现状 (byte-identical)
+	// 用 < (非 <=): 精确相等也算满, 压输出留安全余量, 避免 input+output 恰好卡死。
+	if (estimatedInputTokens + candidate < contextWindow) return undefined;
+	const capped =
+		contextWindow - estimatedInputTokens - COMPACT_OUTPUT_SAFETY_MARGIN;
+	const safeCap = Math.max(COMPACT_OUTPUT_TOKEN_FLOOR, capped);
+	logForDebugging(
+		`[Compact] context-aware output cap: input=${estimatedInputTokens} ctx=${contextWindow} candidate=${candidate} → capped=${safeCap}`,
+		{ level: "warn" },
+	);
+	return safeCap;
 }
 
 /**
@@ -326,13 +327,13 @@ export function getCompactOutputTokenCap(
  * 应截断输入重试, 而非直接抛错卡住用户。
  */
 export function isContextWindowExceededError(summary: string | null): boolean {
-    if (!summary) return false;
-    return (
-        summary.includes("ContextWindowExceeded") ||
-        (summary.includes("maximum context length of") &&
-            summary.includes("input tokens") &&
-            summary.includes("output tokens"))
-    );
+	if (!summary) return false;
+	return (
+		summary.includes("ContextWindowExceeded") ||
+		(summary.includes("maximum context length of") &&
+			summary.includes("input tokens") &&
+			summary.includes("output tokens"))
+	);
 }
 
 /**
