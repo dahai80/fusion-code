@@ -20,7 +20,11 @@ function extractContent(
 			instructions: Array<{ source: string; content: string }>;
 		}
 	).instructions;
-	return instructions.find((i) => i.source === source)!.content;
+	const match = instructions.find((i) => i.source === source);
+	if (!match) {
+		throw new Error(`instruction not found: ${source}`);
+	}
+	return match.content;
 }
 
 describe("createPreservedInstructionsAttachment budget exhaustion (P1-1)", () => {

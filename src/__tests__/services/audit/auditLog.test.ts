@@ -157,7 +157,8 @@ describe("auditLog persist + rotate + rate-limit + fail-closed (P1-8)", () => {
 	});
 
 	it("rate limiter allows up to max then blocks", () => {
-		let last;
+		// 显式类型标注 (而非预调用初始化): 预调用会多消耗 1 次配额, 破坏断言计数
+		let last: ReturnType<typeof checkOperationRateLimit>;
 		for (let i = 0; i < 50; i++) {
 			last = checkOperationRateLimit("write", 50);
 			expect(last.allowed).toBe(true);

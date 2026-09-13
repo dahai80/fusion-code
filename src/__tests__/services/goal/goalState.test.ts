@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "fs";
-import { homedir } from "os";
-import { join } from "path";
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { homedir } from "node:os";
+import { join } from "node:path";
 import { getSessionId } from "../../../bootstrap/state.js";
 import {
 	blockGoal,
@@ -120,10 +120,7 @@ describe("P5.3 GoalRef CAS — goalState revision", () => {
 				summary: null,
 			},
 		];
-		writeFileSync(
-			join(dir, "legacy.json"),
-			JSON.stringify(legacy, null, 2),
-		);
+		writeFileSync(join(dir, "legacy.json"), JSON.stringify(legacy, null, 2));
 		const loaded = getGoalById("legacy", "goal_legacy_1");
 		expect(loaded?.revision).toBe(1);
 		// A mutation on the normalized goal bumps from 1 to 2.

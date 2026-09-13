@@ -75,8 +75,8 @@ describe("teamHelpers RMW file lock (audit-0902 P2-4)", () => {
 		await Promise.all([append("a"), append("b")]);
 		const result = await readTeamFileAsync("race");
 		expect(result).not.toBeNull();
-		expect(result!.members.length).toBe(3);
-		expect(result!.members.map((m) => m.name).sort()).toEqual(["a", "b", "m0"]);
+		expect(result?.members.length).toBe(3);
+		expect(result?.members.map((m) => m.name).sort()).toEqual(["a", "b", "m0"]);
 	});
 
 	it("writeTeamFileAsync produces intact JSON under concurrent writes", async () => {

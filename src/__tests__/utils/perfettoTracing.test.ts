@@ -2,9 +2,9 @@
 // pruneTracesDir 为纯函数 (参数 dir + caps), 无 envUtils 依赖, 直调无需 mock。
 
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
-import { mkdtemp, readdir, writeFile } from "fs/promises";
-import { tmpdir } from "os";
-import { join } from "path";
+import { mkdtemp, readdir, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { pruneTracesDir } from "../../utils/telemetry/perfettoTracing.js";
 
 // 触发 traces 写入需 feature('PERFETTO_TRACING') gate, 但 pruneTracesDir 已 export
@@ -25,7 +25,7 @@ async function makeTrace(
 	const newMtime = new Date(Date.now() - ago);
 	await writeFile(p, "x".repeat(sizeBytes), {});
 	// fs utimes 改 mtime (跨平台)。
-	const { utimes } = await import("fs/promises");
+	const { utimes } = await import("node:fs/promises");
 	const t = newMtime.getTime() / 1000;
 	await utimes(p, t, t);
 }
@@ -37,7 +37,7 @@ describe("pruneTracesDir (P2-4 / R20)", () => {
 		dir = await mkdtemp(join(tmpdir(), "perfetto-prune-"));
 	});
 	afterEach(async () => {
-		const { rm } = await import("fs/promises");
+		const { rm } = await import("node:fs/promises");
 		await rm(dir, { recursive: true, force: true }).catch(() => {});
 	});
 

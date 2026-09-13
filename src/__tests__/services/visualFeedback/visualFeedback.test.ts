@@ -2,13 +2,10 @@
 // normalize + buildFixPlan + ingest 单测。
 
 import { describe, expect, it } from "bun:test";
-import { mkdir, rm, writeFile } from "fs/promises";
-import { tmpdir } from "os";
-import { join } from "path";
-import type {
-	NormalizedVisualFeedback,
-	VisualFeedbackReportV11,
-} from "../../../services/visualFeedback/index.js";
+import { mkdir, rm, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import type { VisualFeedbackReportV11 } from "../../../services/visualFeedback/index.js";
 import {
 	buildFixPlan,
 	formatDefectsForAgent,
@@ -250,7 +247,8 @@ describe("visualFeedback validateReport 1.0 (legacy #216 compat)", () => {
 
 describe("visualFeedback formatDefectsForAgent", () => {
 	it("formats 1.1 fail report with defects", () => {
-		const norm = validateReport(V11_FAIL).report!;
+		const norm = validateReport(V11_FAIL).report;
+		if (!norm) throw new Error("expected V11_FAIL to validate");
 		const out = formatDefectsForAgent(norm);
 		expect(out).toContain("<visual_feedback>");
 		expect(out).toContain("task_id: task-abc-123");
@@ -262,7 +260,8 @@ describe("visualFeedback formatDefectsForAgent", () => {
 	});
 
 	it("formats pass report with no_defects", () => {
-		const norm = validateReport(V11_PASS).report!;
+		const norm = validateReport(V11_PASS).report;
+		if (!norm) throw new Error("expected V11_PASS to validate");
 		const out = formatDefectsForAgent(norm);
 		expect(out).toContain("no_defects");
 	});
@@ -278,7 +277,8 @@ describe("visualFeedback formatDefectsForAgent", () => {
 				},
 			],
 		};
-		const norm = validateReport(withShot).report!;
+		const norm = validateReport(withShot).report;
+		if (!norm) throw new Error("expected withShot to validate");
 		const out = formatDefectsForAgent(norm);
 		expect(out).toContain("1000 bytes");
 		expect(out).not.toContain("A".repeat(100));
@@ -289,7 +289,8 @@ describe("visualFeedback formatDefectsForAgent", () => {
 
 describe("visualFeedback buildFixPlan", () => {
 	it("builds a re-fix plan from a fail report", () => {
-		const norm = validateReport(V11_FAIL).report!;
+		const norm = validateReport(V11_FAIL).report;
+		if (!norm) throw new Error("expected V11_FAIL to validate");
 		const plan = buildFixPlan(norm, { cwd: process.cwd() });
 		expect(plan.ok).toBe(false);
 		expect(plan.task_id).toBe("task-abc-123");
@@ -301,13 +302,15 @@ describe("visualFeedback buildFixPlan", () => {
 	});
 
 	it("rerun_cmd includes app target", () => {
-		const norm = validateReport(V11_FAIL).report!;
+		const norm = validateReport(V11_FAIL).report;
+		if (!norm) throw new Error("expected V11_FAIL to validate");
 		const plan = buildFixPlan(norm);
 		expect(plan.rerun_cmd).toContain("localhost:3000");
 	});
 
 	it("detects bun build in a bun project", () => {
-		const norm = validateReport(V11_FAIL).report!;
+		const norm = validateReport(V11_FAIL).report;
+		if (!norm) throw new Error("expected V11_FAIL to validate");
 		const plan = buildFixPlan(norm, { cwd: process.cwd() });
 		// fusion-code itself is a bun project
 		expect(plan.rebuild_cmd).toContain("build");
@@ -317,7 +320,7 @@ describe("visualFeedback buildFixPlan", () => {
 // ─── ingestVisualFeedback ───────────────────────────────────────────
 
 describe("visualFeedback ingestVisualFeedback", () => {
-	const tmpRoot = join(tmpdir(), "fusion-vf-test-" + process.pid);
+	const tmpRoot = join(tmpdir(), `fusion-vf-test-${process.pid}`);
 
 	it("ingests a valid 1.1 report file", async () => {
 		await mkdir(tmpRoot, { recursive: true });

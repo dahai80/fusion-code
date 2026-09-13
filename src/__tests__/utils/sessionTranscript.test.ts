@@ -75,7 +75,7 @@ function metadataLine(kind: string, uuid: string, value: string): string {
 }
 
 async function writeJsonl(path: string, lines: string[]): Promise<void> {
-	await writeFile(path, lines.map((l) => l).join("\n") + "\n");
+	await writeFile(path, `${lines.map((l) => l).join("\n")}\n`);
 }
 
 async function readLines(path: string): Promise<string[]> {
@@ -143,7 +143,7 @@ describe("sessionTranscript item 6", () => {
 		expect(JSON.parse(lines[1]).uuid).toBe("u2");
 		expect(JSON.parse(lines[2]).uuid).toBe("a2");
 		// checkpoint 删除 (换成功后)
-		await expect(stat(path + ".trim-checkpoint")).rejects.toThrow();
+		await expect(stat(`${path}.trim-checkpoint`)).rejects.toThrow();
 	});
 
 	// 4. metadata 保留 — pre-boundary custom-title/agent-name/mode 行裁剪后留在文件头
@@ -207,7 +207,7 @@ describe("sessionTranscript item 6", () => {
 		await writeJsonl(path, [boundaryLine("b1"), userLine("u2", "after")]);
 		// 伪造残留 checkpoint (裁剪完成但未删)
 		await writeFile(
-			path + ".trim-checkpoint",
+			`${path}.trim-checkpoint`,
 			JSON.stringify({
 				trimmedAt: "x",
 				boundaryOffset: 0,
@@ -217,7 +217,7 @@ describe("sessionTranscript item 6", () => {
 		);
 		await recoverTrimIfNeeded(path);
 		// checkpoint 被删, 主文件不动
-		await expect(stat(path + ".trim-checkpoint")).rejects.toThrow();
+		await expect(stat(`${path}.trim-checkpoint`)).rejects.toThrow();
 		const lines = await readLines(path);
 		expect(lines.length).toBe(2);
 	});
@@ -227,7 +227,7 @@ describe("sessionTranscript item 6", () => {
 		// 损坏主文件 (首行非 JSON)
 		await writeFile(path, "CORRUPT GARBAGE\n{not json either}\n");
 		await writeFile(
-			path + ".trim-checkpoint",
+			`${path}.trim-checkpoint`,
 			JSON.stringify({
 				trimmedAt: "x",
 				boundaryOffset: 0,
@@ -237,7 +237,7 @@ describe("sessionTranscript item 6", () => {
 		);
 		await recoverTrimIfNeeded(path);
 		// checkpoint 保留作证, 主文件保留 (不静默删)
-		const cpStat = await stat(path + ".trim-checkpoint");
+		const cpStat = await stat(`${path}.trim-checkpoint`);
 		expect(cpStat.size).toBeGreaterThan(0);
 		const mainStat = await stat(path);
 		expect(mainStat.size).toBeGreaterThan(0);
@@ -252,6 +252,6 @@ describe("sessionTranscript item 6", () => {
 		const after = (await stat(path)).size;
 		expect(after).toBe(before); // 主文件不变
 		// 无 checkpoint
-		await expect(stat(path + ".trim-checkpoint")).rejects.toThrow();
+		await expect(stat(`${path}.trim-checkpoint`)).rejects.toThrow();
 	});
 });

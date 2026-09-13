@@ -6,19 +6,17 @@ import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import { promises as fs } from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import {
-	collectTrajectories,
-	readManifest,
-} from "../../services/trajectory/index.js";
-import {
-	buildDPOPairs,
-	exportTrajectories,
-	toGRPOSample,
-	toSFTSample,
-} from "../../services/trajectory/index.js";
 import type {
 	CollectedTrajectory,
 	TrajectoryStep,
+} from "../../services/trajectory/index.js";
+import {
+	buildDPOPairs,
+	collectTrajectories,
+	exportTrajectories,
+	readManifest,
+	toGRPOSample,
+	toSFTSample,
 } from "../../services/trajectory/index.js";
 
 let tmpRoot: string;
@@ -72,8 +70,8 @@ async function writeSession(
 	const dir = path.join(sourceDir, cwdSlug);
 	await fs.mkdir(dir, { recursive: true });
 	await fs.writeFile(
-		path.join(dir, sessionId + ".jsonl"),
-		events.map((e) => line(e)).join("\n") + "\n",
+		path.join(dir, `${sessionId}.jsonl`),
+		`${events.map((e) => line(e)).join("\n")}\n`,
 		"utf8",
 	);
 }

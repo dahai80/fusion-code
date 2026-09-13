@@ -1,5 +1,5 @@
 import { feature } from "bun:bundle";
-import { randomUUID } from "crypto";
+import { randomUUID } from "node:crypto";
 import last from "lodash-es/last.js";
 import {
 	getSessionId,
@@ -13,11 +13,17 @@ import type {
 	SDKStatus,
 	SDKUserMessageReplay,
 } from "src/entrypoints/sdk/types.js";
-import { accumulateUsage, updateUsage } from "src/services/api/index.js";
 import type { NonNullableUsage } from "src/services/api/index.js";
-import { EMPTY_USAGE } from "src/services/api/index.js";
-import { checkBudget } from "src/services/goal/index.js";
-import { getActiveGoal as getActiveGoalFromState, updateBudgetUsed } from "src/services/goal/index.js";
+import {
+	accumulateUsage,
+	EMPTY_USAGE,
+	updateUsage,
+} from "src/services/api/index.js";
+import {
+	checkBudget,
+	getActiveGoal as getActiveGoalFromState,
+	updateBudgetUsed,
+} from "src/services/goal/index.js";
 import type { ContentBlockParam } from "src/types/anthropic-protocol.js";
 import stripAnsi from "strip-ansi";
 import type { Command } from "./commands.js";
@@ -37,9 +43,9 @@ import { hasAutoMemPathOverride } from "./memdir/paths.js";
 import { query } from "./query.js";
 import { categorizeRetryableAPIError } from "./services/api/index.js";
 // ar-plan PR #8 (S2.2): 双写断言 (dev-only, prod byte-identical)
-import { assertDualWrite } from "./services/events/index.js";
 // ar-plan PR #7 (S2.1): 事件溯源旁路写
 import {
+	assertDualWrite,
 	isEventSourcingEnabled,
 	NOOP_RECORDER,
 	SessionEventRecorder,
@@ -60,6 +66,7 @@ import { createAbortController } from "./utils/abortController.js";
 import type { AttributionState } from "./utils/commitAttribution.js";
 import { getGlobalConfig } from "./utils/config.js";
 import { getCwd } from "./utils/cwd.js";
+import { logForDebugging } from "./utils/debug.js";
 import { isBareMode, isEnvTruthy } from "./utils/envUtils.js";
 import { getFastModeState } from "./utils/fastMode.js";
 import {
@@ -74,7 +81,6 @@ import {
 import { headlessProfilerCheckpoint } from "./utils/headlessProfiler.js";
 import { registerStructuredOutputEnforcement } from "./utils/hooks/hookHelpers.js";
 import { getInMemoryErrors } from "./utils/log.js";
-import { logForDebugging } from "./utils/debug.js";
 import { countToolCalls, SYNTHETIC_MESSAGES } from "./utils/messages.js";
 import {
 	getMainLoopModel,
@@ -964,10 +970,7 @@ export class QueryEngine {
 										initialAppState.fastMode,
 									),
 									uuid: randomUUID(),
-									errors: [
-										_budgetCheck.message ??
-											"Goal budget exceeded",
-									],
+									errors: [_budgetCheck.message ?? "Goal budget exceeded"],
 								};
 								return;
 							}
@@ -1483,9 +1486,9 @@ export async function* ask({
 		...(feature("HISTORY_SNIP")
 			? {
 					snipReplay: (yielded: Message, store: Message[]) => {
-						if (!snipProjection!.isSnipBoundaryMessage(yielded))
+						if (!snipProjection?.isSnipBoundaryMessage(yielded))
 							return undefined;
-						return snipModule!.snipCompactIfNeeded(store, { force: true });
+						return snipModule?.snipCompactIfNeeded(store, { force: true });
 					},
 				}
 			: {}),

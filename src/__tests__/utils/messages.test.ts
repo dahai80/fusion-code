@@ -11,8 +11,9 @@
  * shouldRenderStatically 本身不可单测 (Messages.tsx 顶层 feature() 是 bun:bundle
  * 编译宏, 模块加载即抛), 故测锁定其短路前提条件链 + transform 函数属性。
  */
-import type { UUID } from "crypto";
+
 import { describe, expect, it } from "bun:test";
+import type { UUID } from "node:crypto";
 import type { BetaToolUseBlock } from "../../types/anthropic-protocol.js";
 import type {
 	AssistantMessage,
@@ -21,21 +22,19 @@ import type {
 	NormalizedMessage,
 	UserMessage,
 } from "../../types/message.js";
+import type { MessageWithoutProgress } from "../../utils/groupToolUses.js";
+import { applyGrouping } from "../../utils/groupToolUses.js";
 import {
+	buildMessageLookups,
 	createAssistantMessage,
 	createUserMessage,
 	deriveUUID,
+	getProgressMessagesFromLookup,
+	getSiblingToolUseIDsFromLookup,
 	getToolUseID,
 	normalizeMessages,
 	reorderMessagesInUI,
 } from "../../utils/messages.js";
-import {
-	buildMessageLookups,
-	getProgressMessagesFromLookup,
-	getSiblingToolUseIDsFromLookup,
-} from "../../utils/messages.js";
-import { applyGrouping } from "../../utils/groupToolUses.js";
-import type { MessageWithoutProgress } from "../../utils/groupToolUses.js";
 
 // ─── Helpers (mirror Messages.tsx:564-579 synthetic builder + cache test) ───
 
@@ -47,7 +46,10 @@ function makeUUID(prefix: string): string {
 }
 
 // Synthetic streaming tool_use block — exactly what Messages.tsx:564-579 builds.
-function makeStreamingToolUseBlock(id: string, name = "Bash"): BetaToolUseBlock {
+function makeStreamingToolUseBlock(
+	id: string,
+	name = "Bash",
+): BetaToolUseBlock {
 	return {
 		type: "tool_use",
 		id,
@@ -104,9 +106,7 @@ function makeUserToolResult(uuid: string, toolUseId = "tu-1"): UserMessage {
 	return createUserMessage({
 		uuid,
 		timestamp: "2026-01-01T00:00:00.000Z",
-		content: [
-			{ type: "tool_result", tool_use_id: toolUseId, content: "ok" },
-		],
+		content: [{ type: "tool_result", tool_use_id: toolUseId, content: "ok" }],
 	});
 }
 
@@ -117,8 +117,12 @@ function uuidsOf<T extends { uuid: string }>(messages: T[]): string[] {
 }
 
 // Narrow normalized → MessageWithoutProgress (filter type guard doesn't narrow).
-function withoutProgress(normalized: NormalizedMessage[]): MessageWithoutProgress[] {
-	return normalized.filter((m) => m.type !== "progress") as MessageWithoutProgress[];
+function withoutProgress(
+	normalized: NormalizedMessage[],
+): MessageWithoutProgress[] {
+	return normalized.filter(
+		(m) => m.type !== "progress",
+	) as MessageWithoutProgress[];
 }
 
 // ─── Test 1: reorderMessagesInUI(real, []) === reorderMessagesInUI(real, synthetic) ─ synthetic 尾 append 不改 real 顺序 ───
@@ -148,7 +152,9 @@ describe("item 17 / :598: reorderMessagesInUI 尾-append 属性", () => {
 			uuidsOf(withSynthetic.slice(0, withoutSynthetic.length)),
 		);
 		// withSynthetic 尾部 = synthetic
-		expect(withSynthetic.length).toBe(withoutSynthetic.length + synthetic.length);
+		expect(withSynthetic.length).toBe(
+			withoutSynthetic.length + synthetic.length,
+		);
 		expect(uuidsOf(withSynthetic.slice(withoutSynthetic.length))).toEqual(
 			uuidsOf(synthetic),
 		);
@@ -241,7 +247,7 @@ describe("item 17 / :598: shouldRenderStatically 短路前提条件链", () => {
 		// 构造即证: makeStreamingToolUseBlock 返 type:"tool_use", 永远非 server_tool_use
 		const block = makeStreamingToolUseBlock("tu-x");
 		expect(block.type).toBe("tool_use");
-		expect((block.type as string)).not.toBe("server_tool_use");
+		expect(block.type as string).not.toBe("server_tool_use");
 	});
 
 	it("synthetic block → getToolUseID 返 block.id (短路条件可求值)", () => {
@@ -312,16 +318,14 @@ describe("item 17 / :598: applyGrouping synthetic 透传", () => {
 		// real 前缀一致
 		expect(groupedReal.length).toBe(realFiltered.length);
 		expect(uuidsOf(groupedReal)).toEqual(
-			uuidsOf(
-				groupedRealPlusSynthetic.slice(0, groupedReal.length),
-			),
+			uuidsOf(groupedRealPlusSynthetic.slice(0, groupedReal.length)),
 		);
 		// synthetic 尾透传 (未进 group)
 		expect(groupedRealPlusSynthetic.length).toBe(
 			groupedReal.length + synthetic.length,
 		);
-		expect(
-			uuidsOf(groupedRealPlusSynthetic.slice(groupedReal.length)),
-		).toEqual(uuidsOf(synthetic));
+		expect(uuidsOf(groupedRealPlusSynthetic.slice(groupedReal.length))).toEqual(
+			uuidsOf(synthetic),
+		);
 	});
 });

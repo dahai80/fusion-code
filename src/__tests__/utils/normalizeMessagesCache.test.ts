@@ -6,10 +6,7 @@ import type {
 	UserMessage,
 } from "../../types/message.js";
 import { createUserMessage, normalizeMessages } from "../../utils/messages.js";
-import {
-	type NormalizedCacheState,
-	normalizeMessagesIncremental,
-} from "../../utils/normalizeMessagesCache.js";
+import { normalizeMessagesIncremental } from "../../utils/normalizeMessagesCache.js";
 
 // Helpers ---------------------------------------------------------------------
 
@@ -160,10 +157,11 @@ describe("normalizeMessagesIncremental", () => {
 
 		expect(uuidsOf(second.normalized)).toEqual(uuidsOf(fresh));
 		// The single appended assistant must have a derived uuid, not its own.
-		const lastFresh = fresh.at(-1)!;
-		const lastInc = second.normalized.at(-1)!;
+		const lastFresh = fresh.at(-1);
+		const lastInc = second.normalized.at(-1);
+		if (!lastFresh || !lastInc) throw new Error("expected appended message");
 		expect(lastInc.uuid).toBe(lastFresh.uuid);
-		expect(lastInc.uuid).not.toBe(tail[0]!.uuid); // derived, not source
+		expect(lastInc.uuid).not.toBe(tail[0]?.uuid); // derived, not source
 	});
 
 	it("compact whole-array replace invalidates cache (prefix ref mismatch → full recompute)", () => {
@@ -203,7 +201,7 @@ describe("normalizeMessagesIncremental", () => {
 
 		// Only u0 reused (1 element); a1, u2 recomputed.
 		expect(uuidsOf(second.normalized)).toEqual(uuidsOf(fresh));
-		expect(second.normalized[0]!.uuid).toBe(u0.uuid); // reused prefix unchanged
+		expect(second.normalized[0]?.uuid).toBe(u0.uuid); // reused prefix unchanged
 		expect(second.cache.segmentCounts).toEqual([1, 1, 1]);
 	});
 

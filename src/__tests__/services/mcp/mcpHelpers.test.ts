@@ -7,6 +7,16 @@ import {
 	issuerKey,
 	normalizeNameForMCP,
 } from "../../../services/mcp/index.js";
+import type { McpHTTPServerConfig } from "../../../services/mcp/types.js";
+
+// getServerKey/hashMcpConfig 的真实参数类型 (此前测试用 as any 绕过)
+type HttpServerConfig = McpHTTPServerConfig;
+
+const httpConfig = (url: string): HttpServerConfig => ({
+	type: "http",
+	url,
+	headers: {},
+});
 
 // P1-8 (audit R15): service-layer unit tests — MCP pure helpers. None of the
 // five modules execute side effects at load (verified: lazy settings() closures,
@@ -26,7 +36,7 @@ describe("MCP getServerKey (audit P1-8)", () => {
 	});
 
 	it("same config → same key; headers undefined vs {} collide", () => {
-		const a = getServerKey("s", { type: "http", url: "https://x" } as any);
+		const a = getServerKey("s", httpConfig("https://x"));
 		const b = getServerKey("s", {
 			type: "http",
 			url: "https://x",
@@ -36,8 +46,8 @@ describe("MCP getServerKey (audit P1-8)", () => {
 	});
 
 	it("different url → different key", () => {
-		const a = getServerKey("s", { type: "http", url: "https://x" } as any);
-		const c = getServerKey("s", { type: "http", url: "https://y" } as any);
+		const a = getServerKey("s", httpConfig("https://x"));
+		const c = getServerKey("s", httpConfig("https://y"));
 		expect(a).not.toBe(c);
 	});
 
@@ -97,25 +107,34 @@ describe("MCP expandEnvVarsInString (audit P1-8)", () => {
 		else process.env.MCP_TEST_UNSET = stash.MCP_TEST_UNSET;
 	});
 
+	// biome-ignore lint/suspicious/noTemplateCurlyInString: "${VAR}" 是被测语法本身 (expandEnvVarsInString 的 fixture)
 	it("expands ${VAR} from env", () => {
+		// biome-ignore lint/suspicious/noTemplateCurlyInString: "${VAR}" 是被测语法本身 (expandEnvVarsInString 的 fixture)
 		expect(expandEnvVarsInString("v=${MCP_TEST_SET}").expanded).toBe(
 			"v=value123",
 		);
 	});
 
+	// biome-ignore lint/suspicious/noTemplateCurlyInString: "${VAR:-default}" 是被测语法本身
 	it("uses ${VAR:-default} when unset", () => {
 		expect(
+			// biome-ignore lint/suspicious/noTemplateCurlyInString: "${VAR:-default}" 是被测语法本身
 			expandEnvVarsInString("v=${MCP_TEST_UNSET:-fallback}").expanded,
 		).toBe("v=fallback");
 	});
 
 	it("tracks missing vars and leaves token", () => {
+		// biome-ignore lint/suspicious/noTemplateCurlyInString: "${VAR}" 是被测语法本身
 		const r = expandEnvVarsInString("v=${MCP_TEST_UNSET}");
-		expect(r.expanded).toBe("v=${MCP_TEST_UNSET}");
+		expect(r.expanded).toBe(
+			// biome-ignore lint/suspicious/noTemplateCurlyInString: "${VAR}" 是被测语法本身
+			"v=${MCP_TEST_UNSET}",
+		);
 		expect(r.missingVars).toContain("MCP_TEST_UNSET");
 	});
 
 	it("accumulates multiple missing vars in order", () => {
+		// biome-ignore lint/suspicious/noTemplateCurlyInString: "${A}${B}" 是被测语法本身
 		const r = expandEnvVarsInString("${A}${B}");
 		expect(r.missingVars).toEqual(["A", "B"]);
 	});
@@ -123,18 +142,13 @@ describe("MCP expandEnvVarsInString (audit P1-8)", () => {
 
 describe("MCP hashMcpConfig (audit P1-8)", () => {
 	it("produces 16 hex chars", () => {
-		const h = hashMcpConfig({
-			scope: "user",
-			type: "http",
-			url: "https://x",
-			headers: {},
-		} as any);
+		const h = hashMcpConfig({ scope: "user", ...httpConfig("https://x") });
 		expect(h.length).toBe(16);
 		expect(/^[0-9a-f]{16}$/.test(h)).toBe(true);
 	});
 
 	it("strips scope — same config under different scopes → same hash", () => {
-		const base = { type: "http", url: "https://x", headers: {} } as any;
+		const base = httpConfig("https://x");
 		expect(hashMcpConfig({ scope: "user", ...base })).toBe(
 			hashMcpConfig({ scope: "project", ...base }),
 		);
@@ -142,33 +156,23 @@ describe("MCP hashMcpConfig (audit P1-8)", () => {
 
 	it("key-order independent", () => {
 		const a = {
-			scope: "user",
-			type: "http",
+			scope: "user" as const,
+			type: "http" as const,
 			url: "https://x",
 			headers: { k: "v", j: "w" },
-		} as any;
+		};
 		const b = {
-			scope: "user",
-			type: "http",
+			scope: "user" as const,
+			type: "http" as const,
 			url: "https://x",
 			headers: { j: "w", k: "v" },
-		} as any;
+		};
 		expect(hashMcpConfig(a)).toBe(hashMcpConfig(b));
 	});
 
 	it("different url → different hash", () => {
-		const a = {
-			scope: "user",
-			type: "http",
-			url: "https://x",
-			headers: {},
-		} as any;
-		const c = {
-			scope: "user",
-			type: "http",
-			url: "https://y",
-			headers: {},
-		} as any;
+		const a = { scope: "user" as const, ...httpConfig("https://x") };
+		const c = { scope: "user" as const, ...httpConfig("https://y") };
 		expect(hashMcpConfig(a)).not.toBe(hashMcpConfig(c));
 	});
 });

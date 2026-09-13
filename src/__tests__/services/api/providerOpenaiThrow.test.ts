@@ -67,13 +67,13 @@ describe("P0-4 openai provider 显式 throw (audit R6)", () => {
 		).rejects.toThrow(/OpenAI 直连/);
 	});
 
-	it("getAnthropicClient: 抛错文案引导 fusion-gateway", async () => {
+	it("getAnthropicClient: 抛错文案引导 FUSION_BASE_URL 直连配置", async () => {
 		process.env.FUSION_CODE_USE_OPENAI = "1";
 		const { getAnthropicClient } = await import(
 			"../../../services/api/index.js"
 		);
 		await expect(
 			getAnthropicClient({ maxRetries: 1, model: "gpt-5.3-codex" }),
-		).rejects.toThrow(/fusion-gateway/);
+		).rejects.toThrow(/FUSION_BASE_URL/);
 	});
 });

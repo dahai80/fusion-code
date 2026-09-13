@@ -15,8 +15,6 @@ import {
 	DEFAULT_SOURCE_DIR,
 	exportTrajectories,
 	readManifest,
-} from "../../services/trajectory/index.js";
-import {
 	runTrainerCli,
 	type TrainerFormat,
 } from "../../services/trajectory/index.js";
@@ -111,7 +109,7 @@ export async function trajectoryMain(args: string[]): Promise<void> {
 			flags.format !== "grpo"
 		) {
 			console.error(
-				"Error: format must be one of sft|dpo|grpo, got " + flags.format,
+				`Error: format must be one of sft|dpo|grpo, got ${flags.format}`,
 			);
 			process.exitCode = 1;
 			return;
@@ -147,7 +145,7 @@ export async function trajectoryMain(args: string[]): Promise<void> {
 			flags.format !== "grpo"
 		) {
 			console.error(
-				"Error: format must be one of sft|dpo|grpo, got " + flags.format,
+				`Error: format must be one of sft|dpo|grpo, got ${flags.format}`,
 			);
 			process.exitCode = 1;
 			return;
@@ -175,9 +173,7 @@ export async function trajectoryMain(args: string[]): Promise<void> {
 			outputDir: flags.outputDir || undefined,
 		});
 		if (trainerResult.exitCode !== 0) {
-			console.error(
-				"Error: fusion-trainer exited " + trainerResult.exitCode,
-			);
+			console.error(`Error: fusion-trainer exited ${trainerResult.exitCode}`);
 			process.exitCode = trainerResult.exitCode;
 		}
 		return;
@@ -186,7 +182,7 @@ export async function trajectoryMain(args: string[]): Promise<void> {
 	if (sub === "manifest") {
 		const manifest = await readManifest(flags.dest);
 		if (!manifest) {
-			console.log("No manifest at " + flags.dest + ". Run `collect` first.");
+			console.log(`No manifest at ${flags.dest}. Run \`collect\` first.`);
 			return;
 		}
 		console.log(JSON.stringify(manifest.totals, null, 2));
@@ -210,11 +206,11 @@ export async function trajectoryMain(args: string[]): Promise<void> {
 	if (sub === "list") {
 		const manifest = await readManifest(flags.dest);
 		if (!manifest) {
-			console.log("No manifest at " + flags.dest + ". Run `collect` first.");
+			console.log(`No manifest at ${flags.dest}. Run \`collect\` first.`);
 			return;
 		}
 		for (const s of manifest.sessions) {
-			console.log(s.sessionId + "  " + s.label + "  " + s.stepCount + " steps");
+			console.log(`${s.sessionId}  ${s.label}  ${s.stepCount} steps`);
 		}
 		return;
 	}

@@ -816,21 +816,21 @@ type ToolDefaults = typeof TOOL_DEFAULTS;
 // constraint provides contextual typing for method parameters; `any` in
 // constraint position is structural and never leaks into the return type.
 // BuiltTool<D> mirrors runtime `{...TOOL_DEFAULTS, ...def}` at the type level.
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
+// (Biome lint: any here is intentional — z.infer<any> keeps downstream tool
+// definitions' inferred Input/Output types intact.)
+// biome-ignore lint/suspicious/noExplicitAny: structural constraint, see above
 type AnyToolDef = ToolDef<any, any, any>;
 
 export function buildTool<D extends AnyToolDef>(def: D): BuiltTool<D> {
+	// Local alias so the truthiness check narrows inside the closure — no `!`.
+	const execute = def.execute;
+	// execute→call adapter: parameter list derived from the def's own execute
+	// signature (Parameters<>) instead of `any` — dispatch just forwards.
 	const call =
 		def.call ??
-		(def.execute
-			? // log: map execute→call so runtime dispatch (tool.call) works
-				(
-					args: any,
-					ctx: any,
-					canUseTool: any,
-					parentMessage: any,
-					onProgress?: any,
-				) => def.execute!(args, ctx, canUseTool, parentMessage, onProgress)
+		(execute
+			? (...params: Parameters<NonNullable<typeof execute>>) =>
+					execute(...params)
 			: undefined);
 	return {
 		...TOOL_DEFAULTS,

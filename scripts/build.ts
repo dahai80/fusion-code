@@ -1,5 +1,5 @@
-import { chmodSync, existsSync, mkdirSync } from "fs";
-import { dirname } from "path";
+import { chmodSync, existsSync, mkdirSync } from "node:fs";
+import { dirname } from "node:path";
 
 const pkg = (await Bun.file(
 	new URL("../package.json", import.meta.url),
@@ -170,7 +170,8 @@ for (let i = 0; i < args.length; i += 1) {
 		continue;
 	}
 	if (arg === "--feature" && args[i + 1]) {
-		featureSet.add(args[i + 1]!);
+		const feature = args[i + 1];
+		if (feature) featureSet.add(feature);
 		i += 1;
 		continue;
 	}

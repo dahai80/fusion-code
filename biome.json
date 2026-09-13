@@ -16,7 +16,23 @@
 		"enabled": true,
 		"rules": {
 			"preset": "recommended"
-		}
+		},
+		"overrides": [
+			{
+				"includes": ["src/ink/**", "src/buddy/**", "src/context/**", "src/cli/handlers/util.tsx"],
+				"linter": {
+					"rules": {
+						"suspicious": {
+							"noImplicitAnyLet": "off",
+							"noAssignInExpressions": "off"
+						},
+						"correctness": {
+							"useExhaustiveDependencies": "off"
+						}
+					}
+				}
+			}
+		]
 	},
 	"javascript": {
 		"formatter": {
