@@ -59,6 +59,7 @@ export type APIProvider =
 - **模型名嗅探已删除**：`FUSION_MODEL` 是 `mlx-community/...` 之类名字不会触发任何路由——配置了 `FUSION_API_KEY` 就直连 `FUSION_BASE_URL`（此前模型名嗅探会劫持已配 key 的会话走本地 adapter 并用错误的凭证体系鉴权 → 401）。
 - **API key 优先于一切推断**：`FUSION_BASE_URL` + `FUSION_API_KEY` (+ `FUSION_MODEL`) 是唯一规范配置。
 - **显式 opt-in 优先于 baseUrl 推断**：`FUSION_MLX_ENABLED=1` 是明确意图，不被 `FUSION_BASE_URL` 残留压过。
+- **冲突组合行为**（显式 opt-in 本地 + 已配置云端 key）：key 优先级最高，此组合按第 4 条路由 firstParty——若确需本地推理，清空 `FUSION_API_KEY`/`ANTHROPIC_API_KEY` 或用 `FUSION_MLX_DISABLED=1` 之外的显式信号表达意图。反向组合（显式 opt-in 本地成立且无 key）时，本地 endpoint 会收到当前鉴权链解析出的凭证（`FUSION_API_KEY`/`FUSION_AUTH_TOKEN` 优先，历史专用 key 回退）；本地服务若不校验 key 则该凭证被忽略，若校验需与 `~/.fusion-mlx/settings.json` 或 gateway `config.yaml` 的 `auth.api_keys` 匹配。
 - 鉴权统一：`FUSION_API_KEY` / `FUSION_AUTH_TOKEN` 对任何 endpoint 生效（含本地推理）；历史专用 key 仅作兼容回退。
 - `FUSION_MLX_DISABLED=1` 是总开关，显式跳过本地路径走云端。
 - bedrock / vertex 在当前 fork 中已禁用（源码中对应分支为 `if (false)`），保留类型定义供未来恢复。

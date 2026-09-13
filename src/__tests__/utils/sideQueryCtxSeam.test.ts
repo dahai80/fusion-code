@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, test } from "bun:test";
+import { describe, expect, test } from "bun:test";
 
 // audit 1.1.2: prove the sideQuery → ctx.llm wiring is byte-identical for the
 // migrated cloud path and that the fusionMlx provider stays on the old path
@@ -10,35 +10,12 @@ const { createCtx } = await import("../../services/llm/index.js");
 const { modelSupportsStructuredOutputs } = await import("../../utils/betas.js");
 const { getAPIProvider } = await import("../../utils/model/providers.js");
 
-const ENV_KEYS = [
-	"FUSION_GATEWAY_ENABLED",
-	"FUSION_MLX_ENABLED",
-	"FUSION_MLX_DISABLED",
-	"FUSION_CODE_USE_BEDROCK",
-	"FUSION_CODE_USE_VERTEX",
-	"FUSION_CODE_USE_FOUNDRY",
-	"FUSION_CODE_USE_OPENAI",
-	"FUSION_API_KEY",
-	"ANTHROPIC_API_KEY",
-	"FUSION_CODE_CTX_EXEC_ENABLED",
-];
-const saved: Record<string, string | undefined> = {};
+// 审计 v3-0913 P2-3: harness 统一抽到 helpers/providerEnv.ts (补齐
+// baseUrl/model 路由 key 的隔离, 此前裸 delete 的 key 不会被还原)。
+const { installProviderEnvIsolation } = await import("../helpers/providerEnv.js");
 
-beforeEach(() => {
-	for (const k of ENV_KEYS) {
-		saved[k] = process.env[k];
-		delete process.env[k];
-	}
-	// firstParty selected by getAPIProvider when FUSION_API_KEY is a sk-ant- key.
-	process.env.FUSION_API_KEY = "sk-ant-test";
-});
-
-afterEach(() => {
-	for (const k of ENV_KEYS) {
-		if (saved[k] === undefined) delete process.env[k];
-		else process.env[k] = saved[k];
-	}
-});
+// firstParty selected by getAPIProvider when FUSION_API_KEY is a sk-ant- key.
+installProviderEnvIsolation({ FUSION_API_KEY: "sk-ant-test" });
 
 describe("sideQuery ctx.llm wiring (audit 1.1.2)", () => {
 	test("firstParty: ctx-driven answer == no-ctx (old) answer — byte-identical", async () => {

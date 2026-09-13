@@ -447,7 +447,19 @@ type CompactSummaryRetryOptions = {
 	// Debug-log prefix distinguishing full vs partial compact ("[Compact]" / "[Partial Compact]")
 	logPrefix: string;
 	// Caller-owned failure event (the two paths log different event names/fields)
-	logFailed: (ptlAttempts: number) => void;
+	logFailed: (
+		ptlAttempts: number,
+		// 审计 v3-0913 P2-2: 失败事件也带实际发送轮次 (含 PTL 截断)
+		finalMessageCount: number,
+		// 审计 v3 P3: 真实失败原因 (prompt_too_long/mlx_memory/mlx_server_error/
+		// context_window_exceeded) — 此前 caller 硬编码 prompt_too_long, 与
+		// throw 文案的分支判定不一致
+		failReason:
+			| "prompt_too_long"
+			| "mlx_memory"
+			| "mlx_server_error"
+			| "context_window_exceeded",
+	) => void;
 	// Extra fields appended to tengu_compact_ptl_retry (e.g. path: "partial")
 	retryLogExtra?: TruncateRetryLogExtra;
 	// 测试缝 (DI): 默认生产实现; 断言用例注入受控 stub 模拟 PTL 重试轮次。
@@ -554,24 +566,27 @@ export async function runCompactSummaryWithTruncateRetry(opts: CompactSummaryRet
 		// oldest API-round groups and retry rather than leaving the user stuck.
 		ptlAttempts++;
 		// item 16 (CC 2.1.228): emit 用户可见重试进度 (复用已算的判定, 不重判)
-		context.onCompactProgress?.({
-			type: "compact_retry",
-			attempt: ptlAttempts,
-			maxRetries: MAX_PTL_RETRIES,
-			reason: isEmptyMlxOom
+		// 审计 v3 P3: 提取为局部变量, logFailed 复用同一判定 (此前 caller 硬编码)
+		const retryReason: "prompt_too_long" | "mlx_memory" | "mlx_server_error" | "context_window_exceeded" =
+			isEmptyMlxOom
 				? "mlx_memory"
 				: isMlxServerError
 					? "mlx_server_error"
 					: isContextWindowOverflow
 						? "context_window_exceeded"
-						: "prompt_too_long",
+						: "prompt_too_long";
+		context.onCompactProgress?.({
+			type: "compact_retry",
+			attempt: ptlAttempts,
+			maxRetries: MAX_PTL_RETRIES,
+			reason: retryReason,
 		});
 		const truncated =
 			ptlAttempts <= MAX_PTL_RETRIES
 				? truncateHeadForPTLRetry(currentMessages, summaryResponse)
 				: null;
 		if (!truncated) {
-			logFailed(ptlAttempts);
+			logFailed(ptlAttempts, currentMessages.length, retryReason);
 			throw new Error(
 				isEmptyMlxOom || isMlxServerError
 					? ERROR_MESSAGE_MLX_MEMORY_LIMIT
@@ -1009,13 +1024,14 @@ export async function compactConversation(
 				preCompactTokenCount,
 				cacheSafeParams: retryCacheSafeParams,
 				logPrefix: "[Compact]",
-				logFailed: (ptlAttempts) => {
+				logFailed: (ptlAttempts, finalMessageCount, failReason) => {
 					logEvent("tengu_compact_failed", {
 						reason:
-							"prompt_too_long" as AnalyticsMetadata_I_VERIFIED_THIS_IS_NOT_CODE_OR_FILEPATHS,
+							failReason as AnalyticsMetadata_I_VERIFIED_THIS_IS_NOT_CODE_OR_FILEPATHS,
 						preCompactTokenCount,
 						promptCacheSharingEnabled,
 						ptlAttempts,
+						messagesSummarized: finalMessageCount,
 					});
 				},
 			});
@@ -1430,7 +1446,8 @@ export async function partialCompactConversation(
 			preCompactTokenCount,
 			direction:
 				direction as AnalyticsMetadata_I_VERIFIED_THIS_IS_NOT_CODE_OR_FILEPATHS,
-			messagesSummarized: messagesToSummarize.length,
+			// 审计 v3-0913 P2-2: messagesSummarized 不在此处定值 — 实际发送轮次
+			// 受 preflight 截断与 PTL 重试影响, 由各消费点用 finalMessageCount 补充
 		};
 
 		// 'up_to' prefix hits cache directly; 'from' sends all (tail wouldn't cache).
@@ -1472,11 +1489,12 @@ export async function partialCompactConversation(
 				preCompactTokenCount,
 				cacheSafeParams: retryCacheSafeParams,
 				logPrefix: "[Partial Compact]",
-				logFailed: (ptlAttempts) => {
+				logFailed: (ptlAttempts, finalMessageCount, failReason) => {
 					logEvent("tengu_partial_compact_failed", {
 						reason:
-							"prompt_too_long" as AnalyticsMetadata_I_VERIFIED_THIS_IS_NOT_CODE_OR_FILEPATHS,
+							failReason as AnalyticsMetadata_I_VERIFIED_THIS_IS_NOT_CODE_OR_FILEPATHS,
 						...failureMetadata,
+						messagesSummarized: finalMessageCount,
 						ptlAttempts,
 					});
 				},
@@ -1493,6 +1511,7 @@ export async function partialCompactConversation(
 				reason:
 					"no_summary" as AnalyticsMetadata_I_VERIFIED_THIS_IS_NOT_CODE_OR_FILEPATHS,
 				...failureMetadata,
+				messagesSummarized: finalMessageCount,
 			});
 			throw new Error(
 				"Failed to generate conversation summary - response did not contain valid text content",
@@ -1502,6 +1521,7 @@ export async function partialCompactConversation(
 				reason:
 					"api_error" as AnalyticsMetadata_I_VERIFIED_THIS_IS_NOT_CODE_OR_FILEPATHS,
 				...failureMetadata,
+				messagesSummarized: finalMessageCount,
 			});
 			throw new Error(summary);
 		}
