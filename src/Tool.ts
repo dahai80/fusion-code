@@ -2,7 +2,7 @@ import type {
 	ElicitRequestURLParams,
 	ElicitResult,
 } from "@modelcontextprotocol/sdk/types.js";
-import type { UUID } from "crypto";
+import type { UUID } from "node:crypto";
 import type {
 	ToolResultBlockParam,
 	ToolUseBlockParam,

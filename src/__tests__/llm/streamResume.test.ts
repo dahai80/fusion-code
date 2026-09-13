@@ -12,6 +12,7 @@ import {
 	isStreamResumeEnabled,
 	maxAttempts,
 	mergeResumedStream,
+	resolveResumeRefs,
 	resumeStreamFetch,
 	teeCursor,
 } from "../../services/llm/index.js";
@@ -803,6 +804,42 @@ describe("ResumeRefs WeakMap", () => {
 
 	test("get on unattached -> undefined", () => {
 		expect(getResumeRefs(new Response(null))).toBeUndefined();
+	});
+});
+
+// ─── resolveResumeRefs (P1-2 audit v2-0912) ──────────────────
+
+describe("resolveResumeRefs", () => {
+	const survivor = {
+		cursorRef: { current: "s:1" },
+		stateRef: { current: undefined },
+		sid: "s",
+		baseUrl: "http://x",
+		authHeaders: {},
+	};
+
+	test("no live response -> survivor", () => {
+		expect(resolveResumeRefs(undefined, survivor)).toBe(survivor);
+	});
+
+	test("no live response, no survivor -> undefined", () => {
+		expect(resolveResumeRefs(undefined, undefined)).toBeUndefined();
+	});
+
+	test("live response with refs -> live refs (priority)", () => {
+		const live = new Response(null);
+		const liveRefs = { ...survivor, sid: "live" };
+		attachResumeRefs(live, liveRefs);
+		expect(resolveResumeRefs(live, survivor)).toBe(liveRefs);
+	});
+
+	test("live response WITHOUT refs falls back to survivor (P1-2: live priority must not become live-exclusive)", () => {
+		const bare = new Response(null);
+		expect(resolveResumeRefs(bare, survivor)).toBe(survivor);
+	});
+
+	test("live response without refs, no survivor -> undefined", () => {
+		expect(resolveResumeRefs(new Response(null), undefined)).toBeUndefined();
 	});
 });
 

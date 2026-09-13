@@ -306,11 +306,14 @@ export function shouldDeferIdleAbortToResume(
 // resume try-block 跳过 (bug 未修)。survivor = watchdog 触发时在 release 前捕获的
 // refs 对象本身 (小独立分配, resume 本就需其 stateRef 做 seedState)。live Response
 // 在场时优先 (race 安全: 第二次 drop 时 streamResponse 已重赋 resumed Response)。
+// P1-2 (audit v2-0912): "live 优先" 不能写成 "live 独占" — live 在场但 WeakMap
+// 查不到 refs (未挂载/已 GC) 时必须回落 survivor, 否则 resume 静默失效 → 整轮
+// 重放, 正是 P0-3/P1-23 两条修复要消灭的失败模式。
 export function resolveResumeRefs(
 	response: Response | undefined,
 	survivor: ResumeRefs | undefined,
 ): ResumeRefs | undefined {
-	if (response) return getResumeRefs(response);
+	if (response) return getResumeRefs(response) ?? survivor;
 	return survivor;
 }
 

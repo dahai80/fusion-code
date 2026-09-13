@@ -1838,40 +1838,43 @@ async function streamCompactSummary({
 		);
 		const maxAttempts = retryEnabled ? MAX_COMPACT_STREAMING_RETRIES : 1;
 
+		// Loop invariants (audit v2-0912 P2): tool list + tool-search decision
+		// don't change across streaming retries — hoisted out of the retry loop
+		// so attempt 2+ don't redo the (awaited) isToolSearchEnabled probe.
+		// Check if tool search is enabled using the main loop's tools list.
+		// context.options.tools includes MCP tools merged via useMergedTools.
+		const useToolSearch = await isToolSearchEnabled(
+			context.options.mainLoopModel,
+			context.options.tools,
+			async () => appState.toolPermissionContext,
+			context.options.agentDefinitions.activeAgents,
+			"compact",
+		);
+
+		// When tool search is enabled, include ToolSearchTool and MCP tools. They get
+		// defer_loading: true and don't count against context - the API filters them out
+		// of system_prompt_tools before token counting (see api/token_count_api/counting.py:188
+		// and api/public_api/messages/handler.py:324).
+		// Filter MCP tools from context.options.tools (not appState.mcp.tools) so we
+		// get the permission-filtered set from useMergedTools — same source used for
+		// isToolSearchEnabled above and normalizeMessagesForAPI below.
+		// Deduplicate by name to avoid API errors when MCP tools share names with built-in tools.
+		const tools: Tool[] = useToolSearch
+			? uniqBy(
+					[
+						FileReadTool,
+						ToolSearchTool,
+						...context.options.tools.filter((t) => t.isMcp),
+					],
+					"name",
+				)
+			: [FileReadTool];
+
 		for (let attempt = 1; attempt <= maxAttempts; attempt++) {
 			// Reset state for retry
 			let hasStartedStreaming = false;
 			let response: AssistantMessage | undefined;
 			context.setResponseLength?.(() => 0);
-
-			// Check if tool search is enabled using the main loop's tools list.
-			// context.options.tools includes MCP tools merged via useMergedTools.
-			const useToolSearch = await isToolSearchEnabled(
-				context.options.mainLoopModel,
-				context.options.tools,
-				async () => appState.toolPermissionContext,
-				context.options.agentDefinitions.activeAgents,
-				"compact",
-			);
-
-			// When tool search is enabled, include ToolSearchTool and MCP tools. They get
-			// defer_loading: true and don't count against context - the API filters them out
-			// of system_prompt_tools before token counting (see api/token_count_api/counting.py:188
-			// and api/public_api/messages/handler.py:324).
-			// Filter MCP tools from context.options.tools (not appState.mcp.tools) so we
-			// get the permission-filtered set from useMergedTools — same source used for
-			// isToolSearchEnabled above and normalizeMessagesForAPI below.
-			// Deduplicate by name to avoid API errors when MCP tools share names with built-in tools.
-			const tools: Tool[] = useToolSearch
-				? uniqBy(
-						[
-							FileReadTool,
-							ToolSearchTool,
-							...context.options.tools.filter((t) => t.isMcp),
-						],
-						"name",
-					)
-				: [FileReadTool];
 
 			// 复用函数入口算的 compactOutputCap: 压缩输出避免 400
 			// (undefined = 不超窗口, 用原固定值, byte-identical)。
@@ -2164,6 +2167,7 @@ export function createPreservedInstructionsAttachment(
 				source: "append_system_prompt",
 				content: appendSystemPrompt,
 			});
+			usedTokens += tokens;
 		} else {
 			const truncated = truncateToTokens(
 				appendSystemPrompt,
@@ -2173,6 +2177,7 @@ export function createPreservedInstructionsAttachment(
 				source: "append_system_prompt",
 				content: truncated,
 			});
+			usedTokens += roughTokenCountEstimation(truncated);
 		}
 	}
 
@@ -2321,10 +2326,19 @@ const SKILL_TRUNCATION_MARKER =
  * can Read the full file if needed.
  */
 function truncateToTokens(content: string, maxTokens: number): string {
+	// Budget exhausted (maxTokens <= 0): return the bare marker. Without this
+	// guard, charBudget goes negative and slice(0, negative) keeps the TAIL of
+	// the content — output ends up longer than the input (truncation silently
+	// inverted), re-inflating context right after compaction.
+	if (maxTokens <= 0) {
+		return SKILL_TRUNCATION_MARKER;
+	}
 	if (roughTokenCountEstimation(content) <= maxTokens) {
 		return content;
 	}
-	const charBudget = maxTokens * 4 - SKILL_TRUNCATION_MARKER.length;
+	// Math.max guards tiny positive budgets where the marker alone exceeds
+	// maxTokens*4 (charBudget would still go negative).
+	const charBudget = Math.max(0, maxTokens * 4 - SKILL_TRUNCATION_MARKER.length);
 	return content.slice(0, charBudget) + SKILL_TRUNCATION_MARKER;
 }
 
