@@ -117,16 +117,24 @@ describe("sideQuery ctx.llm wiring (audit 1.1.2)", () => {
 		// from the ctx migration, so the call site passes undefined and the old
 		// provider-if fallback runs. MLX qwen3 (capability would say true) must
 		// still return false via the old path — the deferred divergence.
+		// 新契约 (endpoint 统一): MLX 路由需显式 opt-in — 模型名嗅探已删除。
 		delete process.env.FUSION_API_KEY;
 		delete process.env.ANTHROPIC_API_KEY;
-		const mlxModel = "mlx-community/qwen3-8b-instruct";
-		expect(getAPIProvider(mlxModel)).toBe("fusionMlx");
-		// sideQuery passes ctx=undefined for MLX:
-		const viaOld = modelSupportsStructuredOutputs(mlxModel, undefined);
-		expect(viaOld).toBe(false);
-		// (For reference: a ctx WOULD diverge — capability reads qwen3 keyword.)
-		const ctx = await createCtx(mlxModel, "/tmp", "sess-mlx-ref");
-		expect(modelSupportsStructuredOutputs(mlxModel, ctx)).toBe(true);
+		delete process.env.FUSION_BASE_URL;
+		delete process.env.ANTHROPIC_BASE_URL;
+		process.env.FUSION_MLX_ENABLED = "1";
+		try {
+			const mlxModel = "mlx-community/qwen3-8b-instruct";
+			expect(getAPIProvider(mlxModel)).toBe("fusionMlx");
+			// sideQuery passes ctx=undefined for MLX:
+			const viaOld = modelSupportsStructuredOutputs(mlxModel, undefined);
+			expect(viaOld).toBe(false);
+			// (For reference: a ctx WOULD diverge — capability reads qwen3 keyword.)
+			const ctx = await createCtx(mlxModel, "/tmp", "sess-mlx-ref");
+			expect(modelSupportsStructuredOutputs(mlxModel, ctx)).toBe(true);
+		} finally {
+			delete process.env.FUSION_MLX_ENABLED;
+		}
 	});
 
 	test("seam guard: mismatched ctx.llm.modelId falls back to old path", async () => {

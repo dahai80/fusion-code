@@ -99,15 +99,12 @@ export async function getAnthropicClient({
 		defaultHeaders["x-anthropic-additional-protection"] = "true";
 	}
 
-	// ── Fusion-MLX (local) provider — skip all cloud auth ──
+	// ── Fusion-MLX (local) provider — 显式 opt-in 的本地 endpoint ──
+	// 收敛语义 (endpoint 统一): 本地推理服务只是一种 Anthropic 兼容 endpoint,
+	// 到达此分支的唯一途径是用户显式 opt-in (FUSION_MLX_ENABLED /
+	// FUSION_GATEWAY_ENABLED / FUSION_MLX_BASE_URL / FUSION_GATEWAY_URL),
+	// 不再存在启动自动探测 (已删) 或模型名嗅探 (已删) 的隐式进入路径。
 	if (isFusionMlxProvider(model)) {
-		// 等待启动时的 fire-and-forget MLX 检测完成
-		const mlxReady = (globalThis as any).__fusionMlxReady as
-			| Promise<boolean>
-			| undefined;
-		if (mlxReady) {
-			await mlxReady;
-		}
 		const {
 			checkFusionMlxHealth,
 			getRecommendedCodeModel,
@@ -116,8 +113,10 @@ export async function getAnthropicClient({
 		const status = await checkFusionMlxHealth();
 		if (!status.available) {
 			throw new Error(
-				"Fusion-MLX service unavailable. Ensure gateway is running (default: http://127.0.0.1:11432)\n" +
-					"Set FUSION_GATEWAY_URL to override or FUSION_MLX_DISABLED=1 to disable.",
+				"Local inference service unavailable (default: http://127.0.0.1:11432)\n" +
+					"Set FUSION_MLX_BASE_URL / FUSION_GATEWAY_URL to override, or unset\n" +
+					"FUSION_MLX_ENABLED and use FUSION_BASE_URL + FUSION_API_KEY to connect\n" +
+					"to a cloud endpoint instead.",
 			);
 		}
 

@@ -180,12 +180,32 @@ describe("GatewayCapabilityProvider", () => {
 });
 
 describe("createLlmCapability factory", () => {
-	test("MLX model name → MlxCapabilityProvider", async () => {
-		// isMlxModelName: startsWith mlx-community / mlx- / includes mlx/
-		// 3b → small → toolCalling false (real heuristic, MLX down in test).
-		const cap = await createLlmCapability("mlx-community/qwen2.5-3b");
-		expect(cap.provider).toBe("fusionMlx");
-		expect(cap.supportsToolCalling()).toBe(false);
+	test("MLX model name does NOT hijack routing (key wins, no name sniffing)", async () => {
+		// 401 根因修复: 模型名嗅探已删除。mlx-* 名字 + FUSION_API_KEY →
+		// firstParty 直连, 不再强制走本地 MLX adapter。
+		process.env.FUSION_API_KEY = "sk-test";
+		try {
+			const cap = await createLlmCapability("mlx-community/qwen2.5-3b");
+			expect(cap.provider).toBe("firstParty");
+		} finally {
+			delete process.env.FUSION_API_KEY;
+		}
+	});
+
+	test("MLX model name with explicit MLX opt-in → MlxCapabilityProvider", async () => {
+		// 本地推理仅显式 opt-in (FUSION_MLX_ENABLED=1) 时走 fusionMlx。
+		// 显式清掉 key (前序测试可能泄漏), 保证 opt-in 是唯一路由依据。
+		delete process.env.FUSION_API_KEY;
+		delete process.env.ANTHROPIC_API_KEY;
+		process.env.FUSION_MLX_ENABLED = "1";
+		try {
+			// 3b → small → toolCalling false (real heuristic, MLX down in test).
+			const cap = await createLlmCapability("mlx-community/qwen2.5-3b");
+			expect(cap.provider).toBe("fusionMlx");
+			expect(cap.supportsToolCalling()).toBe(false);
+		} finally {
+			delete process.env.FUSION_MLX_ENABLED;
+		}
 	});
 
 	test("firstParty (FUSION_API_KEY set) → FirstPartyCapabilityProvider", async () => {

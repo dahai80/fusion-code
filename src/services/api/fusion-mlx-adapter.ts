@@ -345,10 +345,10 @@ function toMlxModelName(model: string): string {
 // _verify_api_key_values 在配置了 api_key 后校验 Authorization: Bearer / x-api-key,
 // 未配置时 anonymous allowed)。配置后不带凭据的请求会被 401 拒绝。
 //
-// 鉴权 key 分两层 (issue #52):
-//   - gateway 层 (默认 11432): 用 FUSION_GATEWAY_API_KEY / gateway config 的 api_keys
-//   - MLX 直连层 (11434): 用 FUSION_MLX_API_KEY / ~/.fusion-mlx/settings.json auth.api_key
-// 经 gateway 时若用 MLX key 会被 401 拒绝,故按 base URL 选对应层 key。
+// 鉴权收敛 (endpoint 统一语义): FUSION_API_KEY / FUSION_AUTH_TOKEN 是唯一
+// 规范凭证 — 无论 endpoint 是云端还是本地推理服务, 同一套配置。历史专用
+// key (FUSION_GATEWAY_API_KEY / FUSION_MLX_API_KEY / MLX_API_KEY / settings.json)
+// 保留为兼容回退, 但不再要求用户区分"哪一层用哪把 key"。
 //
 // 另: fusion-mlx route_guard (#343/#349) Phase 2 默认 enforce,缺失 X-Fusion-Route 头
 // 的请求被 403 拒绝。此处统一注入,值可经 FUSION_ROUTE_HEADER 覆盖。
@@ -357,7 +357,13 @@ function getMlxAuthHeaders(): Record<string, string> {
 		"X-Fusion-Route":
 			process.env.FUSION_ROUTE_HEADER || DEFAULT_FUSION_ROUTE_HEADER,
 	};
-	const apiKey = isGatewayBaseUrl() ? getGatewayApiKey() : getMlxApiKey();
+	// 规范凭证优先 (与 firstParty 同源); 专用 key 仅作历史配置兼容回退
+	const apiKey =
+		process.env.FUSION_API_KEY ||
+		process.env.FUSION_AUTH_TOKEN ||
+		process.env.ANTHROPIC_API_KEY ||
+		process.env.ANTHROPIC_AUTH_TOKEN ||
+		(isGatewayBaseUrl() ? getGatewayApiKey() : getMlxApiKey());
 	if (apiKey) {
 		headers.Authorization = `Bearer ${apiKey}`;
 	}
@@ -499,7 +505,7 @@ async function mlxFetchWithRetryInner(
 			const layer = isGatewayBaseUrl() ? "gateway" : "MLX";
 			const hint =
 				response.status === 401
-					? `鉴权失败 (${layer} 层)。请检查 ${layer === "gateway" ? "FUSION_GATEWAY_API_KEY 是否匹配 fusion-gateway config.yaml 的 auth.api_keys" : "FUSION_MLX_API_KEY 是否匹配 ~/.fusion-mlx/settings.json 的 auth.api_key"}`
+					? `鉴权失败 (${layer} 层)。请优先检查 FUSION_API_KEY / FUSION_AUTH_TOKEN 是否匹配该 endpoint 的鉴权配置；历史专用 key (FUSION_GATEWAY_API_KEY 匹配 fusion-gateway config.yaml 的 auth.api_keys / FUSION_MLX_API_KEY 匹配 ~/.fusion-mlx/settings.json 的 auth.api_key) 仍作为回退被读取`
 					: `route_guard 拒绝 (X-Fusion-Route 头缺失或值不被接受)。当前头: X-Fusion-Route=${process.env.FUSION_ROUTE_HEADER || DEFAULT_FUSION_ROUTE_HEADER}`;
 			// ERR-3 (0903 P3): auth/route failure must be observable in production.
 			// logForDebugging is gated by debug-mode (shouldLogDebugMessage returns

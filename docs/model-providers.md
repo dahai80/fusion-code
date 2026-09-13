@@ -37,31 +37,35 @@ export type APIProvider =
    ├─ FUSION_CODE_USE_OPENAI=1  -> openai
    └─ else                      -> firstParty
 
-2. 模型名为 MLX 模型 (mlx-* / mlx-community/*) -> fusionMlx
+2. FUSION_CODE_USE_FOUNDRY=1 -> foundry
+3. FUSION_CODE_USE_OPENAI=1  -> openai
 
-3. FUSION_CODE_USE_FOUNDRY=1 -> foundry
-4. FUSION_CODE_USE_OPENAI=1  -> openai
+4. FUSION_API_KEY 已设置        -> firstParty (永远直连, 最高优先)
+   ANTHROPIC_API_KEY 为 sk-ant- -> firstParty
 
-5. FUSION_API_KEY 已设置          -> firstParty
-   ANTHROPIC_API_KEY 为 sk-ant-   -> firstParty
-   FUSION_BASE_URL 指向非 Anthropic host -> firstParty (第三方代理直连)
+5. 显式 opt-in 本地推理 (优先于 baseUrl 推断):
+   FUSION_GATEWAY_ENABLED=1 / FUSION_MLX_ENABLED=1
+   或 FUSION_MLX_BASE_URL / FUSION_GATEWAY_URL 已设置
+   -> fusionMlx
 
-6. FUSION_GATEWAY_ENABLED=1 / FUSION_MLX_ENABLED=1 (显式 opt-in) -> fusionMlx
+6. FUSION_BASE_URL 指向非 Anthropic host -> firstParty (第三方代理推断)
 
 7. else -> firstParty (无隐式本地 fallback)
 ```
 
-关键设计：
+关键设计（endpoint 统一语义）：
 
-- `FUSION_MLX_DISABLED=1` 是总开关，显式跳过本地路径走云端
-- **API key 优先于 MLX/gateway 环境变量**：配置 `FUSION_BASE_URL` + `FUSION_API_KEY` 永远直连，不会被本地推理劫持
-- `FUSION_MLX_ENABLED=1` / `FUSION_GATEWAY_ENABLED=1` 均为显式 opt-in，代码不会自动写入
-- 无 key 无 baseUrl → `firstParty` + 明确鉴权错误（不再静默落本地 MLX）
-- bedrock / vertex 在当前 fork 中已禁用（源码中对应分支为 `if (false)`），保留类型定义供未来恢复
+- **客户端不猜测 LLM 跑在哪里**：本地/云端是部署事实，不是客户端语义。协议兼容即直连。
+- **模型名嗅探已删除**：`FUSION_MODEL` 是 `mlx-community/...` 之类名字不会触发任何路由——配置了 `FUSION_API_KEY` 就直连 `FUSION_BASE_URL`（此前模型名嗅探会劫持已配 key 的会话走本地 adapter 并用错误的凭证体系鉴权 → 401）。
+- **API key 优先于一切推断**：`FUSION_BASE_URL` + `FUSION_API_KEY` (+ `FUSION_MODEL`) 是唯一规范配置。
+- **显式 opt-in 优先于 baseUrl 推断**：`FUSION_MLX_ENABLED=1` 是明确意图，不被 `FUSION_BASE_URL` 残留压过。
+- 鉴权统一：`FUSION_API_KEY` / `FUSION_AUTH_TOKEN` 对任何 endpoint 生效（含本地推理）；历史专用 key 仅作兼容回退。
+- `FUSION_MLX_DISABLED=1` 是总开关，显式跳过本地路径走云端。
+- bedrock / vertex 在当前 fork 中已禁用（源码中对应分支为 `if (false)`），保留类型定义供未来恢复。
 
 ## shouldAutoUseFusionMlx()
 
-自动检测函数，判断是否应使用本地 MLX。**已收紧为 opt-in 语义**：
+诊断辅助函数（现仅 `doctorDiagnostic.ts` 消费，用于决定是否检查本地服务健康）：
 
 1. 已配置 `FUSION_API_KEY` / `ANTHROPIC_API_KEY` → 直接 false（key 优先，localhost baseUrl 也不劫持）
 2. `FUSION_GATEWAY_ENABLED=1` / `FUSION_MLX_ENABLED=1` 显式设置 → true
@@ -69,7 +73,7 @@ export type APIProvider =
 4. 无 key 且 baseUrl 指向 localhost → true
 5. 其余情况 → false
 
-> ⚠️ 启动时的 11432 端口自动探测与 `FUSION_GATEWAY_ENABLED` 自动写入已移除（audit 0913）：fusion-code 不再自动检测本地推理服务。要用本地 MLX，请显式设置 `FUSION_MLX_ENABLED=1`。
+> ⚠️ 启动时的 11432 端口自动探测与 `FUSION_GATEWAY_ENABLED` 自动写入已移除（audit 0913/0915）：fusion-code 不再自动检测本地推理服务，也不会因模型名含 `mlx-` 而切换路由。要用本地 MLX，请显式设置 `FUSION_MLX_ENABLED=1`（或 `FUSION_MLX_BASE_URL`）。
 
 配合 `getMlxModelCapabilities(modelId)` 检测能力：
    - tool calling 支持
