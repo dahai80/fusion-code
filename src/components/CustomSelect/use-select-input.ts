@@ -260,8 +260,8 @@ export const useSelectInput = <T>({
 				) {
 					const index = parseInt(normalizedInput, 10) - 1;
 					if (index >= 0 && index < state.options.length) {
-						const selectedOption = state.options[index]!;
-						if (selectedOption.disabled === true) {
+						const selectedOption = state.options[index];
+						if (!selectedOption || selectedOption.disabled === true) {
 							return;
 						}
 						if (selectedOption.type === "input") {

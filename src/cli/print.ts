@@ -436,7 +436,7 @@ function toBlocks(v: PromptValue): ContentBlockParam[] {
  * to blocks and concatenated.
  */
 export function joinPromptValues(values: PromptValue[]): PromptValue {
-	if (values.length === 1) return values[0]!;
+	if (values.length === 1) return values[0] ?? "";
 	if (values.every((v) => typeof v === "string")) {
 		return values.join("\n");
 	}
@@ -833,9 +833,10 @@ export async function runHeadless(
 		onPermissionPrompt,
 	);
 	if (options.permissionPromptToolName) {
+		const permToolName = options.permissionPromptToolName;
 		// Remove the permission prompt tool from the list of available tools.
 		filteredTools = filteredTools.filter(
-			(tool) => !toolMatchesName(tool, options.permissionPromptToolName!),
+			(tool) => !toolMatchesName(tool, permToolName),
 		);
 	}
 
@@ -1496,8 +1497,9 @@ function runHeadlessStreaming(
 			"name",
 		);
 		if (options.permissionPromptToolName) {
+			const permToolName = options.permissionPromptToolName;
 			allTools = allTools.filter(
-				(tool) => !toolMatchesName(tool, options.permissionPromptToolName!),
+				(tool) => !toolMatchesName(tool, permToolName),
 			);
 		}
 		const initJsonSchema = getInitJsonSchema();
@@ -1636,7 +1638,9 @@ function runHeadlessStreaming(
 			...sdkClients,
 			...dynamicMcpState.clients.filter((c) => !existingNames.has(c.name)),
 		].map((connection) => {
-			let config;
+			let config:
+				| import("src/entrypoints/sdk/controlTypes.js").McpServerStatusConfig
+				| undefined;
 			if (
 				connection.config.type === "sse" ||
 				connection.config.type === "http"
@@ -1645,7 +1649,6 @@ function runHeadlessStreaming(
 					type: connection.config.type,
 					url: connection.config.url,
 					headers: connection.config.headers,
-					oauth: connection.config.oauth,
 				};
 			} else if (connection.config.type === "claudeai-proxy") {
 				config = {
@@ -1945,7 +1948,10 @@ function runHeadlessStreaming(
 			// ask() call so messages that queued up during a long turn coalesce
 			// into a single follow-up turn instead of N separate turns.
 			const drainCommandQueue = async () => {
-				while ((command = dequeue(isMainThread))) {
+				while (true) {
+					const nextCommand = dequeue(isMainThread);
+					if (nextCommand === undefined) break;
+					command = nextCommand;
 					if (
 						command.mode !== "prompt" &&
 						command.mode !== "orphaned-permission" &&
@@ -1962,7 +1968,9 @@ function runHeadlessStreaming(
 					const batch: QueuedCommand[] = [command];
 					if (command.mode === "prompt") {
 						while (canBatchWith(command, peek(isMainThread))) {
-							batch.push(dequeue(isMainThread)!);
+							const follower = dequeue(isMainThread);
+							if (follower === undefined) break;
+							batch.push(follower);
 						}
 						if (batch.length > 1) {
 							command = {
@@ -2094,10 +2102,10 @@ function runHeadlessStreaming(
 								usage:
 									totalTokensMatch && toolUsesMatch
 										? {
-												total_tokens: parseInt(totalTokensMatch[1]!, 10),
-												tool_uses: parseInt(toolUsesMatch[1]!, 10),
+												total_tokens: parseInt(totalTokensMatch[1] ?? "0", 10),
+												tool_uses: parseInt(toolUsesMatch[1] ?? "0", 10),
 												duration_ms: durationMsMatch
-													? parseInt(durationMsMatch[1]!, 10)
+													? parseInt(durationMsMatch[1] ?? "0", 10)
 													: 0,
 											}
 										: undefined,
@@ -3013,7 +3021,9 @@ function runHeadlessStreaming(
 						sdkClient.type === "connected" &&
 						sdkClient.client?.transport?.onmessage
 					) {
-						sdkClient.client.transport.onmessage(mcpRequest.message as any);
+						sdkClient.client.transport.onmessage(
+							mcpRequest.message as import("@modelcontextprotocol/sdk/types.js").JSONRPCMessage,
+						);
 					}
 					sendControlResponseSuccess(message);
 				} else if (message.request.subtype === "rewind_files") {
@@ -3609,7 +3619,7 @@ function runHeadlessStreaming(
 							async (manualUrl, automaticUrl) => {
 								// automaticUrl is always defined when skipBrowserOpen is set;
 								// the signature is optional only for the existing single-arg callers.
-								urlResolver({ manualUrl, automaticUrl: automaticUrl! });
+								urlResolver({ manualUrl, automaticUrl: automaticUrl ?? manualUrl });
 							},
 							{
 								loginWithClaudeAi: loginWithClaudeAi ?? true,
@@ -4021,7 +4031,7 @@ function runHeadlessStreaming(
 								const { initReplBridge } = await import(
 									"src/bridge/initReplBridge.js"
 								);
-								const handle = await (initReplBridge as any)({
+								const handle = await initReplBridge({
 									onInboundMessage(msg) {
 										const fields = extractInboundMessageFields(msg);
 										if (!fields) return;
@@ -4038,7 +4048,9 @@ function runHeadlessStreaming(
 										// Forward bridge permission responses into the
 										// stdin processing loop so they resolve pending
 										// permission requests from the SDK consumer.
-										structuredIO.injectControlResponse(response as any);
+										structuredIO.injectControlResponse(
+											response as SDKControlResponse,
+										);
 									},
 									onInterrupt() {
 										abortController?.abort();
@@ -4147,12 +4159,12 @@ function runHeadlessStreaming(
 								stderr += d.toString();
 							});
 							const timer = setTimeout(() => {
-								proc.kill("SIGKILL");
-								resolve({ pid: proc.pid!, exitCode: null, stdout, stderr });
+							 proc.kill("SIGKILL");
+							 resolve({ pid: proc.pid ?? -1, exitCode: null, stdout, stderr });
 							}, timeoutMs);
 							proc.on("close", (code) => {
-								clearTimeout(timer);
-								resolve({ pid: proc.pid!, exitCode: code, stdout, stderr });
+							 clearTimeout(timer);
+							 resolve({ pid: proc.pid ?? -1, exitCode: code, stdout, stderr });
 							});
 							proc.on("error", (err) => {
 								clearTimeout(timer);
@@ -5066,7 +5078,8 @@ function handleChannelEnable(
 		});
 
 	if (!(feature("KAIROS") || feature("KAIROS_CHANNELS"))) {
-		return respondError("channels feature not available in this build");
+		respondError("channels feature not available in this build");
+		return;
 	}
 
 	// Only a 'connected' client has .capabilities and .client to register the
@@ -5075,7 +5088,8 @@ function handleChannelEnable(
 		(c) => c.name === serverName && c.type === "connected",
 	);
 	if (connection?.type !== "connected") {
-		return respondError(`server ${serverName} is not connected`);
+		respondError(`server ${serverName} is not connected`);
+		return;
 	}
 
 	const pluginSource = connection.config.pluginSource;
@@ -5084,9 +5098,10 @@ function handleChannelEnable(
 		// No pluginSource or @-less source — can never pass the {plugin,
 		// marketplace}-keyed allowlist. Short-circuit with the same reason the
 		// gate would produce.
-		return respondError(
+		respondError(
 			`server ${serverName} is not plugin-sourced; channel_enable requires a marketplace plugin`,
 		);
+		return;
 	}
 
 	const entry: ChannelEntry = {
@@ -5112,7 +5127,8 @@ function handleChannelEnable(
 	if (gate.action === "skip") {
 		// Rollback — only remove the entry we appended.
 		if (!already) setAllowedChannels(prior);
-		return respondError(gate.reason);
+		respondError(gate.reason);
+		return;
 	}
 
 	const pluginId =
@@ -5636,9 +5652,9 @@ function getStructuredIO(
  */
 export async function handleOrphanedPermissionResponse({
 	message,
-	setAppState,
 	onEnqueued,
 	handledToolUseIds,
+	setAppState: _setAppState,
 }: {
 	message: SDKControlResponse;
 	setAppState: (f: (prev: AppState) => AppState) => void;

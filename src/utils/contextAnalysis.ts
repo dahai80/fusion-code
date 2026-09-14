@@ -67,7 +67,7 @@ export function analyzeContext(messages: Message[]): TokenStats {
 					tokens;
 			}
 		} else {
-			content.forEach((block) =>
+			content.forEach((block) => {
 				processBlock(
 					block,
 					msg,
@@ -75,8 +75,8 @@ export function analyzeContext(messages: Message[]): TokenStats {
 					toolIdsToToolNames,
 					readToolIdToFilePath,
 					fileReadStats,
-				),
-			);
+				);
+			});
 		}
 	});
 

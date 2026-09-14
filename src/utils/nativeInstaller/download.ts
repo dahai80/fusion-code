@@ -405,7 +405,9 @@ export async function downloadVersionFromBinaryRepo(
 	logEvent("tengu_binary_download_attempt", {});
 
 	// Fetch manifest to get checksum
-	let manifest;
+	type PlatformManifest = { checksum: string };
+	type Manifest = { platforms: Record<string, PlatformManifest | undefined> };
+	let manifest: Manifest;
 	try {
 		const manifestResponse = await axios.get(
 			`${baseUrl}/${version}/manifest.json`,

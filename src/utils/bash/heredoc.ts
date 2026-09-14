@@ -274,7 +274,9 @@ export function extractHeredocs(
 		scanPos = target;
 	};
 
-	while ((match = heredocStartPattern.exec(command)) !== null) {
+	while (true) {
+		match = heredocStartPattern.exec(command);
+		if (match === null) break;
 		const startIndex = match.index;
 
 		// Advance the incremental scanner to this match's position. After this,

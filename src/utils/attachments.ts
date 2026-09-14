@@ -2789,8 +2789,10 @@ export function extractAtMentionedFiles(content: string): string[] {
 	const regularMatches: string[] = [];
 
 	// Extract quoted mentions first (skip agent mentions like @"code-reviewer (agent)")
-	let match;
-	while ((match = quotedAtMentionRegex.exec(content)) !== null) {
+	let match: RegExpExecArray | null;
+	while (true) {
+		match = quotedAtMentionRegex.exec(content);
+		if (match === null) break;
 		if (match[2] && !match[2].endsWith(" (agent)")) {
 			quotedMatches.push(match[2]); // The content inside quotes
 		}
@@ -2832,8 +2834,10 @@ export function extractAgentMentions(content: string): string[] {
 
 	// Match quoted format: @"<type> (agent)"
 	const quotedAgentRegex = /(^|\s)@"([\w:.@-]+) \(agent\)"/g;
-	let match;
-	while ((match = quotedAgentRegex.exec(content)) !== null) {
+	let match: RegExpExecArray | null;
+	while (true) {
+		match = quotedAgentRegex.exec(content);
+		if (match === null) break;
 		if (match[2]) {
 			results.push(match[2]);
 		}

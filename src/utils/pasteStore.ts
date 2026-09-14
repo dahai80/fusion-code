@@ -83,7 +83,7 @@ export async function retrievePastedText(hash: string): Promise<string | null> {
 export async function cleanupOldPastes(cutoffDate: Date): Promise<void> {
 	const pasteDir = getPasteStoreDir();
 
-	let files;
+	let files: string[];
 	try {
 		files = await readdir(pasteDir);
 	} catch {

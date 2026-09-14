@@ -74,9 +74,9 @@ export function parseRGB(colorStr: string): RGBColorType | null {
 	const match = colorStr.match(/rgb\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*\)/);
 	const result = match
 		? {
-				r: parseInt(match[1]!, 10),
-				g: parseInt(match[2]!, 10),
-				b: parseInt(match[3]!, 10),
+				r: parseInt(match[1] ?? "0", 10),
+				g: parseInt(match[2] ?? "0", 10),
+				b: parseInt(match[3] ?? "0", 10),
 			}
 		: null;
 	RGB_CACHE.set(colorStr, result);

@@ -14,7 +14,7 @@ export async function lastX<A>(as: AsyncGenerator<A>): Promise<A> {
 export async function returnValue<A>(
 	as: AsyncGenerator<unknown, A>,
 ): Promise<A> {
-	let e;
+	let e: IteratorResult<unknown, A>;
 	do {
 		e = await as.next();
 	} while (!e.done);

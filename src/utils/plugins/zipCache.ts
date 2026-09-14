@@ -282,7 +282,7 @@ async function collectFilesForZip(
 		const fullPath = join(currentDir, entry);
 		const relPath = relativePath ? `${relativePath}/${entry}` : entry;
 
-		let fileStat;
+		let fileStat: Awaited<ReturnType<typeof lstat>>;
 		try {
 			fileStat = await lstat(fullPath);
 		} catch {

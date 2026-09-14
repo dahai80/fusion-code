@@ -757,7 +757,7 @@ async function loadSkillsFromDirectory(
 	}
 
 	// Otherwise, scan for subdirectories containing SKILL.md files
-	let entries;
+	let entries: Awaited<ReturnType<typeof fs.readdir>>;
 	try {
 		entries = await fs.readdir(skillsPath);
 	} catch (e: unknown) {

@@ -565,7 +565,7 @@ export class TmuxBackend implements PaneBackend {
 		}
 		const isFirstTeammate = paneCount === 1;
 
-		let splitResult;
+		let splitResult: { stdout: string; stderr: string; code: number; error?: string };
 		if (isFirstTeammate) {
 			// First teammate: split horizontally from the leader pane
 			splitResult = await execFileNoThrow(TMUX_COMMAND, [

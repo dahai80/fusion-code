@@ -51,12 +51,14 @@ export function isRemoteManagedSettingsEligible(): boolean {
 
 	// 3p provider users should not hit the settings endpoint
 	if (getAPIProvider() !== "firstParty") {
-		return (cached = setEligibility(false));
+		cached = setEligibility(false);
+		return cached;
 	}
 
 	// Custom base URL users should not hit the settings endpoint
 	if (!isFirstPartyAnthropicBaseUrl()) {
-		return (cached = setEligibility(false));
+		cached = setEligibility(false);
+		return cached;
 	}
 
 	// Cowork runs in a VM with its own permission model; server-managed settings
@@ -64,7 +66,8 @@ export function isRemoteManagedSettingsEligible(): boolean {
 	// exist yet. MDM/file-based managed settings still apply via settings.ts —
 	// those require physical deployment and a different IT intent.
 	if (process.env.FUSION_CODE_ENTRYPOINT === "local-agent") {
-		return (cached = setEligibility(false));
+		cached = setEligibility(false);
+		return cached;
 	}
 
 	// Check OAuth first: most Claude.ai users have no API key in the keychain.
@@ -81,7 +84,8 @@ export function isRemoteManagedSettingsEligible(): boolean {
 	// settings.ts falls through to MDM/file when remote is empty, so ineligible
 	// orgs pay one round-trip and nothing else changes.
 	if (tokens?.accessToken && tokens.subscriptionType === null) {
-		return (cached = setEligibility(true));
+		cached = setEligibility(true);
+		return cached;
 	}
 
 	if (
@@ -90,7 +94,8 @@ export function isRemoteManagedSettingsEligible(): boolean {
 		(tokens.subscriptionType === "enterprise" ||
 			tokens.subscriptionType === "team")
 	) {
-		return (cached = setEligibility(true));
+		cached = setEligibility(true);
+		return cached;
 	}
 
 	// Console users (API key) are eligible if we can get the actual key
@@ -102,11 +107,13 @@ export function isRemoteManagedSettingsEligible(): boolean {
 			skipRetrievingKeyFromApiKeyHelper: true,
 		});
 		if (apiKey) {
-			return (cached = setEligibility(true));
+			cached = setEligibility(true);
+			return cached;
 		}
 	} catch {
 		// No API key available (e.g., CI/test environment)
 	}
 
-	return (cached = setEligibility(false));
+	cached = setEligibility(false);
+	return cached;
 }

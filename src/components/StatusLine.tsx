@@ -366,7 +366,6 @@ function StatusLineInner({
 			}
 		}
 		// eslint-disable-next-line react-hooks/exhaustive-deps
-		// biome-ignore lint/correctness/useExhaustiveDependencies: intentional
 	}, [addNotification, settings?.statusLine, settings.disableAllHooks]); // Only run once on mount - settings stable for initial logging
 
 	// Initial update on mount + cleanup on unmount
@@ -379,7 +378,6 @@ function StatusLineInner({
 			}
 		};
 		// eslint-disable-next-line react-hooks/exhaustive-deps
-		// biome-ignore lint/correctness/useExhaustiveDependencies: intentional
 	}, [doUpdate]); // Only run once on mount, not when doUpdate changes
 
 	// Get padding from settings or default to 0

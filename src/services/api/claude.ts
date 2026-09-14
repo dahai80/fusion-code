@@ -926,7 +926,7 @@ export async function* executeNonStreamingRequest(
 		},
 	);
 
-	let e;
+	let e: Awaited<ReturnType<typeof generator.next>>;
 	do {
 		e = await generator.next();
 		if (!e.done && e.value.type === "system") {
@@ -1862,7 +1862,7 @@ async function* queryModel(
 			},
 		);
 
-		let e;
+		let e: Awaited<ReturnType<typeof generator.next>>;
 		do {
 			e = await generator.next();
 

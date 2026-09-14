@@ -719,7 +719,10 @@ export function checkHasTrustDialogAccepted(): boolean {
 	// so once true we can latch it. false is not cached — it gets re-checked
 	// on every call so that trust dialog acceptance is picked up mid-session.
 	// (lodash memoize doesn't fit here because it would also cache false.)
-	return (_trustAccepted ||= computeTrustDialogAccepted());
+	if (!_trustAccepted) {
+		_trustAccepted = computeTrustDialogAccepted();
+	}
+	return _trustAccepted;
 }
 
 function computeTrustDialogAccepted(): boolean {
@@ -1178,7 +1181,7 @@ function saveConfigWithLock<A extends object>(
 	// Ensure directory exists (mkdirSync is already recursive in FsOperations)
 	fs.mkdirSync(dir);
 
-	let release;
+	let release: () => void;
 	try {
 		const lockFilePath = `${file}.lock`;
 		const startTime = Date.now();

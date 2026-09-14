@@ -265,8 +265,9 @@ export function checkDuplicateKeysInJson(
 	const bindingsBlockPattern =
 		/"bindings"\s*:\s*\{([^{}]*(?:\{[^{}]*\}[^{}]*)*)\}/g;
 
-	let blockMatch;
-	while ((blockMatch = bindingsBlockPattern.exec(jsonString)) !== null) {
+	let blockMatch: RegExpExecArray | null;
+	blockMatch = bindingsBlockPattern.exec(jsonString);
+	while (blockMatch !== null) {
 		const blockContent = blockMatch[1];
 		if (!blockContent) continue;
 
@@ -281,8 +282,9 @@ export function checkDuplicateKeysInJson(
 		const keyPattern = /"([^"]+)"\s*:/g;
 		const keysByName = new Map<string, number>();
 
-		let keyMatch;
-		while ((keyMatch = keyPattern.exec(blockContent)) !== null) {
+		let keyMatch: RegExpExecArray | null;
+		keyMatch = keyPattern.exec(blockContent);
+		while (keyMatch !== null) {
 			const key = keyMatch[1];
 			if (!key) continue;
 

@@ -94,7 +94,7 @@ export async function installIt2(
 
 	// Run from home directory to avoid reading project-level pip.conf/uv.toml
 	// which could be maliciously crafted to redirect to an attacker's PyPI server
-	let result;
+	let result: { stdout: string; stderr: string; code: number; error?: string };
 	switch (packageManager) {
 		case "uvx":
 			// uv tool install it2 installs it globally in isolated env

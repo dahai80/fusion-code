@@ -92,10 +92,13 @@ export function clearWebFetchCache(): void {
 type TurndownCtor = typeof import("turndown");
 let turndownServicePromise: Promise<InstanceType<TurndownCtor>> | undefined;
 function getTurndownService(): Promise<InstanceType<TurndownCtor>> {
-	return (turndownServicePromise ??= import("turndown").then((m) => {
-		const Turndown = (m as unknown as { default: TurndownCtor }).default;
-		return new Turndown();
-	}));
+	if (turndownServicePromise === undefined) {
+		turndownServicePromise = import("turndown").then((m) => {
+			const Turndown = (m as unknown as { default: TurndownCtor }).default;
+			return new Turndown();
+		});
+	}
+	return turndownServicePromise;
 }
 
 // PSR requested limiting the length of URLs to 250 to lower the potential
@@ -180,7 +183,7 @@ export function validateURL(url: string): boolean {
 		return false;
 	}
 
-	let parsed;
+	let parsed: URL;
 	try {
 		parsed = new URL(url);
 	} catch {

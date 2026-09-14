@@ -149,7 +149,7 @@ export function tool<Schema extends AnyZodRawShape>(
 type CreateSdkMcpServerOptions = {
 	name: string;
 	version?: string;
-	// eslint-disable-next-line @typescript-eslint/no-explicit-any
+	// biome-ignore lint/suspicious/noExplicitAny: SDK 公共 API 泛型默认参数，调用方 schema 类型在此层不可知（AnyZodRawShape 为 zod 外部契约）
 	tools?: Array<SdkMcpToolDefinition<any>>;
 };
 

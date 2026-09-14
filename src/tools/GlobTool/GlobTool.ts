@@ -102,7 +102,7 @@ export const GlobTool = buildTool({
 				return { result: true };
 			}
 
-			let stats;
+			let stats: Awaited<ReturnType<typeof fs.stat>>;
 			try {
 				stats = await fs.stat(absolutePath);
 			} catch (e: unknown) {

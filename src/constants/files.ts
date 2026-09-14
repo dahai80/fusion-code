@@ -134,7 +134,8 @@ export function isBinaryContent(buffer: Buffer): boolean {
 
 	let nonPrintable = 0;
 	for (let i = 0; i < checkSize; i++) {
-		const byte = buffer[i]!;
+		const byte = buffer[i];
+		if (byte === undefined) break;
 		// Null byte is a strong indicator of binary
 		if (byte === 0) {
 			return true;

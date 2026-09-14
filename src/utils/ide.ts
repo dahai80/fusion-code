@@ -792,7 +792,7 @@ export async function detectIDEs(
 				lockfileInfo.runningInWindows,
 				lockfileInfo.port,
 			);
-			let url;
+			let url: string;
 			if (lockfileInfo.useWebSocket) {
 				url = `ws://${host}:${lockfileInfo.port}`;
 			} else {

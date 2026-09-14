@@ -702,8 +702,9 @@ export function useManageMCPConnections(
 											: Promise.resolve([]),
 									]);
 									updateServer({
-										...client,
-										commands: [...mcpPrompts, ...(mcpSkills as any[])], // log: cast (Command|MCPSkill)[] to Command[]
+									 ...client,
+									 // biome-ignore lint/suspicious/noExplicitAny: (Command|MCPSkill)[] 与 Command[] 结构兼容但类型名不同, 定向透传给下层命令注册
+									 commands: [...mcpPrompts, ...(mcpSkills as any[])],
 									});
 									// MCP skills changed — invalidate skill-search index so
 									// next discovery rebuilds with the new set.

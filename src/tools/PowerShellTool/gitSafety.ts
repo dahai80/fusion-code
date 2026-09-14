@@ -71,7 +71,7 @@ function normalizeGitPathArg(arg: string): string {
 		.split("/")
 		.map((c) => {
 			if (c === "") return c;
-			let prev;
+			let prev: string;
 			do {
 				prev = c;
 				c = c.replace(/ +$/, "");

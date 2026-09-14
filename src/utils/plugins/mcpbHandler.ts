@@ -657,7 +657,7 @@ export async function checkMcpbChanged(
 	// For local files, check mtime
 	if (!isUrl(source)) {
 		const localPath = join(pluginPath, source);
-		let stats;
+		let stats: Awaited<ReturnType<typeof fs.stat>>;
 		try {
 			stats = await fs.stat(localPath);
 		} catch (error) {

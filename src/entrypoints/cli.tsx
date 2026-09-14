@@ -18,14 +18,17 @@ if (!process.env.NO_COLOR) process.env.FORCE_COLOR = "1";
 // 使用 Object.defineProperty 替代直接赋值，避免在 strict mode 下静默失败
 // 同时保留原始 isTTY 值，以便需要时恢复
 try {
-	const originalIsTTY = (process.stdout as any).isTTY;
+	// 定向窄化：仅为 stdout 追加 `_originalIsTTY` 可选字段，避免 any
+	type StdoutWithIsTTY = NodeJS.WriteStream & { _originalIsTTY?: boolean };
+	const stdout = process.stdout as StdoutWithIsTTY;
+	const originalIsTTY = stdout.isTTY;
 	Object.defineProperty(process.stdout, "isTTY", {
 		value: true,
 		writable: true,
 		configurable: true,
 		enumerable: true,
 	});
-	(process.stdout as any)._originalIsTTY = originalIsTTY;
+	stdout._originalIsTTY = originalIsTTY;
 } catch (_e) {
 	// 非关键：某些环境下 stdout 不可修改（如 worker thread），Ink 会降级处理
 }
@@ -56,6 +59,7 @@ if (process.env.FUSION_MODEL && !process.env.ANTHROPIC_MODEL) {
 
 // Define MACRO global for development (normally injected by bun build --define)
 if (typeof MACRO === "undefined") {
+	// biome-ignore lint/suspicious/noExplicitAny: 开发兜底注入构建期宏 globalThis.MACRO，声明于根 env.d.ts，此处无法用类型窄化表达
 	(globalThis as any).MACRO = {
 		VERSION: "2.1.87-dev",
 		BUILD_TIME: new Date().toISOString(),
@@ -417,7 +421,11 @@ async function main(): Promise<void> {
 		args.length === 1 &&
 		(args[0] === "--update" || args[0] === "--upgrade")
 	) {
-		process.argv = [process.argv[0]!, process.argv[1]!, "update"];
+		process.argv = [
+			process.argv[0] ?? "",
+			process.argv[1] ?? "",
+			"update",
+		];
 	}
 
 	// --bare: set SIMPLE early so gates fire during module eval / commander

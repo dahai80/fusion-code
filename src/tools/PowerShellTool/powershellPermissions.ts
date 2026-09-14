@@ -815,8 +815,10 @@ export async function powershellToolHasPermission(
 			// Loop strips nested assignments: $x = $y = iex → $y = iex → iex
 			let normalized = trimmedFrag;
 			let m: RegExpMatchArray | null;
-			while ((m = normalized.match(PS_ASSIGN_PREFIX_RE))) {
+			m = normalized.match(PS_ASSIGN_PREFIX_RE);
+			while (m !== null) {
 				normalized = normalized.slice(m[0].length);
+				m = normalized.match(PS_ASSIGN_PREFIX_RE);
 			}
 			normalized = normalized.replace(/^[&.]\s+/, ""); // & cmd, . cmd (dot-source)
 			const rawFirst = normalized.split(/\s+/)[0] ?? "";

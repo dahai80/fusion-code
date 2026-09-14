@@ -100,17 +100,21 @@ export function useAssistantHistory({
 	// as one item (text-only mutation, not remove+insert).
 	const sentinelUuidRef = useRef(randomUUID());
 
-	function mkSentinel(text: string): SystemInformationalMessage {
-		return {
-			type: "system",
-			subtype: "informational",
-			content: text,
-			isMeta: false,
-			timestamp: new Date().toISOString(),
-			uuid: sentinelUuidRef.current,
-			level: "info",
-		};
-	}
+	// useCallback 包装保证标识稳定（内容只读 refs），可直接作为 hook 依赖
+	const mkSentinel = useCallback(
+		(text: string): SystemInformationalMessage => {
+			return {
+				type: "system",
+				subtype: "informational",
+				content: text,
+				isMeta: false,
+				timestamp: new Date().toISOString(),
+				uuid: sentinelUuidRef.current,
+				level: "info",
+			};
+		},
+		[],
+	);
 
 	/** Prepend a page at the front, with scroll-anchor snapshot for non-initial.
 	 *  Replaces the sentinel (always at index 0 when present) in-place. */
@@ -138,7 +142,7 @@ export function useAssistantHistory({
 				`[useAssistantHistory] ${isInitial ? "initial" : "older"} page: ${msgs.length} msgs (raw ${page.events.length}), hasMore=${page.hasMore}`,
 			);
 		},
-		// eslint-disable-next-line react-hooks/exhaustive-deps -- scrollRef is a stable ref; mkSentinel reads refs only
+		// scrollRef.current 非响应式值，仅作触发刷新用；mkSentinel 已 useCallback 稳定
 		[setMessages, scrollRef.current, mkSentinel],
 	);
 
@@ -192,7 +196,7 @@ export function useAssistantHistory({
 		} finally {
 			inflightRef.current = false;
 		}
-		// eslint-disable-next-line react-hooks/exhaustive-deps -- mkSentinel reads refs only
+		// mkSentinel 已 useCallback 稳定，可安全作为依赖
 	}, [enabled, prepend, setMessages, mkSentinel]);
 
 	// Scroll-anchor compensation — after React commits the prepended items,

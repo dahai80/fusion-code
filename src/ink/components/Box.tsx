@@ -216,6 +216,7 @@ function Box(t0) {
 			<ink-box
 				ref={ref}
 				tabIndex={tabIndex}
+				// biome-ignore lint/a11y/noAutofocus: autoFocus 是 Ink 终端框架的聚焦 API，非浏览器 DOM a11y 问题
 				autoFocus={autoFocus}
 				onClick={onClick}
 				onFocus={onFocus}

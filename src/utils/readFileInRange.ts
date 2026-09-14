@@ -159,7 +159,9 @@ function readFileInRangeFast(
 		return true;
 	}
 
-	while ((newlinePos = text.indexOf("\n", startPos)) !== -1) {
+	while (true) {
+		newlinePos = text.indexOf("\n", startPos);
+		if (newlinePos === -1) break;
 		if (lineIndex >= offset && lineIndex < endLine && !truncatedByBytes) {
 			let line = text.slice(startPos, newlinePos);
 			if (line.endsWith("\r")) {
@@ -246,7 +248,9 @@ function streamOnData(this: StreamState, chunk: string): void {
 
 	let startPos = 0;
 	let newlinePos: number;
-	while ((newlinePos = data.indexOf("\n", startPos)) !== -1) {
+	while (true) {
+		newlinePos = data.indexOf("\n", startPos);
+		if (newlinePos === -1) break;
 		if (
 			this.currentLineIndex >= this.offset &&
 			this.currentLineIndex < this.endLine

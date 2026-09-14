@@ -172,7 +172,7 @@ export const LSPTool = buildTool({
 			return { result: true };
 		}
 
-		let stats;
+		let stats: Awaited<ReturnType<typeof fs.stat>>;
 		try {
 			stats = await fs.stat(absolutePath);
 		} catch (error) {

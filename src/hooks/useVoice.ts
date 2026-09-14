@@ -272,14 +272,15 @@ export function useVoice({
 	onTranscriptRef.current = onTranscript;
 	onErrorRef.current = onError;
 
-	function updateState(newState: VoiceState): void {
+	// useCallback 稳定标识，供下游 effect/hook 作为依赖使用（内部只读 refs）
+	const updateState = useCallback((newState: VoiceState): void => {
 		stateRef.current = newState;
 		setState(newState);
 		setVoiceState((prev) => {
 			if (prev.voiceState === newState) return prev;
 			return { ...prev, voiceState: newState };
 		});
-	}
+	}, [setVoiceState]);
 
 	const cleanup = useCallback((): void => {
 		// Stale any in-flight session (main connection isStale(), replay
@@ -319,7 +320,8 @@ export function useVoice({
 		});
 	}, [setVoiceState]);
 
-	function finishRecording(): void {
+	// useCallback 稳定标识：内部只读 refs 并调用已稳定的 updateState/cleanup，可直接作为 hook 依赖
+	const finishRecording = useCallback((): void => {
 		logForDebugging(
 			"[voice] finishRecording: stopping recording, transitioning to processing",
 		);
@@ -519,7 +521,7 @@ export function useVoice({
 				logError(toError(err));
 				if (!isStale()) updateState("idle");
 			});
-	}
+	}, [updateState, setVoiceState]);
 
 	// When voice is enabled, lazy-import voice.ts so checkRecordingAvailability
 	// et al. are ready when the user presses the voice key. Do NOT preload the
@@ -539,7 +541,8 @@ export function useVoice({
 	// Arms (or resets) a timer that tears down the focus-mode session
 	// after FOCUS_SILENCE_TIMEOUT_MS of no speech. Called when a session
 	// starts and after each flushed transcript.
-	function armFocusSilenceTimer(): void {
+	// useCallback 稳定标识：内部只读 refs 并调用已稳定的 finishRecording，可直接作为 hook 依赖
+	const armFocusSilenceTimer = useCallback((): void => {
 		if (focusSilenceTimerRef.current) {
 			clearTimeout(focusSilenceTimerRef.current);
 		}
@@ -567,77 +570,11 @@ export function useVoice({
 			silenceTimedOutRef,
 			finishRecording,
 		);
-	}
-
-	// ── Focus-driven recording ──────────────────────────────────────────
-	// In focus mode, start recording when the terminal gains focus and
-	// stop when it loses focus. This enables a "multi-clauding army"
-	// workflow where voice input follows window focus.
-	useEffect(() => {
-		if (!enabled || !focusMode) {
-			// Focus mode was disabled while a focus-driven recording was active —
-			// stop the recording so it doesn't linger until the silence timer fires.
-			if (focusTriggeredRef.current && stateRef.current === "recording") {
-				logForDebugging(
-					"[voice] Focus mode disabled during recording, finishing",
-				);
-				finishRecording();
-			}
-			return;
-		}
-		let cancelled = false;
-		if (
-			isFocused &&
-			stateRef.current === "idle" &&
-			!silenceTimedOutRef.current
-		) {
-			const beginFocusRecording = (): void => {
-				// Re-check conditions — state or enabled/focusMode may have changed
-				// during the await (effect cleanup sets cancelled).
-				if (
-					cancelled ||
-					stateRef.current !== "idle" ||
-					silenceTimedOutRef.current
-				)
-					return;
-				logForDebugging("[voice] Focus gained, starting recording session");
-				focusTriggeredRef.current = true;
-				void startRecordingSession();
-				armFocusSilenceTimer();
-			};
-			if (voiceModule) {
-				beginFocusRecording();
-			} else {
-				// Voice module is loading (async import resolves from cache as a
-				// microtask). Wait for it before starting the recording session.
-				void import("../services/voice.js").then((mod) => {
-					voiceModule = mod;
-					beginFocusRecording();
-				});
-			}
-		} else if (!isFocused) {
-			// Clear the silence timeout flag on blur so the next focus
-			// cycle re-arms recording.
-			silenceTimedOutRef.current = false;
-			if (stateRef.current === "recording") {
-				logForDebugging("[voice] Focus lost, finishing recording");
-				finishRecording();
-			}
-		}
-		return () => {
-			cancelled = true;
-		};
-	}, [
-		enabled,
-		focusMode,
-		isFocused,
-		armFocusSilenceTimer,
-		finishRecording,
-		startRecordingSession,
-	]);
+	}, [finishRecording]);
 
 	// ── Start a new recording session (voice_stream connect + audio) ──
-	async function startRecordingSession(): Promise<void> {
+	// useCallback 稳定标识：内部只读 refs 并调用已稳定的 cleanup/updateState，可直接作为 hook 依赖
+	const startRecordingSession = useCallback(async (): Promise<void> => {
 		if (!voiceModule) {
 			onErrorRef.current?.(
 				"Voice module not loaded yet. Try again in a moment.",
@@ -1015,7 +952,75 @@ export function useVoice({
 		};
 
 		void getVoiceKeyterms().then(attemptConnect);
-	}
+	}, [cleanup, updateState, setVoiceState, armFocusSilenceTimer, finishRecording]);
+
+	// ── Focus-driven recording ──────────────────────────────────────────
+	// In focus mode, start recording when the terminal gains focus and
+	// stop when it loses focus. This enables a "multi-clauding army"
+	// workflow where voice input follows window focus.
+	useEffect(() => {
+		if (!enabled || !focusMode) {
+			// Focus mode was disabled while a focus-driven recording was active —
+			// stop the recording so it doesn't linger until the silence timer fires.
+			if (focusTriggeredRef.current && stateRef.current === "recording") {
+				logForDebugging(
+					"[voice] Focus mode disabled during recording, finishing",
+				);
+				finishRecording();
+			}
+			return;
+		}
+		let cancelled = false;
+		if (
+			isFocused &&
+			stateRef.current === "idle" &&
+			!silenceTimedOutRef.current
+		) {
+			const beginFocusRecording = (): void => {
+				// Re-check conditions — state or enabled/focusMode may have changed
+				// during the await (effect cleanup sets cancelled).
+				if (
+					cancelled ||
+					stateRef.current !== "idle" ||
+					silenceTimedOutRef.current
+				)
+					return;
+				logForDebugging("[voice] Focus gained, starting recording session");
+				focusTriggeredRef.current = true;
+				void startRecordingSession();
+				armFocusSilenceTimer();
+			};
+			if (voiceModule) {
+				beginFocusRecording();
+			} else {
+				// Voice module is loading (async import resolves from cache as a
+				// microtask). Wait for it before starting the recording session.
+				void import("../services/voice.js").then((mod) => {
+					voiceModule = mod;
+					beginFocusRecording();
+				});
+			}
+		} else if (!isFocused) {
+			// Clear the silence timeout flag on blur so the next focus
+			// cycle re-arms recording.
+			silenceTimedOutRef.current = false;
+			if (stateRef.current === "recording") {
+				logForDebugging("[voice] Focus lost, finishing recording");
+				finishRecording();
+			}
+		}
+		return () => {
+			cancelled = true;
+		};
+	}, [
+		enabled,
+		focusMode,
+		isFocused,
+		armFocusSilenceTimer,
+		finishRecording,
+		startRecordingSession,
+	]);
+
 
 	// ── Hold-to-talk handler ────────────────────────────────────────────
 	// Called on every keypress (including terminal auto-repeats while

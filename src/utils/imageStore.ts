@@ -135,7 +135,7 @@ export async function cleanupOldImageCaches(): Promise<void> {
 	const currentSessionId = getSessionId();
 
 	try {
-		let sessionDirs;
+		let sessionDirs: Awaited<ReturnType<typeof fsImpl.readdir>>;
 		try {
 			sessionDirs = await fsImpl.readdir(baseDir);
 		} catch {

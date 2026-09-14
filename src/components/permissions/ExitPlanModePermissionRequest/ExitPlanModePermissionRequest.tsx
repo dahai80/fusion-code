@@ -31,11 +31,11 @@ import {
 
 // generateSessionName removed - cloud-only rename command. Stub:
 const generateSessionName = async (
-	_messages: any[],
+	_messages: unknown[],
 	_signal: AbortSignal,
 ): Promise<string | null> => null;
 // launchUltraplan removed - cloud-only feature. Stub:
-const launchUltraplan = async (_opts: any): Promise<string> => "";
+const launchUltraplan = async (_opts: unknown): Promise<string> => "";
 
 import type { KeyboardEvent } from "../../../ink/events/keyboard-event.js";
 import { Box, Text } from "../../../ink.js";
@@ -268,29 +268,33 @@ export function ExitPlanModePermissionRequest({
 			isBypassPermissionsModeAvailable,
 		],
 	);
-	function onImagePaste(
-		base64Image: string,
-		mediaType?: string,
-		filename?: string,
-		dimensions?: ImageDimensions,
-		_sourcePath?: string,
-	) {
-		const pasteId = nextPasteIdRef.current++;
-		const newContent: PastedContent = {
-			id: pasteId,
-			type: "image",
-			content: base64Image,
-			mediaType: mediaType || "image/png",
-			filename: filename || "Pasted image",
-			dimensions,
-		};
-		cacheImagePath(newContent);
-		void storeImage(newContent);
-		setPastedContents((prev) => ({
-			...prev,
-			[pasteId]: newContent,
-		}));
-	}
+	// useCallback 稳定标识，供 useLayoutEffect 依赖使用（内部只读 ref + setState）
+	const onImagePaste = useCallback(
+		(
+			base64Image: string,
+			mediaType?: string,
+			filename?: string,
+			dimensions?: ImageDimensions,
+			_sourcePath?: string,
+		) => {
+			const pasteId = nextPasteIdRef.current++;
+			const newContent: PastedContent = {
+				id: pasteId,
+				type: "image",
+				content: base64Image,
+				mediaType: mediaType || "image/png",
+				filename: filename || "Pasted image",
+				dimensions,
+			};
+			cacheImagePath(newContent);
+			void storeImage(newContent);
+			setPastedContents((prev) => ({
+				...prev,
+				[pasteId]: newContent,
+			}));
+		},
+		[],
+	);
 	const onRemoveImage = useCallback((id: number) => {
 		setPastedContents((prev) => {
 			const next = {
@@ -516,6 +520,7 @@ export function ExitPlanModePermissionRequest({
 			// Add verification instruction if the feature is enabled
 			// Dead code elimination: CLAUDE_CODE_VERIFY_PLAN='false' in external builds, so === 'true' check allows Bun to eliminate the string
 			const verificationInstruction =
+				// biome-ignore lint/correctness/noConstantCondition: DCE 手法——env 宏构建期折叠为 undefined，恒假分支使 verify 指令字符串被打包器消除
 				undefined === "true"
 					? `\n\nIMPORTANT: When you have finished implementing the plan, you MUST call the "VerifyPlanExecution" tool directly (NOT the ${AGENT_TOOL_NAME} tool or an agent) to trigger background verification.`
 					: "";
@@ -752,7 +757,7 @@ export function ExitPlanModePermissionRequest({
 		);
 		return () => setStickyFooter(null);
 		// onImagePaste/onRemoveImage are stable (useCallback/useRef-backed above)
-		// eslint-disable-next-line react-hooks/exhaustive-deps
+		// biome-ignore lint/correctness/useExhaustiveDependencies: onImagePaste 上游每次渲染重建，effect 不依赖其标识稳定性（内容经 ref 透传）
 	}, [
 		useStickyFooter,
 		setStickyFooter,
@@ -892,8 +897,8 @@ export function ExitPlanModePermissionRequest({
 							allowedPrompts.length > 0 && (
 								<Box flexDirection="column" marginBottom={1}>
 									<Text bold>Requested permissions:</Text>
-									{allowedPrompts.map((p, i) => (
-										<Text key={i} dimColor>
+									{allowedPrompts.map((p) => (
+										<Text key={`${p.tool}:${p.prompt}`} dimColor>
 											{"  "}· {p.tool}({PROMPT_PREFIX} {p.prompt})
 										</Text>
 									))}

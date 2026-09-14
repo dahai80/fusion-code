@@ -18,23 +18,7 @@
 	"linter": {
 		"enabled": true,
 		"rules": {
-			"preset": "recommended",
-			"suspicious": {
-				"noImplicitAnyLet": "warn",
-				"noAssignInExpressions": "warn",
-				"noControlCharactersInRegex": "warn",
-				"useIterableCallbackReturn": "warn",
-				"noArrayIndexKey": "warn",
-				"noSelfCompare": "warn",
-				"noAsyncPromiseExecutor": "warn",
-				"noShadowRestrictedNames": "warn"
-			},
-			"correctness": {
-				"useExhaustiveDependencies": "warn",
-				"noVoidTypeReturn": "warn",
-				"noConstantCondition": "warn",
-				"noUnreachable": "warn"
-			}
+			"preset": "recommended"
 		}
 	},
 	"overrides": [
@@ -42,6 +26,7 @@
 			"includes": [
 				"src/buddy/**",
 				"src/context/**",
+				"src/env.d.ts",
 				"src/ink/**",
 				"src/vendor/mcpb/schemas/**"
 			],
@@ -135,6 +120,7 @@
 				"src/components/HelpV2/HelpV2.tsx",
 				"src/components/HighlightedCode.tsx",
 				"src/components/HighlightedCode/Fallback.tsx",
+				"src/components/HistorySearchDialog.tsx",
 				"src/components/IdeAutoConnectDialog.tsx",
 				"src/components/IdeOnboardingDialog.tsx",
 				"src/components/IdeStatusIndicator.tsx",
@@ -179,10 +165,12 @@
 				"src/components/PressEnterToContinue.tsx",
 				"src/components/PromptInput/HistorySearchInput.tsx",
 				"src/components/PromptInput/Notifications.tsx",
+				"src/components/PromptInput/PromptInputFooter.tsx",
 				"src/components/PromptInput/PromptInputFooterLeftSide.tsx",
 				"src/components/PromptInput/PromptInputFooterSuggestions.tsx",
 				"src/components/PromptInput/PromptInputHelpMenu.tsx",
 				"src/components/PromptInput/PromptInputModeIndicator.tsx",
+				"src/components/PromptInput/PromptInputQueuedCommands.tsx",
 				"src/components/PromptInput/PromptInputStashNotice.tsx",
 				"src/components/PromptInput/SandboxPromptFooterHint.tsx",
 				"src/components/PromptInput/ShimmeredInput.tsx",
@@ -418,6 +406,7 @@
 				"src/ink/components/Text.tsx",
 				"src/keybindings/KeybindingContext.tsx",
 				"src/keybindings/KeybindingProviderSetup.tsx",
+				"src/native-ts/**",
 				"src/screens/Doctor.tsx",
 				"src/screens/REPL.tsx",
 				"src/screens/ResumeConversation.tsx",
@@ -441,6 +430,40 @@
 			],
 			"linter": {
 				"enabled": false
+			}
+		},
+		{
+			"includes": [
+				"src/ink/**"
+			],
+			"linter": {
+				"rules": {
+					"suspicious": {
+						"noImplicitAnyLet": "off",
+						"noAssignInExpressions": "off",
+						"useIterableCallbackReturn": "off",
+						"noArrayIndexKey": "off",
+						"noSelfCompare": "off",
+						"noAsyncPromiseExecutor": "off",
+						"noConfusingVoidType": "off",
+						"noShadowRestrictedNames": "off",
+						"noControlCharactersInRegex": "off",
+						"noExplicitAny": "off"
+					},
+					"correctness": {
+						"useExhaustiveDependencies": "off",
+						"noVoidTypeReturn": "off",
+						"noConstantCondition": "off",
+						"noUnusedFunctionParameters": "off",
+						"noUnusedPrivateClassMembers": "off"
+					},
+					"style": {
+						"noNonNullAssertion": "off"
+					},
+					"complexity": {
+						"useArrowFunction": "off"
+					}
+				}
 			}
 		}
 	],

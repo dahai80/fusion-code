@@ -322,7 +322,7 @@ export class BM25Index {
 		if (depth > 10) return;
 		if (this.docCount >= MAX_FILES) return;
 
-		let entries;
+		let entries: import("node:fs").Dirent[];
 		try {
 			entries = await readdir(dir, { withFileTypes: true });
 		} catch {

@@ -73,7 +73,8 @@ export function isSessionContainerCompatible(messages: Message[]): boolean {
 
 export function hasFrictionSignal(messages: Message[]): boolean {
 	for (let i = messages.length - 1; i >= 0; i--) {
-		const msg = messages[i]!;
+		const msg = messages[i];
+		if (msg === undefined) continue;
 		if (msg.type !== "user") {
 			continue;
 		}

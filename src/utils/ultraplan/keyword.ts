@@ -55,7 +55,8 @@ function findKeywordTriggerPositions(
 	let openAt = 0;
 	const isWord = (ch: string | undefined) => !!ch && /[\p{L}\p{N}_]/u.test(ch);
 	for (let i = 0; i < text.length; i++) {
-		const ch = text[i]!;
+		const ch = text[i];
+		if (ch === undefined) break;
 		if (openQuote) {
 			if (openQuote === "[" && ch === "[") {
 				openAt = i;
@@ -66,7 +67,7 @@ function findKeywordTriggerPositions(
 			quotedRanges.push({ start: openAt, end: i + 1 });
 			openQuote = null;
 		} else if (
-			(ch === "<" && i + 1 < text.length && /[a-zA-Z/]/.test(text[i + 1]!)) ||
+			(ch === "<" && /[a-zA-Z/]/.test(text[i + 1] ?? "")) ||
 			(ch === "'" && !isWord(text[i - 1])) ||
 			(ch !== "<" && ch !== "'" && ch in OPEN_TO_CLOSE)
 		) {

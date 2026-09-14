@@ -51,6 +51,7 @@ import {
 	getInitialSettings,
 	getSettingsForSource,
 } from "./settings/settings.js";
+import type { SettingsJson } from "./settings/types.js";
 import {
 	logEvent,
 	type AnalyticsMetadata_I_VERIFIED_THIS_IS_NOT_CODE_OR_FILEPATHS,
@@ -2169,13 +2170,14 @@ async function* executeHooks({
 			return jsonInputResult;
 		}
 		try {
-			return (jsonInputResult = { ok: true, value: jsonStringify(hookInput) });
+			jsonInputResult = { ok: true, value: jsonStringify(hookInput) };
 		} catch (error) {
 			logError(
 				Error(`Failed to stringify hook ${hookName} input`, { cause: error }),
 			);
-			return (jsonInputResult = { ok: false, error });
+			jsonInputResult = { ok: false, error };
 		}
+		return jsonInputResult;
 	}
 
 	// Run all hooks in parallel with individual timeouts
@@ -4778,7 +4780,7 @@ export async function executeStatusLineCommand(
 
 	// When disableAllHooks is set in non-managed settings, only managed statusLine runs
 	// (non-managed settings cannot disable managed commands, but non-managed commands are disabled)
-	let statusLine;
+	let statusLine: SettingsJson["statusLine"];
 	if (shouldAllowManagedHooksOnly()) {
 		statusLine = getSettingsForSource("policySettings")?.statusLine;
 	} else {
@@ -4868,7 +4870,7 @@ export async function executeFileSuggestionCommand(
 
 	// When disableAllHooks is set in non-managed settings, only managed fileSuggestion runs
 	// (non-managed settings cannot disable managed commands, but non-managed commands are disabled)
-	let fileSuggestion;
+	let fileSuggestion: SettingsJson["fileSuggestion"];
 	if (shouldAllowManagedHooksOnly()) {
 		fileSuggestion = getSettingsForSource("policySettings")?.fileSuggestion;
 	} else {

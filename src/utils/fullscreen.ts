@@ -1,4 +1,4 @@
-import { spawnSync } from "node:child_process";
+import { spawnSync, type SpawnSyncReturns } from "node:child_process";
 import { getIsInteractive } from "../bootstrap/state.js";
 import { logForDebugging } from "./debug.js";
 import { isEnvDefinedFalsy, isEnvTruthy } from "./envUtils.js";
@@ -66,7 +66,7 @@ function probeTmuxControlModeSync(): void {
 	// TERM_PROGRAM is explicitly a non-iTerm terminal, skip — tmux -CC is
 	// an iTerm-only feature, so the subprocess would be wasted.
 	if (process.env.TERM_PROGRAM) return;
-	let result;
+	let result: SpawnSyncReturns<string>;
 	try {
 		result = spawnSync(
 			"tmux",

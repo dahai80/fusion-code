@@ -905,6 +905,7 @@ export function getAssistantMessageFromError(
 	// Bedrock errors like "403 You don't have access to the model with the specified model ID."
 	// don't contain the actual model ID
 	if (
+		// biome-ignore lint/correctness/noConstantCondition: 临时禁用的分支 (false && DCE 惯用法), 待后端错误格式补全后启用
 		false &&
 		error instanceof Error &&
 		(error as Error).message.toLowerCase().includes("model id")

@@ -1,4 +1,5 @@
 import * as fs from "node:fs/promises";
+import type { Dirent } from "node:fs";
 import { homedir } from "node:os";
 import { join } from "node:path";
 import { logEvent } from "../services/analytics/index.js";
@@ -101,7 +102,7 @@ export async function cleanupOldMessageFiles(): Promise<CleanupResult> {
 
 	// Clean up MCP logs
 	try {
-		let dirents;
+		let dirents: Dirent[];
 		try {
 			dirents = await fsImpl.readdir(baseCachePath);
 		} catch {
@@ -158,7 +159,7 @@ export async function cleanupOldSessionFiles(): Promise<CleanupResult> {
 	const projectsDir = getProjectsDir();
 	const fsImpl = getFsImplementation();
 
-	let projectDirents;
+	let projectDirents: Dirent[];
 	try {
 		projectDirents = await fsImpl.readdir(projectsDir);
 	} catch {
@@ -170,7 +171,7 @@ export async function cleanupOldSessionFiles(): Promise<CleanupResult> {
 		const projectDir = join(projectsDir, projectDirent.name);
 
 		// Single readdir per project directory — partition into files and session dirs
-		let entries;
+		let entries: Dirent[];
 		try {
 			entries = await fsImpl.readdir(projectDir);
 		} catch {
@@ -196,7 +197,7 @@ export async function cleanupOldSessionFiles(): Promise<CleanupResult> {
 				// Session directory — clean up tool-results/<toolDir>/* beneath it
 				const sessionDir = join(projectDir, entry.name);
 				const toolResultsDir = join(sessionDir, TOOL_RESULTS_SUBDIR);
-				let toolDirs;
+				let toolDirs: Dirent[];
 				try {
 					toolDirs = await fsImpl.readdir(toolResultsDir);
 				} catch {
@@ -221,7 +222,7 @@ export async function cleanupOldSessionFiles(): Promise<CleanupResult> {
 						}
 					} else if (toolEntry.isDirectory()) {
 						const toolDirPath = join(toolResultsDir, toolEntry.name);
-						let toolFiles;
+						let toolFiles: Dirent[];
 						try {
 							toolFiles = await fsImpl.readdir(toolDirPath);
 						} catch {
@@ -272,7 +273,7 @@ async function cleanupSingleDirectory(
 	const result: CleanupResult = { messages: 0, errors: 0 };
 	const fsImpl = getFsImplementation();
 
-	let dirents;
+	let dirents: Dirent[];
 	try {
 		dirents = await fsImpl.readdir(dirPath);
 	} catch {
@@ -311,7 +312,7 @@ export async function cleanupOldFileHistoryBackups(): Promise<CleanupResult> {
 		const configDir = getClaudeConfigHomeDir();
 		const fileHistoryStorageDir = join(configDir, "file-history");
 
-		let dirents;
+		let dirents: Dirent[];
 		try {
 			dirents = await fsImpl.readdir(fileHistoryStorageDir);
 		} catch {
@@ -356,7 +357,7 @@ export async function cleanupOldSessionEnvDirs(): Promise<CleanupResult> {
 		const configDir = getClaudeConfigHomeDir();
 		const sessionEnvBaseDir = join(configDir, "session-env");
 
-		let dirents;
+		let dirents: Dirent[];
 		try {
 			dirents = await fsImpl.readdir(sessionEnvBaseDir);
 		} catch {
@@ -399,7 +400,7 @@ export async function cleanupOldDebugLogs(): Promise<CleanupResult> {
 	const fsImpl = getFsImplementation();
 	const debugDir = join(getClaudeConfigHomeDir(), "debug");
 
-	let dirents;
+	let dirents: Dirent[];
 	try {
 		dirents = await fsImpl.readdir(debugDir);
 	} catch {

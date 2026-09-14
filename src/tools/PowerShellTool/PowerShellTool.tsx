@@ -630,11 +630,13 @@ export const PowerShellTool = buildTool({
 				toolUseId: toolUseContext.toolUseId,
 				agentId: toolUseContext.agentId,
 			});
-			let generatorResult;
+			let generatorResult: Awaited<ReturnType<typeof commandGenerator.next>>;
 			do {
 				generatorResult = await commandGenerator.next();
 				if (!generatorResult.done && onProgress) {
 					const progress = generatorResult.value;
+					// ExecResult 与 progress 事件联合, 用 output 字段判别窄化 (progress 必有, ExecResult 无)
+					if (!("output" in progress)) continue;
 					onProgress({
 						toolUseID: `ps-progress-${progressCounter++}`,
 						data: {

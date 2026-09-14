@@ -250,7 +250,7 @@ const BRACE_EXPANSION_RE = /\{[^{}\s]*(,|\.\.)[^{}\s]*\}/;
  * default IFS does not include CR, so tree-sitter and bash disagree on
  * word boundaries.
  */
-// eslint-disable-next-line no-control-regex
+// biome-ignore lint/suspicious/noControlCharactersInRegex: 该正则有意匹配 bash 会静默丢弃的控制字符（含 CR），用于规避 tree-sitter 与 bash 的词边界分歧
 const CONTROL_CHAR_RE = /[\x00-\x08\x0B-\x1F\x7F]/;
 
 /**

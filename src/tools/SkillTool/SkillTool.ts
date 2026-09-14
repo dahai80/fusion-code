@@ -1002,7 +1002,7 @@ async function executeRemoteSkill(
 	}
 
 	const urlScheme = extractUrlScheme(meta.url);
-	let loadResult;
+	let loadResult: Awaited<ReturnType<typeof loadRemoteSkill>>;
 	try {
 		loadResult = await loadRemoteSkill(slug, meta.url);
 	} catch (e) {

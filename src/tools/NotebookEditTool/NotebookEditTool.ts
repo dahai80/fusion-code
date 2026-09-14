@@ -347,7 +347,7 @@ export const NotebookEditTool = buildTool({
 				};
 			}
 
-			let cellIndex;
+			let cellIndex: number;
 			if (!cell_id) {
 				cellIndex = 0; // Default to inserting at the beginning if no cell_id is provided
 			} else {
@@ -377,7 +377,7 @@ export const NotebookEditTool = buildTool({
 			}
 
 			const language = notebook.metadata.language_info?.name ?? "python";
-			let new_cell_id;
+			let new_cell_id: string | undefined;
 			if (
 				notebook.nbformat > 4 ||
 				(notebook.nbformat === 4 && notebook.nbformat_minor >= 5)

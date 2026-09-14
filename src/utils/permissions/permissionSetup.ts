@@ -542,9 +542,9 @@ export function stripDangerousPermissionsForAutoMode(
 	const stripped: ToolPermissionRulesBySource = {};
 	for (const perm of dangerousPermissions) {
 		if (!isPermissionUpdateDestination(perm.source)) continue;
-		(stripped[perm.source] ??= []).push(
-			permissionRuleValueToString(perm.ruleValue),
-		);
+		const rules = stripped[perm.source] ?? [];
+		rules.push(permissionRuleValueToString(perm.ruleValue));
+		stripped[perm.source] = rules;
 	}
 	return {
 		...removeDangerousPermissions(context, dangerousPermissions),

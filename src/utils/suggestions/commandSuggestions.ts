@@ -561,7 +561,9 @@ export function findSlashCommandPositions(
 	// Match /command patterns preceded by whitespace or start-of-string
 	const regex = /(^|[\s])(\/[a-zA-Z][a-zA-Z0-9:\-_]*)/g;
 	let match: RegExpExecArray | null = null;
-	while ((match = regex.exec(text)) !== null) {
+	while (true) {
+		match = regex.exec(text);
+		if (match === null) break;
 		const precedingChar = match[1] ?? "";
 		const commandName = match[2] ?? "";
 		// Start position is after the whitespace (if any)

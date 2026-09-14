@@ -26,7 +26,7 @@ class FileReadCache {
 		const fs = getFsImplementation();
 
 		// Get file stats for cache invalidation
-		let stats;
+		let stats: import("node:fs").Stats;
 		try {
 			stats = fs.statSync(filePath);
 		} catch (error) {

@@ -74,7 +74,7 @@ function urlMatchesPattern(url: string, pattern: string): boolean {
  * inject a second header into the request.
  */
 function sanitizeHeaderValue(value: string): string {
-	// eslint-disable-next-line no-control-regex
+	// biome-ignore lint/suspicious/noControlCharactersInRegex: 有意匹配 CR/LF/NUL 控制字符以剥离它们，防止 HTTP 头注入（CRLF injection）
 	return value.replace(/[\r\n\x00]/g, "");
 }
 

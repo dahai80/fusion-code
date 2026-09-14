@@ -491,7 +491,10 @@ export const SKIP_PRECOMPACT_THRESHOLD = 5 * 1024 * 1024;
  * first use, not at module load. Most sessions never resume. */
 let _compactBoundaryMarker: Buffer | undefined;
 function compactBoundaryMarker(): Buffer {
-	return (_compactBoundaryMarker ??= Buffer.from('"compact_boundary"'));
+	if (_compactBoundaryMarker === undefined) {
+		_compactBoundaryMarker = Buffer.from('"compact_boundary"');
+	}
+	return _compactBoundaryMarker;
 }
 
 /**

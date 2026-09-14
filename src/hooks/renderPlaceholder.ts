@@ -36,7 +36,7 @@ export function renderPlaceholder({
 			if (showCursor && focus && terminalFocus) {
 				renderedPlaceholder =
 					placeholder.length > 0
-						? invert(placeholder[0]!) + chalk.dim(placeholder.slice(1))
+						? invert(placeholder[0] ?? "") + chalk.dim(placeholder.slice(1))
 						: invert(" ");
 			}
 		}

@@ -28,5 +28,6 @@ export function requireComputerUseInput(): ComputerUseInputAPI {
 			"@ant/computer-use-input is not supported on this platform",
 		);
 	}
-	return (cached = input);
+	cached = input;
+	return cached;
 }

@@ -1103,16 +1103,18 @@ export function detectMultiClauding(
 	const sessionLastIndex = new Map<string, number>();
 
 	for (let i = 0; i < allSessionMessages.length; i++) {
-		const msg = allSessionMessages[i]!;
+		// i < length 保证元素存在; 局部变量收窄以消除非空断言
+		const msg = allSessionMessages[i];
+		if (!msg) continue;
 
 		// Shrink window from the left
-		while (
-			windowStart < i &&
-			msg.ts - allSessionMessages[windowStart]?.ts > OVERLAP_WINDOW_MS
-		) {
-			const expiring = allSessionMessages[windowStart]!;
-			if (sessionLastIndex.get(expiring.sessionId) === windowStart) {
-				sessionLastIndex.delete(expiring.sessionId);
+		while (windowStart < i) {
+			const oldest = allSessionMessages[windowStart];
+			if (!oldest || msg.ts - oldest.ts <= OVERLAP_WINDOW_MS) {
+				break;
+			}
+			if (sessionLastIndex.get(oldest.sessionId) === windowStart) {
+				sessionLastIndex.delete(oldest.sessionId);
 			}
 			windowStart++;
 		}
@@ -1121,7 +1123,8 @@ export function detectMultiClauding(
 		const prevIndex = sessionLastIndex.get(msg.sessionId);
 		if (prevIndex !== undefined) {
 			for (let j = prevIndex + 1; j < i; j++) {
-				const between = allSessionMessages[j]!;
+				const between = allSessionMessages[j];
+				if (!between) continue;
 				if (between.sessionId !== msg.sessionId) {
 					const pair = [msg.sessionId, between.sessionId].sort().join(":");
 					multiClaudeSessionPairs.add(pair);
@@ -2780,7 +2783,9 @@ async function scanAllSessions(): Promise<LiteSessionInfo[]> {
 	const allSessions: LiteSessionInfo[] = [];
 
 	for (let i = 0; i < projectDirs.length; i++) {
-		const sessionFiles = await getSessionFilesWithMtime(projectDirs[i]!);
+		const projectDir = projectDirs[i];
+		if (!projectDir) continue;
+		const sessionFiles = await getSessionFilesWithMtime(projectDir);
 		for (const [sessionId, fileInfo] of sessionFiles) {
 			allSessions.push({
 				sessionId,
@@ -3069,7 +3074,6 @@ const usageReport: Command = {
 
 			// Show collection message if collecting
 			if (collectRemote && hasRemoteHosts) {
-				// biome-ignore lint/suspicious/noConsole: intentional
 				console.error(
 					`Collecting sessions from ${remoteHosts.length} homespace(s): ${remoteHosts.join(", ")}...`,
 				);

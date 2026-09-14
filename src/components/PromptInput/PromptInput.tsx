@@ -826,8 +826,10 @@ function PromptInput({
 		// Find all @name patterns in the input
 		const regex = /(^|\s)@([\w-]+)/g;
 		const memberValues = Object.values(members);
-		let match;
-		while ((match = regex.exec(displayedValue)) !== null) {
+		let match: RegExpExecArray | null = null;
+		while (true) {
+			match = regex.exec(displayedValue);
+			if (match === null) break;
 			const leadingSpace = match[1] ?? "";
 			const nameStart = match.index + leadingSpace.length;
 			const fullMatch = match[0].trimStart();
@@ -1282,7 +1284,8 @@ function PromptInput({
 
 		// At bottom of history → enter footer at first visible pill
 		if (onHistoryDown() && footerItems.length > 0) {
-			const first = footerItems[0]!;
+			const first = footerItems[0];
+			if (first === undefined) return;
 			selectFooterItem(first);
 			if (first === "tasks" && !getGlobalConfig().hasSeenTasksHint) {
 				saveGlobalConfig((c) =>
@@ -2135,6 +2138,7 @@ function PromptInput({
 				});
 			}
 		});
+	// biome-ignore lint/correctness/useExhaustiveDependencies: onImagePaste 上游每次渲染重建（props 直传非 useCallback），effect 不依赖其标识稳定性
 	}, [addNotification, onImagePaste]);
 
 	// Register chat:submit handler directly in the handler registry (not via

@@ -84,10 +84,10 @@ export function formatListWithAnd(items: string[], limit?: number): string {
 
 	// If no limit or items are within limit, use normal formatting
 	if (!effectiveLimit || items.length <= effectiveLimit) {
-		if (items.length === 1) return items[0]!;
+		if (items.length === 1) return items[0] ?? "";
 		if (items.length === 2) return `${items[0]} and ${items[1]}`;
 
-		const lastItem = items[items.length - 1]!;
+		const lastItem = items[items.length - 1] ?? "";
 		const allButLast = items.slice(0, -1);
 		return `${allButLast.join(", ")}, and ${lastItem}`;
 	}

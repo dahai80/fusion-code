@@ -136,7 +136,7 @@ export async function discoverProtectedResource(
 	serverUrl: string,
 	opts?: { fetchFn?: FetchLike },
 ): Promise<ProtectedResourceMetadata> {
-	let prm;
+	let prm: Awaited<ReturnType<typeof discoverOAuthProtectedResourceMetadata>>;
 	try {
 		prm = await discoverOAuthProtectedResourceMetadata(
 			serverUrl,

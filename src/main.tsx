@@ -4564,7 +4564,9 @@ async function run(): Promise<CommanderCommand> {
 				}
 			} else if (feature("DIRECT_CONNECT") && _pendingConnect?.url) {
 				// `claude connect <url>` — full interactive TUI connected to a remote server
-				let directConnectConfig;
+				let directConnectConfig: Awaited<
+					ReturnType<typeof createDirectConnectSession>
+				>["config"];
 				try {
 					const session = await createDirectConnectSession({
 						serverUrl: _pendingConnect.url,
@@ -4620,7 +4622,7 @@ async function run(): Promise<CommanderCommand> {
 				// directly with the same env — e2e test of the proxy/auth plumbing.
 				const { createSSHSession, createLocalSSHSession, SSHSessionError } =
 					await import("./ssh/createSSHSession.js");
-				let sshSession;
+				let sshSession: Awaited<ReturnType<typeof createSSHSession>>;
 				try {
 					if (_pendingSSH.local) {
 						process.stderr.write("Starting local ssh-proxy test session...\n");
@@ -4711,7 +4713,7 @@ async function run(): Promise<CommanderCommand> {
 
 				// Discovery flow — list bridge environments, filter sessions
 				if (!targetSessionId) {
-					let sessions;
+					let sessions: Awaited<ReturnType<typeof discoverAssistantSessions>>;
 					try {
 						sessions = await discoverAssistantSessions();
 					} catch (e) {
@@ -4748,7 +4750,7 @@ async function run(): Promise<CommanderCommand> {
 						);
 					}
 					if (sessions.length === 1) {
-						targetSessionId = sessions[0]?.id;
+						targetSessionId = sessions[0]?.sessionId;
 					} else {
 						const picked = await launchAssistantSessionChooser(root, {
 							sessions,
@@ -4766,7 +4768,7 @@ async function run(): Promise<CommanderCommand> {
 				const { checkAndRefreshOAuthTokenIfNeeded, getClaudeAIOAuthTokens } =
 					await import("./utils/auth.js");
 				await checkAndRefreshOAuthTokenIfNeeded();
-				let apiCreds;
+				let apiCreds: Awaited<ReturnType<typeof prepareApiRequest>>;
 				try {
 					apiCreds = await prepareApiRequest();
 				} catch (e) {
@@ -5202,7 +5204,9 @@ async function run(): Promise<CommanderCommand> {
 							const resolvedPath = resolve(options.resume);
 							try {
 								const resumeStart = performance.now();
-								let logOption;
+								let logOption: Awaited<
+									ReturnType<typeof loadTranscriptFromFile>
+								>;
 								try {
 									// Attempt to load as a transcript file; ENOENT falls through to session-ID handling
 									logOption = await loadTranscriptFromFile(resolvedPath);

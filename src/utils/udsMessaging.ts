@@ -201,7 +201,9 @@ function processBuffer(_clientSocket: Socket, buffer: string): void {
 		if (!line.trim()) continue;
 		try {
 			const message = JSON.parse(line) as UDSMessage;
-			messageHandlers.forEach((handler) => handler(message));
+			messageHandlers.forEach((handler) => {
+				handler(message);
+			});
 		} catch {
 			// Skip malformed messages
 		}

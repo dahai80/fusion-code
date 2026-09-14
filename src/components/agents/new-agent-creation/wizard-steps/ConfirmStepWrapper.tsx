@@ -30,10 +30,10 @@ export function ConfirmStepWrapper({
 	const setAppState = useSetAppState();
 	const saveAgent = useCallback(
 		async (openInEditor: boolean): Promise<void> => {
-			if (!wizardData?.finalAgent) return;
+			if (!wizardData?.finalAgent || !wizardData.location) return;
 			try {
 				await saveAgentToFile(
-					wizardData.location! as SettingSource | "built-in",
+					wizardData.location as SettingSource | "built-in",
 					wizardData.finalAgent.agentType,
 					wizardData.finalAgent.whenToUse,
 					wizardData.finalAgent.tools,
@@ -59,7 +59,7 @@ export function ConfirmStepWrapper({
 				});
 				if (openInEditor) {
 					const filePath = getNewAgentFilePath({
-						source: wizardData.location! as SettingSource,
+						source: wizardData.location as SettingSource,
 						agentType: wizardData.finalAgent.agentType,
 					});
 					await editFileInEditor(filePath);
@@ -67,7 +67,7 @@ export function ConfirmStepWrapper({
 				logEvent("tengu_agent_created", {
 					agent_type: wizardData.finalAgent.agentType,
 					generation_method: wizardData.wasGenerated ? "generated" : "manual",
-					source: wizardData.location! as SettingSource,
+					source: wizardData.location as SettingSource,
 					tool_count: wizardData.finalAgent.tools?.length ?? "all",
 					has_custom_model: !!wizardData.finalAgent.model,
 					has_custom_color: !!wizardData.finalAgent.color,

@@ -289,6 +289,7 @@ export function TeammateSpinnerLine({
 			</Box>
 			{/* Preview lines */}
 			{previewLines.map((line, idx) => (
+				// biome-ignore lint/suspicious/noArrayIndexKey: 静态预览行列表, 渲染期不重排不增删, index key 即稳定 key
 				<Box key={idx} paddingLeft={3}>
 					<Text dimColor> </Text>
 					<Text dimColor>{previewTreeChar} </Text>

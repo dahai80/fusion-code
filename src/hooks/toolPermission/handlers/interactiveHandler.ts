@@ -400,7 +400,10 @@ function handleInteractivePermission(
 			);
 			channelUnsubscribe = () => {
 				mapUnsub();
-				channelSignal.removeEventListener("abort", channelUnsubscribe!);
+				channelSignal.removeEventListener(
+					"abort",
+					channelUnsubscribe ?? (() => {}),
+				);
 			};
 
 			channelSignal.addEventListener("abort", channelUnsubscribe, {

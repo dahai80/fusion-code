@@ -382,7 +382,7 @@ async function getAllSessionFiles(): Promise<string[]> {
 	const fs = getFsImplementation();
 
 	// Get all project directories
-	let allEntries;
+	let allEntries: Awaited<ReturnType<typeof fs.readdir>>;
 	try {
 		allEntries = await fs.readdir(projectsDir);
 	} catch (e) {

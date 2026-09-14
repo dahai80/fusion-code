@@ -112,6 +112,7 @@ export function TeleportStash({
 						<Text>{changedFiles.length} files changed</Text>
 					) : (
 						changedFiles.map((file: string, index: number) => (
+							// biome-ignore lint/suspicious/noArrayIndexKey: 只读展示列表, 文件名可重复不能用值作 key, 渲染期不重排
 							<Text key={index}>{file}</Text>
 						))
 					)

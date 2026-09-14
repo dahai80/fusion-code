@@ -652,13 +652,15 @@ export function extractTag(html: string, tagName: string): string | null {
 		"gi",
 	);
 
-	let match;
+	let match: RegExpExecArray | null;
 	let depth = 0;
 	let lastIndex = 0;
 	const openingTag = new RegExp(`<${escapedTag}(?:\\s+[^>]*?)?>`, "gi");
 	const closingTag = new RegExp(`<\\/${escapedTag}>`, "gi");
 
-	while ((match = pattern.exec(html)) !== null) {
+	while (true) {
+		match = pattern.exec(html);
+		if (match === null) break;
 		// Check for nested tags
 		const content = match[1];
 		const beforeMatch = html.slice(lastIndex, match.index);

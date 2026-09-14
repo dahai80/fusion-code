@@ -388,7 +388,7 @@ export async function tryReadImageFromPath(
 	}
 
 	const imagePath = cleanedPath;
-	let imageBuffer;
+	let imageBuffer: Buffer;
 
 	try {
 		if (isAbsolute(imagePath)) {

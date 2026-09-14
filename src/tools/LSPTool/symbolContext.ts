@@ -61,8 +61,8 @@ export function getSymbolAtPosition(
 		// This is more inclusive to handle various programming languages
 		const symbolPattern = /[\w$'!]+|[+\-*/%&|^~<>=]+/g;
 		let match: RegExpExecArray | null;
-
-		while ((match = symbolPattern.exec(lineContent)) !== null) {
+		match = symbolPattern.exec(lineContent);
+		while (match !== null) {
 			const start = match.index;
 			const end = start + match[0].length;
 

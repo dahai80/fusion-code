@@ -342,8 +342,10 @@ export class Cursor {
 	 */
 	snapOutOfImageRef(offset: number, toward: "start" | "end"): number {
 		const re = /\[Image #\d+\]/g;
-		let m;
-		while ((m = re.exec(this.text)) !== null) {
+		let m: RegExpExecArray | null;
+		while (true) {
+			m = re.exec(this.text);
+			if (m === null) break;
 			const start = m.index;
 			const end = start + m[0].length;
 			if (offset > start && offset < end) {

@@ -726,7 +726,7 @@ async function performMCPXaaAuth(
 
 	let failureStage: XaaFailureStage = "idp_login";
 	try {
-		let idToken;
+		let idToken: Awaited<ReturnType<typeof acquireIdpIdToken>>;
 		try {
 			idToken = await acquireIdpIdToken({
 				idpIssuer: idp.issuer,
@@ -749,7 +749,7 @@ async function performMCPXaaAuth(
 		// Run the exchange. performCrossAppAccess throws XaaTokenExchangeError
 		// for the IdP leg and "jwt-bearer grant failed" for the AS leg.
 		failureStage = "token_exchange";
-		let tokens;
+		let tokens: Awaited<ReturnType<typeof performCrossAppAccess>>;
 		try {
 			tokens = await performCrossAppAccess(
 				serverConfig.url,
@@ -1812,7 +1812,7 @@ export class ClaudeAuthProvider implements OAuthClientProvider {
 		// caches /.well-known/ requests), but OIDC metadata is cheap + idempotent.
 		// xaaRefresh is the silent tokens() path — soft-fail to undefined so the
 		// caller falls through to needs-authentication instead of throwing mid-connect.
-		let oidc;
+		let oidc: Awaited<ReturnType<typeof discoverOidc>>;
 		try {
 			oidc = await discoverOidc(idp.issuer);
 		} catch (e) {

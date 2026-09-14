@@ -952,7 +952,7 @@ async function performPluginUpdate({
 	} else {
 		// Local plugin: use path from marketplace
 		// Stat directly — handle ENOENT inline rather than pre-checking existence
-		let marketplaceStats;
+		let marketplaceStats: Awaited<ReturnType<typeof fs.stat>>;
 		try {
 			marketplaceStats = await fs.stat(marketplaceInstallLocation);
 		} catch (e: unknown) {

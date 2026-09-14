@@ -1,4 +1,4 @@
-import { execaSync } from "execa";
+import { execaSync, type SyncResult } from "execa";
 import { logForDebugging } from "../debug.js";
 import { execFileNoThrow } from "../execFileNoThrow.js";
 import { execSyncWithDefaults } from "../execFileNoThrowPortable.js";
@@ -131,7 +131,7 @@ export const macOsKeychainStorage = {
 			// effectively no size limit for our purposes.
 			const command = `add-generic-password -U -a "${username}" -s "${storageServiceName}" -X "${hexValue}"\n`;
 
-			let result;
+			let result: SyncResult;
 			if (command.length <= SECURITY_STDIN_LINE_LIMIT) {
 				result = execaSync("security", ["-i"], {
 					input: command,

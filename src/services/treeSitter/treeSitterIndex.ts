@@ -232,7 +232,7 @@ export class TreeSitterIndex {
 		if (depth > 10) return;
 		if (this.lastStats.files >= MAX_FILES) return;
 
-		let entries;
+		let entries: import("node:fs").Dirent[];
 		try {
 			entries = await readdir(dir, { withFileTypes: true });
 		} catch {

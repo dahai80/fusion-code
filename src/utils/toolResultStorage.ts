@@ -940,7 +940,9 @@ export async function enforceToolResultBudget(
 		);
 
 		// Re-apply: pure Map lookups. No file I/O, byte-identical, cannot fail.
-		mustReapply.forEach((c) => replacementMap.set(c.toolUseId, c.replacement));
+		mustReapply.forEach((c) => {
+			replacementMap.set(c.toolUseId, c.replacement);
+		});
 		reappliedCount += mustReapply.length;
 
 		// Fresh means this is a new message. Check its per-message budget.
@@ -949,7 +951,9 @@ export async function enforceToolResultBudget(
 		if (fresh.length === 0) {
 			// mustReapply/frozen are already in seenIds from their first pass —
 			// re-adding is a no-op but keeps the invariant explicit.
-			candidates.forEach((c) => state.seenIds.add(c.toolUseId));
+			candidates.forEach((c) => {
+				state.seenIds.add(c.toolUseId);
+			});
 			continue;
 		}
 
@@ -959,7 +963,9 @@ export async function enforceToolResultBudget(
 		// the wire message is still large, that's the contract — Read's own
 		// maxTokens is the bound, not this wrapper.
 		const skipped = fresh.filter((c) => shouldSkip(c.toolUseId));
-		skipped.forEach((c) => state.seenIds.add(c.toolUseId));
+		skipped.forEach((c) => {
+			state.seenIds.add(c.toolUseId);
+		});
 		const eligible = fresh.filter((c) => !shouldSkip(c.toolUseId));
 
 		const frozenSize = frozen.reduce((sum, c) => sum + c.size, 0);
@@ -979,7 +985,9 @@ export async function enforceToolResultBudget(
 		const selectedIds = new Set(selected.map((c) => c.toolUseId));
 		candidates
 			.filter((c) => !selectedIds.has(c.toolUseId))
-			.forEach((c) => state.seenIds.add(c.toolUseId));
+			.forEach((c) => {
+				state.seenIds.add(c.toolUseId);
+			});
 
 		if (selected.length === 0) continue;
 		messagesOverBudget++;

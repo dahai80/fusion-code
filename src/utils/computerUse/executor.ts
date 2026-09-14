@@ -130,7 +130,9 @@ async function moveAndSettle(
  */
 async function releasePressed(input: Input, pressed: string[]): Promise<void> {
 	let k: string | undefined;
-	while ((k = pressed.pop()) !== undefined) {
+	while (true) {
+		k = pressed.pop();
+		if (k === undefined) break;
 		try {
 			await input.key(k, "release");
 		} catch {

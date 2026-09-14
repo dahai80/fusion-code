@@ -457,8 +457,10 @@ function extractIncludePathsFromTokens(
 	// Extract @paths from a text string and add resolved paths to absolutePaths.
 	function extractPathsFromText(textContent: string) {
 		const includeRegex = /(?:^|\s)@((?:[^\s\\]|\\ )+)/g;
-		let match;
-		while ((match = includeRegex.exec(textContent)) !== null) {
+		let match: RegExpExecArray | null;
+		while (true) {
+			match = includeRegex.exec(textContent);
+			if (match === null) break;
 			let path = match[1];
 			if (!path) continue;
 

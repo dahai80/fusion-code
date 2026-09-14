@@ -122,7 +122,7 @@ export const GoalUpdateTool = buildTool({
 				};
 			}
 		}
-		let updated;
+		let updated: Awaited<ReturnType<typeof completeGoal>>;
 		if (status === "complete") {
 			// P1-8: pass expectedRevision into the single load/save cycle so the CAS
 			// check + mutation are atomic (previously getGoalById read + separate

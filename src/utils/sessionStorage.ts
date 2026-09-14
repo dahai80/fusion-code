@@ -3568,7 +3568,11 @@ function walkChainBeforeParse(buf: Buffer): Buffer {
 					) === 0
 				) {
 					if (suffix0 < 0) suffix0 = next;
-					else (suffixN ??= [suffix0]).push(next);
+					else if (suffixN === undefined) {
+						suffixN = [suffix0];
+					} else {
+						suffixN.push(next);
+					}
 				}
 				from = next + KEY_LEN;
 			}

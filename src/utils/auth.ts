@@ -1743,7 +1743,7 @@ async function checkAndRefreshOAuthTokenIfNeededImpl(
 	const claudeDir = getClaudeConfigHomeDir();
 	await mkdir(claudeDir, { recursive: true });
 
-	let release;
+	let release: (() => Promise<void>) | undefined;
 	try {
 		logEvent("tengu_oauth_token_refresh_lock_acquiring", {});
 		release = await lockfile.lock(claudeDir);

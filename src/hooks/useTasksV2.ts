@@ -200,7 +200,10 @@ class TasksV2Store {
 
 let _store: TasksV2Store | null = null;
 function getStore(): TasksV2Store {
-	return (_store ??= new TasksV2Store());
+	if (_store === null) {
+		_store = new TasksV2Store();
+	}
+	return _store;
 }
 
 // Stable no-ops for the disabled path so useSyncExternalStore doesn't

@@ -442,7 +442,7 @@ async function loadSkillsFromSkillsDir(
 ): Promise<SkillWithPath[]> {
 	const fs = getFsImplementation();
 
-	let entries;
+	let entries: Awaited<ReturnType<typeof fs.readdir>>;
 	try {
 		entries = await fs.readdir(basePath);
 	} catch (e: unknown) {

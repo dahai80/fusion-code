@@ -222,7 +222,6 @@ export function getRecentReleaseNotes(
 		logError(toError(error));
 		return [];
 	}
-	return [];
 }
 
 export function getRecentReleaseNoteGroups(

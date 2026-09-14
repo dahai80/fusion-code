@@ -942,15 +942,15 @@ for (const name of KNOWN_TOOL_NAMES) {
 function extractBalancedJson(text: string, startIdx: number): string | null {
 	let depth = 0;
 	let inString = false;
-	let escape = false;
+	let escaped = false;
 	for (let i = startIdx; i < text.length; i++) {
 		const ch = text[i];
-		if (escape) {
-			escape = false;
+		if (escaped) {
+			escaped = false;
 			continue;
 		}
 		if (ch === "\\" && inString) {
-			escape = true;
+			escaped = true;
 			continue;
 		}
 		if (ch === '"') {
@@ -1006,7 +1006,9 @@ function extractToolCallsFromText(text: string): Array<{
 
 	const xmlPattern = /<(?:tools|tool_call)>([\s\S]*?)<\/(?:tools|tool_call)>/g;
 	let match: RegExpExecArray | null;
-	while ((match = xmlPattern.exec(text)) !== null) {
+	while (true) {
+		match = xmlPattern.exec(text);
+		if (match === null) break;
 		const inner = match[1].trim();
 		const parsed = tryParseToolCallJson(inner);
 		if (parsed) {
@@ -1026,7 +1028,9 @@ function extractToolCallsFromText(text: string): Array<{
 	// Pattern 2: Function call syntax — ToolName({key: value}) or toolName({key: value})
 	const funcCallPattern =
 		/\b([A-Za-z][A-Za-z_0-9]*)\s*\(\s*(\{[\s\S]*?\})\s*\)/g;
-	while ((match = funcCallPattern.exec(text)) !== null) {
+	while (true) {
+		match = funcCallPattern.exec(text);
+		if (match === null) break;
 		const toolName = normalizeToolName(match[1]);
 		if (!toolName) continue;
 		const argsStr = match[2];
@@ -1045,7 +1049,9 @@ function extractToolCallsFromText(text: string): Array<{
 
 	// Pattern 3: JSON code blocks with name + arguments
 	const cbp = /`{3}(?:json)?\s*\n?([\s\S]*?)`{3}/g;
-	while ((match = cbp.exec(text)) !== null) {
+	while (true) {
+		match = cbp.exec(text);
+		if (match === null) break;
 		const inner = match[1].trim();
 		const parsed = tryParseToolCallJson(inner);
 		if (parsed) {
@@ -1065,7 +1071,9 @@ function extractToolCallsFromText(text: string): Array<{
 	// Pattern 4: Bare JSON object with "name" and "arguments"/"parameters" keys
 	const bjp =
 		/\{[\s\S]*?"name"\s*:\s*"(\w+)"[\s\S]*?(?:"arguments"|"parameters")\s*:\s*\{[\s\S]*?\}[\s\S]*?\}/g;
-	while ((match = bjp.exec(text)) !== null) {
+	while (true) {
+		match = bjp.exec(text);
+		if (match === null) break;
 		const parsed = tryParseToolCallJson(match[0]);
 		if (parsed) {
 			const normalizedName = normalizeToolName(parsed.name);
@@ -1085,7 +1093,9 @@ function extractToolCallsFromText(text: string): Array<{
 	// Regex can't handle nested JSON in arguments, so extract balanced JSON objects
 	const oaiStartPattern = /\{\s*"function"\s*:\s*\{/g;
 	let oaiStart: RegExpExecArray | null;
-	while ((oaiStart = oaiStartPattern.exec(text)) !== null) {
+	while (true) {
+		oaiStart = oaiStartPattern.exec(text);
+		if (oaiStart === null) break;
 		const jsonStr = extractBalancedJson(text, oaiStart.index);
 		if (jsonStr) {
 			const parsed = tryParseToolCallJson(jsonStr);
@@ -1108,7 +1118,9 @@ function extractToolCallsFromText(text: string): Array<{
 	// Qwen models output this format when tool_call_style is not structured
 	const funcXmlPattern =
 		/<function=([A-Za-z_][A-Za-z0-9_]*)>([\s\S]*?)<\/function>/g;
-	while ((match = funcXmlPattern.exec(text)) !== null) {
+	while (true) {
+		match = funcXmlPattern.exec(text);
+		if (match === null) break;
 		const toolName = normalizeToolName(match[1]);
 		if (!toolName) continue;
 		const inner = match[2].trim();
@@ -1116,7 +1128,9 @@ function extractToolCallsFromText(text: string): Array<{
 		const paramPattern =
 			/<parameter=([A-Za-z_][A-Za-z0-9_]*)>([\s\S]*?)<\/parameter>/g;
 		let paramMatch: RegExpExecArray | null;
-		while ((paramMatch = paramPattern.exec(inner)) !== null) {
+		while (true) {
+			paramMatch = paramPattern.exec(inner);
+			if (paramMatch === null) break;
 			args[paramMatch[1]] = paramMatch[2].trim();
 		}
 		if (Object.keys(args).length > 0) {

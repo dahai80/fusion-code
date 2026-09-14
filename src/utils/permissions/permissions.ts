@@ -106,6 +106,7 @@ import {
 	classifyYoloAction,
 	formatActionForClassifier,
 } from "./yoloClassifier.js";
+import type { YoloClassifierResult } from "../../types/permissions.js";
 
 const CLASSIFIER_FAIL_CLOSED_REFRESH_MS = 30 * 60 * 1000; // 30 minutes
 
@@ -827,7 +828,7 @@ export const hasPermissionsToUseTool: CanUseToolFn = async (
 			// Run the auto mode classifier
 			const action = formatActionForClassifier(tool.name, input);
 			setClassifierChecking(toolUseID);
-			let classifierResult;
+			let classifierResult: YoloClassifierResult;
 			try {
 				classifierResult = await classifyYoloAction(
 					context.messages,

@@ -320,7 +320,7 @@ export async function getTeleportEvents(
 			params.cursor = cursor;
 		}
 
-		let response;
+		let response: import("axios").AxiosResponse<TeleportEventsResponse>;
 		try {
 			response = await axios.get<TeleportEventsResponse>(baseUrl, {
 				headers,

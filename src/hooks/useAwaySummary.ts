@@ -15,7 +15,8 @@ type SetMessages = (updater: (prev: Message[]) => Message[]) => void;
 
 function hasSummarySinceLastUserTurn(messages: readonly Message[]): boolean {
 	for (let i = messages.length - 1; i >= 0; i--) {
-		const m = messages[i]!;
+		const m = messages[i];
+		if (m === undefined) continue;
 		if (m.type === "user" && !m.isMeta && !m.isCompactSummary) return false;
 		if (m.type === "system" && m.subtype === "away_summary") return true;
 	}

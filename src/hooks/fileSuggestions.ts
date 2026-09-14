@@ -113,7 +113,8 @@ export function pathListSignature(paths: string[]): string {
 	const stride = Math.max(1, Math.floor(n / 500));
 	let h = 0x811c9dc5 | 0;
 	for (let i = 0; i < n; i += stride) {
-		const p = paths[i]!;
+		const p = paths[i];
+		if (p === undefined) continue;
 		for (let j = 0; j < p.length; j++) {
 			h = ((h ^ p.charCodeAt(j)) * 0x01000193) | 0;
 		}
@@ -122,7 +123,8 @@ export function pathListSignature(paths: string[]): string {
 	// Stride starts at 0 (first path always hashed); explicitly include last
 	// so single-file add/rm at the tail is caught
 	if (n > 0) {
-		const last = paths[n - 1]!;
+		const last = paths[n - 1];
+		if (last === undefined) return `${n}:${(h >>> 0).toString(16)}`;
 		for (let j = 0; j < last.length; j++) {
 			h = ((h ^ last.charCodeAt(j)) * 0x01000193) | 0;
 		}
@@ -427,7 +429,9 @@ function collectDirectoryNames(
 	out: Set<string>,
 ): void {
 	for (let i = start; i < end; i++) {
-		let currentDir = path.dirname(files[i]!);
+		const file = files[i];
+		if (file === undefined) continue;
+		let currentDir = path.dirname(file);
 		// Early exit if we've already processed this directory and all its parents.
 		// Root detection: path.dirname returns its input at the root (fixed point),
 		// so we stop when dirname stops changing. Checking this before add() keeps
@@ -591,9 +595,10 @@ export function findLongestCommonPrefix(suggestions: SuggestionItem[]): string {
 	if (suggestions.length === 0) return "";
 
 	const strings = suggestions.map((item) => item.displayText);
-	let prefix = strings[0]!;
+	let prefix = strings[0] ?? "";
 	for (let i = 1; i < strings.length; i++) {
-		const currentString = strings[i]!;
+		const currentString = strings[i];
+		if (currentString === undefined) continue;
 		prefix = findCommonPrefix(prefix, currentString);
 		if (prefix === "") return "";
 	}

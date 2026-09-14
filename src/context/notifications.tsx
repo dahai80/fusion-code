@@ -189,10 +189,9 @@ export function useNotifications(): {
 						(_) => _.key === notif.key,
 					);
 					if (queueIdx !== -1) {
-						const folded = notif.fold(
-							prev.notifications.queue[queueIdx]!,
-							notif,
-						);
+						const existing = prev.notifications.queue[queueIdx];
+						if (existing === undefined) return prev;
+						const folded = notif.fold(existing, notif);
 						const newQueue = [...prev.notifications.queue];
 						newQueue[queueIdx] = folded;
 						return {
@@ -268,7 +267,6 @@ export function useNotifications(): {
 	// Imperative read (not useAppState) — a subscription in a mount-only
 	// effect would be vestigial and make every caller re-render on queue changes.
 	// eslint-disable-next-line react-hooks/exhaustive-deps
-	// biome-ignore lint/correctness/useExhaustiveDependencies: mount-only effect, store is a stable context ref
 	useEffect(() => {
 		if (store.getState().notifications.queue.length > 0) {
 			processQueue();

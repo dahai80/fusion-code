@@ -138,7 +138,8 @@ export function TagTabs({
 				</Text>
 			)}
 			{visibleTabs.map((tab_0, i_1) => {
-				const actualIndex = visibleIndices[i_1]!;
+				const actualIndex = visibleIndices[i_1];
+				if (actualIndex === undefined) return null;
 				const isSelected = actualIndex === safeSelectedIndex;
 				const displayText =
 					tab_0 === ALL_TAB_LABEL

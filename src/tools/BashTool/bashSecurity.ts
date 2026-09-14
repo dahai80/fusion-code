@@ -323,7 +323,7 @@ function isSafeHeredoc(command: string): boolean {
 	// Handle quote variations: 'EOF', ''EOF'' (splitCommand may mangle quotes).
 	const heredocPattern =
 		/\$\(cat[ \t]*<<(-?)[ \t]*(?:'+([A-Za-z_]\w*)'+|\\([A-Za-z_]\w*))/g;
-	let match;
+	let match: RegExpExecArray | null;
 	type HeredocMatch = {
 		start: number;
 		operatorEnd: number;
@@ -332,7 +332,9 @@ function isSafeHeredoc(command: string): boolean {
 	};
 	const safeHeredocs: HeredocMatch[] = [];
 
-	while ((match = heredocPattern.exec(command)) !== null) {
+	while (true) {
+		match = heredocPattern.exec(command);
+		if (match === null) break;
 		const delimiter = match[2] || match[3];
 		if (delimiter) {
 			safeHeredocs.push({
@@ -524,9 +526,11 @@ export function stripSafeHeredocSubstitutions(command: string): string | null {
 		/\$\(cat[ \t]*<<(-?)[ \t]*(?:'+([A-Za-z_]\w*)'+|\\([A-Za-z_]\w*))/g;
 	let result = command;
 	let found = false;
-	let match;
+	let match: RegExpExecArray | null;
 	const ranges: Array<{ start: number; end: number }> = [];
-	while ((match = heredocPattern.exec(command)) !== null) {
+	while (true) {
+		match = heredocPattern.exec(command);
+		if (match === null) break;
 		if (match.index > 0 && command[match.index - 1] === "\\") continue;
 		const delimiter = match[2] || match[3];
 		if (!delimiter) continue;
@@ -2245,6 +2249,7 @@ function validateZshDangerousCommands(
 // so an attacker can use them to slip metacharacters past our checks while
 // bash still executes them (e.g., "echo safe\x00; rm -rf /").
 // eslint-disable-next-line no-control-regex
+// biome-ignore lint/suspicious/noControlCharactersInRegex: 安全校验需检测 null 字节等不可见控制字符，防止其绕过其它校验器
 const CONTROL_CHAR_RE = /[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/;
 
 /**

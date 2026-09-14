@@ -262,7 +262,9 @@ export function killInProcessTeammate(
 		killed = true;
 
 		// Call pending idle callbacks to unblock any waiters (e.g., engine.waitForIdle)
-		teammateTask.onIdleCallbacks?.forEach((cb) => cb());
+		teammateTask.onIdleCallbacks?.forEach((cb) => {
+			cb();
+		});
 
 		// Remove from teamContext.teammates using the agentId
 		let updatedTeamContext = prev.teamContext;

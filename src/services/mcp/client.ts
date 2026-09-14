@@ -751,7 +751,7 @@ export const connectToServer = memoize(
 			| { connect(t: Transport): Promise<void>; close(): Promise<void> }
 			| undefined;
 		try {
-			let transport;
+			let transport: Transport;
 
 			// If we have the session ingress JWT, we will connect via the session ingress rather than
 			// to remote MCP's directly.
@@ -1687,8 +1687,10 @@ export const connectToServer = memoize(
 							}
 
 							// Wait for graceful shutdown with rapid escalation (total 500ms to keep CLI responsive)
-							await new Promise<void>(async (resolve) => {
-								let resolved = false;
+							await new Promise<void>((resolve) => {
+								// biome-ignore lint/suspicious/noAsyncPromiseExecutor: 执行器内需要 await sleep 做降级探测, 语义为"等待进程退出"而非异步计算, 重构成 IIFE 反而牺牲可读性
+								void (async () => {
+									let resolved = false;
 
 								// Set up a timer to check if process still exists
 								const checkInterval = setInterval(() => {
@@ -1801,6 +1803,7 @@ export const connectToServer = memoize(
 										resolve();
 									}
 								}
+								})();
 							});
 						}
 					} catch (processError) {

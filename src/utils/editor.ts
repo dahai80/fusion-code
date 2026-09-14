@@ -1,6 +1,8 @@
 import {
+	type ChildProcess,
 	type SpawnOptions,
 	type SpawnSyncOptions,
+	type SpawnSyncReturns,
 	spawn,
 	spawnSync,
 } from "node:child_process";
@@ -96,7 +98,7 @@ export function openFileInExternalEditor(
 	if (guiFamily) {
 		const gotoArgv = guiGotoArgv(guiFamily, filePath, line);
 		const detachedOpts: SpawnOptions = { detached: true, stdio: "ignore" };
-		let child;
+		let child: ChildProcess;
 		if (process.platform === "win32") {
 			// shell: true on win32 so code.cmd / cursor.cmd / windsurf.cmd resolve —
 			// CreateProcess can't execute .cmd/.bat directly. Assemble quoted command
@@ -130,7 +132,7 @@ export function openFileInExternalEditor(
 	inkInstance.enterAlternateScreen();
 	try {
 		const syncOpts: SpawnSyncOptions = { stdio: "inherit" };
-		let result;
+		let result: SpawnSyncReturns<string | NonSharedBuffer>;
 		if (process.platform === "win32") {
 			// On Windows use shell: true so cmd.exe builtins like `start` resolve.
 			// shell: true joins args unquoted, so assemble the command string with

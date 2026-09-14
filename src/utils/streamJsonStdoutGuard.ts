@@ -67,7 +67,9 @@ export function installStreamJsonStdoutGuard(): void {
 		buffer += text;
 		let newlineIdx: number;
 		let wrote = true;
-		while ((newlineIdx = buffer.indexOf("\n")) !== -1) {
+		while (true) {
+			newlineIdx = buffer.indexOf("\n");
+			if (newlineIdx === -1) break;
 			const line = buffer.slice(0, newlineIdx);
 			buffer = buffer.slice(newlineIdx + 1);
 			if (isJsonLine(line)) {

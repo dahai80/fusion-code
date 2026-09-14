@@ -19,7 +19,7 @@ import {
 } from "../githubRepoPathMapping.js";
 import { jsonStringify } from "../slowOperations.js";
 import { readLastFetchTime } from "./banner.js";
-import { parseDeepLink } from "./parseDeepLink.js";
+import { parseDeepLink, type DeepLinkAction } from "./parseDeepLink.js";
 import { MACOS_BUNDLE_ID } from "./registerProtocol.js";
 import { launchInTerminal } from "./terminalLauncher.js";
 
@@ -36,7 +36,7 @@ import { launchInTerminal } from "./terminalLauncher.js";
 export async function handleDeepLinkUri(uri: string): Promise<number> {
 	logForDebugging(`Handling deep link URI: ${uri}`);
 
-	let action;
+	let action: DeepLinkAction;
 	try {
 		action = parseDeepLink(uri);
 	} catch (error) {

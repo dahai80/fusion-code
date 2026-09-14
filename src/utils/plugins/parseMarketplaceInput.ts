@@ -110,7 +110,7 @@ export async function parseMarketplaceInput(
 		// Stat the path to determine if it's a file or directory. Swallow all stat
 		// errors (ENOENT, EACCES, EPERM, etc.) and return an error result instead
 		// of throwing — matches the old existsSync behavior which never threw.
-		let stats;
+		let stats: Awaited<ReturnType<typeof fs.stat>>;
 		try {
 			stats = await fs.stat(resolvedPath);
 		} catch (e: unknown) {

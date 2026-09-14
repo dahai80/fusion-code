@@ -880,7 +880,20 @@ export const BashTool = buildTool({
 			// Default-off — FUSION_CODE_EXECUTOR_ENABLED gates. background/sed-simulate
 			// stay in-process (executor issue #1 has no background API). lazy-require
 			// keeps the executor module graph out of the disabled runtime path.
-			let commandGenerator;
+			let commandGenerator: AsyncGenerator<
+				{
+					type: "progress";
+					output: string;
+					fullOutput: string;
+					elapsedTimeSeconds: number;
+					totalLines: number;
+					totalBytes?: number;
+					taskId?: string;
+					timeoutMs?: number;
+				},
+				ExecResult | null,
+				void
+			>;
 			let executorRouteable = false;
 			if (isEnvTruthy(process.env.FUSION_CODE_EXECUTOR_ENABLED)) {
 				const {
@@ -910,11 +923,13 @@ export const BashTool = buildTool({
 			}
 
 			// Consume the generator and capture the return value
-			let generatorResult;
+			let generatorResult: Awaited<ReturnType<typeof commandGenerator.next>>;
 			do {
 				generatorResult = await commandGenerator.next();
 				if (!generatorResult.done && onProgress) {
 					const progress = generatorResult.value;
+					// ExecResult 与 progress 事件联合, 用 output 字段判别窄化 (progress 必有, ExecResult 无)
+					if (!("output" in progress)) continue;
 					onProgress({
 						toolUseID: `bash-progress-${progressCounter++}`,
 						data: {
@@ -951,11 +966,13 @@ export const BashTool = buildTool({
 					toolUseId: toolUseContext.toolUseId,
 					agentId: toolUseContext.agentId,
 				});
-				let fallbackResult;
+				let fallbackResult: Awaited<ReturnType<typeof fallbackGenerator.next>>;
 				do {
 					fallbackResult = await fallbackGenerator.next();
 					if (!fallbackResult.done && onProgress) {
 						const progress = fallbackResult.value;
+						// ExecResult 与 progress 事件联合, 用 output 字段判别窄化 (progress 必有, ExecResult 无)
+						if (!("output" in progress)) continue;
 						onProgress({
 							toolUseID: `bash-progress-${progressCounter++}`,
 							data: {

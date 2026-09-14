@@ -52,7 +52,7 @@ async function collectFiles(
 ): Promise<string[]> {
 	if (currentDepth >= maxDepth) return [];
 	const files: string[] = [];
-	let entries;
+	let entries: import("node:fs").Dirent[];
 	try {
 		entries = await readdir(dir, { withFileTypes: true });
 	} catch {
