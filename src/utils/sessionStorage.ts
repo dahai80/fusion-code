@@ -1,10 +1,16 @@
 import { feature } from "bun:bundle";
-import type { UUID } from "crypto";
-import type { Dirent } from "fs";
+import type { UUID } from "node:crypto";
+import type { Dirent } from "node:fs";
 // Sync fs primitives for readFileTailSync — separate from fs/promises
 // imports above. Named (not wildcard) per CLAUDE.md style; no collisions
 // with the async-suffixed names.
-import { closeSync, fstatSync, openSync, readSync, fdatasyncSync } from "fs";
+import {
+	closeSync,
+	fdatasyncSync,
+	fstatSync,
+	openSync,
+	readSync,
+} from "node:fs";
 import {
 	appendFile as fsAppendFile,
 	open as fsOpen,
@@ -15,9 +21,9 @@ import {
 	stat,
 	unlink,
 	writeFile,
-} from "fs/promises";
+} from "node:fs/promises";
+import { basename, dirname, join } from "node:path";
 import memoize from "lodash-es/memoize.js";
-import { basename, dirname, join } from "path";
 import {
 	type AnalyticsMetadata_I_VERIFIED_THIS_IS_NOT_CODE_OR_FILEPATHS,
 	logEvent,
@@ -608,8 +614,6 @@ class Project {
 	// (批写可能跨多次 write syscall, 同步写插中间 → JSONL 畸形行 → transcript 损坏)。
 	private drainingFiles = new Set<string>();
 
-	constructor() {}
-
 	/** @internal Reset flush/queue state for testing. */
 	_resetFlushState(): void {
 		this.pendingWriteCount = 0;
@@ -721,7 +725,7 @@ class Project {
 			const resolvers: Array<() => void> = [];
 
 			for (const { entry, resolve } of batch) {
-				const line = jsonStringify(entry) + "\n";
+				const line = `${jsonStringify(entry)}\n`;
 
 				if (content.length + line.length >= this.MAX_CHUNK_BYTES) {
 					// Flush chunk and resolve its entries before starting a new one
@@ -1206,7 +1210,7 @@ class Project {
 				if (text) {
 					const flat = text.replace(/\n/g, " ").trim();
 					this.currentSessionLastPrompt =
-						flat.length > 200 ? flat.slice(0, 200).trim() + "…" : flat;
+						flat.length > 200 ? `${flat.slice(0, 200).trim()}…` : flat;
 				}
 			}
 		});
@@ -1734,7 +1738,7 @@ export async function hydrateRemoteSession(
 
 		// Replace local logs with remote logs. writeFile truncates, so no
 		// unlink is needed; an empty remoteLogs array produces an empty file.
-		const content = remoteLogs.map((e) => jsonStringify(e) + "\n").join("");
+		const content = remoteLogs.map((e) => `${jsonStringify(e)}\n`).join("");
 		await atomicWriteFile(sessionFile, content, { mode: 0o600 });
 
 		logForDebugging(`Hydrated ${remoteLogs.length} entries from remote`);
@@ -1787,7 +1791,7 @@ export async function hydrateFromCCRv2InternalEvents(
 		// Write foreground transcript
 		const sessionFile = getTranscriptPathForSession(sessionId);
 		const fgContent = events
-			.map((e) => jsonStringify(e.payload) + "\n")
+			.map((e) => `${jsonStringify(e.payload)}\n`)
 			.join("");
 		await atomicWriteFile(sessionFile, fgContent, { mode: 0o600 });
 
@@ -1820,7 +1824,7 @@ export async function hydrateFromCCRv2InternalEvents(
 					const agentFile = getAgentTranscriptPath(asAgentId(agentId));
 					await mkdir(dirname(agentFile), { recursive: true, mode: 0o700 });
 					const agentContent = entries
-						.map((p) => jsonStringify(p) + "\n")
+						.map((p) => `${jsonStringify(p)}\n`)
 						.join("");
 					await atomicWriteFile(agentFile, agentContent, {
 						mode: 0o600,
@@ -1861,7 +1865,7 @@ function extractFirstPrompt(transcript: TranscriptMessage[]): string {
 		// Store a reasonably long version for display-time truncation
 		// The actual truncation will be applied at display time based on terminal width
 		if (result.length > 200) {
-			result = result.slice(0, 200).trim() + "…";
+			result = `${result.slice(0, 200).trim()}…`;
 		}
 
 		return result;
@@ -2719,7 +2723,9 @@ function sessionJsonlWarnBytes(): number {
 	const raw = process.env.FUSION_CODE_SESSION_JSONL_WARN_BYTES;
 	if (raw === undefined || raw === "") return DEFAULT_SESSION_JSONL_WARN_BYTES;
 	const n = Number(raw);
-	return Number.isFinite(n) && n >= 0 ? Math.floor(n) : DEFAULT_SESSION_JSONL_WARN_BYTES;
+	return Number.isFinite(n) && n >= 0
+		? Math.floor(n)
+		: DEFAULT_SESSION_JSONL_WARN_BYTES;
 }
 
 function maybeWarnSessionJsonlSize(fullPath: string): void {
@@ -2757,12 +2763,12 @@ function appendEntryToFile(
 	// (cleanup 先 await flush() 再 reAppend; materializeSessionFile 顺序 await
 	// appendEntry 亦 drain 队列), 语义不破坏。无 drain 在途时保持原同步写 (即时落盘)。
 	const project = tryGetProject();
-	if (project && project.isDrainingFile(fullPath)) {
+	if (project?.isDrainingFile(fullPath)) {
 		void project.enqueueMetadataWrite(fullPath, entry as Entry);
 		return;
 	}
 	const fs = getFsImplementation();
-	const line = jsonStringify(entry) + "\n";
+	const line = `${jsonStringify(entry)}\n`;
 	try {
 		fs.appendFileSync(fullPath, line, { mode: 0o600 });
 	} catch {
@@ -3348,7 +3354,7 @@ async function scanPreBoundaryMetadata(
 	filePath: string,
 	endOffset: number,
 ): Promise<string[]> {
-	const { createReadStream } = await import("fs");
+	const { createReadStream } = await import("node:fs");
 	const NEWLINE = 0x0a;
 
 	const stream = createReadStream(filePath, { end: endOffset - 1 });
@@ -4406,7 +4412,7 @@ async function getStatOnlyLogsForWorktrees(
 		if (seenDirs.has(dirName)) continue;
 
 		for (const { path: wtPath, prefix } of indexed) {
-			if (dirName === prefix || dirName.startsWith(prefix + "-")) {
+			if (dirName === prefix || dirName.startsWith(`${prefix}-`)) {
 				seenDirs.add(dirName);
 				allLogs.push(
 					...(await getSessionFilesLite(
@@ -5140,7 +5146,7 @@ function extractFirstPromptFromChunk(chunk: string): string {
 					continue;
 				}
 				if (result.length > 200) {
-					result = result.slice(0, 200).trim() + "…";
+					result = `${result.slice(0, 200).trim()}…`;
 				}
 				return result;
 			}

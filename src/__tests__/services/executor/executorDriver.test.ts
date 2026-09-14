@@ -1,13 +1,13 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
+import type {
+	ExecutionRequest,
+	ExecutionResult,
+} from "../../../services/executor/index.js";
 import {
 	_setExecutorClientForTesting,
 	callBashViaExecutor,
 	type ExecutorClientLike,
 	isExecutorRouteable,
-} from "../../../services/executor/index.js";
-import type {
-	ExecutionRequest,
-	ExecutionResult,
 } from "../../../services/executor/index.js";
 import type { ExecResult } from "../../../utils/ShellCommand.js";
 

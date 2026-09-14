@@ -10,11 +10,10 @@
  */
 
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
-
 // MACRO.VERSION/BUILD_TIME 是 build.ts --define 注入的编译时宏, 测试运行时未定义。
 // getAnthropicClient 在模块加载时经 getUserAgent() (http.ts:34) 读 MACRO.VERSION →
 // ReferenceError。预置全局 stub 让导入链不爆, 测试焦点在 openai 分支 throw 而非版本号。
-;(globalThis as { MACRO?: Record<string, string> }).MACRO ??= {
+(globalThis as { MACRO?: Record<string, string> }).MACRO ??= {
 	VERSION: "0.0.0-test",
 	BUILD_TIME: "test",
 	FEEDBACK_CHANNEL: "github",

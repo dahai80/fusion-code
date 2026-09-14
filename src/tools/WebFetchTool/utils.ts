@@ -1,5 +1,5 @@
+import dns from "node:dns";
 import axios, { type AxiosResponse } from "axios";
-import dns from "dns";
 import { LRUCache } from "lru-cache";
 import {
 	type AnalyticsMetadata_I_VERIFIED_THIS_IS_NOT_CODE_OR_FILEPATHS,

@@ -47,10 +47,7 @@ import {
 	setMemberMode,
 	setMultipleMemberModes,
 } from "../../utils/swarm/teamHelpers.js";
-import {
-	listTasks,
-	unassignTeammateTasks,
-} from "../../utils/tasks.js";
+import { listTasks, unassignTeammateTasks } from "../../utils/tasks.js";
 import {
 	getTeammateStatuses,
 	type TeammateStatus,

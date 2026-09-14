@@ -1,4 +1,4 @@
-export const LSP_TOOL_NAME = 'LSP' as const
+export const LSP_TOOL_NAME = "LSP" as const;
 
 export const DESCRIPTION = `Interact with Language Server Protocol (LSP) servers for code intelligence.
 
@@ -14,7 +14,7 @@ Supported operations:
 - outgoingCalls: Find all functions called by a function
 
 All operations require filePath, line (1-based), character (1-based).
-workspaceSymbol also requires query — always provide it.`
+workspaceSymbol also requires query — always provide it.`;
 
 export const PROMPT = `Interact with Language Server Protocol (LSP) servers for code intelligence features.
 
@@ -49,4 +49,4 @@ Tips:
 - Use findReferences to understand impact of changes
 - Use hover to quickly check types without reading the full file
 - LSP servers must be configured for the file type — returns error if unavailable
-- Line and character are 1-based (editor-style, not 0-based)`
+- Line and character are 1-based (editor-style, not 0-based)`;

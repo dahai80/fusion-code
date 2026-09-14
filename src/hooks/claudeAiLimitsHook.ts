@@ -1,23 +1,23 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState } from "react";
 import {
-  type ClaudeAILimits,
-  currentLimits,
-  statusListeners,
-} from '../services/claudeAiLimits.js'
+	type ClaudeAILimits,
+	currentLimits,
+	statusListeners,
+} from "../services/claudeAiLimits.js";
 
 export function useClaudeAiLimits(): ClaudeAILimits {
-  const [limits, setLimits] = useState<ClaudeAILimits>({ ...currentLimits })
+	const [limits, setLimits] = useState<ClaudeAILimits>({ ...currentLimits });
 
-  useEffect(() => {
-    const listener = (newLimits: ClaudeAILimits) => {
-      setLimits({ ...newLimits })
-    }
-    statusListeners.add(listener)
+	useEffect(() => {
+		const listener = (newLimits: ClaudeAILimits) => {
+			setLimits({ ...newLimits });
+		};
+		statusListeners.add(listener);
 
-    return () => {
-      statusListeners.delete(listener)
-    }
-  }, [])
+		return () => {
+			statusListeners.delete(listener);
+		};
+	}, []);
 
-  return limits
+	return limits;
 }

@@ -1,4 +1,7 @@
-import type { LocalCommandCall, LocalCommandResult } from '../../types/command.js'
+import type {
+	LocalCommandCall,
+	LocalCommandResult,
+} from "../../types/command.js";
 
 const UPDATE_CODEMAPS_PROMPT = `# Update Codemaps
 
@@ -44,14 +47,14 @@ src/repos/user.ts (database access, 80 lines)
 - Include line counts for key files
 - Keep each codemap under 200 lines
 - Focus on structure, not implementation details
-- Update only the codemaps that changed`
+- Update only the codemaps that changed`;
 
 export const call: LocalCommandCall = async (args, _context) => {
-    const section = args.trim() || 'all'
-    console.log(`[update-codemaps] generating ${section} codemaps`)
+	const section = args.trim() || "all";
+	console.log(`[update-codemaps] generating ${section} codemaps`);
 
-    return {
-            type: 'display',
-        display: UPDATE_CODEMAPS_PROMPT,
-    } satisfies LocalCommandResult
-}
+	return {
+		type: "display",
+		display: UPDATE_CODEMAPS_PROMPT,
+	} satisfies LocalCommandResult;
+};

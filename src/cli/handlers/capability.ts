@@ -9,8 +9,10 @@
 // 评估而非照搬: RPC 网关远程控制面 defer (安全面)。
 
 import { getOriginalCwd } from "../../bootstrap/state.js";
-import { exportCapabilityManifest } from "../../services/capability/index.js";
-import { isCapabilityManifestEnabled } from "../../services/capability/index.js";
+import {
+	exportCapabilityManifest,
+	isCapabilityManifestEnabled,
+} from "../../services/capability/index.js";
 
 interface ParsedFlags {
 	noSchemas: boolean;
@@ -49,15 +51,21 @@ function usage(): void {
 	);
 	console.log("");
 	console.log("Generate a capability manifest (type graph) from fusion-code");
-	console.log("tools, skills, and plugin definitions. Output is JSON to stdout.");
+	console.log(
+		"tools, skills, and plugin definitions. Output is JSON to stdout.",
+	);
 	console.log("");
 	console.log("Options:");
-	console.log("  --no-schemas    Omit tool input JSON schemas (name graph only).");
+	console.log(
+		"  --no-schemas    Omit tool input JSON schemas (name graph only).",
+	);
 	console.log("  --no-skills     Omit skill/command entries.");
 	console.log("  --no-plugins    Omit plugin entries.");
 	console.log("  --indent N      JSON indent width (default 2).");
 	console.log("");
-	console.log("Requires FUSION_CODE_CAPABILITY_MANIFEST_ENABLED=1 and a build with");
+	console.log(
+		"Requires FUSION_CODE_CAPABILITY_MANIFEST_ENABLED=1 and a build with",
+	);
 	console.log("the CAPABILITY_MANIFEST feature flag.");
 }
 

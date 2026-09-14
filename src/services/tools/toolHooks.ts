@@ -1,8 +1,8 @@
 import {
 	type AnalyticsMetadata_I_VERIFIED_THIS_IS_NOT_CODE_OR_FILEPATHS,
 	logEvent,
+	sanitizeToolNameForAnalytics,
 } from "src/services/analytics/index.js";
-import { sanitizeToolNameForAnalytics } from "src/services/analytics/index.js";
 import type z from "zod/v4";
 import type { CanUseToolFn } from "../../hooks/useCanUseTool.js";
 import type { AnyObject, Tool, ToolUseContext } from "../../Tool.js";
@@ -44,7 +44,7 @@ export async function* runPostToolUseHooks<Input extends AnyObject, Output>(
 	toolResponse: Output,
 	requestId: string | undefined,
 	mcpServerType: McpServerType,
-	mcpServerBaseUrl: string | undefined,
+	_mcpServerBaseUrl: string | undefined,
 ): AsyncGenerator<PostToolUseHooksResult<Output>> {
 	const postToolStartTime = Date.now();
 	try {
@@ -203,7 +203,7 @@ export async function* runPostToolUseFailureHooks<Input extends AnyObject>(
 	isInterrupt: boolean | undefined,
 	requestId: string | undefined,
 	mcpServerType: McpServerType,
-	mcpServerBaseUrl: string | undefined,
+	_mcpServerBaseUrl: string | undefined,
 ): AsyncGenerator<
 	MessageUpdateLazy<AttachmentMessage | ProgressMessage<HookProgress>>
 > {
@@ -447,7 +447,7 @@ export async function* runPreToolUseHooks(
 	messageId: string,
 	requestId: string | undefined,
 	mcpServerType: McpServerType,
-	mcpServerBaseUrl: string | undefined,
+	_mcpServerBaseUrl: string | undefined,
 ): AsyncGenerator<
 	| {
 			type: "message";

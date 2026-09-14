@@ -18,8 +18,8 @@
 import { getCwd } from "../../utils/cwd.js";
 import { logForDebugging } from "../../utils/debug.js";
 import { isEnvTruthy } from "../../utils/envUtils.js";
-import { getExecutorClient } from "./manager.js";
 import type { ExecutorClientLike } from "./executorDriver.js";
+import { getExecutorClient } from "./manager.js";
 
 // Test injection seam — lets turnSnapshot.test.ts fake the client + manager.
 let _testClient: ExecutorClientLike | undefined;
@@ -66,7 +66,10 @@ const turnStateByTurnId = new Map<string, TurnSnapshot>();
 const pendingHintByTurnId = new Map<string, string>();
 
 function resolveClient(): ExecutorClientLike | undefined {
-	return _testClient ?? (getExecutorClient() as unknown as ExecutorClientLike | undefined);
+	return (
+		_testClient ??
+		(getExecutorClient() as unknown as ExecutorClientLike | undefined)
+	);
 }
 
 function resolveCwd(): string {
@@ -76,9 +79,7 @@ function resolveCwd(): string {
 // Take a turn-boundary snapshot at submitMessage entry. Returns the turnId
 // (caller binds it to the turn), or null when disabled / unavailable / non-repo.
 // Never throws — a snapshot failure is fail-soft (turn proceeds without rollback).
-export async function takeTurnSnapshot(
-	turnId: string,
-): Promise<string | null> {
+export async function takeTurnSnapshot(turnId: string): Promise<string | null> {
 	// P1-6: 按 turnId 清本 turn 的 per-turn 状态 (而非模块单例), 隔离并发 QueryEngine。
 	turnStateByTurnId.delete(turnId);
 	pendingHintByTurnId.delete(turnId);
@@ -103,9 +104,7 @@ export async function takeTurnSnapshot(
 	}
 	if (!snapshotId) {
 		// Non-repo cwd → executor returns "". No-op, no ring entry, no error.
-		logForDebugging(
-			"turnSnapshot: empty snapshot_id (non-repo cwd), skipping",
-		);
+		logForDebugging("turnSnapshot: empty snapshot_id (non-repo cwd), skipping");
 		return null;
 	}
 	const snap: TurnSnapshot = {
@@ -119,7 +118,9 @@ export async function takeTurnSnapshot(
 	ring.push(snap);
 	while (ring.length > RING_SIZE) ring.shift();
 	turnStateByTurnId.set(turnId, snap);
-	logForDebugging(`turnSnapshot: took snapshot ${snapshotId} for turn ${turnId}`);
+	logForDebugging(
+		`turnSnapshot: took snapshot ${snapshotId} for turn ${turnId}`,
+	);
 	return turnId;
 }
 
@@ -131,10 +132,7 @@ export function recordTurnFailure(turnId: string): void {
 	const turn = turnStateByTurnId.get(turnId);
 	if (!turn) return;
 	turn.failures++;
-	if (
-		turn.failures >= FAILURE_THRESHOLD &&
-		!turn.hintInjected
-	) {
+	if (turn.failures >= FAILURE_THRESHOLD && !turn.hintInjected) {
 		turn.hintInjected = true;
 		pendingHintByTurnId.set(
 			turnId,
@@ -158,9 +156,7 @@ export function lastHint(turnId: string): string | undefined {
 
 // Rollback the working tree to before a turn. Defaults to the most recent
 // snapshotted turn when turnId is omitted. Returns true on success.
-export async function rollbackToTurn(
-	turnId?: string,
-): Promise<boolean> {
+export async function rollbackToTurn(turnId?: string): Promise<boolean> {
 	const snap = turnId
 		? ring.find((s) => s.turnId === turnId)
 		: ring[ring.length - 1];

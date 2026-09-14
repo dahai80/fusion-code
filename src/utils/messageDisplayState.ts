@@ -3,11 +3,9 @@
 // REPL 保留 useDeferredValue(messages) 与 ref 声明, 仅把纯计算外移。
 // deps 全部经入参传入, 输出与原内联块字节等价。
 
-import type { Message } from "../types/message.js";
-import type {
-	InProcessTeammateTaskState,
-} from "../tasks/InProcessTeammateTask/types.js";
+import type { InProcessTeammateTaskState } from "../tasks/InProcessTeammateTask/types.js";
 import type { LocalAgentTaskState } from "../tasks/LocalAgentTask/LocalAgentTask.js";
+import type { Message } from "../types/message.js";
 
 // viewedAgentTask 联合 (PR #172 selector 输出) — 两态都有可选 messages。
 export type ViewedAgentTaskLike =

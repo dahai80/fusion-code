@@ -1,4 +1,4 @@
-import { registerBundledSkill } from '../bundledSkills.js'
+import { registerBundledSkill } from "../bundledSkills.js";
 
 const CODE_REVIEW_PROMPT = `# Code Review
 
@@ -93,19 +93,25 @@ You are now in code review mode. Perform a thorough, structured review across se
 ### Verdict
 - 🔴 Request changes (critical/major findings)
 - 🟡 Approve with suggestions (minor findings only)
-- 🟢 Approve (clean or trivial suggestions)`
+- 🟢 Approve (clean or trivial suggestions)`;
 
 export function registerCodeReviewSkill(): void {
-    registerBundledSkill({
-        name: 'code-review',
-        description: 'Structured code review across security, correctness, performance, maintainability, and testing dimensions with severity-rated findings.',
-        whenToUse:
-            'When reviewing code before merging, auditing a codebase, or when the user says "review", "code review", "check this code", "audit", or "look for issues".',
-        argumentHint: '<file path, PR description, or area to review>',
-        userInvocable: true,
-        async getPromptForCommand(args) {
-            const topic = args.trim() || 'the current changes'
-            return [{ type: 'text', text: `${CODE_REVIEW_PROMPT}\n\n## Code to Review\n\n${topic}` }]
-        },
-    })
+	registerBundledSkill({
+		name: "code-review",
+		description:
+			"Structured code review across security, correctness, performance, maintainability, and testing dimensions with severity-rated findings.",
+		whenToUse:
+			'When reviewing code before merging, auditing a codebase, or when the user says "review", "code review", "check this code", "audit", or "look for issues".',
+		argumentHint: "<file path, PR description, or area to review>",
+		userInvocable: true,
+		async getPromptForCommand(args) {
+			const topic = args.trim() || "the current changes";
+			return [
+				{
+					type: "text",
+					text: `${CODE_REVIEW_PROMPT}\n\n## Code to Review\n\n${topic}`,
+				},
+			];
+		},
+	});
 }

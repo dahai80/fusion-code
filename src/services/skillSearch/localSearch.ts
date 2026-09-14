@@ -7,132 +7,138 @@
  * gated by feature('EXPERIMENTAL_SKILL_SEARCH')
  */
 
-import { existsSync, readFileSync, readdirSync, statSync } from 'fs'
-import { join, extname } from 'path'
-import { getClaudeConfigHomeDir } from '../../utils/envUtils.js'
-import { logForDebugging } from '../../utils/debug.js'
+import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
+import { extname, join } from "node:path";
+import { logForDebugging } from "../../utils/debug.js";
+import { getClaudeConfigHomeDir } from "../../utils/envUtils.js";
 
 export interface SkillIndex {
-  name: string
-  slug: string
-  description: string
-  filePath: string
-  lastModified: number
-  source: 'local' | 'bundled' | 'remote'
+	name: string;
+	slug: string;
+	description: string;
+	filePath: string;
+	lastModified: number;
+	source: "local" | "bundled" | "remote";
 }
 
-let cachedIndex: SkillIndex[] | null = null
-let cacheTimestamp = 0
-const CACHE_TTL_MS = 60_000 // 1 minute
+let cachedIndex: SkillIndex[] | null = null;
+let cacheTimestamp = 0;
+const CACHE_TTL_MS = 60_000; // 1 minute
 
-const SKILL_DIRS = ['skills', 'bundled-skills']
+const SKILL_DIRS = ["skills", "bundled-skills"];
 
 /**
  * Get the list of skill directories to search.
  */
 function getSkillDirectories(): string[] {
-  const configDir = getClaudeConfigHomeDir()
-  return SKILL_DIRS.map(dir => join(configDir, dir)).filter(d => existsSync(d))
+	const configDir = getClaudeConfigHomeDir();
+	return SKILL_DIRS.map((dir) => join(configDir, dir)).filter((d) =>
+		existsSync(d),
+	);
 }
 
 /**
  * Search for skills matching a query.
  */
 export function searchSkills(query: string): SkillIndex[] {
-  const index = getSkillIndex()
-  if (!query) return index
+	const index = getSkillIndex();
+	if (!query) return index;
 
-  const lowerQuery = query.toLowerCase()
-  return index.filter(
-    skill =>
-      skill.name.toLowerCase().includes(lowerQuery) ||
-      skill.description.toLowerCase().includes(lowerQuery) ||
-      skill.slug.toLowerCase().includes(lowerQuery),
-  )
+	const lowerQuery = query.toLowerCase();
+	return index.filter(
+		(skill) =>
+			skill.name.toLowerCase().includes(lowerQuery) ||
+			skill.description.toLowerCase().includes(lowerQuery) ||
+			skill.slug.toLowerCase().includes(lowerQuery),
+	);
 }
 
 /**
  * Get or build the skill index.
  */
 export function getSkillIndex(): SkillIndex[] {
-  const now = Date.now()
-  if (cachedIndex && now - cacheTimestamp < CACHE_TTL_MS) {
-    return cachedIndex
-  }
+	const now = Date.now();
+	if (cachedIndex && now - cacheTimestamp < CACHE_TTL_MS) {
+		return cachedIndex;
+	}
 
-  cachedIndex = buildSkillIndex()
-  cacheTimestamp = now
-  return cachedIndex
+	cachedIndex = buildSkillIndex();
+	cacheTimestamp = now;
+	return cachedIndex;
 }
 
 /**
  * Build the skill index by scanning skill directories.
  */
 function buildSkillIndex(): SkillIndex[] {
-  const index: SkillIndex[] = []
-  const dirs = getSkillDirectories()
+	const index: SkillIndex[] = [];
+	const dirs = getSkillDirectories();
 
-  for (const dir of dirs) {
-    try {
-      const files = readdirSync(dir)
-      for (const file of files) {
-        if (extname(file) !== '.md') continue
+	for (const dir of dirs) {
+		try {
+			const files = readdirSync(dir);
+			for (const file of files) {
+				if (extname(file) !== ".md") continue;
 
-        const filePath = join(dir, file)
-        try {
-          const content = readFileSync(filePath, 'utf-8')
-          const stats = statSync(filePath)
-          const slug = file.replace(/\.md$/, '')
+				const filePath = join(dir, file);
+				try {
+					const content = readFileSync(filePath, "utf-8");
+					const stats = statSync(filePath);
+					const slug = file.replace(/\.md$/, "");
 
-          // Parse frontmatter for name/description
-          const name = extractFrontMatterField(content, 'name') || slug
-          const description = extractFrontMatterField(content, 'description') || ''
+					// Parse frontmatter for name/description
+					const name = extractFrontMatterField(content, "name") || slug;
+					const description =
+						extractFrontMatterField(content, "description") || "";
 
-          index.push({
-            name,
-            slug,
-            description,
-            filePath,
-            lastModified: stats.mtimeMs,
-            source: 'local',
-          })
-        } catch {
-          // Skip unreadable files
-        }
-      }
-    } catch {
-      // Skip unreadable directories
-    }
-  }
+					index.push({
+						name,
+						slug,
+						description,
+						filePath,
+						lastModified: stats.mtimeMs,
+						source: "local",
+					});
+				} catch {
+					// Skip unreadable files
+				}
+			}
+		} catch {
+			// Skip unreadable directories
+		}
+	}
 
-  return index
+	return index;
 }
 
 /**
  * Extract a field from markdown frontmatter.
  */
-function extractFrontMatterField(content: string, field: string): string | null {
-  const match = content.match(/^---\n([\s\S]*?)\n---/)
-  if (!match) return null
+function extractFrontMatterField(
+	content: string,
+	field: string,
+): string | null {
+	const match = content.match(/^---\n([\s\S]*?)\n---/);
+	if (!match) return null;
 
-  const frontmatter = match[1]!
-  const lineRegex = new RegExp(`^${field}:(.+)$`, 'm')
-  const fieldMatch = frontmatter.match(lineRegex)
-  return fieldMatch ? fieldMatch[1]!.trim() : null
+	const frontmatter = match[1]!;
+	const lineRegex = new RegExp(`^${field}:(.+)$`, "m");
+	const fieldMatch = frontmatter.match(lineRegex);
+	return fieldMatch ? fieldMatch[1]?.trim() : null;
 }
 
 /**
  * Clear the skill index cache.
  */
 export function clearSkillIndexCache(): void {
-  cachedIndex = null
-  cacheTimestamp = 0
-  logForDebugging('[SkillSearch] Skill index cache cleared')
+	cachedIndex = null;
+	cacheTimestamp = 0;
+	logForDebugging("[SkillSearch] Skill index cache cleared");
 }
 
 /**
  * Check if skill search is enabled.
  */
 export function isSkillSearchEnabled(): boolean {
-  return true
+	return true;
 }

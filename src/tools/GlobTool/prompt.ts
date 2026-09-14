@@ -1,4 +1,4 @@
-export const GLOB_TOOL_NAME = 'Glob'
+export const GLOB_TOOL_NAME = "Glob";
 
 export const DESCRIPTION = `- Fast file pattern matching tool that works with any codebase size
 - Supports glob patterns like "**/*.js" or "src/**/*.ts"
@@ -24,4 +24,4 @@ Tips:
 - Start with a broad pattern and narrow down if you get too many results
 - Use brace expansion for multiple extensions: "*.{js,jsx,ts,tsx}"
 - If you need to search file contents, use Grep instead
-- If you need both file names and content, use Glob to find files, then Grep to search within them`
+- If you need both file names and content, use Glob to find files, then Grep to search within them`;

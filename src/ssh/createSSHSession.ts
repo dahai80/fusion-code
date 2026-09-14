@@ -9,11 +9,11 @@
  * gated by feature('SSH_REMOTE')
  */
 
-import { type ChildProcess, spawn } from "child_process";
-import { randomUUID } from "crypto";
-import { unlinkSync } from "fs";
-import { tmpdir } from "os";
-import { join } from "path";
+import { type ChildProcess, spawn } from "node:child_process";
+import { randomUUID } from "node:crypto";
+import { unlinkSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import type { SDKControlPermissionRequest } from "../entrypoints/sdk/controlTypes.js";
 import type { SDKMessage } from "../entrypoints/sdk/coreTypes.generated.js";
 import { getAnthropicApiKey } from "../utils/auth.js";
@@ -76,13 +76,8 @@ export interface SSHSessionType {
 export async function createSSHSession(
 	config: SSHSessionConfig,
 ): Promise<SSHSession> {
-	const {
-		host,
-		cwd,
-		permissionMode,
-		dangerouslySkipPermissions,
-		onProgress,
-	} = config;
+	const { host, cwd, permissionMode, dangerouslySkipPermissions, onProgress } =
+		config;
 
 	// 防止主机名注入攻击：只允许合法的主机名格式
 	if (!isValidHostname(host)) {

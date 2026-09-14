@@ -1,4 +1,4 @@
-export const DESCRIPTION = `Read a resource from an MCP server.`
+export const DESCRIPTION = `Read a resource from an MCP server.`;
 
 export const PROMPT = `Read a resource from an MCP (Model Context Protocol) server.
 
@@ -20,4 +20,4 @@ Tips:
 - Use ListMcpResources to discover available resources first
 - Resource URIs follow the server's naming convention
 - Handle errors gracefully — resources may be temporarily unavailable
-- Cache results when reading the same resource repeatedly`
+- Cache results when reading the same resource repeatedly`;

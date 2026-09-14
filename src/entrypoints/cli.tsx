@@ -1,6 +1,6 @@
 import { feature } from "bun:bundle";
-import { homedir } from "os";
-import { join } from "path";
+import { homedir } from "node:os";
+import { join } from "node:path";
 import { gracefulShutdownSync } from "../utils/gracefulShutdown.js";
 
 // 设置 Fusion-Code 配置目录为 ~/.fusion-code，避免与 Claude Code 冲突
@@ -26,7 +26,7 @@ try {
 		enumerable: true,
 	});
 	(process.stdout as any)._originalIsTTY = originalIsTTY;
-} catch (e) {
+} catch (_e) {
 	// 非关键：某些环境下 stdout 不可修改（如 worker thread），Ink 会降级处理
 }
 

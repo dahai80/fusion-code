@@ -59,9 +59,10 @@ export function isToolDenied(toolName: string): boolean {
 // P2-12: isToolDenied 只查主名, 不查别名。用户在 denied_tools 列旧名/别名 (如
 // KillShell 旧名 TaskStop) → 模型调主名 TaskStop → isToolDenied("TaskStop") false
 // → deny 静默失效。此 helper 查主名 + 全别名, 调用点传 Tool 对象匹配。
-export function isToolDeniedByNameOrAlias(
-	tool: { name: string; aliases?: string[] },
-): boolean {
+export function isToolDeniedByNameOrAlias(tool: {
+	name: string;
+	aliases?: string[];
+}): boolean {
 	if (isToolDenied(tool.name)) return true;
 	if (tool.aliases?.length) {
 		return tool.aliases.some((alias) => isToolDenied(alias));

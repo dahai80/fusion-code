@@ -4,6 +4,7 @@ import type {
 } from "src/types/anthropic-protocol.js";
 import {
 	getLastApiCompletionTimestamp,
+	getSessionId,
 	setLastApiCompletionTimestamp,
 } from "../bootstrap/state.js";
 import { STRUCTURED_OUTPUTS_BETA_HEADER } from "../constants/betas.js";
@@ -12,19 +13,17 @@ import {
 	getAttributionHeader,
 	getCLISyspromptPrefix,
 } from "../constants/system.js";
-import { logEvent } from "../services/analytics/index.js";
 import type { AnalyticsMetadata_I_VERIFIED_THIS_IS_NOT_CODE_OR_FILEPATHS } from "../services/analytics/index.js";
-import { getAPIMetadata } from "../services/api/index.js";
-import { getAnthropicClient } from "../services/api/index.js";
-import { getModelBetas, modelSupportsStructuredOutputs } from "./betas.js";
-import { computeFingerprint } from "./fingerprint.js";
-import { getAPIProvider } from "./model/providers.js";
-import { normalizeModelStringForAPI } from "./model/model.js";
-import { getCwd } from "./cwd.js";
-import { getSessionId } from "../bootstrap/state.js";
-import { logForDebugging } from "./debug.js";
+import { logEvent } from "../services/analytics/index.js";
+import { getAnthropicClient, getAPIMetadata } from "../services/api/index.js";
 import type { Ctx } from "../services/llm/index.js";
 import { createCtx } from "../services/llm/index.js";
+import { getModelBetas, modelSupportsStructuredOutputs } from "./betas.js";
+import { getCwd } from "./cwd.js";
+import { logForDebugging } from "./debug.js";
+import { computeFingerprint } from "./fingerprint.js";
+import { normalizeModelStringForAPI } from "./model/model.js";
+import { getAPIProvider } from "./model/providers.js";
 
 type MessageParam = Anthropic.MessageParam;
 type TextBlockParam = Anthropic.TextBlockParam;

@@ -1,12 +1,12 @@
 import { describe, expect, it } from "bun:test";
+import type { InProcessTeammateTaskState } from "../../tasks/InProcessTeammateTask/types.js";
+import type { Message } from "../../types/message.js";
 import {
-	deriveMessageDisplayState,
 	deriveDisplayedMessages,
+	deriveMessageDisplayState,
 	derivePlaceholderText,
 	deriveUsesSyncMessages,
 } from "../../utils/messageDisplayState.js";
-import type { Message } from "../../types/message.js";
-import type { InProcessTeammateTaskState } from "../../tasks/InProcessTeammateTask/types.js";
 
 // audit 1.1.1: 消息显示状态推导单元测试。行为等价 REPL.tsx:5748-5769 内联块。
 // 3 derive 链: usesSyncMessages → displayedMessages → placeholderText。
@@ -59,23 +59,45 @@ describe("deriveDisplayedMessages", () => {
 	});
 
 	it("uses empty array when agent task has no messages", () => {
-		const taskNoMsg = { type: "in_process_teammate" } as unknown as InProcessTeammateTaskState;
-		const out = deriveDisplayedMessages(taskNoMsg, true, messages, deferredMessages);
+		const taskNoMsg = {
+			type: "in_process_teammate",
+		} as unknown as InProcessTeammateTaskState;
+		const out = deriveDisplayedMessages(
+			taskNoMsg,
+			true,
+			messages,
+			deferredMessages,
+		);
 		expect(out).toEqual([]);
 	});
 
 	it("uses sync messages when usesSyncMessages true", () => {
-		const out = deriveDisplayedMessages(undefined, true, messages, deferredMessages);
+		const out = deriveDisplayedMessages(
+			undefined,
+			true,
+			messages,
+			deferredMessages,
+		);
 		expect(out).toBe(messages);
 	});
 
 	it("uses deferredMessages when usesSyncMessages false", () => {
-		const out = deriveDisplayedMessages(undefined, false, messages, deferredMessages);
+		const out = deriveDisplayedMessages(
+			undefined,
+			false,
+			messages,
+			deferredMessages,
+		);
 		expect(out).toBe(deferredMessages);
 	});
 
 	it("agent view overrides usesSyncMessages (no fallthrough to leader)", () => {
-		const out = deriveDisplayedMessages(teammateTask, false, messages, deferredMessages);
+		const out = deriveDisplayedMessages(
+			teammateTask,
+			false,
+			messages,
+			deferredMessages,
+		);
 		expect(out).toBe(teammateTask.messages);
 	});
 });

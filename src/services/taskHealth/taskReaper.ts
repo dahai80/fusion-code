@@ -8,10 +8,10 @@
 // 模式同 sessionActivity.ts: 模块级 singleton timer + start/stop + registerCleanup。
 
 import type { AppState } from "../../state/AppState.js";
+import { killAllActive, stopTask } from "../../tasks/stopTask.js";
+import { registerCleanup } from "../../utils/cleanupRegistry.js";
 import { logForDebugging } from "../../utils/debug.js";
 import { isEnvTruthy } from "../../utils/envUtils.js";
-import { registerCleanup } from "../../utils/cleanupRegistry.js";
-import { killAllActive, stopTask } from "../../tasks/stopTask.js";
 
 // stopTask 的 context 形状 (StopTaskContext 未导出, 此处内联)。
 type ReapTaskContext = {
@@ -28,9 +28,8 @@ let killCleanupRegistered = false;
 
 // 注入的 store 访问器 (REPL mount 时注入)。stopTask 需要 StopTaskContext。
 let injectedGetAppState: (() => AppState) | null = null;
-let injectedSetAppState:
-	| ((f: (prev: AppState) => AppState) => void)
-	| null = null;
+let injectedSetAppState: ((f: (prev: AppState) => AppState) => void) | null =
+	null;
 
 function taskTtlMs(): number {
 	const raw = process.env.FUSION_CODE_TASK_TTL_MS;

@@ -1,5 +1,5 @@
 export function getBugFixProtocol(): string {
-    return `# Bug fix protocol
+	return `# Bug fix protocol
 
 ## Step 1: Reproduce
 
@@ -35,11 +35,11 @@ export function getBugFixProtocol(): string {
 - Run the reproduction case. Does it pass now?
 - Run existing tests. Did you break anything?
 - If you added code, consider: should there be a test for this?
-- Check for the same bug pattern in other files.`
+- Check for the same bug pattern in other files.`;
 }
 
 export function getFeatureImplementationProtocol(): string {
-    return `# Feature implementation protocol
+	return `# Feature implementation protocol
 
 ## Step 1: Understand requirements
 
@@ -75,11 +75,11 @@ export function getFeatureImplementationProtocol(): string {
 - Run the tests. Fix any failures (yours or pre-existing).
 - Remove debug code, TODO comments, and temporary changes.
 - Update documentation if the feature affects users.
-- Check for unused imports and dead code.`
+- Check for unused imports and dead code.`;
 }
 
 export function getRefactoringProtocol(): string {
-    return `# Refactoring protocol
+	return `# Refactoring protocol
 
 ## Before refactoring
 
@@ -108,11 +108,11 @@ export function getRefactoringProtocol(): string {
 - All tests pass? Same as before you started?
 - No change in behavior? (Refactoring must be behavior-preserving.)
 - Code is simpler? If it's more complex, the refactoring failed.
-- No dead code left behind?`
+- No dead code left behind?`;
 }
 
 export function getCodeReviewProtocol(): string {
-    return `# Code review protocol
+	return `# Code review protocol
 
 ## When reviewing your own code
 
@@ -156,11 +156,11 @@ Before reporting completion, self-review:
 4. Provide actionable feedback
    - "This might fail if X is null" → better than "this looks wrong"
    - "Consider using Y instead" → better than "this is bad"
-   - Report findings ranked by severity: bugs > security > design > style`
+   - Report findings ranked by severity: bugs > security > design > style`;
 }
 
 export function getDebuggingProtocol(): string {
-    return `# Debugging protocol
+	return `# Debugging protocol
 
 ## When the user reports a bug
 
@@ -186,11 +186,11 @@ export function getDebuggingProtocol(): string {
    - Fix the root cause, not the symptom.
    - Run the reproduction case. Does it pass?
    - Run the test suite. Any regressions?
-   - Check for the same pattern elsewhere.`
+   - Check for the same pattern elsewhere.`;
 }
 
 export function getDependencyChangeProtocol(): string {
-    return `# Dependency change protocol
+	return `# Dependency change protocol
 
 ## Adding a dependency
 
@@ -218,11 +218,11 @@ export function getDependencyChangeProtocol(): string {
 
 - Never manually edit lock files.
 - Always use the package manager (bun install, npm install).
-- If the lock file is out of sync, run install to update it.`
+- If the lock file is out of sync, run install to update it.`;
 }
 
 export function getDatabaseChangeProtocol(): string {
-    return `# Database change protocol
+	return `# Database change protocol
 
 ## Schema changes
 
@@ -243,11 +243,11 @@ export function getDatabaseChangeProtocol(): string {
 - Write a migration script. Don't do manual data changes.
 - Backup before migrating. Always.
 - Test the migration on staging data first.
-- Verify row counts before and after.`
+- Verify row counts before and after.`;
 }
 
 export function getAPIChangeProtocol(): string {
-    return `# API change protocol
+	return `# API change protocol
 
 ## Adding an endpoint
 
@@ -269,11 +269,11 @@ export function getAPIChangeProtocol(): string {
 - Check all callers first: Grep for the URL/path.
 - If callers exist: don't remove it. Add deprecation warning instead.
 - If no callers: remove and update docs.
-- For public APIs: maintain a deprecation period.`
+- For public APIs: maintain a deprecation period.`;
 }
 
 export function getSecurityChangeProtocol(): string {
-    return `# Security change protocol
+	return `# Security change protocol
 
 ## When you spot a security issue
 
@@ -293,11 +293,11 @@ export function getSecurityChangeProtocol(): string {
 - Use constant-time comparison for secrets.
 - Validate input at the boundary, not deep in the logic.
 - Fail securely: deny by default, log security events.
-- Don't expose internal error details to clients.`
+- Don't expose internal error details to clients.`;
 }
 
 export function getPerformanceChangeProtocol(): string {
-    return `# Performance change protocol
+	return `# Performance change protocol
 
 ## Before optimizing
 
@@ -319,5 +319,5 @@ export function getPerformanceChangeProtocol(): string {
 - Are there new tradeoffs? (memory for speed, complexity for performance)
 - Does the code still pass tests?
 - Is the optimization worth the added complexity?
-- If the improvement is <10%, the complexity isn't worth it. Revert.`
+- If the improvement is <10%, the complexity isn't worth it. Revert.`;
 }

@@ -246,7 +246,6 @@ export function sseToChunk(
 						index,
 						text: (delta.connector_text as string) ?? "",
 					};
-				case "citations_delta":
 				default:
 					return null;
 			}

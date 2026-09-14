@@ -2,8 +2,8 @@
 // transcript 模式底栏, 动态键绑定提示。必须在 KeybindingSetup 内渲染。
 // React-Compiler 编译产物原样保留 ($ = _c() memo cache)。
 
-import { c as _c } from "react/compiler-runtime";
 import figures from "figures";
+import { c as _c } from "react/compiler-runtime";
 import { Box, Text } from "../ink.js";
 import { useShortcutDisplay } from "../keybindings/useShortcutDisplay.js";
 

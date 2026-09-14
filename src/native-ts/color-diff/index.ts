@@ -17,9 +17,9 @@
  *   getSyntaxTheme always returns the default for the given Claude theme.
  */
 
+import { basename, extname } from "node:path";
 import { diffArrays } from "diff";
 import type * as hljsNamespace from "highlight.js";
-import { basename, extname } from "path";
 
 // Lazy: defers loading highlight.js until first render. The full bundle
 // registers 190+ language grammars at require time (~50MB, 100-200ms on
@@ -53,7 +53,11 @@ function hljs(): HLJSApi | null {
 		// in .default; under node CJS the module IS the API. Check at runtime.
 		cachedHljs = "default" in mod && mod.default ? mod.default : mod;
 	} catch (err) {
-		logError(new Error(`color-diff: highlight.js unavailable (externalized). Syntax highlighting disabled. cause: ${err}`));
+		logError(
+			new Error(
+				`color-diff: highlight.js unavailable (externalized). Syntax highlighting disabled. cause: ${err}`,
+			),
+		);
 		cachedHljs = null;
 	}
 	return cachedHljs;
@@ -477,7 +481,7 @@ function scopeColor(
 ): Color {
 	if (!scope) return theme.foreground;
 	if (scope === "keyword" && STORAGE_KEYWORDS.has(text.trim())) {
-		return theme.scopes["_storage"] ?? theme.foreground;
+		return theme.scopes._storage ?? theme.foreground;
 	}
 	return (
 		theme.scopes[scope] ??
@@ -527,7 +531,7 @@ function highlightLine(
 	theme: Theme,
 ): Block[] {
 	// syntect-parity: feed a trailing \n so line comments terminate, then strip
-	const code = line + "\n";
+	const code = `${line}\n`;
 	if (!state.lang) {
 		return [[defaultStyle(theme), code]];
 	}
@@ -764,7 +768,7 @@ function addLineNumber(
 				? ` ${String(h.lineNumber).padStart(maxDigits)} `
 				: " ".repeat(maxDigits + 2);
 		const wrapped = shouldDim && !fullDim ? `${DIM}${prefix}${UNDIM}` : prefix;
-		h.lines[i]!.unshift([style, wrapped]);
+		h.lines[i]?.unshift([style, wrapped]);
 	}
 }
 
@@ -782,9 +786,9 @@ function addMarker(h: Highlight, theme: Theme): void {
 function dimContent(h: Highlight): void {
 	for (const line of h.lines) {
 		if (line.length > 0) {
-			line[0]![1] = DIM + line[0]![1];
+			line[0]![1] = DIM + line[0]?.[1];
 			const last = line.length - 1;
-			line[last]![1] = line[last]![1] + UNDIM;
+			line[last]![1] = line[last]?.[1] + UNDIM;
 		}
 	}
 }
@@ -802,7 +806,7 @@ function applyBackground(h: Highlight, theme: Theme, ranges: Range[]): void {
 			const textStart = byteOff;
 			const textEnd = byteOff + text.length;
 
-			while (rangeIdx < ranges.length && ranges[rangeIdx]!.end <= textStart) {
+			while (rangeIdx < ranges.length && ranges[rangeIdx]?.end <= textStart) {
 				rangeIdx++;
 			}
 			if (rangeIdx >= ranges.length) {
@@ -927,8 +931,8 @@ export class ColorDiff {
 			const markers = entries.map((e) => e.marker);
 			for (const [delIdx, addIdx] of findAdjacentPairs(markers)) {
 				const [delR, addR] = wordDiffStrings(
-					entries[delIdx]!.code,
-					entries[addIdx]!.code,
+					entries[delIdx]?.code,
+					entries[addIdx]?.code,
 				);
 				ranges[delIdx] = delR;
 				ranges[addIdx] = addR;

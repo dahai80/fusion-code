@@ -5,9 +5,9 @@
 // double-tap-drop guard + gen-capture + staleness-aware setStatus 留 helper 内 (ref-mutate 不入 useInput deps)。
 // 无 JSX/无 hook → .ts。void 返回 (REPL 薄壳 void 调用)。
 
-import { writeFile } from "fs/promises";
-import { tmpdir } from "os";
-import { join } from "path";
+import { writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import type { MutableRefObject } from "react";
 import { openFileInExternalEditor } from "../utils/editor.js";
 import { renderMessagesToPlainText } from "../utils/exportRenderer.js";

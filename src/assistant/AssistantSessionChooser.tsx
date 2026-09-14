@@ -1,15 +1,15 @@
-import { useEffect } from 'react'
+import { useEffect } from "react";
 
 type Props = {
-  sessions: unknown[]
-  onSelect: (sessionId: string) => void
-  onCancel: () => void
-}
+	sessions: unknown[];
+	onSelect: (sessionId: string) => void;
+	onCancel: () => void;
+};
 
 export function AssistantSessionChooser({ onCancel }: Props) {
-  useEffect(() => {
-    onCancel()
-  }, [onCancel])
+	useEffect(() => {
+		onCancel();
+	}, [onCancel]);
 
-  return null
+	return null;
 }

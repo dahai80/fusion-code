@@ -46,7 +46,7 @@ export function getAgentModel(
 	// This ensures subagents use the same cross-region inference profile (e.g., "eu.", "us.")
 	// as the parent, which is required when IAM permissions only allow specific regions.
 	// parentRegionPrefix // unused
-// parentRegionPrefix removed (unused)
+	// parentRegionPrefix removed (unused)
 
 	// Helper to apply parent region prefix for Bedrock models.
 	// `originalSpec` is the raw model string before resolution (alias or full ID).
@@ -56,7 +56,7 @@ export function getAgentModel(
 	// an agent config intentionally pins to a different region than the parent.
 	const applyParentRegionPrefix = (
 		resolvedModel: string,
-		originalSpec: string,
+		_originalSpec: string,
 	): string => {
 		return resolvedModel;
 	};

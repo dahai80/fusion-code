@@ -1,6 +1,6 @@
 import { feature } from "bun:bundle";
+import * as path from "node:path";
 import chalk from "chalk";
-import * as path from "path";
 import * as React from "react";
 import {
 	useCallback,
@@ -77,12 +77,10 @@ import {
 } from "../../keybindings/useKeybinding.js";
 import type { MCPServerConnection } from "../../services/mcp/index.js";
 import {
-	abortPromptSuggestion,
-	logSuggestionSuppressed,
-} from "../../services/PromptSuggestion/index.js";
-import {
 	type ActiveSpeculationState,
+	abortPromptSuggestion,
 	abortSpeculation,
+	logSuggestionSuppressed,
 } from "../../services/PromptSuggestion/index.js";
 import {
 	getActiveAgentForInput,
@@ -414,7 +412,7 @@ function PromptInput({
 					cursorOffset === input.length &&
 					input.length > 0 &&
 					!/\s$/.test(input);
-				const insertText = needsSpace ? " " + text : text;
+				const insertText = needsSpace ? ` ${text}` : text;
 				const newValue =
 					input.slice(0, cursorOffset) + insertText + input.slice(cursorOffset);
 				lastInternalInputRef.current = newValue;
@@ -445,7 +443,7 @@ function PromptInput({
 	);
 	const tmuxFooterVisible = isInternalBuild() && hasTungstenSession;
 	// WebBrowser pill — visible when a browser is open
-	const bagelFooterVisible = useAppState((s) => false);
+	const bagelFooterVisible = useAppState((_s) => false);
 	const teamContext = useAppState((s) => s.teamContext);
 	const queuedCommands = useCommandQueue();
 	const promptSuggestionState = useAppState((s) => s.promptSuggestion);
@@ -582,7 +580,12 @@ function PromptInput({
 		} else if (coordinatorTaskIndex < minCoordinatorIndex) {
 			setCoordinatorTaskIndex(minCoordinatorIndex);
 		}
-	}, [coordinatorTaskCount, coordinatorTaskIndex, minCoordinatorIndex]);
+	}, [
+		coordinatorTaskCount,
+		coordinatorTaskIndex,
+		minCoordinatorIndex,
+		setCoordinatorTaskIndex,
+	]);
 	const [isPasting, setIsPasting] = useState(false);
 	const [isExternalEditorActive, setIsExternalEditorActive] = useState(false);
 	const [showModelPicker, setShowModelPicker] = useState(false);
@@ -791,7 +794,7 @@ function PromptInput({
 			feature("TOKEN_BUDGET") ? findTokenBudgetPositions(displayedValue) : [],
 		[displayedValue],
 	);
-	const knownChannelsVersion = useSyncExternalStore(
+	const _knownChannelsVersion = useSyncExternalStore(
 		subscribeKnownChannels,
 		getKnownChannelsVersion,
 	);
@@ -801,7 +804,7 @@ function PromptInput({
 				? findSlackChannelPositions(displayedValue)
 				: [],
 		// eslint-disable-next-line react-hooks/exhaustive-deps -- store is a stable ref
-		[displayedValue, knownChannelsVersion],
+		[displayedValue, store.getState],
 	);
 
 	// Find @name mentions and highlight with team member's color
@@ -875,7 +878,7 @@ function PromptInput({
 			const mid = (inside.start + inside.end) / 2;
 			setCursorOffset(cursorOffset < mid ? inside.start : inside.end);
 		}
-	}, [cursorOffset, imageRefPositions, setCursorOffset]);
+	}, [cursorOffset, imageRefPositions]);
 	const combinedHighlights = useMemo((): TextHighlight[] => {
 		const highlights: TextHighlight[] = [];
 
@@ -1028,7 +1031,6 @@ function PromptInput({
 		slashCommandTriggers,
 		tokenBudgetTriggers,
 		slackChannelTriggers,
-		displayedValue,
 		voiceInterimRange,
 		thinkTriggers,
 		ultraplanTriggers,
@@ -1211,6 +1213,7 @@ function PromptInput({
 			pastedContents,
 			dismissStashHint,
 			setAppState,
+			setHelpOpen,
 		],
 	);
 	const {
@@ -1491,6 +1494,8 @@ function PromptInput({
 			markAccepted,
 			pastedContents,
 			removeNotification,
+			trackAndSetInput,
+			addNotification,
 		],
 	);
 	const {
@@ -1649,7 +1654,7 @@ function PromptInput({
 		(input: string, key: Key): string => {
 			if (!pendingSpaceAfterPillRef.current) return input;
 			pendingSpaceAfterPillRef.current = false;
-			if (isNonSpacePrintable(input, key)) return " " + input;
+			if (isNonSpacePrintable(input, key)) return ` ${input}`;
 			return input;
 		},
 		[],
@@ -1729,18 +1734,10 @@ function PromptInput({
 	// Handler for chat:newline - insert a newline at the cursor position
 	const handleNewline = useCallback(() => {
 		pushToBuffer(input, cursorOffset, pastedContents);
-		const newInput =
-			input.slice(0, cursorOffset) + "\n" + input.slice(cursorOffset);
+		const newInput = `${input.slice(0, cursorOffset)}\n${input.slice(cursorOffset)}`;
 		trackAndSetInput(newInput);
 		setCursorOffset(cursorOffset + 1);
-	}, [
-		input,
-		cursorOffset,
-		trackAndSetInput,
-		setCursorOffset,
-		pushToBuffer,
-		pastedContents,
-	]);
+	}, [input, cursorOffset, trackAndSetInput, pushToBuffer, pastedContents]);
 
 	// Handler for chat:externalEditor - edit in $EDITOR
 	const handleExternalEditor = useCallback(async () => {
@@ -1828,7 +1825,7 @@ function PromptInput({
 		if (helpOpen) {
 			setHelpOpen(false);
 		}
-	}, [helpOpen]);
+	}, [helpOpen, setHelpOpen]);
 
 	// Handler for chat:fastMode - toggle fast mode picker
 	const handleFastModePicker = useCallback(() => {
@@ -1836,7 +1833,7 @@ function PromptInput({
 		if (helpOpen) {
 			setHelpOpen(false);
 		}
-	}, [helpOpen]);
+	}, [helpOpen, setHelpOpen]);
 
 	// Handler for chat:thinkingToggle - toggle thinking mode
 	const handleThinkingToggle = useCallback(() => {
@@ -1844,7 +1841,7 @@ function PromptInput({
 		if (helpOpen) {
 			setHelpOpen(false);
 		}
-	}, [helpOpen]);
+	}, [helpOpen, setHelpOpen]);
 
 	// Handler for chat:effortUp — increase effort level
 	const handleEffortUp = useCallback(() => {
@@ -1860,7 +1857,7 @@ function PromptInput({
 			void applySettingsChange("effort" as SettingSource, setAppState); // log: fix TS2345 — 'effort' not in SettingSource union
 		}
 		logForDebugging(`[effort] up: ${currentLevel} → ${nextLevel}`);
-	}, [mainLoopModel, effortValue]);
+	}, [mainLoopModel, effortValue, setAppState]);
 
 	// Handler for chat:effortDown — decrease effort level
 	const handleEffortDown = useCallback(() => {
@@ -1876,7 +1873,7 @@ function PromptInput({
 			void applySettingsChange("effort" as SettingSource, setAppState); // log: fix TS2345 — 'effort' not in SettingSource union
 		}
 		logForDebugging(`[effort] down: ${currentLevel} → ${nextLevel}`);
-	}, [mainLoopModel, effortValue]);
+	}, [mainLoopModel, effortValue, setAppState]);
 
 	// Handler for chat:cycleMode - cycle through permission modes
 	const handleCycleMode = useCallback(() => {
@@ -1894,7 +1891,7 @@ function PromptInput({
 			const teammateTaskId = viewingAgentTaskId;
 			setAppState((prev) => {
 				const task = prev.tasks[teammateTaskId];
-				if (!task || task.type !== "in_process_teammate") {
+				if (task?.type !== "in_process_teammate") {
 					return prev;
 				}
 				if (task.permissionMode === nextMode) {
@@ -2039,6 +2036,7 @@ function PromptInput({
 		setToolPermissionContext,
 		helpOpen,
 		showAutoModeOptIn,
+		setHelpOpen,
 	]);
 
 	// Handler for auto mode opt-in dialog acceptance
@@ -2408,7 +2406,7 @@ function PromptInput({
 						task.id === viewingAgentTaskId
 					) {
 						onChange(
-							input.slice(0, cursorOffset) + "x" + input.slice(cursorOffset),
+							`${input.slice(0, cursorOffset)}x${input.slice(cursorOffset)}`,
 						);
 						setCursorOffset(cursorOffset + 1);
 						return;
@@ -2702,6 +2700,7 @@ function PromptInput({
 		mainLoopModelForSession,
 		handleModelSelect,
 		handleModelCancel,
+		isFastMode,
 	]);
 	const handleFastModeSelect = useCallback(
 		(result?: string) => {
@@ -2777,7 +2776,7 @@ function PromptInput({
 		thinkingEnabled,
 		handleThinkingSelect,
 		handleThinkingCancel,
-		messages.length,
+		messages.some,
 	]);
 
 	// Portal dialog to DialogOverlay in fullscreen so it escapes the bottom

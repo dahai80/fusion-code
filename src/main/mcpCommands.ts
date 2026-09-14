@@ -2,11 +2,11 @@
 // (issue #133). Pure registration block; every action delegates to
 // ../cli/handlers/mcp.js via dynamic import.
 
-import type { CommanderCommand } from "./commandHelpers.js";
-import { createSortedHelpConfig } from "./commandHelpers.js";
 import { registerMcpAddCommand } from "../commands/mcp/addCommand.js";
 import { registerMcpXaaIdpCommand } from "../commands/mcp/xaaIdpCommand.js";
 import { isXaaEnabled } from "../services/mcp/index.js";
+import type { CommanderCommand } from "./commandHelpers.js";
+import { createSortedHelpConfig } from "./commandHelpers.js";
 
 export function registerMcpCommands(program: CommanderCommand): void {
 	// claude mcp

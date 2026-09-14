@@ -72,12 +72,12 @@ import {
 	getTotalInputTokens,
 	getTotalOutputTokens,
 } from "../../bootstrap/state.js";
-import { getFeatureValue_CACHED_WITH_REFRESH } from "../../services/analytics/index.js";
 import {
 	type AnalyticsMetadata_I_VERIFIED_THIS_IS_NOT_CODE_OR_FILEPATHS,
+	getFeatureValue_CACHED_WITH_REFRESH,
 	logEvent,
+	sanitizeToolNameForAnalytics,
 } from "../../services/analytics/index.js";
-import { sanitizeToolNameForAnalytics } from "../../services/analytics/index.js";
 import {
 	clearClassifierChecking,
 	setClassifierChecking,
@@ -796,7 +796,7 @@ export const hasPermissionsToUseTool: CanUseToolFn = async (
 
 			// Allowlisted tools are safe and don't need YOLO classification.
 			// This uses the safe-tool allowlist to skip unnecessary classifier API calls.
-			if (classifierDecisionModule!.isAutoModeAllowlistedTool(tool.name)) {
+			if (classifierDecisionModule?.isAutoModeAllowlistedTool(tool.name)) {
 				const newDenialState = recordSuccess(denialState);
 				persistDenialState(context, newDenialState);
 				logForDebugging(
@@ -1524,7 +1524,7 @@ function convertRulesToUpdates(
 		if (!grouped.has(key)) {
 			grouped.set(key, []);
 		}
-		grouped.get(key)!.push(rule.ruleValue);
+		grouped.get(key)?.push(rule.ruleValue);
 	}
 
 	// Convert to PermissionUpdate array

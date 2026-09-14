@@ -4,7 +4,7 @@ import {
 	readFileSync,
 	unlinkSync,
 	writeFileSync,
-} from "fs";
+} from "node:fs";
 import { logForDebugging } from "../../utils/debug.js";
 
 export type GoalStatus = "active" | "paused" | "blocked" | "complete";
@@ -150,7 +150,7 @@ export function pauseGoal(sessionId: string, goalId?: string): Goal | null {
 	const target = goalId
 		? goals.find((g) => g.id === goalId)
 		: goals.find((g) => g.status === "active");
-	if (!target || target.status !== "active") return null;
+	if (target?.status !== "active") return null;
 	target.status = "paused";
 	target.pausedAt = Date.now();
 	target.revision += 1;
@@ -164,7 +164,7 @@ export function resumeGoal(sessionId: string, goalId?: string): Goal | null {
 	const target = goalId
 		? goals.find((g) => g.id === goalId)
 		: goals.find((g) => g.status === "paused");
-	if (!target || target.status !== "paused") return null;
+	if (target?.status !== "paused") return null;
 	const hasActive = goals.some((g) => g.status === "active");
 	if (hasActive) return null;
 	target.status = "active";
@@ -188,10 +188,7 @@ export function completeGoal(
 	// P1-8: CAS 在单次 load/save 周期内执行 (此前 getGoalById 读 revision +
 	// completeGoal 独立 reload save = 两周期 TOCTOU, 并发写覆盖, CAS 装饰性)。
 	// expectedRevision 省略 → 不检查 (byte-identical)。
-	if (
-		expectedRevision != null &&
-		goals[idx].revision !== expectedRevision
-	) {
+	if (expectedRevision != null && goals[idx].revision !== expectedRevision) {
 		logForDebugging(
 			`[GoalState] completeGoal CAS rejected: expected ${expectedRevision} got ${goals[idx].revision}`,
 		);
@@ -224,10 +221,7 @@ export function blockGoal(
 	const idx = goals.findIndex((g) => g.id === goalId);
 	if (idx === -1 || goals[idx].status !== "active") return null;
 	// P1-8: CAS 在单次 load/save 周期内执行 (同 completeGoal)。
-	if (
-		expectedRevision != null &&
-		goals[idx].revision !== expectedRevision
-	) {
+	if (expectedRevision != null && goals[idx].revision !== expectedRevision) {
 		logForDebugging(
 			`[GoalState] blockGoal CAS rejected: expected ${expectedRevision} got ${goals[idx].revision}`,
 		);

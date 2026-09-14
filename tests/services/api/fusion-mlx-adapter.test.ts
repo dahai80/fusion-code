@@ -14,6 +14,7 @@
 import { afterEach, beforeEach, describe, expect, it, spyOn } from "bun:test";
 import {
 	_resetMlxCircuitBreaker,
+	_resetMlxBaseUrl,
 	_resetOriginalFetch,
 	checkFusionMlxHealth,
 	createFusionMlxFetch,
@@ -32,6 +33,7 @@ const DEFAULT_MLX_URL = "http://127.0.0.1:11432";
 beforeEach(() => {
 	_resetOriginalFetch();
 	_resetMlxCircuitBreaker();
+	_resetMlxBaseUrl();
 });
 
 /**

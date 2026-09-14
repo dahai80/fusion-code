@@ -9,13 +9,13 @@
 // 纯函数: 只读聚合, 不写盘/不发起网络/不 mutate 源。返回 JSON 可序列化对象。
 // 默认 off (runtime.ts 门控); 此模块自身不做门控 — 调用方 (cli handler) 门控。
 
-import { getAllBaseTools } from "../../tools.js";
 import { getCommands } from "../../commands.js";
 import { getBundledSkills } from "../../skills/bundledSkills.js";
+import type { Tool } from "../../Tool.js";
+import { getAllBaseTools } from "../../tools.js";
+import { logForDebugging } from "../../utils/debug.js";
 import { loadAllPlugins } from "../../utils/plugins/pluginLoader.js";
 import { zodToJsonSchema } from "../../utils/zodToJsonSchema.js";
-import { logForDebugging } from "../../utils/debug.js";
-import type { Tool } from "../../Tool.js";
 import type { CapabilityManifestOptions } from "./runtime.js";
 
 // 清单条目类型 (JSON 可序列化)。
@@ -80,10 +80,7 @@ export interface CapabilityManifest {
 }
 
 // 导出单个工具 → 清单条目。只读静态字段 + schema (按选项)。
-function toolToEntry(
-	tool: Tool,
-	includeSchemas: boolean,
-): ManifestToolEntry {
+function toolToEntry(tool: Tool, includeSchemas: boolean): ManifestToolEntry {
 	const entry: ManifestToolEntry = {
 		kind: "tool",
 		name: tool.name,
@@ -150,7 +147,8 @@ function pluginToEntry(
 	if (plugin.enabled !== undefined) entry.enabled = plugin.enabled;
 	if (plugin.isBuiltin) entry.isBuiltin = true;
 	if (plugin.manifest?.version) entry.version = plugin.manifest.version;
-	if (plugin.manifest?.description) entry.description = plugin.manifest.description;
+	if (plugin.manifest?.description)
+		entry.description = plugin.manifest.description;
 	return entry;
 }
 
@@ -165,9 +163,7 @@ export async function exportCapabilityManifest(
 	const tools = getAllBaseTools().map((t) => toolToEntry(t, includeSchemas));
 
 	const allCommands = includeSkills ? await getCommands(options.cwd) : [];
-	const bundledSkillNames = new Set(
-		getBundledSkills().map((s) => s.name),
-	);
+	const bundledSkillNames = new Set(getBundledSkills().map((s) => s.name));
 	// 技能 = prompt 类型命令 (bundled/skills 源); 其余归 commands。
 	const skills: ManifestCommandEntry[] = [];
 	const commands: ManifestCommandEntry[] = [];

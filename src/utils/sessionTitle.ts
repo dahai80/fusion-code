@@ -12,18 +12,18 @@
  * Each remains for backwards compat; new callers should use this module.
  */
 
-import { z } from 'zod/v4'
-import { getIsNonInteractiveSession } from '../bootstrap/state.js'
-import { logEvent } from '../services/analytics/index.js'
-import { queryHaiku } from '../services/api/index.js'
-import type { Message } from '../types/message.js'
-import { logForDebugging } from './debug.js'
-import { safeParseJSON } from './json.js'
-import { lazySchema } from './lazySchema.js'
-import { extractTextContent } from './messages.js'
-import { asSystemPrompt } from './systemPromptType.js'
+import { z } from "zod/v4";
+import { getIsNonInteractiveSession } from "../bootstrap/state.js";
+import { logEvent } from "../services/analytics/index.js";
+import { queryHaiku } from "../services/api/index.js";
+import type { Message } from "../types/message.js";
+import { logForDebugging } from "./debug.js";
+import { safeParseJSON } from "./json.js";
+import { lazySchema } from "./lazySchema.js";
+import { extractTextContent } from "./messages.js";
+import { asSystemPrompt } from "./systemPromptType.js";
 
-const MAX_CONVERSATION_TEXT = 1000
+const MAX_CONVERSATION_TEXT = 1000;
 
 /**
  * Deterministic fallback title from first user message.
@@ -31,11 +31,11 @@ const MAX_CONVERSATION_TEXT = 1000
  * Used when Haiku is unavailable (local MLX without cloud API).
  */
 export function extractFallbackTitle(text: string): string {
-    const firstLine = text.split('\n')[0]?.trim() || ''
-    const stripped = firstLine
-        .replace(/^(please |can you |help me |i need |i want to |let's )/i, '')
-        .replace(/[.!?]+$/, '')
-    return stripped.length > 60 ? stripped.slice(0, 57) + '...' : stripped
+	const firstLine = text.split("\n")[0]?.trim() || "";
+	const stripped = firstLine
+		.replace(/^(please |can you |help me |i need |i want to |let's )/i, "")
+		.replace(/[.!?]+$/, "");
+	return stripped.length > 60 ? `${stripped.slice(0, 57)}...` : stripped;
 }
 
 /**
@@ -44,26 +44,26 @@ export function extractFallbackTitle(text: string): string {
  * recent context wins when the conversation is long.
  */
 export function extractConversationText(messages: Message[]): string {
-  const parts: string[] = []
-  for (const msg of messages) {
-    if (msg.type !== 'user' && msg.type !== 'assistant') continue
-    if ('isMeta' in msg && msg.isMeta) continue
-    if ('origin' in msg && msg.origin && msg.origin.kind !== 'human') continue
-    const content = msg.message.content
-    if (typeof content === 'string') {
-      parts.push(content)
-    } else if (Array.isArray(content)) {
-      for (const block of content) {
-        if ('type' in block && block.type === 'text' && 'text' in block) {
-          parts.push(block.text as string)
-        }
-      }
-    }
-  }
-  const text = parts.join('\n')
-  return text.length > MAX_CONVERSATION_TEXT
-    ? text.slice(-MAX_CONVERSATION_TEXT)
-    : text
+	const parts: string[] = [];
+	for (const msg of messages) {
+		if (msg.type !== "user" && msg.type !== "assistant") continue;
+		if ("isMeta" in msg && msg.isMeta) continue;
+		if ("origin" in msg && msg.origin && msg.origin.kind !== "human") continue;
+		const content = msg.message.content;
+		if (typeof content === "string") {
+			parts.push(content);
+		} else if (Array.isArray(content)) {
+			for (const block of content) {
+				if ("type" in block && block.type === "text" && "text" in block) {
+					parts.push(block.text as string);
+				}
+			}
+		}
+	}
+	const text = parts.join("\n");
+	return text.length > MAX_CONVERSATION_TEXT
+		? text.slice(-MAX_CONVERSATION_TEXT)
+		: text;
 }
 
 const SESSION_TITLE_PROMPT = `Generate a concise title (3-7 words) that captures the main topic or goal of this coding session. The title should be clear enough that the user recognizes the session in a list. Use the same language as the user's first message — if the user writes in Chinese, respond in Chinese; if in English, respond in English; etc. Use sentence case: capitalize only the first word and proper nouns.
@@ -79,9 +79,9 @@ Good examples:
 
 Bad (too vague): {"title": "Code changes"}
 Bad (too long): {"title": "Investigate and fix the issue where the login button does not respond on mobile devices"}
-Bad (wrong case): {"title": "Fix Login Button On Mobile"}`
+Bad (wrong case): {"title": "Fix Login Button On Mobile"}`;
 
-const titleSchema = lazySchema(() => z.object({ title: z.string() }))
+const titleSchema = lazySchema(() => z.object({ title: z.string() }));
 
 /**
  * Generate a sentence-case session title from a description or first message.
@@ -91,53 +91,53 @@ const titleSchema = lazySchema(() => z.object({ title: z.string() }))
  * @param signal - Abort signal for cancellation
  */
 export async function generateSessionTitle(
-  description: string,
-  signal: AbortSignal,
+	description: string,
+	signal: AbortSignal,
 ): Promise<string | null> {
-  const trimmed = description.trim()
-  if (!trimmed) return null
+	const trimmed = description.trim();
+	if (!trimmed) return null;
 
-  try {
-    const result = await queryHaiku({
-      systemPrompt: asSystemPrompt([SESSION_TITLE_PROMPT]),
-      userPrompt: trimmed,
-      outputFormat: {
-        type: 'json_schema',
-        schema: {
-          type: 'object',
-          properties: {
-            title: { type: 'string' },
-          },
-          required: ['title'],
-          additionalProperties: false,
-        },
-      },
-      signal,
-      options: {
-        querySource: 'generate_session_title',
-        agents: [],
-        // Reflect the actual session mode — this module is called from
-        // both the SDK print path (non-interactive) and the CCR remote
-        // session path via useRemoteSession (interactive).
-        isNonInteractiveSession: getIsNonInteractiveSession(),
-        hasAppendSystemPrompt: false,
-        mcpTools: [],
-      },
-    })
+	try {
+		const result = await queryHaiku({
+			systemPrompt: asSystemPrompt([SESSION_TITLE_PROMPT]),
+			userPrompt: trimmed,
+			outputFormat: {
+				type: "json_schema",
+				schema: {
+					type: "object",
+					properties: {
+						title: { type: "string" },
+					},
+					required: ["title"],
+					additionalProperties: false,
+				},
+			},
+			signal,
+			options: {
+				querySource: "generate_session_title",
+				agents: [],
+				// Reflect the actual session mode — this module is called from
+				// both the SDK print path (non-interactive) and the CCR remote
+				// session path via useRemoteSession (interactive).
+				isNonInteractiveSession: getIsNonInteractiveSession(),
+				hasAppendSystemPrompt: false,
+				mcpTools: [],
+			},
+		});
 
-    const text = extractTextContent(result.message.content)
+		const text = extractTextContent(result.message.content);
 
-    const parsed = titleSchema().safeParse(safeParseJSON(text))
-    const title = parsed.success ? parsed.data.title.trim() || null : null
+		const parsed = titleSchema().safeParse(safeParseJSON(text));
+		const title = parsed.success ? parsed.data.title.trim() || null : null;
 
-    logEvent('tengu_session_title_generated', { success: title !== null })
+		logEvent("tengu_session_title_generated", { success: title !== null });
 
-    return title
-  } catch (error) {
-    logForDebugging(`generateSessionTitle failed: ${error}`, {
-      level: 'error',
-    })
-    logEvent('tengu_session_title_generated', { success: false })
-    return null
-  }
+		return title;
+	} catch (error) {
+		logForDebugging(`generateSessionTitle failed: ${error}`, {
+			level: "error",
+		});
+		logEvent("tengu_session_title_generated", { success: false });
+		return null;
+	}
 }

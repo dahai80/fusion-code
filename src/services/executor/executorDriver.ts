@@ -194,14 +194,20 @@ export async function* callBashViaExecutor(
 					}
 					// P3-3: 超 cap 后停止全量拼接, 仅保滚动尾部窗口 (边收边弃), 防 GB 级输出 OOM。
 					// fullOutput 上限 ~2*cap, 超 2*cap 才 trim 到 cap → 摊还 O(n), 非每 chunk O(n)。
-					if (!outputTruncated && fullOutput.length + data.length > FULL_OUTPUT_MAX_BYTES) {
+					if (
+						!outputTruncated &&
+						fullOutput.length + data.length > FULL_OUTPUT_MAX_BYTES
+					) {
 						outputTruncated = true;
 						logForDebugging(
 							`executor output exceeded ${FULL_OUTPUT_MAX_BYTES} bytes (totalBytes=${totalBytes}) — switching to tail window`,
 						);
 					}
 					fullOutput += data;
-					if (outputTruncated && fullOutput.length > FULL_OUTPUT_MAX_BYTES * 2) {
+					if (
+						outputTruncated &&
+						fullOutput.length > FULL_OUTPUT_MAX_BYTES * 2
+					) {
 						fullOutput = fullOutput.slice(-FULL_OUTPUT_MAX_BYTES);
 					}
 					queue.push(data);

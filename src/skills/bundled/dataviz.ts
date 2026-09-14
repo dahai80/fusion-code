@@ -1,4 +1,4 @@
-import { registerBundledSkill } from '../bundledSkills.js'
+import { registerBundledSkill } from "../bundledSkills.js";
 
 const DATAVIZ_PROMPT = `# Dataviz: Terminal Data Visualization
 
@@ -28,17 +28,19 @@ Generate terminal-friendly data visualizations from data provided by the user.
 
 The user will provide data in any format: JSON, CSV, plain text, or natural language description.
 Parse the data first, then choose the most appropriate visualization type.
-If unsure, default to a bar chart with sparkline summary.`
+If unsure, default to a bar chart with sparkline summary.`;
 
 export function registerDatavizSkill(): void {
-    registerBundledSkill({
-        name: 'dataviz',
-        description: 'Generate terminal data visualizations (bar charts, sparklines, tables, pie charts)',
-        aliases: ['dv'],
-        argumentHint: '<data or description>',
-        whenToUse: 'User wants to visualize data, see a chart, compare values, or view data distribution in the terminal',
-        getPromptForCommand: async () => {
-            return [{ type: 'text' as const, text: DATAVIZ_PROMPT }]
-        },
-    })
+	registerBundledSkill({
+		name: "dataviz",
+		description:
+			"Generate terminal data visualizations (bar charts, sparklines, tables, pie charts)",
+		aliases: ["dv"],
+		argumentHint: "<data or description>",
+		whenToUse:
+			"User wants to visualize data, see a chart, compare values, or view data distribution in the terminal",
+		getPromptForCommand: async () => {
+			return [{ type: "text" as const, text: DATAVIZ_PROMPT }];
+		},
+	});
 }

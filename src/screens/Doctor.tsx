@@ -25,10 +25,8 @@ import {
 	getNpmDistTags,
 	type NpmDistTags,
 } from "../utils/autoUpdater.js";
-import { checkContextWarnings,
-} from "../utils/doctorContextWarnings.js";
-import { getDoctorDiagnostic,
-} from "../utils/doctorDiagnostic.js";
+import { checkContextWarnings } from "../utils/doctorContextWarnings.js";
+import { getDoctorDiagnostic } from "../utils/doctorDiagnostic.js";
 import { validateBoundedIntEnvVar } from "../utils/envValidation.js";
 import { pathExists } from "../utils/file.js";
 import {

@@ -1,4 +1,4 @@
-import { sep } from "path";
+import { sep } from "node:path";
 import { getOriginalCwd } from "../bootstrap/state.js";
 import type { LogOption } from "../types/logs.js";
 import { quote } from "./bash/shellQuote.js";
@@ -54,7 +54,7 @@ export function checkCrossProjectResume(
 
 	// Check if log.projectPath is under a worktree of the same repo
 	const isSameRepo = worktreePaths.some(
-		(wt) => log.projectPath === wt || log.projectPath!.startsWith(wt + sep),
+		(wt) => log.projectPath === wt || log.projectPath?.startsWith(wt + sep),
 	);
 
 	if (isSameRepo) {

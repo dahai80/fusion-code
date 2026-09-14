@@ -1,7 +1,7 @@
-export const DESCRIPTION = `Schedule when to resume work in a dynamic self-paced loop. The loop prompt fires again after the specified delay.`
+export const DESCRIPTION = `Schedule when to resume work in a dynamic self-paced loop. The loop prompt fires again after the specified delay.`;
 
 export function getPrompt(): string {
-    return `Schedule when to resume work in a /loop dynamic session — the user invoked /loop without an interval, asking you to self-pace iterations of a specific task.
+	return `Schedule when to resume work in a /loop dynamic session — the user invoked /loop without an interval, asking you to self-pace iterations of a specific task.
 
 Use this tool instead of CronCreate when the user wants a self-paced autonomous loop with no fixed cron schedule. The tool sets a one-shot wakeup; after the wakeup fires and you complete the next iteration, you decide the next delay based on what happened.
 
@@ -17,5 +17,5 @@ The runtime clamps delaySeconds to [60, 3600].
 To end the loop, call this tool with stop: true — the loop ends immediately and no further wakeups fire.
 
 Required: delaySeconds (unless stop is true) and prompt (unless stop is true).
-The prompt should be the same /loop input verbatim each turn so the next firing re-enters the skill and continues the loop. For autonomous /loop (no user prompt), pass the literal sentinel <<autonomous-loop-dynamic>> as prompt instead.`
+The prompt should be the same /loop input verbatim each turn so the next firing re-enters the skill and continues the loop. For autonomous /loop (no user prompt), pass the literal sentinel <<autonomous-loop-dynamic>> as prompt instead.`;
 }

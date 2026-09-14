@@ -1,4 +1,4 @@
-import { registerBundledSkill } from '../bundledSkills.js'
+import { registerBundledSkill } from "../bundledSkills.js";
 
 const SDD_PROMPT = `# Subagent-Driven Development (SDD)
 
@@ -44,20 +44,20 @@ Instead of doing everything yourself, delegate each unit of work to a focused su
 
 ## Action
 
-Now decompose the user's task and begin spawning subagents.`
+Now decompose the user's task and begin spawning subagents.`;
 
 export function registerSddSkill(): void {
-    registerBundledSkill({
-        name: 'sdd',
-        description:
-            'Subagent-Driven Development — decompose tasks and delegate to parallel subagents',
-        whenToUse:
-            'When the user wants to decompose a complex task into parallel subtasks, or when multiple independent features need implementation simultaneously. Also useful when the user says "use SDD" or "subagent-driven" or "parallelize this".',
-        argumentHint: '<task description>',
-        userInvocable: true,
-        async getPromptForCommand(args) {
-            const task = args.trim() || 'the current task'
-            return [{ type: 'text', text: `${SDD_PROMPT}\n\n## Task\n\n${task}` }]
-        },
-    })
+	registerBundledSkill({
+		name: "sdd",
+		description:
+			"Subagent-Driven Development — decompose tasks and delegate to parallel subagents",
+		whenToUse:
+			'When the user wants to decompose a complex task into parallel subtasks, or when multiple independent features need implementation simultaneously. Also useful when the user says "use SDD" or "subagent-driven" or "parallelize this".',
+		argumentHint: "<task description>",
+		userInvocable: true,
+		async getPromptForCommand(args) {
+			const task = args.trim() || "the current task";
+			return [{ type: "text", text: `${SDD_PROMPT}\n\n## Task\n\n${task}` }];
+		},
+	});
 }

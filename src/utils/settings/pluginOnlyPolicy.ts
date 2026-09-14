@@ -1,6 +1,6 @@
-import type { CUSTOMIZATION_SURFACES } from './types.js'
+import type { CUSTOMIZATION_SURFACES } from "./types.js";
 
-export type CustomizationSurface = (typeof CUSTOMIZATION_SURFACES)[number]
+export type CustomizationSurface = (typeof CUSTOMIZATION_SURFACES)[number];
 
 // #203 Phase B: settings.js imported lazily. The mcp barrel re-exports config,
 // which imports this module; permissionValidation (also in the settings cone)
@@ -17,13 +17,13 @@ export type CustomizationSurface = (typeof CUSTOMIZATION_SURFACES)[number]
 // bundler rewrites the static string literal into a bundle reference —
 // createRequire(import.meta.url) resolves to the bundle root in `bun build
 // --compile` and fails to find the in-bundle module (regression bcfdbfc).
-type SettingsModule = typeof import('./settings.js')
-let _settings: SettingsModule | null = null
+type SettingsModule = typeof import("./settings.js");
+let _settings: SettingsModule | null = null;
 function settings(): SettingsModule {
-  if (_settings === null) {
-    _settings = require('./settings.js')
-  }
-  return _settings
+	if (_settings === null) {
+		_settings = require("./settings.js");
+	}
+	return _settings;
 }
 
 /**
@@ -40,13 +40,15 @@ function settings(): SettingsModule {
  * Absent/undefined → nothing locked (the default).
  */
 export function isRestrictedToPluginOnly(
-  surface: CustomizationSurface,
+	surface: CustomizationSurface,
 ): boolean {
-  const policy =
-    settings().getSettingsForSource('policySettings')?.strictPluginOnlyCustomization
-  if (policy === true) return true
-  if (Array.isArray(policy)) return policy.includes(surface)
-  return false
+	const policy =
+		settings().getSettingsForSource(
+			"policySettings",
+		)?.strictPluginOnlyCustomization;
+	if (policy === true) return true;
+	if (Array.isArray(policy)) return policy.includes(surface);
+	return false;
 }
 
 /**
@@ -61,12 +63,12 @@ export function isRestrictedToPluginOnly(
  * Command.source ('builtin' no hyphen, plus 'bundled').
  */
 const ADMIN_TRUSTED_SOURCES: ReadonlySet<string> = new Set([
-  'plugin',
-  'policySettings',
-  'built-in',
-  'builtin',
-  'bundled',
-])
+	"plugin",
+	"policySettings",
+	"built-in",
+	"builtin",
+	"bundled",
+]);
 
 /**
  * Whether a customization's source is admin-trusted under
@@ -79,5 +81,5 @@ const ADMIN_TRUSTED_SOURCES: ReadonlySet<string> = new Set([
  *   if (item.hooks && allowed) { register(...) }
  */
 export function isSourceAdminTrusted(source: string | undefined): boolean {
-  return source !== undefined && ADMIN_TRUSTED_SOURCES.has(source)
+	return source !== undefined && ADMIN_TRUSTED_SOURCES.has(source);
 }

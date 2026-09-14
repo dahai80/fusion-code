@@ -1,9 +1,9 @@
-import type { ContentBlockParam } from "src/types/anthropic-protocol.js";
-import { randomUUID } from "crypto";
+import { randomUUID } from "node:crypto";
 import type * as React from "react";
 import { BashModeProgress } from "src/components/BashModeProgress.js";
 import type { SetToolJSXFn } from "src/Tool.js";
 import { BashTool } from "src/tools/BashTool/BashTool.js";
+import type { ContentBlockParam } from "src/types/anthropic-protocol.js";
 import type {
 	AttachmentMessage,
 	SystemMessage,

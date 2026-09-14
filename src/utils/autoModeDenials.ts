@@ -4,20 +4,20 @@
  */
 
 export type AutoModeDenial = {
-  toolName: string
-  /** Human-readable description of the denied command (e.g. bash command string) */
-  display: string
-  reason: string
-  timestamp: number
-}
+	toolName: string;
+	/** Human-readable description of the denied command (e.g. bash command string) */
+	display: string;
+	reason: string;
+	timestamp: number;
+};
 
-let DENIALS: readonly AutoModeDenial[] = []
-const MAX_DENIALS = 20
+let DENIALS: readonly AutoModeDenial[] = [];
+const MAX_DENIALS = 20;
 
 export function recordAutoModeDenial(denial: AutoModeDenial): void {
-  DENIALS = [denial, ...DENIALS.slice(0, MAX_DENIALS - 1)]
+	DENIALS = [denial, ...DENIALS.slice(0, MAX_DENIALS - 1)];
 }
 
 export function getAutoModeDenials(): readonly AutoModeDenial[] {
-  return DENIALS
+	return DENIALS;
 }

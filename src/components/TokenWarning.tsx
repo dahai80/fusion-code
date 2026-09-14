@@ -1,6 +1,7 @@
 import { feature } from "bun:bundle";
 import { useSyncExternalStore } from "react";
 import { c as _c } from "react/compiler-runtime";
+import { useCompactWarningSuppression } from "../hooks/compactWarningHook.js";
 import { Box, Text } from "../ink.js";
 import { getFeatureValue_CACHED_MAY_BE_STALE } from "../services/analytics/index.js";
 import {
@@ -8,7 +9,6 @@ import {
 	getEffectiveContextWindowSize,
 	isAutoCompactEnabled,
 } from "../services/compact/index.js";
-import { useCompactWarningSuppression } from "../hooks/compactWarningHook.js";
 import { getUpgradeMessage } from "../utils/model/contextWindowUpgradeCheck.js";
 
 type Props = {

@@ -330,12 +330,14 @@ describe('encodeStreamToAnthropicSSE', () => {
       { type: 'message_stop' },
     ]
 
-    const originalResponse = new Response(null, { headers: { 'x-custom': 'test' } })
+    // P1 安全修复后仅白名单头透传 (SAFE_FORWARD_HEADERS): x-request-id /
+    // x-fusion-stream-id / retry-after; content-length/content-encoding 等被有意丢弃
+    const originalResponse = new Response(null, { headers: { 'x-request-id': 'req_test_123' } })
     const result = await encodeStreamToAnthropicSSE(createTestStream(events), originalResponse)
 
     expect(result.status).toBe(200)
     expect(result.headers.get('content-type')).toBe('text/event-stream')
-    expect(result.headers.get('x-custom')).toBe('test')
+    expect(result.headers.get('x-request-id')).toBe('req_test_123')
 
     const text = await result.text()
     expect(text).toContain('event: message_start')

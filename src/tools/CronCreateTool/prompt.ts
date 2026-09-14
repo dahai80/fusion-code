@@ -1,7 +1,7 @@
-export const DESCRIPTION = `Schedule a prompt to be enqueued at a future time. Supports both recurring schedules and one-shot reminders.`
+export const DESCRIPTION = `Schedule a prompt to be enqueued at a future time. Supports both recurring schedules and one-shot reminders.`;
 
 export function getPrompt(): string {
-    return `Schedule a prompt to be enqueued at a future time. Supports both recurring schedules and one-shot reminders.
+	return `Schedule a prompt to be enqueued at a future time. Supports both recurring schedules and one-shot reminders.
 
 Uses standard 5-field cron in the user's local timezone: minute hour day-of-month month day-of-week.
 
@@ -19,5 +19,5 @@ Important:
 - Recurring tasks auto-expire after 7 days
 - Jobs only fire while the REPL is idle
 - Set durable: true to persist across session restarts
-- For one-shot, pin day-of-month and month for exact timing`
+- For one-shot, pin day-of-month and month for exact timing`;
 }

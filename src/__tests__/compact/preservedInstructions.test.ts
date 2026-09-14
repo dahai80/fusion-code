@@ -7,8 +7,9 @@
 import { describe, expect, test } from "bun:test";
 import { createPreservedInstructionsAttachment } from "../../services/compact/index.js";
 
-const MARKER_LENGTH = "\n\n[... skill content truncated for compaction; use Read on the skill path if you need the full text]"
-	.length;
+const MARKER_LENGTH =
+	"\n\n[... skill content truncated for compaction; use Read on the skill path if you need the full text]"
+		.length;
 
 function extractContent(
 	attachment: ReturnType<typeof createPreservedInstructionsAttachment>,

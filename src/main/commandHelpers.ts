@@ -1,7 +1,7 @@
 // Shared helpers for Commander CLI registration, extracted from main.tsx
 // (issue #133 god-module split). Pure helpers; no module-scope mutable state.
 
-import {
+import type {
 	Command as CommanderCommand,
 	Option,
 } from "@commander-js/extra-typings";

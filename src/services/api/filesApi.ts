@@ -7,10 +7,10 @@
  * API Reference: https://docs.anthropic.com/en/api/files-content
  */
 
+import { randomUUID } from "node:crypto";
+import * as fs from "node:fs/promises";
+import * as path from "node:path";
 import axios from "axios";
-import { randomUUID } from "crypto";
-import * as fs from "fs/promises";
-import * as path from "path";
 import { count } from "../../utils/array.js";
 import { getCwd } from "../../utils/cwd.js";
 import { logForDebugging } from "../../utils/debug.js";
@@ -204,7 +204,7 @@ export function buildDownloadPath(
 	const uploadsBase = path.join(basePath, sessionId, "uploads");
 	const redundantPrefixes = [
 		path.join(basePath, sessionId, "uploads") + path.sep,
-		path.sep + "uploads" + path.sep,
+		`${path.sep}uploads${path.sep}`,
 	];
 	const matchedPrefix = redundantPrefixes.find((p) => normalized.startsWith(p));
 	const cleanPath = matchedPrefix

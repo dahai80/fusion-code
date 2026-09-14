@@ -15,8 +15,8 @@
 // 辅助返 Promise<StoredCostState | undefined> (内含 await, REPL await 调用)。无 JSX → .ts。
 // 注: 此为 resume 多会话切块提取的第 4 块 (最后一块, 含 return-value-threading)。resume() 4 块全提取完毕。
 
-import type { UUID } from "crypto";
-import { dirname } from "path";
+import type { UUID } from "node:crypto";
+import { dirname } from "node:path";
 import { switchSession } from "../bootstrap/state.js";
 import {
 	getStoredSessionCosts,

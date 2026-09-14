@@ -86,7 +86,7 @@ async function isMarketplacePluginRelevant(
 	}
 	if (signals.filePath && context?.readFileState) {
 		const readFiles = context.readFileState.cacheKeys?.() ?? [];
-		if (readFiles.some((fp) => signals.filePath!.test(fp))) {
+		if (readFiles.some((fp) => signals.filePath?.test(fp))) {
 			return true;
 		}
 	}
@@ -433,7 +433,7 @@ const externalTips: Tip[] = [
 	},
 	{
 		id: "desktop-shortcut",
-		content: async (ctx) => {
+		content: async (_ctx) => {
 			// blue removed (unused in this scope)
 			return `Continue your session in Fusion-Code Desktop`;
 		},

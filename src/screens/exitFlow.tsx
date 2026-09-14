@@ -5,7 +5,7 @@
 // deps [] (原 useCallback deps 为空) → ctx 仅传稳定 setter/state, 无 stale 闭包风险。
 
 import { feature } from "bun:bundle";
-import { spawnSync } from "child_process";
+import { spawnSync } from "node:child_process";
 import exit from "../commands/exit/index.js";
 import { ExitFlow } from "../components/ExitFlow.js";
 import { isBgSession } from "../utils/concurrentSessions.js";

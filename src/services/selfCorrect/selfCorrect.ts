@@ -1,4 +1,4 @@
-import { execSync } from "child_process";
+import { execSync } from "node:child_process";
 import { isFusionMlxProvider } from "../../utils/model/providers.js";
 import { logEvent } from "../analytics/index.js";
 
@@ -66,7 +66,7 @@ function runCommand(
 }
 
 function extractRelevantError(stderr: string, stdout: string): string {
-	const combined = (stderr + "\n" + stdout).trim();
+	const combined = `${stderr}\n${stdout}`.trim();
 	if (!combined) return "No output captured";
 
 	const lines = combined.split("\n");
@@ -236,8 +236,8 @@ export function buildSelfCorrectPrompt(result: SelfCorrectResult): string {
 }
 
 export function detectTestCommand(workingDir: string): string | null {
-	const fs = require("fs");
-	const path = require("path");
+	const fs = require("node:fs");
+	const path = require("node:path");
 
 	const pkgPath = path.join(workingDir, "package.json");
 	if (fs.existsSync(pkgPath)) {

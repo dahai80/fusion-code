@@ -1,14 +1,15 @@
+import { homedir } from "node:os";
 import {
 	buildComputerUseTools,
 	createComputerUseMcpServer,
 } from "@ant/computer-use-mcp";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { ListToolsRequestSchema } from "@modelcontextprotocol/sdk/types.js";
-import { homedir } from "os";
-
-import { shutdownDatadog } from "../../services/analytics/index.js";
-import { shutdown1PEventLogging } from "../../services/analytics/index.js";
-import { initializeAnalyticsSink } from "../../services/analytics/index.js";
+import {
+	initializeAnalyticsSink,
+	shutdown1PEventLogging,
+	shutdownDatadog,
+} from "../../services/analytics/index.js";
 import { enableConfigs } from "../config.js";
 import { logForDebugging } from "../debug.js";
 import { filterAppsForDescription } from "./appNames.js";

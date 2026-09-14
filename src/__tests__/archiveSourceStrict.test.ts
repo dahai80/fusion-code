@@ -14,8 +14,8 @@ import { afterEach, beforeEach, describe, expect, it, mock } from "bun:test";
 import { Buffer } from "node:buffer";
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { Readable } from "node:stream";
 import { join } from "node:path";
+import { Readable } from "node:stream";
 
 // 真 zip 字节 (fflate 同 archiveSource.test.ts)。空归档 → 0 entries →
 // extractArchiveBuffer throw "0 files" (在 sha256 gate 之后, 证明 gate 未拦)。

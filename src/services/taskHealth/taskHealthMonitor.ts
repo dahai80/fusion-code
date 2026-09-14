@@ -18,7 +18,7 @@ function getStaleThreshold(): number {
 	const env = process.env.FUSION_TASK_STALE_MS;
 	if (env) {
 		const parsed = parseInt(env, 10);
-		if (!isNaN(parsed) && parsed > 0) return parsed;
+		if (!Number.isNaN(parsed) && parsed > 0) return parsed;
 	}
 	return DEFAULT_STALE_THRESHOLD_MS;
 }

@@ -1,17 +1,13 @@
 // LLM 接缝 (Phase 5): 用形态判定替代 instanceof APIError/APIConnectionError,
 // 同时接纳 SDK 抛出的 APIError (flag 关) 与 seam 抛出的 LlmRequestError (flag 开)。
-import {
-	isApiErrorLike,
-	isConnectionErrorLike,
-	isTimeoutErrorLike,
-} from "../llm/errors.js";
+
+import { AFK_MODE_BETA_HEADER } from "src/constants/betas.js";
+import type { SDKAssistantMessageError } from "src/entrypoints/sdk/types.js";
 import type {
 	APIError,
 	BetaMessage,
 	BetaStopReason,
 } from "src/types/anthropic-protocol.js";
-import { AFK_MODE_BETA_HEADER } from "src/constants/betas.js";
-import type { SDKAssistantMessageError } from "src/entrypoints/sdk/types.js";
 import type {
 	AssistantMessage,
 	Message,
@@ -51,6 +47,11 @@ import {
 	getRateLimitErrorMessage,
 	type OverageDisabledReason,
 } from "../claudeAiLimits.js";
+import {
+	isApiErrorLike,
+	isConnectionErrorLike,
+	isTimeoutErrorLike,
+} from "../llm/errors.js";
 import { shouldProcessRateLimits } from "../rateLimitMocking.js"; // Used for /mock-limits command
 import { extractConnectionErrorDetails, formatAPIError } from "./errorUtils.js";
 
@@ -422,7 +423,7 @@ export function extractUnknownErrorFormat(value: unknown): string | undefined {
 
 	// Amazon Bedrock routing errors
 	if ((value as AmazonError).Output?.__type) {
-		return (value as AmazonError).Output!.__type;
+		return (value as AmazonError).Output?.__type;
 	}
 
 	return undefined;
@@ -884,10 +885,7 @@ export function getAssistantMessageFromError(
 	}
 
 	// Generic handler for other 401/403 authentication errors
-	if (
-		isApiErrorLike(error) &&
-		(error.status === 401 || error.status === 403)
-	) {
+	if (isApiErrorLike(error) && (error.status === 401 || error.status === 403)) {
 		// In CCR mode, auth is via JWTs - this is likely a transient network issue
 		if (isCCRMode()) {
 			return createAssistantAPIErrorMessage({
@@ -1148,10 +1146,7 @@ export function classifyAPIError(error: unknown): string {
 	}
 
 	// Generic auth errors
-	if (
-		isApiErrorLike(error) &&
-		(error.status === 401 || error.status === 403)
-	) {
+	if (isApiErrorLike(error) && (error.status === 401 || error.status === 403)) {
 		return "auth_error";
 	}
 

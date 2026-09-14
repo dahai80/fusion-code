@@ -436,7 +436,7 @@ async function* queryLoop(
 		let snipTokensFreed = 0;
 		if (feature("HISTORY_SNIP")) {
 			queryCheckpoint("query_snip_start");
-			const snipResult = snipModule!.snipCompactIfNeeded(messagesForQuery);
+			const snipResult = snipModule?.snipCompactIfNeeded(messagesForQuery);
 			messagesForQuery = snipResult.messages;
 			snipTokensFreed = snipResult.tokensFreed;
 			if (snipResult.boundaryMessage) {
@@ -1895,9 +1895,9 @@ async function* queryLoop(
 		if (feature("BG_SESSIONS")) {
 			if (
 				!toolUseContext.agentId &&
-				taskSummaryModule!.shouldGenerateTaskSummary()
+				taskSummaryModule?.shouldGenerateTaskSummary()
 			) {
-				taskSummaryModule!.maybeGenerateTaskSummary({
+				taskSummaryModule?.maybeGenerateTaskSummary({
 					systemPrompt,
 					userContext,
 					systemContext,

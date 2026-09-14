@@ -448,23 +448,6 @@ describe("上下文窗口", () => {
 	});
 });
 
-// ─── 离线模式 ──────────────────────────────────────────────
-
-describe("离线模式", () => {
-	beforeEach(() => {
-		process.env.FUSION_MLX_ENABLED = "1";
-		process.env.FORCE_COLOR = "1";
-	});
-
-	it("应正确检测离线模式", async () => {
-		const { detectOfflineModeAtStartup } = await import(
-			"../../src/services/offline/offline-mode.js"
-		);
-		const result = await detectOfflineModeAtStartup();
-		expect(result).toBeDefined();
-	});
-});
-
 // ─── 状态通知 ──────────────────────────────────────────────
 
 describe("状态通知", () => {

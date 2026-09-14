@@ -1,5 +1,5 @@
 export function getToolCallFormatProtocol(): string {
-    return `# Tool call format specification
+	return `# Tool call format specification
 
 ▍CRITICAL▍ You MUST output tool calls as structured function calls, NOT as text descriptions.
 
@@ -29,11 +29,11 @@ WRONG — describing what you would do:
 - String values must be quoted: {file_path: "/path/to/file"}
 - Boolean values: {replace_all: true} or {replace_all: false}
 - Numbers: {offset: 10, limit: 50}
-- Arrays: {pattern: "**/*.ts"}`
+- Arrays: {pattern: "**/*.ts"}`;
 }
 
 export function getToolCallExamplesProtocol(): string {
-    return `# Tool call examples (follow these patterns)
+	return `# Tool call examples (follow these patterns)
 
 ## Example 1: Bug fix — read, locate, fix, verify
 
@@ -113,5 +113,5 @@ Correct response:
 
   [After re-reading with exact content]
 
-  Edit({file_path: "/project/src/config.ts", old_string: "    port: 3000,", new_string: "    port: 8080,"})`
+  Edit({file_path: "/project/src/config.ts", old_string: "    port: 3000,", new_string: "    port: 8080,"})`;
 }

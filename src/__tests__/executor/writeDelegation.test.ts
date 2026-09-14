@@ -2,13 +2,13 @@ import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import { mkdtempSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import type { EditResult } from "../../services/executor/index.js";
 import {
 	_setExecutorClientForTesting,
 	type CallWriteParams,
 	callWriteViaExecutor,
 	isFileWriteRouteable,
 } from "../../services/executor/index.js";
-import type { EditResult } from "../../services/executor/index.js";
 
 // #176 file-write delegation: callWriteViaExecutor delegates ONLY the final
 // disk-write step to the executor subprocess, fail-open (null) on ANY failure.

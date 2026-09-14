@@ -8,8 +8,8 @@
  * 4. Isolate mutable state to prevent interference with the main agent loop
  */
 
-import type { UUID } from "crypto";
-import { randomUUID } from "crypto";
+import type { UUID } from "node:crypto";
+import { randomUUID } from "node:crypto";
 import type { PromptCommand } from "../commands.js";
 import type { QuerySource } from "../constants/querySource.js";
 import type { CanUseToolFn } from "../hooks/useCanUseTool.js";
@@ -18,8 +18,12 @@ import {
 	type AnalyticsMetadata_I_VERIFIED_THIS_IS_NOT_CODE_OR_FILEPATHS,
 	logEvent,
 } from "../services/analytics/index.js";
-import { accumulateUsage, updateUsage } from "../services/api/index.js";
-import { EMPTY_USAGE, type NonNullableUsage } from "../services/api/index.js";
+import {
+	accumulateUsage,
+	EMPTY_USAGE,
+	type NonNullableUsage,
+	updateUsage,
+} from "../services/api/index.js";
 import type { ToolUseContext } from "../Tool.js";
 import type { AgentDefinition } from "../tools/AgentTool/loadAgentsDir.js";
 import type { AgentId } from "../types/ids.js";
@@ -542,7 +546,7 @@ export async function runForkedAgent({
 		// Track the last recorded message UUID for parent chain continuity
 		lastRecordedUuid =
 			initialMessages.length > 0
-				? initialMessages[initialMessages.length - 1]!.uuid
+				? initialMessages[initialMessages.length - 1]?.uuid
 				: null;
 	}
 

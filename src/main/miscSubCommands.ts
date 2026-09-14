@@ -5,10 +5,10 @@
 // No render dependency, no module-singleton coupling.
 
 import { feature } from "bun:bundle";
-import type { CommanderCommand } from "./commandHelpers.js";
 import { isInternalBuild } from "../utils/buildConstants.js";
-import { getBaseRenderOptions } from "../utils/renderOptions.js";
 import { getAutoModeEnabledStateIfCached } from "../utils/permissions/permissionSetup.js";
+import { getBaseRenderOptions } from "../utils/renderOptions.js";
+import type { CommanderCommand } from "./commandHelpers.js";
 
 export function registerMiscSubCommands(program: CommanderCommand): void {
 	// Setup token command

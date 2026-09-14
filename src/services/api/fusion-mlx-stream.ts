@@ -313,7 +313,7 @@ export async function* transformMLXStreamToAnthropic(
 	const reader = response.body.getReader();
 	const decoder = new TextDecoder();
 	let buffer = "";
-	let chunkIdx = 0;
+	let _chunkIdx = 0;
 
 	const MLX_STREAM_IDLE_TIMEOUT_MS =
 		parseInt(process.env.FUSION_MLX_STREAM_IDLE_TIMEOUT_MS || "", 10) || 90_000;
@@ -328,19 +328,19 @@ export async function* transformMLXStreamToAnthropic(
 				MLX_STREAM_IDLE_TIMEOUT_MS,
 			);
 			if (done) break;
-			chunkIdx++;
-	
+			_chunkIdx++;
+
 			buffer += decoder.decode(value, { stream: true });
-	
+
 			// Parse SSE events
 			const lines = buffer.split("\n");
 			buffer = lines.pop() || ""; // Keep incomplete line in buffer
-	
+
 			for (const line of lines) {
 				if (line.startsWith("data: ")) {
 					const data = line.slice(6).trim();
 					if (data === "[DONE]") continue;
-	
+
 					let parsed: MLXStreamChunk;
 					try {
 						parsed = JSON.parse(data) as MLXStreamChunk;
@@ -352,7 +352,7 @@ export async function* transformMLXStreamToAnthropic(
 					const errField = (parsed as unknown as Record<string, unknown>).error; // log: intermediate unknown cast
 					if (errField) {
 						const errObj = errField as { message?: string };
-						const errMsg = (errObj && errObj.message) || JSON.stringify(errField);
+						const errMsg = errObj?.message || JSON.stringify(errField);
 						logForDebugging(
 							`[Fusion-MLX Stream] Mid-stream error chunk: ${errMsg}`,
 							{ level: "error" },

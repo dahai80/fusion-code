@@ -3,7 +3,7 @@
 // 闭包依赖经 ctx 传入 (refs/setters/funcs), 导入型 helper 直接 import, 行为字节等价。
 // 无 JSX/无 hook/无复杂返回 (void, 单次调用, replay 风险低 — 区别于 #18 getToolUseContext 39-field 返回)。
 
-import type { UUID } from "crypto";
+import type { UUID } from "node:crypto";
 import type { Dispatch, MutableRefObject, SetStateAction } from "react";
 import { getSessionId } from "../bootstrap/state.js";
 import { buildPermissionUpdates } from "../components/permissions/ExitPlanModePermissionRequest/ExitPlanModePermissionRequest.js";

@@ -4,7 +4,7 @@
  * without interrupting the main conversation flow.
  */
 
-import { writeFile } from "fs/promises";
+import { writeFile } from "node:fs/promises";
 import memoize from "lodash-es/memoize.js";
 import { getIsRemoteMode } from "../../bootstrap/state.js";
 import { getSystemPrompt } from "../../constants/prompts.js";

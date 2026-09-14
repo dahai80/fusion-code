@@ -6,7 +6,6 @@
  */
 // isAgentTeamsFlagSet removed (unused)
 
-
 /**
  * Centralized runtime check for agent teams/teammate features.
  * This is the single gate that should be checked everywhere teammates
@@ -18,13 +17,13 @@
  * 2. GrowthBook gate 'tengu_amber_flint' enabled (killswitch)
  */
 export function isAgentSwarmsEnabled(): boolean {
-  // Ant: always on
-  if (process.env.USER_TYPE === 'ant') {
-    return true
-  }
+	// Ant: always on
+	if (process.env.USER_TYPE === "ant") {
+		return true;
+	}
 
-  // External builds: disabled by default
-  // The GrowthBook killswitch check is skipped to prevent hanging
-  // when the analytics service is not available (common in local/dev setups)
-  return false
+	// External builds: disabled by default
+	// The GrowthBook killswitch check is skipped to prevent hanging
+	// when the analytics service is not available (common in local/dev setups)
+	return false;
 }

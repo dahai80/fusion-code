@@ -26,9 +26,6 @@
  */
 
 import { feature } from "bun:bundle";
-import ignore from "ignore";
-import memoize from "lodash-es/memoize.js";
-import { Lexer } from "marked";
 import {
 	basename,
 	dirname,
@@ -38,7 +35,10 @@ import {
 	parse,
 	relative,
 	sep,
-} from "path";
+} from "node:path";
+import ignore from "ignore";
+import memoize from "lodash-es/memoize.js";
+import { Lexer } from "marked";
 import picomatch from "picomatch";
 import { logEvent } from "src/services/analytics/index.js";
 import {
@@ -649,7 +649,7 @@ export async function processMemoryFile(
 
 	const { info: memoryFile, includePaths: resolvedIncludePaths } =
 		await safelyReadMemoryFileAsync(filePath, type, resolvedPath);
-	if (!memoryFile || !memoryFile.content.trim()) {
+	if (!memoryFile?.content.trim()) {
 		return [];
 	}
 
@@ -1028,9 +1028,9 @@ export const getMemoryFiles = memoize(
 		}
 
 		// Team memory entrypoint - only if feature is on and file exists
-		if (feature("TEAMMEM") && teamMemPaths!.isTeamMemoryEnabled()) {
+		if (feature("TEAMMEM") && teamMemPaths?.isTeamMemoryEnabled()) {
 			const { info: teamMemEntry } = await safelyReadMemoryFileAsync(
-				teamMemPaths!.getTeamMemEntrypoint(),
+				teamMemPaths?.getTeamMemEntrypoint(),
 				"TeamMem",
 			);
 			if (teamMemEntry) {
@@ -1083,14 +1083,14 @@ export const getMemoryFiles = memoize(
 			logEvent("tengu_claudemd__initial_load", {
 				file_count: result.length,
 				total_content_length: totalContentLength,
-				user_count: typeCounts["User"] ?? 0,
-				project_count: typeCounts["Project"] ?? 0,
-				local_count: typeCounts["Local"] ?? 0,
-				managed_count: typeCounts["Managed"] ?? 0,
-				automem_count: typeCounts["AutoMem"] ?? 0,
-				fusionrules_count: typeCounts["FusionRules"] ?? 0,
+				user_count: typeCounts.User ?? 0,
+				project_count: typeCounts.Project ?? 0,
+				local_count: typeCounts.Local ?? 0,
+				managed_count: typeCounts.Managed ?? 0,
+				automem_count: typeCounts.AutoMem ?? 0,
+				fusionrules_count: typeCounts.FusionRules ?? 0,
 				...(feature("TEAMMEM")
-					? { teammem_count: typeCounts["TeamMem"] ?? 0 }
+					? { teammem_count: typeCounts.TeamMem ?? 0 }
 					: {}),
 				duration_ms: Date.now() - startTime,
 			});

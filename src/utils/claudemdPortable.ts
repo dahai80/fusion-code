@@ -10,8 +10,8 @@
  * Load order: global FUSION.rules > project FUSION.rules > CLAUDE.md files.
  */
 
-import { readdir, readFile, stat } from "fs/promises";
-import { dirname, join, parse } from "path";
+import { readdir, readFile, stat } from "node:fs/promises";
+import { dirname, join, parse } from "node:path";
 import { logForDebugging } from "./debug.js";
 import { parseFrontmatter } from "./frontmatterParser.js";
 
@@ -36,7 +36,7 @@ export type FusionRulesConfig = {
 
 const MAX_FILE_SIZE = 40000;
 
-async function fileExists(filePath: string): Promise<boolean> {
+async function _fileExists(filePath: string): Promise<boolean> {
 	try {
 		const s = await stat(filePath);
 		return s.isFile();
@@ -133,7 +133,7 @@ export async function getMemoryFilesPortable(
 	const result: PortableMemoryFileInfo[] = [];
 
 	// User-level: ~/.fusion-code/FUSION.rules (higher priority) then ~/.fusion-code/CLAUDE.md + ~/.fusion-code/rules/*.md
-	const { homedir } = await import("os");
+	const { homedir } = await import("node:os");
 	const configHome =
 		process.env.FUSION_CODE_CONFIG_DIR ?? join(homedir(), ".fusion-code");
 	const userFusionRules = join(configHome, "FUSION.rules");

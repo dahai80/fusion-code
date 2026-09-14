@@ -147,20 +147,16 @@ export const CreateSessionSkillTool = buildTool({
 			if (allowedTools && allowedTools.length > 0) {
 				const { getAllBaseTools } = await import("../../tools.js");
 				const knownNames = new Set(
-					getAllBaseTools().flatMap((t) => [
-						t.name,
-						...(t.aliases ?? []),
-					]),
+					getAllBaseTools().flatMap((t) => [t.name, ...(t.aliases ?? [])]),
 				);
 				const invalid: string[] = [];
 				for (const raw of allowedTools) {
 					const entry = raw.trim();
 					if (!entry) continue;
 					// `Name(glob)` → 取 `(` 前的 base 名; 无括号则整串为名。
-					const baseName =
-						entry.includes("(")
-							? entry.slice(0, entry.indexOf("(")).trim()
-							: entry;
+					const baseName = entry.includes("(")
+						? entry.slice(0, entry.indexOf("(")).trim()
+						: entry;
 					if (!baseName) {
 						invalid.push(entry);
 						continue;

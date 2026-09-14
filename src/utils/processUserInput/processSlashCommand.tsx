@@ -1,5 +1,5 @@
 import { feature } from "bun:bundle";
-import { randomUUID } from "crypto";
+import { randomUUID } from "node:crypto";
 import { setPromptId } from "src/bootstrap/state.js";
 import {
 	builtInCommandNames,
@@ -36,8 +36,10 @@ import {
 	logEvent,
 } from "../../services/analytics/index.js";
 import { getDumpPromptsPath } from "../../services/api/index.js";
-import { buildPostCompactMessages } from "../../services/compact/index.js";
-import { resetMicrocompactState } from "../../services/compact/index.js";
+import {
+	buildPostCompactMessages,
+	resetMicrocompactState,
+} from "../../services/compact/index.js";
 import type { Progress as AgentProgress } from "../../tools/AgentTool/AgentTool.js";
 import { runAgent } from "../../tools/AgentTool/runAgent.js";
 import { renderToolUseProgressMessage } from "../../tools/AgentTool/UI.js";
@@ -410,16 +412,16 @@ async function processStackedSlashCommands(
 	// 全部命令须存在; 前导 (除终末外) 须 prompt-type (local-jsx 无法静默注入 context)
 	const resolved: (CommandBase & PromptCommand)[] = [];
 	for (let i = 0; i < commands.length - 1; i++) {
-		const cmd = getCommand(commands[i]!.commandName, context.options.commands);
-		if (!cmd || cmd.type !== "prompt") {
+		const cmd = getCommand(commands[i]?.commandName, context.options.commands);
+		if (cmd?.type !== "prompt") {
 			return null;
 		}
 		resolved.push(cmd);
 	}
-	const terminalName = commands[commands.length - 1]!.commandName;
+	const terminalName = commands[commands.length - 1]?.commandName;
 	const terminalCmd = getCommand(terminalName, context.options.commands);
 	// 终末须存在且 prompt-type (local-jsx 终末不在堆叠范围)
-	if (!terminalCmd || terminalCmd.type !== "prompt") {
+	if (terminalCmd?.type !== "prompt") {
 		return null;
 	}
 
@@ -722,9 +724,9 @@ export async function processSlashCommand(
 	// For invalid commands, preserve both the user message and error
 	if (
 		newMessages.length === 2 &&
-		newMessages[1]!.type === "user" &&
-		typeof newMessages[1]!.message.content === "string" &&
-		newMessages[1]!.message.content.startsWith("Unknown command:")
+		newMessages[1]?.type === "user" &&
+		typeof newMessages[1]?.message.content === "string" &&
+		newMessages[1]?.message.content.startsWith("Unknown command:")
 	) {
 		// Don't log as invalid if it looks like a common file path
 		const looksLikeFilePath =
@@ -949,7 +951,7 @@ async function getMessagesForSlashCommand(
 					void command
 						.load()
 						.then((mod) =>
-							(mod.call || mod.execute)!(
+							(mod.call || mod.execute)?.(
 								onDone,
 								{
 									...context,

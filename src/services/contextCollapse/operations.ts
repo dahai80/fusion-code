@@ -1,65 +1,65 @@
-import { logForDebugging } from '../../utils/debug.js'
+import { logForDebugging } from "../../utils/debug.js";
 
 type CommittedCollapse = {
-    collapseId: string
-    summaryUuid: string
-    summaryContent: string
-    summary: string
-    firstArchivedUuid: string
-    lastArchivedUuid: string
-    archived: unknown[]
-}
+	collapseId: string;
+	summaryUuid: string;
+	summaryContent: string;
+	summary: string;
+	firstArchivedUuid: string;
+	lastArchivedUuid: string;
+	archived: unknown[];
+};
 
 function getUuid(msg: unknown): string | undefined {
-    if (msg && typeof msg === 'object') {
-        const m = msg as Record<string, unknown>
-        if (typeof m.uuid === 'string') return m.uuid
-        if (m.message && typeof m.message === 'object') {
-            const inner = m.message as Record<string, unknown>
-            if (typeof inner.uuid === 'string') return inner.uuid
-        }
-    }
-    return undefined
+	if (msg && typeof msg === "object") {
+		const m = msg as Record<string, unknown>;
+		if (typeof m.uuid === "string") return m.uuid;
+		if (m.message && typeof m.message === "object") {
+			const inner = m.message as Record<string, unknown>;
+			if (typeof inner.uuid === "string") return inner.uuid;
+		}
+	}
+	return undefined;
 }
 
 export function projectView<T>(
-    messages: T[],
-    commits: CommittedCollapse[] = [],
+	messages: T[],
+	commits: CommittedCollapse[] = [],
 ): T[] {
-    if (commits.length === 0) return messages
+	if (commits.length === 0) return messages;
 
-    const archivedUuids = new Set<string>()
-    const firstOfSpan = new Map<string, CommittedCollapse>()
+	const archivedUuids = new Set<string>();
+	const firstOfSpan = new Map<string, CommittedCollapse>();
 
-    for (const commit of commits) {
-        firstOfSpan.set(commit.firstArchivedUuid, commit)
-        for (const msg of commit.archived) {
-            const uuid = getUuid(msg)
-            if (uuid) archivedUuids.add(uuid)
-        }
-    }
+	for (const commit of commits) {
+		firstOfSpan.set(commit.firstArchivedUuid, commit);
+		for (const msg of commit.archived) {
+			const uuid = getUuid(msg);
+			if (uuid) archivedUuids.add(uuid);
+		}
+	}
 
-    const result: T[] = []
-    for (const msg of messages) {
-        const uuid = getUuid(msg)
-        if (uuid && archivedUuids.has(uuid)) {
-            const commit = firstOfSpan.get(uuid)
-            if (commit) {
-                result.push({
-                    uuid: commit.summaryUuid,
-                    role: 'user',
-                    content: commit.summaryContent,
-                    _isCollapseSummary: true,
-                } as T)
-                firstOfSpan.delete(uuid)
-            }
-            continue
-        }
-        result.push(msg)
-    }
+	const result: T[] = [];
+	for (const msg of messages) {
+		const uuid = getUuid(msg);
+		if (uuid && archivedUuids.has(uuid)) {
+			const commit = firstOfSpan.get(uuid);
+			if (commit) {
+				result.push({
+					uuid: commit.summaryUuid,
+					role: "user",
+					content: commit.summaryContent,
+					_isCollapseSummary: true,
+				} as T);
+				firstOfSpan.delete(uuid);
+			}
+			continue;
+		}
+		result.push(msg);
+	}
 
-    logForDebugging(
-        `[contextCollapse] projectView: ${messages.length} → ${result.length} messages (${commits.length} spans)`,
-    )
-    return result
+	logForDebugging(
+		`[contextCollapse] projectView: ${messages.length} → ${result.length} messages (${commits.length} spans)`,
+	);
+	return result;
 }

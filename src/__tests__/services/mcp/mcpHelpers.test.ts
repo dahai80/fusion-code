@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import { createHash } from "node:crypto";
+import type { McpHTTPServerConfig } from "../../../services/mcp/index.js";
 import {
 	expandEnvVarsInString,
 	getServerKey,
@@ -7,7 +8,6 @@ import {
 	issuerKey,
 	normalizeNameForMCP,
 } from "../../../services/mcp/index.js";
-import type { McpHTTPServerConfig } from "../../../services/mcp/index.js";
 
 // getServerKey/hashMcpConfig 的真实参数类型 (此前测试用 as any 绕过)
 type HttpServerConfig = McpHTTPServerConfig;

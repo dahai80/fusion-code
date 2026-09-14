@@ -1,34 +1,34 @@
-import { AGENT_TOOL_NAME } from '../../tools/AgentTool/constants.js'
-import { getMaxConcurrentSubagents } from '../../tools/AgentTool/subagentGuardrails.js'
-import { ASK_USER_QUESTION_TOOL_NAME } from '../../tools/AskUserQuestionTool/prompt.js'
-import { ENTER_PLAN_MODE_TOOL_NAME } from '../../tools/EnterPlanModeTool/constants.js'
-import { EXIT_PLAN_MODE_TOOL_NAME } from '../../tools/ExitPlanModeTool/constants.js'
-import { SKILL_TOOL_NAME } from '../../tools/SkillTool/constants.js'
-import { getIsGit } from '../../utils/git.js'
-import { registerBundledSkill } from '../bundledSkills.js'
+import { AGENT_TOOL_NAME } from "../../tools/AgentTool/constants.js";
+import { getMaxConcurrentSubagents } from "../../tools/AgentTool/subagentGuardrails.js";
+import { ASK_USER_QUESTION_TOOL_NAME } from "../../tools/AskUserQuestionTool/prompt.js";
+import { ENTER_PLAN_MODE_TOOL_NAME } from "../../tools/EnterPlanModeTool/constants.js";
+import { EXIT_PLAN_MODE_TOOL_NAME } from "../../tools/ExitPlanModeTool/constants.js";
+import { SKILL_TOOL_NAME } from "../../tools/SkillTool/constants.js";
+import { getIsGit } from "../../utils/git.js";
+import { registerBundledSkill } from "../bundledSkills.js";
 
-const MIN_AGENTS = 5
+const MIN_AGENTS = 5;
 // audit 1.4.7: prompt 上限必须 ≤ AgentTool 硬并发上限, 否则 model 按提示 spawn
 // 30, 第 21 个起被 subagentGuardrails 拒绝, model 重试/error-spin。原取硬上限默认
 // 常量 (DEFAULT_MAX_CONCURRENT_SUBAGENTS=20) 作 prompt 上限, 但用户改
 // FUSION_MAX_CONCURRENT_SUBAGENTS env 时硬上限跟着变、prompt 上限不变 → 漂移复现。
 // 改读 env-aware getMaxConcurrentSubagents() (与 checkSubagentGuardrails 同源), 二者
 // 真同源。floor 到 MIN_AGENTS, 防 env 设过小导致 MIN>MAX, 模板 "5–3" 崩。
-export const MIN_BATCH_AGENTS = MIN_AGENTS
+export const MIN_BATCH_AGENTS = MIN_AGENTS;
 export function resolveBatchMaxAgents(): number {
-    return Math.max(MIN_BATCH_AGENTS, getMaxConcurrentSubagents())
+	return Math.max(MIN_BATCH_AGENTS, getMaxConcurrentSubagents());
 }
-const MAX_AGENTS = resolveBatchMaxAgents()
+const MAX_AGENTS = resolveBatchMaxAgents();
 
 const WORKER_INSTRUCTIONS = `After you finish implementing the change:
 1. **Simplify** — Invoke the \`${SKILL_TOOL_NAME}\` tool with \`skill: "simplify"\` to review and clean up your changes.
 2. **Run unit tests** — Run the project's test suite (check for package.json scripts, Makefile targets, or common commands like \`npm test\`, \`bun test\`, \`pytest\`, \`go test\`). If tests fail, fix them.
 3. **Test end-to-end** — Follow the e2e test recipe from the coordinator's prompt (below). If the recipe says to skip e2e for this unit, skip it.
 4. **Commit and push** — Commit all changes with a clear message, push the branch, and create a PR with \`gh pr create\`. Use a descriptive title. If \`gh\` is not available or the push fails, note it in your final message.
-5. **Report** — End with a single line: \`PR: <url>\` so the coordinator can track it. If no PR was created, end with \`PR: none — <reason>\`.`
+5. **Report** — End with a single line: \`PR: <url>\` so the coordinator can track it. If no PR was created, end with \`PR: none — <reason>\`.`;
 
 function buildPrompt(instruction: string): string {
-  return `# Batch: Parallel Work Orchestration
+	return `# Batch: Parallel Work Orchestration
 
 You are orchestrating a large, parallelizable change across this codebase.
 
@@ -96,40 +96,39 @@ After launching all workers, render an initial status table:
 As background-agent completion notifications arrive, parse the \`PR: <url>\` line from each agent's result and re-render the table with updated status (\`done\` / \`failed\`) and PR links. Keep a brief failure note for any agent that did not produce a PR.
 
 When all agents have reported, render the final table and a one-line summary (e.g., "22/24 units landed as PRs").
-`
+`;
 }
 
-const NOT_A_GIT_REPO_MESSAGE = `This is not a git repository. The \`/batch\` command requires a git repo because it spawns agents in isolated git worktrees and creates PRs from each. Initialize a repo first, or run this from inside an existing one.`
+const NOT_A_GIT_REPO_MESSAGE = `This is not a git repository. The \`/batch\` command requires a git repo because it spawns agents in isolated git worktrees and creates PRs from each. Initialize a repo first, or run this from inside an existing one.`;
 
 const MISSING_INSTRUCTION_MESSAGE = `Provide an instruction describing the batch change you want to make.
 
 Examples:
   /batch migrate from react to vue
   /batch replace all uses of lodash with native equivalents
-  /batch add type annotations to all untyped function parameters`
+  /batch add type annotations to all untyped function parameters`;
 
 export function registerBatchSkill(): void {
-  registerBundledSkill({
-    name: 'batch',
-    description:
-      `Research and plan a large-scale change, then execute it in parallel across ${MIN_AGENTS}–${MAX_AGENTS} isolated worktree agents that each open a PR.`,
-    whenToUse:
-      'Use when the user wants to make a sweeping, mechanical change across many files (migrations, refactors, bulk renames) that can be decomposed into independent parallel units.',
-    argumentHint: '<instruction>',
-    userInvocable: true,
-    disableModelInvocation: true,
-    async getPromptForCommand(args) {
-      const instruction = args.trim()
-      if (!instruction) {
-        return [{ type: 'text', text: MISSING_INSTRUCTION_MESSAGE }]
-      }
+	registerBundledSkill({
+		name: "batch",
+		description: `Research and plan a large-scale change, then execute it in parallel across ${MIN_AGENTS}–${MAX_AGENTS} isolated worktree agents that each open a PR.`,
+		whenToUse:
+			"Use when the user wants to make a sweeping, mechanical change across many files (migrations, refactors, bulk renames) that can be decomposed into independent parallel units.",
+		argumentHint: "<instruction>",
+		userInvocable: true,
+		disableModelInvocation: true,
+		async getPromptForCommand(args) {
+			const instruction = args.trim();
+			if (!instruction) {
+				return [{ type: "text", text: MISSING_INSTRUCTION_MESSAGE }];
+			}
 
-      const isGit = await getIsGit()
-      if (!isGit) {
-        return [{ type: 'text', text: NOT_A_GIT_REPO_MESSAGE }]
-      }
+			const isGit = await getIsGit();
+			if (!isGit) {
+				return [{ type: "text", text: NOT_A_GIT_REPO_MESSAGE }];
+			}
 
-      return [{ type: 'text', text: buildPrompt(instruction) }]
-    },
-  })
+			return [{ type: "text", text: buildPrompt(instruction) }];
+		},
+	});
 }

@@ -1,21 +1,16 @@
-import type { APIError } from "src/types/anthropic-protocol.js";
+import type { UUID } from "node:crypto";
 import type {
+	APIError,
 	BetaContentBlock,
 	BetaMessage,
 	BetaRawMessageStreamEvent,
 	BetaRedactedThinkingBlock,
 	BetaThinkingBlock,
 	BetaToolUseBlock,
-} from "src/types/anthropic-protocol.js";
-import type {
 	ContentBlockParam,
 	ToolResultBlockParam,
 } from "src/types/anthropic-protocol.js";
-import type { UUID } from "crypto";
-import type {
-	HookEvent,
-	SDKAssistantMessageError,
-} from "../entrypoints/agentSdkTypes.js";
+import type { SDKAssistantMessageError } from "../entrypoints/agentSdkTypes.js";
 import type { PermissionMode } from "./permissions.js";
 
 // Re-export SDK types that message types depend on

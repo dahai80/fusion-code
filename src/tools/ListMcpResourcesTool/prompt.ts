@@ -1,6 +1,6 @@
-export const LIST_MCP_RESOURCES_TOOL_NAME = 'ListMcpResourcesTool'
+export const LIST_MCP_RESOURCES_TOOL_NAME = "ListMcpResourcesTool";
 
-export const DESCRIPTION = `List all resources available from connected MCP servers.`
+export const DESCRIPTION = `List all resources available from connected MCP servers.`;
 
 export const PROMPT = `List all resources available from connected MCP (Model Context Protocol) servers.
 
@@ -22,4 +22,4 @@ Tips:
 - Call this before ReadMcpResource to find the correct URI
 - Resources may have different content types — check descriptions
 - Some resources are static (config), others dynamic (live data)
-- Use this to understand what an MCP integration provides`
+- Use this to understand what an MCP integration provides`;

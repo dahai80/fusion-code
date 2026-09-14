@@ -1,11 +1,12 @@
-const CRON_CREATE_TOOL_NAME = 'CronCreate'
-const CRON_DELETE_TOOL_NAME = 'CronDelete'
-const SCHEDULE_WAKEUP_TOOL_NAME = 'ScheduleWakeup'
-const DEFAULT_MAX_AGE_DAYS = 7
-const isKairosCronEnabled = (): boolean => true
-import { registerBundledSkill } from '../bundledSkills.js'
+const CRON_CREATE_TOOL_NAME = "CronCreate";
+const CRON_DELETE_TOOL_NAME = "CronDelete";
+const SCHEDULE_WAKEUP_TOOL_NAME = "ScheduleWakeup";
+const DEFAULT_MAX_AGE_DAYS = 7;
+const isKairosCronEnabled = (): boolean => true;
 
-const DEFAULT_INTERVAL = '10m'
+import { registerBundledSkill } from "../bundledSkills.js";
+
+const DEFAULT_INTERVAL = "10m";
 
 const USAGE_MESSAGE = `Usage: /loop [interval] <prompt>
        /loop dynamic [prompt]
@@ -25,10 +26,10 @@ Examples:
   /loop 5m /babysit-prs
   /loop 30m check the deploy
   /loop dynamic monitor the CI pipeline
-  /loop prd requirements.prd.json`
+  /loop prd requirements.prd.json`;
 
 function buildCronPrompt(args: string): string {
-    return `# /loop — schedule a recurring prompt
+	return `# /loop — schedule a recurring prompt
 
 Parse the input below into \`[interval] <prompt…>\` and schedule it with ${CRON_CREATE_TOOL_NAME}.
 
@@ -73,12 +74,12 @@ Supported suffixes: \`s\` (seconds, rounded up to nearest minute, min 1), \`m\` 
 
 ## Input
 
-${args}`
+${args}`;
 }
 
 function buildDynamicPrompt(args: string): string {
-    const taskDesc = args.trim() || 'continue working on the current task'
-    return `# /loop dynamic — self-paced autonomous loop
+	const taskDesc = args.trim() || "continue working on the current task";
+	return `# /loop dynamic — self-paced autonomous loop
 
 You are now in a dynamic self-paced loop. Use ${SCHEDULE_WAKEUP_TOOL_NAME} to schedule your own wake-ups and control your pacing.
 
@@ -107,13 +108,13 @@ You are now in a dynamic self-paced loop. Use ${SCHEDULE_WAKEUP_TOOL_NAME} to sc
 
 ## Task
 
-${taskDesc}`
+${taskDesc}`;
 }
 
 function buildPrdPrompt(args: string): string {
-    const prdFile = args.trim()
-    if (!prdFile) {
-        return `# /loop prd — PRD-driven task loop
+	const prdFile = args.trim();
+	if (!prdFile) {
+		return `# /loop prd — PRD-driven task loop
 
 Usage: /loop prd <prd-file>
 
@@ -132,9 +133,9 @@ Each user story becomes a self-contained task. The orchestrator will:
 4. Move to the next story on success, retry on failure (max 2 retries)
 5. Report final status when all stories are done
 
-No PRD file specified. Use: /loop prd <path-to-prd.json>`
-    }
-    return `# /loop prd — PRD-driven task loop
+No PRD file specified. Use: /loop prd <path-to-prd.json>`;
+	}
+	return `# /loop prd — PRD-driven task loop
 
 You are now in a PRD-driven loop. Execute the project defined in the PRD file.
 
@@ -167,33 +168,33 @@ You are now in a PRD-driven loop. Execute the project defined in the PRD file.
 
 ## PRD file
 
-${prdFile}`
+${prdFile}`;
 }
 
 export function registerLoopSkill(): void {
-    registerBundledSkill({
-        name: 'loop',
-        description:
-            'Run a prompt on a recurring interval, dynamic self-paced loop, or PRD-driven task loop',
-        whenToUse:
-            'When the user wants to set up a recurring task (e.g. "check the deploy every 5 minutes"), a self-paced autonomous loop (/loop dynamic), or a PRD-driven task loop (/loop prd). Do NOT invoke for one-off tasks.',
-        argumentHint: '[interval|dynamic|prd] <prompt|file>',
-        userInvocable: true,
-        isEnabled: isKairosCronEnabled,
-        async getPromptForCommand(args) {
-            const trimmed = args.trim()
-            if (!trimmed) {
-                return [{ type: 'text', text: USAGE_MESSAGE }]
-            }
-            if (trimmed.startsWith('dynamic')) {
-                const rest = trimmed.slice('dynamic'.length).trim()
-                return [{ type: 'text', text: buildDynamicPrompt(rest) }]
-            }
-            if (trimmed.startsWith('prd')) {
-                const rest = trimmed.slice('prd'.length).trim()
-                return [{ type: 'text', text: buildPrdPrompt(rest) }]
-            }
-            return [{ type: 'text', text: buildCronPrompt(trimmed) }]
-        },
-    })
+	registerBundledSkill({
+		name: "loop",
+		description:
+			"Run a prompt on a recurring interval, dynamic self-paced loop, or PRD-driven task loop",
+		whenToUse:
+			'When the user wants to set up a recurring task (e.g. "check the deploy every 5 minutes"), a self-paced autonomous loop (/loop dynamic), or a PRD-driven task loop (/loop prd). Do NOT invoke for one-off tasks.',
+		argumentHint: "[interval|dynamic|prd] <prompt|file>",
+		userInvocable: true,
+		isEnabled: isKairosCronEnabled,
+		async getPromptForCommand(args) {
+			const trimmed = args.trim();
+			if (!trimmed) {
+				return [{ type: "text", text: USAGE_MESSAGE }];
+			}
+			if (trimmed.startsWith("dynamic")) {
+				const rest = trimmed.slice("dynamic".length).trim();
+				return [{ type: "text", text: buildDynamicPrompt(rest) }];
+			}
+			if (trimmed.startsWith("prd")) {
+				const rest = trimmed.slice("prd".length).trim();
+				return [{ type: "text", text: buildPrdPrompt(rest) }];
+			}
+			return [{ type: "text", text: buildCronPrompt(trimmed) }];
+		},
+	});
 }

@@ -19,7 +19,8 @@ let _CLAUDE_IN_CHROME_MCP_SERVER_NAME = "";
 let _CHROME_TOOL_SEARCH_INSTRUCTIONS = "";
 let _CLAUDE_IN_CHROME_SKILL_HINT = "";
 let _CLAUDE_IN_CHROME_SKILL_HINT_WITH_WEBBROWSER = "";
-let _shouldEnableClaudeInChrome: (chromeFlag?: boolean) => boolean = () => false;
+let _shouldEnableClaudeInChrome: (chromeFlag?: boolean) => boolean = () =>
+	false;
 let _shouldAutoEnableClaudeInChrome: () => boolean = () => false;
 let _isChromeExtensionInstalled: () => Promise<boolean> = async () => false;
 let _setupClaudeInChrome: () => {
@@ -49,7 +50,8 @@ if (feature("CHROME")) {
 }
 
 export const isClaudeInChromeMCPServer = _isClaudeInChromeMCPServer;
-export const CLAUDE_IN_CHROME_MCP_SERVER_NAME = _CLAUDE_IN_CHROME_MCP_SERVER_NAME;
+export const CLAUDE_IN_CHROME_MCP_SERVER_NAME =
+	_CLAUDE_IN_CHROME_MCP_SERVER_NAME;
 export const CHROME_TOOL_SEARCH_INSTRUCTIONS = _CHROME_TOOL_SEARCH_INSTRUCTIONS;
 export const CLAUDE_IN_CHROME_SKILL_HINT = _CLAUDE_IN_CHROME_SKILL_HINT;
 export const CLAUDE_IN_CHROME_SKILL_HINT_WITH_WEBBROWSER =

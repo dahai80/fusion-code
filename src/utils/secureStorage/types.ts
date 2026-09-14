@@ -1,7 +1,6 @@
 // log: created for TS2307 fix
 
-import type { CodexTokens } from "../../services/oauth/index.js";
-import type { OAuthTokens } from "../../services/oauth/index.js";
+import type { CodexTokens, OAuthTokens } from "../../services/oauth/index.js";
 
 export type SecureStorageData = {
 	mcpOAuth?: Record<

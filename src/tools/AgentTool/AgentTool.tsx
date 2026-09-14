@@ -16,9 +16,9 @@ import {
 } from "../../constants/prompts.js";
 import { isCoordinatorMode } from "../../coordinator/coordinatorMode.js";
 import { startAgentSummarization } from "../../services/AgentSummary/index.js";
-import { getFeatureValue_CACHED_MAY_BE_STALE } from "../../services/analytics/index.js";
 import {
 	type AnalyticsMetadata_I_VERIFIED_THIS_IS_NOT_CODE_OR_FILEPATHS,
+	getFeatureValue_CACHED_MAY_BE_STALE,
 	logEvent,
 } from "../../services/analytics/index.js";
 import { clearDumpState } from "../../services/api/index.js";
@@ -108,6 +108,10 @@ import {
 	getLastToolUseName,
 	runAsyncAgentLifecycle,
 } from "./agentToolUtils.js";
+import {
+	getSubagentAutoBackgroundMs,
+	isSubagentDefaultBackground,
+} from "./autoBackground.js";
 import { GENERAL_PURPOSE_AGENT } from "./built-in/generalPurposeAgent.js";
 import {
 	AGENT_TOOL_NAME,
@@ -121,8 +125,6 @@ import {
 	isForkSubagentEnabled,
 	isInForkChild,
 } from "./forkSubagent.js";
-import { getSubagentAutoBackgroundMs } from "./autoBackground.js";
-import { isSubagentDefaultBackground } from "./autoBackground.js";
 import type { AgentDefinition } from "./loadAgentsDir.js";
 import {
 	filterAgentsByMcpRequirements,
@@ -908,7 +910,7 @@ export const AgentTool = buildTool({
 		const workerMode =
 			parentMode === "readOnly"
 				? "readOnly"
-				: selectedAgent.permissionMode ?? "acceptEdits";
+				: (selectedAgent.permissionMode ?? "acceptEdits");
 		const workerPermissionContext = {
 			...appState.toolPermissionContext,
 			mode: workerMode,
@@ -1404,7 +1406,7 @@ export const AgentTool = buildTool({
 													tools: toolUseContext.options.tools,
 													toolPermissionContext:
 														backgroundedAppState.toolPermissionContext,
-													abortSignal: task.abortController!.signal,
+													abortSignal: task.abortController?.signal,
 													subagentType: selectedAgent.agentType,
 													totalToolUseCount: agentResult.totalToolUseCount,
 												});

@@ -1,9 +1,10 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
+import type { ExecutorClientLike } from "../../../services/executor/index.js";
 import {
+	_resetTurnSnapshotForTesting,
 	_setTurnSnapshotClientForTesting,
 	_setTurnSnapshotCwdForTesting,
 	_setTurnSnapshotEnabledForTesting,
-	_resetTurnSnapshotForTesting,
 	isTurnSnapshotEnabled,
 	lastHint,
 	listTurnSnapshots,
@@ -11,7 +12,6 @@ import {
 	rollbackToTurn,
 	takeTurnSnapshot,
 } from "../../../services/executor/index.js";
-import type { ExecutorClientLike } from "../../../services/executor/index.js";
 
 const TURN_SNAP_ENV = "FUSION_CODE_EXECUTOR_TURN_SNAPSHOT";
 

@@ -5,7 +5,7 @@
 // deps is a separate sweep; this ref preserves the status quo.
 /// <reference lib="dom" />
 
-import { extname } from "path";
+import { extname } from "node:path";
 
 export type CliHighlight = {
 	highlight: typeof import("cli-highlight").highlight;

@@ -43,9 +43,9 @@ import {
 	rmdir,
 	stat,
 	symlink,
-} from "fs/promises";
+} from "node:fs/promises";
+import { basename, dirname, join, relative, resolve, sep } from "node:path";
 import memoize from "lodash-es/memoize.js";
-import { basename, dirname, join, relative, resolve, sep } from "path";
 import { getInlinePlugins } from "../../bootstrap/state.js";
 import {
 	BUILTIN_MARKETPLACE_NAME,
@@ -2138,7 +2138,7 @@ async function loadPluginsFromMarketplaces({
 		} else if (result.status === "rejected") {
 			const err = toError(result.reason);
 			logError(err);
-			const pluginId = marketplacePluginEntries[i]![0];
+			const pluginId = marketplacePluginEntries[i]?.[0];
 			errors.push({
 				type: "generic-error",
 				source: pluginId,

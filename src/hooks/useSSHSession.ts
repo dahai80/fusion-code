@@ -9,7 +9,7 @@
  * handed in; useDirectConnect creates its WebSocket inside the effect.
  */
 
-import { randomUUID } from "crypto";
+import { randomUUID } from "node:crypto";
 import { useCallback, useEffect, useMemo, useRef } from "react";
 import type { ToolUseConfirm } from "../components/permissions/PermissionRequest.js";
 import {
@@ -25,10 +25,7 @@ import type { SSHSessionManager } from "../ssh/SSHSessionManager.js";
 import type { Tool } from "../Tool.js";
 import { findToolByName } from "../Tool.js";
 import type { Message as MessageType } from "../types/message.js";
-import type {
-	PermissionAskDecision,
-	PermissionDecision,
-} from "../types/permissions.js";
+import type { PermissionAskDecision } from "../types/permissions.js";
 import { logForDebugging } from "../utils/debug.js";
 import { gracefulShutdown } from "../utils/gracefulShutdown.js";
 import type { RemoteMessageContent } from "../utils/teleport/api.js";
@@ -199,7 +196,7 @@ export function useSSHSession({
 				// Surface remote stderr if it looks like an error (pre-connect always,
 				// post-connect only on nonzero exit — normal --verbose noise otherwise).
 				if (stderr && (!connected || exitCode !== 0)) {
-					msg += `\nRemote stderr (exit ${exitCode ?? "signal " + session.proc.signalCode}):\n${stderr}`;
+					msg += `\nRemote stderr (exit ${exitCode ?? `signal ${session.proc.signalCode}`}):\n${stderr}`;
 				}
 				void gracefulShutdown(1, "other", { finalMessage: msg });
 			},

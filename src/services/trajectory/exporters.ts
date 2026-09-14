@@ -27,7 +27,7 @@ const CLOSE_TOOL_RESULT = "<" + "/tool_result>";
 // 把单步轨迹渲染为对话文本
 function stepToText(step: TrajectoryStep): string {
 	const parts: string[] = [];
-	if (step.thinking) parts.push("<thinking>" + step.thinking + CLOSE_THINKING);
+	if (step.thinking) parts.push(`<thinking>${step.thinking}${CLOSE_THINKING}`);
 	if (step.toolCalls?.length) {
 		for (const tc of step.toolCalls) {
 			parts.push(
@@ -134,9 +134,7 @@ export function buildDPOPairs(trajectories: CollectedTrajectory[]): DPOPair[] {
 }
 
 // 在候选目录中找到第一个含 manifest.json 的, 返回 {storeDir, manifest}; 都没有则 null
-async function resolveStore(
-	candidates: string[],
-): Promise<{
+async function resolveStore(candidates: string[]): Promise<{
 	storeDir: string;
 	manifest: NonNullable<Awaited<ReturnType<typeof readManifest>>>;
 } | null> {
@@ -156,7 +154,7 @@ export async function loadAll(
 ): Promise<CollectedTrajectory[]> {
 	const manifest = await readManifest(storeDir);
 	if (!manifest) {
-		log("no manifest at " + storeDir + ", run collect first");
+		log(`no manifest at ${storeDir}, run collect first`);
 		return [];
 	}
 	const out: CollectedTrajectory[] = [];
@@ -166,12 +164,12 @@ export async function loadAll(
 		const rawFile = path.join(
 			storeDir,
 			"raw",
-			entry.product + "-" + safeName + ".jsonl",
+			`${entry.product}-${safeName}.jsonl`,
 		);
 		try {
 			out.push(await loadCollectedTrajectory(rawFile, entry));
 		} catch (e) {
-			log("skip missing raw " + rawFile + ": " + (e as Error).message);
+			log(`skip missing raw ${rawFile}: ${(e as Error).message}`);
 		}
 	}
 	return out;
@@ -203,9 +201,9 @@ export async function exportTrajectories(
 		);
 	}
 	const store = resolved?.storeDir ?? sourceDir ?? destDir;
-	log("export format=" + format + " store=" + store + " dest=" + destDir);
+	log(`export format=${format} store=${store} dest=${destDir}`);
 	const trajectories = await loadAll(store, sessionId);
-	log("loaded " + trajectories.length + " trajectories");
+	log(`loaded ${trajectories.length} trajectories`);
 
 	let records: unknown[] = [];
 	let outFile: string;
@@ -225,6 +223,6 @@ export async function exportTrajectories(
 	}
 
 	await writeJsonl(outFile, records);
-	log("exported " + records.length + " " + format + " samples -> " + outFile);
+	log(`exported ${records.length} ${format} samples -> ${outFile}`);
 	return { count: records.length, format, destFile: outFile };
 }

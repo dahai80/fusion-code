@@ -1,5 +1,5 @@
-import type { ToolResultBlockParam } from "src/types/anthropic-protocol.js";
 import type * as React from "react";
+import type { ToolResultBlockParam } from "src/types/anthropic-protocol.js";
 import { KeyboardShortcutHint } from "../../components/design-system/KeyboardShortcutHint.js";
 import { FallbackToolUseErrorMessage } from "../../components/FallbackToolUseErrorMessage.js";
 import { MessageResponse } from "../../components/MessageResponse.js";
@@ -67,7 +67,7 @@ export function renderToolUseProgressMessage(
 	},
 ): React.ReactNode {
 	const lastProgress = progressMessagesForMessage.at(-1);
-	if (!lastProgress || !lastProgress.data) {
+	if (!lastProgress?.data) {
 		return (
 			<MessageResponse height={1}>
 				<Text dimColor>Running…</Text>

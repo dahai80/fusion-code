@@ -17,8 +17,7 @@ import { useExitOnCtrlCDWithKeybindings } from "../../../hooks/useExitOnCtrlCDWi
 import { useSearchInput } from "../../../hooks/useSearchInput.js";
 import { Box, Text, useTerminalFocus } from "../../../ink.js";
 import { useKeybinding } from "../../../keybindings/useKeybinding.js";
-import { getAutoModeDenials,
-} from "../../../utils/autoModeDenials.js";
+import { getAutoModeDenials } from "../../../utils/autoModeDenials.js";
 import type {
 	PermissionBehavior,
 	PermissionRule,

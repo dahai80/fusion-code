@@ -1,4 +1,4 @@
-import { registerBundledSkill } from '../bundledSkills.js'
+import { registerBundledSkill } from "../bundledSkills.js";
 
 const TDD_PROMPT = `# Test-Driven Development
 
@@ -90,19 +90,25 @@ Go back to Step 1 for the next behavior.
 **Refactoring**: [what was cleaned up, if anything]
 **Result**: [PASS/FAIL]
 
-**Next behavior**: [what to test next]`
+**Next behavior**: [what to test next]`;
 
 export function registerTddSkill(): void {
-    registerBundledSkill({
-        name: 'tdd',
-        description: 'Strict RED-GREEN-REFACTOR cycle. Write failing test first, minimum code to pass, then refactor. No implementation without a test.',
-        whenToUse:
-            'When implementing any feature or bugfix — especially before writing implementation code. Also use when the user says "tdd", "test first", "write tests first", or "red green refactor".',
-        argumentHint: '<feature or behavior to implement>',
-        userInvocable: true,
-        async getPromptForCommand(args) {
-            const topic = args.trim() || 'the current task'
-            return [{ type: 'text', text: `${TDD_PROMPT}\n\n## Feature to Implement\n\n${topic}` }]
-        },
-    })
+	registerBundledSkill({
+		name: "tdd",
+		description:
+			"Strict RED-GREEN-REFACTOR cycle. Write failing test first, minimum code to pass, then refactor. No implementation without a test.",
+		whenToUse:
+			'When implementing any feature or bugfix — especially before writing implementation code. Also use when the user says "tdd", "test first", "write tests first", or "red green refactor".',
+		argumentHint: "<feature or behavior to implement>",
+		userInvocable: true,
+		async getPromptForCommand(args) {
+			const topic = args.trim() || "the current task";
+			return [
+				{
+					type: "text",
+					text: `${TDD_PROMPT}\n\n## Feature to Implement\n\n${topic}`,
+				},
+			];
+		},
+	});
 }

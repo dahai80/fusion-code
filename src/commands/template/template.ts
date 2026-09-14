@@ -1,10 +1,7 @@
 import {
+	deleteTemplate,
 	getBuiltinTemplate,
 	getBuiltinTemplates,
-} from "../../services/workflowTemplates/index.js";
-import {
-	deleteTemplate,
-	exportTemplate,
 	importTemplate,
 	listTemplates,
 	loadTemplate,

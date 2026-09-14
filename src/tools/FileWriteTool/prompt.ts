@@ -1,14 +1,14 @@
-import { FILE_READ_TOOL_NAME } from '../FileReadTool/prompt.js'
+import { FILE_READ_TOOL_NAME } from "../FileReadTool/prompt.js";
 
-export const FILE_WRITE_TOOL_NAME = 'Write'
-export const DESCRIPTION = 'Write a file to the local filesystem.'
+export const FILE_WRITE_TOOL_NAME = "Write";
+export const DESCRIPTION = "Write a file to the local filesystem.";
 
 function getPreReadInstruction(): string {
-  return `\n- If this is an existing file, you MUST use the ${FILE_READ_TOOL_NAME} tool first to read the file's contents. This tool will fail if you did not read the file first.`
+	return `\n- If this is an existing file, you MUST use the ${FILE_READ_TOOL_NAME} tool first to read the file's contents. This tool will fail if you did not read the file first.`;
 }
 
 export function getWriteToolDescription(): string {
-  return `Writes a file to the local filesystem.
+	return `Writes a file to the local filesystem.
 
 Usage:
 - This tool will overwrite the existing file if there is one at the provided path.${getPreReadInstruction()}
@@ -31,5 +31,5 @@ Important:
 - The file_path must be an absolute path, not a relative path
 - Ensure parent directories exist before writing (use Bash with mkdir -p if needed)
 - Never write binary content — only text files
-- The content parameter replaces the entire file contents`
+- The content parameter replaces the entire file contents`;
 }

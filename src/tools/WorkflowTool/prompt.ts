@@ -1,7 +1,7 @@
-export const DESCRIPTION = `Execute a workflow script that orchestrates multiple subagents.`
+export const DESCRIPTION = `Execute a workflow script that orchestrates multiple subagents.`;
 
 export function getPrompt(): string {
-    return `Execute a workflow script that orchestrates multiple subagents deterministically.
+	return `Execute a workflow script that orchestrates multiple subagents deterministically.
 
 Workflows run in the background — returns immediately with a task ID.
 Use /workflows to watch live progress.
@@ -27,5 +27,5 @@ Key patterns:
 Limits:
 - Concurrent agents capped at min(16, cpu cores - 2)
 - Total agent count capped at 1000 per workflow
-- Max 4096 items per parallel/pipeline call`
+- Max 4096 items per parallel/pipeline call`;
 }

@@ -1,8 +1,4 @@
 import { feature } from "bun:bundle";
-import type {
-	BetaStopReason,
-	BetaUsage as Usage,
-} from "src/types/anthropic-protocol.js";
 import {
 	addToTotalDurationState,
 	consumePostCompaction,
@@ -13,6 +9,10 @@ import {
 	setLastApiCompletionTimestamp,
 } from "src/bootstrap/state.js";
 import type { QueryChainTracking } from "src/Tool.js";
+import type {
+	BetaStopReason,
+	BetaUsage as Usage,
+} from "src/types/anthropic-protocol.js";
 import { isConnectorTextBlock } from "src/types/connectorText.js";
 import type { AssistantMessage } from "src/types/message.js";
 import { logForDebugging } from "src/utils/debug.js";
@@ -34,10 +34,10 @@ import {
 	logEvent,
 } from "../analytics/index.js";
 import { sanitizeToolNameForAnalytics } from "../analytics/metadata.js";
+import { isApiErrorLike } from "../llm/errors.js";
 import { EMPTY_USAGE } from "./emptyUsage.js";
 import { classifyAPIError } from "./errors.js";
 import { extractConnectionErrorDetails } from "./errorUtils.js";
-import { isApiErrorLike } from "../llm/errors.js";
 
 export type { NonNullableUsage };
 export { EMPTY_USAGE };
@@ -165,7 +165,7 @@ function getAnthropicEnvMetadata() {
 function getBuildAgeMinutes(): number | undefined {
 	if (!MACRO.BUILD_TIME) return undefined;
 	const buildTime = new Date(MACRO.BUILD_TIME).getTime();
-	if (isNaN(buildTime)) return undefined;
+	if (Number.isNaN(buildTime)) return undefined;
 	return Math.floor((Date.now() - buildTime) / 60000);
 }
 
@@ -380,7 +380,7 @@ export function logAPIError({
 	// Pass the span to correctly match responses to requests when beta tracing is enabled
 	endLLMRequestSpan(llmSpan, {
 		success: false,
-		statusCode: status ? parseInt(status) : undefined,
+		statusCode: status ? parseInt(status, 10) : undefined,
 		error: errStr,
 		attempt,
 	});

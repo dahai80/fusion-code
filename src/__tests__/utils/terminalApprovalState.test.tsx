@@ -1,10 +1,10 @@
 import { describe, expect, it } from "bun:test";
+import type { ToolUseConfirm } from "../../components/permissions/PermissionRequest.js";
 import {
 	deriveIsShowingLocalJSXCommand,
 	deriveIsWaitingForApproval,
 	deriveTerminalApprovalState,
 } from "../../utils/terminalApprovalState.js";
-import type { ToolUseConfirm } from "../../components/permissions/PermissionRequest.js";
 
 // audit 1.1.1: terminal/approval 状态推导单元测试。纯函数, 只读入参。
 // fake 队列元素按最小 shape (只用到 .length 与 [0].tool.name)。

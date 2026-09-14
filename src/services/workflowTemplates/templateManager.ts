@@ -1,6 +1,6 @@
-import { mkdir, readdir, readFile, rm, writeFile } from "fs/promises";
-import { homedir } from "os";
-import { join } from "path";
+import { mkdir, readdir, readFile, rm, writeFile } from "node:fs/promises";
+import { homedir } from "node:os";
+import { join } from "node:path";
 import { logForDebugging } from "../../utils/debug.js";
 
 export type WorkflowTemplate = {
@@ -31,7 +31,7 @@ async function ensureDir(dir: string): Promise<void> {
 }
 
 function templateFileName(name: string): string {
-	return name.replace(/[^a-zA-Z0-9_-]/g, "_") + ".json";
+	return `${name.replace(/[^a-zA-Z0-9_-]/g, "_")}.json`;
 }
 
 export async function listTemplates(cwd?: string): Promise<WorkflowTemplate[]> {

@@ -33,7 +33,7 @@ export interface TrainerCliResult {
 const DEFAULT_VENV_BIN = process.env.FUSION_TRAINER_BIN ?? "fusion-trainer";
 
 function log(msg: string): void {
-	console.error("[trajectory:train] " + msg);
+	console.error(`[trajectory:train] ${msg}`);
 }
 
 function buildArgs(opts: TrainerCliOptions): { sub: string; args: string[] } {
@@ -58,17 +58,17 @@ export async function runTrainerCli(
 	const bin = opts.venvBin ?? DEFAULT_VENV_BIN;
 	const { sub, args } = buildArgs(opts);
 	const full = [sub, ...args];
-	log("spawn " + bin + " " + full.join(" "));
+	log(`spawn ${bin} ${full.join(" ")}`);
 	try {
 		const result = await execa(bin, full, {
 			stdio: "inherit",
 			reject: false,
 			env: { ...process.env },
 		});
-		log("exitCode=" + String(result.exitCode));
+		log(`exitCode=${String(result.exitCode)}`);
 		return { exitCode: result.exitCode, command: bin, args: full };
 	} catch (err) {
-		log("spawn failed: " + String(err));
+		log(`spawn failed: ${String(err)}`);
 		return { exitCode: 1, command: bin, args: full };
 	}
 }

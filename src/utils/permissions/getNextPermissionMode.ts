@@ -1,17 +1,19 @@
-import type { ToolPermissionContext } from '../../Tool.js'
-import { logForDebugging } from '../debug.js'
-import type { PermissionMode } from './PermissionMode.js'
+import type { ToolPermissionContext } from "../../Tool.js";
+import { logForDebugging } from "../debug.js";
+import type { PermissionMode } from "./PermissionMode.js";
 import {
-    isAutoModeGateEnabled,
-    transitionPermissionMode,
-} from './permissionSetup.js'
+	isAutoModeGateEnabled,
+	transitionPermissionMode,
+} from "./permissionSetup.js";
 
 function canCycleToAuto(_ctx: ToolPermissionContext): boolean {
-    const gateEnabled = isAutoModeGateEnabled()
-    if (!gateEnabled) {
-        logForDebugging(`[auto-mode] canCycleToAuto=false: isAutoModeGateEnabled=${gateEnabled}`)
-    }
-    return gateEnabled
+	const gateEnabled = isAutoModeGateEnabled();
+	if (!gateEnabled) {
+		logForDebugging(
+			`[auto-mode] canCycleToAuto=false: isAutoModeGateEnabled=${gateEnabled}`,
+		);
+	}
+	return gateEnabled;
 }
 
 /**
@@ -21,61 +23,61 @@ function canCycleToAuto(_ctx: ToolPermissionContext): boolean {
  * Ant user cycle: default → bypassPermissions/auto → default
  */
 export function getNextPermissionMode(
-    toolPermissionContext: ToolPermissionContext,
-    _teamContext?: { leadAgentId: string },
+	toolPermissionContext: ToolPermissionContext,
+	_teamContext?: { leadAgentId: string },
 ): PermissionMode {
-    switch (toolPermissionContext.mode) {
-        case 'default':
-            if (process.env.USER_TYPE === 'ant') {
-                if (toolPermissionContext.isBypassPermissionsModeAvailable) {
-                    return 'bypassPermissions'
-                }
-                if (canCycleToAuto(toolPermissionContext)) {
-                    return 'auto'
-                }
-                return 'default'
-            }
-            // External users: default → auto
-            if (canCycleToAuto(toolPermissionContext)) {
-                return 'auto'
-            }
-            return 'acceptEdits'
+	switch (toolPermissionContext.mode) {
+		case "default":
+			if (process.env.USER_TYPE === "ant") {
+				if (toolPermissionContext.isBypassPermissionsModeAvailable) {
+					return "bypassPermissions";
+				}
+				if (canCycleToAuto(toolPermissionContext)) {
+					return "auto";
+				}
+				return "default";
+			}
+			// External users: default → auto
+			if (canCycleToAuto(toolPermissionContext)) {
+				return "auto";
+			}
+			return "acceptEdits";
 
-        case 'auto':
-            // External users: auto → acceptEdits
-            if (process.env.USER_TYPE === 'ant') {
-                return 'default'
-            }
-            return 'acceptEdits'
+		case "auto":
+			// External users: auto → acceptEdits
+			if (process.env.USER_TYPE === "ant") {
+				return "default";
+			}
+			return "acceptEdits";
 
-        case 'acceptEdits':
-            return 'plan'
+		case "acceptEdits":
+			return "plan";
 
-        case 'plan':
-            if (toolPermissionContext.isBypassPermissionsModeAvailable) {
-                return 'bypassPermissions'
-            }
-            if (canCycleToAuto(toolPermissionContext)) {
-                return 'auto'
-            }
-            return 'default'
+		case "plan":
+			if (toolPermissionContext.isBypassPermissionsModeAvailable) {
+				return "bypassPermissions";
+			}
+			if (canCycleToAuto(toolPermissionContext)) {
+				return "auto";
+			}
+			return "default";
 
-        case 'bypassPermissions':
-            if (canCycleToAuto(toolPermissionContext)) {
-                return 'auto'
-            }
-            return 'default'
+		case "bypassPermissions":
+			if (canCycleToAuto(toolPermissionContext)) {
+				return "auto";
+			}
+			return "default";
 
-        case 'dontAsk':
-            return 'default'
+		case "dontAsk":
+			return "default";
 
-        case 'readOnly':
-            // Read-only is a terminal-ish restricted mode; cycle back to default.
-            return 'default'
+		case "readOnly":
+			// Read-only is a terminal-ish restricted mode; cycle back to default.
+			return "default";
 
-        default:
-            return 'default'
-    }
+		default:
+			return "default";
+	}
 }
 
 /**
@@ -84,16 +86,16 @@ export function getNextPermissionMode(
  * dangerous permissions when entering auto mode).
  */
 export function cyclePermissionMode(
-    toolPermissionContext: ToolPermissionContext,
-    teamContext?: { leadAgentId: string },
+	toolPermissionContext: ToolPermissionContext,
+	teamContext?: { leadAgentId: string },
 ): { nextMode: PermissionMode; context: ToolPermissionContext } {
-    const nextMode = getNextPermissionMode(toolPermissionContext, teamContext)
-    return {
-        nextMode,
-        context: transitionPermissionMode(
-            toolPermissionContext.mode,
-            nextMode,
-            toolPermissionContext,
-        ),
-    }
+	const nextMode = getNextPermissionMode(toolPermissionContext, teamContext);
+	return {
+		nextMode,
+		context: transitionPermissionMode(
+			toolPermissionContext.mode,
+			nextMode,
+			toolPermissionContext,
+		),
+	};
 }

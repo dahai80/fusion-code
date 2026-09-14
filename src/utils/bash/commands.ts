@@ -1,4 +1,4 @@
-import { randomBytes } from "crypto";
+import { randomBytes } from "node:crypto";
 import type { ParseEntry } from "shell-quote";
 import {
 	type CommandPrefixResult,
@@ -176,14 +176,14 @@ export function splitCommandWithOperators(command: string): string[] {
 						// If the part is NEW_LINE, we want to terminate the previous string and start a new command
 						parts.push(null);
 					} else {
-						parts[parts.length - 1] += " " + part;
+						parts[parts.length - 1] += ` ${part}`;
 					}
 					continue;
 				}
 			} else if ("op" in part && part.op === "glob") {
 				// If the previous part is a string (not an operator), collapse the glob with it
 				if (parts.length > 0 && typeof parts[parts.length - 1] === "string") {
-					parts[parts.length - 1] += " " + part.pattern;
+					parts[parts.length - 1] += ` ${part.pattern}`;
 					continue;
 				}
 			}
@@ -216,7 +216,7 @@ export function splitCommandWithOperators(command: string): string[] {
 							`'${placeholders.SINGLE_QUOTE}`,
 							placeholders.SINGLE_QUOTE,
 						);
-					return "#" + cleaned;
+					return `#${cleaned}`;
 				}
 				if ("op" in part && part.op === "glob") {
 					return part.pattern;
@@ -1188,7 +1188,7 @@ function needsQuoting(str: string): boolean {
 // Helper: Add token with appropriate spacing
 function addToken(result: string, token: string, noSpace = false): string {
 	if (!result || noSpace) return result + token;
-	return result + " " + token;
+	return `${result} ${token}`;
 }
 
 function reconstructCommand(kept: ParseEntry[], originalCmd: string): string {
@@ -1227,7 +1227,7 @@ function reconstructCommand(kept: ParseEntry[], originalCmd: string): string {
 
 			// Special case: add space after <(
 			if (result.endsWith("<(")) {
-				result += " " + str;
+				result += ` ${str}`;
 			} else {
 				result = addToken(result, str, noSpace);
 			}

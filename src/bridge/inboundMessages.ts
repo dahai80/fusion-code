@@ -1,1 +1,3 @@
-export const extractInboundMessageFields = (_msg: unknown): Record<string, unknown> => ({})
+export const extractInboundMessageFields = (
+	_msg: unknown,
+): Record<string, unknown> => ({});

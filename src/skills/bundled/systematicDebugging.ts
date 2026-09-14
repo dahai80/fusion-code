@@ -1,4 +1,4 @@
-import { registerBundledSkill } from '../bundledSkills.js'
+import { registerBundledSkill } from "../bundledSkills.js";
 
 const SYSTEMATIC_DEBUGGING_PROMPT = `# Systematic Debugging
 
@@ -90,19 +90,25 @@ Prove the fix works and doesn't break anything.
 - Reproduction case passes:
 - Existing tests pass:
 - Edge cases tested:
-- Regression test added:`
+- Regression test added:`;
 
 export function registerSystematicDebuggingSkill(): void {
-    registerBundledSkill({
-        name: 'systematic-debugging',
-        description: '4-phase root cause debugging: reproduce → isolate → fix → verify. Never skip phases or jump to solutions.',
-        whenToUse:
-            'When encountering any bug, test failure, or unexpected behavior — especially before proposing fixes. Also use when the user says "debug", "investigate", "figure out why", or "this is broken".',
-        argumentHint: '<bug description or error>',
-        userInvocable: true,
-        async getPromptForCommand(args) {
-            const topic = args.trim() || 'the current issue'
-            return [{ type: 'text', text: `${SYSTEMATIC_DEBUGGING_PROMPT}\n\n## Bug to Debug\n\n${topic}` }]
-        },
-    })
+	registerBundledSkill({
+		name: "systematic-debugging",
+		description:
+			"4-phase root cause debugging: reproduce → isolate → fix → verify. Never skip phases or jump to solutions.",
+		whenToUse:
+			'When encountering any bug, test failure, or unexpected behavior — especially before proposing fixes. Also use when the user says "debug", "investigate", "figure out why", or "this is broken".',
+		argumentHint: "<bug description or error>",
+		userInvocable: true,
+		async getPromptForCommand(args) {
+			const topic = args.trim() || "the current issue";
+			return [
+				{
+					type: "text",
+					text: `${SYSTEMATIC_DEBUGGING_PROMPT}\n\n## Bug to Debug\n\n${topic}`,
+				},
+			];
+		},
+	});
 }

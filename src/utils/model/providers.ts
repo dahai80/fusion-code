@@ -30,7 +30,7 @@ export function isMlxModelName(model: string | undefined): boolean {
 	);
 }
 
-export function getAPIProvider(model?: string): APIProvider {
+export function getAPIProvider(_model?: string): APIProvider {
 	if (isEnvTruthy(process.env.FUSION_MLX_DISABLED)) {
 		if (isEnvTruthy(process.env.FUSION_CODE_USE_BEDROCK)) return "bedrock";
 		if (isEnvTruthy(process.env.FUSION_CODE_USE_VERTEX)) return "vertex";
@@ -93,7 +93,11 @@ export function shouldAutoUseFusionMlx(): boolean {
 	if (process.env.FUSION_API_KEY || process.env.ANTHROPIC_API_KEY) {
 		return false;
 	}
-	if (isEnvTruthy(process.env.FUSION_GATEWAY_ENABLED) || isEnvTruthy(process.env.FUSION_MLX_ENABLED)) return true;
+	if (
+		isEnvTruthy(process.env.FUSION_GATEWAY_ENABLED) ||
+		isEnvTruthy(process.env.FUSION_MLX_ENABLED)
+	)
+		return true;
 	if (isEnvTruthy(process.env.FUSION_MLX_AUTO)) {
 		return !process.env.FUSION_API_KEY && !process.env.ANTHROPIC_API_KEY;
 	}

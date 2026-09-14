@@ -1,4 +1,4 @@
-export const TASK_STOP_TOOL_NAME = 'TaskStop'
+export const TASK_STOP_TOOL_NAME = "TaskStop";
 
 export const DESCRIPTION = `Stops a running background task by its ID.
 
@@ -15,4 +15,4 @@ When to use:
 Important:
 - This sends a stop signal — the task may not stop immediately
 - Stopped tasks cannot be resumed
-- Use TaskList to find running task IDs`
+- Use TaskList to find running task IDs`;

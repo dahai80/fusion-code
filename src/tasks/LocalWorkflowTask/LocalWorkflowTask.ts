@@ -5,10 +5,10 @@
 // abortRegistry 里的 controller。
 
 import type { SetAppState, Task, TaskStateBase } from "../../Task.js";
-import type { TaskState } from "../types.js";
+import { abortWorkflowRun } from "../../tools/WorkflowTool/abortRegistry.js";
 import { logForDebugging } from "../../utils/debug.js";
 import { updateTaskState } from "../../utils/task/framework.js";
-import { abortWorkflowRun } from "../../tools/WorkflowTool/abortRegistry.js";
+import type { TaskState } from "../types.js";
 
 export type LocalWorkflowTaskState = TaskStateBase & {
 	type: "local_workflow";
@@ -48,7 +48,9 @@ export function killWorkflowTask(
 		abortWorkflowRun(runId);
 	}
 	if (aborted) {
-		logForDebugging(`[LocalWorkflowTask] killed workflow task ${taskId} (runId=${runId})`);
+		logForDebugging(
+			`[LocalWorkflowTask] killed workflow task ${taskId} (runId=${runId})`,
+		);
 	}
 }
 

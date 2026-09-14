@@ -1,9 +1,13 @@
 import { feature } from "bun:bundle";
-import { basename } from "path";
+import { basename } from "node:path";
 import { useCallback, useEffect, useRef } from "react";
 import { getSessionId } from "../../bootstrap/state.js";
 import type { Command } from "../../commands.js";
-import type { Tool } from "../../Tool.js";
+import type {
+	MCPServerConnection,
+	ScopedMcpServerConfig,
+	ServerResource,
+} from "../../services/mcp/index.js";
 import {
 	clearServerCache,
 	clearServerCacheByName,
@@ -13,11 +17,7 @@ import {
 	getMcpToolsCommandsAndResources,
 	reconnectMcpServerImpl,
 } from "../../services/mcp/index.js";
-import type {
-	MCPServerConnection,
-	ScopedMcpServerConfig,
-	ServerResource,
-} from "../../services/mcp/index.js";
+import type { Tool } from "../../Tool.js";
 
 /* eslint-disable @typescript-eslint/no-require-imports */
 const fetchMcpSkillsForClient = feature("MCP_SKILLS")
@@ -56,6 +56,24 @@ import { logForDebugging } from "src/utils/debug.js";
 import { getAllowedChannels } from "../../bootstrap/state.js";
 import { useNotifications } from "../../context/notifications.js";
 import {
+	CHANNEL_PERMISSION_METHOD,
+	ChannelMessageNotificationSchema,
+	type ChannelPermissionCallbacks,
+	ChannelPermissionNotificationSchema,
+	clearClaudeAIMcpConfigsCache,
+	commandBelongsToServer,
+	createChannelPermissionCallbacks,
+	excludeStalePluginClients,
+	fetchClaudeAIMcpConfigsIfEligible,
+	filterMcpToolsByConfig,
+	findChannelEntry,
+	gateChannelServer,
+	getMcpPrefix,
+	isChannelPermissionRelayEnabled,
+	registerElicitationHandler,
+	wrapChannelMessage,
+} from "../../services/mcp/index.js";
+import {
 	useAppState,
 	useAppStateStore,
 	useSetAppState,
@@ -64,30 +82,6 @@ import { errorMessage } from "../../utils/errors.js";
 /* eslint-enable @typescript-eslint/no-require-imports */
 import { logMCPDebug, logMCPError } from "../../utils/log.js";
 import { enqueue } from "../../utils/messageQueueManager.js";
-import {
-	CHANNEL_PERMISSION_METHOD,
-	ChannelMessageNotificationSchema,
-	ChannelPermissionNotificationSchema,
-	findChannelEntry,
-	gateChannelServer,
-	wrapChannelMessage,
-} from "../../services/mcp/index.js";
-import {
-	type ChannelPermissionCallbacks,
-	createChannelPermissionCallbacks,
-	isChannelPermissionRelayEnabled,
-} from "../../services/mcp/index.js";
-import {
-	clearClaudeAIMcpConfigsCache,
-	fetchClaudeAIMcpConfigsIfEligible,
-} from "../../services/mcp/index.js";
-import { registerElicitationHandler } from "../../services/mcp/index.js";
-import { getMcpPrefix } from "../../services/mcp/index.js";
-import {
-	commandBelongsToServer,
-	excludeStalePluginClients,
-	filterMcpToolsByConfig,
-} from "../../services/mcp/index.js";
 
 // Constants for reconnection with exponential backoff
 const MAX_RECONNECT_ATTEMPTS = 5;
@@ -704,7 +698,7 @@ export function useManageMCPConnections(
 									const [mcpPrompts, mcpSkills] = await Promise.all([
 										fetchCommandsForClient(client),
 										feature("MCP_SKILLS")
-											? fetchMcpSkillsForClient!(client.name) // log: pass server name string instead of ConnectedMCPServer
+											? fetchMcpSkillsForClient?.(client.name) // log: pass server name string instead of ConnectedMCPServer
 											: Promise.resolve([]),
 									]);
 									updateServer({
@@ -742,13 +736,13 @@ export function useManageMCPConnections(
 										// Invalidate prompts cache as well: we write commands here,
 										// and a concurrent prompts/list_changed could otherwise have
 										// us stomp its fresh result with our cached stale one.
-										fetchMcpSkillsForClient!.cache.delete(client.name);
+										fetchMcpSkillsForClient?.cache.delete(client.name);
 										fetchCommandsForClient.cache.delete(client.name);
 										const [newResources, mcpPrompts, mcpSkills] =
 											await Promise.all([
 												fetchResourcesForClient(client),
 												fetchCommandsForClient(client),
-												fetchMcpSkillsForClient!(client.name), // log: pass server name string instead of ConnectedMCPServer
+												fetchMcpSkillsForClient?.(client.name), // log: pass server name string instead of ConnectedMCPServer
 											]);
 										updateServer({
 											...client,
@@ -781,7 +775,7 @@ export function useManageMCPConnections(
 					break;
 			}
 		},
-		[updateServer],
+		[updateServer, setAppState, addNotification],
 	);
 
 	// Initialize all servers to pending state if they don't exist in appState.
@@ -790,7 +784,7 @@ export function useManageMCPConnections(
 	// that no longer appear in configs — prevents ghost tools from disabled plugins.
 	// Skip claude.ai dedup here to avoid blocking on the network fetch; the connect
 	// useEffect below runs immediately after and dedups before connecting.
-	const sessionId = getSessionId();
+	const _sessionId = getSessionId();
 	useEffect(() => {
 		async function initializeServersAsPending() {
 			const { servers: existingConfigs, errors: mcpErrors } = isStrictMcpConfig
@@ -867,13 +861,7 @@ export function useManageMCPConnections(
 				`Failed to initialize servers as pending: ${errorMessage(error)}`,
 			);
 		});
-	}, [
-		isStrictMcpConfig,
-		dynamicMcpConfig,
-		setAppState,
-		sessionId,
-		_pluginReconnectKey,
-	]);
+	}, [isStrictMcpConfig, dynamicMcpConfig, setAppState]);
 
 	// Load MCP configs and connect to servers
 	// Two-phase loading: Fusion-Code configs first (fast), then claude.ai configs (may be slow)
@@ -1035,15 +1023,7 @@ export function useManageMCPConnections(
 		return () => {
 			cancelled = true;
 		};
-	}, [
-		isStrictMcpConfig,
-		dynamicMcpConfig,
-		onConnectionAttempt,
-		setAppState,
-		_authVersion,
-		sessionId,
-		_pluginReconnectKey,
-	]);
+	}, [isStrictMcpConfig, dynamicMcpConfig, onConnectionAttempt, setAppState]);
 
 	// Cleanup all timers on unmount
 	useEffect(() => {

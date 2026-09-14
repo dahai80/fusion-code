@@ -1,7 +1,7 @@
-export const DESCRIPTION = `List all cron jobs scheduled via CronCreate.`
+export const DESCRIPTION = `List all cron jobs scheduled via CronCreate.`;
 
 export function getPrompt(): string {
-    return `List all cron jobs scheduled via CronCreate, both durable and session-only.
+	return `List all cron jobs scheduled via CronCreate, both durable and session-only.
 
 Use this to:
 - Check what jobs are currently scheduled
@@ -14,5 +14,5 @@ Returns:
 - Cron schedule expression
 - Whether the job is durable or session-only
 - The prompt that will fire
-- Recurring status`
+- Recurring status`;
 }

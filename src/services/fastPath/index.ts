@@ -1,1 +1,5 @@
-export { FastPathEngine, type FastPathRule, type FastPathResult } from './fastPathEngine.js'
+export {
+	FastPathEngine,
+	type FastPathResult,
+	type FastPathRule,
+} from "./fastPathEngine.js";

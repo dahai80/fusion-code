@@ -1,20 +1,20 @@
-import { isRemoteManagedSettingsEligible } from '../services/remoteManagedSettings/index.js'
-import { clearCACertsCache } from './caCerts.js'
-import { getGlobalConfig } from './config.js'
-import { logForDebugging } from './debug.js'
-import { isEnvTruthy } from './envUtils.js'
+import { isRemoteManagedSettingsEligible } from "../services/remoteManagedSettings/index.js";
+import { clearCACertsCache } from "./caCerts.js";
+import { getGlobalConfig } from "./config.js";
+import { logForDebugging } from "./debug.js";
+import { isEnvTruthy } from "./envUtils.js";
 import {
-  BLOCKED_ENV_VARS,
-  isProviderManagedEnvVar,
-  SAFE_ENV_VARS,
-} from './managedEnvConstants.js'
-import { clearMTLSCache } from './mtls.js'
-import { clearProxyCache, configureGlobalAgents } from './proxy.js'
-import { isSettingSourceEnabled } from './settings/constants.js'
+	BLOCKED_ENV_VARS,
+	isProviderManagedEnvVar,
+	SAFE_ENV_VARS,
+} from "./managedEnvConstants.js";
+import { clearMTLSCache } from "./mtls.js";
+import { clearProxyCache, configureGlobalAgents } from "./proxy.js";
+import { isSettingSourceEnabled } from "./settings/constants.js";
 import {
-  getInitialSettings,
-  getSettingsForSource,
-} from './settings/settings.js'
+	getInitialSettings,
+	getSettingsForSource,
+} from "./settings/settings.js";
 
 /**
  * `claude ssh` remote: FUSION_UNIX_SOCKET routes auth through a -R forwarded
@@ -23,18 +23,18 @@ import {
  * isAnthropicAuthEnabled). Strip them from any settings-sourced env object.
  */
 function withoutSSHTunnelVars(
-  env: Record<string, string> | undefined,
+	env: Record<string, string> | undefined,
 ): Record<string, string> {
-  if (!env || !process.env.FUSION_UNIX_SOCKET) return env || {}
-  const {
-    FUSION_UNIX_SOCKET: _1,
-    FUSION_BASE_URL: _2,
-    FUSION_API_KEY: _3,
-    FUSION_AUTH_TOKEN: _4,
-    FUSION_CODE_OAUTH_TOKEN: _5,
-    ...rest
-  } = env
-  return rest
+	if (!env || !process.env.FUSION_UNIX_SOCKET) return env || {};
+	const {
+		FUSION_UNIX_SOCKET: _1,
+		FUSION_BASE_URL: _2,
+		FUSION_API_KEY: _3,
+		FUSION_AUTH_TOKEN: _4,
+		FUSION_CODE_OAUTH_TOKEN: _5,
+		...rest
+	} = env;
+	return rest;
 }
 
 /**
@@ -45,19 +45,19 @@ function withoutSSHTunnelVars(
  * host-configured provider.
  */
 function withoutHostManagedProviderVars(
-  env: Record<string, string> | undefined,
+	env: Record<string, string> | undefined,
 ): Record<string, string> {
-  if (!env) return {}
-  if (!isEnvTruthy(process.env.FUSION_CODE_PROVIDER_MANAGED_BY_HOST)) {
-    return env
-  }
-  const out: Record<string, string> = {}
-  for (const [key, value] of Object.entries(env)) {
-    if (!isProviderManagedEnvVar(key)) {
-      out[key] = value
-    }
-  }
-  return out
+	if (!env) return {};
+	if (!isEnvTruthy(process.env.FUSION_CODE_PROVIDER_MANAGED_BY_HOST)) {
+		return env;
+	}
+	const out: Record<string, string> = {};
+	for (const [key, value] of Object.entries(env)) {
+		if (!isProviderManagedEnvVar(key)) {
+			out[key] = value;
+		}
+	}
+	return out;
 }
 
 /**
@@ -68,28 +68,28 @@ function withoutHostManagedProviderVars(
  * are not in this set, so mid-session settings.json changes still apply.
  * Lazy-captured on first applySafeConfigEnvironmentVariables() call.
  */
-let ccdSpawnEnvKeys: Set<string> | null | undefined
+let ccdSpawnEnvKeys: Set<string> | null | undefined;
 
 function withoutCcdSpawnEnvKeys(
-  env: Record<string, string> | undefined,
+	env: Record<string, string> | undefined,
 ): Record<string, string> {
-  if (!env || !ccdSpawnEnvKeys) return env || {}
-  const out: Record<string, string> = {}
-  for (const [key, value] of Object.entries(env)) {
-    if (!ccdSpawnEnvKeys.has(key)) out[key] = value
-  }
-  return out
+	if (!env || !ccdSpawnEnvKeys) return env || {};
+	const out: Record<string, string> = {};
+	for (const [key, value] of Object.entries(env)) {
+		if (!ccdSpawnEnvKeys.has(key)) out[key] = value;
+	}
+	return out;
 }
 
 /**
  * Compose the strip filters applied to every settings-sourced env object.
  */
 function filterSettingsEnv(
-  env: Record<string, string> | undefined,
+	env: Record<string, string> | undefined,
 ): Record<string, string> {
-  return withoutCcdSpawnEnvKeys(
-    withoutHostManagedProviderVars(withoutSSHTunnelVars(env)),
-  )
+	return withoutCcdSpawnEnvKeys(
+		withoutHostManagedProviderVars(withoutSSHTunnelVars(env)),
+	);
 }
 
 /**
@@ -105,10 +105,10 @@ function filterSettingsEnv(
  * traffic (e.g., FUSION_BASE_URL) to an attacker-controlled server.
  */
 const TRUSTED_SETTING_SOURCES = [
-  'userSettings',
-  'flagSettings',
-  'policySettings',
-] as const
+	"userSettings",
+	"flagSettings",
+	"policySettings",
+] as const;
 
 /**
  * Apply environment variables from trusted sources to process.env.
@@ -124,59 +124,59 @@ const TRUSTED_SETTING_SOURCES = [
  * fully established via applyConfigEnvironmentVariables().
  */
 export function applySafeConfigEnvironmentVariables(): void {
-  // Capture CCD spawn-env keys before any settings.env is applied (once).
-  if (ccdSpawnEnvKeys === undefined) {
-    ccdSpawnEnvKeys =
-      process.env.FUSION_CODE_ENTRYPOINT === 'claude-desktop'
-        ? new Set(Object.keys(process.env))
-        : null
-  }
+	// Capture CCD spawn-env keys before any settings.env is applied (once).
+	if (ccdSpawnEnvKeys === undefined) {
+		ccdSpawnEnvKeys =
+			process.env.FUSION_CODE_ENTRYPOINT === "claude-desktop"
+				? new Set(Object.keys(process.env))
+				: null;
+	}
 
-  // Global config (~/.claude.json) is user-controlled. In CCD mode,
-  // filterSettingsEnv strips keys that were in the spawn env snapshot so
-  // the desktop host's operational vars (OTEL, etc.) are not overridden.
-  Object.assign(process.env, filterSettingsEnv(getGlobalConfig().env))
+	// Global config (~/.claude.json) is user-controlled. In CCD mode,
+	// filterSettingsEnv strips keys that were in the spawn env snapshot so
+	// the desktop host's operational vars (OTEL, etc.) are not overridden.
+	Object.assign(process.env, filterSettingsEnv(getGlobalConfig().env));
 
-  // Apply ALL env vars from trusted setting sources, policySettings last.
-  // Gate on isSettingSourceEnabled so SDK settingSources: [] (isolation mode)
-  // doesn't get clobbered by ~/.claude/settings.json env (gh#217). policy/flag
-  // sources are always enabled, so this only ever filters userSettings.
-  for (const source of TRUSTED_SETTING_SOURCES) {
-    if (source === 'policySettings') continue
-    if (!isSettingSourceEnabled(source)) continue
-    Object.assign(
-      process.env,
-      filterSettingsEnv(getSettingsForSource(source)?.env),
-    )
-  }
+	// Apply ALL env vars from trusted setting sources, policySettings last.
+	// Gate on isSettingSourceEnabled so SDK settingSources: [] (isolation mode)
+	// doesn't get clobbered by ~/.claude/settings.json env (gh#217). policy/flag
+	// sources are always enabled, so this only ever filters userSettings.
+	for (const source of TRUSTED_SETTING_SOURCES) {
+		if (source === "policySettings") continue;
+		if (!isSettingSourceEnabled(source)) continue;
+		Object.assign(
+			process.env,
+			filterSettingsEnv(getSettingsForSource(source)?.env),
+		);
+	}
 
-  // Compute remote-managed-settings eligibility now, with userSettings and
-  // flagSettings env applied. Eligibility reads FUSION_CODE_USE_BEDROCK,
-  // FUSION_BASE_URL — both settable via settings.env.
-  // getSettingsForSource('policySettings') below consults the remote cache,
-  // which guards on this. The two-phase structure makes the ordering
-  // dependency visible: non-policy env → eligibility → policy env.
-  isRemoteManagedSettingsEligible()
+	// Compute remote-managed-settings eligibility now, with userSettings and
+	// flagSettings env applied. Eligibility reads FUSION_CODE_USE_BEDROCK,
+	// FUSION_BASE_URL — both settable via settings.env.
+	// getSettingsForSource('policySettings') below consults the remote cache,
+	// which guards on this. The two-phase structure makes the ordering
+	// dependency visible: non-policy env → eligibility → policy env.
+	isRemoteManagedSettingsEligible();
 
-  Object.assign(
-    process.env,
-    filterSettingsEnv(getSettingsForSource('policySettings')?.env),
-  )
+	Object.assign(
+		process.env,
+		filterSettingsEnv(getSettingsForSource("policySettings")?.env),
+	);
 
-  // Apply only safe env vars from the fully-merged settings (which includes
-  // project-scoped sources). For safe vars that also exist in trusted sources,
-  // the merged value (which may come from a higher-priority project source)
-  // will overwrite the trusted value — this is acceptable since these vars are
-  // in the safe allowlist. Only policySettings values are guaranteed to survive
-  // unchanged (it has the highest merge priority in both loops) — except
-  // provider-routing vars, which filterSettingsEnv strips from every source
-  // when FUSION_CODE_PROVIDER_MANAGED_BY_HOST is set.
-  const settingsEnv = filterSettingsEnv(getInitialSettings()?.env)
-  for (const [key, value] of Object.entries(settingsEnv)) {
-    if (SAFE_ENV_VARS.has(key.toUpperCase())) {
-      process.env[key] = value
-    }
-  }
+	// Apply only safe env vars from the fully-merged settings (which includes
+	// project-scoped sources). For safe vars that also exist in trusted sources,
+	// the merged value (which may come from a higher-priority project source)
+	// will overwrite the trusted value — this is acceptable since these vars are
+	// in the safe allowlist. Only policySettings values are guaranteed to survive
+	// unchanged (it has the highest merge priority in both loops) — except
+	// provider-routing vars, which filterSettingsEnv strips from every source
+	// when FUSION_CODE_PROVIDER_MANAGED_BY_HOST is set.
+	const settingsEnv = filterSettingsEnv(getInitialSettings()?.env);
+	for (const [key, value] of Object.entries(settingsEnv)) {
+		if (SAFE_ENV_VARS.has(key.toUpperCase())) {
+			process.env[key] = value;
+		}
+	}
 }
 
 /**
@@ -185,21 +185,21 @@ export function applySafeConfigEnvironmentVariables(): void {
  * disable TLS verification and must never be injected from project config.
  */
 function filterDangerousEnvVars(
-  env: Record<string, string> | undefined,
+	env: Record<string, string> | undefined,
 ): Record<string, string> {
-  if (!env) return {}
-  const out: Record<string, string> = {}
-  for (const [key, value] of Object.entries(env)) {
-    if (BLOCKED_ENV_VARS.has(key.toUpperCase())) {
-      logForDebugging(
-        `applyConfigEnvironmentVariables: blocked dangerous env var "${key}" from settings`,
-        { level: 'warn' },
-      )
-      continue
-    }
-    out[key] = value
-  }
-  return out
+	if (!env) return {};
+	const out: Record<string, string> = {};
+	for (const [key, value] of Object.entries(env)) {
+		if (BLOCKED_ENV_VARS.has(key.toUpperCase())) {
+			logForDebugging(
+				`applyConfigEnvironmentVariables: blocked dangerous env var "${key}" from settings`,
+				{ level: "warn" },
+			);
+			continue;
+		}
+		out[key] = value;
+	}
+	return out;
 }
 
 /**
@@ -210,15 +210,21 @@ function filterDangerousEnvVars(
  * should only be called after trust is established.
  */
 export function applyConfigEnvironmentVariables(): void {
-  Object.assign(process.env, filterDangerousEnvVars(filterSettingsEnv(getGlobalConfig().env)))
+	Object.assign(
+		process.env,
+		filterDangerousEnvVars(filterSettingsEnv(getGlobalConfig().env)),
+	);
 
-  Object.assign(process.env, filterDangerousEnvVars(filterSettingsEnv(getInitialSettings()?.env)))
+	Object.assign(
+		process.env,
+		filterDangerousEnvVars(filterSettingsEnv(getInitialSettings()?.env)),
+	);
 
-  // Clear caches so agents are rebuilt with the new env vars
-  clearCACertsCache()
-  clearMTLSCache()
-  clearProxyCache()
+	// Clear caches so agents are rebuilt with the new env vars
+	clearCACertsCache();
+	clearMTLSCache();
+	clearProxyCache();
 
-  // Reconfigure proxy/mTLS agents to pick up any proxy env vars from settings
-  configureGlobalAgents()
+	// Reconfigure proxy/mTLS agents to pick up any proxy env vars from settings
+	configureGlobalAgents();
 }

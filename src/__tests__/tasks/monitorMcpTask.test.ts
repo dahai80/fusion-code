@@ -2,8 +2,8 @@ import { afterEach, beforeEach, describe, expect, it, mock } from "bun:test";
 import type { AppState } from "../../state/AppState.js";
 import type { SetAppState } from "../../Task.js";
 import {
-	MonitorMcpTask,
 	killMonitorMcp,
+	MonitorMcpTask,
 	notifyMonitorMcpTaskDone,
 	spawnMonitorMcpTask,
 } from "../../tasks/MonitorMcpTask/MonitorMcpTask.js";
@@ -28,9 +28,10 @@ function makeAppStateStore(): {
 	const setAppState: SetAppState = (updater) => {
 		state = updater(state);
 	};
-	const getAppState = () => state as unknown as {
-		tasks: Record<string, FakeTaskState>;
-	};
+	const getAppState = () =>
+		state as unknown as {
+			tasks: Record<string, FakeTaskState>;
+		};
 	return { get: getAppState, set: setAppState };
 }
 
@@ -93,12 +94,7 @@ describe("MonitorMcpTask (item 4 MCP 自动后台)", () => {
 
 	it("notifyMonitorMcpTaskDone 幂等: 二次调用不重复入队", () => {
 		const store = makeAppStateStore();
-		const { taskId } = spawnMonitorMcpTask(
-			"db",
-			"query",
-			undefined,
-			store.set,
-		);
+		const { taskId } = spawnMonitorMcpTask("db", "query", undefined, store.set);
 		let enqCount = 0;
 		mock.module("../../utils/messageQueueManager.js", () => ({
 			enqueuePendingNotification: mock(() => {

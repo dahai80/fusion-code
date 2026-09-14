@@ -7,9 +7,9 @@
  * - Find modified files by comparing file mtimes against turn start time
  */
 
-import type { Dirent } from "fs"; // log: fix TS2694 Dirent not in fs/promises namespace
-import * as fs from "fs/promises";
-import * as path from "path";
+import type { Dirent } from "node:fs"; // log: fix TS2694 Dirent not in fs/promises namespace
+import * as fs from "node:fs/promises";
+import * as path from "node:path";
 import { logForDebugging } from "../debug.js";
 import type { EnvironmentKind } from "../teleport/environments.js";
 import type { TurnStartTime } from "./types.js";

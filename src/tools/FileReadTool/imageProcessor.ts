@@ -1,4 +1,4 @@
-import type { Buffer } from "buffer";
+import type { Buffer } from "node:buffer";
 import { isInBundledMode } from "../../utils/bundledMode.js";
 
 export type SharpInstance = {

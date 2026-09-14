@@ -22,7 +22,7 @@ export const PROVIDER_ENV_KEYS = [
 	"FUSION_CODE_CTX_EXEC_ENABLED",
 ] as const;
 
-import { beforeEach, afterEach } from "bun:test";
+import { afterEach, beforeEach } from "bun:test";
 
 const saved: Record<string, string | undefined> = {};
 

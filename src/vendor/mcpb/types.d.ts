@@ -5,7 +5,7 @@ import type { McpbManifestSchema as McpbManifestSchemaAny } from "./schemas/any.
  */
 export type McpbManifestAny = z.infer<typeof McpbManifestSchemaAny>;
 export interface Logger {
-    log: (...args: unknown[]) => void;
-    error: (...args: unknown[]) => void;
-    warn: (...args: unknown[]) => void;
+	log: (...args: unknown[]) => void;
+	error: (...args: unknown[]) => void;
+	warn: (...args: unknown[]) => void;
 }

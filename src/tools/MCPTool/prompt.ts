@@ -18,6 +18,6 @@ Tips:
 - Check which MCP servers are available before calling
 - Handle MCP tool errors gracefully — servers may be offline
 - MCP tools may have different latency characteristics than built-in tools
-- Use MCP tools when they provide capabilities built-in tools lack`
+- Use MCP tools when they provide capabilities built-in tools lack`;
 
-export const DESCRIPTION = `Interact with Model Context Protocol (MCP) servers to access external tools and data. MCP tools are discovered at runtime from configured servers.`
+export const DESCRIPTION = `Interact with Model Context Protocol (MCP) servers to access external tools and data. MCP tools are discovered at runtime from configured servers.`;

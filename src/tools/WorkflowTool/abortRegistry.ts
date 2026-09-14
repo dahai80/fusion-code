@@ -11,11 +11,16 @@ import { logForDebugging } from "../../utils/debug.js";
 // runId → AbortController。workflow 启动时 register, kill/完成时 clear。
 const controllers = new Map<string, AbortController>();
 
-export function registerWorkflowAbort(runId: string, controller: AbortController): void {
+export function registerWorkflowAbort(
+	runId: string,
+	controller: AbortController,
+): void {
 	controllers.set(runId, controller);
 }
 
-export function getWorkflowAbortController(runId: string): AbortController | undefined {
+export function getWorkflowAbortController(
+	runId: string,
+): AbortController | undefined {
 	return controllers.get(runId);
 }
 

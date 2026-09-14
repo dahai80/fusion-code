@@ -1,5 +1,5 @@
 export function getRefactoringWorkflowSection(): string {
-    return `# Refactoring workflow
+	return `# Refactoring workflow
 
 ## Before starting
  - Run the existing test suite. All tests must pass before you begin.
@@ -36,11 +36,11 @@ export function getRefactoringWorkflowSection(): string {
  - Did you verify error paths still throw the same exceptions with the same messages?
  - Did you check concurrent/async callers? Refactored shared state can introduce races.
  - Did you confirm public API signatures, return types, and thrown errors are unchanged?
- - Did you run the full test suite, not just the tests for the file you touched?`
+ - Did you run the full test suite, not just the tests for the file you touched?`;
 }
 
 export function getDebuggingWorkflowSection(): string {
-    return `# Debugging workflow
+	return `# Debugging workflow
 
 ## Reproduce first
  - Reproduce the bug reliably. If you can't reproduce it, you can't fix it.
@@ -79,11 +79,11 @@ export function getDebuggingWorkflowSection(): string {
  - Could the same bug class appear elsewhere? Grep for similar patterns.
  - Does the fix introduce new edge cases? What happens with the opposite extreme?
  - Is there a timing/concurrency version of the bug? Test under load if so.
- - Did you add a regression test that would fail without the fix?`
+ - Did you add a regression test that would fail without the fix?`;
 }
 
 export function getCodeReviewWorkflowSection(): string {
-    return `# Code review workflow
+	return `# Code review workflow
 
 ## Review checklist
  - Does the code do what it's supposed to? Check against the issue/requirement.
@@ -115,11 +115,11 @@ export function getCodeReviewWorkflowSection(): string {
  - Security: injection (SQL/XSS/command), auth bypass, data exposure, insecure deserialization, SSRF.
  - Resource leaks: unclosed handles, unbounded growth, missing cleanup on error path.
  - Performance: N+1 queries, O(n²) in hot path, unnecessary allocations, missing indexes.
- - Observability: are errors logged with context? Can this be debugged from logs alone?`
+ - Observability: are errors logged with context? Can this be debugged from logs alone?`;
 }
 
 export function getFeatureDevelopmentSection(): string {
-    return `# Feature development workflow
+	return `# Feature development workflow
 
 ## Planning
  - Understand the requirement. Ask clarifying questions before writing code.
@@ -158,11 +158,11 @@ export function getFeatureDevelopmentSection(): string {
  - Concurrency: what if two calls happen at once? Is the operation idempotent?
  - Resource limits: disk full, memory pressure, rate limits, connection pool exhaustion.
  - Backward compatibility: does this break existing callers? Is there a migration path?
- - Rollback: can this be feature-flagged off? How fast can you revert?`
+ - Rollback: can this be feature-flagged off? How fast can you revert?`;
 }
 
 export function getIncidentResponseSection(): string {
-    return `# Incident response workflow
+	return `# Incident response workflow
 
 ## Triage (first 5 minutes)
  - Acknowledge the alert. Let the team know you're looking.
@@ -202,11 +202,11 @@ export function getIncidentResponseSection(): string {
  - First update (Triage, ~2 min): "🚨 SEV{1-3}: {symptom}. Impact: {users/regions}. Status: triaging, suspected cause {hypothesis}. On-call: @{name}."
  - Mitigation update (~10 min): "🔄 Mitigating: {action, e.g. rolling back to v{x}}. Current error rate {y}%, p99 {z}ms. Next update in 10 min."
  - Resolved (~30 min): "🟢 Resolved: {symptom} back to baseline. Error rate {y}%, p99 {z}ms. Root cause under investigation, postmortem within 24h."
- - Escalation (if mitigation fails): "⚠️ Escalating: mitigation {action} did not restore service. Paging {team/owner}. Plan B: {fallback action}."`
+ - Escalation (if mitigation fails): "⚠️ Escalating: mitigation {action} did not restore service. Paging {team/owner}. Plan B: {fallback action}."`;
 }
 
 export function getMigrationGuideSection(): string {
-    return `# Migration workflow
+	return `# Migration workflow
 
 ## Plan
  - Inventory what needs to change. List every file, config, and dependency affected.
@@ -243,5 +243,5 @@ export function getMigrationGuideSection(): string {
  - Concurrent writes during migration: are old and new schemas both writable?
  - Rollback: can you reverse every step? Have you tested the rollback on real data?
  - Performance: does it lock tables? Will it time out on production data volumes?
- - Dual-read/dual-write consistency: can old and new code read each other's data during transition?`
+ - Dual-read/dual-write consistency: can old and new code read each other's data during transition?`;
 }

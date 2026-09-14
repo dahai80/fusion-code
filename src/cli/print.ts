@@ -1,7 +1,7 @@
 // biome-ignore-all assist/source/organizeImports: ANT-ONLY import markers must not be reordered
 import { feature } from "bun:bundle";
-import { readFile, stat } from "fs/promises";
-import { dirname } from "path";
+import { readFile, stat } from "node:fs/promises";
+import { dirname } from "node:path";
 import {
 	downloadUserSettings,
 	redownloadUserSettings,
@@ -130,7 +130,7 @@ import type {
 	SDKControlReloadPluginsResponse,
 } from "src/entrypoints/sdk/controlTypes.js";
 import type { PermissionMode as InternalPermissionMode } from "src/types/permissions.js";
-import { cwd } from "process";
+import { cwd } from "node:process";
 import { getCwd } from "src/utils/cwd.js";
 import omit from "lodash-es/omit.js";
 import reject from "lodash-es/reject.js";
@@ -296,8 +296,8 @@ import {
 	type ChannelEntry,
 } from "src/bootstrap/state.js";
 import { runWithWorkload, WORKLOAD_CRON } from "src/utils/workloadContext.js";
-import type { UUID } from "crypto";
-import { randomUUID } from "crypto";
+import type { UUID } from "node:crypto";
+import { randomUUID } from "node:crypto";
 import type { ContentBlockParam } from "src/types/anthropic-protocol.js";
 import type { AppState } from "src/state/AppStateStore.js";
 import {
@@ -748,7 +748,7 @@ export async function runHeadless(
 			(m) => m.uuid === options.rewindFiles,
 		);
 
-		if (!targetMessage || targetMessage.type !== "user") {
+		if (targetMessage?.type !== "user") {
 			process.stderr.write(
 				`Error: --rewind-files requires a user message UUID, but ${options.rewindFiles} is not a user message in this session\n`,
 			);
@@ -924,20 +924,20 @@ export async function runHeadless(
 
 	switch (options.outputFormat) {
 		case "json":
-			if (!lastMessage || lastMessage.type !== "result") {
+			if (lastMessage?.type !== "result") {
 				throw new Error("No messages returned");
 			}
 			if (options.verbose) {
-				writeToStdout(jsonStringify(messages) + "\n");
+				writeToStdout(`${jsonStringify(messages)}\n`);
 				break;
 			}
-			writeToStdout(jsonStringify(lastMessage) + "\n");
+			writeToStdout(`${jsonStringify(lastMessage)}\n`);
 			break;
 		case "stream-json":
 			// already logged above
 			break;
 		default:
-			if (!lastMessage || lastMessage.type !== "result") {
+			if (lastMessage?.type !== "result") {
 				throw new Error("No messages returned");
 			}
 			switch (lastMessage.subtype) {
@@ -945,7 +945,7 @@ export async function runHeadless(
 					writeToStdout(
 						lastMessage.result.endsWith("\n")
 							? lastMessage.result
-							: lastMessage.result + "\n",
+							: `${lastMessage.result}\n`,
 					);
 					break;
 				case "error_during_execution":
@@ -973,7 +973,7 @@ export async function runHeadless(
 	// the forked agent mid-flight. Gated by isExtractModeActive so the
 	// tengu_slate_thimble flag controls non-interactive extraction end-to-end.
 	if (feature("EXTRACT_MEMORIES") && isExtractModeActive()) {
-		await extractMemoriesModule!.drainPendingExtraction();
+		await extractMemoriesModule?.drainPendingExtraction();
 	}
 
 	gracefulShutdownSync(
@@ -2496,7 +2496,7 @@ function runHeadlessStreaming(
 			!proactiveModule.isProactivePaused()
 		) {
 			if (peek(isMainThread) === undefined && !inputClosed) {
-				scheduleProactiveTick!();
+				scheduleProactiveTick?.();
 				return;
 			}
 		}
@@ -3389,7 +3389,7 @@ function runHeadlessStreaming(
 							const oauthPromise = performMCPOAuthFlow(
 								serverName,
 								config,
-								(url) => resolveAuthUrl!(url),
+								(url) => resolveAuthUrl?.(url),
 								controller.signal,
 								{
 									skipBrowserOpen: true,
@@ -3984,12 +3984,12 @@ function runHeadlessStreaming(
 						enabled: boolean;
 					};
 					if (req.enabled) {
-						if (!proactiveModule!.isProactiveActive()) {
-							proactiveModule!.activateProactive("command");
-							scheduleProactiveTick!();
+						if (!proactiveModule?.isProactiveActive()) {
+							proactiveModule?.activateProactive("command");
+							scheduleProactiveTick?.();
 						}
 					} else {
-						proactiveModule!.deactivateProactive();
+						proactiveModule?.deactivateProactive();
 					}
 					sendControlResponseSuccess(message);
 				} else if (
@@ -4250,7 +4250,7 @@ function runHeadlessStreaming(
 						} = await import("node:fs/promises");
 						const shouldBackup = backup !== false;
 						if (shouldBackup) {
-							await copyFile(filePath, filePath + ".bak");
+							await copyFile(filePath, `${filePath}.bak`);
 						}
 						const original = await readFs(filePath, "utf-8");
 						const { applyPatch } = await import("diff");
@@ -4264,7 +4264,7 @@ function runHeadlessStreaming(
 							await writeFs(filePath, result);
 							sendControlResponseSuccess(message, {
 								applied: true,
-								backup_path: shouldBackup ? filePath + ".bak" : undefined,
+								backup_path: shouldBackup ? `${filePath}.bak` : undefined,
 							});
 						}
 					} catch (err) {
@@ -5074,7 +5074,7 @@ function handleChannelEnable(
 	const connection = connectionPool.find(
 		(c) => c.name === serverName && c.type === "connected",
 	);
-	if (!connection || connection.type !== "connected") {
+	if (connection?.type !== "connected") {
 		return respondError(`server ${serverName} is not connected`);
 	}
 
@@ -5253,9 +5253,9 @@ function emitLoadError(
 			uuid: randomUUID(),
 			errors: [message],
 		};
-		process.stdout.write(jsonStringify(errorResult) + "\n");
+		process.stdout.write(`${jsonStringify(errorResult)}\n`);
 	} else {
-		process.stderr.write(message + "\n");
+		process.stderr.write(`${message}\n`);
 	}
 }
 
@@ -5313,7 +5313,7 @@ async function loadInitialMessages(
 				if (feature("COORDINATOR_MODE") && coordinatorModeModule) {
 					const warning = coordinatorModeModule.matchSessionMode(result.mode);
 					if (warning) {
-						process.stderr.write(warning + "\n");
+						process.stderr.write(`${warning}\n`);
 						// Refresh agent definitions to reflect the mode switch
 						const {
 							getAgentDefinitionsWithOverrides,
@@ -5519,7 +5519,7 @@ async function loadInitialMessages(
 			if (feature("COORDINATOR_MODE") && coordinatorModeModule) {
 				const warning = coordinatorModeModule.matchSessionMode(result.mode);
 				if (warning) {
-					process.stderr.write(warning + "\n");
+					process.stderr.write(`${warning}\n`);
 					// Refresh agent definitions to reflect the mode switch
 					const { getAgentDefinitionsWithOverrides, getActiveAgentsFromList } =
 						// eslint-disable-next-line @typescript-eslint/no-require-imports

@@ -135,7 +135,7 @@ export function isMemoryFileAccess(
 	if (
 		filePath &&
 		(isAutoMemFile(filePath) ||
-			(feature("TEAMMEM") && teamMemPaths!.isTeamMemFile(filePath)))
+			(feature("TEAMMEM") && teamMemPaths?.isTeamMemFile(filePath)))
 	) {
 		return true;
 	}
@@ -192,7 +192,7 @@ async function handleSessionFileAccess(
 	}
 
 	// Team memory access tracking
-	if (feature("TEAMMEM") && filePath && teamMemPaths!.isTeamMemFile(filePath)) {
+	if (feature("TEAMMEM") && filePath && teamMemPaths?.isTeamMemFile(filePath)) {
 		logEvent("tengu_team_mem_accessed", {
 			tool: input.tool_name as AnalyticsMetadata_I_VERIFIED_THIS_IS_NOT_CODE_OR_FILEPATHS,
 			...subagentProps,
@@ -220,7 +220,7 @@ async function handleSessionFileAccess(
 			(input.tool_name === FILE_EDIT_TOOL_NAME ||
 				input.tool_name === FILE_WRITE_TOOL_NAME)
 		) {
-			memoryShapeTelemetry!.logMemoryWriteShape(
+			memoryShapeTelemetry?.logMemoryWriteShape(
 				input.tool_name as string,
 				input.tool_input as Record<string, unknown>,
 				filePath,

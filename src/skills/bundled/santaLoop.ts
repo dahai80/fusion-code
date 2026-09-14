@@ -1,4 +1,4 @@
-import { registerBundledSkill } from '../bundledSkills.js'
+import { registerBundledSkill } from "../bundledSkills.js";
 
 const SANTA_LOOP_PROMPT = `# Santa Loop — Adversarial Dual-Review Convergence
 
@@ -112,19 +112,25 @@ Each reviewer evaluates every rubric criterion as PASS or FAIL, then returns:
 
 ### Final Verdict
 - Rounds used: [N]
-- Status: [SHIPPED / ESCALATED]`
+- Status: [SHIPPED / ESCALATED]`;
 
 export function registerSantaLoopSkill(): void {
-    registerBundledSkill({
-        name: 'santa-loop',
-        description: 'Adversarial dual-review convergence: two independent reviewers (correctness + security/quality) must both PASS before code ships. Max 3 rounds.',
-        whenToUse:
-            'When code must meet high quality standards before shipping. Use when the user says "santa loop", "dual review", "adversarial review", "quality gate", or "ship-ready check".',
-        argumentHint: '<file path, glob, or description of what to review>',
-        userInvocable: true,
-        async getPromptForCommand(args) {
-            const topic = args.trim() || 'uncommitted changes'
-            return [{ type: 'text', text: `${SANTA_LOOP_PROMPT}\n\n## Review Target\n\n${topic}` }]
-        },
-    })
+	registerBundledSkill({
+		name: "santa-loop",
+		description:
+			"Adversarial dual-review convergence: two independent reviewers (correctness + security/quality) must both PASS before code ships. Max 3 rounds.",
+		whenToUse:
+			'When code must meet high quality standards before shipping. Use when the user says "santa loop", "dual review", "adversarial review", "quality gate", or "ship-ready check".',
+		argumentHint: "<file path, glob, or description of what to review>",
+		userInvocable: true,
+		async getPromptForCommand(args) {
+			const topic = args.trim() || "uncommitted changes";
+			return [
+				{
+					type: "text",
+					text: `${SANTA_LOOP_PROMPT}\n\n## Review Target\n\n${topic}`,
+				},
+			];
+		},
+	});
 }

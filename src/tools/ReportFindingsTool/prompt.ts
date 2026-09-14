@@ -1,7 +1,7 @@
-export const DESCRIPTION = `Report code-review findings as a typed list.`
+export const DESCRIPTION = `Report code-review findings as a typed list.`;
 
 export function getPrompt(): string {
-    return `Report code-review findings as a typed list for the host UI to render.
+	return `Report code-review findings as a typed list for the host UI to render.
 
 Use only when active code-review instructions tell you to report findings
 with this tool. Otherwise follow whatever output format those instructions specify.
@@ -19,5 +19,5 @@ Finding fields:
 - failure_scenario: Concrete inputs/state -> wrong output/crash
 - category: Short kebab-case slug (correctness, security, perf, etc.)
 - verdict: Set during verify pass (CONFIRMED or PLAUSIBLE)
-- outcome: Set ONLY when re-reporting after fixes (fixed, skipped, no_change_needed)`
+- outcome: Set ONLY when re-reporting after fixes (fixed, skipped, no_change_needed)`;
 }

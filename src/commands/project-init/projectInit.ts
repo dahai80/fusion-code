@@ -1,4 +1,7 @@
-import type { LocalCommandCall, LocalCommandResult } from '../../types/command.js'
+import type {
+	LocalCommandCall,
+	LocalCommandResult,
+} from "../../types/command.js";
 
 const PROJECT_INIT_PROMPT = `# Project Init
 
@@ -44,14 +47,14 @@ Based on detected stack, propose:
 |------|--------|-------------|
 
 ### Apply?
-Confirm before writing any files.`
+Confirm before writing any files.`;
 
 export const call: LocalCommandCall = async (args, _context) => {
-    const target = args.trim() || 'claude'
-    console.log(`[project-init] detecting stack for ${target} onboarding`)
+	const target = args.trim() || "claude";
+	console.log(`[project-init] detecting stack for ${target} onboarding`);
 
-    return {
-            type: 'display',
-        display: PROJECT_INIT_PROMPT,
-    } satisfies LocalCommandResult
-}
+	return {
+		type: "display",
+		display: PROJECT_INIT_PROMPT,
+	} satisfies LocalCommandResult;
+};

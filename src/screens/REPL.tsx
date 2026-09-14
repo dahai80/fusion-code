@@ -346,9 +346,7 @@ import type {
 import type { AutoUpdaterResult } from "../utils/autoUpdater.js";
 import { hasConsoleBillingAccess } from "../utils/billing.js";
 import { incrementPromptCount } from "../utils/commitAttribution.js";
-import {
-	updateSessionActivity,
-} from "../utils/concurrentSessions.js";
+import { updateSessionActivity } from "../utils/concurrentSessions.js";
 import type { PastedContent } from "../utils/config.js";
 import { getGlobalConfig, saveGlobalConfig } from "../utils/config.js";
 import { deserializeMessages } from "../utils/conversationRecovery.js";
@@ -968,7 +966,8 @@ export function REPL({
 
 	// Apply agent tool restrictions if mainThreadAgentDefinition is set
 	const { tools, allowedAgentTypes } = useMemo(
-		() => resolveAgentToolsRestrictions({ mainThreadAgentDefinition, mergedTools }),
+		() =>
+			resolveAgentToolsRestrictions({ mainThreadAgentDefinition, mergedTools }),
 		[mainThreadAgentDefinition, mergedTools],
 	);
 

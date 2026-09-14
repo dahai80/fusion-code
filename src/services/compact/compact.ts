@@ -1,5 +1,5 @@
 import { feature } from "bun:bundle";
-import type { UUID } from "crypto";
+import type { UUID } from "node:crypto";
 import uniqBy from "lodash-es/uniqBy.js";
 
 /* eslint-disable @typescript-eslint/no-require-imports */
@@ -432,9 +432,7 @@ export function truncateHeadForPTLRetry(
 
 type TruncateRetryLogExtra = Record<
 	string,
-	| AnalyticsMetadata_I_VERIFIED_THIS_IS_NOT_CODE_OR_FILEPATHS
-	| number
-	| boolean
+	AnalyticsMetadata_I_VERIFIED_THIS_IS_NOT_CODE_OR_FILEPATHS | number | boolean
 >;
 
 type CompactSummaryRetryOptions = {
@@ -481,7 +479,9 @@ type CompactSummaryRetryOptions = {
  * - The forked-agent path reads forkContextMessages (not `messages`), so each
  *   truncation is threaded through cacheSafeParams as well.
  */
-export async function runCompactSummaryWithTruncateRetry(opts: CompactSummaryRetryOptions): Promise<{
+export async function runCompactSummaryWithTruncateRetry(
+	opts: CompactSummaryRetryOptions,
+): Promise<{
 	summaryResponse: AssistantMessage;
 	summary: string | null;
 	// 审计 v3-0913 P1 修复: 截断重试后实际发送的轮次数 (未截断时 = opts.messages.length)。
@@ -567,14 +567,17 @@ export async function runCompactSummaryWithTruncateRetry(opts: CompactSummaryRet
 		ptlAttempts++;
 		// item 16 (CC 2.1.228): emit 用户可见重试进度 (复用已算的判定, 不重判)
 		// 审计 v3 P3: 提取为局部变量, logFailed 复用同一判定 (此前 caller 硬编码)
-		const retryReason: "prompt_too_long" | "mlx_memory" | "mlx_server_error" | "context_window_exceeded" =
-			isEmptyMlxOom
-				? "mlx_memory"
-				: isMlxServerError
-					? "mlx_server_error"
-					: isContextWindowOverflow
-						? "context_window_exceeded"
-						: "prompt_too_long";
+		const retryReason:
+			| "prompt_too_long"
+			| "mlx_memory"
+			| "mlx_server_error"
+			| "context_window_exceeded" = isEmptyMlxOom
+			? "mlx_memory"
+			: isMlxServerError
+				? "mlx_server_error"
+				: isContextWindowOverflow
+					? "context_window_exceeded"
+					: "prompt_too_long";
 		context.onCompactProgress?.({
 			type: "compact_retry",
 			attempt: ptlAttempts,
@@ -810,9 +813,9 @@ export function annotateBoundaryWithPreservedSegment(
 		compactMetadata: {
 			...boundary.compactMetadata,
 			preservedSegment: {
-				headUuid: keep[0]!.uuid,
+				headUuid: keep[0]?.uuid,
 				anchorUuid,
-				tailUuid: keep.at(-1)!.uuid,
+				tailUuid: keep.at(-1)?.uuid,
 			},
 		},
 	};
@@ -1009,12 +1012,12 @@ export async function compactConversation(
 		}
 		// 如果 preflight 截断了消息, forkContextMessages 必须同步更新,
 		// 否则 fork-agent 路径发送未截断原始消息到 MLX 导致 OOM
-		let retryCacheSafeParams = preflightTruncated
+		const retryCacheSafeParams = preflightTruncated
 			? { ...cacheSafeParams, forkContextMessages: preflightTruncated }
 			: cacheSafeParams;
 		let summaryResponse: AssistantMessage;
 		let summary: string | null;
-		let finalMessageCount: number;
+		let _finalMessageCount: number;
 		{
 			const result = await runCompactSummaryWithTruncateRetry({
 				messages: messagesToSummarize,
@@ -1037,7 +1040,7 @@ export async function compactConversation(
 			});
 			summaryResponse = result.summaryResponse;
 			summary = result.summary;
-			finalMessageCount = result.finalMessageCount;
+			_finalMessageCount = result.finalMessageCount;
 		}
 
 		if (!summary) {
@@ -1468,7 +1471,7 @@ export async function partialCompactConversation(
 			});
 			apiMessages = partialPreflight;
 		}
-		let retryCacheSafeParams =
+		const retryCacheSafeParams =
 			direction === "up_to"
 				? {
 						...cacheSafeParams,
@@ -2418,7 +2421,10 @@ function truncateToTokens(content: string, maxTokens: number): string {
 	}
 	// Math.max guards tiny positive budgets where the marker alone exceeds
 	// maxTokens*4 (charBudget would still go negative).
-	const charBudget = Math.max(0, maxTokens * 4 - SKILL_TRUNCATION_MARKER.length);
+	const charBudget = Math.max(
+		0,
+		maxTokens * 4 - SKILL_TRUNCATION_MARKER.length,
+	);
 	return content.slice(0, charBudget) + SKILL_TRUNCATION_MARKER;
 }
 

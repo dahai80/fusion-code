@@ -10,7 +10,7 @@
 // 辅助返 Promise<void> (两 await + push, 异步)。无 JSX → .ts。
 // 注: 此为 resume 切块提取的第 8 块 (sessionEnd + sessionStart hooks, 含 return-value-threading)。
 
-import type { UUID } from "crypto";
+import type { UUID } from "node:crypto";
 import type { ResumeEntrypoint } from "../commands.js";
 import type { AppStateStore } from "../state/AppStateStore.js";
 import type { AgentDefinition } from "../tools/AgentTool/loadAgentsDir.js";

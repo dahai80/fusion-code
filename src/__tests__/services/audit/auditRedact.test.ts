@@ -104,7 +104,9 @@ describe("audit redactSecrets P1-9 expanded families (audit R16)", () => {
 		// Assembled from fragments so the source does not contain a literal
 		// token shape (GitHub push-protection blocks realistic xoxb- values).
 		// Still satisfies SECRET_RE: xox[abprs]-[0-9]{10,13}-[0-9]{10,13}[A-Za-z0-9-]*
-		const tok = ["xox", "b-", "1234567890", "-", "0987654321", "abcdef"].join("");
+		const tok = ["xox", "b-", "1234567890", "-", "0987654321", "abcdef"].join(
+			"",
+		);
 		const out = redactSecrets(`SLACK_TOKEN=${tok}`);
 		expect(out).not.toContain(tok);
 		expect(out).toContain("xoxb…cdef");

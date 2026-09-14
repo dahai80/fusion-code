@@ -1,5 +1,5 @@
-import { mkdir, readFile, writeFile } from "fs/promises";
-import { join } from "path";
+import { mkdir, readFile, writeFile } from "node:fs/promises";
+import { join } from "node:path";
 import { logForDebugging } from "../../utils/debug.js";
 import { cosineSimilarity } from "./embedder.js";
 

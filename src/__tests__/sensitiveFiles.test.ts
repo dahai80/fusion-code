@@ -130,9 +130,7 @@ describe("extractCandidatePathsFromCommand", () => {
 	});
 
 	it("recurses into sh -c with double-quoted script", () => {
-		const cands = extractCandidatePathsFromCommand(
-			'sh -c "grep x ~/.npmrc"',
-		);
+		const cands = extractCandidatePathsFromCommand('sh -c "grep x ~/.npmrc"');
 		expect(cands).toContain("~/.npmrc");
 	});
 
@@ -145,9 +143,9 @@ describe("extractCandidatePathsFromCommand", () => {
 
 	it("extracts .envrc from a bash command (audit-0902 P1-2)", () => {
 		// SENSITIVE_BASENAMES missed .envrc → `cat ~/.envrc` reached direnv secrets.
-		expect(
-			extractCandidatePathsFromCommand("cat ~/.envrc"),
-		).toContain("~/.envrc");
+		expect(extractCandidatePathsFromCommand("cat ~/.envrc")).toContain(
+			"~/.envrc",
+		);
 	});
 
 	it("does not false-positive on flags", () => {

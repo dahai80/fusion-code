@@ -1,15 +1,15 @@
 export function intersperse<A>(as: A[], separator: (index: number) => A): A[] {
-  return as.flatMap((a, i) => (i ? [separator(i), a] : [a]))
+	return as.flatMap((a, i) => (i ? [separator(i), a] : [a]));
 }
 
 export function count<T>(arr: readonly T[], pred: (x: T) => unknown): number {
-  let n = 0
-  for (const x of arr) n += +!!pred(x)
-  return n
+	let n = 0;
+	for (const x of arr) n += +!!pred(x);
+	return n;
 }
 
 export function uniq<T>(xs: Iterable<T>): T[] {
-  return [...new Set(xs)]
+	return [...new Set(xs)];
 }
 
 // audit 1.1.1: 从 REPL.tsx 抽出的纯函数。ttft/otps 多请求时取中位数。

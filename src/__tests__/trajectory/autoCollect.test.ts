@@ -9,10 +9,18 @@ const ENV_KEY = "FUSION_CODE_TRAJECTORY_AUTOCOLLECT";
 
 // Stub collectTrajectories so we can assert it's called/rejected without
 // touching the filesystem (~/.fusion/trajectories). Must stub full surface.
-let collectCalls: Array<{ sourceDir: string; destDir: string; product: string }> = [];
+let collectCalls: Array<{
+	sourceDir: string;
+	destDir: string;
+	product: string;
+}> = [];
 let collectShouldThrow = false;
 mock.module("../../services/trajectory/collector.js", () => ({
-	collectTrajectories: async (opts: { sourceDir: string; destDir: string; product: string }) => {
+	collectTrajectories: async (opts: {
+		sourceDir: string;
+		destDir: string;
+		product: string;
+	}) => {
 		collectCalls.push(opts);
 		if (collectShouldThrow) {
 			throw new Error("simulated collect failure");
@@ -22,7 +30,14 @@ mock.module("../../services/trajectory/collector.js", () => ({
 			generatedAt: "2026-09-02T00:00:00.000Z",
 			destDir: opts.destDir,
 			sessions: [],
-			totals: { sessions: 0, steps: 0, toolUse: 0, toolError: 0, positive: 0, selfCorrection: 0 },
+			totals: {
+				sessions: 0,
+				steps: 0,
+				toolUse: 0,
+				toolError: 0,
+				positive: 0,
+				selfCorrection: 0,
+			},
 		};
 	},
 	DEFAULT_SOURCE_DIR: "/mock/source",
@@ -47,9 +62,8 @@ mock.module("../../utils/buildConstants.js", () => ({
 // executor/manager.test.ts (isExecutorEnabled uses the same fn) and break its
 // truthy-value assertions. The real isEnvTruthy + logForDebugging are safe.
 
-const { isTrajectoryAutoCollectEnabled, autoCollectTrajectoryOnSessionEnd } = await import(
-	"../../services/trajectory/index.js"
-);
+const { isTrajectoryAutoCollectEnabled, autoCollectTrajectoryOnSessionEnd } =
+	await import("../../services/trajectory/index.js");
 
 describe("insight-0902 E1 — SessionEnd trajectory auto-collect", () => {
 	beforeEach(() => {

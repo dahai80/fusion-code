@@ -1,10 +1,10 @@
-import type { ChildProcess, ExecFileException } from "child_process";
-import { execFile, spawn } from "child_process";
+import type { ChildProcess, ExecFileException } from "node:child_process";
+import { execFile, spawn } from "node:child_process";
+import { homedir } from "node:os";
+import * as path from "node:path";
+import { fileURLToPath } from "node:url";
 import memoize from "lodash-es/memoize.js";
-import { homedir } from "os";
-import * as path from "path";
 import { logEvent } from "src/services/analytics/index.js";
-import { fileURLToPath } from "url";
 import { isInBundledMode } from "./bundledMode.js";
 import { logForDebugging } from "./debug.js";
 import { isEnvDefinedFalsy } from "./envUtils.js";

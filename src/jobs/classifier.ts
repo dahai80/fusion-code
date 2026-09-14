@@ -86,7 +86,7 @@ export async function classifyAndWriteState(
 		return;
 	}
 	try {
-		const { writeFileSync } = await import("fs");
+		const { writeFileSync } = await import("node:fs");
 		const state = {
 			classifiedAt: new Date().toISOString(),
 			jobDir,

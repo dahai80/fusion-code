@@ -2,10 +2,10 @@
 // less 风格 / 搜索栏。1 行, 与 TranscriptModeFooter 同 border-top 样式。
 // useSearchInput 处理 readline 编辑; 本组件上报 query 变化 + 渲染计数器。
 
-import * as React from "react";
 import type { RefObject } from "react";
-import { Box, Text } from "../ink.js";
+import * as React from "react";
 import { useSearchInput } from "../hooks/useSearchInput.js";
+import { Box, Text } from "../ink.js";
 import type { JumpHandle } from "./VirtualMessageList.js";
 
 export interface TranscriptSearchBarProps {
@@ -84,7 +84,7 @@ export function TranscriptSearchBar({
 			alive = false;
 		};
 		// eslint-disable-next-line react-hooks/exhaustive-deps
-	}, []); // mount-only: bar opens once per /
+	}, [jumpRef.current?.warmSearchIndex]); // mount-only: bar opens once per /
 	// Gate the query effect on warm completion. setHighlight stays instant
 	// (screen-space overlay, no indexing). setSearchQuery (the scan) waits.
 	const warmDone = indexStatus !== "building";
@@ -93,7 +93,7 @@ export function TranscriptSearchBar({
 		jumpRef.current?.setSearchQuery(query);
 		setHighlight(query);
 		// eslint-disable-next-line react-hooks/exhaustive-deps
-	}, [query, warmDone]);
+	}, [query, warmDone, setHighlight, jumpRef.current?.setSearchQuery]);
 	const off = cursorOffset;
 	const cursorChar = off < query.length ? query[off] : " ";
 	return (

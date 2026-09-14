@@ -1,10 +1,10 @@
 import {
-  type ExecSyncOptions,
-  type ExecSyncOptionsWithBufferEncoding,
-  type ExecSyncOptionsWithStringEncoding,
-  execSync as nodeExecSync,
-} from 'child_process'
-import { slowLogging } from './slowOperations.js'
+	type ExecSyncOptions,
+	type ExecSyncOptionsWithBufferEncoding,
+	type ExecSyncOptionsWithStringEncoding,
+	execSync as nodeExecSync,
+} from "node:child_process";
+import { slowLogging } from "./slowOperations.js";
 
 /**
  * NOTE: Sync exec calls block the event loop. Prefer async alternatives.
@@ -16,23 +16,23 @@ import { slowLogging } from './slowOperations.js'
  * import { execSyncWrapped } from './execSyncWrapper.js'
  * const result = execSyncWrapped('git status', { encoding: 'utf8' })
  */
-export function execSyncWrapped(command: string): Buffer
+export function execSyncWrapped(command: string): Buffer;
 export function execSyncWrapped(
-  command: string,
-  options: ExecSyncOptionsWithStringEncoding,
-): string
+	command: string,
+	options: ExecSyncOptionsWithStringEncoding,
+): string;
 export function execSyncWrapped(
-  command: string,
-  options: ExecSyncOptionsWithBufferEncoding,
-): Buffer
+	command: string,
+	options: ExecSyncOptionsWithBufferEncoding,
+): Buffer;
 export function execSyncWrapped(
-  command: string,
-  options?: ExecSyncOptions,
-): Buffer | string
+	command: string,
+	options?: ExecSyncOptions,
+): Buffer | string;
 export function execSyncWrapped(
-  command: string,
-  options?: ExecSyncOptions,
+	command: string,
+	options?: ExecSyncOptions,
 ): Buffer | string {
-  using _ = slowLogging`execSync: ${command.slice(0, 100)}`
-  return nodeExecSync(command, options)
+	using _ = slowLogging`execSync: ${command.slice(0, 100)}`;
+	return nodeExecSync(command, options);
 }

@@ -1,5 +1,5 @@
-import { loadMemoryPrompt } from "../memdir/memdir.js";
 import { getSystemPromptSectionCache } from "../bootstrap/state.js";
+import { loadMemoryPrompt } from "../memdir/memdir.js";
 import type { Tools } from "../Tool.js";
 import { AGENT_TOOL_NAME } from "../tools/AgentTool/constants.js";
 import { BASH_TOOL_NAME } from "../tools/BashTool/toolName.js";
@@ -64,12 +64,6 @@ import {
 	getTypeSafetyProtocol,
 } from "./micro-scenario-protocols.js";
 import { getUnameSR } from "./prompts.js";
-import {
-	getCodeReviewPrompt,
-	getCompactReviewPrompt,
-	getPerformanceReviewPrompt,
-	getSecurityReviewPrompt,
-} from "./review-templates.js";
 import {
 	getAPIChangeProtocol,
 	getBugFixProtocol,
@@ -634,7 +628,7 @@ For non-trivial tasks: analyze the request, plan your approach, then execute. Re
 export async function buildMlxSystemPrompt(
 	tools: Tools,
 	model: string,
-	additionalWorkingDirectories?: string[],
+	_additionalWorkingDirectories?: string[],
 	contextWindow?: number,
 ): Promise<string[]> {
 	const paramCount = estimateModelParamCount(model);
@@ -649,16 +643,13 @@ export async function buildMlxSystemPrompt(
 	// session cache so the MLX path pays the I/O only on the first turn, then
 	// /clear (clearSystemPromptSectionCache) invalidates it for a new session.
 	const sectionCache = getSystemPromptSectionCache();
-	const memoryPrompt =
-		sectionCache.has("memory")
-			? (sectionCache.get("memory") as string | null) ?? ""
-			: await loadMemoryPrompt();
-	if (!sectionCache.has("memory"))
-		sectionCache.set("memory", memoryPrompt);
-	const projectContext =
-		sectionCache.has("project_context")
-			? (sectionCache.get("project_context") as string | null) ?? ""
-			: await getCompactProjectContext(cwd);
+	const memoryPrompt = sectionCache.has("memory")
+		? ((sectionCache.get("memory") as string | null) ?? "")
+		: await loadMemoryPrompt();
+	if (!sectionCache.has("memory")) sectionCache.set("memory", memoryPrompt);
+	const projectContext = sectionCache.has("project_context")
+		? ((sectionCache.get("project_context") as string | null) ?? "")
+		: await getCompactProjectContext(cwd);
 	if (!sectionCache.has("project_context"))
 		sectionCache.set("project_context", projectContext);
 	const enabledTools = new Set(tools.map((t) => t.name));
@@ -796,8 +787,7 @@ export async function buildMlxSystemPrompt(
 	// to keep total system prompt within budget. Memory can be very large
 	// (4K+ tokens) and is the primary variable cost.
 	if (tier === "compact" && memoryPrompt && memoryPrompt.length > 3000) {
-		const truncated =
-			memoryPrompt.substring(0, 3000) + "\n... (truncated for context window)";
+		const truncated = `${memoryPrompt.substring(0, 3000)}\n... (truncated for context window)`;
 		sections.push(truncated);
 	} else {
 		sections.push(memoryPrompt);

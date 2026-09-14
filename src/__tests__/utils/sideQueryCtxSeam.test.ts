@@ -12,7 +12,9 @@ const { getAPIProvider } = await import("../../utils/model/providers.js");
 
 // 审计 v3-0913 P2-3: harness 统一抽到 helpers/providerEnv.ts (补齐
 // baseUrl/model 路由 key 的隔离, 此前裸 delete 的 key 不会被还原)。
-const { installProviderEnvIsolation } = await import("../helpers/providerEnv.js");
+const { installProviderEnvIsolation } = await import(
+	"../helpers/providerEnv.js"
+);
 
 // firstParty selected by getAPIProvider when FUSION_API_KEY is a sk-ant- key.
 installProviderEnvIsolation({ FUSION_API_KEY: "sk-ant-test" });

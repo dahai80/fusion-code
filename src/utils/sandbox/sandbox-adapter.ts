@@ -4,6 +4,15 @@
  * with Fusion-Code-specific integrations: settings system, tool integration, extra features.
  */
 
+import { rmSync, statSync } from "node:fs";
+import { readFile } from "node:fs/promises";
+import { join, resolve, sep } from "node:path";
+import { memoize } from "lodash-es";
+import {
+	getAdditionalDirectoriesForClaudeMd,
+	getCwdState,
+	getOriginalCwd,
+} from "../../bootstrap/state.js";
 import type {
 	FsReadRestrictionConfig,
 	FsWriteRestrictionConfig,
@@ -19,15 +28,6 @@ import {
 	SandboxManager as BaseSandboxManager,
 	SandboxViolationStore,
 } from "../../vendor/sandbox-runtime/dist/index.js";
-import { rmSync, statSync } from "fs";
-import { readFile } from "fs/promises";
-import { memoize } from "lodash-es";
-import { join, resolve, sep } from "path";
-import {
-	getAdditionalDirectoriesForClaudeMd,
-	getCwdState,
-	getOriginalCwd,
-} from "../../bootstrap/state.js";
 import { logForDebugging } from "../debug.js";
 import { expandPath } from "../path.js";
 import { getPlatform, type Platform } from "../platform.js";
@@ -873,8 +873,8 @@ export function addToExcludedCommands(
 				update.rules.some((rule) => rule.toolName === BASH_TOOL_NAME),
 		);
 
-		if (bashSuggestions.length > 0 && bashSuggestions[0]!.type === "addRules") {
-			const firstBashRule = bashSuggestions[0]!.rules.find(
+		if (bashSuggestions.length > 0 && bashSuggestions[0]?.type === "addRules") {
+			const firstBashRule = bashSuggestions[0]?.rules.find(
 				(rule) => rule.toolName === BASH_TOOL_NAME,
 			);
 			if (firstBashRule?.ruleContent) {

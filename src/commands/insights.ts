@@ -1,7 +1,6 @@
-import { execFileSync } from "child_process";
-import { diffLines } from "diff";
-import type { Dirent } from "fs";
-import { constants as fsConstants } from "fs";
+import { execFileSync } from "node:child_process";
+import type { Dirent } from "node:fs";
+import { constants as fsConstants } from "node:fs";
 import {
 	copyFile,
 	mkdir,
@@ -11,9 +10,10 @@ import {
 	rm,
 	unlink,
 	writeFile,
-} from "fs/promises";
-import { tmpdir } from "os";
-import { extname, join } from "path";
+} from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { extname, join } from "node:path";
+import { diffLines } from "diff";
 import type { Command } from "../commands.js";
 import { queryWithModel } from "../services/api/index.js";
 import {
@@ -1108,7 +1108,7 @@ export function detectMultiClauding(
 		// Shrink window from the left
 		while (
 			windowStart < i &&
-			msg.ts - allSessionMessages[windowStart]!.ts > OVERLAP_WINDOW_MS
+			msg.ts - allSessionMessages[windowStart]?.ts > OVERLAP_WINDOW_MS
 		) {
 			const expiring = allSessionMessages[windowStart]!;
 			if (sessionLastIndex.get(expiring.sessionId) === windowStart) {
@@ -1126,7 +1126,7 @@ export function detectMultiClauding(
 					const pair = [msg.sessionId, between.sessionId].sort().join(":");
 					multiClaudeSessionPairs.add(pair);
 					messagesDuringMulticlaude.add(
-						`${allSessionMessages[prevIndex]!.ts}:${msg.sessionId}`,
+						`${allSessionMessages[prevIndex]?.ts}:${msg.sessionId}`,
 					);
 					messagesDuringMulticlaude.add(`${between.ts}:${between.sessionId}`);
 					messagesDuringMulticlaude.add(`${msg.ts}:${msg.sessionId}`);
@@ -1587,7 +1587,7 @@ async function generateSectionInsight(
 	try {
 		const result = await queryWithModel({
 			systemPrompt: asSystemPrompt([]),
-			userPrompt: section.prompt + "\n\nDATA:\n" + dataContext,
+			userPrompt: `${section.prompt}\n\nDATA:\n${dataContext}`,
 			signal: new AbortController().signal,
 			options: {
 				model: getInsightsModel(),

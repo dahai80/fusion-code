@@ -1,5 +1,5 @@
-import { readdir, readFile } from "fs/promises";
-import { extname, join } from "path";
+import { readdir, readFile } from "node:fs/promises";
+import { extname, join } from "node:path";
 import { logForDebugging } from "../../utils/debug.js";
 import type { Chunk } from "./chunker.js";
 import { chunkCode, chunkMarkdown, chunkText } from "./chunker.js";

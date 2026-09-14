@@ -10,9 +10,16 @@ import { startProjectApiServer } from "../../src/server/projectApiServer.js";
 
 const TEST_PORT = 11442;
 const TEST_CWD = "/tmp/fusion-api-test-" + Date.now();
+// P1-15 后 authToken:"" 为 fail-closed (生成随机 token) — 测试显式传 token,
+// 请求统一带 Authorization 头; WS 浏览器端无法设头, 走 ?token= query 回退
+const TEST_TOKEN = "test-token-" + Date.now();
 
 let baseUrl: string;
 let stop: () => void;
+
+const authHeaders = (): Record<string, string> => ({
+	Authorization: `Bearer ${TEST_TOKEN}`,
+});
 
 describe("projectApiServer", () => {
 	beforeEach(async () => {
@@ -27,7 +34,7 @@ describe("projectApiServer", () => {
 		const instance = startProjectApiServer({
 			port: TEST_PORT,
 			host: "127.0.0.1",
-			authToken: "",
+			authToken: TEST_TOKEN,
 		});
 		baseUrl = `http://127.0.0.1:${instance.port}`;
 		stop = instance.stop;
@@ -41,6 +48,7 @@ describe("projectApiServer", () => {
 	it("GET /api/project/context returns project files", async () => {
 		const res = await fetch(
 			`${baseUrl}/api/project/context?cwd=${encodeURIComponent(TEST_CWD)}`,
+			{ headers: authHeaders() },
 		);
 		expect(res.status).toBe(200);
 		const data = await res.json();
@@ -57,6 +65,7 @@ describe("projectApiServer", () => {
 	it("GET /api/sessions returns session list", async () => {
 		const res = await fetch(
 			`${baseUrl}/api/sessions?cwd=${encodeURIComponent(TEST_CWD)}`,
+			{ headers: authHeaders() },
 		);
 		expect(res.status).toBe(200);
 		const data = await res.json();
@@ -66,6 +75,7 @@ describe("projectApiServer", () => {
 	it("GET /api/sessions/:id with invalid UUID returns 400", async () => {
 		const res = await fetch(
 			`${baseUrl}/api/sessions/not-a-uuid?cwd=${encodeURIComponent(TEST_CWD)}`,
+			{ headers: authHeaders() },
 		);
 		expect(res.status).toBe(400);
 		const data = await res.json();
@@ -75,6 +85,7 @@ describe("projectApiServer", () => {
 	it("GET /api/sessions/:id with valid but missing UUID returns 404", async () => {
 		const res = await fetch(
 			`${baseUrl}/api/sessions/00000000-0000-0000-0000-000000000000?cwd=${encodeURIComponent(TEST_CWD)}`,
+			{ headers: authHeaders() },
 		);
 		expect(res.status).toBe(404);
 	});
@@ -82,6 +93,7 @@ describe("projectApiServer", () => {
 	it("GET /api/memory returns memory files", async () => {
 		const res = await fetch(
 			`${baseUrl}/api/memory?cwd=${encodeURIComponent(TEST_CWD)}`,
+			{ headers: authHeaders() },
 		);
 		expect(res.status).toBe(200);
 		const data = await res.json();
@@ -93,7 +105,7 @@ describe("projectApiServer", () => {
 			`${baseUrl}/api/memory?cwd=${encodeURIComponent(TEST_CWD)}`,
 			{
 				method: "POST",
-				headers: { "Content-Type": "application/json" },
+				headers: { "Content-Type": "application/json", ...authHeaders() },
 				body: JSON.stringify({
 					filename: "test-memory.md",
 					content: "Test memory content",
@@ -112,7 +124,7 @@ describe("projectApiServer", () => {
 			`${baseUrl}/api/memory?cwd=${encodeURIComponent(TEST_CWD)}`,
 			{
 				method: "POST",
-				headers: { "Content-Type": "application/json" },
+				headers: { "Content-Type": "application/json", ...authHeaders() },
 				body: JSON.stringify({ filename: "test.md" }),
 			},
 		);
@@ -124,7 +136,7 @@ describe("projectApiServer", () => {
 			`${baseUrl}/api/memory?cwd=${encodeURIComponent(TEST_CWD)}`,
 			{
 				method: "POST",
-				headers: { "Content-Type": "application/json" },
+				headers: { "Content-Type": "application/json", ...authHeaders() },
 				body: JSON.stringify({
 					filename: "../etc/passwd",
 					content: "hacked",
@@ -135,7 +147,9 @@ describe("projectApiServer", () => {
 	});
 
 	it("GET unknown route returns 404", async () => {
-		const res = await fetch(`${baseUrl}/api/unknown`);
+		const res = await fetch(`${baseUrl}/api/unknown`, {
+			headers: authHeaders(),
+		});
 		expect(res.status).toBe(404);
 	});
 
@@ -149,7 +163,7 @@ describe("projectApiServer", () => {
 
 	describe("WebSocket /ws/chat", () => {
 		it("rejects WS connection with invalid JSON", async () => {
-			const ws = new WebSocket(`ws://127.0.0.1:${TEST_PORT}/ws/chat`);
+			const ws = new WebSocket(`ws://127.0.0.1:${TEST_PORT}/ws/chat?token=${TEST_TOKEN}`);
 			await new Promise<void>((resolve) => {
 				ws.onopen = () => {
 					ws.send("not-json");
@@ -165,7 +179,7 @@ describe("projectApiServer", () => {
 		});
 
 		it("rejects chat.stream without message", async () => {
-			const ws = new WebSocket(`ws://127.0.0.1:${TEST_PORT}/ws/chat`);
+			const ws = new WebSocket(`ws://127.0.0.1:${TEST_PORT}/ws/chat?token=${TEST_TOKEN}`);
 			await new Promise<void>((resolve) => {
 				ws.onopen = () => {
 					ws.send(JSON.stringify({ action: "chat.stream" }));
@@ -181,7 +195,7 @@ describe("projectApiServer", () => {
 		});
 
 		it("returns error for unknown action", async () => {
-			const ws = new WebSocket(`ws://127.0.0.1:${TEST_PORT}/ws/chat`);
+			const ws = new WebSocket(`ws://127.0.0.1:${TEST_PORT}/ws/chat?token=${TEST_TOKEN}`);
 			await new Promise<void>((resolve) => {
 				ws.onopen = () => {
 					ws.send(JSON.stringify({ action: "unknown.action" }));
@@ -197,7 +211,7 @@ describe("projectApiServer", () => {
 		});
 
 		it("handles chat.cancel gracefully with no active session", async () => {
-			const ws = new WebSocket(`ws://127.0.0.1:${TEST_PORT}/ws/chat`);
+			const ws = new WebSocket(`ws://127.0.0.1:${TEST_PORT}/ws/chat?token=${TEST_TOKEN}`);
 			await new Promise<void>((resolve) => {
 				ws.onopen = () => {
 					ws.send(JSON.stringify({ action: "chat.cancel" }));
@@ -208,7 +222,7 @@ describe("projectApiServer", () => {
 		});
 
 		it("upgrades to WebSocket on /ws/chat path", async () => {
-			const ws = new WebSocket(`ws://127.0.0.1:${TEST_PORT}/ws/chat`);
+			const ws = new WebSocket(`ws://127.0.0.1:${TEST_PORT}/ws/chat?token=${TEST_TOKEN}`);
 			await new Promise<void>((resolve) => {
 				ws.onopen = () => {
 					expect(ws.readyState).toBe(WebSocket.OPEN);

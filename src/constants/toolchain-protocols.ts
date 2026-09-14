@@ -1,5 +1,5 @@
 export function getGitConflictProtocol(): string {
-    return `# Git conflict resolution protocol
+	return `# Git conflict resolution protocol
 
 ## When conflicts occur
 
@@ -35,11 +35,11 @@ export function getGitConflictProtocol(): string {
 - Pull/rebase frequently to reduce conflict surface
 - Keep changes small and focused
 - Communicate with team about overlapping changes
-- Use feature flags instead of long-lived branches`
+- Use feature flags instead of long-lived branches`;
 }
 
 export function getCIDebuggingProtocol(): string {
-    return `# CI debugging protocol
+	return `# CI debugging protocol
 
 ## When CI fails
 
@@ -78,11 +78,11 @@ export function getCIDebuggingProtocol(): string {
 - Verify the fix in CI, not just locally
 - If the fix was environment-specific, document it in the CI config
 - If you found a flaky test, fix it or mark it as skipped with a TODO
-- Add the failure pattern to your knowledge for next time`
+- Add the failure pattern to your knowledge for next time`;
 }
 
 export function getDockerDebuggingProtocol(): string {
-    return `# Docker debugging protocol
+	return `# Docker debugging protocol
 
 ## Build failures
 
@@ -129,11 +129,11 @@ export function getDockerDebuggingProtocol(): string {
 - Service won't start → docker compose logs <service>
 - Dependency order → check depends_on, add health checks
 - Environment not passed → check .env file, env_file directive, environment section
-- Rebuild after Dockerfile change → docker compose build --no-cache <service>`
+- Rebuild after Dockerfile change → docker compose build --no-cache <service>`;
 }
 
 export function getPackageManagerProtocol(): string {
-    return `# Package manager protocol
+	return `# Package manager protocol
 
 ## Choosing the right command
 
@@ -174,11 +174,11 @@ export function getPackageManagerProtocol(): string {
 
 - Use workspaces: npm/yarn/bun workspaces
 - Install at root, not in sub-packages
-- Use turbo/nx/lerna for build orchestration if the project already does`
+- Use turbo/nx/lerna for build orchestration if the project already does`;
 }
 
 export function getBuildSystemProtocol(): string {
-    return `# Build system protocol
+	return `# Build system protocol
 
 ## When the build fails
 
@@ -207,11 +207,11 @@ export function getBuildSystemProtocol(): string {
 
 - Use watch mode during development for faster feedback loops
 - If watch mode breaks: full clean + rebuild usually fixes it
-- Don't rely on watch mode for production builds. Always do a clean build.`
+- Don't rely on watch mode for production builds. Always do a clean build.`;
 }
 
 export function getLintFormatProtocol(): string {
-    return `# Lint and format protocol
+	return `# Lint and format protocol
 
 ## When lint fails
 
@@ -247,11 +247,11 @@ export function getLintFormatProtocol(): string {
 
 - Lint should run in CI. If it doesn't, add it.
 - Format check (--check flag) should run in CI.
-- Don't add new lint rules that fail on existing code. Add them as warnings first, then fix and promote to errors.`
+- Don't add new lint rules that fail on existing code. Add them as warnings first, then fix and promote to errors.`;
 }
 
 export function getMonitoringProtocol(): string {
-    return `# Monitoring and alerting protocol
+	return `# Monitoring and alerting protocol
 
 ## Adding monitoring
 
@@ -280,5 +280,5 @@ export function getMonitoringProtocol(): string {
 - Liveness: is the process running? (simple endpoint returning 200)
 - Readiness: can it serve traffic? (check dependencies: DB, cache, external APIs)
 - Startup: is it still initializing? (for slow-starting services)
-- Health checks should be lightweight. Don't do expensive operations.`
+- Health checks should be lightweight. Don't do expensive operations.`;
 }

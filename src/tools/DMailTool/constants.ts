@@ -1,1 +1,1 @@
-export const DMAIL_TOOL_NAME = 'SendDMail'
+export const DMAIL_TOOL_NAME = "SendDMail";

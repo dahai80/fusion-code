@@ -1,4 +1,4 @@
-import { registerBundledSkill } from '../bundledSkills.js'
+import { registerBundledSkill } from "../bundledSkills.js";
 
 const WRITING_PLANS_PROMPT = `# PRP — Prompt-Rich Plan
 
@@ -97,19 +97,25 @@ Before presenting, self-check:
 
 ## Output Format
 
-[Follow the structure from Phase 2 exactly]`
+[Follow the structure from Phase 2 exactly]`;
 
 export function registerWritingPlansSkill(): void {
-    registerBundledSkill({
-        name: 'writing-plans',
-        description: 'PRP methodology: analyze codebase patterns → write self-contained plan with pattern references → validate. No codebase search needed during implementation.',
-        whenToUse:
-            'When the user asks to "write a plan", "create an implementation plan", "plan this out", "PRP", or when a complex task needs structured decomposition before coding.',
-        argumentHint: '<feature description or path/to/prd.md>',
-        userInvocable: true,
-        async getPromptForCommand(args) {
-            const task = args.trim() || 'the current task'
-            return [{ type: 'text', text: `${WRITING_PLANS_PROMPT}\n\n## Task to Plan\n\n${task}` }]
-        },
-    })
+	registerBundledSkill({
+		name: "writing-plans",
+		description:
+			"PRP methodology: analyze codebase patterns → write self-contained plan with pattern references → validate. No codebase search needed during implementation.",
+		whenToUse:
+			'When the user asks to "write a plan", "create an implementation plan", "plan this out", "PRP", or when a complex task needs structured decomposition before coding.',
+		argumentHint: "<feature description or path/to/prd.md>",
+		userInvocable: true,
+		async getPromptForCommand(args) {
+			const task = args.trim() || "the current task";
+			return [
+				{
+					type: "text",
+					text: `${WRITING_PLANS_PROMPT}\n\n## Task to Plan\n\n${task}`,
+				},
+			];
+		},
+	});
 }

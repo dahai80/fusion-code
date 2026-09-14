@@ -1,6 +1,6 @@
+import { homedir } from "node:os";
+import { dirname, isAbsolute, resolve } from "node:path";
 import memoize from "lodash-es/memoize.js";
-import { homedir } from "os";
-import { dirname, isAbsolute, resolve } from "path";
 import type { ToolPermissionContext } from "../../Tool.js";
 import { getPlatform } from "../../utils/platform.js";
 import {
@@ -125,9 +125,9 @@ export function isPathInSandboxWriteAllowlist(resolvedPath: string): boolean {
 // Sandbox config paths are session-stable; memoize their resolved forms to
 // avoid repeated lstat/realpath syscalls on every write-target check.
 // Matches the getResolvedWorkingDirPaths pattern in filesystem.ts.
-const getResolvedSandboxConfigPath = memoize(
-	getPathsForPermissionCheck,
-) as (path: string) => string[];
+const getResolvedSandboxConfigPath = memoize(getPathsForPermissionCheck) as (
+	path: string,
+) => string[];
 
 /**
  * Checks if a resolved path is allowed for the given operation type.

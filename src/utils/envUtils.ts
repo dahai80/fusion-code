@@ -1,5 +1,5 @@
-import { homedir } from 'os'
-import { join } from 'path'
+import { homedir } from "node:os";
+import { join } from "node:path";
 
 // 默认配置目录 ~/.fusion-code，可在启动时通过 FUSION_CODE_CONFIG_DIR 环境变量覆盖
 // audit-0903 P1 OPS-1: 之前此函数硬编码 DEFAULT_CONFIG_DIR，完全忽略
@@ -7,13 +7,16 @@ import { join } from 'path'
 // 导致 history/keybindings/fileHistory/memory 等所有消费方都落在 ~/.fusion-code，
 // env 覆盖对主运行时失效。现在按 env > 默认 解析，与 projectApiServer 一致。
 export function getClaudeConfigHomeDir(): string {
-  const override = process.env.FUSION_CODE_CONFIG_DIR
-  const dir = override && override.length > 0 ? override : join(homedir(), '.fusion-code')
-  return dir.normalize('NFC')
+	const override = process.env.FUSION_CODE_CONFIG_DIR;
+	const dir =
+		override && override.length > 0
+			? override
+			: join(homedir(), ".fusion-code");
+	return dir.normalize("NFC");
 }
 
 export function getTeamsDir(): string {
-  return join(getClaudeConfigHomeDir(), 'teams')
+	return join(getClaudeConfigHomeDir(), "teams");
 }
 
 /**
@@ -21,28 +24,28 @@ export function getTeamsDir(): string {
  * Splits on whitespace and checks for exact match to avoid false positives.
  */
 export function hasNodeOption(flag: string): boolean {
-  const nodeOptions = process.env.NODE_OPTIONS
-  if (!nodeOptions) {
-    return false
-  }
-  return nodeOptions.split(/\s+/).includes(flag)
+	const nodeOptions = process.env.NODE_OPTIONS;
+	if (!nodeOptions) {
+		return false;
+	}
+	return nodeOptions.split(/\s+/).includes(flag);
 }
 
 export function isEnvTruthy(envVar: string | boolean | undefined): boolean {
-  if (!envVar) return false
-  if (typeof envVar === 'boolean') return envVar
-  const normalizedValue = envVar.toLowerCase().trim()
-  return ['1', 'true', 'yes', 'on'].includes(normalizedValue)
+	if (!envVar) return false;
+	if (typeof envVar === "boolean") return envVar;
+	const normalizedValue = envVar.toLowerCase().trim();
+	return ["1", "true", "yes", "on"].includes(normalizedValue);
 }
 
 export function isEnvDefinedFalsy(
-  envVar: string | boolean | undefined,
+	envVar: string | boolean | undefined,
 ): boolean {
-  if (envVar === undefined) return false
-  if (typeof envVar === 'boolean') return !envVar
-  if (!envVar) return false
-  const normalizedValue = envVar.toLowerCase().trim()
-  return ['0', 'false', 'no', 'off'].includes(normalizedValue)
+	if (envVar === undefined) return false;
+	if (typeof envVar === "boolean") return !envVar;
+	if (!envVar) return false;
+	const normalizedValue = envVar.toLowerCase().trim();
+	return ["0", "false", "no", "off"].includes(normalizedValue);
 }
 
 /**
@@ -57,10 +60,10 @@ export function isEnvDefinedFalsy(
  * — notably startKeychainPrefetch() at main.tsx top-level.
  */
 export function isBareMode(): boolean {
-  return (
-    isEnvTruthy(process.env.FUSION_CODE_SIMPLE) ||
-    process.argv.includes('--bare')
-  )
+	return (
+		isEnvTruthy(process.env.FUSION_CODE_SIMPLE) ||
+		process.argv.includes("--bare")
+	);
 }
 
 /**
@@ -69,23 +72,23 @@ export function isBareMode(): boolean {
  * @returns Object with key-value pairs
  */
 export function parseEnvVars(
-  rawEnvArgs: string[] | undefined,
+	rawEnvArgs: string[] | undefined,
 ): Record<string, string> {
-  const parsedEnv: Record<string, string> = {}
+	const parsedEnv: Record<string, string> = {};
 
-  // Parse individual env vars
-  if (rawEnvArgs) {
-    for (const envStr of rawEnvArgs) {
-      const [key, ...valueParts] = envStr.split('=')
-      if (!key || valueParts.length === 0) {
-        throw new Error(
-          `Invalid environment variable format: ${envStr}, environment variables should be added as: -e KEY1=value1 -e KEY2=value2`,
-        )
-      }
-      parsedEnv[key] = valueParts.join('=')
-    }
-  }
-  return parsedEnv
+	// Parse individual env vars
+	if (rawEnvArgs) {
+		for (const envStr of rawEnvArgs) {
+			const [key, ...valueParts] = envStr.split("=");
+			if (!key || valueParts.length === 0) {
+				throw new Error(
+					`Invalid environment variable format: ${envStr}, environment variables should be added as: -e KEY1=value1 -e KEY2=value2`,
+				);
+			}
+			parsedEnv[key] = valueParts.join("=");
+		}
+	}
+	return parsedEnv;
 }
 
 /**
@@ -93,14 +96,14 @@ export function parseEnvVars(
  * Matches the Anthropic Bedrock SDK's region behavior
  */
 export function getAWSRegion(): string {
-  return 'us-east-1'
+	return "us-east-1";
 }
 
 /**
  * Get the default Vertex AI region
  */
 export function getDefaultVertexRegion(): string {
-  return 'us-east5'
+	return "us-east5";
 }
 
 /**
@@ -108,17 +111,17 @@ export function getDefaultVertexRegion(): string {
  * @returns true if CLAUDE_BASH_MAINTAIN_PROJECT_WORKING_DIR is set to a truthy value
  */
 export function shouldMaintainProjectWorkingDir(): boolean {
-  return isEnvTruthy(process.env.CLAUDE_BASH_MAINTAIN_PROJECT_WORKING_DIR)
+	return isEnvTruthy(process.env.CLAUDE_BASH_MAINTAIN_PROJECT_WORKING_DIR);
 }
 
 /**
  * Check if running on Homespace (ant-internal cloud environment)
  */
 export function isRunningOnHomespace(): boolean {
-  return (
-    process.env.USER_TYPE === 'ant' &&
-    isEnvTruthy(process.env.COO_RUNNING_ON_HOMESPACE)
-  )
+	return (
+		process.env.USER_TYPE === "ant" &&
+		isEnvTruthy(process.env.COO_RUNNING_ON_HOMESPACE)
+	);
 }
 
 /**
@@ -133,23 +136,23 @@ export function isRunningOnHomespace(): boolean {
  * Used for telemetry to measure auto-mode usage in sensitive environments.
  */
 export function isInProtectedNamespace(): boolean {
-  // USER_TYPE is build-time --define'd; in external builds this block is
-  // DCE'd so the require() and namespace allowlist never appear in the bundle.
-  if (process.env.USER_TYPE === 'ant') {
-    /* eslint-disable @typescript-eslint/no-require-imports */
-    return (
-      require('./protectedNamespace.js') as typeof import('./protectedNamespace.js')
-    ).checkProtectedNamespace()
-    /* eslint-enable @typescript-eslint/no-require-imports */
-  }
-  return false
+	// USER_TYPE is build-time --define'd; in external builds this block is
+	// DCE'd so the require() and namespace allowlist never appear in the bundle.
+	if (process.env.USER_TYPE === "ant") {
+		/* eslint-disable @typescript-eslint/no-require-imports */
+		return (
+			require("./protectedNamespace.js") as typeof import("./protectedNamespace.js")
+		).checkProtectedNamespace();
+		/* eslint-enable @typescript-eslint/no-require-imports */
+	}
+	return false;
 }
 
 /**
  * Get the Vertex AI region for a specific model.
  */
 export function getVertexRegionForModel(
-  _model: string | undefined,
+	_model: string | undefined,
 ): string | undefined {
-  return 'us-central1'
+	return "us-central1";
 }

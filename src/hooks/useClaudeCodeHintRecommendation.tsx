@@ -16,13 +16,13 @@ import {
 	type AnalyticsMetadata_I_VERIFIED_THIS_IS_PII_TAGGED,
 	logEvent,
 } from "../services/analytics/index.js";
+import { logForDebugging } from "../utils/debug.js";
 import {
 	clearPendingHint,
 	getPendingHintSnapshot,
 	markShownThisSession,
 	subscribeToPendingHint,
 } from "../utils/fusionCodeHints.js";
-import { logForDebugging } from "../utils/debug.js";
 import {
 	disableHintRecommendations,
 	markHintPluginShown,

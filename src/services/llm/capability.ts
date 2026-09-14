@@ -4,11 +4,11 @@
 // scattering provider-if branches. Old provider-if paths stay intact
 // (ctx-optional fallback = byte-identical); this seam is the future home.
 import { logForDebugging } from "../../utils/debug.js";
-import { getMlxModelCapabilities } from "../api/fusion-mlx-adapter.js";
-import type { MlxModelCapabilities } from "../api/fusion-mlx-adapter.js";
 import { getCanonicalName } from "../../utils/model/model.js";
-import { getAPIProvider } from "../../utils/model/providers.js";
 import type { APIProvider } from "../../utils/model/providers.js";
+import { getAPIProvider } from "../../utils/model/providers.js";
+import type { MlxModelCapabilities } from "../api/fusion-mlx-adapter.js";
+import { getMlxModelCapabilities } from "../api/fusion-mlx-adapter.js";
 
 export interface LlmCapability {
 	readonly provider: APIProvider;
@@ -199,8 +199,7 @@ export class GatewayCapabilityProvider implements LlmCapability {
 			return !this.canonical.includes("claude-3-");
 		}
 		return (
-			this.canonical.includes("sonnet-4") ||
-			this.canonical.includes("opus-4")
+			this.canonical.includes("sonnet-4") || this.canonical.includes("opus-4")
 		);
 	}
 	supportsISP(): boolean {

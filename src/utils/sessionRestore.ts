@@ -1,6 +1,6 @@
 import { feature } from "bun:bundle";
-import type { UUID } from "crypto";
-import { dirname } from "path";
+import type { UUID } from "node:crypto";
+import { dirname } from "node:path";
 import {
 	getMainLoopModelOverride,
 	getSessionId,
@@ -82,7 +82,7 @@ function extractTodosFromTranscript(messages: Message[]): TodoList {
 			(block) =>
 				block.type === "tool_use" && block.name === TODO_WRITE_TOOL_NAME,
 		);
-		if (!toolUse || toolUse.type !== "tool_use") continue;
+		if (toolUse?.type !== "tool_use") continue;
 		const input = toolUse.input;
 		if (input === null || typeof input !== "object") return [];
 		const parsed = TodoListSchema().safeParse(

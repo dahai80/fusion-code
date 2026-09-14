@@ -477,9 +477,8 @@ export async function marketplaceAddHandler(
 		console.log("Adding marketplace...");
 
 		// addMarketplaceSource 接受 MarketplaceSource | string, 无需宽化 (v5 验证修复)
-		const { name, alreadyMaterialized } = await addMarketplaceSource(
-			marketplaceSource,
-		);
+		const { name, alreadyMaterialized } =
+			await addMarketplaceSource(marketplaceSource);
 
 		// Write intent to settings at the requested scope
 		saveMarketplaceToSettings(name); // log: fixed arg count - takes 1 arg

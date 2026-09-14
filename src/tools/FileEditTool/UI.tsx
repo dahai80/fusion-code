@@ -1,10 +1,10 @@
-import type { ToolResultBlockParam } from "src/types/anthropic-protocol.js";
 import type { StructuredPatchHunk } from "diff";
 import type * as React from "react";
 import { Suspense, use, useState } from "react";
 import { c as _c } from "react/compiler-runtime";
 import { FileEditToolUseRejectedMessage } from "src/components/FileEditToolUseRejectedMessage.js";
 import { MessageResponse } from "src/components/MessageResponse.js";
+import type { ToolResultBlockParam } from "src/types/anthropic-protocol.js";
 import { extractTag } from "src/utils/messages.js";
 import { FallbackToolUseErrorMessage } from "../../components/FallbackToolUseErrorMessage.js";
 import { FileEditToolUpdatedMessage } from "../../components/FileEditToolUpdatedMessage.js";

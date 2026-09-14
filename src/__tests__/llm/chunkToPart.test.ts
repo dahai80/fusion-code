@@ -1,11 +1,11 @@
 // StreamChunk -> SDK part 翻译器单测 — 验证逆映射 + usage snake_case + stop_reason 时序
 
 import { describe, expect, test } from "bun:test";
+import type { StreamChunk } from "../../services/llm/index.js";
 import {
 	chunkStreamToSdkParts,
 	chunkToSdkPart,
 } from "../../services/llm/index.js";
-import type { StreamChunk } from "../../services/llm/index.js";
 
 async function collect(chunks: StreamChunk[]) {
 	const out: { type: string; [k: string]: unknown }[] = [];

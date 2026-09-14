@@ -1,12 +1,12 @@
 import { feature } from "bun:bundle";
+import { randomUUID } from "node:crypto";
+import type { QuerySource } from "src/constants/querySource.js";
+import { logEvent } from "src/services/analytics/index.js";
 import type {
 	Base64ImageSource,
 	ContentBlockParam,
 	ImageBlockParam,
 } from "src/types/anthropic-protocol.js";
-import { randomUUID } from "crypto";
-import type { QuerySource } from "src/constants/querySource.js";
-import { logEvent } from "src/services/analytics/index.js";
 import { getContentText } from "src/utils/messages.js";
 import {
 	findCommand,
@@ -36,6 +36,7 @@ import {
 	getAttachmentMessages,
 } from "../attachments.js";
 import type { PastedContent } from "../config.js";
+import { logForDebugging } from "../debug.js";
 import type { EffortValue } from "../effort.js";
 import { toArray } from "../generators.js";
 import {
@@ -59,13 +60,14 @@ import {
 	replaceUltraplanKeyword,
 } from "../ultraplan/keyword.js";
 import { processTextPrompt } from "./processTextPrompt.js";
-import { logForDebugging } from "../debug.js";
+
 /* eslint-disable @typescript-eslint/no-require-imports */
 // fusion-memory retrieve half: 召回跨会话长期记忆注入本轮。无条件 require (无
 // feature() 门控, 与 stopHooks.ts commit 半边 memoryCommitModule 同惯例)。
 // retrieveMemorySection 内部 fail-empty: API key 未配置 / subagent / 空输入
 // 立即返 "" (无 fetch), 热路径零开销。
-const memoryRetrieveModule = require("../../services/memory/index.js") as typeof import("../../services/memory/index.js");
+const memoryRetrieveModule =
+	require("../../services/memory/index.js") as typeof import("../../services/memory/index.js");
 /* eslint-enable @typescript-eslint/no-require-imports */
 export type ProcessUserInputContext = ToolUseContext & LocalJSXCommandContext;
 
@@ -467,7 +469,7 @@ async function processUserInputBase(
 	// known-but-unsafe command (local-jsx UI or terminal-only), short-circuit
 	// with a helpful message rather than letting the model see raw "/config".
 	let effectiveSkipSlash = skipSlashCommands;
-	if (bridgeOrigin && inputString !== null && inputString.startsWith("/")) {
+	if (bridgeOrigin && inputString?.startsWith("/")) {
 		const parsed = parseSlashCommand(inputString);
 		const cmd = parsed
 			? findCommand(parsed.commandName, context.options.commands)

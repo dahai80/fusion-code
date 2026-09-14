@@ -1,4 +1,4 @@
-import { randomUUID } from "crypto";
+import { randomUUID } from "node:crypto";
 import type { ClientOptions, SdkFetch } from "src/types/anthropic-protocol.js";
 import {
 	checkAndRefreshOAuthTokenIfNeeded,
@@ -88,7 +88,7 @@ export async function getAnthropicClient({
 
 	// Log API client configuration for HFI debugging
 	logForDebugging(
-		`[API:request] Creating client, FUSION_CUSTOM_HEADERS present: ${!!process.env.FUSION_CUSTOM_HEADERS}, has Authorization header: ${!!customHeaders["Authorization"]}`,
+		`[API:request] Creating client, FUSION_CUSTOM_HEADERS present: ${!!process.env.FUSION_CUSTOM_HEADERS}, has Authorization header: ${!!customHeaders.Authorization}`,
 	);
 
 	// Add additional protection header if enabled via env var
@@ -192,7 +192,7 @@ export async function getAnthropicClient({
 		? getClaudeAIOAuthTokens()
 		: undefined;
 	if (oauthTokens?.accessToken) {
-		defaultHeaders["Authorization"] = `Bearer ${oauthTokens.accessToken}`;
+		defaultHeaders.Authorization = `Bearer ${oauthTokens.accessToken}`;
 	}
 	// 显式 apiKey (非订阅) 传给 seam 作为 x-api-key 兜底。
 	const seamApiKey = isClaudeAISubscriber()
@@ -233,7 +233,7 @@ async function configureApiKeyHeaders(
 		process.env.FUSION_AUTH_TOKEN ||
 		(await getApiKeyFromApiKeyHelper(isNonInteractiveSession));
 	if (token) {
-		headers["Authorization"] = `Bearer ${token}`;
+		headers.Authorization = `Bearer ${token}`;
 	}
 }
 

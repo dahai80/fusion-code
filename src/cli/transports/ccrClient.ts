@@ -1,4 +1,5 @@
 import { randomUUID } from "node:crypto";
+import type { AxiosResponse } from "axios";
 import type { StdoutMessage } from "src/entrypoints/sdk/controlTypes.js";
 import type { SDKPartialAssistantMessage } from "src/entrypoints/sdk/types.js";
 import { decodeJwtExpiry } from "../../bridge/jwtUtils.js";
@@ -6,7 +7,6 @@ import { logForDebugging } from "../../utils/debug.js";
 import { logForDiagnosticsNoPII } from "../../utils/diagLogs.js";
 import { errorMessage, getErrnoCode } from "../../utils/errors.js";
 import { createAxiosInstance } from "../../utils/proxy.js";
-import type { AxiosResponse } from "axios";
 import {
 	registerSessionActivityCallback,
 	unregisterSessionActivityCallback,

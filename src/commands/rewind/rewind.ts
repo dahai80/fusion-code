@@ -2,12 +2,12 @@ import {
 	checkUndoAvailability,
 	computeUndoSlice,
 } from "../../services/undo/undoEngine.js";
-import type { Message } from "../../types/message.js";
 import type { ToolUseContext } from "../../Tool.js";
 import type {
 	LocalJSXCommandCall,
 	LocalJSXCommandOnDone,
 } from "../../types/command.js";
+import type { Message } from "../../types/message.js";
 import { logForDebugging } from "../../utils/debug.js";
 
 export const call: LocalJSXCommandCall = async (

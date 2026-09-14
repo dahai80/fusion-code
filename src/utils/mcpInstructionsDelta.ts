@@ -1,5 +1,7 @@
-import { getFeatureValue_CACHED_MAY_BE_STALE } from "../services/analytics/index.js";
-import { logEvent } from "../services/analytics/index.js";
+import {
+	getFeatureValue_CACHED_MAY_BE_STALE,
+	logEvent,
+} from "../services/analytics/index.js";
 import type {
 	ConnectedMCPServer,
 	MCPServerConnection,

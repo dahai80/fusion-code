@@ -8,7 +8,7 @@
 // 辅助返 void (两分支均 fire-and-forget void)。无 JSX → .ts。
 // 注: 此为 resume 切块提取的第 9 块 (fork plan copy if/else)。
 
-import type { UUID } from "crypto";
+import type { UUID } from "node:crypto";
 import type { ResumeEntrypoint } from "../commands.js";
 import { asSessionId } from "../types/ids.js";
 import type { LogOption } from "../types/logs.js";

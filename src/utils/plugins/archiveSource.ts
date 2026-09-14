@@ -16,8 +16,15 @@
 
 import { Buffer } from "node:buffer";
 import { createHash, timingSafeEqual } from "node:crypto";
-import { chmod, mkdir, open, readFile, unlink, writeFile } from "node:fs/promises";
 import { closeSync, fdatasyncSync, openSync } from "node:fs";
+import {
+	chmod,
+	mkdir,
+	open,
+	readFile,
+	unlink,
+	writeFile,
+} from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import axios from "axios";
@@ -127,7 +134,10 @@ export async function installFromArchive(
 	// 再交 unzipFile (解压层仍守 100k files / 512MB / 50:1)。
 	// P1-29b: beforeRedirect 锁每跳重定向亦 https (assertRedirectHttps), 防链路
 	// 被 302 无声降级到 http:// 明文。
-	const tmpPath = join(tmpdir(), `fusion-archive-${process.pid}-${Date.now()}.zip`);
+	const tmpPath = join(
+		tmpdir(),
+		`fusion-archive-${process.pid}-${Date.now()}.zip`,
+	);
 	let zipBuf: Buffer;
 	try {
 		const response = await axios.get(safeUrl, {
@@ -137,7 +147,9 @@ export async function installFromArchive(
 			maxContentLength: ARCHIVE_MAX_DOWNLOAD_BYTES,
 			maxBodyLength: ARCHIVE_MAX_DOWNLOAD_BYTES,
 			beforeRedirect: (options) => {
-				assertRedirectHttps(options as { protocol?: string; hostname?: string });
+				assertRedirectHttps(
+					options as { protocol?: string; hostname?: string },
+				);
 			},
 		});
 		const stream = response.data as NodeJS.ReadableStream & {
@@ -151,7 +163,11 @@ export async function installFromArchive(
 				received += chunk.length;
 				if (received > ARCHIVE_MAX_DOWNLOAD_BYTES) {
 					oversize = true;
-					stream.destroy(new Error(`archive download exceeded ${ARCHIVE_MAX_DOWNLOAD_BYTES} bytes (size cap)`));
+					stream.destroy(
+						new Error(
+							`archive download exceeded ${ARCHIVE_MAX_DOWNLOAD_BYTES} bytes (size cap)`,
+						),
+					);
 					break;
 				}
 				await fh.writeFile(chunk as Buffer);

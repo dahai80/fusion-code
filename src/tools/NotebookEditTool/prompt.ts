@@ -1,4 +1,4 @@
-export const DESCRIPTION = `Replaces, inserts, or deletes a single cell in a Jupyter notebook (.ipynb file).`
+export const DESCRIPTION = `Replaces, inserts, or deletes a single cell in a Jupyter notebook (.ipynb file).`;
 
 export const PROMPT = `Replaces, inserts, or deletes a single cell in a Jupyter notebook (.ipynb file).
 
@@ -26,4 +26,4 @@ Tips:
 - Always Read the notebook first to get cell IDs
 - Keep cell content focused — one concept per cell
 - Use markdown cells for explanations, code cells for executable code
-- The new_source must be non-empty for replace and insert modes`
+- The new_source must be non-empty for replace and insert modes`;

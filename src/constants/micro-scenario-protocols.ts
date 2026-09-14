@@ -1,5 +1,5 @@
 export function getDeploymentProtocol(): string {
-    return `# Deployment protocol
+	return `# Deployment protocol
 
 ## Pre-deployment checklist
 
@@ -28,11 +28,11 @@ export function getDeploymentProtocol(): string {
 - If the app serves traffic: check for running migrations that lock tables.
 - Check for background jobs that might fail with new code.
 - Verify health check endpoints respond after deployment.
-- If there's a cache: consider invalidation strategy.`
+- If there's a cache: consider invalidation strategy.`;
 }
 
 export function getConfigChangeProtocol(): string {
-    return `# Config change protocol
+	return `# Config change protocol
 
 ## Reading config
 
@@ -61,11 +61,11 @@ export function getConfigChangeProtocol(): string {
 - API keys, passwords, tokens → environment variables, not config files.
 - If you see a hardcoded secret: flag it to the user immediately.
 - Don't log config values that contain secrets.
-- If the project uses a secret manager (Vault, AWS SSM), follow that pattern.`
+- If the project uses a secret manager (Vault, AWS SSM), follow that pattern.`;
 }
 
 export function getCodeMigrationProtocol(): string {
-    return `# Code migration protocol
+	return `# Code migration protocol
 
 ## Before migrating
 
@@ -94,11 +94,11 @@ export function getCodeMigrationProtocol(): string {
 - Old API → New API: create wrapper functions if needed, deprecate old, migrate callers
 - Class-based → Functional: extract logic to functions, keep same behavior
 - Callback → Async/Await: sequential transformation, test each conversion
-- REST → GraphQL: map endpoints to queries/mutations, update client code`
+- REST → GraphQL: map endpoints to queries/mutations, update client code`;
 }
 
 export function getEnvSetupProtocol(): string {
-    return `# Environment setup protocol
+	return `# Environment setup protocol
 
 ## New project setup
 
@@ -129,11 +129,11 @@ export function getEnvSetupProtocol(): string {
 - Build fails → check Dockerfile, try docker build with --no-cache
 - Container won't start → docker logs <container>, check entrypoint
 - Networking → check exposed ports, docker network, DNS resolution
-- Volumes → check mount paths, permissions on mounted directories`
+- Volumes → check mount paths, permissions on mounted directories`;
 }
 
 export function getTestWritingProtocol(): string {
-    return `# Test writing protocol
+	return `# Test writing protocol
 
 ## When to write tests
 
@@ -176,11 +176,11 @@ export function getTestWritingProtocol(): string {
 - After writing tests: run them to verify they PASS.
 - After fixing code: run the specific failing tests first, then the full suite.
 - If tests fail and it's not your code: investigate. Don't ignore pre-existing failures.
-- If your change breaks existing tests: fix the code, not the tests (unless the test was testing the wrong thing).`
+- If your change breaks existing tests: fix the code, not the tests (unless the test was testing the wrong thing).`;
 }
 
 export function getLoggingProtocol(): string {
-    return `# Logging protocol
+	return `# Logging protocol
 
 ## When to add logging
 
@@ -207,11 +207,11 @@ export function getLoggingProtocol(): string {
 - Log spam in hot loops: use sampling or rate-limited logging
 - Missing context: "operation failed" → useless. "createUser failed: email already exists (user@example.com)" → useful
 - Swallowing errors by logging them: if you log an error, either handle it or re-throw it
-- Using console.log in production code: use the project's logger, not raw console`
+- Using console.log in production code: use the project's logger, not raw console`;
 }
 
 export function getAPIIntegrationProtocol(): string {
-    return `# API integration protocol
+	return `# API integration protocol
 
 ## Before integrating
 
@@ -242,11 +242,11 @@ export function getAPIIntegrationProtocol(): string {
 - Use HTTPS. Always. No exceptions.
 - Validate and sanitize data from external APIs before using it.
 - Don't trust external API responses. They can be malformed or malicious.
-- Use request signing or token rotation if the API supports it.`
+- Use request signing or token rotation if the API supports it.`;
 }
 
 export function getErrorHandlingProtocol(): string {
-    return `# Error handling addition protocol
+	return `# Error handling addition protocol
 
 ## When to add error handling
 
@@ -286,11 +286,11 @@ export function getErrorHandlingProtocol(): string {
 - Be specific: "User not found" → "User with id 123 not found in database"
 - Include context: what operation failed, what were the inputs
 - Don't expose internals to end users: "Internal error" not "NullPointerException at UserService.java:42"
-- Make errors actionable: "File not found: /path/to/config.json. Create it or set CONFIG_PATH env var."`
+- Make errors actionable: "File not found: /path/to/config.json. Create it or set CONFIG_PATH env var."`;
 }
 
 export function getTypeSafetyProtocol(): string {
-    return `# Type safety improvement protocol
+	return `# Type safety improvement protocol
 
 ## When to add types
 
@@ -320,11 +320,11 @@ export function getTypeSafetyProtocol(): string {
 - Don't add types to the entire codebase at once. Add types incrementally.
 - Start with public APIs and shared modules. Internal code can wait.
 - Use 'unknown' as a stepping stone: any → unknown → specific type.
-- After adding types, run the type checker. Fix real errors, suppress false positives with comments explaining why.`
+- After adding types, run the type checker. Fix real errors, suppress false positives with comments explaining why.`;
 }
 
 export function getLegacyCodeInteractionProtocol(): string {
-    return `# Legacy code interaction protocol
+	return `# Legacy code interaction protocol
 
 ## Before touching legacy code
 
@@ -355,11 +355,11 @@ export function getLegacyCodeInteractionProtocol(): string {
 - Breaking implicit contracts that aren't documented anywhere.
 - "Cleaning up" error handling that was there for a reason.
 - Changing timing/ordering that other code depends on implicitly.
-- Removing "dead code" that's actually used by reflection, dynamic dispatch, or configuration.`
+- Removing "dead code" that's actually used by reflection, dynamic dispatch, or configuration.`;
 }
 
 export function getDocUpdateProtocol(): string {
-    return `# Documentation update protocol
+	return `# Documentation update protocol
 
 ## When to update docs
 
@@ -388,16 +388,16 @@ export function getDocUpdateProtocol(): string {
 - Follow the project's existing doc format (JSDoc, docstrings, markdown, etc.)
 - Code examples > prose descriptions. Show, don't tell.
 - Keep docs close to the code they describe (co-locate, don't centralize).
-- Update docs in the same commit as the code change. Don't leave it "for later".`
+- Update docs in the same commit as the code change. Don't leave it "for later".`;
 }
 
 export function getCrossPlatformProtocol(): string {
-    return `# Cross-platform protocol
+	return `# Cross-platform protocol
 
 ## File paths
 
 - Always use path.join() or path.resolve(), never string concatenation with /
-- Path separators: Windows uses \, Unix uses /. path.join handles this.
+- Path separators: Windows uses , Unix uses /. path.join handles this.
 - Case sensitivity: macOS is case-insensitive, Linux is case-sensitive. Use exact case.
 - Home directory: use os.homedir() or ~ expansion, never hardcode /home/user
 
@@ -424,5 +424,5 @@ export function getCrossPlatformProtocol(): string {
 
 - Don't assume file system is case-sensitive (macOS) or case-insensitive (Linux)
 - Don't assume /tmp exists (Windows uses %TEMP%). Use os.tmpdir().
-- Don't assume executable permissions work the same (Windows vs Unix).`
+- Don't assume executable permissions work the same (Windows vs Unix).`;
 }

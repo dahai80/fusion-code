@@ -1,7 +1,7 @@
+import { readdir, readFile as readFileAsync } from "node:fs/promises";
+import * as path from "node:path";
+import { posix, win32 } from "node:path";
 import type { Base64ImageSource } from "src/types/anthropic-protocol.js";
-import { readdir, readFile as readFileAsync } from "fs/promises";
-import * as path from "path";
-import { posix, win32 } from "path";
 import { z } from "zod/v4";
 import {
 	PDF_AT_MENTION_INLINE_THRESHOLD,
@@ -10,11 +10,11 @@ import {
 } from "../../constants/apiLimits.js";
 import { hasBinaryExtension } from "../../constants/files.js";
 import { memoryFreshnessNote } from "../../memdir/memoryAge.js";
-import { getFeatureValue_CACHED_MAY_BE_STALE } from "../../services/analytics/index.js";
-import { logEvent } from "../../services/analytics/index.js";
 import {
 	type AnalyticsMetadata_I_VERIFIED_THIS_IS_NOT_CODE_OR_FILEPATHS,
+	getFeatureValue_CACHED_MAY_BE_STALE,
 	getFileExtensionForAnalytics,
+	logEvent,
 } from "../../services/analytics/index.js";
 import {
 	countTokensWithAPI,

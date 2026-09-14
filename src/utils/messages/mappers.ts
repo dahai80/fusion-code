@@ -1,5 +1,4 @@
-import type { BetaContentBlock } from "src/types/anthropic-protocol.js";
-import { randomUUID, type UUID } from "crypto";
+import { randomUUID, type UUID } from "node:crypto";
 import { getSessionId } from "src/bootstrap/state.js";
 import {
 	LOCAL_COMMAND_STDERR_TAG,
@@ -13,6 +12,7 @@ import type {
 } from "src/entrypoints/sdk/types.js";
 import type { ClaudeAILimits } from "src/services/claudeAiLimits.js";
 import { EXIT_PLAN_MODE_V2_TOOL_NAME } from "src/tools/ExitPlanModeTool/constants.js";
+import type { BetaContentBlock } from "src/types/anthropic-protocol.js";
 import type {
 	AssistantMessage,
 	CompactMetadata,

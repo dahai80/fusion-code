@@ -1,5 +1,5 @@
 export function getTypeScriptSection(): string {
-    return `# TypeScript coding patterns
+	return `# TypeScript coding patterns
 
 ## Type system
  - Use strict mode. Enable noUncheckedIndexedAccess, noImplicitOverride, exactOptionalPropertyTypes where practical.
@@ -47,11 +47,11 @@ export function getTypeScriptSection(): string {
  - Use React.memo sparingly — only when profiling shows re-renders are a problem.
  - Prefer controlled components. Uncontrolled should be rare and intentional.
  - Use useId() for unique IDs, not Math.random() or index keys.
- - Handle loading/error states in every data-fetching component.`
+ - Handle loading/error states in every data-fetching component.`;
 }
 
 export function getPythonSection(): string {
-    return `# Python coding patterns
+	return `# Python coding patterns
 
 ## Type hints
  - Use type hints on all function signatures. Use pyright/mypy strict mode.
@@ -93,11 +93,11 @@ export function getPythonSection(): string {
  - Use fixtures for setup. Scope them appropriately (function, module, session).
  - Use parametrize for testing multiple inputs: @pytest.mark.parametrize("input,expected", [...]).
  - Mock external dependencies only. Don't mock internal modules.
- - Use freezegun for time-dependent tests. Use responses/pytest-httpx for HTTP mocking.`
+ - Use freezegun for time-dependent tests. Use responses/pytest-httpx for HTTP mocking.`;
 }
 
 export function getRustSection(): string {
-    return `# Rust coding patterns
+	return `# Rust coding patterns
 
 ## Ownership and borrowing
  - Prefer borrowing (&T) over ownership transfer. Clone only when necessary and documented.
@@ -137,11 +137,11 @@ export function getRustSection(): string {
  - Profile before optimizing. Use cargo flamegraph, criterion for benchmarks.
  - Prefer iterators over indexing. They're zero-cost and more readable.
  - Use zero-copy parsing with &str references when possible (nom, winnow).
- - Use SmallVec/SmallVec for vectors that are usually small. Avoid Vec<Box<dyn Trait>>.`
+ - Use SmallVec/SmallVec for vectors that are usually small. Avoid Vec<Box<dyn Trait>>.`;
 }
 
 export function getGoSection(): string {
-    return `# Go coding patterns
+	return `# Go coding patterns
 
 ## Error handling
  - Always check errors. Never ignore the error return value with _.
@@ -174,11 +174,11 @@ export function getGoSection(): string {
  - Use the testing package. Write _test.go files alongside the code.
  - Use t.Run for subtests. Use t.Parallel for independent tests.
  - Use httptest for HTTP handler testing. Use testify for assertions if the project already uses it.
- - Mock interfaces, not concrete types. Define small interfaces for external dependencies.`
+ - Mock interfaces, not concrete types. Define small interfaces for external dependencies.`;
 }
 
 export function getJavaSection(): string {
-    return `# Java coding patterns
+	return `# Java coding patterns
 
 ## Modern Java (17+)
  - Use records for immutable data carriers: record Point(int x, int y) {}.
@@ -206,11 +206,11 @@ export function getJavaSection(): string {
  - Keep controllers thin. Delegate to services.
  - Use @Transactional at the service layer, not the controller.
  - Use DTOs for API boundaries. Don't expose entity objects directly.
- - Use Spring's exception handling (@ControllerAdvice) for consistent error responses.`
+ - Use Spring's exception handling (@ControllerAdvice) for consistent error responses.`;
 }
 
 export function getDatabaseSection(): string {
-    return `# Database patterns
+	return `# Database patterns
 
 ## Query design
  - Always use parameterized queries. Never interpolate values into SQL strings.
@@ -236,11 +236,11 @@ export function getDatabaseSection(): string {
  - Don't store large blobs in the database. Use object storage (S3) and store the reference.
  - Don't use SELECT *. Specify the columns you need.
  - Don't use OFFSET for deep pagination. Use cursor-based (WHERE id > last_id LIMIT N).
- - Don't run schema changes without a migration. Don't modify tables manually in production.`
+ - Don't run schema changes without a migration. Don't modify tables manually in production.`;
 }
 
 export function getCLIPatternsSection(): string {
-    return `# CLI tool patterns
+	return `# CLI tool patterns
 
 ## Command structure
  - Follow POSIX conventions: short flags (-v), long flags (--verbose), -- for end-of-flags.
@@ -261,11 +261,11 @@ export function getCLIPatternsSection(): string {
  - Validate inputs early. Fail fast with clear messages.
  - Use structured logging (JSON) for machine consumption, pretty printing for humans.
  - Handle signals (SIGINT, SIGTERM) for graceful shutdown. Clean up temp files and resources.
- - Test CLI tools by capturing stdout/stderr and exit codes. Use heredoc for complex inputs.`
+ - Test CLI tools by capturing stdout/stderr and exit codes. Use heredoc for complex inputs.`;
 }
 
 export function getAPIDesignSection(): string {
-    return `# API design patterns
+	return `# API design patterns
 
 ## REST conventions
  - Use nouns for resources: /users, /orders, not /getUsers.
@@ -293,11 +293,11 @@ export function getAPIDesignSection(): string {
  - Don't use sequential IDs if enumeration is a concern. Use UUIDs or snowflake IDs.
  - Don't make breaking changes without versioning. Add new fields as optional first.
  - Don't ignore rate limiting. Implement it from the start. Use sliding window algorithms.
- - Don't store sensitive data in query parameters (they appear in logs and browser history).`
+ - Don't store sensitive data in query parameters (they appear in logs and browser history).`;
 }
 
 export function getDevOpsCloudSection(): string {
-    return `# Cloud and DevOps patterns
+	return `# Cloud and DevOps patterns
 
 ## Infrastructure as code
  - Use Terraform/Pulumi for infrastructure. Don't create resources manually.
@@ -325,5 +325,5 @@ export function getDevOpsCloudSection(): string {
  - Use distributed tracing for microservices. Propagate trace context.
  - Set up alerting on SLOs, not individual metrics. Alert on user impact.
  - Use red metrics: Rate (requests/s), Errors (%), Duration (latency percentiles).
- - Keep dashboards focused. One dashboard per service, one per SLO.`
+ - Keep dashboards focused. One dashboard per service, one per SLO.`;
 }

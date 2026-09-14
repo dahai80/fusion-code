@@ -4,15 +4,15 @@
 
 /** True in internal (Anthropic employee) builds where USER_TYPE is "ant". */
 export function isInternalBuild(): boolean {
-    return process.env.USER_TYPE === "ant"
+	return process.env.USER_TYPE === "ant";
 }
 
 /** True in test environment. */
 export function isTestEnv(): boolean {
-    return process.env.NODE_ENV === "test"
+	return process.env.NODE_ENV === "test";
 }
 
 /** True in development environment. */
 export function isDevEnv(): boolean {
-    return process.env.NODE_ENV === "development"
+	return process.env.NODE_ENV === "development";
 }

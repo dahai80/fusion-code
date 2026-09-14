@@ -1,5 +1,5 @@
 import { feature } from "bun:bundle";
-import type { UUID } from "crypto";
+import type { UUID } from "node:crypto";
 import { findToolByName, type Tools } from "../Tool.js";
 import { extractBashCommentLabel } from "../tools/BashTool/commentLabel.js";
 import { BASH_TOOL_NAME } from "../tools/BashTool/toolName.js";
@@ -132,7 +132,7 @@ function commandAsHint(command: string): string {
 			.filter((l) => l !== "")
 			.join("\n");
 	return cleaned.length > MAX_HINT_CHARS
-		? cleaned.slice(0, MAX_HINT_CHARS - 1) + "…"
+		? `${cleaned.slice(0, MAX_HINT_CHARS - 1)}…`
 		: cleaned;
 }
 
@@ -564,7 +564,7 @@ function scanBashResultForGitOps(
 		| undefined;
 	if (!out?.stdout && !out?.stderr) return;
 	// git push writes the ref update to stderr — scan both streams.
-	const combined = (out.stdout ?? "") + "\n" + (out.stderr ?? "");
+	const combined = `${out.stdout ?? ""}\n${out.stderr ?? ""}`;
 	for (const c of userMsg.message.content) {
 		if (c.type !== "tool_result") continue;
 		const command = group.bashCommands?.get(c.tool_use_id);
@@ -1114,7 +1114,7 @@ export function summarizeRecentActivities(
 	// SendMessage don't implement getActivityDescription, so search backward)
 	for (let i = activities.length - 1; i >= 0; i--) {
 		if (activities[i]?.activityDescription) {
-			return activities[i]!.activityDescription;
+			return activities[i]?.activityDescription;
 		}
 	}
 	return undefined;

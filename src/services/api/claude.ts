@@ -1,4 +1,4 @@
-import { randomUUID } from "crypto";
+import { randomUUID } from "node:crypto";
 import type {
 	BetaContentBlock,
 	BetaContentBlockParam,
@@ -193,14 +193,9 @@ import { insertBlockAfterToolResults } from "../../utils/contentArray.js";
 import { validateBoundedIntEnvVar } from "../../utils/envValidation.js";
 import { safeParseJSON } from "../../utils/json.js";
 import {
-	getBedrockConfig,
-	isBedrockProvider,
-} from "../../utils/model/bedrock.js";
-import {
 	normalizeModelStringForAPI,
 	parseUserSpecifiedModel,
 } from "../../utils/model/model.js";
-import { getVertexConfig, isVertexProvider } from "../../utils/model/vertex.js";
 import {
 	startSessionActivity,
 	stopSessionActivity,
@@ -1803,7 +1798,7 @@ async function* queryModel(
 					fetchOverride: options.fetchOverride,
 					source: options.querySource,
 				}),
-			async (anthropic, attempt, context) => {
+			async (_anthropic, attempt, context) => {
 				attemptNumber = attempt;
 				isFastModeRequest = context.fastMode ?? false;
 				start = Date.now();
@@ -2621,16 +2616,13 @@ async function* queryModel(
 								// Without this the resumed body socket leaks on the next drop and a
 								// second resume can't find its refs (getResumeRefs returns undefined).
 								if (resumedResp) {
-									attachResumeRefs(
-										resumedResp as unknown as Response,
-										{
-											cursorRef: refs.cursorRef,
-											stateRef: refs.stateRef,
-											sid: refs.sid,
-											baseUrl: refs.baseUrl,
-											authHeaders: refs.authHeaders,
-										},
-									);
+									attachResumeRefs(resumedResp as unknown as Response, {
+										cursorRef: refs.cursorRef,
+										stateRef: refs.stateRef,
+										sid: refs.sid,
+										baseUrl: refs.baseUrl,
+										authHeaders: refs.authHeaders,
+									});
 									streamResponse = resumedResp as unknown as Response;
 								}
 								// 重接 for-await: 重赋 stream, 重置 idle 标志 + timer, 续流。
@@ -3069,7 +3061,9 @@ async function* queryModel(
 		.then((permissionContext) => {
 			logAPISuccessAndDuration({
 				model:
-					newMessages[0]?.message.model ?? partialMessage?.model ?? options.model,
+					newMessages[0]?.message.model ??
+					partialMessage?.model ??
+					options.model,
 				preNormalizedModel: options.model,
 				usage,
 				start,

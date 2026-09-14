@@ -1,1 +1,1 @@
-export const GOAL_CREATE_TOOL_NAME = 'CreateGoal'
+export const GOAL_CREATE_TOOL_NAME = "CreateGoal";

@@ -6,6 +6,9 @@
  * MCP server auths. The id_token is cached in the keychain and reused until expiry.
  */
 
+import { randomBytes } from "node:crypto";
+import { createServer, type Server } from "node:http";
+import { parse } from "node:url";
 import {
 	exchangeAuthorization,
 	startAuthorization,
@@ -15,9 +18,6 @@ import {
 	type OpenIdProviderDiscoveryMetadata,
 	OpenIdProviderDiscoveryMetadataSchema,
 } from "@modelcontextprotocol/sdk/shared/auth.js";
-import { randomBytes } from "crypto";
-import { createServer, type Server } from "http";
-import { parse } from "url";
 import xss from "xss";
 import { openBrowser } from "../../utils/browser.js";
 import { isEnvTruthy } from "../../utils/envUtils.js";
@@ -37,10 +37,10 @@ import { buildRedirectUri, findAvailablePort } from "./oauthPort.js";
 type SettingsModule = typeof import("../../utils/settings/settings.js");
 let _settings: SettingsModule | null = null;
 function settings(): SettingsModule {
-    if (_settings === null) {
-        _settings = require("../../utils/settings/settings.js");
-    }
-    return _settings;
+	if (_settings === null) {
+		_settings = require("../../utils/settings/settings.js");
+	}
+	return _settings;
 }
 
 export function isXaaEnabled(): boolean {
@@ -59,7 +59,8 @@ export type XaaIdpSettings = {
  * type doesn't have it at compile time. This is the one cast.
  */
 export function getXaaIdpSettings(): XaaIdpSettings | undefined {
-	return (settings().getInitialSettings() as { xaaIdp?: XaaIdpSettings }).xaaIdp;
+	return (settings().getInitialSettings() as { xaaIdp?: XaaIdpSettings })
+		.xaaIdp;
 }
 
 const IDP_LOGIN_TIMEOUT_MS = 5 * 60 * 1000;
@@ -216,7 +217,7 @@ export function clearIdpClientSecret(idpIssuer: string): void {
 export async function discoverOidc(
 	idpIssuer: string,
 ): Promise<OpenIdProviderDiscoveryMetadata> {
-	const base = idpIssuer.endsWith("/") ? idpIssuer : idpIssuer + "/";
+	const base = idpIssuer.endsWith("/") ? idpIssuer : `${idpIssuer}/`;
 	const url = new URL(".well-known/openid-configuration", base);
 	// eslint-disable-next-line eslint-plugin-n/no-unsupported-features/node-builtins
 	const res = await fetch(url, {

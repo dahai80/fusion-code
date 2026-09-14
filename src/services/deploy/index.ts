@@ -1,2 +1,2 @@
-export { detectDeployPlatform } from './deployAdapter.js'
-export type { DeployPlatform, DeployConfig } from './deployAdapter.js'
+export type { DeployConfig, DeployPlatform } from "./deployAdapter.js";
+export { detectDeployPlatform } from "./deployAdapter.js";

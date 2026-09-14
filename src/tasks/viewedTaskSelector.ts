@@ -1,11 +1,11 @@
 // audit 1.1.1: 从 REPL.tsx 抽出的 viewedTask 选择器。纯函数, 无 React, 无副作用。
 // 三段推导只读入参, 输出 narrowed task union。REPL 的原内联块驱动下游布尔判断。
 
-import type { TaskState } from "./types.js";
-import { isInProcessTeammateTask } from "./InProcessTeammateTask/types.js";
 import type { InProcessTeammateTaskState } from "./InProcessTeammateTask/types.js";
-import { isLocalAgentTask } from "./LocalAgentTask/LocalAgentTask.js";
+import { isInProcessTeammateTask } from "./InProcessTeammateTask/types.js";
 import type { LocalAgentTaskState } from "./LocalAgentTask/LocalAgentTask.js";
+import { isLocalAgentTask } from "./LocalAgentTask/LocalAgentTask.js";
+import type { TaskState } from "./types.js";
 
 // viewedTask: raw record lookup by id, undefined if id missing/absent.
 export function getViewedTask(

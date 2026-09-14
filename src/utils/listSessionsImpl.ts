@@ -7,9 +7,9 @@
  * initialization or pulling in expensive dependency chains.
  */
 
-import type { Dirent } from "fs";
-import { readdir, stat } from "fs/promises";
-import { basename, join } from "path";
+import type { Dirent } from "node:fs";
+import { readdir, stat } from "node:fs/promises";
+import { basename, join } from "node:path";
 import { getWorktreePathsPortable } from "./getWorktreePathsPortable.js";
 import type { LiteSessionFile } from "./sessionStoragePortable.js";
 import {
@@ -388,7 +388,7 @@ async function gatherProjectCandidates(
 			const isMatch =
 				dirName === prefix ||
 				(prefix.length >= MAX_SANITIZED_LENGTH &&
-					dirName.startsWith(prefix + "-"));
+					dirName.startsWith(`${prefix}-`));
 			if (isMatch) {
 				seenDirs.add(dirName);
 				all.push(

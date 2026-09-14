@@ -8,13 +8,21 @@
  * Rotation: files rotate when exceeding maxFileSize (default 10MB).
  */
 
-import { chmod, mkdir, open, readdir, stat, unlink, writeFile } from "fs/promises";
 // SECURITY: O_NOFOLLOW protects the audit file from symlink hijack. Named
 // imports from 'node:constants' crash on Windows (Bun's node:constants has no
 // O_* exports → module-link SyntaxError); use `constants` from 'fs' instead.
 // O_NOFOLLOW is meaningless on win32; `?? 0` degrades it to a no-op flag.
-import { constants as fsConstants } from "fs";
-import { join } from "path";
+import { constants as fsConstants } from "node:fs";
+import {
+	chmod,
+	mkdir,
+	open,
+	readdir,
+	stat,
+	unlink,
+	writeFile,
+} from "node:fs/promises";
+import { join } from "node:path";
 import { logForDebugging } from "../../utils/debug.js";
 import { getClaudeConfigHomeDir } from "../../utils/envUtils.js";
 
@@ -22,7 +30,13 @@ export type AuditLogEntry = {
 	timestamp: string;
 	session_id: string;
 	tool_name: string;
-	operation: "read" | "write" | "execute" | "mcp_call" | "denied" | "skill_write";
+	operation:
+		| "read"
+		| "write"
+		| "execute"
+		| "mcp_call"
+		| "denied"
+		| "skill_write";
 	target: string;
 	detail?: string;
 	success: boolean;
@@ -75,7 +89,7 @@ async function rotateIfNeeded(): Promise<void> {
 
 	const rotatedPath = filePath.replace(".jsonl", `-${Date.now()}.jsonl`);
 	try {
-		const { rename } = await import("fs/promises");
+		const { rename } = await import("node:fs/promises");
 		await rename(filePath, rotatedPath);
 		logForDebugging(`auditLog: rotated ${filePath} -> ${rotatedPath}`);
 	} catch (e) {
@@ -123,7 +137,7 @@ export async function appendAuditLog(entry: AuditLogEntry): Promise<void> {
 	try {
 		await ensureAuditDir();
 		await rotateIfNeeded();
-		const line = JSON.stringify(entry) + "\n";
+		const line = `${JSON.stringify(entry)}\n`;
 		// audit-0902 P1-3: appendFile follows symlinks. A same-user process that
 		// swaps audit-YYYY-MM-DD.jsonl for a symlink (dir 0700 blocks creation
 		// but NOT same-user swap of an existing entry) would redirect audit

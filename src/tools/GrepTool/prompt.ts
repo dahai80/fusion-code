@@ -1,10 +1,10 @@
-import { AGENT_TOOL_NAME } from '../AgentTool/constants.js'
-import { BASH_TOOL_NAME } from '../BashTool/toolName.js'
+import { AGENT_TOOL_NAME } from "../AgentTool/constants.js";
+import { BASH_TOOL_NAME } from "../BashTool/toolName.js";
 
-export const GREP_TOOL_NAME = 'Grep'
+export const GREP_TOOL_NAME = "Grep";
 
 export function getDescription(): string {
-  return `A powerful search tool built on ripgrep
+	return `A powerful search tool built on ripgrep
 
   Usage:
   - ALWAYS use ${GREP_TOOL_NAME} for search tasks. NEVER invoke \`grep\` or \`rg\` as a ${BASH_TOOL_NAME} command. The ${GREP_TOOL_NAME} tool has been optimized for correct permissions and access.
@@ -27,5 +27,5 @@ export function getDescription(): string {
   - Use glob to narrow search scope for faster results: Grep({pattern: "TODO", glob: "src/**/*.ts"})
   - For exact word matches, use word boundaries: Grep({pattern: "\\bUser\\b"}) avoids matching "UserService"
   - Escape special regex characters: . * + ? [ ] ( ) { } | ^ $ \\
-  - If you need to find files by name, use Glob instead`
+  - If you need to find files by name, use Glob instead`;
 }

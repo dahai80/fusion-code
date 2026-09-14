@@ -1,4 +1,4 @@
-import { registerBundledSkill } from '../bundledSkills.js'
+import { registerBundledSkill } from "../bundledSkills.js";
 
 const BRAINSTORM_PROMPT = `# Brainstorming Mode
 
@@ -33,19 +33,22 @@ You are now in brainstorming mode. Your goal is to generate diverse, creative id
 |---|-------------|--------|--------|-------|
 
 ### Recommendation
-[Final proposal with reasoning]`
+[Final proposal with reasoning]`;
 
 export function registerBrainstormSkill(): void {
-    registerBundledSkill({
-        name: 'brainstorm',
-        description: 'Generate diverse ideas, evaluate them, and converge on the best approach',
-        whenToUse:
-            'When the user wants to explore multiple approaches before committing, or says "brainstorm", "ideas", "options", "what are the alternatives", or "help me think through this".',
-        argumentHint: '<topic or problem>',
-        userInvocable: true,
-        async getPromptForCommand(args) {
-            const topic = args.trim() || 'the current task'
-            return [{ type: 'text', text: `${BRAINSTORM_PROMPT}\n\n## Topic\n\n${topic}` }]
-        },
-    })
+	registerBundledSkill({
+		name: "brainstorm",
+		description:
+			"Generate diverse ideas, evaluate them, and converge on the best approach",
+		whenToUse:
+			'When the user wants to explore multiple approaches before committing, or says "brainstorm", "ideas", "options", "what are the alternatives", or "help me think through this".',
+		argumentHint: "<topic or problem>",
+		userInvocable: true,
+		async getPromptForCommand(args) {
+			const topic = args.trim() || "the current task";
+			return [
+				{ type: "text", text: `${BRAINSTORM_PROMPT}\n\n## Topic\n\n${topic}` },
+			];
+		},
+	});
 }

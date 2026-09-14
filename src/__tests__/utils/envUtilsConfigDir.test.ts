@@ -15,26 +15,20 @@ describe("getClaudeConfigHomeDir (audit-0903 P1 OPS-1)", () => {
 
 	it("returns the env override when set", async () => {
 		process.env[KEY] = "/tmp/fusion-code-override";
-		const { getClaudeConfigHomeDir } = await import(
-			"../../utils/envUtils.js"
-		);
+		const { getClaudeConfigHomeDir } = await import("../../utils/envUtils.js");
 		expect(getClaudeConfigHomeDir()).toBe("/tmp/fusion-code-override");
 	});
 
 	it("falls back to ~/.fusion-code when env unset", async () => {
 		delete process.env[KEY];
-		const { getClaudeConfigHomeDir } = await import(
-			"../../utils/envUtils.js"
-		);
+		const { getClaudeConfigHomeDir } = await import("../../utils/envUtils.js");
 		const dir = getClaudeConfigHomeDir();
 		expect(dir.endsWith("/.fusion-code")).toBe(true);
 	});
 
 	it("falls back when env is empty string", async () => {
 		process.env[KEY] = "";
-		const { getClaudeConfigHomeDir } = await import(
-			"../../utils/envUtils.js"
-		);
+		const { getClaudeConfigHomeDir } = await import("../../utils/envUtils.js");
 		const dir = getClaudeConfigHomeDir();
 		expect(dir.endsWith("/.fusion-code")).toBe(true);
 	});

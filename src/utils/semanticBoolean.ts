@@ -1,4 +1,4 @@
-import { z } from 'zod/v4'
+import { z } from "zod/v4";
 
 /**
  * Boolean that also accepts the string literals "true"/"false".
@@ -20,10 +20,10 @@ import { z } from 'zod/v4'
  *   semanticBoolean(z.boolean().default(false))    → boolean
  */
 export function semanticBoolean<T extends z.ZodType>(
-  inner: T = z.boolean() as unknown as T,
+	inner: T = z.boolean() as unknown as T,
 ) {
-  return z.preprocess(
-    (v: unknown) => (v === 'true' ? true : v === 'false' ? false : v),
-    inner,
-  )
+	return z.preprocess(
+		(v: unknown) => (v === "true" ? true : v === "false" ? false : v),
+		inner,
+	);
 }

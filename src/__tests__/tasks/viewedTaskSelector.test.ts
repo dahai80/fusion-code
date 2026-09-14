@@ -1,7 +1,7 @@
 import { describe, expect, it } from "bun:test";
-import type { TaskState } from "../../tasks/types.js";
 import type { InProcessTeammateTaskState } from "../../tasks/InProcessTeammateTask/types.js";
 import type { LocalAgentTaskState } from "../../tasks/LocalAgentTask/LocalAgentTask.js";
+import type { TaskState } from "../../tasks/types.js";
 import {
 	getViewedAgentTask,
 	getViewedTask,

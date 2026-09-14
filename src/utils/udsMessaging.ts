@@ -8,9 +8,9 @@
  * gated by feature('UDS_INBOX')
  */
 
-import { randomUUID } from "crypto";
-import { existsSync, unlinkSync } from "fs";
-import { createServer, type Socket } from "net";
+import { randomUUID } from "node:crypto";
+import { existsSync, unlinkSync } from "node:fs";
+import { createServer, type Socket } from "node:net";
 import { logForDebugging } from "../utils/debug.js";
 
 export interface UDSMessage {
@@ -47,8 +47,8 @@ export async function startUdsMessaging(
  */
 export function getDefaultUdsSocketPath(): string {
 	// log: fix TS2339
-	const os = require("os");
-	const path = require("path");
+	const os = require("node:os");
+	const path = require("node:path");
 	return path.join(
 		os.tmpdir(),
 		`fusion-code-uds-${process.env.USER ?? "default"}.sock`,
@@ -126,8 +126,8 @@ export function sendMessage(
 	message: UDSMessage,
 ): Promise<void> {
 	return new Promise((resolve, reject) => {
-		const client = new (require("net").Socket)();
-		const data = JSON.stringify(message) + "\n";
+		const client = new (require("node:net").Socket)();
+		const data = `${JSON.stringify(message)}\n`;
 
 		client.connect(socketPath, () => {
 			client.write(data);
@@ -195,7 +195,7 @@ export function parseAddress(address: string): {
 	};
 }
 
-function processBuffer(clientSocket: Socket, buffer: string): void {
+function processBuffer(_clientSocket: Socket, buffer: string): void {
 	const lines = buffer.split("\n");
 	for (const line of lines) {
 		if (!line.trim()) continue;

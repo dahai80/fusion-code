@@ -1,13 +1,13 @@
-import { randomUUID, type UUID } from 'crypto'
-import { validateUuid } from './uuid.js'
+import { randomUUID, type UUID } from "node:crypto";
+import { validateUuid } from "./uuid.js";
 
 export type ParsedSessionUrl = {
-  sessionId: UUID
-  ingressUrl: string | null
-  isUrl: boolean
-  jsonlFile: string | null
-  isJsonlFile: boolean
-}
+	sessionId: UUID;
+	ingressUrl: string | null;
+	isUrl: boolean;
+	jsonlFile: string | null;
+	isJsonlFile: boolean;
+};
 
 /**
  * Parses a session resume identifier which can be either:
@@ -18,47 +18,47 @@ export type ParsedSessionUrl = {
  * @returns Parsed session information or null if invalid
  */
 export function parseSessionIdentifier(
-  resumeIdentifier: string,
+	resumeIdentifier: string,
 ): ParsedSessionUrl | null {
-  // Check for JSONL file path before URL parsing, since Windows absolute
-  // paths (e.g., C:\path\file.jsonl) are parsed as valid URLs with C: as protocol
-  if (resumeIdentifier.toLowerCase().endsWith('.jsonl')) {
-    return {
-      sessionId: randomUUID() as UUID,
-      ingressUrl: null,
-      isUrl: false,
-      jsonlFile: resumeIdentifier,
-      isJsonlFile: true,
-    }
-  }
+	// Check for JSONL file path before URL parsing, since Windows absolute
+	// paths (e.g., C:\path\file.jsonl) are parsed as valid URLs with C: as protocol
+	if (resumeIdentifier.toLowerCase().endsWith(".jsonl")) {
+		return {
+			sessionId: randomUUID() as UUID,
+			ingressUrl: null,
+			isUrl: false,
+			jsonlFile: resumeIdentifier,
+			isJsonlFile: true,
+		};
+	}
 
-  // Check if it's a plain UUID
-  if (validateUuid(resumeIdentifier)) {
-    return {
-      sessionId: resumeIdentifier as UUID,
-      ingressUrl: null,
-      isUrl: false,
-      jsonlFile: null,
-      isJsonlFile: false,
-    }
-  }
+	// Check if it's a plain UUID
+	if (validateUuid(resumeIdentifier)) {
+		return {
+			sessionId: resumeIdentifier as UUID,
+			ingressUrl: null,
+			isUrl: false,
+			jsonlFile: null,
+			isJsonlFile: false,
+		};
+	}
 
-  // Check if it's a URL
-  try {
-    const url = new URL(resumeIdentifier)
+	// Check if it's a URL
+	try {
+		const url = new URL(resumeIdentifier);
 
-    // Use the entire URL as the ingress URL
-    // Always generate a random session ID
-    return {
-      sessionId: randomUUID() as UUID,
-      ingressUrl: url.href,
-      isUrl: true,
-      jsonlFile: null,
-      isJsonlFile: false,
-    }
-  } catch {
-    // Not a valid URL
-  }
+		// Use the entire URL as the ingress URL
+		// Always generate a random session ID
+		return {
+			sessionId: randomUUID() as UUID,
+			ingressUrl: url.href,
+			isUrl: true,
+			jsonlFile: null,
+			isJsonlFile: false,
+		};
+	} catch {
+		// Not a valid URL
+	}
 
-  return null
+	return null;
 }

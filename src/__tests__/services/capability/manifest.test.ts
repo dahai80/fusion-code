@@ -1,19 +1,12 @@
-import {
-	afterEach,
-	beforeEach,
-	describe,
-	expect,
-	mock,
-	test,
-} from "bun:test";
+import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { getAllBaseTools } from "../../../tools.js";
 import {
-	isCapabilityManifestEnabled,
 	type CapabilityManifestOptions,
+	isCapabilityManifestEnabled,
 } from "../../../services/capability/index.js";
+import { getAllBaseTools } from "../../../tools.js";
 
 // Mock getCommands + loadAllPlugins before importing manifest (pure-mapping test,
 // avoid auth env + disk/network). getAllBaseTools stays real (sync, env-only).
@@ -48,7 +41,7 @@ const MOCK_COMMANDS = [
 		source: "bundled",
 		contentLength: 42,
 		allowedTools: ["Read"],
-	 isEnabled: () => true,
+		isEnabled: () => true,
 	},
 	{
 		name: "user-skill-1",
@@ -102,8 +95,7 @@ beforeEach(() => {
 afterEach(() => {
 	if (ORIG_CAP === undefined)
 		delete process.env.FUSION_CODE_CAPABILITY_MANIFEST_ENABLED;
-	else
-		process.env.FUSION_CODE_CAPABILITY_MANIFEST_ENABLED = ORIG_CAP;
+	else process.env.FUSION_CODE_CAPABILITY_MANIFEST_ENABLED = ORIG_CAP;
 	rmSync(tmpCwd, { recursive: true, force: true });
 });
 
@@ -173,14 +165,18 @@ describe("P5.5 capability manifest — export shape", () => {
 	});
 
 	test("includeSchemas=false omits all inputSchema", async () => {
-		const m = await exportCapabilityManifest(baseOpts({ includeSchemas: false }));
+		const m = await exportCapabilityManifest(
+			baseOpts({ includeSchemas: false }),
+		);
 		for (const t of m.tools) {
 			expect(t.inputSchema).toBeUndefined();
 		}
 	});
 
 	test("includeSkills=false skips getCommands call + empties commands/skills", async () => {
-		const m = await exportCapabilityManifest(baseOpts({ includeSkills: false }));
+		const m = await exportCapabilityManifest(
+			baseOpts({ includeSkills: false }),
+		);
 		expect(m.commands.length).toBe(0);
 		expect(m.skills.length).toBe(0);
 		expect(m.totals.commands).toBe(0);
@@ -203,7 +199,9 @@ describe("P5.5 capability manifest — export shape", () => {
 	});
 
 	test("includePlugins=false skips loadAllPlugins + empties plugins", async () => {
-		const m = await exportCapabilityManifest(baseOpts({ includePlugins: false }));
+		const m = await exportCapabilityManifest(
+			baseOpts({ includePlugins: false }),
+		);
 		expect(m.plugins.length).toBe(0);
 		expect(m.totals.plugins).toBe(0);
 		expect(mockLoadAllPlugins).not.toHaveBeenCalled();

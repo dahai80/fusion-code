@@ -1,5 +1,5 @@
 export function getCompressionStrategySection(): string {
-    return `# Context compression strategies
+	return `# Context compression strategies
 
 ## When to compress
  - When the conversation exceeds the model's effective context window
@@ -46,11 +46,11 @@ When writing code that will be evaluated in a compressed context:
 - Use descriptive names (compressible to references)
 - Add comments for non-obvious decisions (survive compression)
 - Structure code so the important parts are at the top
-- Avoid deep nesting that becomes unclear without full context`
+- Avoid deep nesting that becomes unclear without full context`;
 }
 
 export function getContextWindowSection(): string {
-    return `# Context window management
+	return `# Context window management
 
 ## Token budget awareness
  - Track approximate token usage throughout the conversation
@@ -79,11 +79,11 @@ export function getContextWindowSection(): string {
  - Use project memory (CLAUDE.md, .claude/) for persistent knowledge
  - Use conversation context for active task state
  - After completing a task, save important discoveries to memory
- - Before starting a task, check memory for relevant past context`
+ - Before starting a task, check memory for relevant past context`;
 }
 
 export function getSmartRetrievalSection(): string {
-    return `# Smart information retrieval
+	return `# Smart information retrieval
 
 ## Search-before-read pattern
  - Use Glob to find files before reading them
@@ -107,5 +107,5 @@ export function getSmartRetrievalSection(): string {
  - Don't read entire large files when a targeted search suffices
  - Don't include full stack traces when the relevant line is clear
  - Don't copy-paste large code blocks — reference by file:line
- - Don't keep exploration dead ends in context`
+ - Don't keep exploration dead ends in context`;
 }

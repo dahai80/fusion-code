@@ -10,45 +10,45 @@
  * from non-React code in the in-process runner.
  */
 
-import type { ToolUseConfirm } from '../../components/permissions/PermissionRequest.js'
-import type { ToolPermissionContext } from '../../Tool.js'
+import type { ToolUseConfirm } from "../../components/permissions/PermissionRequest.js";
+import type { ToolPermissionContext } from "../../Tool.js";
 
 export type SetToolUseConfirmQueueFn = (
-  updater: (prev: ToolUseConfirm[]) => ToolUseConfirm[],
-) => void
+	updater: (prev: ToolUseConfirm[]) => ToolUseConfirm[],
+) => void;
 
 export type SetToolPermissionContextFn = (
-  context: ToolPermissionContext,
-  options?: { preserveMode?: boolean },
-) => void
+	context: ToolPermissionContext,
+	options?: { preserveMode?: boolean },
+) => void;
 
-let registeredSetter: SetToolUseConfirmQueueFn | null = null
-let registeredPermissionContextSetter: SetToolPermissionContextFn | null = null
+let registeredSetter: SetToolUseConfirmQueueFn | null = null;
+let registeredPermissionContextSetter: SetToolPermissionContextFn | null = null;
 
 export function registerLeaderToolUseConfirmQueue(
-  setter: SetToolUseConfirmQueueFn,
+	setter: SetToolUseConfirmQueueFn,
 ): void {
-  registeredSetter = setter
+	registeredSetter = setter;
 }
 
 export function getLeaderToolUseConfirmQueue(): SetToolUseConfirmQueueFn | null {
-  return registeredSetter
+	return registeredSetter;
 }
 
 export function unregisterLeaderToolUseConfirmQueue(): void {
-  registeredSetter = null
+	registeredSetter = null;
 }
 
 export function registerLeaderSetToolPermissionContext(
-  setter: SetToolPermissionContextFn,
+	setter: SetToolPermissionContextFn,
 ): void {
-  registeredPermissionContextSetter = setter
+	registeredPermissionContextSetter = setter;
 }
 
 export function getLeaderSetToolPermissionContext(): SetToolPermissionContextFn | null {
-  return registeredPermissionContextSetter
+	return registeredPermissionContextSetter;
 }
 
 export function unregisterLeaderSetToolPermissionContext(): void {
-  registeredPermissionContextSetter = null
+	registeredPermissionContextSetter = null;
 }

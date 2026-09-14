@@ -1,6 +1,6 @@
-import type { ToolResultBlockParam } from "src/types/anthropic-protocol.js";
 import type * as React from "react";
 import { c as _c } from "react/compiler-runtime";
+import type { ToolResultBlockParam } from "src/types/anthropic-protocol.js";
 import { KeyboardShortcutHint } from "../../components/design-system/KeyboardShortcutHint.js";
 import { FallbackToolUseErrorMessage } from "../../components/FallbackToolUseErrorMessage.js";
 import { MessageResponse } from "../../components/MessageResponse.js";

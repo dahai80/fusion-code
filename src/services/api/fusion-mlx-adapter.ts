@@ -403,8 +403,8 @@ function getMlxApiKey(): string | undefined {
 		return envKey;
 	}
 	try {
-		const fs = require("fs");
-		const path = require("path");
+		const fs = require("node:fs");
+		const path = require("node:path");
 		const settingsPath = path.join(
 			process.env.HOME || process.env.USERPROFILE || "",
 			".fusion-mlx",
@@ -417,7 +417,7 @@ function getMlxApiKey(): string | undefined {
 				return _cachedMlxApiKey;
 			}
 		}
-	} catch (e) {
+	} catch (_e) {
 		// Silently ignore — fall through to no auth
 	}
 	_cachedMlxApiKey = undefined;
@@ -1021,7 +1021,7 @@ function anthropicToMlxMessages(
 				// when fusion-mlx server adds cache-aware API, we can send as separate cached/uncached blocks
 				messages.push({
 					role: "system",
-					content: staticPrefix + "\n" + dynamicSuffix,
+					content: `${staticPrefix}\n${dynamicSuffix}`,
 					...(systemCacheControl ? { cache_control: systemCacheControl } : {}),
 				});
 			} else {
@@ -1520,6 +1520,12 @@ export function _resetOriginalFetch(): void {
 // prior connection-failure tests opening the breaker).
 export function _resetMlxCircuitBreaker(): void {
 	mlxApiCircuit.reset();
+}
+
+// Test seam: reset base URL cache (PERF-4) so env changes in tests are honored
+// after a prior test already warmed the cache with a different URL.
+export function _resetMlxBaseUrl(): void {
+	_cachedMlxBaseUrl = null;
 }
 
 export function createFusionMlxFetch(model: string): typeof globalThis.fetch {

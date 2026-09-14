@@ -2,10 +2,10 @@
 // (issue #133 god-module split). Gated by isInternalBuild(); actions delegate
 // to ./cli/handlers/ant.js via dynamic import.
 
-import type { CommanderCommand } from "./commandHelpers.js";
 import { isInternalBuild } from "../utils/buildConstants.js";
-import { validateUuid } from "../utils/uuid.js";
 import { TASK_STATUSES } from "../utils/tasks.js";
+import { validateUuid } from "../utils/uuid.js";
+import type { CommanderCommand } from "./commandHelpers.js";
 
 export function registerAntCommands(program: CommanderCommand): void {
 	// All subcommands below are ant-only and dead-code-eliminated in external
@@ -99,11 +99,7 @@ Examples:
 			.option("--pending", "Show only pending tasks")
 			.option("--json", "Output as JSON")
 			.action(
-				async (opts: {
-					list?: string;
-					pending?: boolean;
-					json?: boolean;
-				}) => {
+				async (opts: { list?: string; pending?: boolean; json?: boolean }) => {
 					const { taskListHandler } = await import("../cli/handlers/ant.js");
 					await taskListHandler(opts);
 				},

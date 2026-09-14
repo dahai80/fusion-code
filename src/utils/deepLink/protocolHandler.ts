@@ -11,7 +11,7 @@
  * directly — there is no terminal attached.
  */
 
-import { homedir } from "os";
+import { homedir } from "node:os";
 import { logForDebugging } from "../debug.js";
 import {
 	filterExistingPaths,

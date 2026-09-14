@@ -1,4 +1,7 @@
-import type { LocalCommandCall, LocalCommandResult } from '../../types/command.js'
+import type {
+	LocalCommandCall,
+	LocalCommandResult,
+} from "../../types/command.js";
 
 const SKILL_CREATE_PROMPT = `# Skill Create
 
@@ -66,14 +69,14 @@ origin: auto-extracted
 - Only extract patterns with 3+ occurrences in git history
 - Include concrete file references, not vague descriptions
 - Separate observations from recommendations
-- Don't generate skills for trivial patterns (every project has them)`
+- Don't generate skills for trivial patterns (every project has them)`;
 
 export const call: LocalCommandCall = async (args, _context) => {
-    const commits = args.trim() || '200'
-    console.log(`[skill-create] analyzing last ${commits} commits for patterns`)
+	const commits = args.trim() || "200";
+	console.log(`[skill-create] analyzing last ${commits} commits for patterns`);
 
-    return {
-            type: 'display',
-        display: SKILL_CREATE_PROMPT,
-    } satisfies LocalCommandResult
-}
+	return {
+		type: "display",
+		display: SKILL_CREATE_PROMPT,
+	} satisfies LocalCommandResult;
+};

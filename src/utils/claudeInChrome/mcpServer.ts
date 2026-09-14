@@ -1,13 +1,13 @@
+import { format } from "node:util";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
-import { format } from "util";
-import { shutdownDatadog } from "../../services/analytics/index.js";
-import { shutdown1PEventLogging } from "../../services/analytics/index.js";
-import { getFeatureValue_CACHED_MAY_BE_STALE } from "../../services/analytics/index.js";
 import {
 	type AnalyticsMetadata_I_VERIFIED_THIS_IS_NOT_CODE_OR_FILEPATHS,
+	getFeatureValue_CACHED_MAY_BE_STALE,
+	initializeAnalyticsSink,
 	logEvent,
+	shutdown1PEventLogging,
+	shutdownDatadog,
 } from "../../services/analytics/index.js";
-import { initializeAnalyticsSink } from "../../services/analytics/index.js";
 import { getClaudeAIOAuthTokens } from "../auth.js";
 import { enableConfigs, getGlobalConfig, saveGlobalConfig } from "../config.js";
 import { logForDebugging } from "../debug.js";

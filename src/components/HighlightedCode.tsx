@@ -1,14 +1,7 @@
 import { memo, useEffect, useRef, useState } from "react";
 import { c as _c } from "react/compiler-runtime";
 import { useSettings } from "../hooks/useSettings.js";
-import {
-	Ansi,
-	Box,
-	measureElement,
-	NoSelect,
-	Text,
-	useTheme,
-} from "../ink.js";
+import { Ansi, Box, measureElement, NoSelect, Text, useTheme } from "../ink.js";
 import { isFullscreenEnvEnabled } from "../utils/fullscreen.js";
 import sliceAnsi from "../utils/sliceAnsi.js";
 import { countCharInString } from "../utils/stringUtils.js";

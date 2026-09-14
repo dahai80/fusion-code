@@ -174,7 +174,7 @@ export function extractCandidatePathsFromCommand(command: string): string[] {
 		if (tok.startsWith("-")) return;
 		const looksLikePath = tok.includes("/") || tok.includes("\\");
 		const matchesSensitiveBasename = SENSITIVE_BASENAMES.some(
-			(b) => tok === b || tok.endsWith("/" + b) || tok.endsWith("\\" + b),
+			(b) => tok === b || tok.endsWith(`/${b}`) || tok.endsWith(`\\${b}`),
 		);
 		if (!looksLikePath && !matchesSensitiveBasename) return;
 		if (seen.has(tok)) return;

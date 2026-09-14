@@ -8,8 +8,8 @@ import {
 	type ValidationResult,
 } from "../../Tool.js";
 import type { AssistantMessage } from "../../types/message.js";
-import { addCronTask } from "../../utils/cronTasks.js";
 import { parseCronExpression } from "../../utils/cron.js";
+import { addCronTask } from "../../utils/cronTasks.js";
 import { lazySchema } from "../../utils/lazySchema.js";
 import { CRON_CREATE_TOOL_NAME } from "./constants.js";
 import { DESCRIPTION, getPrompt } from "./prompt.js";
@@ -76,7 +76,9 @@ export const CronCreateTool = buildTool({
 	// occupy a slot, or scheduler walk cost on a huge bogus field). parseCronExpression
 	// rejects non-5-field, out-of-range, and unsupported syntax.
 	async validateInput(
-		{ cron }: { cron: string; prompt: string; recurring: boolean; durable: boolean },
+		{
+			cron,
+		}: { cron: string; prompt: string; recurring: boolean; durable: boolean },
 		_context: ToolUseContext,
 	): Promise<ValidationResult> {
 		if (parseCronExpression(cron) === null) {

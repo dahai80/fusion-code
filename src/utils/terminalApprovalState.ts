@@ -4,8 +4,8 @@
 // 与 setHaikuTitle/haikuTitleAttemptedRef, 仅把纯计算外移。
 // deps 全部经入参传入, 输出与原内联块字节等价。
 
-import type { TabStatusKind } from "../ink/hooks/use-tab-status.js";
 import type { ToolUseConfirm } from "../components/permissions/PermissionRequest.js";
+import type { TabStatusKind } from "../ink/hooks/use-tab-status.js";
 
 // toolJSX 的本地 JSX 命令判别用 shape — 只读 isLocalJSXCommand + jsx。
 type ToolJsxLike = {
@@ -31,7 +31,9 @@ export type TerminalApprovalState = {
 };
 
 // isWaitingForApproval: 任一队列非空或 pending 请求存在。
-export function deriveIsWaitingForApproval(input: TerminalApprovalInput): boolean {
+export function deriveIsWaitingForApproval(
+	input: TerminalApprovalInput,
+): boolean {
 	return (
 		input.toolUseConfirmQueue.length > 0 ||
 		input.promptQueue.length > 0 ||
@@ -43,9 +45,7 @@ export function deriveIsWaitingForApproval(input: TerminalApprovalInput): boolea
 // isShowingLocalJSXCommand: 本地 JSX 命令弹窗在等待输入。要求 jsx != null —— 若
 // flag 卡在 true 但 jsx 为 null, 视为未显示, 避免 TextInput focus 与队列处理器
 // 被幻影 overlay 死锁。
-export function deriveIsShowingLocalJSXCommand(
-	toolJSX: ToolJsxLike,
-): boolean {
+export function deriveIsShowingLocalJSXCommand(toolJSX: ToolJsxLike): boolean {
 	return toolJSX?.isLocalJSXCommand === true && toolJSX?.jsx != null;
 }
 
@@ -55,7 +55,9 @@ export function deriveTerminalApprovalState(
 	input: TerminalApprovalInput,
 ): TerminalApprovalState {
 	const isWaitingForApproval = deriveIsWaitingForApproval(input);
-	const isShowingLocalJSXCommand = deriveIsShowingLocalJSXCommand(input.toolJSX);
+	const isShowingLocalJSXCommand = deriveIsShowingLocalJSXCommand(
+		input.toolJSX,
+	);
 	const titleIsAnimating =
 		input.isLoading && !isWaitingForApproval && !isShowingLocalJSXCommand;
 	const sessionStatus: TabStatusKind =
@@ -68,7 +70,7 @@ export function deriveTerminalApprovalState(
 		sessionStatus !== "waiting"
 			? undefined
 			: input.toolUseConfirmQueue.length > 0
-				? `approve ${input.toolUseConfirmQueue[0]!.tool.name}`
+				? `approve ${input.toolUseConfirmQueue[0]?.tool.name}`
 				: input.pendingWorkerRequest
 					? "worker request"
 					: input.pendingSandboxRequest

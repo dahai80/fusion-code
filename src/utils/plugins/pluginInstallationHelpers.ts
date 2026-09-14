@@ -5,9 +5,9 @@
  * system to reduce code duplication and improve maintainability.
  */
 
-import { randomBytes } from "crypto";
-import { rename, rm } from "fs/promises";
-import { dirname, join, resolve, sep } from "path";
+import { randomBytes } from "node:crypto";
+import { rename, rm } from "node:fs/promises";
+import { dirname, join, resolve, sep } from "node:path";
 import {
 	type AnalyticsMetadata_I_VERIFIED_THIS_IS_NOT_CODE_OR_FILEPATHS,
 	type AnalyticsMetadata_I_VERIFIED_THIS_IS_PII_TAGGED,
@@ -404,7 +404,7 @@ export async function installResolvedPlugin({
 	const resolution = await resolveDependencyClosure(
 		pluginId,
 		async (id) => {
-			if (depInfo.has(id)) return depInfo.get(id)!.entry;
+			if (depInfo.has(id)) return depInfo.get(id)?.entry;
 			if (id === pluginId) return entry;
 			const info = await getPluginById(id);
 			if (info?.entry && info.marketplaceInstallLocation) {

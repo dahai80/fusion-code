@@ -259,7 +259,7 @@ export async function call(
 		});
 
 		const forkLog: LogOption = {
-			date: (now.toISOString().split("T")[0] ?? ""),
+			date: now.toISOString().split("T")[0] ?? "",
 			messages: serializedMessages,
 			fullPath: forkPath,
 			value: now.getTime(),

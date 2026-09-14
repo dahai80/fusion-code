@@ -374,7 +374,7 @@ export async function* runToolUse(
 	if (!tool) {
 		const fallbackTool = findToolByName(getAllBaseTools(), toolName);
 		// Only use fallback if the tool was found via alias (deprecated name)
-		if (fallbackTool && fallbackTool.aliases?.includes(toolName)) {
+		if (fallbackTool?.aliases?.includes(toolName)) {
 			tool = fallbackTool;
 		}
 	}
@@ -793,10 +793,9 @@ async function checkPermissionsAndCallTool(
 	// so this block is a no-op pass-through. Extends the existing Bash-only
 	// declarative permission engine to MCP/plugin-sourced tools that opt in via
 	// isShellCapable === true (explicit, not heuristic).
-	const {
-		isExecPolicyDenied,
-		isExecPolicyStrictEnabled,
-	} = await import("./execPolicy.js");
+	const { isExecPolicyDenied, isExecPolicyStrictEnabled } = await import(
+		"./execPolicy.js"
+	);
 	if (isExecPolicyStrictEnabled()) {
 		const { getSettingsForSource } = await import(
 			"../../utils/settings/settings.js"
@@ -804,23 +803,15 @@ async function checkPermissionsAndCallTool(
 		const policy = getSettingsForSource("policySettings");
 		const execPolicy = policy?.sandbox?.execpolicy;
 		if (isExecPolicyDenied(tool, execPolicy, true)) {
-			logForDebugging(
-				`${tool.name} blocked by execpolicy capability-deny`,
-			);
+			logForDebugging(`${tool.name} blocked by execpolicy capability-deny`);
 			const { appendAuditLog, createAuditEntry } = await import(
 				"../audit/auditLog.js"
 			);
 			await appendAuditLog(
-				createAuditEntry(
-					getSessionId(),
-					tool.name,
-					"denied",
-					"execpolicy",
-					{
-						success: false,
-						error: "denied by execpolicy",
-					},
-				),
+				createAuditEntry(getSessionId(), tool.name, "denied", "execpolicy", {
+					success: false,
+					error: "denied by execpolicy",
+				}),
 			);
 			return [
 				{
@@ -1086,7 +1077,7 @@ async function checkPermissionsAndCallTool(
 			? ({ ...processedInput } as typeof processedInput)
 			: null;
 	if (backfilledClone) {
-		tool.backfillObservableInput!(backfilledClone as Record<string, unknown>);
+		tool.backfillObservableInput?.(backfilledClone as Record<string, unknown>);
 		processedInput = backfilledClone;
 	}
 
@@ -1939,7 +1930,7 @@ async function checkPermissionsAndCallTool(
 				}
 				const existingClient = prevState.mcp.clients[existingClientIndex];
 				// Only update if client was connected (don't overwrite other states)
-				if (!existingClient || existingClient.type !== "connected") {
+				if (existingClient?.type !== "connected") {
 					return prevState;
 				}
 				const updatedClients = [...prevState.mcp.clients];

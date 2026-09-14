@@ -1,9 +1,9 @@
+import { Suspense, use, useRef, useState } from "react";
+import { c as _c } from "react/compiler-runtime";
 import type {
 	Base64ImageSource,
 	ImageBlockParam,
 } from "src/types/anthropic-protocol.js";
-import { Suspense, use, useRef, useState } from "react";
-import { c as _c } from "react/compiler-runtime";
 import { useSettings } from "../../../hooks/useSettings.js";
 import { useTerminalSize } from "../../../hooks/useTerminalSize.js";
 import { stringWidth } from "../../../ink/stringWidth.js";
@@ -15,8 +15,7 @@ import {
 } from "../../../services/analytics/index.js";
 import { useAppState } from "../../../state/AppState.js";
 import { AskUserQuestionTool } from "../../../tools/AskUserQuestionTool/AskUserQuestionTool.js";
-import { getCliHighlightPromise,
-} from "../../../utils/cliHighlight.js";
+import { getCliHighlightPromise } from "../../../utils/cliHighlight.js";
 import type { PastedContent } from "../../../utils/config.js";
 import { maybeResizeAndDownsampleImageBlock } from "../../../utils/imageResizer.js";
 import { cacheImagePath, storeImage } from "../../../utils/imageStore.js";

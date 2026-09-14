@@ -7,9 +7,9 @@
  */
 
 import memoize from "lodash-es/memoize.js";
-import { getFeatureValue_CACHED_MAY_BE_STALE } from "../services/analytics/index.js";
 import {
 	type AnalyticsMetadata_I_VERIFIED_THIS_IS_NOT_CODE_OR_FILEPATHS,
+	getFeatureValue_CACHED_MAY_BE_STALE,
 	logEvent,
 } from "../services/analytics/index.js";
 import type { Tool } from "../Tool.js";
@@ -58,7 +58,7 @@ function parseAutoPercentage(value: string): number | null {
 	const percentStr = value.slice(5);
 	const percent = parseInt(percentStr, 10);
 
-	if (isNaN(percent)) {
+	if (Number.isNaN(percent)) {
 		logForDebugging(
 			`Invalid ENABLE_TOOL_SEARCH value "${value}": expected auto:N where N is a number.`,
 		);

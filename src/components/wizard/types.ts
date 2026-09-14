@@ -3,7 +3,7 @@
 import type { ReactNode } from "react";
 
 export type WizardStepComponent<
-	T extends Record<string, unknown> = Record<string, unknown>,
+	_T extends Record<string, unknown> = Record<string, unknown>,
 > = React.ComponentType | (() => ReactNode);
 
 export type WizardContextValue<

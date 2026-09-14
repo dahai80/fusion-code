@@ -81,8 +81,7 @@ function useCanUseTool(setToolUseConfirmQueue, setToolPermissionContext) {
 				// normal rule-based check runs (never force-allow). Deny/ask are
 				// also audited so a forced decision is never silent.
 				const safeForceDecision =
-					forceDecision !== undefined &&
-					forceDecision.behavior !== "allow"
+					forceDecision !== undefined && forceDecision.behavior !== "allow"
 						? forceDecision
 						: undefined;
 				if (forceDecision !== undefined && forceDecision.behavior === "allow") {

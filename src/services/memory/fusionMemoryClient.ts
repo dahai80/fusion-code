@@ -146,10 +146,9 @@ async function rpc<T>(
 	if (!apiKey) return null;
 	// audit 0905 E3: 熔断 open 时快速 fail, 不等 timeout, 避免拖死主流程。
 	if (!memCircuitAllow()) {
-		logForDebugging(
-			`[Fusion-Memory] ${method} skipped (circuit OPEN)`,
-			{ level: "warn" },
-		);
+		logForDebugging(`[Fusion-Memory] ${method} skipped (circuit OPEN)`, {
+			level: "warn",
+		});
 		return null;
 	}
 	try {

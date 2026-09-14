@@ -1,4 +1,4 @@
-import { registerBundledSkill } from '../bundledSkills.js'
+import { registerBundledSkill } from "../bundledSkills.js";
 
 const VERIFY_PROMPT = `# Verification Before Completion
 
@@ -45,19 +45,22 @@ For EVERY task, check ALL that apply:
 
 ## Action
 
-Now verify the current task using this checklist.`
+Now verify the current task using this checklist.`;
 
 export function registerVerifyCompleteSkill(): void {
-    registerBundledSkill({
-        name: 'verify-complete',
-        description: 'Enforce verification checklist before declaring any task done',
-        whenToUse:
-            'When the user says "verify", "check my work", "make sure this is correct", or when a task is about to be declared complete. Also useful as a final step before committing.',
-        argumentHint: '[what to verify]',
-        userInvocable: true,
-        async getPromptForCommand(args) {
-            const focus = args.trim() || 'the most recent changes'
-            return [{ type: 'text', text: `${VERIFY_PROMPT}\n\n## Focus\n\n${focus}` }]
-        },
-    })
+	registerBundledSkill({
+		name: "verify-complete",
+		description:
+			"Enforce verification checklist before declaring any task done",
+		whenToUse:
+			'When the user says "verify", "check my work", "make sure this is correct", or when a task is about to be declared complete. Also useful as a final step before committing.',
+		argumentHint: "[what to verify]",
+		userInvocable: true,
+		async getPromptForCommand(args) {
+			const focus = args.trim() || "the most recent changes";
+			return [
+				{ type: "text", text: `${VERIFY_PROMPT}\n\n## Focus\n\n${focus}` },
+			];
+		},
+	});
 }

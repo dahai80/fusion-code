@@ -1,8 +1,7 @@
 import figures from "figures";
 import React, { useState } from "react";
 import { c as _c } from "react/compiler-runtime";
-import { mcpInfoFromString } from "src/services/mcp/index.js";
-import { isMcpTool } from "src/services/mcp/index.js";
+import { isMcpTool, mcpInfoFromString } from "src/services/mcp/index.js";
 import type { Tool, Tools } from "src/Tool.js";
 import { filterToolsForAgent } from "src/tools/AgentTool/agentToolUtils.js";
 import { AGENT_TOOL_NAME } from "src/tools/AgentTool/constants.js";

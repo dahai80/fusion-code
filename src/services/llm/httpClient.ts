@@ -129,7 +129,7 @@ function buildHeaders(opts: PostMessagesOptions): Record<string, string> {
 	if (opts.apiKey) {
 		h["x-api-key"] = opts.apiKey;
 	} else if (opts.authToken) {
-		h["authorization"] = `Bearer ${opts.authToken}`;
+		h.authorization = `Bearer ${opts.authToken}`;
 	} else if (opts.firstParty) {
 		const key = getAnthropicApiKey();
 		if (key) h["x-api-key"] = key;

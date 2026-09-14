@@ -1,6 +1,6 @@
-import type { Dirent, Stats } from "fs";
-import { readdir, readFile, stat } from "fs/promises";
-import * as path from "path";
+import type { Dirent, Stats } from "node:fs";
+import { readdir, readFile, stat } from "node:fs/promises";
+import * as path from "node:path";
 import { z } from "zod/v4";
 import { errorMessage, getErrnoCode, isENOENT } from "../errors.js";
 import { FRONTMATTER_REGEX } from "../frontmatterParser.js";

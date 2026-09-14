@@ -11,7 +11,7 @@
 // beyond the explicitly-passed ctx.
 
 import { feature } from "bun:bundle";
-import { randomUUID, type UUID } from "crypto";
+import { randomUUID, type UUID } from "node:crypto";
 
 import type { Message as MessageType } from "../types/message.js";
 import { isFullscreenEnvEnabled } from "./fullscreen.js";

@@ -1,5 +1,5 @@
-import type { ContentBlockParam } from 'src/types/anthropic-protocol.js'
-import { logForDebugging } from '../utils/debug.js'
+import type { ContentBlockParam } from "src/types/anthropic-protocol.js";
+import { logForDebugging } from "../utils/debug.js";
 
 // Resolve file_uuid attachments on inbound bridge user messages and prepend
 // @path refs to the content. Attachment download is not wired up in this
@@ -11,17 +11,13 @@ import { logForDebugging } from '../utils/debug.js'
 // it as string | ContentBlockParam[]. Returning msg here crashes
 // processTextPrompt with "input.find is not a function".
 export const resolveAndPrepend = async (
-  msg: unknown,
-  content: string | Array<ContentBlockParam>,
+	msg: unknown,
+	content: string | Array<ContentBlockParam>,
 ): Promise<string | Array<ContentBlockParam>> => {
-  if (
-    typeof msg === 'object' &&
-    msg !== null &&
-    'file_attachments' in msg
-  ) {
-    logForDebugging(
-      '[bridge:inbound-attach] file_attachments present but attachment resolution is disabled in this build; forwarding content without @path refs',
-    )
-  }
-  return content
-}
+	if (typeof msg === "object" && msg !== null && "file_attachments" in msg) {
+		logForDebugging(
+			"[bridge:inbound-attach] file_attachments present but attachment resolution is disabled in this build; forwarding content without @path refs",
+		);
+	}
+	return content;
+};

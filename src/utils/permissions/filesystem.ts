@@ -1,9 +1,9 @@
 import { feature } from "bun:bundle";
-import { randomBytes } from "crypto";
+import { randomBytes } from "node:crypto";
+import { homedir, tmpdir } from "node:os";
+import { join, normalize, posix, sep } from "node:path";
 import ignore from "ignore";
 import memoize from "lodash-es/memoize.js";
-import { homedir, tmpdir } from "os";
-import { join, normalize, posix, sep } from "path";
 import { hasAutoMemPathOverride, isAutoMemPath } from "src/memdir/paths.js";
 import { isAgentMemoryPath } from "src/tools/AgentTool/agentMemory.js";
 import {
@@ -148,7 +148,7 @@ export function getClaudeSkillScope(
 				// produce '/.claude/skills/*/**' which matches ALL skills. Return null
 				// to fall through to generateSuggestions() instead.
 				if (/[*?[\]]/.test(skillName)) return null;
-				return { skillName, pattern: prefix + skillName + "/**" };
+				return { skillName, pattern: `${prefix + skillName}/**` };
 			}
 		}
 	}
@@ -1012,7 +1012,7 @@ export function matchingRuleForInput(
 			const originalPattern = igResult.rule.pattern;
 
 			// Check if this was a /** pattern we simplified
-			const withWildcard = originalPattern + "/**";
+			const withWildcard = `${originalPattern}/**`;
 			if (patternMap.has(withWildcard)) {
 				return patternMap.get(withWildcard) ?? null;
 			}

@@ -1,3 +1,8 @@
+import { createHash, randomBytes, randomUUID } from "node:crypto";
+import { mkdir } from "node:fs/promises";
+import { createServer, type Server } from "node:http";
+import { join } from "node:path";
+import { parse } from "node:url";
 import {
 	discoverAuthorizationServerMetadata,
 	discoverOAuthServerInfo,
@@ -25,11 +30,6 @@ import {
 } from "@modelcontextprotocol/sdk/shared/auth.js";
 import type { FetchLike } from "@modelcontextprotocol/sdk/shared/transport.js";
 import axios from "axios";
-import { createHash, randomBytes, randomUUID } from "crypto";
-import { mkdir } from "fs/promises";
-import { createServer, type Server } from "http";
-import { join } from "path";
-import { parse } from "url";
 import xss from "xss";
 import { MCP_CLIENT_METADATA_URL } from "../../constants/oauth.js";
 import { openBrowser } from "../../utils/browser.js";
@@ -1278,7 +1278,7 @@ export async function performMCPOAuthFlow(
 					: {}),
 			});
 		} else {
-			throw new Error("Unexpected auth result: " + result);
+			throw new Error(`Unexpected auth result: ${result}`);
 		}
 	} catch (error) {
 		logMCPDebug(serverName, `Error during auth completion: ${error}`);
@@ -1652,11 +1652,9 @@ export class ClaudeAuthProvider implements OAuthClientProvider {
 		// token doesn't have the requested scope, omit refresh_token below so the
 		// SDK skips refresh and falls through to the PKCE flow.
 		const currentScopes = tokenData.scope?.split(" ") ?? [];
-		const needsStepUp =
-			this._pendingStepUpScope !== undefined &&
-			this._pendingStepUpScope
-				.split(" ")
-				.some((s) => !currentScopes.includes(s));
+		const needsStepUp = this._pendingStepUpScope
+			?.split(" ")
+			.some((s) => !currentScopes.includes(s));
 		if (needsStepUp) {
 			logMCPDebug(
 				this.serverName,

@@ -43,7 +43,7 @@ export function registerServerSubCommands(program: CommanderCommand): void {
 					idleTimeout: string;
 					maxSessions: string;
 				}) => {
-					const { randomBytes } = await import("crypto");
+					const { randomBytes } = await import("node:crypto");
 					const { startServer } = await import("../server/server.js");
 					const { SessionManager } = await import(
 						"../server/sessionManager.js"

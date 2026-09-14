@@ -20,7 +20,7 @@ import { expandPath } from "./path.js";
 import { countCharInString } from "./stringUtils.js";
 import { uniq } from "./array.js";
 import { getFsImplementation } from "./fsOperations.js";
-import { readdir, stat } from "fs/promises";
+import { readdir, stat } from "node:fs/promises";
 import type { IDESelection } from "../hooks/useIdeSelection.js";
 import { TODO_WRITE_TOOL_NAME } from "../tools/TodoWriteTool/constants.js";
 import { TASK_CREATE_TOOL_NAME } from "../tools/TaskCreateTool/constants.js";
@@ -36,12 +36,13 @@ import {
 } from "./tasks.js";
 import { getPlanFilePath, getPlan } from "./plans.js";
 import { getConnectedIdeName } from "./ide.js";
-import { getManagedAndUserConditionalRules,
+import {
+	getManagedAndUserConditionalRules,
 	getMemoryFilesForNestedDirectory,
 	getConditionalRulesForCwdLevelDirectory,
 	type MemoryFileInfo,
 } from "./claudemd.js";
-import { dirname, parse, relative, resolve } from "path";
+import { dirname, parse, relative, resolve } from "node:path";
 import { getCwd } from "src/utils/cwd.js";
 import { getViewedTeammateTask } from "../state/selectors.js";
 import { logError } from "./log.js";
@@ -59,7 +60,7 @@ import {
 	getImagePasteIds,
 	isValidImagePaste,
 } from "src/types/textInputTypes.js";
-import { randomUUID, type UUID } from "crypto";
+import { randomUUID, type UUID } from "node:crypto";
 import { getInitialSettings } from "./settings/settings.js";
 import { getSnippetForTwoFileDiff } from "src/tools/FileEditTool/utils.js";
 import type {
@@ -69,11 +70,6 @@ import type {
 } from "src/types/anthropic-protocol.js";
 import { maybeResizeAndDownsampleImageBlock } from "./imageResizer.js";
 import type { PastedContent } from "./config.js";
-import {
-	getDefaultSonnetModel,
-	getDefaultHaikuModel,
-	getDefaultOpusModel,
-} from "./model/model.js";
 import type { ReadResourceResult } from "@modelcontextprotocol/sdk/types.js";
 import { getSkillToolCommands, getMcpSkillCommands } from "../commands.js";
 import type { Command } from "../types/command.js";
@@ -2027,7 +2023,7 @@ async function processMcpResourceAttachments(
 
 				// Find the MCP client
 				const client = mcpClients.find((c) => c.name === serverName);
-				if (!client || client.type !== "connected") {
+				if (client?.type !== "connected") {
 					logEvent("tengu_at_mention_mcp_resource_error", {});
 					return null;
 				}
@@ -3688,7 +3684,7 @@ async function getTeammateMailboxAttachments(
 	const idleAgentByIndex = new Map<number, string>();
 	const latestIdleByAgent = new Map<string, number>();
 	for (let i = 0; i < allMessages.length; i++) {
-		const idle = isIdleNotification(allMessages[i]!.text);
+		const idle = isIdleNotification(allMessages[i]?.text);
 		if (idle) {
 			idleAgentByIndex.set(i, idle.from);
 			latestIdleByAgent.set(idle.from, i);

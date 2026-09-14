@@ -62,10 +62,7 @@ export function loadProfile(name?: string): Profile | null {
 		for (const field of strArrayFields) {
 			const val = parsed[field];
 			if (val === undefined) continue;
-			if (
-				!Array.isArray(val) ||
-				val.some((e) => typeof e !== "string")
-			) {
+			if (!Array.isArray(val) || val.some((e) => typeof e !== "string")) {
 				logForDebugging(
 					`[profile] user "${name}" schema mismatch (${String(field)} not string[]); fail-open full set`,
 				);

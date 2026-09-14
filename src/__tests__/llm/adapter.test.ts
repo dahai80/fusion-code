@@ -1,12 +1,12 @@
 // AnthropicWireAdapter 单测 — 请求体构造 + SSE->StreamChunk 映射 (不经网络)
 
 import { describe, expect, test } from "bun:test";
+import type { GenerateOptions } from "../../services/llm/index.js";
 import {
 	buildRequestBody,
 	type SseState,
 	sseToChunk,
 } from "../../services/llm/index.js";
-import type { GenerateOptions } from "../../services/llm/index.js";
 
 function baseOptions(over: Partial<GenerateOptions> = {}): GenerateOptions {
 	return {

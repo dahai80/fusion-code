@@ -1,5 +1,5 @@
 export function getPrompt(): string {
-    return `
+	return `
 # TeamCreate
 
 ## When to Use
@@ -74,5 +74,5 @@ Teammates should:
 4. Mark tasks completed with TaskUpdate, then check TaskList for next work
 
 **IMPORTANT**: Always use SendMessage to communicate with teammates. Do NOT send structured JSON status messages.
-`.trim()
+`.trim();
 }

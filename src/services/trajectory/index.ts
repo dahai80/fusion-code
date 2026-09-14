@@ -1,5 +1,11 @@
 // D1 轨迹飞轮 — 模块统一出口 (issue #50/#51)
 
+// insight-0902 E1: SessionEnd 自动轨迹收集 — 训练飞轮自动闭环。
+// 通过 barrel 暴露 (audit 1.1.3 Phase B 层级规则)。
+export {
+	autoCollectTrajectoryOnSessionEnd,
+	isTrajectoryAutoCollectEnabled,
+} from "./autoCollect.js";
 export {
 	collectTrajectories,
 	DEFAULT_DEST_DIR,
@@ -8,7 +14,6 @@ export {
 	MANIFEST_VERSION,
 	readManifest,
 } from "./collector.js";
-
 export {
 	buildDPOPairs,
 	exportTrajectories,
@@ -25,9 +30,6 @@ export type {
 	TrainerFormat,
 } from "./trainerCli.js";
 export { runTrainerCli } from "./trainerCli.js";
-// insight-0902 E1: SessionEnd 自动轨迹收集 — 训练飞轮自动闭环。
-// 通过 barrel 暴露 (audit 1.1.3 Phase B 层级规则)。
-export { autoCollectTrajectoryOnSessionEnd, isTrajectoryAutoCollectEnabled } from "./autoCollect.js";
 export type {
 	CollectedTrajectory,
 	CollectOptions,

@@ -8,8 +8,8 @@ import * as v0_4 from "./0.4.js";
  * Use this when you need to validate manifests of any version.
  */
 export const McpbManifestSchema = z.union([
-    v0_1.McpbManifestSchema,
-    v0_2.McpbManifestSchema,
-    v0_3.McpbManifestSchema,
-    v0_4.McpbManifestSchema,
+	v0_1.McpbManifestSchema,
+	v0_2.McpbManifestSchema,
+	v0_3.McpbManifestSchema,
+	v0_4.McpbManifestSchema,
 ]);

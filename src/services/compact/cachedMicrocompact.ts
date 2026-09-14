@@ -1,104 +1,104 @@
-import {
-  getCachedMCConfig,
-  type CachedMCConfig,
-} from './cachedMCConfig.js'
+import { type CachedMCConfig, getCachedMCConfig } from "./cachedMCConfig.js";
 
 export type CacheEditsBlock = {
-  type: 'cache_edits'
-  edits: { type: 'delete'; cache_reference: string }[]
-}
+	type: "cache_edits";
+	edits: { type: "delete"; cache_reference: string }[];
+};
 
 export type PinnedCacheEdits = {
-  userMessageIndex: number
-  block: CacheEditsBlock
-}
+	userMessageIndex: number;
+	block: CacheEditsBlock;
+};
 
 export type CachedMCState = {
-  pinnedEdits: PinnedCacheEdits[]
-  registeredTools: Set<string>
-  toolOrder: string[]
-  deletedRefs: Set<string>
-}
+	pinnedEdits: PinnedCacheEdits[];
+	registeredTools: Set<string>;
+	toolOrder: string[];
+	deletedRefs: Set<string>;
+};
 
 export function createCachedMCState(): CachedMCState {
-  return {
-    pinnedEdits: [],
-    registeredTools: new Set(),
-    toolOrder: [],
-    deletedRefs: new Set(),
-  }
+	return {
+		pinnedEdits: [],
+		registeredTools: new Set(),
+		toolOrder: [],
+		deletedRefs: new Set(),
+	};
 }
 
 export function isCachedMicrocompactEnabled(): boolean {
-  return getCachedMCConfig().enabled
+	return getCachedMCConfig().enabled;
 }
 
 export function isModelSupportedForCacheEditing(model: string): boolean {
-  return getCachedMCConfig().supportedModels.some(pattern =>
-    model.includes(pattern),
-  )
+	return getCachedMCConfig().supportedModels.some((pattern) =>
+		model.includes(pattern),
+	);
 }
 
-export { getCachedMCConfig }
-export type { CachedMCConfig }
+export type { CachedMCConfig };
+export { getCachedMCConfig };
 
 export function registerToolResult(
-  state: CachedMCState,
-  toolUseId: string,
+	state: CachedMCState,
+	toolUseId: string,
 ): void {
-  if (state.registeredTools.has(toolUseId)) {
-    return
-  }
+	if (state.registeredTools.has(toolUseId)) {
+		return;
+	}
 
-  state.registeredTools.add(toolUseId)
-  state.toolOrder.push(toolUseId)
+	state.registeredTools.add(toolUseId);
+	state.toolOrder.push(toolUseId);
 }
 
 export function registerToolMessage(
-  _state: CachedMCState,
-  _toolUseIds: string[],
+	_state: CachedMCState,
+	_toolUseIds: string[],
 ): void {}
 
 export function getToolResultsToDelete(state: CachedMCState): string[] {
-  const config = getCachedMCConfig()
-  const activeRefs = state.toolOrder.filter(id => !state.deletedRefs.has(id))
+	const config = getCachedMCConfig();
+	const activeRefs = state.toolOrder.filter((id) => !state.deletedRefs.has(id));
 
-  if (!config.enabled || activeRefs.length < config.triggerThreshold) {
-    return []
-  }
+	if (!config.enabled || activeRefs.length < config.triggerThreshold) {
+		return [];
+	}
 
-  return activeRefs.slice(0, Math.max(0, activeRefs.length - config.keepRecent))
+	return activeRefs.slice(
+		0,
+		Math.max(0, activeRefs.length - config.keepRecent),
+	);
 }
 
 export function createCacheEditsBlock(
-  state: CachedMCState,
-  toolUseIds: string[],
+	state: CachedMCState,
+	toolUseIds: string[],
 ): CacheEditsBlock | null {
-  const edits = toolUseIds
-    .filter(id => !state.deletedRefs.has(id))
-    .map(id => {
-      state.deletedRefs.add(id)
-      return {
-        type: 'delete' as const,
-        cache_reference: id,
-      }
-    })
+	const edits = toolUseIds
+		.filter((id) => !state.deletedRefs.has(id))
+		.map((id) => {
+			state.deletedRefs.add(id);
+			return {
+				type: "delete" as const,
+				cache_reference: id,
+			};
+		});
 
-  if (edits.length === 0) {
-    return null
-  }
+	if (edits.length === 0) {
+		return null;
+	}
 
-  return {
-    type: 'cache_edits',
-    edits,
-  }
+	return {
+		type: "cache_edits",
+		edits,
+	};
 }
 
 export function markToolsSentToAPI(_state: CachedMCState): void {}
 
 export function resetCachedMCState(state: CachedMCState): void {
-  state.pinnedEdits.length = 0
-  state.registeredTools.clear()
-  state.toolOrder.length = 0
-  state.deletedRefs.clear()
+	state.pinnedEdits.length = 0;
+	state.registeredTools.clear();
+	state.toolOrder.length = 0;
+	state.deletedRefs.clear();
 }

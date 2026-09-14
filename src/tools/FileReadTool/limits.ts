@@ -12,34 +12,34 @@
  * dropped but mean tokens rose — the throw path yields a ~100-byte error
  * tool-result while truncation yields ~25K tokens of content at the cap.
  */
-import memoize from 'lodash-es/memoize.js'
-import { getFeatureValue_CACHED_MAY_BE_STALE } from 'src/services/analytics/index.js'
-import { MAX_OUTPUT_SIZE } from 'src/utils/file.js'
-export const DEFAULT_MAX_OUTPUT_TOKENS = 25000
+import memoize from "lodash-es/memoize.js";
+import { getFeatureValue_CACHED_MAY_BE_STALE } from "src/services/analytics/index.js";
+import { MAX_OUTPUT_SIZE } from "src/utils/file.js";
+export const DEFAULT_MAX_OUTPUT_TOKENS = 25000;
 // fusion-mlx 本地模式下，read_file 单次输出上限降为 200 行，防爆 32K 上下文窗口
-export const FUSION_MLX_MAX_OUTPUT_LINES = 200
+export const FUSION_MLX_MAX_OUTPUT_LINES = 200;
 
 /**
  * Env var override for max output tokens. Returns undefined when unset/invalid
  * so the caller can fall through to the next precedence tier.
  */
 function getEnvMaxTokens(): number | undefined {
-  const override = process.env.FUSION_CODE_FILE_READ_MAX_OUTPUT_TOKENS
-  if (override) {
-    const parsed = parseInt(override, 10)
-    if (!isNaN(parsed) && parsed > 0) {
-      return parsed
-    }
-  }
-  return undefined
+	const override = process.env.FUSION_CODE_FILE_READ_MAX_OUTPUT_TOKENS;
+	if (override) {
+		const parsed = parseInt(override, 10);
+		if (!Number.isNaN(parsed) && parsed > 0) {
+			return parsed;
+		}
+	}
+	return undefined;
 }
 
 export type FileReadingLimits = {
-  maxTokens: number
-  maxSizeBytes: number
-  includeMaxSizeInPrompt?: boolean
-  targetedRangeNudge?: boolean
-}
+	maxTokens: number;
+	maxSizeBytes: number;
+	includeMaxSizeInPrompt?: boolean;
+	targetedRangeNudge?: boolean;
+};
 
 /**
  * Default limits for Read tool when the ToolUseContext doesn't supply an
@@ -53,42 +53,42 @@ export type FileReadingLimits = {
  * through to the hardcoded defaults (no route to cap=0).
  */
 export const getDefaultFileReadingLimits = memoize((): FileReadingLimits => {
-  const override =
-    getFeatureValue_CACHED_MAY_BE_STALE<Partial<FileReadingLimits> | null>(
-      'tengu_amber_wren',
-      {},
-    )
+	const override =
+		getFeatureValue_CACHED_MAY_BE_STALE<Partial<FileReadingLimits> | null>(
+			"tengu_amber_wren",
+			{},
+		);
 
-  const maxSizeBytes =
-    typeof override?.maxSizeBytes === 'number' &&
-    Number.isFinite(override.maxSizeBytes) &&
-    override.maxSizeBytes > 0
-      ? override.maxSizeBytes
-      : MAX_OUTPUT_SIZE
+	const maxSizeBytes =
+		typeof override?.maxSizeBytes === "number" &&
+		Number.isFinite(override.maxSizeBytes) &&
+		override.maxSizeBytes > 0
+			? override.maxSizeBytes
+			: MAX_OUTPUT_SIZE;
 
-  const envMaxTokens = getEnvMaxTokens()
-  const maxTokens =
-    envMaxTokens ??
-    (typeof override?.maxTokens === 'number' &&
-    Number.isFinite(override.maxTokens) &&
-    override.maxTokens > 0
-      ? override.maxTokens
-      : DEFAULT_MAX_OUTPUT_TOKENS)
+	const envMaxTokens = getEnvMaxTokens();
+	const maxTokens =
+		envMaxTokens ??
+		(typeof override?.maxTokens === "number" &&
+		Number.isFinite(override.maxTokens) &&
+		override.maxTokens > 0
+			? override.maxTokens
+			: DEFAULT_MAX_OUTPUT_TOKENS);
 
-  const includeMaxSizeInPrompt =
-    typeof override?.includeMaxSizeInPrompt === 'boolean'
-      ? override.includeMaxSizeInPrompt
-      : undefined
+	const includeMaxSizeInPrompt =
+		typeof override?.includeMaxSizeInPrompt === "boolean"
+			? override.includeMaxSizeInPrompt
+			: undefined;
 
-  const targetedRangeNudge =
-    typeof override?.targetedRangeNudge === 'boolean'
-      ? override.targetedRangeNudge
-      : undefined
+	const targetedRangeNudge =
+		typeof override?.targetedRangeNudge === "boolean"
+			? override.targetedRangeNudge
+			: undefined;
 
-  return {
-    maxSizeBytes,
-    maxTokens,
-    includeMaxSizeInPrompt,
-    targetedRangeNudge,
-  }
-})
+	return {
+		maxSizeBytes,
+		maxTokens,
+		includeMaxSizeInPrompt,
+		targetedRangeNudge,
+	};
+});

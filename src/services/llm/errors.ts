@@ -112,7 +112,10 @@ export function classifyError(
 	// P1-7 (audit 0901): 错误分类判定依据显式日志 — 尤其兜底 UNKNOWN (无 status 的
 	// generic Error 落保守分类不可重试) 与 message 类分 (无 status 时靠 shape 猜分),
 	// 让重试 vs 抛的决策点可追溯, 不再静默误判。
-	if (code === "UNKNOWN" || (typeof status !== "number" && code !== "ABORTED")) {
+	if (
+		code === "UNKNOWN" ||
+		(typeof status !== "number" && code !== "ABORTED")
+	) {
 		logForDebugging(
 			`[llm:errors] classifyError code=${code} status=${
 				status ?? "none"
@@ -184,8 +187,7 @@ export function isConnectionErrorLike(error: unknown): error is Error {
 	if (!(error instanceof Error)) return false;
 	if (error instanceof LlmRequestError) {
 		return (
-			error.failure.code === "TRANSPORT" ||
-			error.failure.code === "TIMEOUT"
+			error.failure.code === "TRANSPORT" || error.failure.code === "TIMEOUT"
 		);
 	}
 	const name = (error as { name?: string }).name ?? "";

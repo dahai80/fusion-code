@@ -1,5 +1,5 @@
 export function getCompactDecisionProtocol(): string {
-    return `# Compact decision protocol
+	return `# Compact decision protocol
 
 ## When to trigger compaction
 
@@ -35,11 +35,11 @@ The system auto-compacts when context approaches capacity. But you should also b
 
 - If your responses are getting shorter or less detailed → you may be near context limit
 - If you find yourself unable to recall file contents → re-read them
-- If tool calls start failing with context-related errors → suggest a /compact to the user`
+- If tool calls start failing with context-related errors → suggest a /compact to the user`;
 }
 
 export function getAgentDispatchProtocol(): string {
-    return `# Agent dispatch protocol
+	return `# Agent dispatch protocol
 
 ## When to use Agent tool for divide-and-conquer
 
@@ -79,11 +79,11 @@ DON'T use Agent when:
 - Not giving enough context in the agent prompt (agent wastes time exploring)
 - Not verifying agent results (agents can hallucinate or miss things)
 - Waiting for agents when you could do the task faster yourself
-- Giving agents write access when they only need to read`
+- Giving agents write access when they only need to read`;
 }
 
 export function getReReadDecisionProtocol(): string {
-    return `# Re-read vs memory decision protocol
+	return `# Re-read vs memory decision protocol
 
 ## When to re-read a file
 
@@ -113,11 +113,11 @@ USE MEMORY (don't re-read) when:
 - Assume all prior file reads are lost after compaction
 - Re-read ONLY the files you need for the current step
 - Don't batch-re-read all files from the summary. Read on demand.
-- Store KEY FACTS in your response text (paths, signatures, decisions) — these survive compression`
+- Store KEY FACTS in your response text (paths, signatures, decisions) — these survive compression`;
 }
 
 export function getVerificationCheckpointProtocol(): string {
-    return `# Verification checkpoint protocol
+	return `# Verification checkpoint protocol
 
 ## When to stop and verify
 
@@ -153,11 +153,11 @@ DON'T stop and verify when:
 - Don't skip verification because you're "almost done"
 - Don't claim success without verification
 - If you can't verify (no tests, no build step), say so explicitly
-- Report verification results honestly, even if they show failures`
+- Report verification results honestly, even if they show failures`;
 }
 
 export function getEscalationProtocol(): string {
-    return `# Escalation protocol
+	return `# Escalation protocol
 
 ## When to escalate to the user
 
@@ -188,11 +188,11 @@ DON'T escalate when:
 - Wait for the user's response. Don't guess their answer.
 - If they give you new information, update your approach accordingly.
 - If they tell you to proceed with your recommendation, do so.
-- If they choose a different option, follow their choice even if you disagree.`
+- If they choose a different option, follow their choice even if you disagree.`;
 }
 
 export function getTokenBudgetProtocol(): string {
-    return `# Token budget self-monitoring protocol
+	return `# Token budget self-monitoring protocol
 
 ## Signs you're approaching context limits
 
@@ -227,11 +227,11 @@ export function getTokenBudgetProtocol(): string {
 2. Summarize what's been done and what remains
 3. Tell the user: "I'm approaching context limits. Here's what's done and what still needs to be done."
 4. Suggest: start a new conversation for remaining work, or use /compact to free space
-5. Store critical facts in your final response so they survive into a new conversation`
+5. Store critical facts in your final response so they survive into a new conversation`;
 }
 
 export function getApproachSwitchProtocol(): string {
-    return `# Approach switch protocol
+	return `# Approach switch protocol
 
 ## When your current approach isn't working
 
@@ -269,11 +269,11 @@ PERSIST when:
 
 - Don't go back to the failed approach without a good reason
 - Document why you switched (briefly, in your response)
-- If the new approach works, continue. If not, consider escalating.`
+- If the new approach works, continue. If not, consider escalating.`;
 }
 
 export function getConfidenceAssessmentProtocol(): string {
-    return `# Confidence assessment protocol
+	return `# Confidence assessment protocol
 
 ## Before reporting completion
 
@@ -306,5 +306,5 @@ LOW confidence (report as uncertain):
 - If you discover a complication: stop, reassess, inform the user
 - If your initial approach seems wrong: switch before going deeper
 - If the task is bigger than expected: report scope change, don't silently expand
-- If you're not sure you can complete it: say so early, not after wasting turns`
+- If you're not sure you can complete it: say so early, not after wasting turns`;
 }

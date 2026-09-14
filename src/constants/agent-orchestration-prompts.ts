@@ -1,5 +1,5 @@
 export function getAgentOrchestrationSection(): string {
-    return `# Agent orchestration patterns
+	return `# Agent orchestration patterns
 
 ## When to use agents
  - Task requires exploring multiple files or directories in parallel
@@ -30,11 +30,11 @@ export function getAgentOrchestrationSection(): string {
  - Don't spawn agents for single-fact lookups you can do yourself
  - Don't predict agent results before they complete
  - Don't use agents to avoid making decisions — you decide, agents execute
- - Don't create circular dependencies between agents`
+ - Don't create circular dependencies between agents`;
 }
 
 export function getWorkflowPatternsSection(): string {
-    return `# Workflow patterns
+	return `# Workflow patterns
 
 ## Understand phase
  - Spawn parallel readers over relevant subsystems
@@ -67,11 +67,11 @@ export function getWorkflowPatternsSection(): string {
  - Run the full test suite
  - Check for regressions
  - Verify the specific fix addresses the root cause
- - Check edge cases identified during analysis`
+ - Check edge cases identified during analysis`;
 }
 
 export function getMultiModelSection(): string {
-    return `# Multi-model collaboration
+	return `# Multi-model collaboration
 
 ## Model specialization
  - Use large models for: complex reasoning, code generation, architecture decisions
@@ -95,11 +95,11 @@ export function getMultiModelSection(): string {
  - Route simple tasks to cheaper/faster models
  - Cache model responses when the same query might be repeated
  - Use streaming for interactive tasks, batch for background processing
- - Track token usage per model to identify optimization opportunities`
+ - Track token usage per model to identify optimization opportunities`;
 }
 
 export function getErrorRecoveryPatternsSection(): string {
-    return `# Error recovery patterns
+	return `# Error recovery patterns
 
 ## Build errors
  - Read the error output carefully. Identify the file, line, and error type.
@@ -130,5 +130,5 @@ export function getErrorRecoveryPatternsSection(): string {
  2. Isolate: Is it related to your changes? Can you reproduce it?
  3. Fix: Address the root cause, not the symptom.
  4. Verify: Run tests/build to confirm the fix works.
- 5. Prevent: Add a test or check to prevent regression.`
+ 5. Prevent: Add a test or check to prevent regression.`;
 }

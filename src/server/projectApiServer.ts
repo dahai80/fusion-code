@@ -12,12 +12,12 @@
  *   Server → Client: { "type": "chat_done", "session_id": "..." }
  */
 
+import { randomBytes } from "node:crypto";
+import { chmodSync, mkdirSync, writeFileSync } from "node:fs";
+import { mkdir, readdir, writeFile } from "node:fs/promises";
+import { homedir } from "node:os";
+import { dirname, join, resolve } from "node:path";
 import type { ServerWebSocket } from "bun";
-import { randomBytes } from "crypto";
-import { chmod, mkdir, readdir, writeFile } from "fs/promises";
-import { chmodSync, mkdirSync, writeFileSync } from "fs";
-import { homedir } from "os";
-import { dirname, join, resolve } from "path";
 import { scanMemoryFiles } from "../memdir/memoryScan.js";
 import { getProjectContextPortable } from "../utils/claudemdPortable.js";
 import { logForDebugging } from "../utils/debug.js";
@@ -90,7 +90,7 @@ routes.set("/api/projects", async () => {
 });
 
 // GET /api/projects/:id/context — project knowledge-base context
-routes.set("/api/projects/:id/context", async (url, _body, pathParams) => {
+routes.set("/api/projects/:id/context", async (_url, _body, pathParams) => {
 	const projectId = pathParams?.get("id");
 	if (!projectId) {
 		return errorResponse("Missing project id", 400);
@@ -98,7 +98,7 @@ routes.set("/api/projects/:id/context", async (url, _body, pathParams) => {
 	const projectsDir = getProjectsDir();
 	const projectDir = join(projectsDir, projectId);
 	try {
-		const { stat } = await import("fs/promises");
+		const { stat } = await import("node:fs/promises");
 		const s = await stat(projectDir);
 		if (!s.isDirectory()) {
 			return errorResponse("Project not found", 404);
@@ -340,8 +340,8 @@ routes.set("POST /api/lsp/operation", async (_url, body) => {
 			waitForInitialization,
 			getInitializationStatus,
 		} = await import("../services/lsp/index.js");
-		const { pathToFileURL } = await import("url");
-		const { resolve: resolvePath } = await import("path");
+		const { pathToFileURL } = await import("node:url");
+		const { resolve: resolvePath } = await import("node:path");
 
 		const status = getInitializationStatus();
 		if (status.status === "pending") {
@@ -418,7 +418,7 @@ routes.set("POST /api/lsp/operation", async (_url, body) => {
 		// Open file in LSP if not already open
 		if (!manager.isFileOpen(absolutePath)) {
 			try {
-				const { readFile } = await import("fs/promises");
+				const { readFile } = await import("node:fs/promises");
 				const content = await readFile(absolutePath, "utf-8");
 				await manager.openFile(absolutePath, content);
 			} catch {
@@ -546,7 +546,7 @@ routes.set("/api/model/status", async () => {
 		process.env.FUSION_API_KEY || process.env.ANTHROPIC_API_KEY || "";
 	const headers: Record<string, string> = {};
 	if (mlxApiKey) {
-		headers["Authorization"] = `Bearer ${mlxApiKey}`;
+		headers.Authorization = `Bearer ${mlxApiKey}`;
 	}
 	try {
 		const modelsResp = await fetch(`${MLX_BASE}/v1/models`, {
@@ -587,7 +587,7 @@ routes.set("/api/model/status", async () => {
 		}
 
 		return jsonResponse({ connected: true, models, loaded, url: MLX_BASE });
-	} catch (e) {
+	} catch (_e) {
 		return jsonResponse({
 			connected: false,
 			error: "Failed to connect to local inference service",
@@ -638,9 +638,7 @@ routes.set("POST /api/kb/query", async (url, body) => {
 routes.set("/api/kb/status", async (url) => {
 	const cwd = getCwdFromUrl(url);
 	try {
-		const { getKBStatus } = await import(
-			"../services/knowledgeBase/index.js"
-		);
+		const { getKBStatus } = await import("../services/knowledgeBase/index.js");
 		const status = await getKBStatus(cwd);
 		return jsonResponse(status);
 	} catch (e) {
@@ -884,7 +882,7 @@ async function handleChatStream(
 
 function handleChatCancel(
 	ws: ServerWebSocket<undefined>,
-	data: Record<string, unknown>,
+	_data: Record<string, unknown>,
 ) {
 	const state = wsSessions.get(ws);
 	if (state?.proc) {
@@ -1116,10 +1114,7 @@ export function startProjectApiServer(config: ServerConfig): {
 				if (!config_global.authDisabled && wsEffective) {
 					const wsAuth = req.headers.get("Authorization");
 					const wsToken = url.searchParams.get("token");
-					if (
-						wsAuth !== `Bearer ${wsEffective}` &&
-						wsToken !== wsEffective
-					) {
+					if (wsAuth !== `Bearer ${wsEffective}` && wsToken !== wsEffective) {
 						return errorResponse("Unauthorized", 401);
 					}
 				}
@@ -1182,7 +1177,7 @@ export function startProjectApiServer(config: ServerConfig): {
 				if (corsOrigin) {
 					preflightHeaders["Access-Control-Allow-Origin"] = corsOrigin;
 					if (corsOrigin !== "*") {
-						preflightHeaders["Vary"] = "Origin";
+						preflightHeaders.Vary = "Origin";
 					}
 				}
 				return new Response(null, {

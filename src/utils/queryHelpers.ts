@@ -1,10 +1,10 @@
-import type { ToolUseBlock } from "src/types/anthropic-protocol.js";
 import last from "lodash-es/last.js";
 import {
 	getSessionId,
 	isSessionPersistenceDisabled,
 } from "src/bootstrap/state.js";
 import type { SDKMessage } from "src/entrypoints/sdk/types.js";
+import type { ToolUseBlock } from "src/types/anthropic-protocol.js";
 import type { CanUseToolFn } from "../hooks/useCanUseTool.js";
 import { runTools } from "../services/tools/index.js";
 import { findToolByName, type Tool, type Tools } from "../Tool.js";

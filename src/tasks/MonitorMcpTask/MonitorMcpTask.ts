@@ -8,6 +8,13 @@ import {
 	TASK_NOTIFICATION_TAG,
 	TOOL_USE_ID_TAG,
 } from "../../constants/xml.js";
+import {
+	createTaskStateBase,
+	generateTaskId,
+	type SetAppState,
+	type Task,
+	type TaskStateBase,
+} from "../../Task.js";
 import { logError } from "../../utils/log.js";
 import { enqueuePendingNotification } from "../../utils/messageQueueManager.js";
 import {
@@ -17,13 +24,6 @@ import {
 } from "../../utils/task/diskOutput.js";
 import { registerTask, updateTaskState } from "../../utils/task/framework.js";
 import { escapeXml } from "../../utils/xml.js";
-import {
-	createTaskStateBase,
-	generateTaskId,
-	type SetAppState,
-	type Task,
-	type TaskStateBase,
-} from "../../Task.js";
 
 export type MonitorMcpTaskState = TaskStateBase & {
 	type: "monitor_mcp";

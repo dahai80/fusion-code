@@ -5,12 +5,13 @@
 // 通过 DI 测试缝 (streamFn) 注入受控 stub, 模拟 PTL 截断重试轮次。
 
 import { describe, expect, test } from "bun:test";
-import {
-	runCompactSummaryWithTruncateRetry,
-} from "../../services/compact/index.js";
-import { createAssistantAPIErrorMessage, createUserMessage } from "../../utils/messages.js";
-import type { Message, AssistantMessage } from "../../types/message.js";
+import { runCompactSummaryWithTruncateRetry } from "../../services/compact/index.js";
 import type { ToolUseContext } from "../../Tool.js";
+import type { AssistantMessage, Message } from "../../types/message.js";
+import {
+	createAssistantAPIErrorMessage,
+	createUserMessage,
+} from "../../utils/messages.js";
 
 const PTL_TEXT = "Prompt is too long: 999999 tokens > 200000 token maximum";
 
@@ -30,7 +31,10 @@ function makeMessages(rounds: number): Message[] {
 	for (let i = 0; i < rounds; i++) {
 		msgs.push({
 			type: "assistant",
-			message: { id: `assistant-${i}`, content: [{ type: "text", text: `a-${i}` }] },
+			message: {
+				id: `assistant-${i}`,
+				content: [{ type: "text", text: `a-${i}` }],
+			},
 		} as unknown as Message);
 		msgs.push(createUserMessage({ content: `user-${i}` }));
 	}
@@ -88,13 +92,13 @@ describe("runCompactSummaryWithTruncateRetry finalMessageCount (audit v3 P1)", (
 			logPrefix: "[Test]",
 			logFailed: () => {},
 			streamFn: async ({ messages }) => {
-			 calls.push(messages);
-			 // 合成响应无 errorDetails → tokenGap=undefined → 20% 回退:
-			 // 每轮只丢 1 组 (3 条), marker 补 1 条 → 17→15
-			 if (calls.length === 1) {
-			  return ptlResponse();
-			 }
-			 return okResponse("done");
+				calls.push(messages);
+				// 合成响应无 errorDetails → tokenGap=undefined → 20% 回退:
+				// 每轮只丢 1 组 (3 条), marker 补 1 条 → 17→15
+				if (calls.length === 1) {
+					return ptlResponse();
+				}
+				return okResponse("done");
 			},
 		});
 		// 16 -> 15: 一次 PTL + 一次截断后成功 (20% 回退丢 1 组 = 2 条, 剥旧

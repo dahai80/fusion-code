@@ -1,5 +1,5 @@
+import type { UUID } from "node:crypto";
 import type { ContentBlockParam } from "src/types/anthropic-protocol.js";
-import type { UUID } from "crypto";
 import type { CanUseToolFn } from "../hooks/useCanUseTool.js";
 import type { CompactionResult } from "../services/compact/index.js";
 import type { ScopedMcpServerConfig } from "../services/mcp/index.js";

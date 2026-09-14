@@ -1,6 +1,6 @@
 export function getCodeReviewPrompt(changedFiles: string[]): string {
-    const fileList = changedFiles.join(', ')
-    return `Review the following changed files for correctness, security, and code quality: ${fileList}
+	const fileList = changedFiles.join(", ");
+	return `Review the following changed files for correctness, security, and code quality: ${fileList}
 
 Check each file for:
 1. CORRECTNESS: Does the code do what it's supposed to? Are edge cases handled? Off-by-one errors? Missing returns?
@@ -15,12 +15,12 @@ For each issue found, report:
 - Category: correctness / security / readability / design / testing
 - What's wrong and how to fix it
 
-If no issues found, confirm the code is clean.`
+If no issues found, confirm the code is clean.`;
 }
 
 export function getSecurityReviewPrompt(changedFiles: string[]): string {
-    const fileList = changedFiles.join(', ')
-    return `Perform a security review of the following files: ${fileList}
+	const fileList = changedFiles.join(", ");
+	return `Perform a security review of the following files: ${fileList}
 
 Check for:
 1. INJECTION: Command injection, SQL injection, XSS, LDAP injection, template injection
@@ -36,12 +36,12 @@ For each finding:
 - Attack scenario: how could this be exploited
 - Remediation: how to fix it
 
-If no security issues found, confirm the code passes security review.`
+If no security issues found, confirm the code passes security review.`;
 }
 
 export function getPerformanceReviewPrompt(changedFiles: string[]): string {
-    const fileList = changedFiles.join(', ')
-    return `Review the following files for performance issues: ${fileList}
+	const fileList = changedFiles.join(", ");
+	return `Review the following files for performance issues: ${fileList}
 
 Check for:
 1. ALGORITHMIC: O(n^2) or worse complexity, unnecessary nested loops, redundant traversals
@@ -55,12 +55,12 @@ For each finding:
 - Impact: estimated performance cost (latency, memory, CPU)
 - Fix: concrete optimization suggestion
 
-If no performance issues found, confirm the code is performant.`
+If no performance issues found, confirm the code is performant.`;
 }
 
 export function getCompactReviewPrompt(changedFiles: string[]): string {
-    const fileList = changedFiles.join(', ')
-    return `Quick review of: ${fileList}
+	const fileList = changedFiles.join(", ");
+	return `Quick review of: ${fileList}
 
-Check: correctness bugs, security holes, test coverage. Report only issues — skip if clean.`
+Check: correctness bugs, security holes, test coverage. Report only issues — skip if clean.`;
 }

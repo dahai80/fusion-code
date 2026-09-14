@@ -83,8 +83,8 @@ describe("isToolDenied", () => {
 			defaultTemplate: null,
 		});
 		expect(isToolDenied("websearch")).toBe(true);
-			expect(isToolDenied("WEBSEARCH")).toBe(true);
-			expect(isToolDenied("WebSearch")).toBe(true);
+		expect(isToolDenied("WEBSEARCH")).toBe(true);
+		expect(isToolDenied("WebSearch")).toBe(true);
 	});
 });
 

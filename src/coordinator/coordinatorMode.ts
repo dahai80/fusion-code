@@ -1,27 +1,29 @@
-import { feature } from 'bun:bundle'
-import { readFileSync, readdirSync } from 'node:fs'
-import { join } from 'node:path'
-import { ASYNC_AGENT_ALLOWED_TOOLS } from '../constants/tools.js'
-import { checkStatsigFeatureGate_CACHED_MAY_BE_STALE } from '../services/analytics/index.js'
+import { feature } from "bun:bundle";
+import { readdirSync, readFileSync } from "node:fs";
+import { join } from "node:path";
+import { ASYNC_AGENT_ALLOWED_TOOLS } from "../constants/tools.js";
 import {
-  type AnalyticsMetadata_I_VERIFIED_THIS_IS_NOT_CODE_OR_FILEPATHS,
-  logEvent,
-} from '../services/analytics/index.js'
-import { AGENT_TOOL_NAME } from '../tools/AgentTool/constants.js'
-import { BASH_TOOL_NAME } from '../tools/BashTool/toolName.js'
-import { FILE_EDIT_TOOL_NAME } from '../tools/FileEditTool/constants.js'
-import { FILE_READ_TOOL_NAME } from '../tools/FileReadTool/prompt.js'
-import { SEND_MESSAGE_TOOL_NAME } from '../tools/SendMessageTool/constants.js'
-import { SYNTHETIC_OUTPUT_TOOL_NAME } from '../tools/SyntheticOutputTool/SyntheticOutputTool.js'
-import { TASK_STOP_TOOL_NAME } from '../tools/TaskStopTool/prompt.js'
+	type AnalyticsMetadata_I_VERIFIED_THIS_IS_NOT_CODE_OR_FILEPATHS,
+	checkStatsigFeatureGate_CACHED_MAY_BE_STALE,
+	logEvent,
+} from "../services/analytics/index.js";
+import { AGENT_TOOL_NAME } from "../tools/AgentTool/constants.js";
+import { BASH_TOOL_NAME } from "../tools/BashTool/toolName.js";
+import { FILE_EDIT_TOOL_NAME } from "../tools/FileEditTool/constants.js";
+import { FILE_READ_TOOL_NAME } from "../tools/FileReadTool/prompt.js";
+import { SEND_MESSAGE_TOOL_NAME } from "../tools/SendMessageTool/constants.js";
+import { SYNTHETIC_OUTPUT_TOOL_NAME } from "../tools/SyntheticOutputTool/SyntheticOutputTool.js";
+import { TASK_STOP_TOOL_NAME } from "../tools/TaskStopTool/prompt.js";
+
 // Cloud-only tool stubs (directories removed)
-const TEAM_CREATE_TOOL_NAME = 'TeamCreate'
-const TEAM_DELETE_TOOL_NAME = 'TeamDelete'
-import { getSessionCreatedTeams } from '../bootstrap/state.js'
-import { isEnvTruthy } from '../utils/envUtils.js'
-import { getTaskListId, getTasksDir } from '../utils/tasks.js'
-import { readTeamFile } from '../utils/swarm/teamHelpers.js'
-import { logForDebugging } from '../utils/debug.js'
+const TEAM_CREATE_TOOL_NAME = "TeamCreate";
+const TEAM_DELETE_TOOL_NAME = "TeamDelete";
+
+import { getSessionCreatedTeams } from "../bootstrap/state.js";
+import { logForDebugging } from "../utils/debug.js";
+import { isEnvTruthy } from "../utils/envUtils.js";
+import { readTeamFile } from "../utils/swarm/teamHelpers.js";
+import { getTaskListId, getTasksDir } from "../utils/tasks.js";
 
 // Checks the same gate as isScratchpadEnabled() in
 // utils/permissions/filesystem.ts. Duplicated here because importing
@@ -30,21 +32,21 @@ import { logForDebugging } from '../utils/debug.js'
 // getCoordinatorUserContext's scratchpadDir parameter (dependency injection
 // from QueryEngine.ts, which lives higher in the dep graph).
 function isScratchpadGateEnabled(): boolean {
-  return checkStatsigFeatureGate_CACHED_MAY_BE_STALE('tengu_scratch')
+	return checkStatsigFeatureGate_CACHED_MAY_BE_STALE("tengu_scratch");
 }
 
 const INTERNAL_WORKER_TOOLS = new Set([
-  TEAM_CREATE_TOOL_NAME,
-  TEAM_DELETE_TOOL_NAME,
-  SEND_MESSAGE_TOOL_NAME,
-  SYNTHETIC_OUTPUT_TOOL_NAME,
-])
+	TEAM_CREATE_TOOL_NAME,
+	TEAM_DELETE_TOOL_NAME,
+	SEND_MESSAGE_TOOL_NAME,
+	SYNTHETIC_OUTPUT_TOOL_NAME,
+]);
 
 export function isCoordinatorMode(): boolean {
-  if (feature('COORDINATOR_MODE')) {
-    return isEnvTruthy(process.env.FUSION_CODE_COORDINATOR_MODE)
-  }
-  return false
+	if (feature("COORDINATOR_MODE")) {
+		return isEnvTruthy(process.env.FUSION_CODE_COORDINATOR_MODE);
+	}
+	return false;
 }
 
 /**
@@ -54,70 +56,70 @@ export function isCoordinatorMode(): boolean {
  * the mode was switched, or undefined if no switch was needed.
  */
 export function matchSessionMode(
-  sessionMode: 'coordinator' | 'normal' | undefined,
+	sessionMode: "coordinator" | "normal" | undefined,
 ): string | undefined {
-  // No stored mode (old session before mode tracking) — do nothing
-  if (!sessionMode) {
-    return undefined
-  }
+	// No stored mode (old session before mode tracking) — do nothing
+	if (!sessionMode) {
+		return undefined;
+	}
 
-  const currentIsCoordinator = isCoordinatorMode()
-  const sessionIsCoordinator = sessionMode === 'coordinator'
+	const currentIsCoordinator = isCoordinatorMode();
+	const sessionIsCoordinator = sessionMode === "coordinator";
 
-  if (currentIsCoordinator === sessionIsCoordinator) {
-    return undefined
-  }
+	if (currentIsCoordinator === sessionIsCoordinator) {
+		return undefined;
+	}
 
-  // Flip the env var — isCoordinatorMode() reads it live, no caching
-  if (sessionIsCoordinator) {
-    process.env.FUSION_CODE_COORDINATOR_MODE = '1'
-  } else {
-    delete process.env.FUSION_CODE_COORDINATOR_MODE
-  }
+	// Flip the env var — isCoordinatorMode() reads it live, no caching
+	if (sessionIsCoordinator) {
+		process.env.FUSION_CODE_COORDINATOR_MODE = "1";
+	} else {
+		delete process.env.FUSION_CODE_COORDINATOR_MODE;
+	}
 
-  logEvent('tengu_coordinator_mode_switched', {
-    to: sessionMode as unknown as AnalyticsMetadata_I_VERIFIED_THIS_IS_NOT_CODE_OR_FILEPATHS,
-  })
+	logEvent("tengu_coordinator_mode_switched", {
+		to: sessionMode as unknown as AnalyticsMetadata_I_VERIFIED_THIS_IS_NOT_CODE_OR_FILEPATHS,
+	});
 
-  return sessionIsCoordinator
-    ? 'Entered coordinator mode to match resumed session.'
-    : 'Exited coordinator mode to match resumed session.'
+	return sessionIsCoordinator
+		? "Entered coordinator mode to match resumed session."
+		: "Exited coordinator mode to match resumed session.";
 }
 
 export function getCoordinatorUserContext(
-  mcpClients: ReadonlyArray<{ name: string }>,
-  scratchpadDir?: string,
+	mcpClients: ReadonlyArray<{ name: string }>,
+	scratchpadDir?: string,
 ): { [k: string]: string } {
-  if (!isCoordinatorMode()) {
-    return {}
-  }
+	if (!isCoordinatorMode()) {
+		return {};
+	}
 
-  const workerTools = isEnvTruthy(process.env.FUSION_CODE_SIMPLE)
-    ? [BASH_TOOL_NAME, FILE_READ_TOOL_NAME, FILE_EDIT_TOOL_NAME]
-        .sort()
-        .join(', ')
-    : Array.from(ASYNC_AGENT_ALLOWED_TOOLS)
-        .filter(name => !INTERNAL_WORKER_TOOLS.has(name))
-        .sort()
-        .join(', ')
+	const workerTools = isEnvTruthy(process.env.FUSION_CODE_SIMPLE)
+		? [BASH_TOOL_NAME, FILE_READ_TOOL_NAME, FILE_EDIT_TOOL_NAME]
+				.sort()
+				.join(", ")
+		: Array.from(ASYNC_AGENT_ALLOWED_TOOLS)
+				.filter((name) => !INTERNAL_WORKER_TOOLS.has(name))
+				.sort()
+				.join(", ");
 
-  let content = `Workers spawned via the ${AGENT_TOOL_NAME} tool have access to these tools: ${workerTools}`
+	let content = `Workers spawned via the ${AGENT_TOOL_NAME} tool have access to these tools: ${workerTools}`;
 
-  if (mcpClients.length > 0) {
-    const serverNames = mcpClients.map(c => c.name).join(', ')
-    content += `\n\nWorkers also have access to MCP tools from connected MCP servers: ${serverNames}`
-  }
+	if (mcpClients.length > 0) {
+		const serverNames = mcpClients.map((c) => c.name).join(", ");
+		content += `\n\nWorkers also have access to MCP tools from connected MCP servers: ${serverNames}`;
+	}
 
-  if (scratchpadDir && isScratchpadGateEnabled()) {
-    content += `\n\nScratchpad directory: ${scratchpadDir}\nWorkers can read and write here without permission prompts. Use this for durable cross-worker knowledge — structure files however fits the work.`
-  }
+	if (scratchpadDir && isScratchpadGateEnabled()) {
+		content += `\n\nScratchpad directory: ${scratchpadDir}\nWorkers can read and write here without permission prompts. Use this for durable cross-worker knowledge — structure files however fits the work.`;
+	}
 
-  const teamContext = buildCoordinatorTeamContext()
-  if (teamContext) {
-    content += `\n\n${teamContext}`
-  }
+	const teamContext = buildCoordinatorTeamContext();
+	if (teamContext) {
+		content += `\n\n${teamContext}`;
+	}
 
-  return { workerToolsContext: content }
+	return { workerToolsContext: content };
 }
 
 /**
@@ -129,106 +131,114 @@ export function getCoordinatorUserContext(
  * (coordinator keeps running scratchpad-only). Byte-identical when gate off.
  */
 function buildCoordinatorTeamContext(): string | null {
-  if (!isEnvTruthy(process.env.FUSION_CODE_COORDINATOR_TEAM)) {
-    return null
-  }
-  try {
-    const teamNames = Array.from(getSessionCreatedTeams())
-    if (teamNames.length === 0) return null
+	if (!isEnvTruthy(process.env.FUSION_CODE_COORDINATOR_TEAM)) {
+		return null;
+	}
+	try {
+		const teamNames = Array.from(getSessionCreatedTeams());
+		if (teamNames.length === 0) return null;
 
-    const rosterLines: string[] = []
-    for (const name of teamNames) {
-      const teamFile = readTeamFile(name)
-      if (!teamFile) continue
-      const memberList = teamFile.members
-        .map(m => `${m.name} (agentId: ${m.agentId}${m.isActive === false ? ', idle' : ''})`)
-        .join(', ')
-      rosterLines.push(
-        `Team "${name}": ${teamFile.members.length} member(s) — ${memberList}`,
-      )
-    }
-    if (rosterLines.length === 0) return null
+		const rosterLines: string[] = [];
+		for (const name of teamNames) {
+			const teamFile = readTeamFile(name);
+			if (!teamFile) continue;
+			const memberList = teamFile.members
+				.map(
+					(m) =>
+						`${m.name} (agentId: ${m.agentId}${m.isActive === false ? ", idle" : ""})`,
+				)
+				.join(", ");
+			rosterLines.push(
+				`Team "${name}": ${teamFile.members.length} member(s) — ${memberList}`,
+			);
+		}
+		if (rosterLines.length === 0) return null;
 
-    let block = `## Active Team Roster\n\n${rosterLines.join('\n')}`
+		let block = `## Active Team Roster\n\n${rosterLines.join("\n")}`;
 
-    try {
-      const tasks = listTasksSync()
-      if (tasks.length > 0) {
-        const taskLines = tasks
-          .map(t => `  - [${t.status ?? 'pending'}] ${t.description ?? t.content ?? '(no description)'} (id: ${t.id})`)
-          .join('\n')
-        block += `\n\n## Open Task Board (${tasks.length})\n\n${taskLines}`
-      }
-    } catch (e) {
-      logForDebugging(`buildCoordinatorTeamContext: task board read failed: ${String(e)}`)
-    }
+		try {
+			const tasks = listTasksSync();
+			if (tasks.length > 0) {
+				const taskLines = tasks
+					.map(
+						(t) =>
+							`  - [${t.status ?? "pending"}] ${t.description ?? t.content ?? "(no description)"} (id: ${t.id})`,
+					)
+					.join("\n");
+				block += `\n\n## Open Task Board (${tasks.length})\n\n${taskLines}`;
+			}
+		} catch (e) {
+			logForDebugging(
+				`buildCoordinatorTeamContext: task board read failed: ${String(e)}`,
+			);
+		}
 
-    block += `\n\nYou may use ${SEND_MESSAGE_TOOL_NAME} to address a named teammate by agentId, and task tools to manage the shared task board.`
-    return block
-  } catch (e) {
-    logForDebugging(
-      `buildCoordinatorTeamContext: team context build failed, running scratchpad-only: ${String(e)}`,
-    )
-    return null
-  }
+		block += `\n\nYou may use ${SEND_MESSAGE_TOOL_NAME} to address a named teammate by agentId, and task tools to manage the shared task board.`;
+		return block;
+	} catch (e) {
+		logForDebugging(
+			`buildCoordinatorTeamContext: team context build failed, running scratchpad-only: ${String(e)}`,
+		);
+		return null;
+	}
 }
 
 // listTasks is async + lock-file guarded; the coordinator user context is
 // built synchronously on the hot path. For a read-only best-effort snapshot we
 // read the task files directly (fail-open: unreadable files skipped).
 function listTasksSync(): Array<{
-  id: string
-  status?: string
-  description?: string
-  content?: string
+	id: string;
+	status?: string;
+	description?: string;
+	content?: string;
 }> {
-  try {
-    const dir = getTasksDir(getTaskListId())
-    let files: string[]
-    try {
-      files = readdirSync(dir)
-    } catch {
-      return []
-    }
-    const tasks: Array<{
-      id: string
-      status?: string
-      description?: string
-      content?: string
-    }> = []
-    for (const f of files) {
-      if (!f.endsWith('.json')) continue
-      try {
-        const raw = readFileSync(join(dir, f), 'utf-8')
-        const parsed = JSON.parse(raw) as {
-          id?: string
-          status?: string
-          description?: string
-          content?: string
-        }
-        tasks.push({
-          id: parsed.id ?? f.replace(/\.json$/, ''),
-          status: parsed.status,
-          description: parsed.description,
-          content: parsed.content,
-        })
-      } catch {
-        // skip unreadable task file
-      }
-    }
-    return tasks
-  } catch (e) {
-    logForDebugging(`listTasksSync: failed: ${String(e)}`)
-    return []
-  }
+	try {
+		const dir = getTasksDir(getTaskListId());
+		let files: string[];
+		try {
+			files = readdirSync(dir);
+		} catch {
+			return [];
+		}
+		const tasks: Array<{
+			id: string;
+			status?: string;
+			description?: string;
+			content?: string;
+		}> = [];
+		for (const f of files) {
+			if (!f.endsWith(".json")) continue;
+			try {
+				const raw = readFileSync(join(dir, f), "utf-8");
+				const parsed = JSON.parse(raw) as {
+					id?: string;
+					status?: string;
+					description?: string;
+					content?: string;
+				};
+				tasks.push({
+					id: parsed.id ?? f.replace(/\.json$/, ""),
+					status: parsed.status,
+					description: parsed.description,
+					content: parsed.content,
+				});
+			} catch {
+				// skip unreadable task file
+			}
+		}
+		return tasks;
+	} catch (e) {
+		logForDebugging(`listTasksSync: failed: ${String(e)}`);
+		return [];
+	}
 }
 
 export function getCoordinatorSystemPrompt(): string {
-  const workerCapabilities = isEnvTruthy(process.env.FUSION_CODE_SIMPLE)
-    ? 'Workers have access to Bash, Read, and Edit tools, plus MCP tools from configured MCP servers.'
-    : 'Workers have access to standard tools, MCP tools from configured MCP servers, and project skills via the Skill tool. Delegate skill invocations (e.g. /commit, /verify) to workers.'
+	const workerCapabilities = isEnvTruthy(process.env.FUSION_CODE_SIMPLE)
+		? "Workers have access to Bash, Read, and Edit tools, plus MCP tools from configured MCP servers."
+		: "Workers have access to standard tools, MCP tools from configured MCP servers, and project skills via the Skill tool. Delegate skill invocations (e.g. /commit, /verify) to workers.";
 
-  return `You are Fusion-Code, an AI assistant that orchestrates software engineering tasks across multiple workers.
+	return `You are Fusion-Code, an AI assistant that orchestrates software engineering tasks across multiple workers.
 
 ## 1. Your Role
 
@@ -480,5 +490,5 @@ User:
   How's it going?
 
 You:
-  Fix for the new test is in progress. Still waiting to hear back about the test suite.`
+  Fix for the new test is in progress. Still waiting to hear back about the test suite.`;
 }

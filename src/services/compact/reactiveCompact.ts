@@ -18,7 +18,8 @@ import {
 	getTotalInputTokens,
 	getTotalOutputTokens,
 } from "../../cost-tracker.js";
-import { isMediaSizeError,
+import {
+	isMediaSizeError,
 	isPromptTooLongMessage,
 } from "../../services/api/errors.js";
 import type { AssistantMessage, Message } from "../../types/message.js";
@@ -141,7 +142,7 @@ export function getContextUsageRatio(): number {
  * Analyzes the current messages and compresses them if needed.
  */
 export async function reactiveCompact<T>(
-	messages: T[],
+	_messages: T[],
 	_options?: { force?: boolean },
 ): Promise<ReactiveCompactResult> {
 	if (!shouldTriggerReactiveCompact() && !_options?.force) {

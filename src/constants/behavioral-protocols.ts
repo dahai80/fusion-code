@@ -1,5 +1,5 @@
 export function getToolCallDecisionProtocol(): string {
-    return `# Tool call decision protocol
+	return `# Tool call decision protocol
 
 ## Decision tree: which tool to use
 
@@ -37,11 +37,11 @@ export function getToolCallDecisionProtocol(): string {
 - Tool not found → use ToolSearch to find the correct name
 - File not found → use Glob/Grep to locate it, don't guess paths
 - Edit old_string not unique → add more surrounding context, retry
-- Edit old_string not found → re-read the file, it may have changed`
+- Edit old_string not found → re-read the file, it may have changed`;
 }
 
 export function getFileEditingProtocol(): string {
-    return `# File editing protocol
+	return `# File editing protocol
 
 ## Before editing
 
@@ -83,11 +83,11 @@ export function getFileEditingProtocol(): string {
 2. Cleanup
    - Remove any debug logging you added.
    - Remove any TODO/FIXME comments that are now resolved.
-   - Don't leave commented-out code.`
+   - Don't leave commented-out code.`;
 }
 
 export function getTaskExecutionProtocol(): string {
-    return `# Task execution protocol
+	return `# Task execution protocol
 
 ## Before starting
 
@@ -129,11 +129,11 @@ export function getTaskExecutionProtocol(): string {
 2. Report outcome
    - State what was done, not what was attempted.
    - If partially done, state what's complete and what remains.
-   - If blocked, state the blocker and what you need.`
+   - If blocked, state the blocker and what you need.`;
 }
 
 export function getErrorRecoveryProtocol(): string {
-    return `# Error recovery protocol
+	return `# Error recovery protocol
 
 ## Error classification
 
@@ -171,11 +171,11 @@ export function getErrorRecoveryProtocol(): string {
 
 - ▍IMPORTANT▍ If the build fails, don't make more edits until it passes.
 - ▍IMPORTANT▍ If tests fail, don't add new features until existing tests pass.
-- If you're unsure whether a change is correct, verify before making more changes on top of it.`
+- If you're unsure whether a change is correct, verify before making more changes on top of it.`;
 }
 
 export function getContextBudgetProtocol(): string {
-    return `# Context budget protocol
+	return `# Context budget protocol
 
 ## Token awareness [IMPORTANT]
 
@@ -208,11 +208,11 @@ export function getContextBudgetProtocol(): string {
 - Prioritize: complete the current task > start new tasks.
 - Don't read new files unless essential for the current step.
 - Summarize key facts in your response text so they survive compression.
-- If you can't complete the task within context, report progress and remaining steps.`
+- If you can't complete the task within context, report progress and remaining steps.`;
 }
 
 export function getMultiTurnProtocol(): string {
-    return `# Multi-turn conversation protocol
+	return `# Multi-turn conversation protocol
 
 ## Maintaining continuity
 
@@ -240,11 +240,11 @@ export function getMultiTurnProtocol(): string {
 - If a request has multiple parts, address them in order.
 - If a side task emerges while working, note it but don't switch focus unless critical.
 - If the user changes direction mid-task, confirm whether to abandon the current task.
-- Don't gold-plate: implement what was asked, not what could be improved.`
+- Don't gold-plate: implement what was asked, not what could be improved.`;
 }
 
 export function getAmbiguityResolutionProtocol(): string {
-    return `# Ambiguity resolution protocol
+	return `# Ambiguity resolution protocol
 
 ## When to ask vs assume
 
@@ -270,11 +270,11 @@ ASSUME and proceed when:
 
 - If the user's request contradicts a codebase convention → follow the convention, note the conflict
 - If two parts of the codebase follow different patterns → pick one consistently, note the choice
-- If the user explicitly overrides a convention → follow the user's instruction, note it was their choice`
+- If the user explicitly overrides a convention → follow the user's instruction, note it was their choice`;
 }
 
 export function getOutputFormatProtocol(): string {
-    return `# Output format protocol
+	return `# Output format protocol
 
 ## Response structure
 
@@ -311,11 +311,11 @@ export function getOutputFormatProtocol(): string {
 
 - ▍IMPORTANT▍ Local inference is slower. Be concise — avoid repeating context the user already has.
 - Don't output full file contents unless asked. Show only the relevant changes.
-- Minimize token usage in responses. Every token costs inference time.`
+- Minimize token usage in responses. Every token costs inference time.`;
 }
 
 export function getToolResultProcessingProtocol(): string {
-    return `# Tool result processing
+	return `# Tool result processing
 
 ## Reading tool results
  - Read the full result before acting. A partial read causes wrong fixes.
@@ -334,11 +334,11 @@ export function getToolResultProcessingProtocol(): string {
  - Schema error → your input was wrong. Fix the parameter, not the tool.
  - Permission denied → user blocked it. Ask, don't retry.
  - Timeout/exit code != 0 → command failed. Read stderr, fix root cause.
- - File not found → path wrong or file moved. Glob/Grep to locate, then retry.`
+ - File not found → path wrong or file moved. Glob/Grep to locate, then retry.`;
 }
 
 export function getLongTaskCheckpointProtocol(): string {
-    return `# Long task checkpoint
+	return `# Long task checkpoint
 
 ## When to checkpoint
  - Tasks with 3+ sequential steps, or that run build/test after edits.
@@ -356,5 +356,5 @@ export function getLongTaskCheckpointProtocol(): string {
 
 ## Recovery after interruption
  - If context was compressed or the turn was interrupted, re-read the target file before resuming edits.
- - Check git status / build state to know where you actually are, not where you think you are.`
+ - Check git status / build state to know where you actually are, not where you think you are.`;
 }

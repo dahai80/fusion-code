@@ -1,4 +1,4 @@
-import { registerBundledSkill } from '../bundledSkills.js'
+import { registerBundledSkill } from "../bundledSkills.js";
 
 const FINISHING_BRANCH_PROMPT = `# Finishing a Development Branch
 
@@ -97,19 +97,25 @@ Rules:
 ### Phase 5: Cleanup
 - Branch deleted:
 - Temp files removed:
-- Docs updated:`
+- Docs updated:`;
 
 export function registerFinishingBranchSkill(): void {
-    registerBundledSkill({
-        name: 'finishing-branch',
-        description: 'Structured pre-merge workflow: verify → detect conflicts → choose strategy → execute integration → cleanup. Never merge blindly.',
-        whenToUse:
-            'When implementation is complete and you need to integrate work into the main branch. Also use when the user says "merge", "finish this branch", "integrate", "ready to merge", or "complete this feature".',
-        argumentHint: '<branch-name or description>',
-        userInvocable: true,
-        async getPromptForCommand(args) {
-            const topic = args.trim() || 'the current branch'
-            return [{ type: 'text', text: `${FINISHING_BRANCH_PROMPT}\n\n## Branch to Finish\n\n${topic}` }]
-        },
-    })
+	registerBundledSkill({
+		name: "finishing-branch",
+		description:
+			"Structured pre-merge workflow: verify → detect conflicts → choose strategy → execute integration → cleanup. Never merge blindly.",
+		whenToUse:
+			'When implementation is complete and you need to integrate work into the main branch. Also use when the user says "merge", "finish this branch", "integrate", "ready to merge", or "complete this feature".',
+		argumentHint: "<branch-name or description>",
+		userInvocable: true,
+		async getPromptForCommand(args) {
+			const topic = args.trim() || "the current branch";
+			return [
+				{
+					type: "text",
+					text: `${FINISHING_BRANCH_PROMPT}\n\n## Branch to Finish\n\n${topic}`,
+				},
+			];
+		},
+	});
 }

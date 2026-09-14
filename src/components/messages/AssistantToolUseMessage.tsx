@@ -1,7 +1,7 @@
-import type { ToolUseBlockParam } from "src/types/anthropic-protocol.js";
 import type React from "react";
 import { c as _c } from "react/compiler-runtime";
 import { useTerminalSize } from "src/hooks/useTerminalSize.js";
+import type { ToolUseBlockParam } from "src/types/anthropic-protocol.js";
 import type { ThemeName } from "src/utils/theme.js";
 import type { Command } from "../../commands.js";
 import { BLACK_CIRCLE } from "../../constants/figures.js";

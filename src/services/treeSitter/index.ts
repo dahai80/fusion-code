@@ -1,1 +1,6 @@
-export { TreeSitterIndex, type SymbolInfo, type SymbolKind, type IndexStats } from './treeSitterIndex.js'
+export {
+	type IndexStats,
+	type SymbolInfo,
+	type SymbolKind,
+	TreeSitterIndex,
+} from "./treeSitterIndex.js";

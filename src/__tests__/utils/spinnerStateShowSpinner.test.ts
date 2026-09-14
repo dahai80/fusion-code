@@ -71,7 +71,11 @@ describe("deriveShowSpinner", () => {
 
 	it("toolUseConfirmQueue non-empty hides (gate before busy)", () => {
 		expect(
-			deriveShowSpinner({ ...base, isLoading: true, toolUseConfirmQueueLength: 1 }),
+			deriveShowSpinner({
+				...base,
+				isLoading: true,
+				toolUseConfirmQueueLength: 1,
+			}),
 		).toBe(false);
 	});
 

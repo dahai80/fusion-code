@@ -1,12 +1,12 @@
 export {
-    classifyToolTier,
-    getToolsForTier,
-    getEffectiveTierForMlx,
-    getDeferredToolNames,
-    shouldLazyLoad,
-    getTierInfo,
-    recordToolUsage,
-    getToolUsageMetrics,
-    getPromotionCandidates,
-    formatToolDiscoveryReport,
-} from './toolDiscovery.js'
+	classifyToolTier,
+	formatToolDiscoveryReport,
+	getDeferredToolNames,
+	getEffectiveTierForMlx,
+	getPromotionCandidates,
+	getTierInfo,
+	getToolsForTier,
+	getToolUsageMetrics,
+	recordToolUsage,
+	shouldLazyLoad,
+} from "./toolDiscovery.js";

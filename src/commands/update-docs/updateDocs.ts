@@ -1,4 +1,7 @@
-import type { LocalCommandCall, LocalCommandResult } from '../../types/command.js'
+import type {
+	LocalCommandCall,
+	LocalCommandResult,
+} from "../../types/command.js";
 
 const UPDATE_DOCS_PROMPT = `# Update Documentation
 
@@ -43,14 +46,14 @@ Sync documentation with the codebase by generating from source-of-truth files.
 - Never delete manual documentation that has no source-of-truth
 - Preserve the existing doc structure and style
 - Mark auto-generated sections clearly
-- Only update sections where the source-of-truth differs from the docs`
+- Only update sections where the source-of-truth differs from the docs`;
 
 export const call: LocalCommandCall = async (_args, context) => {
-    const cwd = context.cwd || process.cwd()
-    console.log(`[update-docs] scanning ${cwd} for documentation sync targets`)
+	const cwd = context.cwd || process.cwd();
+	console.log(`[update-docs] scanning ${cwd} for documentation sync targets`);
 
-    return {
-            type: 'display',
-        display: UPDATE_DOCS_PROMPT,
-    } satisfies LocalCommandResult
-}
+	return {
+		type: "display",
+		display: UPDATE_DOCS_PROMPT,
+	} satisfies LocalCommandResult;
+};

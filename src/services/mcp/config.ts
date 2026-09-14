@@ -1,7 +1,7 @@
 import { feature } from "bun:bundle";
-import { chmod, open, rename, stat, unlink } from "fs/promises";
+import { chmod, open, rename, stat, unlink } from "node:fs/promises";
+import { dirname, join, parse } from "node:path";
 import mapValues from "lodash-es/mapValues.js";
-import { dirname, join, parse } from "path";
 import { getPlatform } from "src/utils/platform.js";
 import type { PluginError } from "../../types/plugin.js";
 import { getPluginErrorMessage } from "../../types/plugin.js";

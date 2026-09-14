@@ -1,8 +1,10 @@
-import { dirname } from "path";
+import { dirname } from "node:path";
 import { logEvent } from "src/services/analytics/index.js";
 import { diagnosticTracker } from "../../services/diagnosticTracking.js";
-import { clearDeliveredDiagnosticsForFile } from "../../services/lsp/index.js";
-import { getLspServerManager } from "../../services/lsp/index.js";
+import {
+	clearDeliveredDiagnosticsForFile,
+	getLspServerManager,
+} from "../../services/lsp/index.js";
 import { notifyVscodeFileUpdated } from "../../services/mcp/index.js";
 import { checkTeamMemSecrets } from "../../services/teamMemorySync/index.js";
 import {
@@ -17,13 +19,7 @@ import { logForDebugging } from "../../utils/debug.js";
 import { countLinesChanged } from "../../utils/diff.js";
 import { isEnvTruthy } from "../../utils/envUtils.js";
 import { isENOENT } from "../../utils/errors.js";
-import {
-	FILE_NOT_FOUND_CWD_NOTE,
-	findSimilarFile,
-	getFileModificationTime,
-	suggestPathUnderCwd,
-	writeTextContent,
-} from "../../utils/file.js";
+import { getFileModificationTime, writeTextContent } from "../../utils/file.js";
 import {
 	fileHistoryEnabled,
 	fileHistoryTrackEdit,
@@ -389,7 +385,7 @@ export const MultiEditTool = buildTool({
 				});
 
 				countLinesChanged(patch);
-				for (const edit of fileEdits) {
+				for (const _edit of fileEdits) {
 					logFileOperation({
 						operation: "edit",
 						tool: "MultiEditTool",

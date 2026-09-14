@@ -2,23 +2,23 @@ import { feature } from "bun:bundle";
 import { randomUUID } from "node:crypto";
 import { readFile } from "node:fs/promises";
 import { z } from "zod/v4";
+import type { SetAppState } from "../../Task.js";
+import { createTaskStateBase, generateTaskId } from "../../Task.js";
 import { buildTool } from "../../Tool.js";
+import type { TaskState } from "../../tasks/types.js";
 import { logForDebugging } from "../../utils/debug.js";
 import { lazySchema } from "../../utils/lazySchema.js";
+import { registerTask, updateTaskState } from "../../utils/task/framework.js";
 import { emitPerfettoInstant } from "../../utils/telemetry/perfettoTracing.js";
-import { WORKFLOW_TOOL_NAME } from "./constants.js";
-import { DESCRIPTION, getPrompt } from "./prompt.js";
-import { executeWorkflow, isWorkflowRuntimeEnabled } from "./runtime.js";
-import { parseYamlWorkflow } from "./yamlLoader.js";
 import {
 	clearWorkflowAbort,
 	countActiveWorkflowRuns,
 	registerWorkflowAbort,
 } from "./abortRegistry.js";
-import { createTaskStateBase, generateTaskId } from "../../Task.js";
-import type { SetAppState } from "../../Task.js";
-import type { TaskState } from "../../tasks/types.js";
-import { registerTask, updateTaskState } from "../../utils/task/framework.js";
+import { WORKFLOW_TOOL_NAME } from "./constants.js";
+import { DESCRIPTION, getPrompt } from "./prompt.js";
+import { executeWorkflow, isWorkflowRuntimeEnabled } from "./runtime.js";
+import { parseYamlWorkflow } from "./yamlLoader.js";
 
 const inputSchema = lazySchema(() =>
 	z.strictObject({
@@ -230,8 +230,7 @@ export const WorkflowTool = buildTool({
 			// audit 1.4.2: 创建并注册 abortController, 使 kill 路径可触发 .abort()。
 			// runtime.ts 已在 328/390 行检查 signal.aborted, 仅需触发。之前 controller
 			// 被孤儿化 (无处存), kill 永不生效。
-			const abortController =
-				context?.abortController ?? new AbortController();
+			const abortController = context?.abortController ?? new AbortController();
 			registerWorkflowAbort(runId, abortController);
 
 			activeRuns.set(runId, { status: "running", startTime: Date.now() });
@@ -243,8 +242,7 @@ export const WorkflowTool = buildTool({
 			// audit 1.4.2: 注册 local_workflow task 进 AppState.tasks, 使 stopTask /
 			// killAllActive / reaper 能按 type=local_workflow 找到并 kill。
 			// setAppStateForTasks 优先 (async agent 约定), 回退 setAppState。
-			const setAppState =
-				context?.setAppStateForTasks ?? context?.setAppState;
+			const setAppState = context?.setAppStateForTasks ?? context?.setAppState;
 			const registeredTaskId = setAppState
 				? generateTaskId("local_workflow")
 				: undefined;
@@ -383,15 +381,11 @@ function finalizeWorkflowTask(
 ): void {
 	if (!registeredTaskId || !setAppState) return;
 	try {
-		updateTaskState<TaskState>(
-			registeredTaskId,
-			setAppState,
-			(task) => ({
-				...task,
-				status: finalStatus,
-				endTime: Date.now(),
-			}),
-		);
+		updateTaskState<TaskState>(registeredTaskId, setAppState, (task) => ({
+			...task,
+			status: finalStatus,
+			endTime: Date.now(),
+		}));
 	} catch (err) {
 		logForDebugging(
 			`[Workflow] finalizeWorkflowTask(${registeredTaskId}, ${finalStatus}) failed: ${(err as Error).message}`,

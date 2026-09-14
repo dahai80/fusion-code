@@ -38,7 +38,6 @@ import type { LlmClient } from "../llm/client.js";
 // LLM 接缝 (Phase 5): 用形态判定替代 instanceof APIError/APIConnectionError/APIUserAbortError,
 // 同时接纳 SDK 抛出的 APIError (flag 关) 与 seam 抛出的 LlmRequestError (flag 开)。
 import {
-	isAbortErrorLike,
 	isApiErrorLike,
 	isConnectionErrorLike,
 	isDeterministicError,
@@ -588,7 +587,7 @@ export function getRetryDelay(
 ): number {
 	if (retryAfterHeader) {
 		const seconds = parseInt(retryAfterHeader, 10);
-		if (!isNaN(seconds)) {
+		if (!Number.isNaN(seconds)) {
 			// P1-21: a gateway can send retry-after:3600 (1h). With
 			// maxRetries=10 that blocks the turn for 10h. Cap the honored
 			// sleep at the configured max delay so a hostile/misconfigured
@@ -626,7 +625,7 @@ export function parseMaxTokensContextOverflowError(error: ApiErrorLike):
 		/input length and `max_tokens` exceed context limit: (\d+) \+ (\d+) > (\d+)/;
 	const match = error.message.match(regex);
 
-	if (!match || match.length !== 4) {
+	if (match?.length !== 4) {
 		return undefined;
 	}
 
@@ -642,7 +641,11 @@ export function parseMaxTokensContextOverflowError(error: ApiErrorLike):
 	const maxTokens = parseInt(match[2], 10);
 	const contextLimit = parseInt(match[3], 10);
 
-	if (isNaN(inputTokens) || isNaN(maxTokens) || isNaN(contextLimit)) {
+	if (
+		Number.isNaN(inputTokens) ||
+		Number.isNaN(maxTokens) ||
+		Number.isNaN(contextLimit)
+	) {
 		return undefined;
 	}
 
@@ -846,7 +849,7 @@ function getRetryAfterMs(error: ApiErrorLike): number | null {
 	const retryAfter = getRetryAfter(error);
 	if (retryAfter) {
 		const seconds = parseInt(retryAfter, 10);
-		if (!isNaN(seconds)) {
+		if (!Number.isNaN(seconds)) {
 			return seconds * 1000;
 		}
 	}

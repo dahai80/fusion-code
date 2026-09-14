@@ -1,10 +1,10 @@
+import { randomUUID } from "node:crypto";
 import axios from "axios";
 import chalk from "chalk";
-import { randomUUID } from "crypto";
 import { getOriginalCwd, getSessionId } from "src/bootstrap/state.js";
-import { checkGate_CACHED_OR_BLOCKING } from "src/services/analytics/index.js";
 import {
 	type AnalyticsMetadata_I_VERIFIED_THIS_IS_NOT_CODE_OR_FILEPATHS,
+	checkGate_CACHED_OR_BLOCKING,
 	logEvent,
 } from "src/services/analytics/index.js";
 import { isPolicyAllowed } from "src/services/policyLimits/index.js";
@@ -18,10 +18,10 @@ import { getOauthConfig } from "../constants/oauth.js";
 import type { SDKMessage } from "../entrypoints/agentSdkTypes.js";
 import type { Root } from "../ink.js";
 import { KeybindingSetup } from "../keybindings/KeybindingProviderSetup.js";
-import { queryHaiku } from "../services/api/index.js";
 import {
 	getSessionLogsViaOAuth,
 	getTeleportEvents,
+	queryHaiku,
 } from "../services/api/index.js";
 import { getOrganizationUUID } from "../services/oauth/index.js";
 import { AppStateProvider } from "../state/AppState.js";
@@ -65,8 +65,7 @@ import {
 	type SessionResource,
 } from "./teleport/api.js";
 import { fetchEnvironments } from "./teleport/environments.js";
-import { createAndUploadGitBundle,
-} from "./teleport/gitBundle.js";
+import { createAndUploadGitBundle } from "./teleport/gitBundle.js";
 export type TeleportResult = {
 	messages: Message[];
 	branchName: string;

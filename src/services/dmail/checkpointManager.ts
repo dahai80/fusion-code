@@ -46,7 +46,7 @@ export function getLatestDmailForSession(sessionId: string): string | null {
 	const entries = [...dmails.values()]
 		.filter((e) => e.sessionId === sessionId)
 		.sort((a, b) => b.createdAt - a.createdAt);
-	return entries.length > 0 ? entries[0]!.summary : null;
+	return entries.length > 0 ? entries[0]?.summary : null;
 }
 
 export function listDmails(): Array<{

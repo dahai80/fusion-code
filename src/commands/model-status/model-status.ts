@@ -1,6 +1,9 @@
 import { logForDebugging } from "../../utils/debug.js";
 
-const MLX_BASE_URL = process.env.FUSION_GATEWAY_URL || process.env.FUSION_MLX_BASE_URL || "http://127.0.0.1:11432";
+const MLX_BASE_URL =
+	process.env.FUSION_GATEWAY_URL ||
+	process.env.FUSION_MLX_BASE_URL ||
+	"http://127.0.0.1:11432";
 
 type ModelInfo = {
 	name: string;

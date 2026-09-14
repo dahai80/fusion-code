@@ -1,5 +1,5 @@
-import { readFile } from "fs/promises";
-import { join, relative, resolve } from "path";
+import { readFile } from "node:fs/promises";
+import { join, relative, resolve } from "node:path";
 import { z } from "zod/v4";
 import type {
 	LspServerConfig,
@@ -86,10 +86,10 @@ export async function loadPluginLspServers(
 		// .lsp.json is optional, ignore if it doesn't exist
 		if (!isENOENT(error)) {
 			void 0; // errorMsg // unused
-	// const _errorMsg =
-				error instanceof Error
-					? `Failed to read/parse .lsp.json in plugin ${plugin.name}: ${error.message}`
-					: `Failed to read/parse .lsp.json file in plugin ${plugin.name}`;
+			// const _errorMsg =
+			error instanceof Error
+				? `Failed to read/parse .lsp.json in plugin ${plugin.name}: ${error.message}`
+				: `Failed to read/parse .lsp.json file in plugin ${plugin.name}`;
 
 			logError(toError(error));
 
@@ -181,10 +181,10 @@ async function loadLspServersFromManifest(
 				}
 			} catch (error) {
 				void 0; // errorMsg // unused
-	// const _errorMsg =
-					error instanceof Error
-						? `Failed to read/parse LSP config from ${decl} in plugin ${pluginName}: ${error.message}`
-						: `Failed to read/parse LSP config file ${decl} in plugin ${pluginName}`;
+				// const _errorMsg =
+				error instanceof Error
+					? `Failed to read/parse LSP config from ${decl} in plugin ${pluginName}: ${error.message}`
+					: `Failed to read/parse LSP config file ${decl} in plugin ${pluginName}`;
 
 				logError(toError(error));
 

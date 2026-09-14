@@ -43,6 +43,7 @@ import { getDefaultCharacters, type SpinnerMode } from "./Spinner/index.js";
 import { SpinnerAnimationRow } from "./Spinner/SpinnerAnimationRow.js";
 import { TeammateSpinnerTree } from "./Spinner/TeammateSpinnerTree.js";
 import { TaskListV2 } from "./TaskListV2.js";
+
 export type { SpinnerMode } from "./Spinner/index.js";
 
 const DEFAULT_CHARACTERS = getDefaultCharacters();
@@ -65,7 +66,9 @@ type Props = {
 	hasActiveTools?: boolean;
 	/** Leader's turn has completed (no active query). Used to suppress stall-red spinner when only teammates are running. */
 	leaderIsIdle?: boolean;
-	apiMetricsRef?: React.RefObject<Array<{ startMs: number; endMs: number; ttftMs?: number }>> | null;
+	apiMetricsRef?: React.RefObject<
+		Array<{ startMs: number; endMs: number; ttftMs?: number }>
+	> | null;
 };
 
 // Thin wrapper: branches on isBriefOnly so the two variants have independent

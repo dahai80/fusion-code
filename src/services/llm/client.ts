@@ -217,10 +217,7 @@ export function createSeamClient(
 			// Anthropic /v1/models 用 after=<last_id> + has_more 翻页。设最大页数上限
 			// (MAX_PAGES) 防恶意/失控上游无限翻页; 达上限显眼日志 (非静默截断)。
 			const MAX_PAGES = Number.isFinite(
-				parseInt(
-					process.env.FUSION_CODE_LISTMODELS_MAX_PAGES ?? "",
-					10,
-				),
+				parseInt(process.env.FUSION_CODE_LISTMODELS_MAX_PAGES ?? "", 10),
 			)
 				? parseInt(process.env.FUSION_CODE_LISTMODELS_MAX_PAGES ?? "", 10)
 				: 10;

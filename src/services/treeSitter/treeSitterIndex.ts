@@ -1,5 +1,5 @@
-import { readdir, readFile, stat } from "fs/promises";
-import { extname, join, relative } from "path";
+import { readdir, readFile, stat } from "node:fs/promises";
+import { extname, join, relative } from "node:path";
 import { isFusionMlxProvider } from "../../utils/model/providers.js";
 import { logEvent } from "../analytics/index.js";
 

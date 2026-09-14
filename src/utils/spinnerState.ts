@@ -1,8 +1,8 @@
 // audit 1.1.1: 从 REPL.tsx 抽出的纯 spinner 状态推导。无 React, 无副作用。
 // 两段 derive 都只读入参, 输出 string|null / boolean。REPL 的 useMemo 仅作缓存壳。
 
-import type { Message, ProgressMessage } from "../types/message.js";
 import type { HookProgress } from "../types/hooks.js";
+import type { Message, ProgressMessage } from "../types/message.js";
 import { count } from "./array.js";
 import { isInternalBuild } from "./buildConstants.js";
 import { truncateToWidth } from "./format.js";

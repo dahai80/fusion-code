@@ -1,4 +1,4 @@
-import { registerBundledSkill } from '../bundledSkills.js'
+import { registerBundledSkill } from "../bundledSkills.js";
 
 const MEMORY_SAVE_PROMPT = `# Learn & Eval — Extract, Evaluate, then Save
 
@@ -83,19 +83,22 @@ Tell the user what was saved and where.
 - ❌ Saving session-only context ("we discussed X at 2pm")
 - ❌ Saving without verifying the finding is correct
 - ❌ Duplicating existing memory files
-- ❌ Vague descriptions that won't match in future`
+- ❌ Vague descriptions that won't match in future`;
 
 export function registerMemorySaveSkill(): void {
-    registerBundledSkill({
-        name: 'memory-save',
-        description: 'Extract reusable patterns from session → quality gate → decide save location (global vs project) → persist to memory',
-        whenToUse:
-            'When the user says "save to memory", "remember this", "learn from this", "persist this finding", or at the end of a significant work session to ensure key insights survive.',
-        argumentHint: '[what to save]',
-        userInvocable: true,
-        async getPromptForCommand(args) {
-            const focus = args.trim() || 'key findings from this session'
-            return [{ type: 'text', text: `${MEMORY_SAVE_PROMPT}\n\n## Focus\n\n${focus}` }]
-        },
-    })
+	registerBundledSkill({
+		name: "memory-save",
+		description:
+			"Extract reusable patterns from session → quality gate → decide save location (global vs project) → persist to memory",
+		whenToUse:
+			'When the user says "save to memory", "remember this", "learn from this", "persist this finding", or at the end of a significant work session to ensure key insights survive.',
+		argumentHint: "[what to save]",
+		userInvocable: true,
+		async getPromptForCommand(args) {
+			const focus = args.trim() || "key findings from this session";
+			return [
+				{ type: "text", text: `${MEMORY_SAVE_PROMPT}\n\n## Focus\n\n${focus}` },
+			];
+		},
+	});
 }

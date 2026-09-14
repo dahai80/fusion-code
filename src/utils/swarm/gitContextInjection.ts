@@ -1,4 +1,4 @@
-import { execFileSync } from "child_process";
+import { execFileSync } from "node:child_process";
 import { logEvent } from "../../services/analytics/index.js";
 import type { ScopedMcpServerConfig } from "../../services/mcp/index.js"; // log: fix TS2459 ScopedMcpServerConfig not exported from config.js
 import { logForDebugging } from "../debug.js";

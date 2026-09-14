@@ -25,13 +25,13 @@ import {
 startKeychainPrefetch();
 
 import { feature } from "bun:bundle";
+import { readFileSync } from "node:fs";
 import {
 	Command as CommanderCommand,
 	InvalidArgumentError,
 	Option,
 } from "@commander-js/extra-typings";
 import chalk from "chalk";
-import { readFileSync } from "fs";
 import mapValues from "lodash-es/mapValues.js";
 import pickBy from "lodash-es/pickBy.js";
 import uniqBy from "lodash-es/uniqBy.js";
@@ -110,7 +110,6 @@ import {
 import { applyConfigEnvironmentVariables } from "./utils/managedEnv.js";
 import { createSystemMessage, createUserMessage } from "./utils/messages.js";
 import { getPlatform } from "./utils/platform.js";
-import { getBaseRenderOptions } from "./utils/renderOptions.js";
 import { getSessionIngressAuthToken } from "./utils/sessionIngressAuth.js";
 import { settingsChangeDetector } from "./utils/settings/changeDetector.js";
 import { skillChangeDetector } from "./utils/skills/skillChangeDetector.js";
@@ -143,7 +142,7 @@ const kairosGate = feature("KAIROS")
 	? (require("./assistant/gate.js") as typeof import("./assistant/gate.js"))
 	: null;
 
-import { relative, resolve } from "path";
+import { relative, resolve } from "node:path";
 import {
 	type AnalyticsMetadata_I_VERIFIED_THIS_IS_NOT_CODE_OR_FILEPATHS,
 	getFeatureValue_CACHED_MAY_BE_STALE,
@@ -237,7 +236,6 @@ import { resolveFallbackModel } from "./utils/model/providers.js";
 import { PERMISSION_MODES } from "./utils/permissions/PermissionMode.js";
 import {
 	checkAndDisableBypassPermissions,
-	getAutoModeEnabledStateIfCached,
 	initializeToolPermissionContext,
 	initialPermissionModeFromCLI,
 	isDefaultPermissionModeAuto,
@@ -371,9 +369,9 @@ import { registerAntCommands } from "./main/antCommands.js";
 import { registerMcpCommands } from "./main/mcpCommands.js";
 import { registerAuthCommands } from "./main/miscCommands.js";
 import { registerMiscSubCommands } from "./main/miscSubCommands.js";
-import { registerServerSubCommands } from "./main/serverSubCommands.js";
 import { registerOpenCommand } from "./main/openSubCommands.js";
 import { registerPluginCommands } from "./main/pluginCommands.js";
+import { registerServerSubCommands } from "./main/serverSubCommands.js";
 
 /* eslint-disable @typescript-eslint/no-require-imports */
 const autoModeStateModule =
@@ -464,7 +462,7 @@ function logManagedSettings(): void {
 		}
 	} catch (e) {
 		logForDebugging(
-			"analytics event failed: " + (e instanceof Error ? e.message : String(e)),
+			`analytics event failed: ${e instanceof Error ? e.message : String(e)}`,
 		);
 	}
 }
@@ -1015,7 +1013,7 @@ export async function main() {
 			if (
 				pmIdx !== -1 &&
 				rawCliArgs[pmIdx + 1] &&
-				!rawCliArgs[pmIdx + 1]!.startsWith("-")
+				!rawCliArgs[pmIdx + 1]?.startsWith("-")
 			) {
 				_pendingSSH.permissionMode = rawCliArgs[pmIdx + 1];
 				rawCliArgs.splice(pmIdx, 2);
@@ -1024,7 +1022,7 @@ export async function main() {
 				a.startsWith("--permission-mode="),
 			);
 			if (pmEqIdx !== -1) {
-				_pendingSSH.permissionMode = rawCliArgs[pmEqIdx]!.split("=")[1];
+				_pendingSSH.permissionMode = rawCliArgs[pmEqIdx]?.split("=")[1];
 				rawCliArgs.splice(pmEqIdx, 1);
 			}
 			// Forward session-resume + model flags to the remote CLI's initial spawn.
@@ -1053,7 +1051,7 @@ export async function main() {
 				if (eqI !== -1) {
 					_pendingSSH.extraCliArgs.push(
 						opts.as ?? flag,
-						rawCliArgs[eqI]!.slice(flag.length + 1),
+						rawCliArgs[eqI]?.slice(flag.length + 1),
 					);
 					rawCliArgs.splice(eqI, 1);
 				}
@@ -1478,7 +1476,7 @@ async function run(): Promise<CommanderCommand> {
 				"Maximum dollar amount to spend on API calls (only works with --print)",
 			).argParser((value) => {
 				const amount = Number(value);
-				if (isNaN(amount) || amount <= 0) {
+				if (Number.isNaN(amount) || amount <= 0) {
 					throw new Error(
 						"--max-budget-usd must be a positive number greater than 0",
 					);
@@ -1493,7 +1491,11 @@ async function run(): Promise<CommanderCommand> {
 			)
 				.argParser((value) => {
 					const tokens = Number(value);
-					if (isNaN(tokens) || tokens <= 0 || !Number.isInteger(tokens)) {
+					if (
+						Number.isNaN(tokens) ||
+						tokens <= 0 ||
+						!Number.isInteger(tokens)
+					) {
 						throw new Error("--task-budget must be a positive integer");
 					}
 					return tokens;
@@ -2437,7 +2439,7 @@ async function run(): Promise<CommanderCommand> {
 				}
 				if (allErrors.length > 0) {
 					const formattedErrors = allErrors
-						.map((err) => `${err.path ? err.path + ": " : ""}${err.message}`)
+						.map((err) => `${err.path ? `${err.path}: ` : ""}${err.message}`)
 						.join("\n");
 					logForDebugging(
 						`--mcp-config validation failed (${allErrors.length} errors): ${formattedErrors}`,
@@ -3122,9 +3124,8 @@ async function run(): Promise<CommanderCommand> {
 				explicitModel &&
 				explicitModel !== "default" &&
 				!hasGrowthBookEnvOverride("tengu_ant_model_override") &&
-				getGlobalConfig().cachedGrowthBookFeatures?.[
-					"tengu_ant_model_override"
-				] == null
+				getGlobalConfig().cachedGrowthBookFeatures?.tengu_ant_model_override ==
+					null
 			) {
 				await initializeGrowthBook();
 			}
@@ -3478,7 +3479,7 @@ async function run(): Promise<CommanderCommand> {
 						agentType: agentDef.agentType,
 						scope: agentDef.memory!,
 						snapshotTimestamp:
-							agentDef.pendingSnapshotUpdate!.snapshotTimestamp,
+							agentDef.pendingSnapshotUpdate?.snapshotTimestamp,
 					});
 					if (choice === "merge") {
 						const { buildMergePrompt } = await import(
@@ -3914,7 +3915,7 @@ async function run(): Promise<CommanderCommand> {
 				// Validate org restriction for non-interactive sessions
 				const orgValidation = await validateForceLoginOrg();
 				if (!orgValidation.valid) {
-					process.stderr.write(orgValidation.message + "\n");
+					process.stderr.write(`${orgValidation.message}\n`);
 					gracefulShutdownSync(1);
 				}
 
@@ -4219,8 +4220,8 @@ async function run(): Promise<CommanderCommand> {
 				env_var: (process.env.FUSION_MODEL ||
 					process.env
 						.ANTHROPIC_MODEL) as AnalyticsMetadata_I_VERIFIED_THIS_IS_NOT_CODE_OR_FILEPATHS,
-				settings_file: (getInitialSettings() || {})
-					.model as AnalyticsMetadata_I_VERIFIED_THIS_IS_NOT_CODE_OR_FILEPATHS,
+				settings_file: getInitialSettings()
+					?.model as AnalyticsMetadata_I_VERIFIED_THIS_IS_NOT_CODE_OR_FILEPATHS,
 				subscriptionType:
 					getSubscriptionType() as AnalyticsMetadata_I_VERIFIED_THIS_IS_NOT_CODE_OR_FILEPATHS,
 				agent:
@@ -4747,7 +4748,7 @@ async function run(): Promise<CommanderCommand> {
 						);
 					}
 					if (sessions.length === 1) {
-						targetSessionId = sessions[0]!.id;
+						targetSessionId = sessions[0]?.id;
 					} else {
 						const picked = await launchAssistantSessionChooser(root, {
 							sessions,
@@ -5123,7 +5124,7 @@ async function run(): Promise<CommanderCommand> {
 							messages = result.messages;
 						} catch (error) {
 							if (error instanceof TeleportOperationError) {
-								process.stderr.write(error.formattedMessage + "\n");
+								process.stderr.write(`${error.formattedMessage}\n`);
 							} else {
 								logError(error);
 								process.stderr.write(
@@ -5684,7 +5685,10 @@ async function run(): Promise<CommanderCommand> {
 	// which redirects to the main command with full TUI support.
 	// (DIRECT_CONNECT). extracted to ./main/openSubCommands.ts
 	// (audit P2-1 / R17 god-module split, slice C4).
-	registerOpenCommand(program, () => _pendingConnect?.dangerouslySkipPermissions ?? false);
+	registerOpenCommand(
+		program,
+		() => _pendingConnect?.dangerouslySkipPermissions ?? false,
+	);
 
 	// claude auth — subcommand group extracted to ./main/miscCommands.ts (issue #133)
 	registerAuthCommands(program);

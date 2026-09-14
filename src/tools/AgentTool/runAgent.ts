@@ -1,6 +1,6 @@
 import { feature } from "bun:bundle";
-import type { UUID } from "crypto";
-import { randomUUID } from "crypto";
+import type { UUID } from "node:crypto";
+import { randomUUID } from "node:crypto";
 import uniqBy from "lodash-es/uniqBy.js";
 import { logForDebugging } from "src/utils/debug.js";
 import { getProjectRoot, getSessionId } from "../../bootstrap/state.js";
@@ -18,16 +18,18 @@ import { getSystemContext, getUserContext } from "../../context.js";
 import type { CanUseToolFn } from "../../hooks/useCanUseTool.js";
 import { query } from "../../query.js";
 import { getFeatureValue_CACHED_MAY_BE_STALE } from "../../services/analytics/index.js";
-import { getDumpPromptsPath } from "../../services/api/index.js";
-import { cleanupAgentTracking } from "../../services/api/index.js";
 import {
-	connectToServer,
-	fetchToolsForClient,
-} from "../../services/mcp/index.js";
-import { getMcpConfigByName } from "../../services/mcp/index.js";
+	cleanupAgentTracking,
+	getDumpPromptsPath,
+} from "../../services/api/index.js";
 import type {
 	MCPServerConnection,
 	ScopedMcpServerConfig,
+} from "../../services/mcp/index.js";
+import {
+	connectToServer,
+	fetchToolsForClient,
+	getMcpConfigByName,
 } from "../../services/mcp/index.js";
 import type { Tool, Tools, ToolUseContext } from "../../Tool.js";
 import { killShellTasksForAgent } from "../../tasks/LocalShellTask/killShellTasks.js";
