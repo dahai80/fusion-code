@@ -1,4 +1,4 @@
-import * as React from 'react';
+import type * as React from 'react';
 import { Passes } from '../../components/Passes/Passes.js';
 import { logEvent } from '../../services/analytics/index.js';
 import { getCachedRemainingPasses } from '../../services/api/index.js';

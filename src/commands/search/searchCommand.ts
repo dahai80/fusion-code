@@ -6,7 +6,7 @@ const LOG_PREFIX = '[search-cmd]'
 let indexInstance: BM25Index | null = null
 
 async function getIndex(): Promise<BM25Index> {
-    if (indexInstance && indexInstance.initialized) return indexInstance
+    if (indexInstance?.initialized) return indexInstance
     const cwd = getCwd()
     indexInstance = new BM25Index(cwd)
     await indexInstance.init()
@@ -63,8 +63,9 @@ export async function* handleSearchCommand(input: string): AsyncGenerator<string
         })
 
         yield lines.join('\n\n')
-    } catch (e: any) {
-        console.log(`${LOG_PREFIX} error: ${e.message}`)
-        yield `Search error: ${e.message}`
+    } catch (e: unknown) {
+        const msg = e instanceof Error ? e.message : String(e)
+        console.log(`${LOG_PREFIX} error: ${msg}`)
+        yield `Search error: ${msg}`
     }
 }

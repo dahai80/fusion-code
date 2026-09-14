@@ -6,7 +6,7 @@ import {
 	loadAllPermissionRulesFromDisk,
 } from "../../utils/permissions/permissionsLoader.js";
 
-const call: LocalCommandCall = async (args, context) => {
+const call: LocalCommandCall = async (args, _context) => {
 	try {
 		const rules = loadAllPermissionRulesFromDisk();
 		const allowRules = rules.filter((r) => r.rule === "allow");

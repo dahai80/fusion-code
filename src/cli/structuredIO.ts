@@ -1,9 +1,9 @@
 import { feature } from "bun:bundle";
+import { randomUUID } from "node:crypto";
 import type {
 	ElicitResult,
 	JSONRPCMessage,
 } from "@modelcontextprotocol/sdk/types.js";
-import { randomUUID } from "crypto";
 import type { AssistantMessage } from "src//types/message.js";
 import { SDKControlElicitationResponseSchema } from "src/entrypoints/sdk/controlSchemas.js";
 import type {
@@ -203,12 +203,12 @@ export class StructuredIO {
 	 */
 	prependUserMessage(content: string): void {
 		this.prependedLines.push(
-			jsonStringify({
+			`${jsonStringify({
 				type: "user",
 				session_id: "",
 				message: { role: "user", content },
 				parent_tool_use_id: null,
-			} satisfies SDKUserMessage) + "\n",
+			} satisfies SDKUserMessage)}\n`,
 		);
 	}
 
@@ -455,7 +455,6 @@ export class StructuredIO {
 			}
 			return message;
 		} catch (error) {
-			// biome-ignore lint/suspicious/noConsole:: intentional console output
 			console.error(`Error parsing streaming input line: ${line}: ${error}`);
 			// eslint-disable-next-line custom-rules/no-process-exit
 			process.exit(1);
@@ -463,7 +462,7 @@ export class StructuredIO {
 	}
 
 	async write(message: StdoutMessage): Promise<void> {
-		writeToStdout(ndjsonSafeStringify(message) + "\n");
+		writeToStdout(`${ndjsonSafeStringify(message)}\n`);
 	}
 
 	private async sendRequest<Response>(
@@ -681,7 +680,6 @@ export class StructuredIO {
 					);
 					return result;
 				} catch (error) {
-					// biome-ignore lint/suspicious/noConsole:: intentional console output
 					console.error(`Error in hook callback ${callbackId}:`, error);
 					return {};
 				}
@@ -775,7 +773,6 @@ export class StructuredIO {
 }
 
 function exitWithMessage(message: string): never {
-	// biome-ignore lint/suspicious/noConsole:: intentional console output
 	console.error(message);
 	// eslint-disable-next-line custom-rules/no-process-exit
 	process.exit(1);

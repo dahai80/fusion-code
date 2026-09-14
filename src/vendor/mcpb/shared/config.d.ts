@@ -12,19 +12,24 @@ import type { McpbUserConfigValuesSchema } from "./common.js";
  * @param variables Object containing variable replacements
  * @returns The processed value with all variables replaced
  */
-export declare function replaceVariables(value: unknown, variables: Record<string, string | string[]>): unknown;
+export declare function replaceVariables(
+	value: unknown,
+	variables: Record<string, string | string[]>,
+): unknown;
 interface GetMcpConfigForManifestOptions {
-    manifest: McpbManifestAny;
-    extensionPath: string;
-    systemDirs: Record<string, string>;
-    userConfig: z.infer<typeof McpbUserConfigValuesSchema>;
-    pathSeparator: string;
-    logger?: Logger;
+	manifest: McpbManifestAny;
+	extensionPath: string;
+	systemDirs: Record<string, string>;
+	userConfig: z.infer<typeof McpbUserConfigValuesSchema>;
+	pathSeparator: string;
+	logger?: Logger;
 }
-export declare function getMcpConfigForManifest(options: GetMcpConfigForManifestOptions): Promise<McpbManifestAny["server"]["mcp_config"] | undefined>;
+export declare function getMcpConfigForManifest(
+	options: GetMcpConfigForManifestOptions,
+): Promise<McpbManifestAny["server"]["mcp_config"] | undefined>;
 interface HasRequiredConfigMissingOptions {
-    manifest: McpbManifestAny;
-    userConfig?: z.infer<typeof McpbUserConfigValuesSchema>;
+	manifest: McpbManifestAny;
+	userConfig?: z.infer<typeof McpbUserConfigValuesSchema>;
 }
 /**
  * Check if an extension has missing required configuration
@@ -32,5 +37,7 @@ interface HasRequiredConfigMissingOptions {
  * @param userConfig The user configuration
  * @returns true if required configuration is missing
  */
-export declare function hasRequiredConfigMissing({ manifest, userConfig, }: HasRequiredConfigMissingOptions): boolean;
-export {};
+export declare function hasRequiredConfigMissing({
+	manifest,
+	userConfig,
+}: HasRequiredConfigMissingOptions): boolean;

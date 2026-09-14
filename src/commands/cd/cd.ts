@@ -1,12 +1,12 @@
-import { homedir } from "os";
-import { basename, isAbsolute, resolve } from "path";
+import { homedir } from "node:os";
+import { basename, isAbsolute, resolve } from "node:path";
 import { logEvent } from "../../services/analytics/index.js";
 import type { LocalCommandModule } from "../../types/command.js";
 import { getCwd } from "../../utils/cwd.js";
 import { setCwd } from "../../utils/Shell.js";
 
 async function listDirSuggestions(dir: string): Promise<string[]> {
-	const fs = await import("fs/promises");
+	const fs = await import("node:fs/promises");
 	try {
 		const entries = await fs.readdir(dir, { withFileTypes: true });
 		return entries
@@ -47,8 +47,8 @@ export const call: LocalCommandModule["call"] = async (args) => {
 				? ` (subdirs: ${suggestions.slice(0, 8).join(", ")}${suggestions.length > 8 ? " ..." : ""})`
 				: "";
 		return { type: "text", value: `Changed directory to ${dirName}${hint}` };
-	} catch (err: any) {
-		const msg = err?.message ?? String(err);
+	} catch (err: unknown) {
+		const msg = err instanceof Error ? err.message : String(err);
 		return { type: "text", value: `cd: ${msg}` };
 	}
 };

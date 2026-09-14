@@ -7,14 +7,25 @@ import type {
 	LocalCommandResult,
 } from "../../types/command.js";
 
-type HealthArgs = {
-	action?: string;
+// TaskState 七成员联合无 taskId/command/startedAt 公共字段 (历史 (t: any) 的成因),
+// 用结构化子集类型收窄: 仅声明 health 检查实际消费的字段
+type TaskLike = {
+	id?: string;
+	taskId?: string;
+	type: string;
+	status: string;
+	description?: string;
+	command?: string;
+	startedAt?: number;
+	lastUpdatedAt?: number;
+	updatedAt?: number;
 };
 
 export async function execute(
 	context: CommandContext,
 	args?: string,
 ): Promise<LocalCommandResult> {
+	void args; // 预留子命令位 (/health status|recover), 当前仅 status
 	const action = args?.trim().toLowerCase();
 
 	if (action === "recover") {
@@ -31,10 +42,12 @@ export async function execute(
 async function executeStatus(
 	context: CommandContext,
 ): Promise<LocalCommandResult> {
-	const tasks = Object.values(context.getAppState().tasks ?? {});
-	const runningTasks = tasks.filter((t: any) => t.status === "running");
+	const tasks = Object.values(
+		context.getAppState().tasks ?? {},
+	) as unknown as TaskLike[];
+	const runningTasks = tasks.filter((t) => t.status === "running");
 	const healthChecks = checkTaskHealth(
-		tasks.map((t: any) => ({
+		tasks.map((t) => ({
 			taskId: t.taskId ?? t.id,
 			taskType: t.type,
 			status: t.status,
@@ -90,9 +103,11 @@ async function executeStatus(
 async function executeRecover(
 	context: CommandContext,
 ): Promise<LocalCommandResult> {
-	const tasks = Object.values(context.getAppState().tasks ?? {});
+	const tasks = Object.values(
+		context.getAppState().tasks ?? {},
+	) as unknown as TaskLike[];
 	const report = recoverTasks(
-		tasks.map((t: any) => ({
+		tasks.map((t) => ({
 			taskId: t.taskId ?? t.id,
 			taskType: t.type,
 			status: t.status,

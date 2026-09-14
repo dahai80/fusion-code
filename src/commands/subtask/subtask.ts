@@ -2,7 +2,7 @@ import { logEvent } from "../../services/analytics/index.js";
 import type { LocalJSXCommandCall } from "../../types/command.js";
 import { logForDebugging } from "../../utils/debug.js";
 
-export const call: LocalJSXCommandCall = async (onDone, context, args) => {
+export const call: LocalJSXCommandCall = async (onDone, _context, args) => {
 	const trimmed = args.trim();
 
 	if (!trimmed) {

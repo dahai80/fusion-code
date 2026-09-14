@@ -7,7 +7,7 @@ function isFocusViewEnabled(): boolean {
     return process.env[ENV_KEY] === '1'
 }
 
-export const call: LocalJSXCommandCall = async (onDone, context, args) => {
+export const call: LocalJSXCommandCall = async (onDone, _context, args) => {
     const trimmed = args.trim().toLowerCase()
 
     if (trimmed === 'on' || trimmed === 'enable' || trimmed === '1') {

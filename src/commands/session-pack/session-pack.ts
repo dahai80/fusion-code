@@ -1,6 +1,6 @@
-import { mkdir, readdir, readFile, writeFile } from "fs/promises";
-import { homedir } from "os";
-import { basename, isAbsolute, join } from "path";
+import { mkdir, readdir, readFile, writeFile } from "node:fs/promises";
+import { homedir } from "node:os";
+import { basename, isAbsolute, join } from "node:path";
 import { logForDebugging } from "../../utils/debug.js";
 
 type SessionPack = {
@@ -44,7 +44,6 @@ export async function execute(
 			return handleCreate(rest, getCwd());
 		case "load":
 			return handleLoad(rest, getCwd());
-		case "help":
 		default:
 			return usage();
 	}

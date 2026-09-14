@@ -1,7 +1,7 @@
 import type { Command, LocalCommandCall } from "../../types/command.js";
 import { logForDebugging } from "../../utils/debug.js";
 
-const call: LocalCommandCall = async (args, context) => {
+const call: LocalCommandCall = async (_args, context) => {
 	try {
 		const mutableMessages = context.messages;
 		if (!mutableMessages || mutableMessages.length === 0) {

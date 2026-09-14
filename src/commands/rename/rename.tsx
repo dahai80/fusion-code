@@ -1,4 +1,4 @@
-import type { UUID } from "crypto";
+import type { UUID } from "node:crypto";
 import { getSessionId } from "../../bootstrap/state.js";
 import type { LocalJSXCommandContext } from "../../commands.js";
 import type { LocalJSXCommandOnDone } from "../../types/command.js";

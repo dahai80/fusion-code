@@ -46,7 +46,7 @@ Based on detected stack, propose:
 ### Apply?
 Confirm before writing any files.`
 
-export const call: LocalCommandCall = async (args, context) => {
+export const call: LocalCommandCall = async (args, _context) => {
     const target = args.trim() || 'claude'
     console.log(`[project-init] detecting stack for ${target} onboarding`)
 

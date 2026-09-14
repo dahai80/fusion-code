@@ -1,4 +1,4 @@
-import React from 'react'
+import type React from 'react'
 
 // Stub for internal-only Ant model switch callout.
 // Real implementation only exists in the internal repo.

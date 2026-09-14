@@ -1,4 +1,4 @@
-import { mkdir, writeFile } from 'fs/promises';
+import { mkdir, writeFile } from 'node:fs/promises';
 import * as React from 'react';
 import type { CommandResultDisplay } from '../../commands.js';
 import { Dialog } from '../../components/design-system/Dialog.js';

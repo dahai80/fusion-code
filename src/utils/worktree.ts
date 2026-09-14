@@ -1,6 +1,6 @@
 import { feature } from "bun:bundle";
 import chalk from "chalk";
-import { spawnSync } from "child_process";
+import { spawnSync } from "node:child_process";
 import {
 	copyFile,
 	mkdir,
@@ -9,9 +9,9 @@ import {
 	stat,
 	symlink,
 	utimes,
-} from "fs/promises";
+} from "node:fs/promises";
 import ignore from "ignore";
-import { basename, dirname, join } from "path";
+import { basename, dirname, join } from "node:path";
 import { saveCurrentProjectConfig } from "./config.js";
 import { getCwd } from "./cwd.js";
 import { logForDebugging } from "./debug.js";

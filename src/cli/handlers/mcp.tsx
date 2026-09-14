@@ -3,9 +3,9 @@
  * These are dynamically imported only when the corresponding `claude mcp *` command runs.
  */
 
-import { stat } from "fs/promises";
+import { stat } from "node:fs/promises";
+import { cwd } from "node:process";
 import pMap from "p-map";
-import { cwd } from "process";
 import { MCPServerDesktopImportDialog } from "../../components/MCPServerDesktopImportDialog.js";
 import { render } from "../../ink.js";
 import { KeybindingSetup } from "../../keybindings/KeybindingProviderSetup.js";
@@ -13,32 +13,28 @@ import {
 	type AnalyticsMetadata_I_VERIFIED_THIS_IS_NOT_CODE_OR_FILEPATHS,
 	logEvent,
 } from "../../services/analytics/index.js";
-import {
-	clearMcpClientConfig,
-	clearServerTokensFromLocalStorage,
-	getMcpClientConfig,
-	readClientSecret,
-	saveMcpClientSecret,
-} from "../../services/mcp/index.js";
-import {
-	connectToServer,
-	getMcpServerConnectionBatchSize,
-} from "../../services/mcp/index.js";
-import {
-	addMcpConfig,
-	getAllMcpConfigs,
-	getMcpConfigByName,
-	getMcpConfigsByScope,
-	removeMcpConfig,
-} from "../../services/mcp/index.js";
 import type {
 	ConfigScope,
+	McpHTTPServerConfig,
+	McpSSEServerConfig,
 	ScopedMcpServerConfig,
 } from "../../services/mcp/index.js";
 import {
+	addMcpConfig,
+	clearMcpClientConfig,
+	clearServerTokensFromLocalStorage,
+	connectToServer,
 	describeMcpConfigFilePath,
 	ensureConfigScope,
+	getAllMcpConfigs,
+	getMcpClientConfig,
+	getMcpConfigByName,
+	getMcpConfigsByScope,
+	getMcpServerConnectionBatchSize,
 	getScopeLabel,
+	readClientSecret,
+	removeMcpConfig,
+	saveMcpClientSecret,
 } from "../../services/mcp/index.js";
 import { AppStateProvider } from "../../state/AppState.js";
 import {
@@ -148,7 +144,8 @@ export async function mcpRemoveHandler(
 			cliError(`No MCP server found with name: "${name}"`);
 		} else if (scopes.length === 1) {
 			// Server exists in only one scope, remove it
-			const scope = scopes[0]!;
+			const scope = scopes[0];
+			if (!scope) return;
 			logEvent("tengu_mcp_delete", {
 				name: name as AnalyticsMetadata_I_VERIFIED_THIS_IS_NOT_CODE_OR_FILEPATHS,
 				scope:
@@ -184,12 +181,10 @@ export async function mcpListHandler(): Promise<void> {
 	logEvent("tengu_mcp_list", {});
 	const { servers: configs } = await getAllMcpConfigs();
 	if (Object.keys(configs).length === 0) {
-		// biome-ignore lint/suspicious/noConsole:: intentional console output
 		console.log(
 			"No MCP servers configured. Use `claude mcp add` to add a server.",
 		);
 	} else {
-		// biome-ignore lint/suspicious/noConsole:: intentional console output
 		console.log("Checking MCP server health...\n");
 
 		// Check servers concurrently
@@ -208,19 +203,15 @@ export async function mcpListHandler(): Promise<void> {
 		for (const { name, server, status } of results) {
 			// Intentionally excluding sse-ide servers here since they're internal
 			if (server.type === "sse") {
-				// biome-ignore lint/suspicious/noConsole:: intentional console output
 				console.log(`${name}: ${server.url} (SSE) - ${status}`);
 			} else if (server.type === "http") {
-				// biome-ignore lint/suspicious/noConsole:: intentional console output
 				console.log(`${name}: ${server.url} (HTTP) - ${status}`);
 			} else if (server.type === "claudeai-proxy") {
-				// biome-ignore lint/suspicious/noConsole:: intentional console output
 				console.log(`${name}: ${server.url} - ${status}`);
 			} else if (!server.type || server.type === "stdio") {
 				if ("command" in server) {
 					// log: fix TS2339
 					const args = Array.isArray(server.args) ? server.args : [];
-					// biome-ignore lint/suspicious/noConsole:: intentional console output
 					console.log(
 						`${name}: ${server.command} ${args.join(" ")} - ${status}`,
 					);
@@ -243,27 +234,20 @@ export async function mcpGetHandler(name: string): Promise<void> {
 		cliError(`No MCP server found with name: ${name}`);
 	}
 
-	// biome-ignore lint/suspicious/noConsole:: intentional console output
 	console.log(`${name}:`);
-	// biome-ignore lint/suspicious/noConsole:: intentional console output
 	console.log(`  Scope: ${getScopeLabel(server.scope)}`);
 
 	// Check server health
 	const status = await checkMcpServerHealth(name, server);
-	// biome-ignore lint/suspicious/noConsole:: intentional console output
 	console.log(`  Status: ${status}`);
 
 	// Intentionally excluding sse-ide servers here since they're internal
 	if (server.type === "sse") {
-		// biome-ignore lint/suspicious/noConsole:: intentional console output
 		console.log(`  Type: sse`);
-		// biome-ignore lint/suspicious/noConsole:: intentional console output
 		console.log(`  URL: ${server.url}`);
 		if (server.headers) {
-			// biome-ignore lint/suspicious/noConsole:: intentional console output
 			console.log("  Headers:");
 			for (const [key, value] of Object.entries(server.headers)) {
-				// biome-ignore lint/suspicious/noConsole:: intentional console output
 				console.log(`    ${key}: ${value}`);
 			}
 		}
@@ -276,19 +260,14 @@ export async function mcpGetHandler(name: string): Promise<void> {
 			}
 			if (server.oauth.callbackPort)
 				parts.push(`callback_port ${server.oauth.callbackPort}`);
-			// biome-ignore lint/suspicious/noConsole:: intentional console output
 			console.log(`  OAuth: ${parts.join(", ")}`);
 		}
 	} else if (server.type === "http") {
-		// biome-ignore lint/suspicious/noConsole:: intentional console output
 		console.log(`  Type: http`);
-		// biome-ignore lint/suspicious/noConsole:: intentional console output
 		console.log(`  URL: ${server.url}`);
 		if (server.headers) {
-			// biome-ignore lint/suspicious/noConsole:: intentional console output
 			console.log("  Headers:");
 			for (const [key, value] of Object.entries(server.headers)) {
-				// biome-ignore lint/suspicious/noConsole:: intentional console output
 				console.log(`    ${key}: ${value}`);
 			}
 		}
@@ -301,27 +280,20 @@ export async function mcpGetHandler(name: string): Promise<void> {
 			}
 			if (server.oauth.callbackPort)
 				parts.push(`callback_port ${server.oauth.callbackPort}`);
-			// biome-ignore lint/suspicious/noConsole:: intentional console output
 			console.log(`  OAuth: ${parts.join(", ")}`);
 		}
 	} else if (server.type === "stdio") {
-		// biome-ignore lint/suspicious/noConsole:: intentional console output
 		console.log(`  Type: stdio`);
-		// biome-ignore lint/suspicious/noConsole:: intentional console output
 		console.log(`  Command: ${server.command}`);
 		const args = Array.isArray(server.args) ? server.args : [];
-		// biome-ignore lint/suspicious/noConsole:: intentional console output
 		console.log(`  Args: ${args.join(" ")}`);
 		if (server.env) {
-			// biome-ignore lint/suspicious/noConsole:: intentional console output
 			console.log("  Environment:");
 			for (const [key, value] of Object.entries(server.env)) {
-				// biome-ignore lint/suspicious/noConsole:: intentional console output
 				console.log(`    ${key}=${value}`);
 			}
 		}
 	}
-	// biome-ignore lint/suspicious/noConsole:: intentional console output
 	console.log(
 		`\nTo remove this server, run: claude mcp remove "${name}" -s ${server.scope}`,
 	);
@@ -472,9 +444,14 @@ export async function mcpLoginHandler(name: string): Promise<void> {
 	}
 	try {
 		const { performMCPOAuthFlow } = await import("../../services/mcp/index.js");
-		await performMCPOAuthFlow(name, serverConfig as any, (url: string) => {
-			cliOk(`Authorization URL opened for "${name}": ${url}`);
-		});
+		await performMCPOAuthFlow(
+			name,
+			// url 守卫已过滤 stdio; 定向窄化替代 as any (v5 验证修复)
+			serverConfig as McpSSEServerConfig | McpHTTPServerConfig,
+			(url: string) => {
+				cliOk(`Authorization URL opened for "${name}": ${url}`);
+			},
+		);
 		cliOk(`Successfully authenticated with MCP server "${name}".`);
 	} catch (error) {
 		cliError(`Login failed for "${name}": ${(error as Error).message}`);
@@ -487,8 +464,10 @@ export async function mcpLogoutHandler(name: string): Promise<void> {
 		const configs = await getAllMcpConfigs();
 		const serverConfig = configs.servers[name];
 		if (serverConfig) {
-			clearMcpClientConfig(name, serverConfig as any); // log: clearMcpClientConfig requires serverConfig
-			clearServerTokensFromLocalStorage(name, serverConfig as any); // log: ScopedMcpServerConfig widen to satisfy McpSSE|McpHTTP
+			// 定向窄化替代 as any (v5 验证修复); stdio 配置无 tokens, 清理为 no-op
+			const httpLike = serverConfig as McpSSEServerConfig | McpHTTPServerConfig;
+			clearMcpClientConfig(name, httpLike);
+			clearServerTokensFromLocalStorage(name, httpLike);
 		}
 		cliOk(
 			`Logged out from MCP server "${name}". Authentication tokens cleared.`,

@@ -1,4 +1,4 @@
-import { randomUUID } from "crypto";
+import { randomUUID } from "node:crypto";
 import type { StdoutMessage } from "src/entrypoints/sdk/controlTypes.js";
 import type { SDKPartialAssistantMessage } from "src/entrypoints/sdk/types.js";
 import { decodeJwtExpiry } from "../../bridge/jwtUtils.js";
@@ -6,6 +6,7 @@ import { logForDebugging } from "../../utils/debug.js";
 import { logForDiagnosticsNoPII } from "../../utils/diagLogs.js";
 import { errorMessage, getErrnoCode } from "../../utils/errors.js";
 import { createAxiosInstance } from "../../utils/proxy.js";
+import type { AxiosResponse } from "axios";
 import {
 	registerSessionActivityCallback,
 	unregisterSessionActivityCallback,
@@ -163,7 +164,7 @@ export function accumulateStreamEvents(
 		const msg = _msg as StreamEventMsg; // log: widen for stream event access
 		switch (msg.event.type) {
 			case "message_start": {
-				const id = msg.event.message!.id;
+				const id = msg.event.message?.id;
 				const prevId = state.scopeToMessage.get(scopeKey(msg));
 				if (prevId) state.byMessage.delete(prevId);
 				state.scopeToMessage.set(scopeKey(msg), id);
@@ -172,7 +173,7 @@ export function accumulateStreamEvents(
 				break;
 			}
 			case "content_block_delta": {
-				if (msg.event.delta!.type !== "text_delta") {
+				if (msg.event.delta?.type !== "text_delta") {
 					out.push(msg as EventPayload);
 					break;
 				}
@@ -182,8 +183,13 @@ export function accumulateStreamEvents(
 					out.push(msg as EventPayload);
 					break;
 				}
-				const chunks = (blocks[msg.event.index!] ??= []);
-				chunks.push(msg.event.delta!.text!);
+				const index = msg.event.index ?? 0;
+				let chunks = blocks[index];
+				if (!chunks) {
+					chunks = [];
+					blocks[index] = chunks;
+				}
+				chunks.push(msg.event.delta?.text ?? "");
 				const existing = touched.get(chunks);
 				if (existing) {
 					existing.event.delta.text = chunks.join("");
@@ -196,7 +202,7 @@ export function accumulateStreamEvents(
 					parent_tool_use_id: msg.parent_tool_use_id,
 					event: {
 						type: "content_block_delta",
-						index: msg.event.index!,
+						index,
 						delta: { type: "text_delta", text: chunks.join("") },
 					},
 				};
@@ -477,7 +483,7 @@ export class CCRClient {
 			const rawEpoch = process.env.FUSION_CODE_WORKER_EPOCH;
 			epoch = rawEpoch ? parseInt(rawEpoch, 10) : NaN;
 		}
-		if (isNaN(epoch)) {
+		if (Number.isNaN(epoch)) {
 			throw new CCRInitError("missing_epoch");
 		}
 		this.workerEpoch = epoch;
@@ -638,7 +644,7 @@ export class CCRClient {
 			if (response.status === 429) {
 				const raw = response.headers?.["retry-after"];
 				const seconds = typeof raw === "string" ? parseInt(raw, 10) : NaN;
-				if (!isNaN(seconds) && seconds >= 0) {
+				if (!Number.isNaN(seconds) && seconds >= 0) {
 					return { ok: false, retryAfterMs: seconds * 1000 };
 				}
 			}
@@ -932,7 +938,8 @@ export class CCRClient {
 		context: string,
 	): Promise<T | null> {
 		for (let attempt = 1; attempt <= 10; attempt++) {
-			let response;
+			// 显式类型标注: response 由 try/catch 两分支赋值 (v5 验证修复)
+			let response: AxiosResponse<T>;
 			try {
 				response = await this.http.get<T>(url, {
 					headers: {

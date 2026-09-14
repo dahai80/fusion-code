@@ -68,7 +68,7 @@ origin: auto-extracted
 - Separate observations from recommendations
 - Don't generate skills for trivial patterns (every project has them)`
 
-export const call: LocalCommandCall = async (args, context) => {
+export const call: LocalCommandCall = async (args, _context) => {
     const commits = args.trim() || '200'
     console.log(`[skill-create] analyzing last ${commits} commits for patterns`)
 

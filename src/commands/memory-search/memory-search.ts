@@ -1,8 +1,8 @@
-import { readFileSync, readdirSync, existsSync } from 'fs'
-import { join, relative } from 'path'
+import { readFileSync, readdirSync, existsSync } from 'node:fs'
+import { join, relative } from 'node:path'
 import type { LocalCommandCall, LocalCommandResult } from '../../types/command.js'
 import { getClaudeConfigHomeDir } from '../../utils/envUtils.js'
-import { homedir } from 'os'
+import { homedir } from 'node:os'
 
 interface MemoryHit {
     filePath: string

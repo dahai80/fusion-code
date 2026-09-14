@@ -47,7 +47,10 @@ export async function execute(
 	}
 
 	const parts = trimmed.split(/\s+/);
-	const toolName = parts[0]!;
+	const toolName = parts[0];
+	if (!toolName) {
+		return { type: "text", value: "usage: /approve-session <tool> [rule]" };
+	}
 	const ruleContent = parts.length > 1 ? parts.slice(1).join(" ") : undefined;
 
 	const ok = approveForSession(toolName, ruleContent);

@@ -4,7 +4,7 @@ import { logForDebugging } from '../../utils/debug.js'
 
 const ENV_KEY = 'FUSION_CODE_NO_FLICKER'
 
-export const call: LocalJSXCommandCall = async (onDone, context, args) => {
+export const call: LocalJSXCommandCall = async (onDone, _context, args) => {
     const trimmed = args.trim().toLowerCase()
 
     if (trimmed === 'on' || trimmed === 'enable' || trimmed === '1') {

@@ -1,9 +1,4 @@
 import type { Command } from "../../types/command.js";
-import {
-	getTranscriptPath,
-	saveAgentName,
-	saveCustomTitle,
-} from "../../utils/sessionStorage.js";
 
 const rename: Command = {
 	type: "local-jsx",

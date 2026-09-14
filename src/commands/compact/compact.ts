@@ -12,11 +12,11 @@ import {
 	ERROR_MESSAGE_NOT_ENOUGH_MESSAGES,
 	ERROR_MESSAGE_USER_ABORT,
 	mergeHookInstructions,
+	microcompactMessages,
+	runPostCompactCleanup,
+	suppressCompactWarning,
+	trySessionMemoryCompaction,
 } from "../../services/compact/index.js";
-import { suppressCompactWarning } from "../../services/compact/index.js";
-import { microcompactMessages } from "../../services/compact/index.js";
-import { runPostCompactCleanup } from "../../services/compact/index.js";
-import { trySessionMemoryCompaction } from "../../services/compact/index.js";
 import { setLastSummarizedMessageId } from "../../services/SessionMemory/index.js";
 import type { ToolUseContext } from "../../Tool.js";
 import type { LocalCommandCall } from "../../types/command.js";
@@ -255,7 +255,7 @@ function buildDisplayText(
 		...(userDisplayMessage ? [userDisplayMessage] : []),
 		...(upgradeMessage ? [upgradeMessage] : []),
 	];
-	return chalk.dim("Compacted " + dimmed.join("\n"));
+	return chalk.dim(`Compacted ${dimmed.join("\n")}`);
 }
 
 async function getCacheSharingParams(

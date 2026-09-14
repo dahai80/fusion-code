@@ -2,6 +2,7 @@ import {
 	checkUndoAvailability,
 	computeUndoSlice,
 } from "../../services/undo/undoEngine.js";
+import type { Message } from "../../types/message.js";
 import type { ToolUseContext } from "../../Tool.js";
 import type {
 	LocalJSXCommandCall,
@@ -12,21 +13,21 @@ import { logForDebugging } from "../../utils/debug.js";
 export const call: LocalJSXCommandCall = async (
 	onDone: LocalJSXCommandOnDone,
 	context: ToolUseContext & {
-		setMessages: (updater: (prev: any[]) => any[]) => void;
+		setMessages: (updater: (prev: Message[]) => Message[]) => void;
 	},
 	args: string,
 ) => {
 	const trimmed = args.trim();
 	const count = parseInt(trimmed, 10);
 
-	if (isNaN(count) || count <= 0) {
+	if (Number.isNaN(count) || count <= 0) {
 		onDone("Usage: /undo <N> — Undo N turns. Example: /undo 2");
 		return null;
 	}
 
 	// Use setMessages to read current messages and compute undo
-	let currentMessages: any[] = [];
-	context.setMessages((prev: any[]) => {
+	let currentMessages: Message[] = [];
+	context.setMessages((prev: Message[]) => {
 		currentMessages = prev;
 		return prev;
 	});
@@ -58,7 +59,7 @@ export const call: LocalJSXCommandCall = async (
 	}
 
 	// Apply the undo by truncating messages
-	context.setMessages((prev: any[]) => prev.slice(0, slice.removeFrom));
+	context.setMessages((prev: Message[]) => prev.slice(0, slice.removeFrom));
 	logForDebugging(
 		`[undo] Rewound ${count} turn(s), removed from index ${slice.removeFrom}`,
 	);

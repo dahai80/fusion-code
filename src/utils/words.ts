@@ -3,7 +3,7 @@
  * Inspired by https://github.com/nas5w/random-word-slugs
  * with Claude-flavored words
  */
-import { randomBytes } from 'crypto'
+import { randomBytes } from 'node:crypto'
 
 // Adjectives for slug generation - whimsical and delightful
 const ADJECTIVES = [
@@ -775,7 +775,10 @@ function randomInt(max: number): number {
  * Pick a random element from an array
  */
 function pickRandom<T>(array: readonly T[]): T {
-  return array[randomInt(array.length)]!
+  const idx = randomInt(array.length)
+  const picked = array[idx]
+  if (picked === undefined) throw new RangeError(`pickRandom: empty array (len=${array.length})`)
+  return picked
 }
 
 /**

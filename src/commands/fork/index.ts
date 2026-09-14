@@ -8,7 +8,7 @@ const command: Command = {
     type: 'local-jsx',
     async load() {
         return {
-            call: async (onDone, context, args) => {
+            call: async (onDone, _context, args) => {
                 if (!isForkSubagentEnabled()) {
                     onDone('Fork subagent is not enabled. Set FUSION_CODE_FORK_SUBAGENT=1 to enable.')
                     return null

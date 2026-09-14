@@ -44,7 +44,6 @@ export async function execute(args: string, cwd?: string): Promise<string> {
 			return handleImport(rest, cwd);
 		case "builtin":
 			return handleBuiltin();
-		case "help":
 		default:
 			return usage();
 	}

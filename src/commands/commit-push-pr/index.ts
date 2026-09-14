@@ -1,53 +1,56 @@
-import type { Command } from '../../types/command.js'
+import type { Command } from "../../types/command.js";
 import {
-    getAttributionTexts,
-    getEnhancedPRAttribution,
-} from '../../utils/attribution.js'
-import { getDefaultBranch } from '../../utils/git.js'
-import { executeShellCommandsInPrompt } from '../../utils/promptShellExecution.js'
-import { getUndercoverInstructions, isUndercover } from '../../utils/undercover.js'
+	getAttributionTexts,
+	getEnhancedPRAttribution,
+} from "../../utils/attribution.js";
+import { getDefaultBranch } from "../../utils/git.js";
+import { executeShellCommandsInPrompt } from "../../utils/promptShellExecution.js";
+import {
+	getUndercoverInstructions,
+	isUndercover,
+} from "../../utils/undercover.js";
 
 const ALLOWED_TOOLS = [
-    'Bash(git checkout --branch:*)',
-    'Bash(git checkout -b:*)',
-    'Bash(git add:*)',
-    'Bash(git status:*)',
-    'Bash(git push:*)',
-    'Bash(git commit:*)',
-    'Bash(gh pr create:*)',
-    'Bash(gh pr edit:*)',
-    'Bash(gh pr view:*)',
-    'Bash(gh pr merge:*)',
-    'ToolSearch',
-]
+	"Bash(git checkout --branch:*)",
+	"Bash(git checkout -b:*)",
+	"Bash(git add:*)",
+	"Bash(git status:*)",
+	"Bash(git push:*)",
+	"Bash(git commit:*)",
+	"Bash(gh pr create:*)",
+	"Bash(gh pr edit:*)",
+	"Bash(gh pr view:*)",
+	"Bash(gh pr merge:*)",
+	"ToolSearch",
+];
 
 function getPromptContent(
-    defaultBranch: string,
-    prAttribution?: string,
+	defaultBranch: string,
+	prAttribution?: string,
 ): string {
-    const { commit: commitAttribution, pr: defaultPrAttribution } =
-        getAttributionTexts()
-    const effectivePrAttribution = prAttribution ?? defaultPrAttribution
-    const safeUser = process.env.SAFEUSER || ''
-    const username = process.env.USER || ''
+	const { commit: commitAttribution, pr: defaultPrAttribution } =
+		getAttributionTexts();
+	const effectivePrAttribution = prAttribution ?? defaultPrAttribution;
+	const safeUser = process.env.SAFEUSER || "";
+	const username = process.env.USER || "";
 
-    let prefix = ''
-    let reviewerArg = ' and `--reviewer anthropics/claude-code`'
-    let addReviewerArg = ' (and add `--add-reviewer anthropics/claude-code`)'
-    let changelogSection = `
+	let prefix = "";
+	let reviewerArg = " and `--reviewer anthropics/claude-code`";
+	let addReviewerArg = " (and add `--add-reviewer anthropics/claude-code`)";
+	let changelogSection = `
 
 ## Changelog
 <!-- CHANGELOG:START -->
 [If this PR contains user-facing changes, add a changelog entry here. Otherwise, remove this section.]
-<!-- CHANGELOG:END -->`
-    if (process.env.USER_TYPE === 'ant' && isUndercover()) {
-        prefix = getUndercoverInstructions() + '\n'
-        reviewerArg = ''
-        addReviewerArg = ''
-        changelogSection = ''
-    }
+<!-- CHANGELOG:END -->`;
+	if (process.env.USER_TYPE === "ant" && isUndercover()) {
+		prefix = `${getUndercoverInstructions()}\n`;
+		reviewerArg = "";
+		addReviewerArg = "";
+		changelogSection = "";
+	}
 
-    return `${prefix}## Context
+	return `${prefix}## Context
 
 - \`SAFEUSER\`: ${safeUser}
 - \`whoami\`: ${username}
@@ -72,10 +75,10 @@ Analyze all changes that will be included in the pull request, making sure to lo
 
 Based on the above changes:
 1. Create a new branch if on ${defaultBranch} (use SAFEUSER from context above for the branch name prefix, falling back to whoami if SAFEUSER is empty, e.g., \`username/feature-name\`)
-2. Create a single commit with an appropriate message using heredoc syntax${commitAttribution ? `, ending with the attribution text shown in the example below` : ''}:
+2. Create a single commit with an appropriate message using heredoc syntax${commitAttribution ? `, ending with the attribution text shown in the example below` : ""}:
 \`\`\`
 git commit -m "$(cat <<'EOF'
-Commit message here.${commitAttribution ? `\n\n${commitAttribution}` : ''}
+Commit message here.${commitAttribution ? `\n\n${commitAttribution}` : ""}
 EOF
 )"
 \`\`\`
@@ -88,61 +91,61 @@ gh pr create --title "Short, descriptive title" --body "$(cat <<'EOF'
 <1-3 bullet points>
 
 ## Test plan
-[Bulleted markdown checklist of TODOs for testing the pull request...]${changelogSection}${effectivePrAttribution ? `\n\n${effectivePrAttribution}` : ''}
+[Bulleted markdown checklist of TODOs for testing the pull request...]${changelogSection}${effectivePrAttribution ? `\n\n${effectivePrAttribution}` : ""}
 EOF
 )"
 \`\`\`
 
 You have the capability to call multiple tools in a single response. You MUST do all of the above in a single message.
 
-Return the PR URL when you're done, so the user can see it.`
+Return the PR URL when you're done, so the user can see it.`;
 }
 
 const command: Command = {
-    type: 'prompt',
-    name: 'commit-push-pr',
-    description: 'Commit, push, and open a PR',
-    allowedTools: ALLOWED_TOOLS,
-    get contentLength() {
-        return getPromptContent('main').length
-    },
-    progressMessage: 'creating commit and PR',
-    source: 'builtin',
-    async getPromptForCommand(args, context) {
-        const [defaultBranch, prAttribution] = await Promise.all([
-            getDefaultBranch(),
-            getEnhancedPRAttribution(context.getAppState),
-        ])
-        let promptContent = getPromptContent(defaultBranch, prAttribution)
+	type: "prompt",
+	name: "commit-push-pr",
+	description: "Commit, push, and open a PR",
+	allowedTools: ALLOWED_TOOLS,
+	get contentLength() {
+		return getPromptContent("main").length;
+	},
+	progressMessage: "creating commit and PR",
+	source: "builtin",
+	async getPromptForCommand(args, context) {
+		const [defaultBranch, prAttribution] = await Promise.all([
+			getDefaultBranch(),
+			getEnhancedPRAttribution(context.getAppState),
+		]);
+		let promptContent = getPromptContent(defaultBranch, prAttribution);
 
-        const trimmedArgs = args?.trim()
-        if (trimmedArgs) {
-            promptContent += `\n\n## Additional instructions from user\n\n${trimmedArgs}`
-        }
+		const trimmedArgs = args?.trim();
+		if (trimmedArgs) {
+			promptContent += `\n\n## Additional instructions from user\n\n${trimmedArgs}`;
+		}
 
-        const finalContent = await executeShellCommandsInPrompt(
-            promptContent,
-            {
-                ...context,
-                getAppState() {
-                    const appState = context.getAppState()
-                    return {
-                        ...appState,
-                        toolPermissionContext: {
-                            ...appState.toolPermissionContext,
-                            alwaysAllowRules: {
-                                ...appState.toolPermissionContext.alwaysAllowRules,
-                                command: ALLOWED_TOOLS,
-                            },
-                        },
-                    }
-                },
-            },
-            '/commit-push-pr',
-        )
+		const finalContent = await executeShellCommandsInPrompt(
+			promptContent,
+			{
+				...context,
+				getAppState() {
+					const appState = context.getAppState();
+					return {
+						...appState,
+						toolPermissionContext: {
+							...appState.toolPermissionContext,
+							alwaysAllowRules: {
+								...appState.toolPermissionContext.alwaysAllowRules,
+								command: ALLOWED_TOOLS,
+							},
+						},
+					};
+				},
+			},
+			"/commit-push-pr",
+		);
 
-        return [{ type: 'text', text: finalContent }]
-    },
-}
+		return [{ type: "text", text: finalContent }];
+	},
+};
 
-export default command
+export default command;

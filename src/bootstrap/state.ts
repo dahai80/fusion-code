@@ -1,14 +1,14 @@
-import type { BetaMessageStreamParams } from "src/types/anthropic-protocol.js";
+import { realpathSync } from "node:fs";
+import { cwd } from "node:process";
 import type { Attributes, Meter, MetricOptions } from "@opentelemetry/api";
 import type { logs } from "@opentelemetry/api-logs";
 import type { LoggerProvider } from "@opentelemetry/sdk-logs";
 import type { MeterProvider } from "@opentelemetry/sdk-metrics";
 import type { BasicTracerProvider } from "@opentelemetry/sdk-trace-base";
-import { realpathSync } from "fs";
 import sumBy from "lodash-es/sumBy.js";
-import { cwd } from "process";
 import type { HookEvent, ModelUsage } from "src/entrypoints/sdk/types.js";
 import type { AgentColorName } from "src/tools/AgentTool/agentColorManager.js";
+import type { BetaMessageStreamParams } from "src/types/anthropic-protocol.js";
 import type { HookCallbackMatcher } from "src/types/hooks.js";
 // Indirection for browser-sdk build (package.json "browser" field swaps
 // crypto.ts for crypto.browser.ts). Pure leaf re-export of node:crypto —
@@ -1429,7 +1429,7 @@ export function registerHookCallbacks(
 		if (!STATE.registeredHooks[eventKey]) {
 			STATE.registeredHooks[eventKey] = [];
 		}
-		STATE.registeredHooks[eventKey]!.push(...matchers);
+		STATE.registeredHooks[eventKey]?.push(...matchers);
 	}
 }
 

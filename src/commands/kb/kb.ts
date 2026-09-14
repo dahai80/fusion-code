@@ -34,7 +34,6 @@ export async function execute(
 			return handleStatus(cwd);
 		case "reset":
 			return resetKB(cwd);
-		case "help":
 		default:
 			return usage();
 	}

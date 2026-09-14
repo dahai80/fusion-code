@@ -68,8 +68,9 @@ export async function* handleFastpathCommand(input: string): AsyncGenerator<stri
         }
 
         yield `Usage: /fastpath [--stats] [--list] [--test <input>]\n\nDeterministic rule engine that intercepts simple queries before model invocation (MLX only).`
-    } catch (e: any) {
-        console.log(`${LOG_PREFIX} error: ${e.message}`)
-        yield `Fast-Path error: ${e.message}`
+    } catch (e: unknown) {
+        const msg = e instanceof Error ? e.message : String(e)
+        console.log(`${LOG_PREFIX} error: ${msg}`)
+        yield `Fast-Path error: ${msg}`
     }
 }

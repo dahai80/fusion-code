@@ -46,7 +46,7 @@ src/repos/user.ts (database access, 80 lines)
 - Focus on structure, not implementation details
 - Update only the codemaps that changed`
 
-export const call: LocalCommandCall = async (args, context) => {
+export const call: LocalCommandCall = async (args, _context) => {
     const section = args.trim() || 'all'
     console.log(`[update-codemaps] generating ${section} codemaps`)
 

@@ -28,7 +28,7 @@ function parseBudgetArgs(args: string): ParsedBudget {
 		const kv = part.replace("--budget ", "").split("=");
 		if (kv.length === 2) {
 			const val = parseInt(kv[1], 10);
-			if (!isNaN(val) && val > 0) {
+			if (!Number.isNaN(val) && val > 0) {
 				if (kv[0] === "turns") budget.turns = val;
 				else if (kv[0] === "tokens") budget.tokens = val;
 				else if (kv[0] === "wallMs" || kv[0] === "ms") budget.wallMs = val;

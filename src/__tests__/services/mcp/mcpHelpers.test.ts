@@ -7,7 +7,7 @@ import {
 	issuerKey,
 	normalizeNameForMCP,
 } from "../../../services/mcp/index.js";
-import type { McpHTTPServerConfig } from "../../../services/mcp/types.js";
+import type { McpHTTPServerConfig } from "../../../services/mcp/index.js";
 
 // getServerKey/hashMcpConfig 的真实参数类型 (此前测试用 as any 绕过)
 type HttpServerConfig = McpHTTPServerConfig;

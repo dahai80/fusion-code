@@ -5,7 +5,7 @@ import { logForDebugging } from "../../utils/debug.js";
 import { loadInstalledPluginsV2 } from "../../utils/plugins/installedPluginsManager.js";
 import { discoverPlugins, parseDiscoverArgs } from "./discover.js";
 
-const call: LocalCommandCall = async (args, context) => {
+const call: LocalCommandCall = async (args, _context) => {
 	try {
 		const trimmed = args.trim();
 		if (trimmed === "list" || trimmed === "") {
@@ -143,7 +143,7 @@ function previewPlugin(name: string): { type: "text"; value: string } {
 
 	const pluginsFile = loadInstalledPluginsV2();
 	for (const [pluginId, installations] of Object.entries(pluginsFile.plugins)) {
-		if (pluginId === name || pluginId.startsWith(name + "@")) {
+		if (pluginId === name || pluginId.startsWith(`${name}@`)) {
 			const inst = installations[0];
 			if (!inst) continue;
 			const lines: string[] = [];
