@@ -20,7 +20,7 @@ import {
   type ClaudeCodeHint,
   hasShownHintThisSession,
   setPendingHint,
-} from '../claudeCodeHints.js'
+} from '../fusionCodeHints.js'
 import { getGlobalConfig, saveGlobalConfig } from '../config.js'
 import { logForDebugging } from '../debug.js'
 import { isPluginInstalled } from './installedPluginsManager.js'

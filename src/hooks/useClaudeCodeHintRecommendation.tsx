@@ -21,7 +21,7 @@ import {
 	getPendingHintSnapshot,
 	markShownThisSession,
 	subscribeToPendingHint,
-} from "../utils/claudeCodeHints.js";
+} from "../utils/fusionCodeHints.js";
 import { logForDebugging } from "../utils/debug.js";
 import {
 	disableHintRecommendations,
