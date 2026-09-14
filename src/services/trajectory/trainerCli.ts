@@ -1,6 +1,7 @@
 // D1 轨迹飞轮 — fusion-trainer 子进程封装 (issue #61)
 //
-// 把 export 产出的 SFT/DPO/GRPO .jsonl 喂给同仓 .venv 的 fusion-trainer CLI。
+// 把 export 产出的 SFT/DPO/GRPO .jsonl 喂给 fusion-trainer CLI。
+// 二进制位置: opts.venvBin > FUSION_TRAINER_BIN > PATH 查找。
 // format → method 映射:
 //   sft  → fusion-trainer sft  --dataset <file>
 //   dpo  → fusion-trainer rlsl --method dpo  --dataset <file>
@@ -25,7 +26,11 @@ export interface TrainerCliResult {
 	args: string[];
 }
 
-const DEFAULT_VENV_BIN = "/Users/dahai/fusion/.venv/bin/fusion-trainer";
+// 二进制解析优先级 (v4 审计 P1: 不再把个人机器的绝对路径写进默认值):
+// 1. opts.venvBin 显式参数
+// 2. FUSION_TRAINER_BIN env
+// 3. PATH 查找 "fusion-trainer"
+const DEFAULT_VENV_BIN = process.env.FUSION_TRAINER_BIN ?? "fusion-trainer";
 
 function log(msg: string): void {
 	console.error("[trajectory:train] " + msg);
