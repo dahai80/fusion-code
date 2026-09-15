@@ -3,15 +3,15 @@
  */
 
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
-import { mkdir, rm, writeFile } from "fs/promises";
-import { join } from "path";
+import { mkdir, rm, writeFile } from "node:fs/promises";
+import { join } from "node:path";
 import { startProjectApiServer } from "../../src/server/projectApiServer.js";
 
 const TEST_PORT = 11442;
-const TEST_CWD = "/tmp/fusion-api-test-" + Date.now();
+const TEST_CWD = `/tmp/fusion-api-test-${Date.now()}`;
 // P1-15 后 authToken:"" 为 fail-closed (生成随机 token) — 测试显式传 token,
 // 请求统一带 Authorization 头; WS 浏览器端无法设头, 走 ?token= query 回退
-const TEST_TOKEN = "test-token-" + Date.now();
+const TEST_TOKEN = `test-token-${Date.now()}`;
 
 let baseUrl: string;
 let stop: () => void;

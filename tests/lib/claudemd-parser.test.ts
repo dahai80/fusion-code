@@ -3,8 +3,8 @@
  */
 
 import { describe, expect, it } from "bun:test";
-import { mkdir, rm, writeFile } from "fs/promises";
-import { join } from "path";
+import { mkdir, rm, writeFile } from "node:fs/promises";
+import { join } from "node:path";
 import {
 	formatMemoryManifest,
 	getMemoryFilesPortable,
@@ -15,7 +15,7 @@ import {
 	parseMemoryType,
 } from "../../src/lib/claudemd-parser/index.js";
 
-const TEST_DIR = "/tmp/claudemd-parser-test-" + Date.now();
+const TEST_DIR = `/tmp/claudemd-parser-test-${Date.now()}`;
 
 describe("claudemd-parser module", () => {
 	it("parseFrontmatter extracts frontmatter and content", () => {

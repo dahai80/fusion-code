@@ -207,8 +207,7 @@ function validateLegacy(r: Record<string, unknown>): {
 		}
 		defects.push({
 			type: s.kind as VisualFeedbackDefectV11["type"],
-			description:
-				s.step + " | expected: " + s.expected + " | actual: " + s.actual,
+			description: `${s.step} | expected: ${s.expected} | actual: ${s.actual}`,
 			selector: typeof s.selector === "string" ? s.selector : undefined,
 			screenshot_b64:
 				typeof s.screenshot_b64 === "string" ? s.screenshot_b64 : undefined,
@@ -384,9 +383,9 @@ export async function ingestVisualFeedback(opts: {
 			}
 		} catch (err) {
 			logError(
-				new Error(
-					"visual-feedback auto-fix save failed: " + (err as Error).message,
-				),
+			 new Error(
+			  `visual-feedback auto-fix save failed: ${(err as Error).message}`,
+			 ),
 			);
 		}
 	} else if (autoFixLoop) {

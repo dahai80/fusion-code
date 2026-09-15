@@ -10,8 +10,8 @@
  * 6. REPL 挂载条件
  */
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
-import { homedir } from "os";
-import { join } from "path";
+import { homedir } from "node:os";
+import { join } from "node:path";
 
 // 清理继承自 shell 的 NO_COLOR，避免测试设置 FORCE_COLOR=1 时触发 Bun 颜色冲突警告
 delete process.env.NO_COLOR;
