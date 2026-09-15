@@ -72,7 +72,8 @@ export function startCapturingEarlyInput(): void {
 function processChunk(str: string): void {
 	let i = 0;
 	while (i < str.length) {
-		const char = str[i]!;
+		const char = str[i];
+		if (char === undefined) break;
 		const code = char.charCodeAt(0);
 
 		// Ctrl+C (code 3) - stop capturing and exit immediately.

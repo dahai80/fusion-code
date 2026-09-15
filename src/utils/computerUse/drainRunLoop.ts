@@ -18,7 +18,8 @@ let pump: ReturnType<typeof setInterval> | undefined;
 let pending = 0;
 
 function drainTick(cu: ReturnType<typeof requireComputerUseSwift>): void {
-	(cu as any)._drainMainRunLoop(); // log: cast native module
+	// biome-ignore lint/suspicious/noExplicitAny: 原生模块运行时注入的私有方法, 类型不可表达
+	(cu as any)._drainMainRunLoop();
 }
 
 function retain(): void {

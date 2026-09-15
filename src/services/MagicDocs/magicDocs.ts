@@ -60,7 +60,7 @@ export function detectMagicDocHeader(
 	const title = match[1].trim();
 
 	// Look for italics on the next line after the header (allow one optional blank line)
-	const headerEndIndex = match.index! + match[0].length;
+	const headerEndIndex = (match.index ?? 0) + match[0].length;
 	const afterHeader = content.slice(headerEndIndex);
 	// Match: newline, optional blank line, then content line
 	const nextLineMatch = afterHeader.match(/^\s*\n(?:\s*\n)?(.+?)(?:\n|$)/);
@@ -134,7 +134,8 @@ async function updateMagicDoc(
 		const result = (await FileReadTool.call(
 			{ file_path: docInfo.path },
 			clonedToolUseContext,
-		)) as any; // log: cast never type from overloaded call signature
+			// biome-ignore lint/suspicious/noExplicitAny: overload 调用签名推断出 never, 用 any 承接后按 FileReadToolOutput 定向
+		)) as any;
 		const output = result.data as FileReadToolOutput;
 		if (output.type === "text") {
 			currentDoc = output.file.content;

@@ -84,7 +84,12 @@ export function getRainbowColor(
 	shimmer: boolean = false,
 ): keyof Theme {
 	const colors = shimmer ? RAINBOW_SHIMMER_COLORS : RAINBOW_COLORS;
-	return colors[charIndex % colors.length]!;
+	// colors 为非空静态常量; 兜底链保证 keyof Theme 返回
+	const fallback = colors[0] ?? RAINBOW_COLORS[0];
+	if (fallback === undefined) {
+		throw new Error("RAINBOW_COLORS must not be empty");
+	}
+	return colors[charIndex % colors.length] ?? fallback;
 }
 
 // TODO(inigo): add support for probing unknown models via API error detection

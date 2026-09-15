@@ -306,7 +306,8 @@ export function finalizeAgentTool(
 	);
 	if (content.length === 0) {
 		for (let i = agentMessages.length - 1; i >= 0; i--) {
-			const m = agentMessages[i]!;
+			const m = agentMessages[i];
+			if (m === undefined) continue;
 			if (m.type !== "assistant") continue;
 			const textBlocks = m.message.content.filter((_) => _.type === "text");
 			if (textBlocks.length > 0) {
@@ -494,7 +495,8 @@ export function extractPartialResult(
 	messages: MessageType[],
 ): string | undefined {
 	for (let i = messages.length - 1; i >= 0; i--) {
-		const m = messages[i]!;
+		const m = messages[i];
+		if (m === undefined) continue;
 		if (m.type !== "assistant") continue;
 		const text = extractTextContent(m.message.content, "\n");
 		if (text) {

@@ -633,9 +633,9 @@ const chalkForChart =
 export function themeColorToAnsi(themeColor: string): string {
 	const rgbMatch = themeColor.match(/rgb\(\s?(\d+),\s?(\d+),\s?(\d+)\s?\)/);
 	if (rgbMatch) {
-		const r = parseInt(rgbMatch[1]!, 10);
-		const g = parseInt(rgbMatch[2]!, 10);
-		const b = parseInt(rgbMatch[3]!, 10);
+		const r = parseInt(rgbMatch[1] ?? "0", 10);
+		const g = parseInt(rgbMatch[2] ?? "0", 10);
+		const b = parseInt(rgbMatch[3] ?? "0", 10);
 		// Use chalk.rgb which auto-converts to 256 colors when level is 2
 		// Extract just the opening escape sequence by using a marker
 		const colored = chalkForChart.rgb(r, g, b)("X");

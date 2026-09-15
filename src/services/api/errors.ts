@@ -94,8 +94,8 @@ export function parsePromptTooLongTokenCounts(rawMessage: string): {
 		/prompt is too long[^0-9]*(\d+)\s*tokens?\s*>\s*(\d+)/i,
 	);
 	return {
-		actualTokens: match ? parseInt(match[1]!, 10) : undefined,
-		limitTokens: match ? parseInt(match[2]!, 10) : undefined,
+		actualTokens: match ? parseInt(match[1] ?? "0", 10) : undefined,
+		limitTokens: match ? parseInt(match[2] ?? "0", 10) : undefined,
 	};
 }
 

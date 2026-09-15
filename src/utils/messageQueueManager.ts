@@ -175,7 +175,8 @@ export function dequeue(
 	let bestIdx = -1;
 	let bestPriority = Infinity;
 	for (let i = 0; i < commandQueue.length; i++) {
-		const cmd = commandQueue[i]!;
+		const cmd = commandQueue[i];
+		if (cmd === undefined) continue;
 		if (filter && !filter(cmd)) continue;
 		const priority = PRIORITY_ORDER[cmd.priority ?? "next"];
 		if (priority < bestPriority) {
@@ -225,7 +226,8 @@ export function peek(
 	let bestIdx = -1;
 	let bestPriority = Infinity;
 	for (let i = 0; i < commandQueue.length; i++) {
-		const cmd = commandQueue[i]!;
+		const cmd = commandQueue[i];
+		if (cmd === undefined) continue;
 		if (filter && !filter(cmd)) continue;
 		const priority = PRIORITY_ORDER[cmd.priority ?? "next"];
 		if (priority < bestPriority) {
@@ -277,11 +279,11 @@ export function remove(commandsToRemove: QueuedCommand[]): void {
 
 	const before = commandQueue.length;
 	for (let i = commandQueue.length - 1; i >= 0; i--) {
-		if (commandsToRemove.includes(commandQueue[i]!)) {
+		const cmd = commandQueue[i];
+		if (cmd !== undefined && commandsToRemove.includes(cmd)) {
 			commandQueue.splice(i, 1);
 		}
 	}
-
 	if (commandQueue.length !== before) {
 		notifySubscribers();
 	}
@@ -300,8 +302,11 @@ export function removeByFilter(
 ): QueuedCommand[] {
 	const removed: QueuedCommand[] = [];
 	for (let i = commandQueue.length - 1; i >= 0; i--) {
-		if (predicate(commandQueue[i]!)) {
-			removed.unshift(commandQueue.splice(i, 1)[0]!);
+		const cmd = commandQueue[i];
+		if (cmd === undefined) continue;
+		if (predicate(cmd)) {
+			const spliced = commandQueue.splice(i, 1)[0];
+			if (spliced !== undefined) removed.unshift(spliced);
 		}
 	}
 

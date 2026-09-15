@@ -388,8 +388,8 @@ class ShellCommandImpl implements ShellCommand {
 		// #abortSignal, then #handleExit runs #cleanupListeners() on the null ref.
 		this.#cleanupListeners();
 		// Release references to allow GC of ChildProcess internals and AbortController chain
-		this.#childProcess = null!;
-		this.#abortSignal = null!;
+		this.#childProcess = undefined as unknown as ChildProcess;
+		this.#abortSignal = undefined as unknown as AbortSignal;
 		this.#onTimeoutCallback = undefined;
 	}
 }

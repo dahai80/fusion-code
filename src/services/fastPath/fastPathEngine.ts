@@ -127,8 +127,8 @@ const BUILT_IN_RULES: FastPathRule[] = [
 			try {
 				const parsed = JSON.parse(jsonMatch[1]);
 				return JSON.stringify(parsed, null, 4);
-			} catch (e: any) {
-				return `Invalid JSON: ${e.message}`;
+			} catch (e: unknown) {
+				return `Invalid JSON: ${e instanceof Error ? e.message : String(e)}`;
 			}
 		},
 	},

@@ -6,7 +6,6 @@ import {
 	fsyncSync,
 	openSync,
 } from "node:fs";
-// biome-ignore lint: This file IS the cloneDeep wrapper - it must import the original
 import lodashCloneDeep from "lodash-es/cloneDeep.js";
 import { addSlowOperation } from "../bootstrap/state.js";
 import { logForDebugging } from "./debug.js";
@@ -131,7 +130,7 @@ function slowLoggingAnt(
 	_strings: TemplateStringsArray,
 	..._values: unknown[]
 ): AntSlowLogger {
-	// eslint-disable-next-line prefer-rest-params
+	// biome-ignore lint/complexity/noArguments: 必须转发完整实参 (含 tag 之后的任意参数) 给 AntSlowLogger, 箭头函数拿不到 arguments
 	return new AntSlowLogger(arguments);
 }
 

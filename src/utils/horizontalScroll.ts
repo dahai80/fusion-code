@@ -53,12 +53,12 @@ export function calculateHorizontalScrollWindow(
 	// Calculate cumulative widths for efficient range calculations
 	const cumulativeWidths: number[] = [0];
 	for (let i = 0; i < totalItems; i++) {
-		cumulativeWidths.push(cumulativeWidths[i]! + itemWidths[i]!);
+		cumulativeWidths.push((cumulativeWidths[i] ?? 0) + (itemWidths[i] ?? 0));
 	}
 
 	// Helper to get width of range [start, end)
 	function rangeWidth(start: number, end: number): number {
-		const baseWidth = cumulativeWidths[end]! - cumulativeWidths[start]!;
+		const baseWidth = (cumulativeWidths[end] ?? 0) - (cumulativeWidths[start] ?? 0);
 		// When starting after index 0 and first item has separator baked in,
 		// subtract 1 because we don't render leading separator on first visible item
 		if (firstItemHasSeparator && start > 0) {

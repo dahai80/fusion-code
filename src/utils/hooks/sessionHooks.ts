@@ -187,12 +187,14 @@ function addHookToSession(
 		if (existingMatcherIndex >= 0) {
 			// Add to existing matcher
 			updatedMatchers = [...eventMatchers];
-			const existingMatcher = updatedMatchers[existingMatcherIndex]!;
-			updatedMatchers[existingMatcherIndex] = {
-				matcher: existingMatcher.matcher,
-				skillRoot: existingMatcher.skillRoot,
-				hooks: [...existingMatcher.hooks, { hook, onHookSuccess }],
-			};
+			const existingMatcher = updatedMatchers[existingMatcherIndex];
+			if (existingMatcher !== undefined) {
+				updatedMatchers[existingMatcherIndex] = {
+					matcher: existingMatcher.matcher,
+					skillRoot: existingMatcher.skillRoot,
+					hooks: [...existingMatcher.hooks, { hook, onHookSuccess }],
+				};
+			}
 		} else {
 			// Create new matcher
 			updatedMatchers = [

@@ -24,10 +24,10 @@ import type { ImageDimensions } from "../utils/imageResizer.js";
 import { isModifierPressed, prewarmModifiers } from "../utils/modifiers.js";
 import { useDoublePress } from "./useDoublePress.js";
 
-type MaybeCursor = void | Cursor;
+type MaybeCursor = undefined | Cursor;
 type InputHandler = (input: string) => MaybeCursor;
 type InputMapper = (input: string) => MaybeCursor;
-const NOOP_HANDLER: InputHandler = () => {};
+const NOOP_HANDLER: InputHandler = () => undefined;
 function mapInput(input_map: Array<[string, InputHandler]>): InputMapper {
 	const map = new Map(input_map);
 	return (input: string): MaybeCursor =>
@@ -223,7 +223,10 @@ export function useTextInput({
 	const handleCtrl = mapInput([
 		["a", () => cursor.startOfLine()],
 		["b", () => cursor.left()],
-		["c", handleCtrlC],
+		["c", () => {
+			handleCtrlC();
+			return undefined;
+		}],
 		["d", handleCtrlD],
 		["e", () => cursor.endOfLine()],
 		["f", () => cursor.right()],

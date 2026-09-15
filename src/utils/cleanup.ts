@@ -498,7 +498,8 @@ export async function cleanupNpmCacheForAnthropicPackages(): Promise<void> {
 		for (const [, entries] of byPackage) {
 			entries.sort((a, b) => b.time - a.time); // newest first
 			for (let i = 0; i < entries.length; i++) {
-				const entry = entries[i]!;
+				const entry = entries[i];
+				if (entry === undefined) continue;
 				if (entry.time < cutoff || i >= NPM_CACHE_RETENTION_COUNT) {
 					keysToRemove.push(entry.key);
 				}

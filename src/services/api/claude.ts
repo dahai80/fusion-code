@@ -566,7 +566,6 @@ export async function verifyApiKey(
 					}),
 				async (anthropic) => {
 					const messages: MessageParam[] = [{ role: "user", content: "test" }];
-					// biome-ignore lint/plugin: API key verification is intentionally a minimal direct call
 					await anthropic.createMessage(
 						{
 							model,
@@ -881,7 +880,6 @@ export async function* executeNonStreamingRequest(
 			);
 
 			try {
-				// biome-ignore lint/plugin: non-streaming API call
 				return (await anthropic.createMessage(
 					{
 						...adjustedParams,
@@ -950,7 +948,8 @@ function getPreviousRequestIdFromMessages(
 	messages: Message[],
 ): string | undefined {
 	for (let i = messages.length - 1; i >= 0; i--) {
-		const msg = messages[i]!;
+		const msg = messages[i];
+		if (msg === undefined) continue;
 		if (msg.type === "assistant" && msg.requestId) {
 			return msg.requestId;
 		}
@@ -1833,7 +1832,6 @@ async function* queryModel(
 				// Use raw stream instead of BetaMessageStream to avoid O(n²) partial JSON parsing
 				// BetaMessageStream calls partialParse() on every input_json_delta, which we don't need
 				// since we handle tool input accumulation ourselves
-				// biome-ignore lint/plugin: main conversation loop handles attribution separately
 				//
 				// LLM 接缝 (div-anthropic): SDK 已移除, 主流式统一走 streamViaSeam
 				// (直接 HTTP+SSE -> StreamChunk -> SDK part, 结构兼容 BetaRawMessageStreamEvent)。
@@ -3376,7 +3374,8 @@ export function addCacheBreakpoints(
 		// Find the last message containing a cache_control marker
 		let lastCCMsg = -1;
 		for (let i = 0; i < result.length; i++) {
-			const msg = result[i]!;
+			const msg = result[i];
+			if (msg === undefined) continue;
 			if (Array.isArray(msg.content)) {
 				for (const block of msg.content) {
 					if (block && typeof block === "object" && "cache_control" in block) {
@@ -3395,7 +3394,8 @@ export function addCacheBreakpoints(
 		// blocks reused by secondary queries that use models without cache_editing support.
 		if (lastCCMsg >= 0) {
 			for (let i = 0; i < lastCCMsg; i++) {
-				const msg = result[i]!;
+				const msg = result[i];
+				if (msg === undefined) continue;
 				if (msg.role !== "user" || !Array.isArray(msg.content)) {
 					continue;
 				}
@@ -3496,7 +3496,11 @@ export async function queryHaiku({
 		},
 	);
 	// We don't use streaming for Haiku so this is safe
-	return result[0]! as AssistantMessage;
+	const first = result[0];
+	if (first === undefined) {
+		throw new Error("Expected at least one response message");
+	}
+	return first as AssistantMessage;
 }
 
 type QueryWithModelOptions = Omit<Options, "getToolPermissionContext">;
@@ -3553,7 +3557,11 @@ export async function queryWithModel({
 			return [result];
 		},
 	);
-	return result[0]! as AssistantMessage;
+	const first = result[0];
+	if (first === undefined) {
+		throw new Error("Expected at least one response message");
+	}
+	return first as AssistantMessage;
 }
 
 // Non-streaming requests have a 10min max per the docs:

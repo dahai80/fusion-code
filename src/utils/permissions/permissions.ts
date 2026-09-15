@@ -120,7 +120,10 @@ const PERMISSION_RULE_SOURCES = [
 export function permissionRuleSourceDisplayString(
 	source: PermissionRuleSource,
 ): string {
-	return getSettingSourceDisplayNameLowercase(source as any); // log: cast for extended PermissionRuleSource
+	return getSettingSourceDisplayNameLowercase(
+		// biome-ignore lint/suspicious/noExplicitAny: PermissionRuleSource 是 SettingSource 的扩展 (含 cliArg/command/session), 运行时合法
+		source as any,
+	);
 }
 
 export function getAllowRules(
@@ -434,10 +437,12 @@ async function runPermissionRequestHooksForHeadlessAgent(
 					persistPermissionUpdates(decision.updatedPermissions);
 					context.setAppState((prev) => ({
 						...prev,
-						toolPermissionContext: applyPermissionUpdates(
-							prev.toolPermissionContext,
-							decision.updatedPermissions!,
-						),
+						toolPermissionContext: decision.updatedPermissions
+						 ? applyPermissionUpdates(
+						   prev.toolPermissionContext,
+						   decision.updatedPermissions,
+						  )
+						 : prev.toolPermissionContext,
 					}));
 				}
 				return {

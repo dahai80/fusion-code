@@ -79,7 +79,7 @@ export async function processBashCommand(
 				jsx: (
 					<>
 						<BashModeProgress
-							input={inputString!}
+							input={inputString ?? ""}
 							progress={progress.data}
 							verbose={context.options.verbose}
 						/>
@@ -128,7 +128,8 @@ export async function processBashCommand(
 					undefined,
 					onProgress,
 				);
-		const data = (response as any).data; // log: cast to any to resolve never inference
+		// biome-ignore lint/suspicious/noExplicitAny: overload 调用签名推断出 never, 用 any 承接后读取 data
+		const data = (response as any).data;
 		if (!data) {
 			throw new Error("No result received from shell command");
 		}

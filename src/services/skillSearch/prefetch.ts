@@ -23,9 +23,8 @@ export function startSkillDiscoveryPrefetch(
 	return Promise.resolve(null);
 }
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export async function collectSkillDiscoveryPrefetch(
 	_pending: unknown,
-): Promise<any[]> {
+): Promise<unknown[]> {
 	return [];
 }

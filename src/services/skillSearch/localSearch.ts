@@ -121,7 +121,7 @@ function extractFrontMatterField(
 	const match = content.match(/^---\n([\s\S]*?)\n---/);
 	if (!match) return null;
 
-	const frontmatter = match[1]!;
+	const frontmatter = match[1] ?? "";
 	const lineRegex = new RegExp(`^${field}:(.+)$`, "m");
 	const fieldMatch = frontmatter.match(lineRegex);
 	return fieldMatch ? fieldMatch[1]?.trim() : null;

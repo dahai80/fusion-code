@@ -758,7 +758,7 @@ export async function* readLinesReverse(
 			const lines = combined.toString("utf8", firstNewline + 1).split("\n");
 
 			for (let i = lines.length - 1; i >= 0; i--) {
-				const line = lines[i]!;
+				const line = lines[i];
 				if (line) {
 					yield line;
 				}

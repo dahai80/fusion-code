@@ -381,7 +381,7 @@ export function extractCompletionToken(
 		const atIdx = textBeforeCursor.lastIndexOf("@");
 		if (
 			atIdx >= 0 &&
-			(atIdx === 0 || /\s/.test(textBeforeCursor[atIdx - 1]!))
+			(atIdx === 0 || /\s/.test(textBeforeCursor[atIdx - 1] ?? ""))
 		) {
 			const fromAt = textBeforeCursor.substring(atIdx);
 			const atHeadMatch = fromAt.match(AT_TOKEN_HEAD_RE);
@@ -790,7 +790,8 @@ export function useTypeahead({
 					.substring(0, effectiveCursorOffset)
 					.match(HASH_CHANNEL_RE);
 				if (hashMatch && hasSlackMcpServer(store.getState().mcp.clients)) {
-					debouncedFetchSlackChannels(hashMatch[2]!);
+					const channel = hashMatch[2] ?? "";
+					debouncedFetchSlackChannels(channel);
 					return;
 				} else if (suggestionType === "slack-channel") {
 					debouncedFetchSlackChannels.cancel();
@@ -871,9 +872,9 @@ export function useTypeahead({
 					const suggestions = matches.map((log) => {
 						const sessionId = getSessionIdFromLog(log);
 						return {
-							id: `resume-title-${sessionId}`,
-							displayText: log.customTitle!,
-							description: formatLogMetadata(log),
+						 id: `resume-title-${sessionId}`,
+						 displayText: log.customTitle ?? "",
+						 description: formatLogMetadata(log),
 							metadata: {
 								sessionId,
 							},

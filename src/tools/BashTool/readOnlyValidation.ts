@@ -769,7 +769,8 @@ const COMMAND_ALLOWLIST: Record<string, CommandConfig> = {
 			]);
 			let i = 0;
 			while (i < args.length) {
-				const token = args[i]!;
+				const token = args[i];
+				if (token === undefined) break;
 				// Skip flags and their arguments
 				if (token.startsWith("--") && token.includes("=")) {
 					// Long flag with =value, already consumed
@@ -1017,7 +1018,8 @@ const COMMAND_ALLOWLIST: Record<string, CommandConfig> = {
 			let i = 0;
 			let afterDoubleDash = false;
 			while (i < args.length) {
-				const token = args[i]!;
+				const token = args[i];
+				if (token === undefined) break;
 				if (token === "--") {
 					afterDoubleDash = true;
 					i++;

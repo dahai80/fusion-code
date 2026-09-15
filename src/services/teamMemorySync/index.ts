@@ -413,8 +413,10 @@ async function fetchTeamMemory(
 		});
 		await sleep(delayMs);
 	}
-
-	return lastResult!;
+	if (lastResult === undefined) {
+		throw new Error("team-memory-sync: poller ended without a result");
+	}
+	return lastResult;
 }
 
 // ─── Upload (push) ───────────────────────────────────────────
@@ -451,7 +453,9 @@ export function batchDeltaByBytes(
 	let currentBytes = EMPTY_BODY_BYTES;
 
 	for (const key of keys) {
-		const added = entryBytes(key, delta[key]!);
+		const value = delta[key];
+		if (value === undefined) continue;
+		const added = entryBytes(key, value);
 		if (
 			currentBytes + added > MAX_PUT_BODY_BYTES &&
 			Object.keys(current).length > 0
@@ -460,7 +464,7 @@ export function batchDeltaByBytes(
 			current = {};
 			currentBytes = EMPTY_BODY_BYTES;
 		}
-		current[key] = delta[key]!;
+		current[key] = value;
 		currentBytes += added;
 	}
 	batches.push(current);
@@ -609,12 +613,14 @@ async function readLocalTeamMemory(maxEntries: number | null): Promise<{
 								// Report only the first match per file — one secret is
 								// enough to skip the file and we don't want to log more
 								// than necessary about credential locations.
-								const firstMatch = secretMatches[0]!;
-								skippedSecrets.push({
-									path: relPath,
-									ruleId: firstMatch.ruleId,
-									label: firstMatch.label,
-								});
+								const firstMatch = secretMatches[0];
+								if (firstMatch !== undefined) {
+									skippedSecrets.push({
+										path: relPath,
+										ruleId: firstMatch.ruleId,
+										label: firstMatch.label,
+									});
+								}
 								logForDebugging(
 									`team-memory-sync: skipping "${relPath}" — detected ${firstMatch.label}`,
 									{ level: "warn" },
@@ -673,7 +679,8 @@ async function readLocalTeamMemory(maxEntries: number | null): Promise<{
 		});
 		const truncated: Record<string, string> = {};
 		for (const key of keys.slice(0, maxEntries)) {
-			truncated[key] = entries[key]!;
+			const value = entries[key];
+			if (value !== undefined) truncated[key] = value;
 		}
 		return { entries: truncated, skippedSecrets };
 	}
@@ -746,11 +753,13 @@ async function writeRemoteEntriesToLocal(
 			// 写远程内容 (绕过模型路径)。命中跳过+警告, 同 upload 路径 (L599) 语义。
 			const secretMatches = scanForSecrets(content);
 			if (secretMatches.length > 0) {
-				const firstMatch = secretMatches[0]!;
-				logForDebugging(
-					`team-memory-sync: skipping remote pull "${relPath}" — detected ${firstMatch.label} (secret in team memory)`,
-					{ level: "warn" },
-				);
+				const firstMatch = secretMatches[0];
+				if (firstMatch !== undefined) {
+					logForDebugging(
+						`team-memory-sync: skipping remote pull "${relPath}" — detected ${firstMatch.label} (secret in team memory)`,
+						{ level: "warn" },
+					);
+				}
 				return false;
 			}
 
@@ -1001,7 +1010,8 @@ export async function pushTeamMemory(
 		const delta: Record<string, string> = {};
 		for (const [key, localHash] of localHashes) {
 			if (state.serverChecksums.get(key) !== localHash) {
-				delta[key] = entries[key]!;
+				const value = entries[key];
+				if (value !== undefined) delta[key] = value;
 			}
 		}
 		const deltaCount = Object.keys(delta).length;
@@ -1045,13 +1055,18 @@ export async function pushTeamMemory(
 			if (!result.success) break;
 
 			for (const key of Object.keys(batch)) {
-				state.serverChecksums.set(key, localHashes.get(key)!);
+				const localHash = localHashes.get(key);
+				if (localHash !== undefined) {
+					state.serverChecksums.set(key, localHash);
+				}
 			}
 			filesUploaded += Object.keys(batch).length;
 		}
 		// batches is non-empty (deltaCount > 0 guaranteed by the check above),
 		// so the loop executed at least once.
-		result = result!;
+		if (result === undefined) {
+			throw new Error("team-memory-sync: upload loop ended without a result");
+		}
 
 		if (result.success) {
 			// Server-side delta propagation to disk (server-only new keys from a

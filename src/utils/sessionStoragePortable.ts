@@ -178,7 +178,7 @@ export function extractFirstPromptFromHead(head: string): string {
 				// Skip slash-command messages but remember first as fallback
 				const cmdMatch = COMMAND_NAME_RE.exec(result);
 				if (cmdMatch) {
-					if (!commandFallback) commandFallback = cmdMatch[1]!;
+					if (!commandFallback) commandFallback = cmdMatch[1] ?? "";
 					continue;
 				}
 
@@ -588,7 +588,8 @@ function processStraddle(
 	s.straddleSnapCarryLen = 0;
 	s.straddleSnapTailEnd = 0;
 	if (s.carryLen === 0) return 0;
-	const cb = s.carryBuf!;
+	const cb = s.carryBuf;
+	if (cb === undefined) return 0;
 	const firstNl = chunk.indexOf(LF);
 	if (firstNl === -1 || firstNl >= bytesRead) return 0;
 	const tailEnd = firstNl + 1;
@@ -709,8 +710,8 @@ function captureCarry(s: LoadState, buf: Buffer, trailStart: number): void {
 
 function finalizeOutput(s: LoadState): void {
 	if (s.carryLen > 0) {
-		const cb = s.carryBuf!;
-		if (hasPrefix(cb, ATTR_SNAP_PREFIX, 0, s.carryLen)) {
+		const cb = s.carryBuf;
+		if (cb !== undefined && hasPrefix(cb, ATTR_SNAP_PREFIX, 0, s.carryLen)) {
 			s.lastSnapSrc = cb;
 			s.lastSnapLen = s.carryLen;
 		} else {

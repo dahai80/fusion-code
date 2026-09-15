@@ -229,16 +229,18 @@ export async function resumeAgentBackground({
 
 	void runWithAgentContext(asyncAgentContext, () =>
 		wrapWithCwd(() =>
-			runAsyncAgentLifecycle({
-				taskId: agentBackgroundTask.agentId,
-				abortController: agentBackgroundTask.abortController!,
+		 runAsyncAgentLifecycle({
+		  taskId: agentBackgroundTask.agentId,
+		  abortController:
+		   agentBackgroundTask.abortController ?? new AbortController(),
 				makeStream: (onCacheSafeParams) =>
 					runAgent({
 						...runAgentParams,
 						override: {
 							...runAgentParams.override,
 							agentId: asAgentId(agentBackgroundTask.agentId),
-							abortController: agentBackgroundTask.abortController!,
+							abortController:
+								agentBackgroundTask.abortController ?? new AbortController(),
 						},
 						onCacheSafeParams,
 					}),

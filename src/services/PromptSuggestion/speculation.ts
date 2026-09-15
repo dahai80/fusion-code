@@ -240,10 +240,10 @@ export function prepareMessagesForInjection(messages: Message[]): Message[] {
 	}) =>
 		b.type !== "thinking" &&
 		b.type !== "redacted_thinking" &&
-		!(b.type === "tool_use" && !toolIdsWithSuccessfulResults.has(b.id!)) &&
+		!(b.type === "tool_use" && !toolIdsWithSuccessfulResults.has(b.id ?? "")) &&
 		!(
 			b.type === "tool_result" &&
-			!toolIdsWithSuccessfulResults.has(b.tool_use_id!)
+			!toolIdsWithSuccessfulResults.has(b.tool_use_id ?? "")
 		) &&
 		// Abort during speculation yields a standalone interrupt user message
 		// (query.ts createUserInterruptionMessage). Strip it so it isn't surfaced
@@ -389,9 +389,10 @@ async function generatePipelinedSuggestion(
 		logForDebugging(
 			`[Speculation] Pipelined suggestion: "${suggestion?.slice(0, 50)}..."`,
 		);
+		if (suggestion === undefined) return;
 		updateActiveSpeculationState(setAppState, () => ({
 			pipelinedSuggestion: {
-				text: suggestion!,
+				text: suggestion,
 				promptId,
 				generationRequestId,
 			},

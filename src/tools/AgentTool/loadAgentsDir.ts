@@ -282,12 +282,12 @@ async function initializeAgentMemorySnapshots(
 					await initializeFromSnapshot(
 						agent.agentType,
 						agent.memory,
-						result.snapshotTimestamp!,
+						result.snapshotTimestamp ?? "",
 					);
 					break;
 				case "prompt-update":
 					agent.pendingSnapshotUpdate = {
-						snapshotTimestamp: result.snapshotTimestamp!,
+						snapshotTimestamp: result.snapshotTimestamp ?? "",
 					};
 					logForDebugging(
 						`Newer snapshot available for ${agent.agentType} memory (snapshot: ${result.snapshotTimestamp})`,

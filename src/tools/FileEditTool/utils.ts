@@ -167,7 +167,8 @@ function applyCurlyDoubleQuotes(str: string): string {
 					: RIGHT_DOUBLE_CURLY_QUOTE,
 			);
 		} else {
-			result.push(chars[i]!);
+		 const ch = chars[i];
+		 if (ch !== undefined) result.push(ch);
 		}
 	}
 	return result.join("");
@@ -195,7 +196,8 @@ function applyCurlySingleQuotes(str: string): string {
 				);
 			}
 		} else {
-			result.push(chars[i]!);
+		 const ch = chars[i];
+		 if (ch !== undefined) result.push(ch);
 		}
 	}
 	return result.join("");

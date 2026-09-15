@@ -246,7 +246,10 @@ async function fetchWithRetry(
 	}
 
 	// Should never reach here, but TypeScript needs it
-	return lastResult!;
+	if (lastResult === undefined) {
+		throw new Error("remoteManagedSettings: poller loop ended without a result");
+	}
+	return lastResult;
 }
 
 /**

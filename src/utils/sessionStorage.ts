@@ -1357,9 +1357,11 @@ class Project {
 				// All other entry types have been handled above
 				const isAgentSidechain =
 					entry.isSidechain && entry.agentId !== undefined;
-				const targetFile = isAgentSidechain
-					? getAgentTranscriptPath(asAgentId(entry.agentId!))
-					: sessionFile;
+				const agentId = entry.agentId;
+				const targetFile =
+					isAgentSidechain && agentId !== undefined
+						? getAgentTranscriptPath(asAgentId(agentId))
+						: sessionFile;
 
 				// For message entries, check if UUID already exists in current session.
 				// Skip dedup for agent sidechain LOCAL writes — they go to a separate
@@ -2322,7 +2324,8 @@ function recoverOrphanedParallelToolResults(
 		orphanedSiblings.sort((a, b) => a.timestamp.localeCompare(b.timestamp));
 		orphanedTRs.sort((a, b) => a.timestamp.localeCompare(b.timestamp));
 
-		const anchor = anchorByMsgId.get(msgId)!;
+		const anchor = anchorByMsgId.get(msgId);
+		if (anchor === undefined) return;
 		const recovered = [...orphanedSiblings, ...orphanedTRs];
 		for (const r of recovered) seen.add(r.uuid);
 		recoveredCount += recovered.length;
@@ -2361,7 +2364,8 @@ function recoverOrphanedParallelToolResults(
  */
 export function checkResumeConsistency(chain: Message[]): void {
 	for (let i = chain.length - 1; i >= 0; i--) {
-		const m = chain[i]!;
+		const m = chain[i];
+		if (m === undefined) continue;
 		if (m.type !== "system" || m.subtype !== "turn_duration") continue;
 		const expected = m.messageCount;
 		if (expected === undefined) return;
@@ -2626,8 +2630,16 @@ function convertToLogOption(
 	agentSetting?: string,
 	contentReplacements?: ContentReplacementRecord[],
 ): LogOption {
-	const lastMessage = transcript.at(-1)!;
-	const firstMessage = transcript[0]!;
+	const lastMessage = transcript.at(-1);
+	const firstMessage = transcript[0];
+	if (lastMessage === undefined || firstMessage === undefined) {
+		return {
+			transcript,
+			firstPrompt: "",
+			prompt: "",
+			sessionId: "",
+		} as unknown as LogOption;
+	}
 
 	// Get the first user message for the prompt
 	const firstPrompt = extractFirstPrompt(transcript);
@@ -3483,10 +3495,14 @@ function pickDepthOneUuidCandidate(
 	let ci = 0;
 	for (let i = lineStart; ci < candidates.length; i++) {
 		if (i === candidates[ci]) {
-			if (depth === 1 && !inString) return candidates[ci]!;
+			if (depth === 1 && !inString) {
+				const cand = candidates[ci];
+				if (cand !== undefined) return cand;
+			}
 			ci++;
 		}
-		const b = buf[i]!;
+		const b = buf[i];
+		if (b === undefined) break;
 		if (escapeNext) {
 			escapeNext = false;
 		} else if (inString) {
@@ -3496,7 +3512,8 @@ function pickDepthOneUuidCandidate(
 		else if (b === OPEN_BRACE) depth++;
 		else if (b === CLOSE_BRACE) depth--;
 	}
-	return candidates.at(-1)!;
+	const lastCand = candidates.at(-1);
+	return lastCand === undefined ? lineStart : lastCand;
 }
 
 function walkChainBeforeParse(buf: Buffer): Buffer {
@@ -3602,8 +3619,11 @@ function walkChainBeforeParse(buf: Buffer): Buffer {
 	// into the next line, caught by the bounds check.
 	let leafSlot = -1;
 	for (let i = msgIdx.length - 3; i >= 0; i -= 3) {
-		const sc = buf.indexOf(SIDECHAIN_TRUE, msgIdx[i]!);
-		if (sc === -1 || sc >= msgIdx[i + 1]!) {
+		const mi = msgIdx[i];
+		if (mi === undefined) break;
+		const sc = buf.indexOf(SIDECHAIN_TRUE, mi);
+		const next = msgIdx[i + 1];
+		if (sc === -1 || next === undefined || sc >= next) {
 			leafSlot = i;
 			break;
 		}
@@ -3623,10 +3643,13 @@ function walkChainBeforeParse(buf: Buffer): Buffer {
 	while (slot !== undefined) {
 		if (seen.has(slot)) break;
 		seen.add(slot);
-		chain.add(msgIdx[slot]!);
-		chainBytes += msgIdx[slot + 1]! - msgIdx[slot]!;
-		const parentStart = msgIdx[slot + 2]!;
-		if (parentStart < 0) break;
+		const start = msgIdx[slot];
+		const end = msgIdx[slot + 1];
+		if (start === undefined || end === undefined) break;
+		chain.add(start);
+		chainBytes += end - start;
+		const parentStart = msgIdx[slot + 2];
+		if (parentStart === undefined || parentStart < 0) break;
 		const parent = buf.toString("latin1", parentStart, parentStart + UUID_LEN);
 		slot = uuidToSlot.get(parent);
 	}
@@ -3649,17 +3672,26 @@ function walkChainBeforeParse(buf: Buffer): Buffer {
 	const parts: Buffer[] = [];
 	let m = 0;
 	for (let i = 0; i < msgIdx.length; i += 3) {
-		const start = msgIdx[i]!;
-		while (m < metaRanges.length && metaRanges[m]! < start) {
-			parts.push(buf.subarray(metaRanges[m]!, metaRanges[m + 1]!));
+		const start = msgIdx[i];
+		if (start === undefined) continue;
+		while (m < metaRanges.length) {
+			const mr = metaRanges[m];
+			if (mr === undefined || mr >= start) break;
+			const mrEnd = metaRanges[m + 1];
+			if (mrEnd !== undefined) parts.push(buf.subarray(mr, mrEnd));
 			m += 2;
 		}
 		if (chain.has(start)) {
-			parts.push(buf.subarray(start, msgIdx[i + 1]!));
+			const end = msgIdx[i + 1];
+			if (end !== undefined) parts.push(buf.subarray(start, end));
 		}
 	}
 	while (m < metaRanges.length) {
-		parts.push(buf.subarray(metaRanges[m]!, metaRanges[m + 1]!));
+		const mr = metaRanges[m];
+		const mrEnd = metaRanges[m + 1];
+		if (mr !== undefined && mrEnd !== undefined) {
+			parts.push(buf.subarray(mr, mrEnd));
+		}
 		m += 2;
 	}
 	return Buffer.concat(parts);
@@ -4054,11 +4086,11 @@ const getSessionMessages = memoize(
 	async (sessionId: UUID): Promise<Set<UUID>> => {
 		// Prune memoize cache when it exceeds the max size
 		if (
-			getSessionMessages.cache &&
-			typeof (getSessionMessages.cache as { size?: number }).size ===
-				"number" &&
-			(getSessionMessages.cache as { size?: number }).size! >
-				SESSION_MESSAGES_CACHE_MAX
+		 getSessionMessages.cache &&
+		 typeof (getSessionMessages.cache as { size?: number }).size ===
+		  "number" &&
+		 ((getSessionMessages.cache as { size?: number }).size ?? 0) >
+		  SESSION_MESSAGES_CACHE_MAX
 		) {
 			getSessionMessages.cache.clear?.();
 		}
@@ -4906,7 +4938,8 @@ export async function loadAllLogsFromSessionFile(
 			chain.push(...trailingMessages);
 		}
 
-		const firstMessage = chain[0]!;
+		const firstMessage = chain[0];
+		if (firstMessage === undefined) continue;
 		const sessionId = leafMessage.sessionId as UUID;
 
 		logs.push({
@@ -5337,7 +5370,8 @@ export async function enrichLogs(
 	let i = startIndex;
 
 	while (i < allLogs.length && result.length < count) {
-		const log = allLogs[i]!;
+		const log = allLogs[i];
+		if (log === undefined) break;
 		i++;
 
 		const enriched = await enrichLog(log, readBuf);

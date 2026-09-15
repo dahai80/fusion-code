@@ -107,7 +107,8 @@ async function extractPrefixFromElement(
 	for (const word of prefix.split(" ").slice(1)) {
 		if (word.includes("\\")) return null;
 		while (argIdx < cmd.args.length) {
-			const a = cmd.args[argIdx]!;
+			const a = cmd.args[argIdx];
+			if (a === undefined) break;
 			if (a === word) break;
 			if (a.startsWith("-")) {
 				argIdx++;
@@ -254,7 +255,7 @@ export async function getCompoundCommandPrefixesStatic(
 	// is lowercased; the emitted prefix keeps the first-seen casing.
 	const groups = new Map<string, string[]>();
 	for (const prefix of prefixes) {
-		const root = prefix.split(" ")[0]!;
+		const root = prefix.split(" ")[0] ?? "";
 		const key = root.toLowerCase();
 		const group = groups.get(key);
 		if (group) {
@@ -293,7 +294,7 @@ export async function getCompoundCommandPrefixesStatic(
  */
 function wordAlignedLCP(strings: string[]): string {
 	if (strings.length === 0) return "";
-	if (strings.length === 1) return strings[0]!;
+	if (strings.length === 1) return strings[0] ?? "";
 
 	const firstWords = strings[0]?.split(" ");
 	let commonWordCount = firstWords.length;

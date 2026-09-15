@@ -217,7 +217,8 @@ async function setupSessionMemoryFile(
 	const result = (await FileReadTool.call(
 		{ file_path: memoryPath },
 		toolUseContext,
-	)) as any; // log: cast never type from overloaded call signature
+		// biome-ignore lint/suspicious/noExplicitAny: overload 调用签名推断出 never, 用 any 承接后按 FileReadToolOutput 定向
+	)) as any;
 	let currentMemory = "";
 
 	const output = result.data as FileReadToolOutput;

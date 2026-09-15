@@ -15,16 +15,16 @@ const MULTIPLIERS: Record<string, number> = {
 };
 
 function parseBudgetMatch(value: string, suffix: string): number {
-	return parseFloat(value) * MULTIPLIERS[suffix.toLowerCase()]!;
+	return parseFloat(value) * (MULTIPLIERS[suffix.toLowerCase()] ?? 0);
 }
 
 export function parseTokenBudget(text: string): number | null {
 	const startMatch = text.match(SHORTHAND_START_RE);
-	if (startMatch) return parseBudgetMatch(startMatch[1]!, startMatch[2]!);
+	if (startMatch) return parseBudgetMatch(startMatch[1] ?? "", startMatch[2] ?? "");
 	const endMatch = text.match(SHORTHAND_END_RE);
-	if (endMatch) return parseBudgetMatch(endMatch[1]!, endMatch[2]!);
+	if (endMatch) return parseBudgetMatch(endMatch[1] ?? "", endMatch[2] ?? "");
 	const verboseMatch = text.match(VERBOSE_RE);
-	if (verboseMatch) return parseBudgetMatch(verboseMatch[1]!, verboseMatch[2]!);
+	if (verboseMatch) return parseBudgetMatch(verboseMatch[1] ?? "", verboseMatch[2] ?? "");
 	return null;
 }
 
@@ -34,26 +34,26 @@ export function findTokenBudgetPositions(
 	const positions: Array<{ start: number; end: number }> = [];
 	const startMatch = text.match(SHORTHAND_START_RE);
 	if (startMatch) {
+		const index = startMatch.index ?? 0;
 		const offset =
-			startMatch.index! +
-			startMatch[0].length -
-			startMatch[0].trimStart().length;
+			index + startMatch[0].length - startMatch[0].trimStart().length;
 		positions.push({
 			start: offset,
-			end: startMatch.index! + startMatch[0].length,
+			end: index + startMatch[0].length,
 		});
 	}
 	const endMatch = text.match(SHORTHAND_END_RE);
 	if (endMatch) {
 		// Avoid double-counting when input is just "+500k"
-		const endStart = endMatch.index! + 1; // +1: regex includes leading \s
+		const index = endMatch.index ?? 0;
+		const endStart = index + 1; // +1: regex includes leading \s
 		const alreadyCovered = positions.some(
 			(p) => endStart >= p.start && endStart < p.end,
 		);
 		if (!alreadyCovered) {
 			positions.push({
 				start: endStart,
-				end: endMatch.index! + endMatch[0].length,
+				end: index + endMatch[0].length,
 			});
 		}
 	}

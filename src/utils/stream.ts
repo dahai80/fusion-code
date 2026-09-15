@@ -18,10 +18,8 @@ export class Stream<T> implements AsyncIterator<T> {
 
 	next(): Promise<IteratorResult<T, unknown>> {
 		if (this.queue.length > 0) {
-			return Promise.resolve({
-				done: false,
-				value: this.queue.shift()!,
-			});
+			const value = this.queue.shift() as T;
+			return Promise.resolve({ done: false, value });
 		}
 		if (this.isDone) {
 			return Promise.resolve({ done: true, value: undefined });

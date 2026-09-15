@@ -729,7 +729,7 @@ export function useInboxPoller({
 								parsed.backendType as PaneBackendType,
 							);
 							const success = await backend?.killPane(
-								parsed.paneId!,
+								parsed.paneId ?? "",
 								!insideTmux,
 							);
 							logForDebugging(

@@ -176,8 +176,9 @@ function getEnvOverrides(): Record<string, unknown> | null {
 			if (raw) {
 				try {
 					envOverrides = JSON.parse(raw) as Record<string, unknown>;
+					const overrideCount = Object.keys(envOverrides ?? {}).length;
 					logForDebugging(
-						`GrowthBook: Using env var overrides for ${Object.keys(envOverrides!).length} features: ${Object.keys(envOverrides!).join(", ")}`,
+						`GrowthBook: Using env var overrides for ${overrideCount} features: ${Object.keys(envOverrides ?? {}).join(", ")}`,
 					);
 				} catch {
 					logError(

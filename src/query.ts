@@ -930,7 +930,8 @@ async function* queryLoop(
 						if (message.type === "assistant") {
 							let clonedContent: typeof message.message.content | undefined;
 							for (let i = 0; i < message.message.content.length; i++) {
-								const block = message.message.content[i]!;
+								const block = message.message.content[i];
+								if (block === undefined) continue;
 								if (
 									block.type === "tool_use" &&
 									typeof block.input === "object" &&
@@ -1507,8 +1508,12 @@ async function* queryLoop(
 			}
 
 			if (feature("TOKEN_BUDGET")) {
+				// budgetTracker 缺省时跳过 token budget 检查, 直接放行
+				if (budgetTracker === undefined) {
+					return { reason: "completed" };
+				}
 				const decision = checkTokenBudget(
-					budgetTracker!,
+					budgetTracker,
 					toolUseContext.agentId,
 					getCurrentTurnTokenBudget(),
 					getTurnOutputTokens(),
@@ -1831,7 +1836,8 @@ async function* queryLoop(
 			const skillAttachments =
 				await skillPrefetch.collectSkillDiscoveryPrefetch(pendingSkillPrefetch);
 			for (const att of skillAttachments) {
-				const msg = createAttachmentMessage(att);
+				// biome-ignore lint/suspicious/noExplicitAny: collectSkillDiscoveryPrefetch 存根返回宽松集合, 运行时为 Attachment[]
+				const msg = createAttachmentMessage(att as any);
 				yield msg;
 				toolResults.push(msg);
 			}

@@ -1286,7 +1286,7 @@ async function execCommandHook(
 					stdout: finalStdout,
 					stderr,
 					output,
-					status: exitCode!,
+					status: exitCode ?? 0,
 					aborted: signal.aborted,
 				});
 			});
@@ -1506,7 +1506,7 @@ function getPluginHookCounts(
 		const isOfficial =
 			atIndex > 0 &&
 			ALLOWED_OFFICIAL_MARKETPLACE_NAMES.has(h.pluginId?.slice(atIndex + 1));
-		const key = isOfficial ? h.pluginId! : "third-party";
+		const key = isOfficial ? (h.pluginId ?? "unknown") : "third-party";
 		counts[key] = (counts[key] || 0) + 1;
 	}
 	return counts;
@@ -2245,7 +2245,7 @@ async function* executeHooks({
 			const jsonInputRes = getJsonInput() as {
 				ok: boolean;
 				value?: string;
-				error?: any;
+				error?: unknown;
 			};
 			if (!jsonInputRes.ok) {
 				yield {
@@ -2254,7 +2254,7 @@ async function* executeHooks({
 						hookName,
 						toolUseID,
 						hookEvent,
-						content: `Failed to prepare hook input: ${errorMessage(jsonInputRes.error as any)}`,
+						content: `Failed to prepare hook input: ${errorMessage(jsonInputRes.error)}`,
 						command: hookCommand,
 						durationMs: Date.now() - hookStartMs,
 					}),

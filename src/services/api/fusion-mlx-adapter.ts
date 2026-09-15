@@ -878,7 +878,8 @@ export async function getMlxModelCapabilities(
 	modelId: string,
 ): Promise<MlxModelCapabilities> {
 	if (cachedCapabilities.has(modelId)) {
-		return cachedCapabilities.get(modelId)!;
+		const cached = cachedCapabilities.get(modelId);
+		if (cached !== undefined) return cached;
 	}
 
 	const id = modelId.toLowerCase();

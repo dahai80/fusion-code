@@ -768,7 +768,8 @@ export function normalizeMessagesCore(
 			case "assistant": {
 				isNewChain = isNewChain || message.message.content.length > 1;
 				for (let index = 0; index < message.message.content.length; index++) {
-					const _ = message.message.content[index]!;
+					const contentBlock = message.message.content[index];
+					if (contentBlock === undefined) continue;
 					const uuid = isNewChain
 						? deriveUUID(message.uuid, index)
 						: message.uuid;
@@ -776,9 +777,9 @@ export function normalizeMessagesCore(
 						type: "assistant" as const,
 						timestamp: message.timestamp,
 						message: {
-							...message.message,
-							content: [_],
-							context_management: message.message.context_management ?? null,
+						 ...message.message,
+						 content: [contentBlock],
+						 context_management: message.message.context_management ?? null,
 						},
 						isMeta: message.isMeta,
 						isVirtual: message.isVirtual,
@@ -816,8 +817,9 @@ export function normalizeMessagesCore(
 				isNewChain = isNewChain || message.message.content.length > 1;
 				let imageIndex = 0;
 				for (let index = 0; index < message.message.content.length; index++) {
-					const _ = message.message.content[index]!;
-					const isImage = _.type === "image";
+					const block = message.message.content[index];
+					if (block === undefined) continue;
+					const isImage = block.type === "image";
 					// For image content blocks, extract just the ID for this image
 					const imageId =
 						isImage && message.imagePasteIds
@@ -826,7 +828,7 @@ export function normalizeMessagesCore(
 					if (isImage) imageIndex++;
 					normalized.push({
 						...createUserMessage({
-							content: [_],
+							content: [block],
 							toolUseResult: message.toolUseResult,
 							mcpMeta: message.mcpMeta,
 							isMeta: message.isMeta,
@@ -915,11 +917,11 @@ export function reorderMessagesInUI(
 						postHooks: [],
 					});
 				}
-				toolUseGroups.get(toolUseID)!.toolUse = message;
+				const toolUseGroup = toolUseGroups.get(toolUseID);
+				if (toolUseGroup) toolUseGroup.toolUse = message;
 			}
 			continue;
 		}
-
 		// Handle pre-tool-use hooks
 		if (
 			isHookAttachmentMessage(message) &&
@@ -952,7 +954,8 @@ export function reorderMessagesInUI(
 					postHooks: [],
 				});
 			}
-			toolUseGroups.get(toolUseID)!.toolResult = message;
+			const toolUseGroup2 = toolUseGroups.get(toolUseID);
+			if (toolUseGroup2) toolUseGroup2.toolResult = message;
 			continue;
 		}
 
@@ -1225,7 +1228,8 @@ export function buildMessageLookups(
 	// Build sibling lookup - each tool use ID maps to all sibling tool use IDs
 	const siblingToolUseIDs = new Map<string, Set<string>>();
 	for (const [toolUseID, messageID] of toolUseIDToMessageID) {
-		siblingToolUseIDs.set(toolUseID, toolUseIDsByMessageID.get(messageID)!);
+		const siblings = toolUseIDsByMessageID.get(messageID);
+		if (siblings !== undefined) siblingToolUseIDs.set(toolUseID, siblings);
 	}
 
 	// Single pass over normalizedMessages to build progress, hook, and tool result lookups
@@ -1520,7 +1524,8 @@ export function reorderAttachmentsForAPI(messages: Message[]): Message[] {
 
 	// Scan from the bottom up
 	for (let i = messages.length - 1; i >= 0; i--) {
-		const message = messages[i]!;
+		const message = messages[i];
+		if (message === undefined) continue;
 
 		if (message.type === "attachment") {
 			// Collect attachment to bubble up
@@ -1538,7 +1543,8 @@ export function reorderAttachmentsForAPI(messages: Message[]): Message[] {
 				// pendingAttachments is already reversed; after the final result.reverse()
 				// they will appear in original order right after `message`.
 				for (let j = 0; j < pendingAttachments.length; j++) {
-					result.push(pendingAttachments[j]!);
+					const att = pendingAttachments[j];
+					if (att !== undefined) result.push(att);
 				}
 				result.push(message);
 				pendingAttachments.length = 0;
@@ -1551,7 +1557,8 @@ export function reorderAttachmentsForAPI(messages: Message[]): Message[] {
 
 	// Any remaining attachments bubble all the way to the top.
 	for (let j = 0; j < pendingAttachments.length; j++) {
-		result.push(pendingAttachments[j]!);
+		const att = pendingAttachments[j];
+		if (att !== undefined) result.push(att);
 	}
 
 	result.reverse();
@@ -1970,7 +1977,8 @@ function relocateToolReferenceSiblings(
 	const result = [...messages];
 
 	for (let i = 0; i < result.length; i++) {
-		const msg = result[i]!;
+		const msg = result[i];
+		if (msg === undefined) continue;
 		if (msg.type !== "user") continue;
 		const content = msg.message.content;
 		if (!Array.isArray(content)) continue;
@@ -1984,7 +1992,8 @@ function relocateToolReferenceSiblings(
 		// recreate the problem one position later.
 		let targetIdx = -1;
 		for (let j = i + 1; j < result.length; j++) {
-			const cand = result[j]!;
+			const cand = result[j];
+			if (cand === undefined) continue;
 			if (cand.type !== "user") continue;
 			const cc = cand.message.content;
 			if (!Array.isArray(cc)) continue;
@@ -2047,7 +2056,8 @@ export function normalizeMessagesForAPI(
 	// userMessageUUID → set of block types to strip from that message.
 	const stripTargets = new Map<string, Set<string>>();
 	for (let i = 0; i < reorderedMessages.length; i++) {
-		const msg = reorderedMessages[i]!;
+		const msg = reorderedMessages[i];
+		if (msg === undefined) continue;
 		if (!isSyntheticApiErrorMessage(msg)) {
 			continue;
 		}
@@ -2066,7 +2076,8 @@ export function normalizeMessagesForAPI(
 		}
 		// Walk backward to find the nearest preceding isMeta user message
 		for (let j = i - 1; j >= 0; j--) {
-			const candidate = reorderedMessages[j]!;
+			const candidate = reorderedMessages[j];
+			if (candidate === undefined) continue;
 			if (candidate.type === "user" && candidate.isMeta) {
 				const existing = stripTargets.get(candidate.uuid);
 				if (existing) {
@@ -2285,9 +2296,10 @@ export function normalizeMessagesForAPI(
 					// since concurrent agents (teammates) can interleave streaming content
 					// blocks from multiple API responses with different message IDs.
 					for (let i = result.length - 1; i >= 0; i--) {
-						const msg = result[i]!;
+					 const msg = result[i];
+					 if (msg === undefined) break;
 
-						if (msg.type !== "assistant" && !isToolResultMessage(msg)) {
+					 if (msg.type !== "assistant" && !isToolResultMessage(msg)) {
 							break;
 						}
 
@@ -2659,7 +2671,11 @@ export function mergeUserContentBlocks(
 			b.every((x) => x.type === "text")
 		) {
 			const copy = a.slice();
-			copy[copy.length - 1] = smooshIntoToolResult(lastBlock, b)!;
+			const smooshed = smooshIntoToolResult(lastBlock, b);
+			const last = copy[copy.length - 1];
+			if (last !== undefined && smooshed !== undefined) {
+				copy[copy.length - 1] = smooshed;
+			}
 			return copy;
 		}
 		return [...a, ...b];
@@ -3558,7 +3574,6 @@ Read the team config to discover your teammates' names. Check the task list peri
 	}
 
 	// eslint-disable-next-line @typescript-eslint/switch-exhaustiveness-check -- teammate_mailbox/team_context/skill_discovery/bagel_console handled above
-	// biome-ignore lint/nursery/useExhaustiveSwitchCases: teammate_mailbox/team_context/max_turns_reached/skill_discovery/bagel_console handled above, can't add case for dead code elimination
 	switch (attachment.type) {
 		case "directory": {
 			return wrapMessagesInSystemReminder([
@@ -5193,7 +5208,8 @@ export function ensureToolResultPairing(
 	const allSeenToolUseIds = new Set<string>();
 
 	for (let i = 0; i < messages.length; i++) {
-		const msg = messages[i]!;
+		const msg = messages[i];
+		if (msg === undefined) continue;
 
 		if (msg.type !== "assistant") {
 			// A user message with tool_result blocks but NO preceding assistant
@@ -5417,7 +5433,7 @@ export function ensureToolResultPairing(
 				// (pairing runs after normalize). Re-smoosh just this one message.
 				result.push(
 					checkStatsigFeatureGate_CACHED_MAY_BE_STALE("tengu_chair_sermon")
-						? smooshSystemReminderSiblings([patchedNext])[0]!
+						? smooshSystemReminderSiblings([patchedNext])[0] ?? patchedNext
 						: patchedNext,
 				);
 			} else {

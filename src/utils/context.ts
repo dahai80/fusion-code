@@ -25,7 +25,8 @@ export async function getMlxContextWindowForModel(
 	modelId: string,
 ): Promise<number> {
 	if (mlxModelContextCache.has(modelId)) {
-		return mlxModelContextCache.get(modelId)!;
+		const cached = mlxModelContextCache.get(modelId);
+		if (cached !== undefined) return cached;
 	}
 	try {
 		const { getMlxModelCapabilities } = await import(

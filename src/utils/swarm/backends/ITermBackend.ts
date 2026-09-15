@@ -27,7 +27,12 @@ function acquirePaneCreationLock(): Promise<() => void> {
 	const previousLock = paneCreationLock;
 	paneCreationLock = newLock;
 
-	return previousLock.then(() => release!);
+	return previousLock.then(() => {
+		if (release === undefined) {
+			throw new Error("iTerm pane creation lock released without callback");
+		}
+		return release;
+	});
 }
 
 /**

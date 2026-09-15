@@ -519,7 +519,7 @@ function withTimeout<T>(
 	const timeoutPromise = new Promise<never>((_, reject) => {
 		timer = setTimeout((rej, msg) => rej(new Error(msg)), ms, reject, message);
 	});
-	return Promise.race([promise, timeoutPromise]).finally(() =>
-		clearTimeout(timer!),
-	);
+	return Promise.race([promise, timeoutPromise]).finally(() => {
+		if (timer !== undefined) clearTimeout(timer);
+	});
 }

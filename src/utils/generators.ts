@@ -22,8 +22,8 @@ export async function returnValue<A>(
 }
 
 type QueuedGenerator<A> = {
-	done: boolean | void;
-	value: A | void;
+	done: boolean | undefined;
+	value: A | undefined;
 	generator: AsyncGenerator<A, void>;
 	promise: Promise<QueuedGenerator<A>>;
 };
@@ -38,7 +38,7 @@ export async function* all<A>(
 			.next()
 			.then(({ done, value }) => ({
 				done,
-				value,
+				value: value as A | undefined,
 				generator,
 				promise,
 			}));
@@ -49,7 +49,8 @@ export async function* all<A>(
 
 	// Start initial batch up to concurrency cap
 	while (promises.size < concurrencyCap && waiting.length > 0) {
-		const gen = waiting.shift()!;
+		const gen = waiting.shift();
+		if (gen === undefined) break;
 		promises.add(next(gen));
 	}
 
@@ -65,8 +66,8 @@ export async function* all<A>(
 			}
 		} else if (waiting.length > 0) {
 			// Start a new generator when one finishes
-			const nextGen = waiting.shift()!;
-			promises.add(next(nextGen));
+			const nextGen = waiting.shift();
+			if (nextGen !== undefined) promises.add(next(nextGen));
 		}
 	}
 }

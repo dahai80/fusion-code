@@ -663,7 +663,11 @@ function createEmptyGroup(): GroupAccumulator {
 function createCollapsedGroup(
 	group: GroupAccumulator,
 ): CollapsedReadSearchGroup {
-	const firstMsg = group.messages[0]!;
+	const firstMsg = group.messages[0];
+	// 内部不变量: 累加器仅在收到消息时创建, group.messages 恒非空
+	if (firstMsg === undefined) {
+		throw new Error("createCollapsedGroup: empty group");
+	}
 	// When file-path-based reads exist, use unique file count (Set.size) only.
 	// Adding bash operation count on top would double-count — e.g. Read(README.md)
 	// followed by Bash(wc -l README.md) should still show as 1 file, not 2.
@@ -784,7 +788,8 @@ export function collapseReadSearchGroups(
 	for (const msg of messages) {
 		if (isCollapsibleToolUse(msg, tools)) {
 			// This is a collapsible tool use - type predicate narrows to CollapsibleMessage
-			const toolInfo = getCollapsibleToolInfo(msg, tools)!;
+			const toolInfo = getCollapsibleToolInfo(msg, tools);
+			if (!toolInfo) continue;
 
 			if (toolInfo.isMemoryWrite) {
 				// Memory file write/edit — check if it's team memory
@@ -1097,7 +1102,8 @@ export function summarizeRecentActivities(
 	let searchCount = 0;
 	let readCount = 0;
 	for (let i = activities.length - 1; i >= 0; i--) {
-		const activity = activities[i]!;
+		const activity = activities[i];
+		if (activity === undefined) continue;
 		if (activity.isSearch) {
 			searchCount++;
 		} else if (activity.isRead) {

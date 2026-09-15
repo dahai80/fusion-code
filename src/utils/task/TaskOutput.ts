@@ -242,7 +242,8 @@ export class TaskOutput {
 		this.#totalLines += lineCount;
 
 		for (let i = lines.length - 1; i >= 0; i--) {
-			this.#recentLines.add(lines[i]!);
+			const line = lines[i];
+			if (line !== undefined) this.#recentLines.add(line);
 		}
 
 		if (this.#onProgress && lines.length > 0) {

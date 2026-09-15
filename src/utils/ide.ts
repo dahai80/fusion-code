@@ -650,7 +650,8 @@ export async function findAvailableIDE(): Promise<DetectedIDEInfo | null> {
 		// use /ide to select an IDE. When running from a supported built-in terminal, detectIDEs()
 		// should return at most one IDE.
 		if (ides.length === 1) {
-			return ides[0]!;
+			const only = ides[0];
+			if (only !== undefined) return only;
 		}
 		await sleep(1000, signal);
 	}
@@ -1377,7 +1378,7 @@ const detectHostIP = memoize(
 					/default via (\d+\.\d+\.\d+\.\d+)/,
 				);
 				if (gatewayMatch) {
-					const gatewayIP = gatewayMatch[1]!;
+					const gatewayIP = gatewayMatch[1] ?? "";
 					if (await checkIdeConnection(gatewayIP, port)) {
 						return gatewayIP;
 					}

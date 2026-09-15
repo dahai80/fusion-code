@@ -45,8 +45,8 @@ function expandField(field: string, range: FieldRange): number[] | null {
 		// N-M or N-M/S
 		const rangeMatch = part.match(/^(\d+)-(\d+)(?:\/(\d+))?$/);
 		if (rangeMatch) {
-			const lo = parseInt(rangeMatch[1]!, 10);
-			const hi = parseInt(rangeMatch[2]!, 10);
+			const lo = parseInt(rangeMatch[1] ?? "0", 10);
+			const hi = parseInt(rangeMatch[2] ?? "0", 10);
 			const step = rangeMatch[3] ? parseInt(rangeMatch[3], 10) : 1;
 			// dayOfWeek: accept 7 as Sunday alias in ranges (e.g. 5-7 = Fri,Sat,Sun → [5,6,0])
 			const isDow = min === 0 && max === 6;
@@ -86,17 +86,20 @@ export function parseCronExpression(expr: string): CronFields | null {
 
 	const expanded: number[][] = [];
 	for (let i = 0; i < 5; i++) {
-		const result = expandField(parts[i]!, FIELD_RANGES[i]!);
+		const part = parts[i];
+		const field = FIELD_RANGES[i];
+		if (part === undefined || field === undefined) return null;
+		const result = expandField(part, field);
 		if (!result) return null;
 		expanded.push(result);
 	}
 
 	return {
-		minute: expanded[0]!,
-		hour: expanded[1]!,
-		dayOfMonth: expanded[2]!,
-		month: expanded[3]!,
-		dayOfWeek: expanded[4]!,
+		minute: expanded[0] ?? [],
+		hour: expanded[1] ?? [],
+		dayOfMonth: expanded[2] ?? [],
+		month: expanded[3] ?? [],
+		dayOfWeek: expanded[4] ?? [],
 	};
 }
 
@@ -237,7 +240,7 @@ export function cronToHuman(cron: string, opts?: { utc?: boolean }): string {
 		month === "*" &&
 		dayOfWeek === "*"
 	) {
-		const n = parseInt(everyMinMatch[1]!, 10);
+		const n = parseInt(everyMinMatch[1] ?? "1", 10);
 		return n === 1 ? "Every minute" : `Every ${n} minutes`;
 	}
 
@@ -263,7 +266,7 @@ export function cronToHuman(cron: string, opts?: { utc?: boolean }): string {
 		month === "*" &&
 		dayOfWeek === "*"
 	) {
-		const n = parseInt(everyHourMatch[1]!, 10);
+		const n = parseInt(everyHourMatch[1] ?? "1", 10);
 		const m = parseInt(minute, 10);
 		const suffix = m === 0 ? "" : ` at :${m.toString().padStart(2, "0")}`;
 		return n === 1 ? `Every hour${suffix}` : `Every ${n} hours${suffix}`;

@@ -608,7 +608,10 @@ export async function claimTask(
 		const updated = await updateTaskUnsafe(taskListId, taskId, {
 			owner: claimantAgentId,
 		});
-		return { success: true, task: updated! };
+		if (updated === undefined) {
+			return { success: false, reason: "task_not_found" };
+		}
+		return { success: true, task: updated };
 	} catch (error) {
 		logForDebugging(
 			`[Tasks] Failed to claim task ${taskId}: ${errorMessage(error)}`,
@@ -688,7 +691,10 @@ async function claimTaskWithBusyCheck(
 		const updated = await updateTask(taskListId, taskId, {
 			owner: claimantAgentId,
 		});
-		return { success: true, task: updated! };
+		if (updated === undefined) {
+			return { success: false, reason: "task_not_found" };
+		}
+		return { success: true, task: updated };
 	} catch (error) {
 		logForDebugging(
 			`[Tasks] Failed to claim task ${taskId} with busy check: ${errorMessage(error)}`,

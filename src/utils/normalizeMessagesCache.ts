@@ -70,7 +70,7 @@ export function normalizeMessagesIncremental(
 	// Reuse the cached normalized prefix up to the aligned cutoff.
 	let cutoff = 0;
 	for (let i = 0; i < prefixLen; i++) {
-		cutoff += cache.segmentCounts[i]!;
+		cutoff += cache.segmentCounts[i] ?? 0;
 	}
 
 	// If the entire source array is unchanged (same length, full prefix match),
@@ -101,14 +101,16 @@ export function normalizeMessagesIncremental(
 		messages.length === cache.sourceRef.length ? messages : messages.slice();
 	const segmentCounts: number[] = new Array(messages.length);
 	for (let i = 0; i < prefixLen; i++) {
-		segmentCounts[i] = cache.segmentCounts[i]!;
+		segmentCounts[i] = cache.segmentCounts[i] ?? 0;
 	}
 	for (let i = prefixLen; i < messages.length; i++) {
 		// Recompute the segment count for each tail source message from the
 		// fresh tailNormalized output. We re-derive by re-normalizing each tail
 		// source message individually — cheap (tail is small) and exact.
+		const tailMsg = messages[i];
+		if (tailMsg === undefined) continue;
 		const one = normalizeMessagesCore(
-			[messages[i]!],
+			[tailMsg],
 			isNewChainBeforeTail(seedIsNewChain, tailNormalized, tail, i - prefixLen),
 		).normalized.length;
 		segmentCounts[i] = one;
@@ -139,7 +141,9 @@ function computeFresh(
 	let runningCount = 0;
 	for (let i = 0; i < messages.length; i++) {
 		const before = runningCount;
-		const seg = normalizeMessagesCore([messages[i]!], runningFlag);
+		const segMsg = messages[i];
+		if (segMsg === undefined) continue;
+		const seg = normalizeMessagesCore([segMsg], runningFlag);
 		runningFlag = seg.isNewChain;
 		runningCount += seg.normalized.length;
 		segmentCounts[i] = runningCount - before;
@@ -167,7 +171,8 @@ function isNewChainBeforeTail(
 ): boolean {
 	let flag = seedIsNewChain;
 	for (let i = 0; i < tailIndex; i++) {
-		const m = tail[i]!;
+		const m = tail[i];
+		if (m === undefined) continue;
 		if (
 			(m.type === "assistant" || m.type === "user") &&
 			typeof m.message.content !== "string" &&

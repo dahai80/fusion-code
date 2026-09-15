@@ -102,14 +102,15 @@ export async function buildKB(cwd: string): Promise<string> {
 
 			const entries: VectorEntry[] = [];
 			for (let i = 0; i < chunks.length; i++) {
-				if (embeddings[i]) {
+				const embedding = embeddings[i];
+				if (embedding) {
 					entries.push({
 						id: `${filePath}:${chunks[i].startLine}`,
 						content: chunks[i].content,
 						source: chunks[i].source,
 						startLine: chunks[i].startLine,
 						endLine: chunks[i].endLine,
-						embedding: embeddings[i]!,
+						embedding,
 					});
 					totalEmbedded++;
 				}

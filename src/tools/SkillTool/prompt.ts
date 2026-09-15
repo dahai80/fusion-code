@@ -93,7 +93,8 @@ export function formatCommandsWithinBudget(
 	const bundledIndices = new Set<number>();
 	const restCommands: Command[] = [];
 	for (let i = 0; i < commands.length; i++) {
-		const cmd = commands[i]!;
+		const cmd = commands[i];
+		if (cmd === undefined) continue;
 		if (cmd.type === "prompt" && cmd.source === "bundled") {
 			bundledIndices.add(i);
 		} else {

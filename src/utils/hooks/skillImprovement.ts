@@ -92,7 +92,10 @@ function createSkillImprovementHook() {
 		},
 
 		buildMessages(context) {
-			const projectSkill = findProjectSkill()!;
+			const projectSkill = findProjectSkill();
+			if (projectSkill === undefined) {
+				return [];
+			}
 			// Only analyze messages since the last check — the skill definition
 			// provides enough context for the classifier to understand corrections
 			const newMessages = context.messages.slice(lastAnalyzedIndex);

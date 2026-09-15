@@ -69,7 +69,8 @@ export async function performBackgroundPluginInstallations(
 		const materialized = (await loadKnownMarketplacesConfig().catch(
 			() => ({}),
 		)) as KnownMarketplacesFile; // log: cast to KnownMarketplacesFile for diffMarketplaces
-		const diff = diffMarketplaces(declared, materialized as any); // log: cast KnownMarketplacesFile type mismatch
+		// biome-ignore lint/suspicious/noExplicitAny: KnownMarketplacesFile 联合类型与 diffMarketplaces 参数签名不完全对齐, 定向透传
+		const diff = diffMarketplaces(declared, materialized as any);
 
 		const pendingNames = [
 			...diff.missing,

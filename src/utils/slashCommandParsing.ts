@@ -107,8 +107,8 @@ export function parseStackedSlashCommands(
 
 	// 连续提取前导 /cmd (无 args, 仅命令名)
 	while (i < words.length) {
-		const word = words[i]!;
-		if (!isStackableCommandToken(word)) {
+		const word = words[i];
+		if (word === undefined || !isStackableCommandToken(word)) {
 			break;
 		}
 		if (commands.length >= MAX_STACKED_LEADING_COMMANDS) {

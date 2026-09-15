@@ -641,12 +641,12 @@ export function endLLMRequestPerfettoSpan(
 		if (attemptStartTimes && attemptStartTimes.length > 1) {
 			// attemptStartTimes[0] is the reference point (first attempt).
 			// Convert wall-clock deltas into Perfetto-relative microseconds.
-			const baseWallMs = attemptStartTimes[0]!;
+			const baseWallMs = attemptStartTimes[0] ?? 0;
 			for (let i = 0; i < attemptStartTimes.length - 1; i++) {
-				const attemptStartUs =
-					pending.startTime + (attemptStartTimes[i]! - baseWallMs) * 1000;
-				const attemptEndUs =
-					pending.startTime + (attemptStartTimes[i + 1]! - baseWallMs) * 1000;
+				const startMs = attemptStartTimes[i] ?? baseWallMs;
+				const endMs = attemptStartTimes[i + 1] ?? baseWallMs;
+				const attemptStartUs = pending.startTime + (startMs - baseWallMs) * 1000;
+				const attemptEndUs = pending.startTime + (endMs - baseWallMs) * 1000;
 
 				events.push({
 					name: `Attempt ${i + 1} (retry)`,

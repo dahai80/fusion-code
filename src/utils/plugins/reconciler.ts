@@ -205,7 +205,9 @@ export async function reconcileMarketplaces(
 	const failed: ReconcileResult["failed"] = [];
 
 	for (let i = 0; i < toProcess.length; i++) {
-		const { name, source, action } = toProcess[i]!;
+		const item = toProcess[i];
+		if (item === undefined) continue;
+		const { name, source, action } = item;
 		opts?.onProgress?.({
 			type: "installing",
 			name,

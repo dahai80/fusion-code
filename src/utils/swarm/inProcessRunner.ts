@@ -713,7 +713,8 @@ async function waitForNextPromptOrShutdown(
 			task.type === "in_process_teammate" &&
 			task.pendingUserMessages.length > 0
 		) {
-			const message = task.pendingUserMessages[0]!; // Safe: checked length > 0
+			const message = task.pendingUserMessages[0]; // Safe: checked length > 0
+			if (message === undefined) return;
 			// Pop the message from the queue
 			setAppState((prev) => {
 				const prevTask = prev.tasks[taskId];
@@ -786,11 +787,12 @@ async function waitForNextPromptOrShutdown(
 			}
 
 			if (shutdownIndex !== -1) {
-				const msg = allMessages[shutdownIndex]!;
-				const skippedUnread = count(
-					allMessages.slice(0, shutdownIndex),
-					(m) => !m.read,
-				);
+				const msg = allMessages[shutdownIndex];
+				if (msg !== undefined) {
+					const skippedUnread = count(
+						allMessages.slice(0, shutdownIndex),
+						(m) => !m.read,
+					);
 				logForDebugging(
 					`[inProcessRunner] ${identity.agentName} received shutdown request from ${shutdownParsed?.from} (prioritized over ${skippedUnread} unread messages)`,
 				);
@@ -804,6 +806,7 @@ async function waitForNextPromptOrShutdown(
 					request: shutdownParsed,
 					originalMessage: msg.text,
 				};
+				}
 			}
 
 			// No shutdown request found. Prioritize team-lead messages over peer
@@ -1441,12 +1444,16 @@ export async function runInProcessTeammate(
 					cb();
 				});
 				task.unregisterCleanup?.();
+				const lastMsg: Message | undefined =
+					task.messages.length > 0
+						? task.messages[task.messages.length - 1]
+						: undefined;
 				return {
 					...task,
 					status: "completed" as const,
 					notified: true,
 					endTime: Date.now(),
-					messages: task.messages?.length ? [task.messages.at(-1)!] : undefined,
+					messages: lastMsg !== undefined ? [lastMsg] : undefined,
 					pendingUserMessages: [],
 					inProgressToolUseIDs: undefined,
 					abortController: undefined,
@@ -1494,6 +1501,10 @@ export async function runInProcessTeammate(
 					cb();
 				});
 				task.unregisterCleanup?.();
+				const lastMsg: Message | undefined =
+					task.messages.length > 0
+						? task.messages[task.messages.length - 1]
+						: undefined;
 				return {
 					...task,
 					status: "failed" as const,
@@ -1502,7 +1513,7 @@ export async function runInProcessTeammate(
 					isIdle: true,
 					endTime: Date.now(),
 					onIdleCallbacks: [],
-					messages: task.messages?.length ? [task.messages.at(-1)!] : undefined,
+					messages: lastMsg !== undefined ? [lastMsg] : undefined,
 					pendingUserMessages: [],
 					inProgressToolUseIDs: undefined,
 					abortController: undefined,

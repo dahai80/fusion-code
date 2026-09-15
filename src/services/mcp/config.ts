@@ -902,8 +902,11 @@ export function getMcpConfigsByScope(
 		local: "localSettings",
 	};
 
-	if (scope in sourceMap && !isSettingSourceEnabled(sourceMap[scope]!)) {
-		return { servers: {}, errors: [] };
+	if (scope in sourceMap) {
+		const source = sourceMap[scope as keyof typeof sourceMap];
+		if (source !== undefined && !isSettingSourceEnabled(source)) {
+			return { servers: {}, errors: [] };
+		}
 	}
 
 	switch (scope) {
@@ -1226,11 +1229,11 @@ export async function getClaudeCodeMcpConfigs(
 		const parts = name.split(":");
 		if (parts[0] !== "plugin" || parts.length < 3) continue;
 		mcpErrors.push({
-			type: "mcp-server-suppressed-duplicate",
-			source: name,
-			plugin: parts[1]!,
-			serverName: parts.slice(2).join(":"),
-			duplicateOf,
+		 type: "mcp-server-suppressed-duplicate",
+		 source: name,
+		 plugin: parts[1] ?? "",
+		 serverName: parts.slice(2).join(":"),
+		 duplicateOf,
 		});
 	}
 

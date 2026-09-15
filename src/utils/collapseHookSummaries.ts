@@ -25,13 +25,14 @@ export function collapseHookSummaries(
 	let i = 0;
 
 	while (i < messages.length) {
-		const msg = messages[i]!;
+		const msg = messages[i];
+		if (msg === undefined) continue;
 		if (isLabeledHookSummary(msg)) {
 			const label = msg.hookLabel;
 			const group: SystemStopHookSummaryMessage[] = [];
 			while (i < messages.length) {
-				const next = messages[i]!;
-				if (!isLabeledHookSummary(next) || next.hookLabel !== label) break;
+				const next = messages[i];
+				if (next === undefined || !isLabeledHookSummary(next) || next.hookLabel !== label) break;
 				group.push(next);
 				i++;
 			}

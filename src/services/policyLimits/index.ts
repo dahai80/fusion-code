@@ -291,7 +291,10 @@ async function fetchWithRetry(
 		await sleep(delayMs);
 	}
 
-	return lastResult!;
+	if (lastResult === undefined) {
+		throw new Error("policyLimits: poller loop ended without a result");
+	}
+	return lastResult;
 }
 
 /**

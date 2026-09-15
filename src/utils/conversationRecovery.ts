@@ -213,11 +213,13 @@ export function deserializeMessagesWithInterruptDetection(
 					isMeta: true,
 				}),
 			]);
-			filteredMessages.push(continuationMessage!);
-			turnInterruptionState = {
-				kind: "interrupted_prompt",
-				message: continuationMessage!,
-			};
+			if (continuationMessage !== undefined) {
+				filteredMessages.push(continuationMessage);
+				turnInterruptionState = {
+					kind: "interrupted_prompt",
+					message: continuationMessage,
+				};
+			}
 		} else {
 			turnInterruptionState = internalState;
 		}
@@ -356,7 +358,8 @@ function isTerminalToolResult(
 	const toolUseId = block.tool_use_id;
 
 	for (let i = resultIdx - 1; i >= 0; i--) {
-		const msg = messages[i]!;
+		const msg = messages[i];
+		if (msg === undefined) continue;
 		if (msg.type !== "assistant") continue;
 		for (const b of msg.message.content) {
 			if (b.type === "tool_use" && b.id === toolUseId) {
@@ -566,11 +569,14 @@ export async function loadConversationForResume(
 
 		// Restore skill state from invoked_skills attachments before deserialization.
 		// This ensures skills survive multiple compaction cycles after resume.
-		restoreSkillStateFromMessages(messages!);
+		let deserialized: ReturnType<typeof deserializeMessagesWithInterruptDetection> | undefined;
+		if (messages !== undefined) {
+			restoreSkillStateFromMessages(messages);
 
-		// Deserialize messages to handle unresolved tool uses and ensure proper format
-		const deserialized = deserializeMessagesWithInterruptDetection(messages!);
-		messages = deserialized.messages;
+			// Deserialize messages to handle unresolved tool uses and ensure proper format
+			deserialized = deserializeMessagesWithInterruptDetection(messages);
+			messages = deserialized.messages;
+		}
 
 		// Process session start hooks for resume. --fork-session 报告 source
 		// "fork" (CC 2.1.214, issue #79), 让 hook 区分 fork 与普通 resume。

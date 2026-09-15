@@ -222,10 +222,10 @@ export class DiskTaskOutput {
 				}
 			}
 		} finally {
-			const resolve = this.#flushResolve!;
+			const resolve = this.#flushResolve;
 			this.#flushPromise = null;
 			this.#flushResolve = null;
-			resolve();
+			if (resolve !== undefined) resolve();
 		}
 	}
 }

@@ -1,5 +1,7 @@
 // log: fix TS2724 - McpbManifestAny not resolvable from @anthropic-ai/mcpb due to zod inference
+// biome-ignore lint/suspicious/noExplicitAny: vendored 清单 schema 经 zod 推断后类型不可解析, 用宽松记录占位
 type McpbManifestAny = Record<string, any>;
+// biome-ignore lint/suspicious/noExplicitAny: vendored 清单 schema 经 zod 推断后类型不可解析, 用宽松记录占位
 type McpbUserConfigurationOption = Record<string, any>;
 
 import { createHash } from "node:crypto";
@@ -266,10 +268,12 @@ export function saveMcpServerUserConfig(
 				});
 			}
 			if (needSecureScrub) {
+				const existingKeys = existingInSecureStorage
+					? Object.keys(existingInSecureStorage).length
+					: 0;
 				logForDebugging(
 					`saveMcpServerUserConfig: scrubbed ${
-						Object.keys(existingInSecureStorage!).length -
-						Object.keys(secureScrubbed!).length
+						existingKeys - (secureScrubbed ? Object.keys(secureScrubbed).length : 0)
 					} stale non-sensitive key(s) from secureStorage for ${k}`,
 				);
 			}
@@ -313,10 +317,13 @@ export function saveMcpServerUserConfig(
 			const scrubbed = Object.fromEntries(
 				keysToScrubFromSettings.map((k) => [k, undefined]),
 			) as Record<string, undefined>;
-			settings.pluginConfigs[pluginId].mcpServers![serverName] = {
-				...nonSensitive,
-				...scrubbed,
-			} as UserConfigValues;
+			const mcpServers = settings.pluginConfigs[pluginId].mcpServers;
+			if (mcpServers !== undefined) {
+				mcpServers[serverName] = {
+					...nonSensitive,
+					...scrubbed,
+				} as UserConfigValues;
+			}
 			const result = updateSettingsForSource("userSettings", settings);
 			if (result.error) {
 				throw result.error;
@@ -423,7 +430,8 @@ async function generateMcpConfig(
 		"../../vendor/mcpb/shared/config.js"
 	);
 	const mcpConfig = await getMcpConfigForManifest({
-		manifest: manifest as any, // log: cast for McpbManifestAny type mismatch
+		// biome-ignore lint/suspicious/noExplicitAny: vendored McpbManifestAny 类型不可解析, 用宽松记录透传
+		manifest: manifest as any,
 		extensionPath: extractedPath,
 		systemDirs: getSystemDirectories(),
 		userConfig,

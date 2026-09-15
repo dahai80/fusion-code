@@ -1,9 +1,9 @@
 export type DeepImmutable<T> = {
-	readonly [P in keyof T]: T[P] extends object
-		? T[P] extends Function
-			? T[P]
-			: DeepImmutable<T[P]>
-		: T[P];
+	readonly [P in keyof T]: T[P] extends (...args: never[]) => unknown
+		? T[P]
+		: T[P] extends object
+			? DeepImmutable<T[P]>
+			: T[P];
 };
 
 export type Permutations<

@@ -245,7 +245,7 @@ export const PermissionRuleSchema = lazySchema(() =>
 	z.string().superRefine((val, ctx) => {
 		const result = validatePermissionRule(val);
 		if (!result.valid) {
-			let message = result.error!;
+			let message = result.error ?? "Invalid permission rule";
 			if (result.suggestion) {
 				message += `. ${result.suggestion}`;
 			}

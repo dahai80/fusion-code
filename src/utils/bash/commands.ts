@@ -714,7 +714,9 @@ export function extractOutputRedirections(cmd: string): {
 					["&&", "||", ";", "|"].includes(prev.op));
 			parenStack.push({ index: i, isStart: !!isStart });
 		} else if (isOperator(part, ")") && parenStack.length > 0) {
-			const opening = parenStack.pop()!;
+			const opening = parenStack.pop();
+			// forEach 回调内不能用 break (TS1107), 用 return 跳过当前迭代
+			if (opening === undefined) return;
 			const next = parsed[i + 1];
 			if (
 				opening.isStart &&
@@ -782,7 +784,7 @@ export function extractOutputRedirections(cmd: string): {
 		commandWithoutRedirections: restoreHeredocs(
 			[reconstructCommand(kept, processedCommand)],
 			heredocs,
-		)[0]!,
+		)[0] ?? "",
 		redirections,
 		hasDangerousRedirection,
 	};

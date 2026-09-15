@@ -238,8 +238,9 @@ async function processSessionFiles(
 				: messages.filter((m) => !m.isSidechain);
 			if (mainMessages.length === 0) continue;
 
-			const firstMessage = mainMessages[0]!;
-			const lastMessage = mainMessages.at(-1)!;
+			const firstMessage = mainMessages[0];
+			const lastMessage = mainMessages.at(-1);
+			if (firstMessage === undefined || lastMessage === undefined) continue;
 
 			const firstTimestamp = new Date(firstMessage.timestamp);
 			const lastTimestamp = new Date(lastMessage.timestamp);
@@ -334,12 +335,18 @@ async function processSessionFiles(
 							};
 						}
 
-						modelUsageAgg[model]!.inputTokens += usage.input_tokens || 0;
-						modelUsageAgg[model]!.outputTokens += usage.output_tokens || 0;
-						modelUsageAgg[model]!.cacheReadInputTokens +=
-							usage.cache_read_input_tokens || 0;
-						modelUsageAgg[model]!.cacheCreationInputTokens +=
-							usage.cache_creation_input_tokens || 0;
+						const agg = modelUsageAgg[model];
+						if (agg) {
+						 agg.inputTokens += usage.input_tokens || 0;
+						 agg.outputTokens += usage.output_tokens || 0;
+						}
+						const agg2 = modelUsageAgg[model];
+						if (agg2) {
+							agg2.cacheReadInputTokens +=
+								usage.cache_read_input_tokens || 0;
+							agg2.cacheCreationInputTokens +=
+								usage.cache_creation_input_tokens || 0;
+						}
 
 						// Track daily tokens per model
 						const totalTokens =
@@ -896,11 +903,15 @@ function calculateStreaks(dailyActivity: DailyActivity[]): StreakInfo {
 	if (dailyActivity.length > 0) {
 		const sortedDates = Array.from(activeDates).sort();
 		let tempStreak = 1;
-		let tempStart = sortedDates[0]!;
+		let tempStart = sortedDates[0];
+		if (tempStart === undefined) return;
 
 		for (let i = 1; i < sortedDates.length; i++) {
-			const prevDate = new Date(sortedDates[i - 1]!);
-			const currDate = new Date(sortedDates[i]!);
+			const prev = sortedDates[i - 1];
+			const curr = sortedDates[i];
+			if (prev === undefined || curr === undefined) continue;
+			const prevDate = new Date(prev);
+			const currDate = new Date(curr);
 
 			const dayDiff = Math.round(
 				(currDate.getTime() - prevDate.getTime()) / (1000 * 60 * 60 * 24),
@@ -912,10 +923,12 @@ function calculateStreaks(dailyActivity: DailyActivity[]): StreakInfo {
 				if (tempStreak > longestStreak) {
 					longestStreak = tempStreak;
 					longestStreakStart = tempStart;
-					longestStreakEnd = sortedDates[i - 1]!;
+					const prev = sortedDates[i - 1];
+					if (prev !== undefined) longestStreakEnd = prev;
 				}
 				tempStreak = 1;
-				tempStart = sortedDates[i]!;
+				const cur = sortedDates[i];
+				if (cur !== undefined) tempStart = cur;
 			}
 		}
 
@@ -923,7 +936,8 @@ function calculateStreaks(dailyActivity: DailyActivity[]): StreakInfo {
 		if (tempStreak > longestStreak) {
 			longestStreak = tempStreak;
 			longestStreakStart = tempStart;
-			longestStreakEnd = sortedDates.at(-1)!;
+			const lastDate = sortedDates.at(-1);
+			if (lastDate !== undefined) longestStreakEnd = lastDate;
 		}
 	}
 
@@ -963,7 +977,7 @@ function extractShotCountFromMessages(
 			}
 			const match = SHOT_COUNT_REGEX.exec(block.input.command);
 			if (match) {
-				return parseInt(match[1]!, 10);
+				return parseInt(match[1] ?? "0", 10);
 			}
 		}
 	}

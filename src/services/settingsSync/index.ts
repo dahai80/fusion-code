@@ -341,7 +341,10 @@ async function fetchUserSettings(
 		await sleep(delayMs);
 	}
 
-	return lastResult!;
+	if (lastResult === undefined) {
+		throw new Error("settingsSync: poller loop ended without a result");
+	}
+	return lastResult;
 }
 
 async function uploadUserSettings(

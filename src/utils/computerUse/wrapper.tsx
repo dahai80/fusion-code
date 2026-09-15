@@ -63,7 +63,10 @@ let currentToolUseContext: ToolUseContext | undefined;
 function tuc(): ToolUseContext {
 	// Safe: `binding` is only populated when `currentToolUseContext` is set.
 	// Called only from within `ctx` callbacks, which only fire during dispatch.
-	return currentToolUseContext!;
+	if (currentToolUseContext === undefined) {
+		throw new Error("getCurrentToolUseContext: no tool use context set");
+	}
+	return currentToolUseContext;
 }
 function formatLockHeld(holder: string): string {
 	return `Computer use is in use by another Claude session (${holder.slice(0, 8)}…). Wait for that session to finish or run /exit there.`;

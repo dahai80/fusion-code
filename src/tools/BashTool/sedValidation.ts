@@ -201,7 +201,7 @@ function isSubstitutionCommand(
 		return false;
 	}
 
-	const rest = substitutionMatch[1]!;
+	const rest = substitutionMatch[1] ?? "";
 
 	// Find the positions of / delimiters
 	let delimiterCount = 0;

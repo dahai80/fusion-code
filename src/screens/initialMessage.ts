@@ -135,7 +135,7 @@ export async function applyInitialMessage(
 			toolPermissionContext: updatedToolPermissionContext,
 			...(shouldStorePlanForVerification && {
 				pendingPlanVerification: {
-					plan: initialMsg.message.planContent!,
+					plan: initialMsg.message.planContent ?? "",
 					verificationStarted: false,
 					verificationCompleted: false,
 				},

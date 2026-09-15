@@ -29,7 +29,9 @@ export function sequential<T extends unknown[], R>(
 		processing = true;
 
 		while (queue.length > 0) {
-			const { args, resolve, reject, context } = queue.shift()!;
+			const item = queue.shift();
+			if (item === undefined) break;
+			const { args, resolve, reject, context } = item;
 
 			try {
 				const result = await fn.apply(context, args);

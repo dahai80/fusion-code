@@ -167,7 +167,9 @@ async function initializeAgentMcpServers(
 				);
 				continue;
 			}
-			const [serverName, serverConfig] = entries[0]!;
+			const entry = entries[0];
+			if (entry === undefined) continue;
+			const [serverName, serverConfig] = entry;
 			name = serverName;
 			config = {
 				...serverConfig,

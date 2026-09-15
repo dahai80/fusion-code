@@ -229,9 +229,11 @@ export async function probeSeedCacheAnyVersion(
 		// getVersionedCachePathIn, just without the version component.
 		const pluginDir = dirname(getVersionedCachePathIn(seedDir, pluginId, "_"));
 		try {
-			const versions = await readdir(pluginDir);
-			if (versions.length !== 1) continue;
-			const versionDir = join(pluginDir, versions[0]!);
+		 const versions = await readdir(pluginDir);
+		 if (versions.length !== 1) continue;
+		 const versionName = versions[0];
+		 if (versionName === undefined) continue;
+		 const versionDir = join(pluginDir, versionName);
 			const entries = await readdir(versionDir);
 			if (entries.length > 0) return versionDir;
 		} catch {
@@ -2026,7 +2028,7 @@ async function loadPluginsFromMarketplaces({
 				parsePluginIdentifier(pluginId);
 
 			// Check if marketplace source is allowed by enterprise policy
-			const marketplaceConfig = knownMarketplaces[marketplaceName!];
+			const marketplaceConfig = knownMarketplaces[marketplaceName ?? ""];
 
 			// Fail-closed: if enterprise policy is active and we can't look up the
 			// marketplace source (config corrupted/empty, or entry missing), block
@@ -2051,7 +2053,7 @@ async function loadPluginsFromMarketplaces({
 					type: "marketplace-blocked-by-policy",
 					source: pluginId,
 					plugin: pluginName,
-					marketplace: marketplaceName!,
+					marketplace: marketplaceName ?? "",
 					blockedByBlocklist: strictAllowlist === null,
 					allowedSources: (strictAllowlist ?? []).map((s) =>
 						formatSourceForDisplay(s),
@@ -2071,7 +2073,7 @@ async function loadPluginsFromMarketplaces({
 					type: "marketplace-blocked-by-policy",
 					source: pluginId,
 					plugin: pluginName,
-					marketplace: marketplaceName!,
+					marketplace: marketplaceName ?? "",
 					blockedByBlocklist: isBlocked,
 					allowedSources: isBlocked
 						? []
@@ -2083,7 +2085,7 @@ async function loadPluginsFromMarketplaces({
 			// Look up plugin entry from pre-loaded marketplace catalog (no per-plugin I/O).
 			// Fall back to getPluginByIdCacheOnly if the catalog couldn't be pre-loaded.
 			let result: Awaited<ReturnType<typeof getPluginByIdCacheOnly>> = null;
-			const marketplace = marketplaceCatalogs.get(marketplaceName!);
+			const marketplace = marketplaceCatalogs.get(marketplaceName ?? "");
 			if (marketplace && marketplaceConfig) {
 				const entry = marketplace.plugins.find((p) => p.name === pluginName);
 				if (entry) {
@@ -2102,8 +2104,8 @@ async function loadPluginsFromMarketplaces({
 				errors.push({
 					type: "plugin-not-found",
 					source: pluginId,
-					pluginId: pluginName!,
-					marketplace: marketplaceName!,
+					pluginId: pluginName ?? "",
+					marketplace: marketplaceName ?? "",
 				});
 				return null;
 			}

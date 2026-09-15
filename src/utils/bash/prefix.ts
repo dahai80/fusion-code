@@ -100,9 +100,10 @@ async function handleWrapper(
 				} else if (
 					args[i] &&
 					!args[i]?.startsWith("-") &&
-					!ENV_VAR.test(args[i]!)
+					!ENV_VAR.test(args[i] ?? "")
 				) {
-					parts.push(args[i]!);
+					const ai = args[i];
+					if (ai !== undefined) parts.push(ai);
 				}
 			}
 		}
@@ -159,7 +160,7 @@ export async function getCompoundCommandPrefixesStatic(
 	// Group prefixes by their first word (root command)
 	const groups = new Map<string, string[]>();
 	for (const prefix of prefixes) {
-		const root = prefix.split(" ")[0]!;
+		const root = prefix.split(" ")[0] ?? "";
 		const group = groups.get(root);
 		if (group) {
 			group.push(prefix);
@@ -183,9 +184,9 @@ export async function getCompoundCommandPrefixesStatic(
  */
 function longestCommonPrefix(strings: string[]): string {
 	if (strings.length === 0) return "";
-	if (strings.length === 1) return strings[0]!;
+	if (strings.length === 1) return strings[0] ?? "";
 
-	const first = strings[0]!;
+	const first = strings[0] ?? "";
 	const words = first.split(" ");
 	let commonWords = words.length;
 

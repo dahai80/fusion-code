@@ -230,7 +230,8 @@ export function extractHeredocs(
 
 	const advanceScan = (target: number): void => {
 		for (let i = scanPos; i < target; i++) {
-			const ch = command[i]!;
+			const ch = command[i];
+			if (ch === undefined) break;
 
 			// Any physical newline clears comment state. The old isInsideComment
 			// used `lineStart = lastIndexOf('\n', pos-1)+1` (quote-blind), so a
@@ -327,7 +328,8 @@ export function extractHeredocs(
 		const fullMatch = match[0];
 		const isDash = match[1] === "-";
 		// Group 3 = quoted delimiter (may include backslash), group 4 = unquoted
-		const delimiter = (match[3] || match[4])!;
+		const delimiter = match[3] || match[4];
+		if (delimiter === undefined) continue;
 		const operatorEndIndex = startIndex + fullMatch.length;
 
 		// Security: Two checks to verify our regex captured the full delimiter word.
@@ -370,7 +372,7 @@ export function extractHeredocs(
 		// also matches \r, \f, \v, and Unicode whitespace that bash treats as
 		// regular word characters, not terminators.
 		if (operatorEndIndex < command.length) {
-			const nextChar = command[operatorEndIndex]!;
+			const nextChar = command[operatorEndIndex] ?? "";
 			if (!/^[ \t\n|&;()<>]$/.test(nextChar)) {
 				continue;
 			}
@@ -481,7 +483,8 @@ export function extractHeredocs(
 		// that could allow command smuggling past permission checks.
 		let closingLineIndex = -1;
 		for (let i = 0; i < contentLines.length; i++) {
-			const line = contentLines[i]!;
+			const line = contentLines[i];
+			if (line === undefined) continue;
 
 			if (isDash) {
 				// <<- strips leading TABS only (not spaces), per POSIX/bash spec.
@@ -516,7 +519,7 @@ export function extractHeredocs(
 				eofCheckLine.length > delimiter.length &&
 				eofCheckLine.startsWith(delimiter)
 			) {
-				const charAfterDelimiter = eofCheckLine[delimiter.length]!;
+				const charAfterDelimiter = eofCheckLine[delimiter.length] ?? "";
 				if (/^[)}`|&;(<>]$/.test(charAfterDelimiter)) {
 					// Shell metacharacter or substitution closer after delimiter —
 					// bash may close the heredoc early here. Bail out.

@@ -493,7 +493,7 @@ function isBeingDebugged() {
 	// Check if inspector is available and active (indicates debugging)
 	try {
 		// Dynamic import would be better but is async - use global object instead
-		// eslint-disable-next-line @typescript-eslint/no-explicit-any
+		// biome-ignore lint/suspicious/noExplicitAny: Bun 运行时注入的 require, 类型不可表达
 		const inspector = (global as any).require("inspector");
 		const hasInspectorUrl = !!inspector.url();
 		return hasInspectorUrl || hasInspectArg || hasInspectEnv;
@@ -894,7 +894,7 @@ export async function main() {
 			(a) => a.startsWith("cc://") || a.startsWith("cc+unix://"),
 		);
 		if (ccIdx !== -1 && _pendingConnect) {
-			const ccUrl = rawCliArgs[ccIdx]!;
+			const ccUrl = rawCliArgs[ccIdx];
 			const { parseConnectUrl } = await import("./server/parseConnectUrl.js");
 			const parsed = parseConnectUrl(ccUrl);
 			_pendingConnect.dangerouslySkipPermissions = rawCliArgs.includes(
@@ -908,8 +908,8 @@ export async function main() {
 					stripped.splice(dspIdx, 1);
 				}
 				process.argv = [
-					process.argv[0]!,
-					process.argv[1]!,
+					process.argv[0],
+					process.argv[1],
 					"open",
 					ccUrl,
 					...stripped,
@@ -923,7 +923,7 @@ export async function main() {
 				if (dspIdx !== -1) {
 					stripped.splice(dspIdx, 1);
 				}
-				process.argv = [process.argv[0]!, process.argv[1]!, ...stripped];
+				process.argv = [process.argv[0], process.argv[1], ...stripped];
 			}
 		}
 	}
@@ -936,7 +936,7 @@ export async function main() {
 		if (handleUriIdx !== -1 && process.argv[handleUriIdx + 1]) {
 			const { enableConfigs } = await import("./utils/config.js");
 			enableConfigs();
-			const uri = process.argv[handleUriIdx + 1]!;
+			const uri = process.argv[handleUriIdx + 1];
 			const { handleDeepLinkUri } = await import(
 				"./utils/deepLink/protocolHandler.js"
 			);
@@ -976,11 +976,11 @@ export async function main() {
 			if (nextArg && !nextArg.startsWith("-")) {
 				_pendingAssistantChat.sessionId = nextArg;
 				rawArgs.splice(0, 2); // drop 'assistant' and sessionId
-				process.argv = [process.argv[0]!, process.argv[1]!, ...rawArgs];
+				process.argv = [process.argv[0], process.argv[1], ...rawArgs];
 			} else if (!nextArg) {
 				_pendingAssistantChat.discover = true;
 				rawArgs.splice(0, 1); // drop 'assistant'
-				process.argv = [process.argv[0]!, process.argv[1]!, ...rawArgs];
+				process.argv = [process.argv[0], process.argv[1], ...rawArgs];
 			}
 			// else: `claude assistant --help` → fall through to stub
 		}
@@ -1095,7 +1095,7 @@ export async function main() {
 			}
 
 			// Rewrite argv so the main command sees remaining flags but not `ssh`.
-			process.argv = [process.argv[0]!, process.argv[1]!, ...rest];
+			process.argv = [process.argv[0], process.argv[1], ...rest];
 		}
 	}
 
@@ -1787,12 +1787,9 @@ async function run(): Promise<CommanderCommand> {
 				);
 			}
 
-			// biome-ignore lint/suspicious/noConsole:: intentional debug output
-			// biome-ignore lint/suspicious/noConsole:: intentional debug
 			// Ignore "code" as a prompt - treat it the same as no prompt
 			if (prompt === "code") {
 				logEvent("tengu_code_prompt_ignored", {});
-				// biome-ignore lint/suspicious/noConsole:: intentional console output
 				console.warn(
 					chalk.yellow(
 						"Tip: You can launch Fusion-Code with just `fusion-code`",
@@ -1801,7 +1798,6 @@ async function run(): Promise<CommanderCommand> {
 				prompt = undefined;
 			}
 
-			// biome-ignore lint/suspicious/noConsole:: intentional debug output
 
 			// Log event for any single-word prompt
 			if (
@@ -1868,7 +1864,6 @@ async function run(): Promise<CommanderCommand> {
 				kairosGate
 			) {
 				if (!checkHasTrustDialogAccepted()) {
-					// biome-ignore lint/suspicious/noConsole:: intentional console output
 					console.warn(
 						chalk.yellow(
 							"Assistant mode disabled: directory is not trusted. Accept the trust dialog and restart.",
@@ -1914,12 +1909,9 @@ async function run(): Promise<CommanderCommand> {
 				includeHookEvents,
 				includePartialMessages,
 			} = options;
-			// biome-ignore lint/suspicious/noConsole:: intentional debug
-			// biome-ignore lint/suspicious/noConsole:: intentional debug
 			if (options.prefill) {
 				seedEarlyInput(options.prefill);
 			}
-			// biome-ignore lint/suspicious/noConsole:: intentional debug
 
 			// Promise for file downloads - started early, awaited before REPL renders
 			let fileDownloadPromise: Promise<DownloadResult[]> | undefined;
@@ -1928,21 +1920,17 @@ async function run(): Promise<CommanderCommand> {
 			if (feature("BG_SESSIONS") && agentCli) {
 				process.env.CLAUDE_CODE_AGENT = agentCli;
 			}
-			// biome-ignore lint/suspicious/noConsole:: intentional debug
 
 			// NOTE: LSP manager initialization is intentionally deferred until after
 			// the trust dialog is accepted. This prevents plugin LSP servers from
 			// executing code in untrusted directories before user consent.
 
 			// Extract these separately so they can be modified if needed
-			// biome-ignore lint/suspicious/noConsole:: intentional debug
 			let verbose = options.verbose ?? getGlobalConfig().verbose;
 			let print = options.print;
 			const init = options.init ?? false;
 			const initOnly = options.initOnly ?? false;
 			const maintenance = options.maintenance ?? false;
-			// biome-ignore lint/suspicious/noConsole:: intentional debug
-			// biome-ignore lint/suspicious/noConsole:: intentional debug
 
 			// Extract disable slash commands flag
 			const disableSlashCommands = options.disableSlashCommands || false;
@@ -1986,7 +1974,6 @@ async function run(): Promise<CommanderCommand> {
 
 			// Extract worktree option
 			// worktree can be true (flag without value) or a string (custom name or PR reference)
-			// biome-ignore lint/suspicious/noConsole:: intentional debug
 			const worktreeOption = isWorktreeModeEnabled()
 				? (
 						options as {
@@ -1994,12 +1981,10 @@ async function run(): Promise<CommanderCommand> {
 						}
 					).worktree
 				: undefined;
-			// biome-ignore lint/suspicious/noConsole:: intentional debug
 			let worktreeName =
 				typeof worktreeOption === "string" ? worktreeOption : undefined;
 			const worktreeEnabled = worktreeOption !== undefined;
 
-			// biome-ignore lint/suspicious/noConsole:: intentional debug
 
 			// Check if worktree name is a PR reference (#N or GitHub PR URL)
 			let worktreePRNumber: number | undefined;
@@ -2012,7 +1997,6 @@ async function run(): Promise<CommanderCommand> {
 			}
 
 			// Extract tmux option (requires --worktree)
-			// biome-ignore lint/suspicious/noConsole:: intentional debug
 			const tmuxEnabled =
 				isWorktreeModeEnabled() &&
 				(
@@ -2020,7 +2004,6 @@ async function run(): Promise<CommanderCommand> {
 						tmux?: boolean;
 					}
 				).tmux === true;
-			// biome-ignore lint/suspicious/noConsole:: intentional debug
 
 			// Validate tmux option
 			if (tmuxEnabled) {
@@ -2048,11 +2031,8 @@ async function run(): Promise<CommanderCommand> {
 
 			// Extract teammate options (for tmux-spawned agents)
 			// Declared outside the if block so it's accessible later for system prompt addendum
-			// biome-ignore lint/suspicious/noConsole:: intentional debug
 			let storedTeammateOpts: TeammateOptions | undefined;
-			// biome-ignore lint/suspicious/noConsole:: intentional debug
 			if (isAgentSwarmsEnabled()) {
-				// biome-ignore lint/suspicious/noConsole:: intentional debug
 				// Extract agent identity options (for tmux-spawned agents)
 				// These replace the CLAUDE_CODE_* environment variables
 				const teammateOpts = extractTeammateOptions(options);
@@ -2100,7 +2080,6 @@ async function run(): Promise<CommanderCommand> {
 					);
 				}
 			}
-			// biome-ignore lint/suspicious/noConsole:: intentional debug
 
 			// Extract remote sdk options
 			const sdkUrl =
@@ -2109,13 +2088,11 @@ async function run(): Promise<CommanderCommand> {
 						sdkUrl?: string;
 					}
 				).sdkUrl ?? undefined;
-			// biome-ignore lint/suspicious/noConsole:: intentional debug
 
 			// Allow env var to enable partial messages (used by sandbox gateway for baku)
 			const effectiveIncludePartialMessages =
 				includePartialMessages ||
 				isEnvTruthy(process.env.CLAUDE_CODE_INCLUDE_PARTIAL_MESSAGES);
-			// biome-ignore lint/suspicious/noConsole:: intentional debug
 
 			// Enable all hook event types when explicitly requested via SDK option
 			// or when running in CLAUDE_CODE_REMOTE mode (CCR needs them).
@@ -2123,16 +2100,15 @@ async function run(): Promise<CommanderCommand> {
 			if (includeHookEvents || isEnvTruthy(process.env.CLAUDE_CODE_REMOTE)) {
 				setAllHookEventsEnabled(true);
 			}
-			// biome-ignore lint/suspicious/noConsole:: intentional debug
 
 			// Auto-set input/output formats, verbose mode, and print mode when SDK URL is provided
 			if (sdkUrl) {
 				// If SDK URL is provided, automatically use stream-json formats unless explicitly set
-				if (!(options as any).inputFormat) {
-					(options as any).inputFormat = "stream-json";
+				if (!(options as { inputFormat?: string }).inputFormat) {
+				 (options as { inputFormat?: string }).inputFormat = "stream-json";
 				}
-				if (!(options as any).outputFormat) {
-					(options as any).outputFormat = "stream-json";
+				if (!(options as { outputFormat?: string }).outputFormat) {
+				 (options as { outputFormat?: string }).outputFormat = "stream-json";
 				}
 				// Auto-enable verbose mode unless explicitly disabled or already set
 				if (options.verbose === undefined) {
@@ -2143,7 +2119,6 @@ async function run(): Promise<CommanderCommand> {
 					print = true;
 				}
 			}
-			// biome-ignore lint/suspicious/noConsole:: intentional debug
 
 			// Extract teleport option
 			const teleport =
@@ -2152,7 +2127,6 @@ async function run(): Promise<CommanderCommand> {
 						teleport?: string | true;
 					}
 				).teleport ?? null;
-			// biome-ignore lint/suspicious/noConsole:: intentional debug
 
 			// Extract remote option (can be true if no description provided, or a string)
 			const remoteOption = (
@@ -2200,7 +2174,6 @@ async function run(): Promise<CommanderCommand> {
 				// When --sdk-url is provided (bridge/remote mode), the session ID is a
 				// server-assigned tagged ID (e.g. "session_local_01...") rather than a
 				// UUID. Skip UUID validation and local existence checks in that case.
-				// biome-ignore lint/suspicious/noConsole:: intentional debug
 				if (!sdkUrl) {
 					const validatedSessionId = validateUuid(sessionId);
 					if (!validatedSessionId) {
@@ -2211,7 +2184,6 @@ async function run(): Promise<CommanderCommand> {
 					}
 
 					// Check if session ID already exists
-					// biome-ignore lint/suspicious/noConsole:: intentional debug
 					if (sessionIdExists(validatedSessionId)) {
 						process.stderr.write(
 							chalk.red(
@@ -2222,8 +2194,6 @@ async function run(): Promise<CommanderCommand> {
 					}
 				}
 			}
-			// biome-ignore lint/suspicious/noConsole:: intentional debug
-			// biome-ignore lint/suspicious/noConsole:: intentional debug
 
 			// Download file resources if specified via --file flag
 			const fileSpecs = (
@@ -2264,13 +2234,9 @@ async function run(): Promise<CommanderCommand> {
 				}
 			}
 
-			// biome-ignore lint/suspicious/noConsole:: intentional debug
 
 			// Get isNonInteractiveSession from state (was set before init())
 			const isNonInteractiveSession = getIsNonInteractiveSession();
-			// biome-ignore lint/suspicious/noConsole:: intentional debug
-			// biome-ignore lint/suspicious/noConsole:: intentional debug
-			// biome-ignore lint/suspicious/noConsole:: intentional debug
 
 			// Validate that fallback model is different from main model
 			if (fallbackModel && options.model && fallbackModel === options.model) {
@@ -2462,7 +2428,6 @@ async function run(): Promise<CommanderCommand> {
 					if (nonSdkConfigNames.some(isClaudeInChromeMCPServer)) {
 						reservedNameError = `Invalid MCP configuration: "${CLAUDE_IN_CHROME_MCP_SERVER_NAME}" is a reserved MCP name.`;
 					} else if (feature("CHICAGO_MCP")) {
-						// biome-ignore lint/suspicious/noConsole:: intentional debug
 						const { isComputerUseMCPServer, COMPUTER_USE_MCP_SERVER_NAME } =
 							await import("src/utils/computerUse/common.js");
 						if (nonSdkConfigNames.some(isComputerUseMCPServer)) {
@@ -2547,7 +2512,6 @@ async function run(): Promise<CommanderCommand> {
 					});
 					logForDebugging(`[Claude in Chrome] Error: ${error}`);
 					logError(error);
-					// biome-ignore lint/suspicious/noConsole:: intentional console output
 					console.error(`Error: Failed to run with Claude in Chrome.`);
 					gracefulShutdownSync(1);
 				}
@@ -2776,9 +2740,7 @@ async function run(): Promise<CommanderCommand> {
 				}
 			}
 
-			// biome-ignore lint/suspicious/noConsole:: intentional debug
 
-			// biome-ignore lint/suspicious/noConsole:: intentional debug
 
 			// This await replaces blocking existsSync/statSync calls that were already in
 			// the startup path. Wall-clock time is unchanged; we just yield to the event
@@ -2791,7 +2753,6 @@ async function run(): Promise<CommanderCommand> {
 				allowDangerouslySkipPermissions,
 				addDirs: addDir,
 			});
-			// biome-ignore lint/suspicious/noConsole:: intentional debug
 			let toolPermissionContext = initResult.toolPermissionContext;
 			const { warnings, dangerousPermissions, overlyBroadBashPermissions } =
 				initResult;
@@ -2816,7 +2777,6 @@ async function run(): Promise<CommanderCommand> {
 
 			// Print any warnings from initialization
 			warnings.forEach((warning) => {
-				// biome-ignore lint/suspicious/noConsole:: intentional console output
 				console.error(warning);
 			});
 			void assertMinVersion();
@@ -2869,8 +2829,8 @@ async function run(): Promise<CommanderCommand> {
 
 			// NOTE: We do NOT call prefetchAllMcpResources here - that's deferred until after trust dialog
 			// Extract format options via options object (bare variable access hangs in Bun runtime)
-			const inputFormat = (options as any).inputFormat as string | undefined;
-			const outputFormat = (options as any).outputFormat as string | undefined;
+			const inputFormat = (options as { inputFormat?: string }).inputFormat as string | undefined;
+			const outputFormat = (options as { outputFormat?: string }).outputFormat as string | undefined;
 
 			// Inline validation
 			if (
@@ -2932,7 +2892,6 @@ async function run(): Promise<CommanderCommand> {
 			// The later REPL-path maybeActivateProactive() calls are idempotent.
 			maybeActivateProactive(options);
 			let tools = getTools(toolPermissionContext);
-			// biome-ignore lint/suspicious/noConsole:: intentional debug
 
 			// Apply coordinator mode tool filtering for headless path
 			// (mirrors useMergedTools.ts filtering for REPL/interactive path)
@@ -3031,9 +2990,7 @@ async function run(): Promise<CommanderCommand> {
 			agentDefsPromise?.catch((e) => {
 				agentDefsError = e;
 			});
-			// biome-ignore lint/suspicious/noConsole:: intentional debug
 			await setupPromise;
-			// biome-ignore lint/suspicious/noConsole:: intentional debug
 			logForDebugging(
 				`[STARTUP] setup() completed in ${Date.now() - setupStart}ms`,
 			);
@@ -3440,9 +3397,7 @@ async function run(): Promise<CommanderCommand> {
 					installAsciicastRecorder();
 				}
 				const { createRoot } = await import("./ink.js");
-				// biome-ignore lint/suspicious/noConsole:: intentional debug
 				root = await createRoot(ctx.renderOptions);
-				// biome-ignore lint/suspicious/noConsole:: intentional debug
 				// Log startup time now, before any blocking dialog renders. Logging
 				// from REPL's first render (the old location) included however long
 				// the user sat on trust/OAuth/onboarding/resume-picker — p99 was ~70s
@@ -3477,7 +3432,7 @@ async function run(): Promise<CommanderCommand> {
 					const agentDef = mainThreadAgentDefinition;
 					const choice = await launchSnapshotUpdateDialog(root, {
 						agentType: agentDef.agentType,
-						scope: agentDef.memory!,
+						scope: agentDef.memory,
 						snapshotTimestamp:
 							agentDef.pendingSnapshotUpdate?.snapshotTimestamp,
 					});
@@ -3487,7 +3442,7 @@ async function run(): Promise<CommanderCommand> {
 						);
 						const mergePrompt = buildMergePrompt(
 							agentDef.agentType,
-							agentDef.memory!,
+							agentDef.memory,
 						);
 						inputPrompt = inputPrompt
 							? `${mergePrompt}\n\n${inputPrompt}`
@@ -4872,7 +4827,7 @@ async function run(): Promise<CommanderCommand> {
 						});
 						if (matches.length === 1) {
 							// Exact match found - store full LogOption for cross-worktree resume
-							matchedLog = matches[0]!;
+							matchedLog = matches[0];
 							maybeSessionId = getSessionIdFromLog(matchedLog) ?? null;
 						} else {
 							// No match or multiple matches - use as search term for picker

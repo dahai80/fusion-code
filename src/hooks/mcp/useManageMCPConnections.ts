@@ -746,9 +746,10 @@ export function useManageMCPConnections(
 												fetchMcpSkillsForClient?.(client.name), // log: pass server name string instead of ConnectedMCPServer
 											]);
 										updateServer({
-											...client,
-											resources: newResources,
-											commands: [...mcpPrompts, ...(mcpSkills as any[])], // log: cast (Command|MCPSkill)[] to Command[]
+										 ...client,
+										 resources: newResources,
+										 // biome-ignore lint/suspicious/noExplicitAny: (Command|MCPSkill)[] 结构兼容但类型名不同, 定向透传给下层命令注册
+										 commands: [...mcpPrompts, ...(mcpSkills as any[])],
 										});
 										// MCP skills changed — invalidate skill-search index so
 										// next discovery rebuilds with the new set.

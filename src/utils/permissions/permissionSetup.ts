@@ -881,14 +881,12 @@ export async function initializeToolPermissionContext({
 	dangerousPermissions: DangerousPermissionInfo[];
 	overlyBroadBashPermissions: DangerousPermissionInfo[];
 }> {
-	// biome-ignore lint/suspicious/noConsole:: intentional debug
 	// Parse comma-separated allowed and disallowed tools if provided
 	// Normalize legacy tool names (e.g., 'Task' → 'Agent') so that in-memory
 	// rule removal in stripDangerousPermissionsForAutoMode matches correctly.
 	const parsedAllowedToolsCli = parseToolListFromCLI(allowedToolsCli).map(
 		(rule) => permissionRuleValueToString(permissionRuleValueFromString(rule)),
 	);
-	// biome-ignore lint/suspicious/noConsole:: intentional debug
 	let parsedDisallowedToolsCli = parseToolListFromCLI(disallowedToolsCli);
 
 	// If base tools are specified, automatically deny all tools NOT in the base set
@@ -947,10 +945,7 @@ export async function initializeToolPermissionContext({
 		!settingsDisableBypassPermissionsMode;
 
 	// Load all permission rules from disk
-	// biome-ignore lint/suspicious/noConsole:: intentional debug
 	const rulesFromDisk = loadAllPermissionRulesFromDisk();
-	// biome-ignore lint/suspicious/noConsole:: intentional debug
-	// biome-ignore lint/suspicious/noConsole:: intentional debug
 
 	// Ant-only: Detect overly broad shell allow rules for all modes.
 	// Bash(*) or PowerShell(*) are equivalent to YOLO mode for that shell.
@@ -994,8 +989,6 @@ export async function initializeToolPermissionContext({
 		},
 		rulesFromDisk,
 	);
-	// biome-ignore lint/suspicious/noConsole:: intentional debug
-	// biome-ignore lint/suspicious/noConsole:: intentional debug
 
 	// Add directories from settings and --add-dir
 	const allAdditionalDirectories = [
@@ -1012,7 +1005,6 @@ export async function initializeToolPermissionContext({
 			validateDirectoryForWorkspace(dir, toolPermissionContext),
 		),
 	);
-	// biome-ignore lint/suspicious/noConsole:: intentional debug
 	for (const result of validationResults) {
 		if (result.resultType === "success") {
 			toolPermissionContext = applyPermissionUpdate(toolPermissionContext, {

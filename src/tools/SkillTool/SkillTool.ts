@@ -989,7 +989,11 @@ async function executeRemoteSkill(
 	context: ToolUseContext,
 ): Promise<ToolResult<Output>> {
 	const { getDiscoveredRemoteSkill, loadRemoteSkill, logRemoteSkillLoaded } =
-		remoteSkillModules!;
+		remoteSkillModules;
+	// 内部不变量: 上层 feature 门控保证 call() 路径下 remoteSkillModules 非空
+	if (remoteSkillModules === undefined) {
+		throw new Error("Remote skill modules are unavailable in this build");
+	}
 
 	// validateInput already confirmed this slug is in session state, but we
 	// re-fetch here to get the URL. If it's somehow gone (e.g., state cleared

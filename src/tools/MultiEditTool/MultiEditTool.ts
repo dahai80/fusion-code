@@ -116,7 +116,7 @@ export const MultiEditTool = buildTool({
 	},
 	renderToolUseMessage(
 		{ edits }: MultiEditInput,
-		{ verbose }: { verbose: boolean },
+		{ verbose: _verbose }: { verbose: boolean },
 	) {
 		const files = [...new Set(edits.map((e) => e.file_path))];
 		return `${files.length} file${files.length > 1 ? "s" : ""}, ${edits.length} edit${edits.length > 1 ? "s" : ""}`;
@@ -124,7 +124,7 @@ export const MultiEditTool = buildTool({
 	renderToolResultMessage(
 		data: MultiEditOutput,
 		_progress: unknown[],
-		{ verbose }: { verbose: boolean },
+		{ verbose: _verbose }: { verbose: boolean },
 	) {
 		const succeeded = data.results.filter((r) => r.success).length;
 		const failed = data.results.filter((r) => !r.success).length;
@@ -247,7 +247,7 @@ export const MultiEditTool = buildTool({
 		input: MultiEditInput,
 		{
 			readFileState,
-			userModified,
+			userModified: _userModified,
 			updateFileHistoryState,
 			dynamicSkillDirTriggers,
 		},

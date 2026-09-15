@@ -167,7 +167,7 @@ class ChromeNativeHost {
 		this.server = createServer((socket) => this.handleMcpClient(socket));
 
 		await new Promise<void>((resolve, reject) => {
-			this.server?.listen(this.socketPath!, () => {
+			this.server?.listen(this.socketPath ?? "", () => {
 				log("Socket server listening for connections");
 				this.running = true;
 				resolve();
@@ -182,7 +182,7 @@ class ChromeNativeHost {
 		// Set permissions on Unix (after listen resolves so socket file exists)
 		if (platform() !== "win32") {
 			try {
-				await chmod(this.socketPath!, 0o600);
+				await chmod(this.socketPath ?? "", 0o600);
 				log("Socket permissions set to 0600");
 			} catch (e) {
 				log("Failed to set socket permissions:", e);

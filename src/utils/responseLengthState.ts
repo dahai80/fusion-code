@@ -32,9 +32,11 @@ export function applySetResponseLength(
 	if (setters.responseLengthRef.current > prev) {
 		const entries = setters.apiMetricsRef.current;
 		if (entries.length > 0) {
-			const lastEntry = entries.at(-1)!;
-			lastEntry.lastTokenTime = Date.now();
-			lastEntry.endResponseLength = setters.responseLengthRef.current;
+			const lastEntry = entries.at(-1);
+			if (lastEntry !== undefined) {
+				lastEntry.lastTokenTime = Date.now();
+				lastEntry.endResponseLength = setters.responseLengthRef.current;
+			}
 		}
 	}
 }

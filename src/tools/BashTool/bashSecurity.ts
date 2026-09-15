@@ -26,7 +26,7 @@ const COMMAND_SUBSTITUTION_PATTERNS = [
 		message: "Zsh equals expansion (=cmd)",
 	},
 	{ pattern: /\$\(/, message: "$() command substitution" },
-	{ pattern: /\$\{/, message: "${} parameter substitution" },
+	{ pattern: /\$\{/, message: "$" + "{} parameter substitution" },
 	{ pattern: /\$\[/, message: "$[] legacy arithmetic expansion" },
 	{ pattern: /~\[/, message: "Zsh-style parameter expansion" },
 	{ pattern: /\(e:/, message: "Zsh-style glob qualifiers" },
@@ -384,7 +384,8 @@ function isSafeHeredoc(command: string): boolean {
 		let closeParenColIdx = -1; // Column index of `)` on that line
 
 		for (let i = 0; i < bodyLines.length; i++) {
-			const rawLine = bodyLines[i]!;
+			const rawLine = bodyLines[i];
+			if (rawLine === undefined) continue;
 			const line = isDash ? rawLine.replace(/^\t*/, "") : rawLine;
 
 			// Form 1: delimiter alone on a line
@@ -545,7 +546,8 @@ export function stripSafeHeredocSubstitutions(command: string): string | null {
 		const bodyStart = operatorEnd + openLineEnd + 1;
 		const bodyLines = command.slice(bodyStart).split("\n");
 		for (let i = 0; i < bodyLines.length; i++) {
-			const rawLine = bodyLines[i]!;
+			const rawLine = bodyLines[i];
+			if (rawLine === undefined) continue;
 			const line = isDash ? rawLine.replace(/^\t*/, "") : rawLine;
 			if (line.startsWith(delimiter)) {
 				const after = line.slice(delimiter.length);
@@ -574,7 +576,8 @@ export function stripSafeHeredocSubstitutions(command: string): string | null {
 	}
 	if (!found) return null;
 	for (let i = ranges.length - 1; i >= 0; i--) {
-		const r = ranges[i]!;
+		const r = ranges[i];
+		if (r === undefined) continue;
 		result = result.slice(0, r.start) + result.slice(r.end);
 	}
 	return result;
@@ -1329,7 +1332,9 @@ function validateObfuscatedFlags(context: ValidationContext): PermissionResult {
 
 			// Collect content inside the quote
 			while (j < originalCommand.length && originalCommand[j] !== quoteChar) {
-				insideQuote += originalCommand[j]!;
+				const qc = originalCommand[j];
+				if (qc === undefined) break;
+				insideQuote += qc;
 				j++;
 			}
 
@@ -1376,11 +1381,12 @@ function validateObfuscatedFlags(context: ValidationContext): PermissionResult {
 					let pos = j + 1; // Start at charAfterQuote (an opening quote)
 					let combinedContent = insideQuote; // Track what the shell will see
 					while (
-						pos < originalCommand.length &&
-						/['"`]/.test(originalCommand[pos]!)
+					 pos < originalCommand.length &&
+					 /['"`]/.test(originalCommand[pos] ?? "")
 					) {
-						const segQuote = originalCommand[pos]!;
-						let end = pos + 1;
+					 const segQuote = originalCommand[pos];
+					 if (segQuote === undefined) break;
+					 let end = pos + 1;
 						while (
 							end < originalCommand.length &&
 							originalCommand[end] !== segQuote
@@ -1411,14 +1417,14 @@ function validateObfuscatedFlags(context: ValidationContext): PermissionResult {
 					}
 					// Also check the unquoted char at the end of the chain
 					if (
-						pos < originalCommand.length &&
-						FLAG_CONTINUATION_CHARS.test(originalCommand[pos]!)
+					 pos < originalCommand.length &&
+					 FLAG_CONTINUATION_CHARS.test(originalCommand[pos] ?? "")
 					) {
-						// If we have dashes in combined content, the trailing char completes a flag
-						if (/^-+$/.test(combinedContent) || combinedContent === "") {
-							// Check if we're about to form a flag with the following content
-							const nextChar = originalCommand[pos]!;
-							if (nextChar === "-") {
+					 // If we have dashes in combined content, the trailing char completes a flag
+					 if (/^-+$/.test(combinedContent) || combinedContent === "") {
+					  // Check if we're about to form a flag with the following content
+					  const nextChar = originalCommand[pos];
+					  if (nextChar === "-") {
 								// More dashes, could still form a flag
 								return true;
 							}

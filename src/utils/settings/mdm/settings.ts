@@ -231,10 +231,13 @@ function consumeRawReadResult(raw: RawReadResult): {
 } {
 	// macOS: plist result (first source wins — already filtered in mdmRawRead)
 	if (raw.plistStdouts && raw.plistStdouts.length > 0) {
-		const { stdout, label } = raw.plistStdouts[0]!;
-		const result = parseCommandOutputAsSettings(stdout, label);
-		if (Object.keys(result.settings).length > 0) {
-			return { mdm: result, hkcu: EMPTY_RESULT };
+		const first = raw.plistStdouts[0];
+		if (first !== undefined) {
+			const { stdout, label } = first;
+			const result = parseCommandOutputAsSettings(stdout, label);
+			if (Object.keys(result.settings).length > 0) {
+				return { mdm: result, hkcu: EMPTY_RESULT };
+			}
 		}
 	}
 

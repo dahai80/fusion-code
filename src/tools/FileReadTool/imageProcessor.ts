@@ -54,7 +54,6 @@ export async function getImageProcessor(): Promise<SharpFunction> {
 			return sharp;
 		} catch {
 			// Fall back to sharp if native module is not available
-			// biome-ignore lint/suspicious/noConsole: intentional warning
 			console.warn(
 				"Native image processor not available, falling back to sharp",
 			);

@@ -103,7 +103,12 @@ export function isExternalPermissionMode(
 }
 
 function getModeConfig(mode: PermissionMode): PermissionModeConfig {
-	return PERMISSION_MODE_CONFIG[mode] ?? PERMISSION_MODE_CONFIG.default!;
+	const config = PERMISSION_MODE_CONFIG[mode] ?? PERMISSION_MODE_CONFIG.default;
+	// PERMISSION_MODE_CONFIG 恒含 default 配置; 防御性抛错
+	if (config === undefined) {
+		throw new Error(`Unknown permission mode: ${mode}`);
+	}
+	return config;
 }
 
 export function toExternalPermissionMode(

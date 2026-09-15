@@ -82,7 +82,8 @@ export function parseSedEditCommand(command: string): SedEditInfo | null {
 
 	let i = 0;
 	while (i < args.length) {
-		const arg = args[i]!;
+		const arg = args[i];
+		if (arg === undefined) break;
 
 		// Handle -i flag (with or without backup suffix)
 		if (arg === "-i" || arg === "--in-place") {
@@ -123,7 +124,7 @@ export function parseSedEditCommand(command: string): SedEditInfo | null {
 			if (i + 1 < args.length && typeof args[i + 1] === "string") {
 				// Only support single expression
 				if (expression !== null) return null;
-				expression = args[i + 1]!;
+				expression = args[i + 1] ?? null;
 				i += 2;
 				continue;
 			}
@@ -179,7 +180,8 @@ export function parseSedEditCommand(command: string): SedEditInfo | null {
 	let j = 0;
 
 	while (j < rest.length) {
-		const char = rest[j]!;
+		const char = rest[j];
+		if (char === undefined) break;
 
 		if (char === "\\" && j + 1 < rest.length) {
 			// Escaped character

@@ -158,7 +158,6 @@ const isHardFailMode = memoize((): boolean => {
 export function logError(error: unknown): void {
 	const err = toError(error);
 	if (feature("HARD_FAIL") && isHardFailMode()) {
-		// biome-ignore lint/suspicious/noConsole:: intentional crash output
 		console.error(
 			"[HARD FAIL] logError called with:",
 			err.stack || err.message,
@@ -291,13 +290,13 @@ function parseISOString(s: string): Date {
 	const b = s.split(/\D+/);
 	return new Date(
 		Date.UTC(
-			parseInt(b[0]!, 10),
-			parseInt(b[1]!, 10) - 1,
-			parseInt(b[2]!, 10),
-			parseInt(b[3]!, 10),
-			parseInt(b[4]!, 10),
-			parseInt(b[5]!, 10),
-			parseInt(b[6]!, 10),
+			parseInt(b[0] ?? "0", 10),
+			parseInt(b[1] ?? "0", 10) - 1,
+			parseInt(b[2] ?? "0", 10),
+			parseInt(b[3] ?? "0", 10),
+			parseInt(b[4] ?? "0", 10),
+			parseInt(b[5] ?? "0", 10),
+			parseInt(b[6] ?? "0", 10),
 		),
 	);
 }

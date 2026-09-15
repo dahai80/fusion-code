@@ -534,7 +534,7 @@ export function detectBlockedSleepPattern(command: string): string | null {
 	// Float durations (sleep 0.5) are allowed — those are legit pacing, not polls.
 	const m = /^sleep\s+(\d+)\s*$/.exec(first);
 	if (!m) return null;
-	const secs = parseInt(m[1]!, 10);
+	const secs = parseInt(m[1] ?? "0", 10);
 	if (secs < 2) return null; // sub-2s sleeps are fine (rate limiting, pacing)
 
 	// `sleep N` alone → "what are you waiting for?"

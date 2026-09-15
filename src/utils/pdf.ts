@@ -130,7 +130,7 @@ export async function getPDFPageCount(
 	if (!match) {
 		return null;
 	}
-	const count = parseInt(match[1]!, 10);
+	const count = parseInt(match[1] ?? "0", 10);
 	return Number.isNaN(count) ? null : count;
 }
 

@@ -55,7 +55,7 @@ function extractHost(urlOrSpec: string): string {
 	let host: string;
 	const scpMatch = /^[^@/]+@([^:/]+):/.exec(urlOrSpec);
 	if (scpMatch) {
-		host = scpMatch[1]!;
+		host = scpMatch[1] ?? "";
 	} else {
 		try {
 			host = new URL(urlOrSpec).hostname;

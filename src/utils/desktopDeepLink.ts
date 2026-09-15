@@ -113,11 +113,13 @@ async function getDesktopVersion(): Promise<string | null> {
 				.map((e) => e.slice(4))
 				.filter((v) => semverCoerce(v) !== null)
 				.sort((a, b) => {
-					const ca = semverCoerce(a)!;
-					const cb = semverCoerce(b)!;
+					const ca = semverCoerce(a);
+					const cb = semverCoerce(b);
+					if (ca === null || cb === null) return 0;
 					return ca.compare(cb);
 				});
-			return versions.length > 0 ? versions[versions.length - 1]! : null;
+			const last = versions[versions.length - 1];
+			return versions.length > 0 && last !== undefined ? last : null;
 		} catch {
 			return null;
 		}

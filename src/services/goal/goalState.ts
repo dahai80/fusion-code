@@ -297,7 +297,9 @@ export function reorderQueue(
 	const idSet = new Set(orderedIds);
 	if (goals.some((g) => !idSet.has(g.id))) return null;
 	const goalMap = new Map(goals.map((g) => [g.id, g]));
-	const reordered = orderedIds.map((id) => goalMap.get(id)!);
+	const reordered = orderedIds
+		.map((id) => goalMap.get(id))
+		.filter((g): g is NonNullable<typeof g> => g !== undefined);
 	saveGoals(sessionId, reordered);
 	logForDebugging(`[GoalState] Reordered goal queue`);
 	return reordered;

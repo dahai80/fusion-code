@@ -161,7 +161,8 @@ export class FirstPartyCapabilityProvider implements LlmCapability {
 	maxOutputTokens(): number {
 		for (const key of Object.keys(FIRSTPARTY_MAX_OUTPUT)) {
 			if (this.canonical.includes(key)) {
-				return FIRSTPARTY_MAX_OUTPUT[key]!;
+				const value = FIRSTPARTY_MAX_OUTPUT[key];
+				if (value !== undefined) return value;
 			}
 		}
 		return DEFAULT_MAX_OUTPUT;

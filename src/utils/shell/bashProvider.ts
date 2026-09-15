@@ -114,10 +114,10 @@ export async function createBashShellProvider(
 			// On non-Windows these are identical; on Windows, Git Bash needs POSIX paths
 			// but Node.js needs native Windows paths for file operations.
 			const shellCwdFilePath = opts.useSandbox
-				? posixJoin(opts.sandboxTmpDir!, `cwd-${opts.id}`)
+				? posixJoin(opts.sandboxTmpDir ?? "", `cwd-${opts.id}`)
 				: posixJoin(shellTmpdir, `claude-${opts.id}-cwd`);
 			const cwdFilePath = opts.useSandbox
-				? posixJoin(opts.sandboxTmpDir!, `cwd-${opts.id}`)
+				? posixJoin(opts.sandboxTmpDir ?? "", `cwd-${opts.id}`)
 				: nativeJoin(tmpdir, `claude-${opts.id}-cwd`);
 
 			// Defensive rewrite: the model sometimes emits Windows CMD-style `2>nul`

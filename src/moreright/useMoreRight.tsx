@@ -4,7 +4,7 @@
 // scripts/external-stubs/src/moreright/ before overlay, where ../types/
 // would resolve to scripts/external-stubs/src/types/ (doesn't exist).
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
+// biome-ignore lint/suspicious/noExplicitAny: 外部构建存根 — 自包含文件不能引用内部类型, M 即 Message 的泛化占位
 type M = any;
 export function useMoreRight(_args: {
 	enabled: boolean;

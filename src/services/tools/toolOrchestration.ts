@@ -127,13 +127,17 @@ async function* runToolsSerially(
 		toolUseContext.setInProgressToolUseIDs((prev) =>
 			new Set(prev).add(toolUse.id),
 		);
+		const ownerMessage = assistantMessages.find((_) =>
+			_.message.content.some(
+				(_) => _.type === "tool_use" && _.id === toolUse.id,
+			),
+		);
+		if (ownerMessage === undefined) {
+			throw new Error(`No assistant message owns tool_use ${toolUse.id}`);
+		}
 		for await (const update of runToolUse(
 			toolUse,
-			assistantMessages.find((_) =>
-				_.message.content.some(
-					(_) => _.type === "tool_use" && _.id === toolUse.id,
-				),
-			)!,
+			ownerMessage,
 			canUseTool,
 			currentContext,
 		)) {
@@ -160,13 +164,17 @@ async function* runToolsConcurrently(
 			toolUseContext.setInProgressToolUseIDs((prev) =>
 				new Set(prev).add(toolUse.id),
 			);
+			const ownerMessage = assistantMessages.find((_) =>
+				_.message.content.some(
+					(_) => _.type === "tool_use" && _.id === toolUse.id,
+				),
+			);
+			if (ownerMessage === undefined) {
+				throw new Error(`No assistant message owns tool_use ${toolUse.id}`);
+			}
 			yield* runToolUse(
 				toolUse,
-				assistantMessages.find((_) =>
-					_.message.content.some(
-						(_) => _.type === "tool_use" && _.id === toolUse.id,
-					),
-				)!,
+				ownerMessage,
 				canUseTool,
 				toolUseContext,
 			);

@@ -254,7 +254,7 @@ export function detectBlockedSleepPattern(command: string): string | null {
 		first,
 	);
 	if (!m) return null;
-	const secs = parseInt(m[1]!, 10);
+	const secs = parseInt(m[1] ?? "0", 10);
 	if (secs < 2) return null; // sub-2s sleeps are fine (rate limiting, pacing)
 
 	const rest = command

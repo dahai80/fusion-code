@@ -25,7 +25,15 @@ export function assignTeammateColor(teammateId: string): AgentColorName {
 		return existing;
 	}
 
-	const color = AGENT_COLORS[colorIndex % AGENT_COLORS.length]!;
+	const palette = AGENT_COLORS;
+	// AGENT_COLORS 为非空静态常量; 防御性兜底到首色
+	const color =
+		palette.length > 0
+			? (palette[colorIndex % palette.length] ?? palette[0])
+			: undefined;
+	if (color === undefined) {
+		throw new Error("AGENT_COLORS must not be empty");
+	}
 	teammateColorAssignments.set(teammateId, color);
 	colorIndex++;
 

@@ -757,7 +757,6 @@ export function ExitPlanModePermissionRequest({
 		);
 		return () => setStickyFooter(null);
 		// onImagePaste/onRemoveImage are stable (useCallback/useRef-backed above)
-		// biome-ignore lint/correctness/useExhaustiveDependencies: onImagePaste 上游每次渲染重建，effect 不依赖其标识稳定性（内容经 ref 透传）
 	}, [
 		useStickyFooter,
 		setStickyFooter,

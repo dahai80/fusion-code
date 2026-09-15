@@ -78,7 +78,9 @@ export function parseConfigString(
 function parseKeyValue(line: string): { key: string; value: string } | null {
 	// Read key: alphanumeric + hyphen, starting with alpha
 	let i = 0;
-	while (i < line.length && isKeyChar(line[i]!)) {
+	while (i < line.length) {
+		const c = line[i];
+		if (c === undefined || !isKeyChar(c)) break;
 		i++;
 	}
 	if (i === 0) {
@@ -117,7 +119,8 @@ function parseValue(line: string, start: number): string {
 	let i = start;
 
 	while (i < line.length) {
-		const ch = line[i]!;
+		const ch = line[i];
+		if (ch === undefined) break;
 
 		// Inline comments outside quotes end the value
 		if (!inQuote && (ch === "#" || ch === ";")) {
@@ -131,7 +134,7 @@ function parseValue(line: string, start: number): string {
 		}
 
 		if (ch === "\\" && i + 1 < line.length) {
-			const next = line[i + 1]!;
+			const next = line[i + 1] ?? "";
 			if (inQuote) {
 				// Inside quotes: recognize escape sequences
 				switch (next) {
@@ -239,7 +242,7 @@ function matchesSectionHeader(
 	let foundSubsection = "";
 	while (i < line.length && line[i] !== '"') {
 		if (line[i] === "\\" && i + 1 < line.length) {
-			const next = line[i + 1]!;
+			const next = line[i + 1] ?? "";
 			if (next === "\\" || next === '"') {
 				foundSubsection += next;
 				i += 2;

@@ -207,7 +207,6 @@ async function getCommandPrefixImpl(
 						`${jsonStringify({ level: "warn", message })}\n`,
 					);
 				} else {
-					// biome-ignore lint/suspicious/noConsole: intentional warning
 					console.warn(chalk.yellow(`⚠️  ${message}`));
 				}
 			},

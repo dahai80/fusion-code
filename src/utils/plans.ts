@@ -43,9 +43,9 @@ export function getPlanSlug(sessionId?: SessionId): string {
 				break;
 			}
 		}
-		cache.set(id, slug!);
+		if (slug !== undefined) cache.set(id, slug);
 	}
-	return slug!;
+	return slug ?? null;
 }
 
 /**

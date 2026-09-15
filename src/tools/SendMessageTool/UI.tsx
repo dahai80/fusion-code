@@ -18,7 +18,7 @@ export function renderToolResultMessage(
 	content: SendMessageToolOutput | string,
 	_progressMessages: unknown,
 	{
-		verbose,
+		verbose: _verbose,
 	}: {
 		verbose: boolean;
 	},

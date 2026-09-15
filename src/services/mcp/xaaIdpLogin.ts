@@ -269,7 +269,7 @@ function jwtExp(jwt: string): number | undefined {
 	if (parts.length !== 3) return undefined;
 	try {
 		const payload = jsonParse(
-			Buffer.from(parts[1]!, "base64url").toString("utf-8"),
+			Buffer.from(parts[1] ?? "", "base64url").toString("utf-8"),
 		) as { exp?: number };
 		return typeof payload.exp === "number" ? payload.exp : undefined;
 	} catch {

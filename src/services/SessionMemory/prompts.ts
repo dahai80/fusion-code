@@ -205,9 +205,10 @@ function substituteVariables(
 	// Single-pass replacement avoids two bugs: (1) $ backreference corruption
 	// (replacer fn treats $ literally), and (2) double-substitution when user
 	// content happens to contain {{varName}} matching a later variable.
-	return template.replace(/\{\{(\w+)\}\}/g, (match, key: string) =>
-		Object.hasOwn(variables, key) ? variables[key]! : match,
-	);
+	return template.replace(/\{\{(\w+)\}\}/g, (match, key: string) => {
+		const value = variables[key];
+		return value === undefined ? match : String(value);
+	});
 }
 
 /**

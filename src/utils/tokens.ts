@@ -110,8 +110,10 @@ export function finalContextTokensFromLastResponse(
 				}
 			).iterations;
 			if (iterations && iterations.length > 0) {
-				const last = iterations.at(-1)!;
-				return last.input_tokens + last.output_tokens;
+				const last = iterations.at(-1);
+				if (last !== undefined) {
+					return last.input_tokens + last.output_tokens;
+				}
 			}
 			// No iterations → no server tool loop → top-level usage IS the final
 			// window. Match the iterations path's formula (input + output, no cache)

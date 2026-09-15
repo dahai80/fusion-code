@@ -77,7 +77,7 @@ function generateMainSessionTaskId(): string {
 	const bytes = randomBytes(8);
 	let id = "s";
 	for (let i = 0; i < 8; i++) {
-		id += TASK_ID_ALPHABET[bytes[i]! % TASK_ID_ALPHABET.length];
+		id += TASK_ID_ALPHABET[bytes[i] % TASK_ID_ALPHABET.length];
 	}
 	return id;
 }
@@ -189,7 +189,9 @@ export function completeMainSessionTask(
 			...task,
 			status: success ? "completed" : "failed",
 			endTime: Date.now(),
-			messages: task.messages?.length ? [task.messages.at(-1)!] : undefined,
+			messages: task.messages?.length
+				? [task.messages[task.messages.length - 1]]
+				: undefined,
 		};
 	});
 

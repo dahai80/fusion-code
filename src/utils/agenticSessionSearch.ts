@@ -293,7 +293,7 @@ Find the sessions that are most relevant to this query.`;
 		// Map indices back to logs (indices are relative to logsWithTranscripts)
 		const relevantLogs = relevantIndices
 			.filter((index) => index >= 0 && index < logsWithTranscripts.length)
-			.map((index) => logsWithTranscripts[index]!);
+			.map((index) => logsWithTranscripts[index]);
 
 		logForDebugging(
 			`Agentic search found ${relevantLogs.length} relevant sessions`,

@@ -194,7 +194,7 @@ function getTeammateCommand(): string {
 	if (process.env[TEAMMATE_COMMAND_ENV_VAR]) {
 		return process.env[TEAMMATE_COMMAND_ENV_VAR];
 	}
-	return isInBundledMode() ? process.execPath : process.argv[1]!;
+	return isInBundledMode() ? process.execPath : (process.argv[1] ?? "");
 }
 
 /**

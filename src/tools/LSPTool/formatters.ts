@@ -153,7 +153,8 @@ export function formatGoToDefinitionResult(
 			return "No definition found. This may occur if the cursor is not on a symbol, or if the definition is in an external library not indexed by the LSP server.";
 		}
 		if (validLocations.length === 1) {
-			return `Defined in ${formatLocation(validLocations[0]!, cwd)}`;
+			const loc = validLocations[0];
+			if (loc !== undefined) return `Defined in ${formatLocation(loc, cwd)}`;
 		}
 		const locationList = validLocations
 			.map((loc) => `  ${formatLocation(loc, cwd)}`)
@@ -195,7 +196,10 @@ export function formatFindReferencesResult(
 	}
 
 	if (validLocations.length === 1) {
-		return `Found 1 reference:\n  ${formatLocation(validLocations[0]!, cwd)}`;
+		const loc = validLocations[0];
+		if (loc !== undefined) {
+			return `Found 1 reference:\n  ${formatLocation(loc, cwd)}`;
+		}
 	}
 
 	// Group references by file
@@ -457,7 +461,10 @@ export function formatPrepareCallHierarchyResult(
 	}
 
 	if (result.length === 1) {
-		return `Call hierarchy item: ${formatCallHierarchyItem(result[0]!, cwd)}`;
+		const item = result[0];
+		if (item !== undefined) {
+			return `Call hierarchy item: ${formatCallHierarchyItem(item, cwd)}`;
+		}
 	}
 
 	const lines = [`Found ${result.length} call hierarchy items:`];

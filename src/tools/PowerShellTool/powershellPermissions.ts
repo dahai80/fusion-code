@@ -994,7 +994,7 @@ export async function powershellToolHasPermission(
 		// must also strip the `–Path:` prefix or NON_FS_PROVIDER_PATTERN won't
 		// match (pattern is `^(env|...):` which fails on `–Path:env:...`).
 		let s = arg;
-		if (s.length > 0 && PS_TOKENIZER_DASH_CHARS.has(s[0]!)) {
+		if (s.length > 0 && PS_TOKENIZER_DASH_CHARS.has(s[0] ?? "")) {
 			const colonIdx = s.indexOf(":", 1); // skip the leading dash
 			if (colonIdx > 0) {
 				s = s.substring(colonIdx + 1);
@@ -1403,7 +1403,7 @@ export async function powershellToolHasPermission(
 			// list — also correct. The risk is the inverse: a Unicode-dash parameter
 			// being treated as the positional target. Use the tokenizer dash set.
 			const target = element.args.find(
-				(a) => a.length === 0 || !PS_TOKENIZER_DASH_CHARS.has(a[0]!),
+				(a) => a.length === 0 || !PS_TOKENIZER_DASH_CHARS.has(a[0] ?? ""),
 			);
 			if (target && resolve(getCwd(), target) === getCwd()) {
 				return false;

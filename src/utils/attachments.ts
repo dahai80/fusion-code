@@ -2113,7 +2113,8 @@ export async function getChangedFiles(
 				const result = (await FileReadTool.call(
 					fileInput,
 					toolUseContext,
-				)) as any; // log: cast to resolve never inference
+					// biome-ignore lint/suspicious/noExplicitAny: overload 调用签名推断出 never, 用 any 承接后按结果定向
+				)) as any;
 				// Extract only the changed section
 				if (result.data.type === "text") {
 					const snippet = getSnippetForTwoFileDiff(
@@ -3186,7 +3187,8 @@ export async function generateFileAttachment(
 				const result = (await FileReadTool.call(
 					truncatedInput,
 					toolUseContext,
-				)) as any; // log: cast to any to resolve never inference
+					// biome-ignore lint/suspicious/noExplicitAny: overload 调用签名推断出 never, 用 any 承接后按结果定向
+				)) as any;
 				logEvent(successEventName, {});
 
 				return {
@@ -3212,7 +3214,8 @@ export async function generateFileAttachment(
 			const result = (await FileReadTool.call(
 				fileInput,
 				toolUseContext,
-			)) as any; // log: cast to resolve never inference
+				// biome-ignore lint/suspicious/noExplicitAny: overload 调用签名推断出 never, 用 any 承接后按结果定向
+			)) as any;
 			logEvent(successEventName, {});
 			return {
 				type: "file",
@@ -3520,7 +3523,7 @@ async function getAsyncHookResponseAttachments(): Promise<Attachment[]> {
 			hookName,
 			hookEvent,
 			toolName,
-			pluginId,
+			pluginId: _pluginId,
 			stdout,
 			stderr,
 			exitCode,

@@ -101,6 +101,7 @@ export class TreeSitterIndex {
 		durationMs: 0,
 	};
 	private _initialized = false;
+	// biome-ignore lint/suspicious/noExplicitAny: tree-sitter 语言绑定类型随 vendored 版本变动, 用 any 承接 Parser 实例
 	private parser: any = null;
 
 	constructor(rootDir: string) {

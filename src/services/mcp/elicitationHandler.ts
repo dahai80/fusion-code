@@ -194,7 +194,8 @@ export function registerElicitationHandler(
 					if (idx === -1) return prev;
 					found = true;
 					const queue = [...prev.elicitation.queue];
-					queue[idx] = { ...queue[idx]!, completed: true };
+					const item = queue[idx];
+					if (item !== undefined) queue[idx] = { ...item, completed: true };
 					return { ...prev, elicitation: { queue } };
 				});
 				if (!found) {

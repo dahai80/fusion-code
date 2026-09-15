@@ -16,7 +16,11 @@ export function getPerformance(): typeof PerformanceType {
 		// eslint-disable-next-line @typescript-eslint/no-require-imports
 		performance = require("node:perf_hooks").performance;
 	}
-	return performance!;
+	// performance 由全局或 require 初始化, 此处恒非空; 防御性抛错
+	if (performance === null) {
+		throw new Error("profiler: performance API unavailable");
+	}
+	return performance;
 }
 
 export function formatMs(ms: number): string {

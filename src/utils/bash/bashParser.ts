@@ -160,12 +160,14 @@ function advance(L: Lexer): void {
 }
 
 function peek(L: Lexer, off = 0): string {
-	return L.i + off < L.len ? L.src[L.i + off]! : "";
+	// off 偏移在边界内由调用方保证; 防御性兜底空串
+	const ch = L.i + off < L.len ? L.src[L.i + off] : "";
+	return ch === undefined ? "" : ch;
 }
 
 function byteAt(L: Lexer, charIdx: number): number {
 	// Fast path: ASCII-only prefix means char idx == byte idx
-	if (L.byteTable) return L.byteTable[charIdx]!;
+	if (L.byteTable) return L.byteTable[charIdx] ?? 0;
 	// Build table on first non-trivial lookup
 	const t = new Uint32Array(L.len + 1);
 	let b = 0;
@@ -190,7 +192,8 @@ function byteAt(L: Lexer, charIdx: number): number {
 	}
 	t[L.len] = b;
 	L.byteTable = t;
-	return t[charIdx]!;
+	// charIdx 必在 byteTable 构建范围内; 防御性兜底 0
+	return t[charIdx] ?? 0;
 }
 
 function isWordChar(c: string): boolean {
@@ -271,7 +274,8 @@ function isHeredocDelimChar(c: string): boolean {
 
 function skipBlanks(L: Lexer): void {
 	while (L.i < L.len) {
-		const c = L.src[L.i]!;
+		const c = L.src[L.i];
+		if (c === undefined) break;
 		if (c === " " || c === "\t" || c === "\r") {
 			// \r is whitespace per tree-sitter-bash extras /\s/ — handles CRLF inputs
 			advance(L);
@@ -304,7 +308,8 @@ function nextToken(L: Lexer, ctx: "cmd" | "arg" = "arg"): Token {
 	const start = L.b;
 	if (L.i >= L.len) return { type: "EOF", value: "", start, end: start };
 
-	const c = L.src[L.i]!;
+	const c = L.src[L.i];
+	if (c === undefined) return { type: "EOF", value: "", start, end: start };
 	const c1 = peek(L, 1);
 	const c2 = peek(L, 2);
 
@@ -534,8 +539,12 @@ function nextToken(L: Lexer, ctx: "cmd" | "arg" = "arg"): Token {
 	// File descriptor before redirect: digit+ immediately followed by > or <
 	if (isDigit(c)) {
 		let j = L.i;
-		while (j < L.len && isDigit(L.src[j]!)) j++;
-		const after = j < L.len ? L.src[j]! : "";
+		while (j < L.len) {
+			const dj = L.src[j];
+			if (dj === undefined || !isDigit(dj)) break;
+			j++;
+		}
+		const after = j < L.len ? (L.src[j] ?? "") : "";
 		if (after === ">" || after === "<") {
 			const si = L.i;
 			while (L.i < j) advance(L);
@@ -552,7 +561,8 @@ function nextToken(L: Lexer, ctx: "cmd" | "arg" = "arg"): Token {
 	if (isWordStart(c) || c === "{" || c === "}") {
 		const si = L.i;
 		while (L.i < L.len) {
-			const ch = L.src[L.i]!;
+			const ch = L.src[L.i];
+			if (ch === undefined) break;
 			if (ch === "\\") {
 				if (L.i + 1 >= L.len) {
 					// Trailing `\` at EOF — tree-sitter excludes it from the word and
@@ -679,13 +689,16 @@ function sliceBytes(P: ParseState, startByte: number, endByte: number): string {
 	// Find char indices for byte offsets. Build byte table if needed.
 	const L = P.L;
 	if (!L.byteTable) byteAt(L, 0);
-	const t = L.byteTable!;
+	const t = L.byteTable;
+	if (t === undefined) return P.src;
 	// Binary search for char index where byte offset matches
 	let lo = 0;
 	let hi = P.src.length;
 	while (lo < hi) {
 		const m = (lo + hi) >>> 1;
-		if (t[m]! < startByte) lo = m + 1;
+		const tm = t[m];
+		if (tm === undefined) break;
+		if (tm < startByte) lo = m + 1;
 		else hi = m;
 	}
 	const sc = lo;
@@ -693,7 +706,9 @@ function sliceBytes(P: ParseState, startByte: number, endByte: number): string {
 	hi = P.src.length;
 	while (lo < hi) {
 		const m = (lo + hi) >>> 1;
-		if (t[m]! < endByte) lo = m + 1;
+		const tm = t[m];
+		if (tm === undefined) break;
+		if (tm < endByte) lo = m + 1;
 		else hi = m;
 	}
 	return P.src.slice(sc, lo);
@@ -888,14 +903,16 @@ function parseAndOr(P: ParseState): TsNode | null {
 			}
 			// If right is a redirected_statement, hoist its redirects to wrap the list.
 			if (right.type === "redirected_statement" && right.children.length >= 2) {
-				const inner = right.children[0]!;
+				const inner = right.children[0];
+				if (inner === undefined) break;
 				const redirs = right.children.slice(1);
 				const listNode = mk(P, "list", left.startIndex, inner.endIndex, [
 					left,
 					op,
 					inner,
 				]);
-				const lastR = redirs[redirs.length - 1]!;
+				const lastR = redirs[redirs.length - 1];
+				if (lastR === undefined) break;
 				left = mk(
 					P,
 					"redirected_statement",
@@ -956,7 +973,8 @@ function parsePipeline(P: ParseState): TsNode | null {
 				next.children.length >= 2 &&
 				parts.length >= 1
 			) {
-				const inner = next.children[0]!;
+				const inner = next.children[0];
+				if (inner === undefined) break;
 				const redirs = next.children.slice(1);
 				// Wrap existing parts + op + inner as a pipeline
 				const pipeKids = [...parts, op, inner];
@@ -967,7 +985,8 @@ function parsePipeline(P: ParseState): TsNode | null {
 					inner.endIndex,
 					pipeKids,
 				);
-				const lastR = redirs[redirs.length - 1]!;
+				const lastR = redirs[redirs.length - 1];
+				if (lastR === undefined) break;
 				const wrapped = mk(
 					P,
 					"redirected_statement",
@@ -986,8 +1005,12 @@ function parsePipeline(P: ParseState): TsNode | null {
 			break;
 		}
 	}
-	if (parts.length === 1) return parts[0]!;
-	const last = parts[parts.length - 1]!;
+	if (parts.length === 1) {
+		const only = parts[0];
+		if (only !== undefined) return only;
+	}
+	const last = parts[parts.length - 1];
+	if (last === undefined) return null;
 	return mk(P, "pipeline", parts[0]?.startIndex, last.endIndex, parts);
 }
 
@@ -1013,13 +1036,15 @@ function parseCommand(P: ParseState): TsNode | null {
 		}
 		// If inner is a redirected_statement, hoist redirects outside negation
 		if (inner.type === "redirected_statement" && inner.children.length >= 2) {
-			const cmd = inner.children[0]!;
+			const cmd = inner.children[0];
+			if (cmd === undefined) return null;
 			const redirs = inner.children.slice(1);
 			const neg = mk(P, "negated_command", bang.startIndex, cmd.endIndex, [
 				bang,
 				cmd,
 			]);
-			const lastR = redirs[redirs.length - 1]!;
+			const lastR = redirs[redirs.length - 1];
+			if (lastR === undefined) return null;
 			return mk(P, "redirected_statement", neg.startIndex, lastR.endIndex, [
 				neg,
 				...redirs,
@@ -1176,11 +1201,13 @@ function parseSimpleCommand(P: ParseState): TsNode | null {
 		restoreLex(P.L, save);
 		// No command — standalone assignment(s) or redirect
 		if (assignments.length === 1 && preRedirects.length === 0) {
-			return assignments[0]!;
+			const only = assignments[0];
+			if (only !== undefined) return only;
 		}
 		if (preRedirects.length > 0 && assignments.length === 0) {
 			// Bare redirect → redirected_statement with just file_redirect children
-			const last = preRedirects[preRedirects.length - 1]!;
+			const last = preRedirects[preRedirects.length - 1];
+			if (last !== undefined) return last;
 			return mk(
 				P,
 				"redirected_statement",
@@ -1191,19 +1218,23 @@ function parseSimpleCommand(P: ParseState): TsNode | null {
 		}
 		if (assignments.length > 1 && preRedirects.length === 0) {
 			// `A=1 B=2` with no command → variable_assignments (plural)
-			const last = assignments[assignments.length - 1]!;
-			return mk(
-				P,
-				"variable_assignments",
-				assignments[0]?.startIndex,
-				last.endIndex,
-				assignments,
-			);
+			const last = assignments[assignments.length - 1];
+			if (last !== undefined) {
+				return mk(
+					P,
+					"variable_assignments",
+					assignments[0]?.startIndex,
+					last.endIndex,
+					assignments,
+				);
+			}
 		}
 		if (assignments.length > 0 || preRedirects.length > 0) {
 			const all = [...assignments, ...preRedirects];
-			const last = all[all.length - 1]!;
-			return mk(P, "command", start, last.endIndex, all);
+			const last = all[all.length - 1];
+			if (last !== undefined) {
+				return mk(P, "command", start, last.endIndex, all);
+			}
 		}
 		return null;
 	}
@@ -1233,7 +1264,8 @@ function parseSimpleCommand(P: ParseState): TsNode | null {
 				) {
 					bodyKids = body.children;
 				}
-				const last = bodyKids[bodyKids.length - 1]!;
+				const last = bodyKids[bodyKids.length - 1];
+				if (last === undefined) return null;
 				return mk(P, "function_definition", nm.startIndex, last.endIndex, [
 					nm,
 					oParen,
@@ -1247,7 +1279,10 @@ function parseSimpleCommand(P: ParseState): TsNode | null {
 
 	const nameArg = parseWord(P, "cmd");
 	if (!nameArg) {
-		if (assignments.length === 1) return assignments[0]!;
+		if (assignments.length === 1) {
+			const only = assignments[0];
+			if (only !== undefined) return only;
+		}
 		return null;
 	}
 
@@ -1393,11 +1428,13 @@ function parseSimpleCommand(P: ParseState): TsNode | null {
 	}
 
 	if (redirects.length > 0) {
-		const last = redirects[redirects.length - 1]!;
-		return mk(P, "redirected_statement", cmd.startIndex, last.endIndex, [
-			cmd,
-			...redirects,
-		]);
+		const last = redirects[redirects.length - 1];
+		if (last !== undefined) {
+			return mk(P, "redirected_statement", cmd.startIndex, last.endIndex, [
+				cmd,
+				...redirects,
+			]);
+		}
 	}
 
 	return cmd;
@@ -1421,7 +1458,8 @@ function maybeRedirect(
 		redirects.push(r);
 	}
 	if (redirects.length === 0) return node;
-	const last = redirects[redirects.length - 1]!;
+	const last = redirects[redirects.length - 1];
+	if (last === undefined) return node;
 	return mk(P, "redirected_statement", node.startIndex, last.endIndex, [
 		node,
 		...redirects,
@@ -1572,7 +1610,7 @@ function parseSubscriptIndex(
 		const vn = mk(P, "variable_name", startB + 1, endB, []);
 		return mk(P, "simple_expansion", startB, endB, [dollar, vn]);
 	}
-	if (text.length === 2 && text[0] === "$" && SPECIAL_VARS.has(text[1]!)) {
+	if (text.length === 2 && text[0] === "$" && SPECIAL_VARS.has(text[1] ?? "")) {
 		const dollar = mk(P, "$", startB, startB + 1, []);
 		const vn = mk(P, "special_variable_name", startB + 1, endB, []);
 		return mk(P, "simple_expansion", startB, endB, [dollar, vn]);
@@ -1599,8 +1637,12 @@ function isRedirectLiteralStart(P: ParseState): boolean {
 	// N< N> file descriptor prefix — starts a new redirect, not a literal
 	if (isDigit(c)) {
 		let j = P.L.i;
-		while (j < P.L.len && isDigit(P.L.src[j]!)) j++;
-		const after = j < P.L.len ? P.L.src[j]! : "";
+		while (j < P.L.len) {
+			const dj = P.L.src[j];
+			if (dj === undefined || !isDigit(dj)) break;
+			j++;
+		}
+		const after = j < P.L.len ? (P.L.src[j] ?? "") : "";
 		if (after === ">" || after === "<") return false;
 	}
 	// `}` only terminates if we're in a context where it's a closer — but
@@ -1628,8 +1670,12 @@ function tryParseRedirect(P: ParseState, greedy = false): TsNode | null {
 	if (isDigit(peek(P.L))) {
 		const startB = P.L.b;
 		let j = P.L.i;
-		while (j < P.L.len && isDigit(P.L.src[j]!)) j++;
-		const after = j < P.L.len ? P.L.src[j]! : "";
+		while (j < P.L.len) {
+			const dj = P.L.src[j];
+			if (dj === undefined || !isDigit(dj)) break;
+			j++;
+		}
+		const after = j < P.L.len ? (P.L.src[j] ?? "") : "";
 		if (after === ">" || after === "<") {
 			while (P.L.i < j) advance(P.L);
 			fd = mk(P, "file_descriptor", startB, P.L.b, []);
@@ -1750,7 +1796,8 @@ function tryParseRedirect(P: ParseState, greedy = false): TsNode | null {
 					break;
 				}
 				if (pipeCmds.length > 0) {
-					const pl = pipeCmds[pipeCmds.length - 1]!;
+					const pl = pipeCmds[pipeCmds.length - 1];
+					if (pl === undefined) break;
 					// tree-sitter always wraps in pipeline after `|`, even single command
 					kids.push(
 						mk(P, "pipeline", pipeCmds[0]?.startIndex, pl.endIndex, pipeCmds),
@@ -1988,12 +2035,15 @@ function parseHeredocBodyContent(
 
 function restoreLexToByte(P: ParseState, targetByte: number): void {
 	if (!P.L.byteTable) byteAt(P.L, 0);
-	const t = P.L.byteTable!;
+	const t = P.L.byteTable;
+	if (t === undefined) return;
 	let lo = 0;
 	let hi = P.src.length;
 	while (lo < hi) {
 		const m = (lo + hi) >>> 1;
-		if (t[m]! < targetByte) lo = m + 1;
+		const tm = t[m];
+		if (tm === undefined) break;
+		if (tm < targetByte) lo = m + 1;
 		else hi = m;
 	}
 	P.L.i = lo;
@@ -2153,10 +2203,14 @@ function parseWord(P: ParseState, _ctx: "cmd" | "arg"): TsNode | null {
 		parts.push(frag);
 	}
 	if (parts.length === 0) return null;
-	if (parts.length === 1) return parts[0]!;
+	if (parts.length === 1) {
+		const only = parts[0];
+		if (only !== undefined) return only;
+	}
 	// Concatenation
-	const first = parts[0]!;
-	const last = parts[parts.length - 1]!;
+	const first = parts[0];
+	const last = parts[parts.length - 1];
+	if (first === undefined || last === undefined) return null;
 	return mk(P, "concatenation", first.startIndex, last.endIndex, parts);
 }
 
@@ -2783,8 +2837,12 @@ function parseExpansionBody(P: ParseState): TsNode[] {
 						repl.children.length === 2 &&
 						repl.children[0]?.type === "command_substitution"
 					) {
-						out.push(repl.children[0]!);
-						out.push(repl.children[1]!);
+						const c0 = repl.children[0];
+						const c1 = repl.children[1];
+						if (c0 !== undefined && c1 !== undefined) {
+							out.push(c0);
+							out.push(c1);
+						}
 					} else {
 						out.push(repl);
 					}
@@ -3023,10 +3081,14 @@ function parseExpansionRest(
 		parts.shift();
 	}
 	if (parts.length === 0) return null;
-	if (parts.length === 1) return parts[0]!;
+	if (parts.length === 1) {
+		const only = parts[0];
+		if (only !== undefined) return only;
+	}
 	// Multiple parts: wrap in concatenation (word mode keeps concat wrapping;
 	// regex mode also concats per tree-sitter for mixed quote+glob patterns).
-	const last = parts[parts.length - 1]!;
+	const last = parts[parts.length - 1];
+	if (last === undefined) return null;
 	return mk(P, "concatenation", parts[0]?.startIndex, last.endIndex, parts);
 }
 
@@ -3167,14 +3229,16 @@ function parseIf(P: ParseState, ifTok: Token): TsNode {
 			consumeKeyword(P, "then", eKids);
 			const eBody = parseStatements(P, null);
 			eKids.push(...eBody);
-			const last = eKids[eKids.length - 1]!;
+			const last = eKids[eKids.length - 1];
+			if (last === undefined) break;
 			kids.push(mk(P, "elif_clause", eKw.startIndex, last.endIndex, eKids));
 		} else if (t.type === "WORD" && t.value === "else") {
 			const elKw = leaf(P, "else", t);
 			const elBody = parseStatements(P, null);
-			const last = elBody.length > 0 ? elBody[elBody.length - 1]! : elKw;
+			const last =
+				elBody.length > 0 ? elBody[elBody.length - 1] : undefined;
 			kids.push(
-				mk(P, "else_clause", elKw.startIndex, last.endIndex, [elKw, ...elBody]),
+				mk(P, "else_clause", elKw.startIndex, last?.endIndex ?? elKw.endIndex, [elKw, ...elBody]),
 			);
 		} else {
 			restoreLex(P.L, save);
@@ -3182,7 +3246,8 @@ function parseIf(P: ParseState, ifTok: Token): TsNode {
 		}
 	}
 	consumeKeyword(P, "fi", kids);
-	const last = kids[kids.length - 1]!;
+	const last = kids[kids.length - 1];
+	if (last === undefined) return null;
 	return mk(P, "if_statement", ifKw.startIndex, last.endIndex, kids);
 }
 
@@ -3193,7 +3258,8 @@ function parseWhile(P: ParseState, kwTok: Token): TsNode {
 	kids.push(...cond);
 	const dg = parseDoGroup(P);
 	if (dg) kids.push(dg);
-	const last = kids[kids.length - 1]!;
+	const last = kids[kids.length - 1];
+	if (last === undefined) return null;
 	return mk(P, "while_statement", kw.startIndex, last.endIndex, kids);
 }
 
@@ -3266,7 +3332,8 @@ function parseFor(P: ParseState, forTok: Token): TsNode {
 				);
 			}
 		}
-		const last = kids[kids.length - 1]!;
+		const last = kids[kids.length - 1];
+		if (last === undefined) return null;
 		return mk(
 			P,
 			"c_style_for_statement",
@@ -3305,7 +3372,8 @@ function parseFor(P: ParseState, forTok: Token): TsNode {
 	}
 	const dg = parseDoGroup(P);
 	if (dg) kids.push(dg);
-	const last = kids[kids.length - 1]!;
+	const last = kids[kids.length - 1];
+	if (last === undefined) return null;
 	return mk(P, "for_statement", forKw.startIndex, last.endIndex, kids);
 }
 
@@ -3321,7 +3389,8 @@ function parseDoGroup(P: ParseState): TsNode | null {
 	const body = parseStatements(P, null);
 	const kids: TsNode[] = [doKw, ...body];
 	consumeKeyword(P, "done", kids);
-	const last = kids[kids.length - 1]!;
+	const last = kids[kids.length - 1];
+	if (last === undefined) return null;
 	return mk(P, "do_group", doKw.startIndex, last.endIndex, kids);
 }
 
@@ -3349,7 +3418,8 @@ function parseCase(P: ParseState, caseTok: Token): TsNode {
 		if (!item) break;
 		kids.push(item);
 	}
-	const last = kids[kids.length - 1]!;
+	const last = kids[kids.length - 1];
+	if (last === undefined) return null;
 	return mk(P, "case_statement", caseKw.startIndex, last.endIndex, kids);
 }
 
@@ -3380,11 +3450,13 @@ function parseCaseItem(P: ParseState): TsNode | null {
 					? mk(P, "word", p.startIndex, p.endIndex, [])
 					: p,
 			);
-			const first = rewritten[0]!;
-			const last = rewritten[rewritten.length - 1]!;
-			kids.push(
-				mk(P, "concatenation", first.startIndex, last.endIndex, rewritten),
-			);
+			const first = rewritten[0];
+			const last = rewritten[rewritten.length - 1];
+			if (first !== undefined && last !== undefined) {
+				kids.push(
+					mk(P, "concatenation", first.startIndex, last.endIndex, rewritten),
+				);
+			}
 		} else {
 			kids.push(...pats);
 		}
@@ -3432,15 +3504,16 @@ function parseCaseItem(P: ParseState): TsNode | null {
 	// `-o) owner=$2 ;;` (has body) → extglob_pattern; `-g) ;;` (empty) → word.
 	if (body.length === 0) {
 		for (let i = 0; i < kids.length; i++) {
-			const k = kids[i]!;
-			if (k.type !== "extglob_pattern") continue;
+			const k = kids[i];
+			if (k === undefined || k.type !== "extglob_pattern") continue;
 			const text = sliceBytes(P, k.startIndex, k.endIndex);
 			if (/^[-+?*@!][a-zA-Z]/.test(text) && !/[*?(]/.test(text)) {
 				kids[i] = mk(P, "word", k.startIndex, k.endIndex, []);
 			}
 		}
 	}
-	const last = kids[kids.length - 1]!;
+	const last = kids[kids.length - 1];
+	if (last === undefined) return null;
 	return mk(P, "case_item", start, last.endIndex, kids);
 }
 
@@ -3597,7 +3670,8 @@ function parseFunction(P: ParseState, fnTok: Token): TsNode {
 			kids.push(body);
 		}
 	}
-	const last = kids[kids.length - 1]!;
+	const last = kids[kids.length - 1];
+	if (last === undefined) return null;
 	return mk(P, "function_definition", fnKw.startIndex, last.endIndex, kids);
 }
 
@@ -3649,7 +3723,8 @@ function parseDeclaration(P: ParseState, kwTok: Token): TsNode {
 			break;
 		}
 	}
-	const last = kids[kids.length - 1]!;
+	const last = kids[kids.length - 1];
+	if (last === undefined) return null;
 	return mk(P, "declaration_command", kw.startIndex, last.endIndex, kids);
 }
 
@@ -3687,7 +3762,8 @@ function parseUnset(P: ParseState, kwTok: Token): TsNode {
 			kids.push(arg);
 		}
 	}
-	const last = kids[kids.length - 1]!;
+	const last = kids[kids.length - 1];
+	if (last === undefined) return null;
 	return mk(P, "unset_command", kw.startIndex, last.endIndex, kids);
 }
 
@@ -3921,7 +3997,8 @@ function parseTestBinary(P: ParseState, closer: string): TsNode | null {
 		if (opText === "==" || opText === "!=") {
 			const parts = parseTestExtglobRhs(P);
 			if (parts.length === 0) return left;
-			const last = parts[parts.length - 1]!;
+			const last = parts[parts.length - 1];
+			if (last === undefined) return left;
 			return mk(P, "binary_expression", left.startIndex, last.endIndex, [
 				left,
 				op,

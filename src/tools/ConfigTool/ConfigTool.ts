@@ -129,7 +129,12 @@ export const ConfigTool = buildTool({
 			};
 		}
 
-		const config = getConfig(setting)!;
+		const config = getConfig(setting);
+		if (config === undefined) {
+			return {
+				data: { success: false, error: `Invalid setting: "${setting}"` },
+			};
+		}
 		const path = getPath(setting);
 
 		// 2. GET operation
@@ -468,7 +473,8 @@ function buildNestedObject(
 	if (path.length === 0) {
 		return {};
 	}
-	const key = path[0]!;
+	const key = path[0];
+	if (key === undefined) return {};
 	if (path.length === 1) {
 		return { [key]: value };
 	}

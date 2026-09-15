@@ -794,12 +794,12 @@ export function transformMLXResponseToAnthropic(mlxResponse: {
 	// Qwen3 thinking mode: reasoning_content is the thinking block, separate from content
 	const reasoningContent =
 		choice.message.reasoning_content ||
-		(choice.message as any).reasoning_content;
+		(choice.message as { reasoning_content?: string }).reasoning_content;
 	if (reasoningContent) {
 		content.push({
 			type: "thinking",
 			thinking: reasoningContent,
-		} as any);
+		} as unknown as AnthropicNonStreamingResponse["content"][number]);
 	}
 
 	const rawContent = choice.message.content || "";

@@ -61,8 +61,10 @@ export function generateExtensionId(
 			.replace(/-+/g, "-")
 			.replace(/^-+|-+$/g, "");
 
-	const authorName = (manifest as any).author.name; // log: cast for nested access
-	const extensionName = (manifest as any).name; // log: cast for property access
+	// biome-ignore lint/suspicious/noExplicitAny: manifest 来自 zip 内 JSON, 结构宽松, 仅读取 author/name 两字段
+	const authorName = (manifest as any).author.name;
+	// biome-ignore lint/suspicious/noExplicitAny: manifest 来自 zip 内 JSON, 结构宽松, 仅读取 author/name 两字段
+	const extensionName = (manifest as any).name;
 
 	const sanitizedAuthor = sanitize(authorName);
 	const sanitizedName = sanitize(extensionName);

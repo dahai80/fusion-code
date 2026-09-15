@@ -47,8 +47,9 @@ function runCommand(
 			stdio: ["pipe", "pipe", "pipe"],
 		});
 		return { exitCode: 0, stdout, stderr: "", timedOut: false };
-	} catch (err: any) {
-		if (err.killed) {
+	} catch (err: unknown) {
+		const killed = (err as { killed?: boolean }).killed;
+		if (killed) {
 			return {
 				exitCode: null,
 				stdout: "",
@@ -57,9 +58,9 @@ function runCommand(
 			};
 		}
 		return {
-			exitCode: err.status ?? 1,
-			stdout: err.stdout ?? "",
-			stderr: err.stderr ?? "",
+			exitCode: (err as { status?: number }).status ?? 1,
+			stdout: (err as { stdout?: string }).stdout ?? "",
+			stderr: (err as { stderr?: string }).stderr ?? "",
 			timedOut: false,
 		};
 	}

@@ -146,8 +146,10 @@ function deduplicateDiagnosticFiles(
 			dedupedFiles.push({ uri: file.uri, diagnostics: [] });
 		}
 
-		const seenDiagnostics = fileMap.get(file.uri)!;
-		const dedupedFile = dedupedFiles.find((f) => f.uri === file.uri)!;
+		const seenDiagnostics = fileMap.get(file.uri);
+		if (seenDiagnostics === undefined) continue;
+		const dedupedFile = dedupedFiles.find((f) => f.uri === file.uri);
+		if (dedupedFile === undefined) continue;
 
 		// Get previously delivered diagnostics for this file (for cross-turn dedup)
 		const previouslyDelivered = deliveredDiagnostics.get(file.uri) || new Set();
@@ -294,7 +296,8 @@ export function checkForLSPDiagnostics(): Array<{
 		if (!deliveredDiagnostics.has(file.uri)) {
 			deliveredDiagnostics.set(file.uri, new Set());
 		}
-		const delivered = deliveredDiagnostics.get(file.uri)!;
+		const delivered = deliveredDiagnostics.get(file.uri);
+		if (delivered === undefined) continue;
 		for (const diag of file.diagnostics) {
 			try {
 				delivered.add(createDiagnosticKey(diag));

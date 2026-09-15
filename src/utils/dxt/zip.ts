@@ -127,7 +127,7 @@ export async function unzipFile(
 		filter: (file) => {
 			const validationResult = validateZipFile(file, state);
 			if (!validationResult.isValid) {
-				throw new Error(validationResult.error!);
+				throw new Error(validationResult.error ?? "Invalid zip file");
 			}
 			return true;
 		},

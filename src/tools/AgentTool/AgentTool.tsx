@@ -41,14 +41,18 @@ import {
 import { checkSubagentGuardrails } from "./subagentGuardrails.js";
 
 // RemoteAgentTask removed - cloud-only. Stubs for dead-code-eliminated remote path:
-const checkRemoteAgentEligibility = async (): Promise<any> => ({
+const checkRemoteAgentEligibility = async (): Promise<{
+	eligible: boolean;
+	reason?: string;
+	errors: unknown[];
+}> => ({
 	eligible: false,
 	errors: [],
 });
-const formatPreconditionError = (e: any): string => String(e);
+const formatPreconditionError = (e: unknown): string => String(e);
 const getRemoteTaskSessionUrl = (_sessionId: string): string => "";
 const registerRemoteAgentTask = (
-	_opts: any,
+	_opts: unknown,
 ): { taskId: string; sessionId: string } => ({ taskId: "", sessionId: "" });
 
 import { assembleToolPool } from "../../tools.js";
@@ -470,8 +474,8 @@ export const AgentTool = buildTool({
 						(a) => a.agentType === subagent_type,
 					)
 				: undefined;
-			if (agentDef?.color) {
-				setAgentColor(subagent_type!, agentDef.color);
+			if (agentDef?.color && subagent_type !== undefined) {
+				setAgentColor(subagent_type, agentDef.color);
 			}
 			const result = await spawnTeammate(
 				{
@@ -1087,14 +1091,16 @@ export const AgentTool = buildTool({
 				wrapWithCwd(() =>
 					runAsyncAgentLifecycle({
 						taskId: agentBackgroundTask.agentId,
-						abortController: agentBackgroundTask.abortController!,
+						abortController:
+						 agentBackgroundTask.abortController ?? new AbortController(),
 						makeStream: (onCacheSafeParams) =>
 							runAgent({
 								...runAgentParams,
 								override: {
 									...runAgentParams.override,
 									agentId: asAgentId(agentBackgroundTask.agentId),
-									abortController: agentBackgroundTask.abortController!,
+									abortController:
+										agentBackgroundTask.abortController ?? new AbortController(),
 								},
 								onCacheSafeParams,
 							}),

@@ -37,7 +37,7 @@ export function getPillLabel(tasks: BackgroundTaskState[]): string {
 			case "local_agent":
 				return n === 1 ? "1 local agent" : `${n} local agents`;
 			case "remote_agent": {
-				const first = tasks[0]!;
+				const first = tasks[0];
 				// Per design mockup: ◇ open diamond while running/needs-input,
 				// ◆ filled once ExitPlanMode is awaiting approval.
 				if (n === 1 && first.type === "remote_agent" && first.isUltraplan) {
@@ -73,7 +73,7 @@ export function getPillLabel(tasks: BackgroundTaskState[]): string {
  */
 export function pillNeedsCta(tasks: BackgroundTaskState[]): boolean {
 	if (tasks.length !== 1) return false;
-	const t = tasks[0]!;
+	const t = tasks[0];
 	return (
 		t.type === "remote_agent" &&
 		t.isUltraplan === true &&

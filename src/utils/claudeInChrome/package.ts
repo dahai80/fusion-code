@@ -2,6 +2,7 @@ type BrowserTool = { name: string };
 
 type ClaudeForChromePackage = {
 	BROWSER_TOOLS?: BrowserTool[];
+	// biome-ignore lint/suspicious/noExplicitAny: 外部 npm 包签名 (createClaudeForChromeMcpServer), 类型由运行时校验
 	createClaudeForChromeMcpServer?: (...args: any[]) => any;
 };
 

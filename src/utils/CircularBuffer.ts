@@ -43,7 +43,7 @@ export class CircularBuffer<T> {
 
 		for (let i = 0; i < available; i++) {
 			const index = (start + this.size - available + i) % this.capacity;
-			result.push(this.buffer[index]!);
+			result.push(this.buffer[index]);
 		}
 
 		return result;
@@ -60,7 +60,7 @@ export class CircularBuffer<T> {
 
 		for (let i = 0; i < this.size; i++) {
 			const index = (start + i) % this.capacity;
-			result.push(this.buffer[index]!);
+			result.push(this.buffer[index]);
 		}
 
 		return result;

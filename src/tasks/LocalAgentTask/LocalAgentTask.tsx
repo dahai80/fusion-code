@@ -679,11 +679,9 @@ export function registerAgentForeground({
 	};
 
 	// Create background signal promise
-	let resolveBackgroundSignal: () => void;
 	const backgroundSignal = new Promise<void>((resolve) => {
-		resolveBackgroundSignal = resolve;
+		backgroundSignalResolvers.set(agentId, resolve);
 	});
-	backgroundSignalResolvers.set(agentId, resolveBackgroundSignal!);
 	registerTask(taskState, setAppState);
 
 	// Auto-background after timeout if configured

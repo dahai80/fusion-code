@@ -92,9 +92,12 @@ function parseChannels(text: string): string[] {
 
 	for (const line of text.split("\n")) {
 		const m = line.match(/^Name:\s*#?([a-z0-9][a-z0-9_-]{0,79})\s*$/);
-		if (m && !seen.has(m[1]!)) {
-			seen.add(m[1]!);
-			channels.push(m[1]!);
+		if (m) {
+			const name = m[1] ?? "";
+			if (!seen.has(name)) {
+				seen.add(name);
+				channels.push(name);
+			}
 		}
 	}
 
@@ -185,7 +188,8 @@ export async function getSlackChannelSuggestions(
 				knownChannelsChanged.emit();
 			}
 			if (cache.size > 50) {
-				cache.delete(cache.keys().next().value!);
+				const oldest = cache.keys().next().value;
+				if (oldest !== undefined) cache.delete(oldest);
 			}
 			if (inflightQuery === mcpQuery) {
 				inflightQuery = null;

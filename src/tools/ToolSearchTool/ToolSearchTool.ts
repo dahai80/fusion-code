@@ -244,12 +244,13 @@ async function searchToolsWithKeywords(
 				const descNormalized = description.toLowerCase();
 				const hintNormalized = tool.searchHint?.toLowerCase() ?? "";
 				const matchesAll = requiredTerms.every((term) => {
-					const pattern = termPatterns.get(term)!;
+					const pattern = termPatterns.get(term);
 					return (
-						parsed.parts.includes(term) ||
-						parsed.parts.some((part) => part.includes(term)) ||
-						pattern.test(descNormalized) ||
-						(hintNormalized && pattern.test(hintNormalized))
+						pattern !== undefined &&
+						(parsed.parts.includes(term) ||
+							parsed.parts.some((part) => part.includes(term)) ||
+							pattern.test(descNormalized) ||
+							(hintNormalized && pattern.test(hintNormalized)))
 					);
 				});
 				return matchesAll ? tool : null;
@@ -267,7 +268,8 @@ async function searchToolsWithKeywords(
 
 			let score = 0;
 			for (const term of allScoringTerms) {
-				const pattern = termPatterns.get(term)!;
+				const pattern = termPatterns.get(term);
+				if (pattern === undefined) continue;
 
 				// Exact part match (high weight for MCP server names, tool name parts)
 				if (parsed.parts.includes(term)) {

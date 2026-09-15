@@ -472,7 +472,8 @@ async function executeUserInput(params: ExecuteUserInputParams): Promise<void> {
 		// await by this function's synchronous return path. See state.ts.
 		await runWithWorkload(turnWorkload, async () => {
 			for (let i = 0; i < commands.length; i++) {
-				const cmd = commands[i]!;
+				const cmd = commands[i];
+				if (cmd === undefined) continue;
 				const isFirst = i === 0;
 				const result = await processUserInput({
 					input: cmd.value,

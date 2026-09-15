@@ -415,7 +415,22 @@ export const NotebookEditTool = buildTool({
 				notebook.cells.splice(cellIndex, 0, new_cell);
 			} else {
 				// Find the specified cell
-				const targetCell = notebook.cells[cellIndex]!; // validateInput ensures cell_number is in bounds
+				const targetCell = notebook.cells[cellIndex]; // validateInput ensures cell_number is in bounds
+				if (targetCell === undefined) {
+					return {
+						data: {
+							new_source,
+							cell_type: cell_type ?? "code",
+							language: "python",
+							edit_mode: "replace",
+							error: `Cell ${cellIndex} not found`,
+							cell_id,
+							notebook_path: fullPath,
+							original_file: "",
+							updated_file: "",
+						},
+					};
+				}
 				targetCell.source = new_source;
 				if (targetCell.cell_type === "code") {
 					// Reset execution count and clear outputs since cell was modified

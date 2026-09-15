@@ -27,9 +27,9 @@ function calculatePercentiles(
 	if (counts.length === 0) return null;
 
 	return {
-		p25: counts[Math.floor(counts.length * 0.25)]!,
-		p50: counts[Math.floor(counts.length * 0.5)]!,
-		p75: counts[Math.floor(counts.length * 0.75)]!,
+		p25: counts[Math.floor(counts.length * 0.25)] ?? 0,
+		p50: counts[Math.floor(counts.length * 0.5)] ?? 0,
+		p75: counts[Math.floor(counts.length * 0.75)] ?? 0,
 	};
 }
 
@@ -82,7 +82,8 @@ export function generateHeatmap(
 		for (let day = 0; day < 7; day++) {
 			// Don't show future dates
 			if (currentDate > today) {
-				grid[day]![week] = " ";
+				const weekRow = grid[day];
+				if (weekRow !== undefined) weekRow[week] = " ";
 				currentDate.setDate(currentDate.getDate() + 1);
 				continue;
 			}
@@ -101,7 +102,8 @@ export function generateHeatmap(
 
 			// Determine intensity level based on message count
 			const intensity = getIntensity(activity?.messageCount || 0, percentiles);
-			grid[day]![week] = getHeatmapChar(intensity);
+			const weekRow2 = grid[day];
+			if (weekRow2 !== undefined) weekRow2[week] = getHeatmapChar(intensity);
 
 			currentDate.setDate(currentDate.getDate() + 1);
 		}

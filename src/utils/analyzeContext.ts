@@ -430,7 +430,7 @@ async function countBuiltInToolTokens(
 			systemToolDetails = toolsForBreakdown
 				.map((t, i) => ({
 					name: t.name,
-					tokens: Math.round((estimates[i]! / estimateTotal) * distributable),
+					tokens: Math.round((estimates[i] / estimateTotal) * distributable),
 				}))
 				.sort((a, b) => b.tokens - a.tokens);
 		}
@@ -707,7 +707,7 @@ export async function countMcpToolTokens(
 		mcpToolDetails.push({
 			name: tool.name,
 			serverName: tool.name.split("__")[1] || "unknown",
-			tokens: mcpToolTokensByTool[i]!,
+			tokens: mcpToolTokensByTool[i],
 			isLoaded: loadedMcpToolNames.has(tool.name) || !isDeferredTool(tool),
 		});
 	}

@@ -22,13 +22,13 @@ export function collapseTeammateShutdowns(
 	let i = 0;
 
 	while (i < messages.length) {
-		const msg = messages[i]!;
+		const msg = messages[i];
+		if (msg === undefined) continue;
 		if (isTeammateShutdownAttachment(msg)) {
 			let count = 0;
-			while (
-				i < messages.length &&
-				isTeammateShutdownAttachment(messages[i]!)
-			) {
+			while (i < messages.length) {
+				const candidate = messages[i];
+				if (candidate === undefined || !isTeammateShutdownAttachment(candidate)) break;
 				count++;
 				i++;
 			}

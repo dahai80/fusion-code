@@ -243,14 +243,16 @@ export function adjustIndexToPreserveAPIInvariants(
 	// Collect tool_result IDs from ALL messages in the kept range
 	const allToolResultIds: string[] = [];
 	for (let i = startIndex; i < messages.length; i++) {
-		allToolResultIds.push(...getToolResultIds(messages[i]!));
+		const m = messages[i];
+		if (m !== undefined) allToolResultIds.push(...getToolResultIds(m));
 	}
 
 	if (allToolResultIds.length > 0) {
 		// Collect tool_use IDs already in the kept range
 		const toolUseIdsInKeptRange = new Set<string>();
 		for (let i = adjustedIndex; i < messages.length; i++) {
-			const msg = messages[i]!;
+			const msg = messages[i];
+			if (msg === undefined) continue;
 			if (msg.type === "assistant" && Array.isArray(msg.message.content)) {
 				for (const block of msg.message.content) {
 					if (block.type === "tool_use") {
@@ -267,7 +269,8 @@ export function adjustIndexToPreserveAPIInvariants(
 
 		// Find the assistant message(s) with matching tool_use blocks
 		for (let i = adjustedIndex - 1; i >= 0 && neededToolUseIds.size > 0; i--) {
-			const message = messages[i]!;
+			const message = messages[i];
+			if (message === undefined) continue;
 			if (hasToolUseWithIds(message, neededToolUseIds)) {
 				adjustedIndex = i;
 				// Remove found tool_use_ids from the set
@@ -289,7 +292,8 @@ export function adjustIndexToPreserveAPIInvariants(
 	// Collect all message.ids from assistant messages in the kept range
 	const messageIdsInKeptRange = new Set<string>();
 	for (let i = adjustedIndex; i < messages.length; i++) {
-		const msg = messages[i]!;
+		const msg = messages[i];
+		if (msg === undefined) continue;
 		if (msg.type === "assistant" && msg.message.id) {
 			messageIdsInKeptRange.add(msg.message.id);
 		}
@@ -298,7 +302,8 @@ export function adjustIndexToPreserveAPIInvariants(
 	// Look backwards for assistant messages with the same message.id that are not in the kept range
 	// These may contain thinking blocks that need to be merged by normalizeMessagesForAPI
 	for (let i = adjustedIndex - 1; i >= 0; i--) {
-		const message = messages[i]!;
+		const message = messages[i];
+		if (message === undefined) continue;
 		if (
 			message.type === "assistant" &&
 			message.message.id &&
@@ -341,7 +346,8 @@ export function calculateMessagesToKeepIndex(
 	let totalTokens = 0;
 	let textBlockMessageCount = 0;
 	for (let i = startIndex; i < messages.length; i++) {
-		const msg = messages[i]!;
+		const msg = messages[i];
+		if (msg === undefined) continue;
 		totalTokens += estimateMessageTokens([msg]);
 		if (hasTextBlocks(msg)) {
 			textBlockMessageCount++;
@@ -370,7 +376,8 @@ export function calculateMessagesToKeepIndex(
 	const idx = messages.findLastIndex((m) => isCompactBoundaryMessage(m));
 	const floor = idx === -1 ? 0 : idx + 1;
 	for (let i = startIndex - 1; i >= floor; i--) {
-		const msg = messages[i]!;
+		const msg = messages[i];
+		if (msg === undefined) continue;
 		const msgTokens = estimateMessageTokens([msg]);
 		totalTokens += msgTokens;
 		if (hasTextBlocks(msg)) {

@@ -74,15 +74,15 @@ function parseOscRgb(data: string): Rgb | undefined {
 		/^rgba?:([0-9a-f]{1,4})\/([0-9a-f]{1,4})\/([0-9a-f]{1,4})/i.exec(data);
 	if (rgbMatch) {
 		return {
-			r: hexComponent(rgbMatch[1]!),
-			g: hexComponent(rgbMatch[2]!),
-			b: hexComponent(rgbMatch[3]!),
+			r: hexComponent(rgbMatch[1] ?? ""),
+			g: hexComponent(rgbMatch[2] ?? ""),
+			b: hexComponent(rgbMatch[3] ?? ""),
 		};
 	}
 	// #RRGGBB or #RRRRGGGGBBBB — split into three equal hex runs.
 	const hashMatch = /^#([0-9a-f]+)$/i.exec(data);
 	if (hashMatch && hashMatch[1]?.length % 3 === 0) {
-		const hex = hashMatch[1]!;
+		const hex = hashMatch[1] ?? "";
 		const n = hex.length / 3;
 		return {
 			r: hexComponent(hex.slice(0, n)),

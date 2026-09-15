@@ -130,9 +130,9 @@ export function ansiToPng(
 	const padY = paddingY * scale;
 	for (let row = 0; row < rows; row++) {
 		let col = 0;
-		for (const span of lines[row]!) {
+		for (const span of lines[row]) {
 			for (const ch of span.text) {
-				const cp = ch.codePointAt(0)!;
+				const cp = ch.codePointAt(0) ?? 0;
 				const cellW = stringWidth(ch);
 				if (cellW === 0) continue; // zero-width (combining marks, etc.)
 				const x = padX + col * GLYPH_W * scale;
@@ -222,7 +222,7 @@ function blitGlyph(
 ): void {
 	for (let gy = 0; gy < GLYPH_H; gy++) {
 		for (let gx = 0; gx < GLYPH_W; gx++) {
-			let a = glyph[gy * GLYPH_W + gx]!;
+			let a = glyph[gy * GLYPH_W + gx];
 			if (a === 0) continue;
 			if (bold) a = Math.min(255, a * 1.4);
 			const inv = 255 - a;
@@ -230,9 +230,9 @@ function blitGlyph(
 				const rowBase = ((y + gy * scale + sy) * width + x + gx * scale) * 4;
 				for (let sx = 0; sx < scale; sx++) {
 					const i = rowBase + sx * 4;
-					px[i] = (color.r * a + px[i]! * inv) >> 8;
-					px[i + 1] = (color.g * a + px[i + 1]! * inv) >> 8;
-					px[i + 2] = (color.b * a + px[i + 2]! * inv) >> 8;
+					px[i] = (color.r * a + px[i] * inv) >> 8;
+					px[i + 1] = (color.g * a + px[i + 1] * inv) >> 8;
+					px[i + 2] = (color.b * a + px[i + 2] * inv) >> 8;
 				}
 			}
 		}
@@ -284,7 +284,7 @@ function makeCrcTable(): Uint32Array {
 function crc32(data: Uint8Array): number {
 	let c = 0xffffffff;
 	for (let i = 0; i < data.length; i++) {
-		c = CRC_TABLE[(c ^ data[i]!) & 0xff]! ^ (c >>> 8);
+		c = CRC_TABLE[(c ^ data[i]) & 0xff] ^ (c >>> 8);
 	}
 	return (c ^ 0xffffffff) >>> 0;
 }

@@ -532,7 +532,8 @@ export const GrepTool = buildTool({
 		const sortedMatches = results
 			// Sort by modification time
 			.map((_, i) => {
-				const r = stats[i]!;
+				const r = stats[i];
+				if (r === undefined) return [_, 0] as const;
 				return [
 					_,
 					r.status === "fulfilled" ? (r.value.mtimeMs ?? 0) : 0,

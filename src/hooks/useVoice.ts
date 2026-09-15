@@ -188,7 +188,7 @@ export function computeLevel(chunk: Buffer): number {
 	let sumSq = 0;
 	for (let i = 0; i < chunk.length - 1; i += 2) {
 		// Read 16-bit signed little-endian
-		const sample = ((chunk[i]! | (chunk[i + 1]! << 8)) << 16) >> 16;
+		const sample = (((chunk[i] ?? 0) | ((chunk[i + 1] ?? 0) << 8)) << 16) >> 16;
 		sumSq += sample * sample;
 	}
 	const rms = Math.sqrt(sumSq / samples);
