@@ -199,7 +199,7 @@ describe('MLXChatCompletionResponse', () => {
     }
     expect(res.choices[0].finish_reason).toBe('tool_calls')
     expect(res.choices[0].message.tool_calls).toHaveLength(1)
-    expect(res.choices[0].message.tool_calls![0].function.name).toBe('bash')
+    expect(res.choices[0]?.message.tool_calls?.[0]?.function.name).toBe('bash')
   })
 
   it('should handle null content (pure tool call)', () => {
@@ -270,7 +270,7 @@ describe('MLXStreamChunk', () => {
       ],
     }
     expect(chunk.choices[0].delta.tool_calls).toHaveLength(1)
-    expect(chunk.choices[0].delta.tool_calls![0].function.name).toBe('bash')
+    expect(chunk.choices[0]?.delta.tool_calls?.[0]?.function.name).toBe('bash')
   })
 
   it('should create a done chunk with usage', () => {

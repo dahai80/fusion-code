@@ -9,7 +9,7 @@
  * 5. 启动序列（hooks、plugins、MCP）
  * 6. REPL 挂载条件
  */
-import { afterEach, beforeEach, describe, expect, it, mock } from "bun:test";
+import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import { homedir } from "os";
 import { join } from "path";
 
@@ -156,8 +156,10 @@ describe("模型配置", () => {
 		const { parseUserSpecifiedModel } = await import(
 			"../../src/utils/model/model.js"
 		);
-		expect(() => parseUserSpecifiedModel(undefined as any)).not.toThrow();
-		const result = parseUserSpecifiedModel(undefined as any);
+		expect(() =>
+			parseUserSpecifiedModel(undefined as unknown as string),
+		).not.toThrow();
+		const result = parseUserSpecifiedModel(undefined as unknown as string);
 		expect(typeof result).toBe("string");
 		expect(result.length).toBeGreaterThan(0);
 	});
@@ -175,7 +177,9 @@ describe("模型配置", () => {
 		const { renderModelName } = await import("../../src/utils/model/model.js");
 		// renderModelName 调用 model.includes() 会抛出 TypeError
 		// 这是预期的行为 - 调用方应确保传入有效的模型名
-		expect(() => renderModelName(undefined as any)).toThrow();
+		expect(() =>
+			renderModelName(undefined as unknown as string),
+		).toThrow();
 	});
 
 	it("modelDisplayString 应处理 null 输入", async () => {
@@ -209,17 +213,6 @@ describe("Fusion-MLX 适配器", () => {
 	it("应正确转换工具调用格式", async () => {
 		// 测试工具调用转换函数
 		const mod = await import("../../src/services/api/fusion-mlx-adapter.js");
-		const tools = [
-			{
-				name: "test_tool",
-				description: "Test tool",
-				input_schema: {
-					type: "object",
-					properties: { query: { type: "string" } },
-					required: ["query"],
-				},
-			},
-		];
 		// anthropicToMlxTools 应返回正确的 OpenAI 格式
 		// 通过直接调用 createFusionMlxFetch 会触发网络请求，跳过
 		expect(typeof mod.createFusionMlxFetch).toBe("function");

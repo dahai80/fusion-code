@@ -117,7 +117,9 @@ describe('WS1 DirectoryAdded — dispatcher + metadata', () => {
             '../../src/utils/hooks/hooksConfigManager.js'
         )
         const grouped = groupHooksByEventAndMatcher(
-            { sessionHooks: new Map(), settings: { hooks: {} } } as any,
+            { sessionHooks: new Map(), settings: { hooks: {} } } as unknown as Parameters<
+                typeof groupHooksByEventAndMatcher
+            >[0],
             [],
         )
         expect(grouped.DirectoryAdded).toBeDefined()
@@ -132,8 +134,8 @@ describe('WS1 Notification — agent_* matcher values', () => {
         )
         const meta = getMatcherMetadata('Notification', [])
         expect(meta).toBeDefined()
-        expect(meta!.values).toContain('agent_completed')
-        expect(meta!.values).toContain('agent_needs_input')
+        expect(meta?.values).toContain('agent_completed')
+        expect(meta?.values).toContain('agent_needs_input')
     })
 
     it('Notification matcher field is notification_type', async () => {
@@ -141,7 +143,7 @@ describe('WS1 Notification — agent_* matcher values', () => {
             '../../src/utils/hooks/hooksConfigManager.js'
         )
         const meta = getMatcherMetadata('Notification', [])
-        expect(meta!.fieldToMatch).toBe('notification_type')
+        expect(meta?.fieldToMatch).toBe('notification_type')
     })
 
     it('executeNotificationHooks exported and is a function', async () => {

@@ -4,7 +4,6 @@
 
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import { mkdir, rm, writeFile } from "fs/promises";
-import { homedir } from "os";
 import { join } from "path";
 import { startProjectApiServer } from "../../src/server/projectApiServer.js";
 

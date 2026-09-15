@@ -47,24 +47,24 @@ describe('getSmallFastModel', () => {
 describe('parseUserSpecifiedModel 空值处理', () => {
   it('should handle undefined input', async () => {
     const mod = await import('../../src/utils/model/model.js')
-    expect(() => mod.parseUserSpecifiedModel(undefined as any)).not.toThrow()
-    const result = mod.parseUserSpecifiedModel(undefined as any)
+    expect(() => mod.parseUserSpecifiedModel(undefined as unknown as string)).not.toThrow()
+    const result = mod.parseUserSpecifiedModel(undefined as unknown as string)
     expect(typeof result).toBe('string')
     expect(result.length).toBeGreaterThan(0)
   })
 
   it('should handle null input', async () => {
     const mod = await import('../../src/utils/model/model.js')
-    expect(() => mod.parseUserSpecifiedModel(null as any)).not.toThrow()
-    const result = mod.parseUserSpecifiedModel(null as any)
+    expect(() => mod.parseUserSpecifiedModel(null as unknown as string)).not.toThrow()
+    const result = mod.parseUserSpecifiedModel(null as unknown as string)
     expect(typeof result).toBe('string')
     expect(result.length).toBeGreaterThan(0)
   })
 
   it('should handle empty string input', async () => {
     const mod = await import('../../src/utils/model/model.js')
-    expect(() => mod.parseUserSpecifiedModel('' as any)).not.toThrow()
-    const result = mod.parseUserSpecifiedModel('' as any)
+    expect(() => mod.parseUserSpecifiedModel('' as unknown as string)).not.toThrow()
+    const result = mod.parseUserSpecifiedModel('' as unknown as string)
     expect(typeof result).toBe('string')
   })
 
@@ -79,36 +79,36 @@ describe('parseUserSpecifiedModel 空值处理', () => {
 describe('renderModelName 空值处理', () => {
   it('should throw on undefined input (requires string)', async () => {
     const mod = await import('../../src/utils/model/model.js')
-    expect(() => mod.renderModelName(undefined as any)).toThrow()
+    expect(() => mod.renderModelName(undefined as unknown as string)).toThrow()
   })
 
   it('should throw on null input (requires string)', async () => {
     const mod = await import('../../src/utils/model/model.js')
-    expect(() => mod.renderModelName(null as any)).toThrow()
+    expect(() => mod.renderModelName(null as unknown as string)).toThrow()
   })
 })
 
 describe('getCanonicalName 空值处理', () => {
   it('should throw on undefined input (requires string)', async () => {
     const mod = await import('../../src/utils/model/model.js')
-    expect(() => mod.getCanonicalName(undefined as any)).toThrow()
+    expect(() => mod.getCanonicalName(undefined as unknown as string)).toThrow()
   })
 
   it('should throw on null input (requires string)', async () => {
     const mod = await import('../../src/utils/model/model.js')
-    expect(() => mod.getCanonicalName(null as any)).toThrow()
+    expect(() => mod.getCanonicalName(null as unknown as string)).toThrow()
   })
 })
 
 describe('getPublicModelDisplayName 空值处理', () => {
   it('should throw on undefined input (requires string)', async () => {
     const mod = await import('../../src/utils/model/model.js')
-    expect(() => mod.getPublicModelDisplayName(undefined as any)).toThrow()
+    expect(() => mod.getPublicModelDisplayName(undefined as unknown as string)).toThrow()
   })
 
   it('should throw on null input (requires string)', async () => {
     const mod = await import('../../src/utils/model/model.js')
-    expect(() => mod.getPublicModelDisplayName(null as any)).toThrow()
+    expect(() => mod.getPublicModelDisplayName(null as unknown as string)).toThrow()
   })
 })
 

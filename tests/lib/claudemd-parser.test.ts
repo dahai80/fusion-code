@@ -13,7 +13,6 @@ import {
 	type MemoryHeader,
 	parseFrontmatter,
 	parseMemoryType,
-	scanMemoryFiles,
 } from "../../src/lib/claudemd-parser/index.js";
 
 const TEST_DIR = "/tmp/claudemd-parser-test-" + Date.now();
@@ -75,8 +74,8 @@ describe("claudemd-parser module", () => {
 				(f) => f.path === join(TEST_DIR, "CLAUDE.md"),
 			);
 			expect(projectFile).toBeDefined();
-			expect(projectFile!.type).toBe("Project");
-			expect(projectFile!.description).toBe("Parser test");
+			expect(projectFile?.type).toBe("Project");
+			expect(projectFile?.description).toBe("Parser test");
 		} finally {
 			await rm(TEST_DIR, { recursive: true, force: true });
 		}

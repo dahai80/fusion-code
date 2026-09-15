@@ -11,7 +11,7 @@
  * 7. 配置助手 (shouldUseFusionMlx, getDefaultMlxModel)
  * 8. Fetch 适配器 (createFusionMlxFetch)
  */
-import { afterEach, beforeEach, describe, expect, it, spyOn } from "bun:test";
+import { beforeEach, describe, expect, it, spyOn } from "bun:test";
 import {
 	_resetMlxCircuitBreaker,
 	_resetMlxBaseUrl,
@@ -27,8 +27,6 @@ import {
 } from "../../../src/services/api/fusion-mlx-adapter.js";
 
 // ─── Helpers ──────────────────────────────────────────────────
-
-const DEFAULT_MLX_URL = "http://127.0.0.1:11432";
 
 beforeEach(() => {
 	_resetOriginalFetch();
@@ -745,7 +743,7 @@ describe("createFusionMlxFetch", () => {
 
 		// Mock the underlying fetch that the adapter calls
 		const mockFetch = spyOn(globalThis, "fetch").mockImplementation(
-			async (url, init) => {
+			async (url, _init) => {
 				const urlStr = String(url);
 				if (urlStr.includes("/v1/chat/completions")) {
 					return mockResponse({

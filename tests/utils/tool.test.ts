@@ -20,7 +20,7 @@ describe('buildTool', () => {
         expect(typeof tool.renderToolUseMessage).toBe('function')
         const result = tool.renderToolUseMessage({ name: 'foo' }, {
             verbose: true,
-            theme: 'dark' as any,
+            theme: 'dark' as unknown as string,
         })
         expect(result).toBeNull()
     })
@@ -60,7 +60,7 @@ describe('buildTool', () => {
                 text: 'ok',
             }),
             renderToolUseMessage: (
-                input: any,
+                input: { name?: string },
                 opts?: { verbose?: boolean; theme?: string },
             ) => {
                 const v = opts?.verbose ?? false
