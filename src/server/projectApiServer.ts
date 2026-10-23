@@ -538,12 +538,26 @@ routes.set("POST /api/memory", async (url, body) => {
 
 // GET /api/model/status — local MLX model load and status (#38, #39)
 routes.set("/api/model/status", async () => {
-	const MLX_BASE =
+	// Provider-aware resolution: gateway wins when explicitly configured
+	// (FUSION_GATEWAY_URL / FUSION_GATEWAY_ENABLED); otherwise honor
+	// FUSION_MLX_BASE_URL / FUSION_MLX_ENABLED with the fusion-mlx default
+	// 11434. Bare default stays gateway 11432 (architecture preference).
+	// Key follows the same unification as the provider seam: FUSION_API_KEY
+	// works for any endpoint, legacy gateway/mlx vars are fallbacks.
+	const gatewayBase =
 		process.env.FUSION_GATEWAY_URL ||
+		(process.env.FUSION_GATEWAY_ENABLED ? "http://127.0.0.1:11432" : "");
+	const MLX_BASE =
+		gatewayBase ||
 		process.env.FUSION_MLX_BASE_URL ||
+		(process.env.FUSION_MLX_ENABLED ? "http://127.0.0.1:11434" : "") ||
 		"http://127.0.0.1:11432";
 	const mlxApiKey =
-		process.env.FUSION_API_KEY || process.env.ANTHROPIC_API_KEY || "";
+		process.env.FUSION_API_KEY ||
+		process.env.FUSION_GATEWAY_API_KEY ||
+		process.env.FUSION_MLX_API_KEY ||
+		process.env.ANTHROPIC_API_KEY ||
+		"";
 	const headers: Record<string, string> = {};
 	if (mlxApiKey) {
 		headers.Authorization = `Bearer ${mlxApiKey}`;
@@ -815,6 +829,28 @@ async function handleChatStream(
 		},
 		cwd,
 	});
+
+	// stderr 必须持续消费: --verbose 会向 stderr 写大量诊断输出, OS 管道缓冲
+	// (macOS ~64KB) 写满后子进程阻塞在 write 上, stdout 随之停摆, chat 挂死。
+	// 逐行排空并进调试日志 (e2e 验收定位的潜在挂死点)。
+	const stderrReader = proc.stderr.getReader();
+	const stderrDecoder = new TextDecoder();
+	(async () => {
+		try {
+			while (true) {
+				const { done, value } = await stderrReader.read();
+				if (done) break;
+				const text = stderrDecoder.decode(value, { stream: true });
+				for (const line of text.split("\n")) {
+					if (line.trim()) {
+						logForDebugging(`projectApiServer WS chat stderr: ${line}`);
+					}
+				}
+			}
+		} catch {
+			/* proc exited */
+		}
+	})();
 
 	wsSessions.set(ws, { sessionId, cwd, projectId, proc });
 

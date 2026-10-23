@@ -165,7 +165,9 @@ describe("projectApiServer", () => {
 
 	describe("WebSocket /ws/chat", () => {
 		it("rejects WS connection with invalid JSON", async () => {
-			const ws = new WebSocket(`ws://127.0.0.1:${actualPort}/ws/chat?token=${TEST_TOKEN}`);
+			const ws = new WebSocket(
+				`ws://127.0.0.1:${actualPort}/ws/chat?token=${TEST_TOKEN}`,
+			);
 			await new Promise<void>((resolve) => {
 				ws.onopen = () => {
 					ws.send("not-json");
@@ -181,7 +183,9 @@ describe("projectApiServer", () => {
 		});
 
 		it("rejects chat.stream without message", async () => {
-			const ws = new WebSocket(`ws://127.0.0.1:${actualPort}/ws/chat?token=${TEST_TOKEN}`);
+			const ws = new WebSocket(
+				`ws://127.0.0.1:${actualPort}/ws/chat?token=${TEST_TOKEN}`,
+			);
 			await new Promise<void>((resolve) => {
 				ws.onopen = () => {
 					ws.send(JSON.stringify({ action: "chat.stream" }));
@@ -197,7 +201,9 @@ describe("projectApiServer", () => {
 		});
 
 		it("returns error for unknown action", async () => {
-			const ws = new WebSocket(`ws://127.0.0.1:${actualPort}/ws/chat?token=${TEST_TOKEN}`);
+			const ws = new WebSocket(
+				`ws://127.0.0.1:${actualPort}/ws/chat?token=${TEST_TOKEN}`,
+			);
 			await new Promise<void>((resolve) => {
 				ws.onopen = () => {
 					ws.send(JSON.stringify({ action: "unknown.action" }));
@@ -213,7 +219,9 @@ describe("projectApiServer", () => {
 		});
 
 		it("handles chat.cancel gracefully with no active session", async () => {
-			const ws = new WebSocket(`ws://127.0.0.1:${actualPort}/ws/chat?token=${TEST_TOKEN}`);
+			const ws = new WebSocket(
+				`ws://127.0.0.1:${actualPort}/ws/chat?token=${TEST_TOKEN}`,
+			);
 			await new Promise<void>((resolve) => {
 				ws.onopen = () => {
 					ws.send(JSON.stringify({ action: "chat.cancel" }));
@@ -224,7 +232,9 @@ describe("projectApiServer", () => {
 		});
 
 		it("upgrades to WebSocket on /ws/chat path", async () => {
-			const ws = new WebSocket(`ws://127.0.0.1:${actualPort}/ws/chat?token=${TEST_TOKEN}`);
+			const ws = new WebSocket(
+				`ws://127.0.0.1:${actualPort}/ws/chat?token=${TEST_TOKEN}`,
+			);
 			await new Promise<void>((resolve) => {
 				ws.onopen = () => {
 					expect(ws.readyState).toBe(WebSocket.OPEN);

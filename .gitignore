@@ -43,3 +43,7 @@ kimi-analysis.md
 analysis-prompt.md
 Architecture.md
 !src/vendor/sandbox-runtime/dist/
+
+# Playwright e2e
+test-results/
+playwright-report/

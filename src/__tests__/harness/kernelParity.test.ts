@@ -18,12 +18,6 @@ import { existsSync, mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import {
-	getFusionRulesConfig,
-	isToolDenied,
-	setFusionRulesConfig,
-} from "../../utils/fusionRules.js";
-import { classifyAllShell } from "../../utils/permissions/autoModeDangerList.js";
-import {
 	MLX_ERROR_THRESHOLD_BUFFER_TOKENS,
 	MLX_WARNING_THRESHOLD_BUFFER_TOKENS,
 } from "../../services/compact/index.js";
@@ -33,6 +27,12 @@ import {
 	createGoal,
 	updateBudgetUsed,
 } from "../../services/goal/index.js";
+import {
+	getFusionRulesConfig,
+	isToolDenied,
+	setFusionRulesConfig,
+} from "../../utils/fusionRules.js";
+import { classifyAllShell } from "../../utils/permissions/autoModeDangerList.js";
 
 type LadderStep = { chars: number; expect: string };
 
@@ -253,24 +253,30 @@ describe("#218 fusion-harness kernel parity", () => {
 		expect(missing).toEqual([]);
 	});
 
-	kernelTest("deny-first parity: kernel PermissionEngine ↔ FUSION.rules denied_tools", () => {
-		expect(kernel?.deny_first.denied).toBe("deny");
-		expect(kernel?.deny_first.allowed).toBe("allow");
-		expect(kernel?.deny_first.deny_beats_allow_any_order).toBe("deny");
-		expect(isToolDenied("KernelParityDeniedTool")).toBe(true);
-		expect(isToolDenied("KernelParityReadTool")).toBe(false);
-	});
+	kernelTest(
+		"deny-first parity: kernel PermissionEngine ↔ FUSION.rules denied_tools",
+		() => {
+			expect(kernel?.deny_first.denied).toBe("deny");
+			expect(kernel?.deny_first.allowed).toBe("allow");
+			expect(kernel?.deny_first.deny_beats_allow_any_order).toBe("deny");
+			expect(isToolDenied("KernelParityDeniedTool")).toBe(true);
+			expect(isToolDenied("KernelParityReadTool")).toBe(false);
+		},
+	);
 
-	kernelTest("danger parity: kernel content scan ↔ classifyAllShell never auto-allows", () => {
-		for (const sample of DANGER_SAMPLES) {
-			expect(kernel?.danger[sample]).toBe("deny");
-			expect(classifyAllShell(sample)).not.toBe("safe");
-		}
-		for (const sample of BENIGN_SAMPLES) {
-			expect(kernel?.benign[sample]).toBe("allow");
-			expect(classifyAllShell(sample)).toBe("safe");
-		}
-	});
+	kernelTest(
+		"danger parity: kernel content scan ↔ classifyAllShell never auto-allows",
+		() => {
+			for (const sample of DANGER_SAMPLES) {
+				expect(kernel?.danger[sample]).toBe("deny");
+				expect(classifyAllShell(sample)).not.toBe("safe");
+			}
+			for (const sample of BENIGN_SAMPLES) {
+				expect(kernel?.benign[sample]).toBe("allow");
+				expect(classifyAllShell(sample)).toBe("safe");
+			}
+		},
+	);
 
 	kernelTest("compaction parity: kernel buffers ↔ MLX compact buffers", () => {
 		expect(kernel?.compaction.warning_buffer).toBe(
@@ -288,21 +294,24 @@ describe("#218 fusion-harness kernel parity", () => {
 		expect(kernel?.ladder).toEqual(LADDER.map((step) => step.expect));
 	});
 
-	kernelTest("LLM budget parity: kernel LLMFunnel pre_llm ↔ goal budgetEnforcer", () => {
-		const goal = createGoal(PARITY_SESSION, "kernel parity budget", {
-			tokens: 100,
-		});
-		expect(goal.status).toBe("active");
-		expect(checkBudget(PARITY_SESSION).exceeded).toBe(false);
-		updateBudgetUsed(PARITY_SESSION, { tokens: 150 });
-		const exceeded = checkBudget(PARITY_SESSION);
-		expect(exceeded.exceeded).toBe(true);
-		expect(exceeded.message).toContain("budget exceeded");
-		expect(kernel?.llm_budget_block.proceed).toBe(false);
-		expect(kernel?.llm_budget_block.reason).toBe("token budget exceeded");
-		expect(kernel?.llm_budget_pass.proceed).toBe(true);
-		expect(kernel?.llm_budget_pass.reason).toBe("");
-	});
+	kernelTest(
+		"LLM budget parity: kernel LLMFunnel pre_llm ↔ goal budgetEnforcer",
+		() => {
+			const goal = createGoal(PARITY_SESSION, "kernel parity budget", {
+				tokens: 100,
+			});
+			expect(goal.status).toBe("active");
+			expect(checkBudget(PARITY_SESSION).exceeded).toBe(false);
+			updateBudgetUsed(PARITY_SESSION, { tokens: 150 });
+			const exceeded = checkBudget(PARITY_SESSION);
+			expect(exceeded.exceeded).toBe(true);
+			expect(exceeded.message).toContain("budget exceeded");
+			expect(kernel?.llm_budget_block.proceed).toBe(false);
+			expect(kernel?.llm_budget_block.reason).toBe("token budget exceeded");
+			expect(kernel?.llm_budget_pass.proceed).toBe(true);
+			expect(kernel?.llm_budget_pass.reason).toBe("");
+		},
+	);
 
 	test("regression: chmod 777 on root is hard_deny (was safe, #218 parity gap)", () => {
 		expect(classifyAllShell("chmod 777 /")).toBe("hard_deny");
