@@ -7,14 +7,16 @@ import { mkdir, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { startProjectApiServer } from "../../src/server/projectApiServer.js";
 
-const TEST_PORT = 11442;
+// 11442 是 fusion-agent-studio 的注册端口 (port-registry.yaml), 其 daemon 在跑时
+// EADDRINUSE; 测试用 port 0 由 OS 分配临时端口, 避免跨项目端口碰撞
 const TEST_CWD = `/tmp/fusion-api-test-${Date.now()}`;
 // P1-15 后 authToken:"" 为 fail-closed (生成随机 token) — 测试显式传 token,
 // 请求统一带 Authorization 头; WS 浏览器端无法设头, 走 ?token= query 回退
 const TEST_TOKEN = `test-token-${Date.now()}`;
 
 let baseUrl: string;
-let stop: () => void;
+let actualPort = 0;
+let stop: (() => void) | undefined;
 
 const authHeaders = (): Record<string, string> => ({
 	Authorization: `Bearer ${TEST_TOKEN}`,
@@ -31,16 +33,17 @@ describe("projectApiServer", () => {
 			"---\ndescription: Test project\n---\n\nTest instructions",
 		);
 		const instance = startProjectApiServer({
-			port: TEST_PORT,
+			port: 0,
 			host: "127.0.0.1",
 			authToken: TEST_TOKEN,
 		});
 		baseUrl = `http://127.0.0.1:${instance.port}`;
+		actualPort = instance.port;
 		stop = instance.stop;
 	});
 
 	afterEach(async () => {
-		stop();
+		stop?.();
 		await rm(TEST_CWD, { recursive: true, force: true });
 	});
 
@@ -162,7 +165,7 @@ describe("projectApiServer", () => {
 
 	describe("WebSocket /ws/chat", () => {
 		it("rejects WS connection with invalid JSON", async () => {
-			const ws = new WebSocket(`ws://127.0.0.1:${TEST_PORT}/ws/chat?token=${TEST_TOKEN}`);
+			const ws = new WebSocket(`ws://127.0.0.1:${actualPort}/ws/chat?token=${TEST_TOKEN}`);
 			await new Promise<void>((resolve) => {
 				ws.onopen = () => {
 					ws.send("not-json");
@@ -178,7 +181,7 @@ describe("projectApiServer", () => {
 		});
 
 		it("rejects chat.stream without message", async () => {
-			const ws = new WebSocket(`ws://127.0.0.1:${TEST_PORT}/ws/chat?token=${TEST_TOKEN}`);
+			const ws = new WebSocket(`ws://127.0.0.1:${actualPort}/ws/chat?token=${TEST_TOKEN}`);
 			await new Promise<void>((resolve) => {
 				ws.onopen = () => {
 					ws.send(JSON.stringify({ action: "chat.stream" }));
@@ -194,7 +197,7 @@ describe("projectApiServer", () => {
 		});
 
 		it("returns error for unknown action", async () => {
-			const ws = new WebSocket(`ws://127.0.0.1:${TEST_PORT}/ws/chat?token=${TEST_TOKEN}`);
+			const ws = new WebSocket(`ws://127.0.0.1:${actualPort}/ws/chat?token=${TEST_TOKEN}`);
 			await new Promise<void>((resolve) => {
 				ws.onopen = () => {
 					ws.send(JSON.stringify({ action: "unknown.action" }));
@@ -210,7 +213,7 @@ describe("projectApiServer", () => {
 		});
 
 		it("handles chat.cancel gracefully with no active session", async () => {
-			const ws = new WebSocket(`ws://127.0.0.1:${TEST_PORT}/ws/chat?token=${TEST_TOKEN}`);
+			const ws = new WebSocket(`ws://127.0.0.1:${actualPort}/ws/chat?token=${TEST_TOKEN}`);
 			await new Promise<void>((resolve) => {
 				ws.onopen = () => {
 					ws.send(JSON.stringify({ action: "chat.cancel" }));
@@ -221,7 +224,7 @@ describe("projectApiServer", () => {
 		});
 
 		it("upgrades to WebSocket on /ws/chat path", async () => {
-			const ws = new WebSocket(`ws://127.0.0.1:${TEST_PORT}/ws/chat?token=${TEST_TOKEN}`);
+			const ws = new WebSocket(`ws://127.0.0.1:${actualPort}/ws/chat?token=${TEST_TOKEN}`);
 			await new Promise<void>((resolve) => {
 				ws.onopen = () => {
 					expect(ws.readyState).toBe(WebSocket.OPEN);

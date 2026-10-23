@@ -66,6 +66,7 @@ const AUTO_MODE_HARD_DENY_PATTERNS: RegExp[] = [
 	/\brm\s+--recursive\b[^;&|\n]*\s\/\s*$/,
 	/\bdd\s+.*of=\/dev\//,
 	/\bchmod\s+(-R\s+)?000\s+\//,
+	/\bchmod\s+(-R\s+)?777\s+\//,
 	/\bchown\s+(-R\s+)?\w+\s+\//,
 	/\b(nohup\s+)?disown\b/,
 	/\bshutdown\b/,
