@@ -1,14 +1,26 @@
 import { afterEach, beforeEach, describe, expect, it, spyOn } from "bun:test";
+import { mkdtempSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import {
 	checkMemoryHealth,
 	commitEpisodicMemory,
+	DEFAULT_MEMORY_BASE_URL,
 	formatContextToPrompt,
+	getMemoryBaseUrl,
+	getMemoryPipelineStatus,
 	type Interaction,
+	probeMemoryPipeline,
+	resetMemoryPipelineStatusForTest,
 	retrieveContext,
 } from "./fusionMemoryClient.js";
 
 // env 全局 — 测试必须 snapshot/restore, 否则串扰
-const ENV_KEYS = ["FUSION_MEMORY_BASE_URL", "FUSION_MEMORY_API_KEY"] as const;
+const ENV_KEYS = [
+	"FUSION_MEMORY_BASE_URL",
+	"FUSION_MEMORY_API_KEY",
+	"FUSION_MEMORY_DISABLED",
+] as const;
 
 function snapshotEnvs(): Record<string, string | undefined> {
 	const snap: Record<string, string | undefined> = {};
@@ -249,6 +261,88 @@ describe("fusionMemoryClient", () => {
 			fetchSpy = spy;
 			const ok = await checkMemoryHealth();
 			expect(ok).toBe(false);
+		});
+	});
+
+	// #219: fail-visible — 默认端口修复 + 探活状态机
+	describe("#219 memory pipeline fail-visible", () => {
+		let configDirSnap: string | undefined;
+		let tempConfigDir: string;
+
+		beforeEach(() => {
+			resetMemoryPipelineStatusForTest();
+			configDirSnap = process.env.FUSION_CODE_CONFIG_DIR;
+			// audit 写入隔离到临时 config dir, 不污染真实 ~/.fusion-code
+			tempConfigDir = mkdtempSync(join(tmpdir(), "fm-client-test-"));
+			process.env.FUSION_CODE_CONFIG_DIR = tempConfigDir;
+		});
+
+		afterEach(() => {
+			resetMemoryPipelineStatusForTest();
+			rmSync(tempConfigDir, { recursive: true, force: true });
+			if (configDirSnap === undefined) {
+				delete process.env.FUSION_CODE_CONFIG_DIR;
+			} else {
+				process.env.FUSION_CODE_CONFIG_DIR = configDirSnap;
+			}
+		});
+
+		it("default base URL is fm-server port 11435 (was 11440 = fusion-projects)", () => {
+			delete process.env.FUSION_MEMORY_BASE_URL;
+			expect(DEFAULT_MEMORY_BASE_URL).toBe("http://127.0.0.1:11435");
+			expect(getMemoryBaseUrl()).toBe("http://127.0.0.1:11435");
+		});
+
+		it("FUSION_MEMORY_BASE_URL override wins", () => {
+			process.env.FUSION_MEMORY_BASE_URL = "http://10.0.0.5:11435";
+			expect(getMemoryBaseUrl()).toBe("http://10.0.0.5:11435");
+		});
+
+		it("probe: reachable -> connected", async () => {
+			const { spy, calls } = makeFetchSpy({ ok: true });
+			fetchSpy = spy;
+			await probeMemoryPipeline("sess-219");
+			expect(getMemoryPipelineStatus()).toBe("connected");
+			expect(calls[0].url).toContain("11435/healthz");
+		});
+
+		it("probe: refused -> unreachable (status flag set, not swallowed)", async () => {
+			const spy = spyOn(globalThis, "fetch").mockImplementation(
+				throwingFetch("refused"),
+			);
+			fetchSpy = spy;
+			await probeMemoryPipeline("sess-219");
+			expect(getMemoryPipelineStatus()).toBe("unreachable");
+		});
+
+		it("FUSION_MEMORY_DISABLED=1 -> disabled, no probe fired", async () => {
+			process.env.FUSION_MEMORY_DISABLED = "1";
+			const { spy } = makeFetchSpy({ ok: true });
+			fetchSpy = spy;
+			await probeMemoryPipeline("sess-219");
+			expect(getMemoryPipelineStatus()).toBe("disabled");
+			expect(spy).toHaveBeenCalledTimes(0);
+		});
+
+		it("unreachable: re-probe suppressed within 5min window", async () => {
+			const spy = spyOn(globalThis, "fetch").mockImplementation(
+				throwingFetch("refused"),
+			);
+			fetchSpy = spy;
+			await probeMemoryPipeline("sess-219");
+			expect(spy).toHaveBeenCalledTimes(1);
+			await probeMemoryPipeline("sess-219");
+			expect(spy).toHaveBeenCalledTimes(1);
+			expect(getMemoryPipelineStatus()).toBe("unreachable");
+		});
+
+		it("connected: subsequent probes are no-ops", async () => {
+			const { spy } = makeFetchSpy({ ok: true });
+			fetchSpy = spy;
+			await probeMemoryPipeline("sess-219");
+			await probeMemoryPipeline("sess-219");
+			expect(spy).toHaveBeenCalledTimes(1);
+			expect(getMemoryPipelineStatus()).toBe("connected");
 		});
 	});
 });

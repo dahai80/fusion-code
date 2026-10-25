@@ -1,5 +1,9 @@
 // biome-ignore-all assist/source/organizeImports: ANT-ONLY import markers must not be reordered
 import { Box, Text } from "../ink.js";
+import {
+	getMemoryBaseUrl,
+	getMemoryPipelineStatus,
+} from "../services/memory/index.js";
 import type * as React from "react";
 import {
 	getLargeMemoryFiles,
@@ -244,6 +248,25 @@ const jetbrainsPluginNotice: StatusNoticeDefinition = {
 	},
 };
 
+// #219: fusion-memory 不可达 — 长期记忆本会话关闭, 必须持续可见而非一闪而过
+const fusionMemoryUnreachableNotice: StatusNoticeDefinition = {
+	id: "fusion-memory-unreachable",
+	type: "warning",
+	isActive: () => getMemoryPipelineStatus() === "unreachable",
+	render: () => {
+		const url = getMemoryBaseUrl();
+		return (
+			<Box flexDirection="row" marginTop={1}>
+				<Text color="warning">{figures.warning}</Text>
+				<Text color="warning">
+					fusion-memory unreachable at {url} — long-term memory OFF for this
+					session (fm-server not running? check: fusion-memory start)
+				</Text>
+			</Box>
+		);
+	},
+};
+
 // All notice definitions
 export const statusNoticeDefinitions: StatusNoticeDefinition[] = [
 	largeMemoryFilesNotice,
@@ -252,6 +275,7 @@ export const statusNoticeDefinitions: StatusNoticeDefinition[] = [
 	apiKeyConflictNotice,
 	bothAuthMethodsNotice,
 	jetbrainsPluginNotice,
+	fusionMemoryUnreachableNotice,
 ];
 
 // Helper functions for external use

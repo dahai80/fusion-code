@@ -8,16 +8,18 @@
  * 失败 logForDebugging + 返回空, 不抛异常中断主流程。
  *
  * 协议: fm-server HTTP JSON-RPC 2.0 (127.0.0.1, Bearer 鉴权)。
- * 端口默认 11440 (避让 fusion-kb 11435, ecosystem ports 11435-11439 已占)。
+ * 端口默认 11435 (fm-server 注册端口, port-registry.yaml; #219 修复 —
+ * 旧默认 11440 是 fusion-projects 的端口, 注入管道静默断链)。
  *
  * env (operator):
- *   FUSION_MEMORY_BASE_URL  (默认 http://127.0.0.1:11440)
+ *   FUSION_MEMORY_BASE_URL  (默认 http://127.0.0.1:11435)
  *   FUSION_MEMORY_API_KEY   (必配, 对齐 fm-server Bearer B5)
+ *   FUSION_MEMORY_DISABLED  (=1 显式关闭, 不探活不告警)
  */
 
 import { logForDebugging } from "../../utils/debug.js";
 
-const DEFAULT_MEMORY_BASE_URL = "http://127.0.0.1:11440";
+export const DEFAULT_MEMORY_BASE_URL = "http://127.0.0.1:11435";
 
 // ─── Circuit Breaker (audit 0905 E3) ──────────────────────────
 // fusion-memory 故障时每次 rpc 仍等 AbortSignal.timeout (10s) → 主流程被拖死。
@@ -67,19 +69,118 @@ function memCircuitRecordFailure(): void {
 	}
 }
 
-function getMemoryBaseUrl(): string {
+export function getMemoryBaseUrl(): string {
 	return process.env.FUSION_MEMORY_BASE_URL || DEFAULT_MEMORY_BASE_URL;
 }
 
 function getMemoryApiKey(): string | null {
 	const key = process.env.FUSION_MEMORY_API_KEY;
 	if (!key) {
-		logForDebugging(
-			"[Fusion-Memory] FUSION_MEMORY_API_KEY 未配置, 跳过记忆接入",
-		);
+		// #219: 每会话只提示一次 (旧实现每次 rpc 都打一条)
+		if (!_unconfiguredLoggedOnce) {
+			_unconfiguredLoggedOnce = true;
+			logForDebugging(
+				"[Fusion-Memory] FUSION_MEMORY_API_KEY 未配置, 记忆接入关闭 (每会话仅提示一次)",
+			);
+		}
 		return null;
 	}
 	return key;
+}
+
+// ─── Pipeline status (#219 fail-visible) ─────────────────────
+// fail-empty 只对"结果"成立 (agent 永不被记忆故障打断), 状态必须可见:
+// 启动告警条 (StatusNotices) + 结构化日志 + audit JSONL 三处落地。
+
+export type MemoryPipelineStatus =
+	| "unknown"
+	| "connected"
+	| "unreachable"
+	| "disabled";
+
+const MEMORY_PROBE_TIMEOUT_MS = 2000;
+const MEMORY_REPROBE_INTERVAL_MS = 5 * 60_000;
+
+let _pipelineStatus: MemoryPipelineStatus = "unknown";
+let _lastProbeAt = 0;
+let _probeInFlight: Promise<void> | null = null;
+let _unconfiguredLoggedOnce = false;
+
+export function getMemoryPipelineStatus(): MemoryPipelineStatus {
+	return _pipelineStatus;
+}
+
+export function isMemoryExplicitlyDisabled(): boolean {
+	return process.env.FUSION_MEMORY_DISABLED === "1";
+}
+
+// 测试专用: 复位模块级探活状态
+export function resetMemoryPipelineStatusForTest(): void {
+	_pipelineStatus = "unknown";
+	_lastProbeAt = 0;
+	_probeInFlight = null;
+	_unconfiguredLoggedOnce = false;
+}
+
+export async function probeMemoryPipeline(sessionId: string): Promise<void> {
+	if (_probeInFlight) return _probeInFlight;
+	const run = (async () => {
+		if (isMemoryExplicitlyDisabled()) {
+			_pipelineStatus = "disabled";
+			return;
+		}
+		// 已连通不重探; unreachable 5min 内不重复探 (每轮 turn 触发一次, 便宜)
+		const now = Date.now();
+		if (_pipelineStatus === "connected") return;
+		if (
+			_pipelineStatus === "unreachable" &&
+			now - _lastProbeAt < MEMORY_REPROBE_INTERVAL_MS
+		) {
+			return;
+		}
+		_lastProbeAt = now;
+		const started = Date.now();
+		let ok = false;
+		try {
+			const res = await fetch(`${getMemoryBaseUrl()}/healthz`, {
+				method: "GET",
+				signal: AbortSignal.timeout(MEMORY_PROBE_TIMEOUT_MS),
+			});
+			ok = res.ok;
+		} catch {
+			ok = false;
+		}
+		const latencyMs = Date.now() - started;
+		_pipelineStatus = ok ? "connected" : "unreachable";
+		// 每次探活一条结构化日志 (不是每请求一条)
+		logForDebugging(
+			`memory_pipeline status=${_pipelineStatus} url=${getMemoryBaseUrl()} latency_ms=${latencyMs}`,
+		);
+		try {
+			const { appendAuditLog, createAuditEntry } = await import(
+				"../audit/index.js"
+			);
+			await appendAuditLog(
+				createAuditEntry(
+					sessionId,
+					"fusion-memory",
+					"memory_probe",
+					getMemoryBaseUrl(),
+					{
+						detail: `memory_pipeline status=${_pipelineStatus} latency_ms=${latencyMs}`,
+						success: ok,
+						duration_ms: latencyMs,
+					},
+				),
+			);
+		} catch (e) {
+			logForDebugging(`[Fusion-Memory] audit write failed: ${e}`);
+		}
+	})();
+	_probeInFlight = run.finally(() => {
+		_probeInFlight = null;
+	});
+	return _probeInFlight;
 }
 
 // ─── Types ────────────────────────────────────────────────────

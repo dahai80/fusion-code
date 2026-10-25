@@ -36,6 +36,7 @@ import {
 	getAttachmentMessages,
 } from "../attachments.js";
 import type { PastedContent } from "../config.js";
+import { getSessionId } from "../../bootstrap/state.js";
 import { logForDebugging } from "../debug.js";
 import type { EffortValue } from "../effort.js";
 import { toArray } from "../generators.js";
@@ -283,6 +284,11 @@ export async function processUserInput({
 	// 丢失。故必须 await。fail-empty: API key 未配置 / subagent / 空输入 →
 	// retrieveMemorySection 立即返 "" (无 fetch)。
 	if (!context.agentId && result.shouldQuery && inputMessage) {
+		// #219: 每 turn 触发一次探活 (内部守卫: 已连通/近期已探不重复, 2s 超时)。
+		// fire-and-forget — 探活不阻塞输入处理, 状态异步落 StatusNotices/日志/audit。
+		void memoryRetrieveModule
+			.probeMemoryPipeline(getSessionId())
+			.catch(() => {});
 		try {
 			const section = await memoryRetrieveModule.retrieveMemorySection({
 				inputText: inputMessage,

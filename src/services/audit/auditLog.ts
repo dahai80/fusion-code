@@ -36,7 +36,8 @@ export type AuditLogEntry = {
 		| "execute"
 		| "mcp_call"
 		| "denied"
-		| "skill_write";
+		| "skill_write"
+		| "memory_probe";
 	target: string;
 	detail?: string;
 	success: boolean;
