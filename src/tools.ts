@@ -109,6 +109,10 @@ import { getDenyRuleForTool } from "./utils/permissions/permissions.js";
 import { hasEmbeddedSearchTools } from "./utils/embeddedTools.js";
 import { isEnvTruthy } from "./utils/envUtils.js";
 import { isFusionMlxProvider } from "./utils/model/providers.js";
+import {
+	getMlxToolFilterForModel,
+	MEDIUM_TOOLS,
+} from "./utils/mlxToolTiers.js";
 import { getMainLoopModel } from "./utils/model/model.js";
 import { isPowerShellToolEnabled } from "./utils/shell/shellToolUtils.js";
 import { isWorktreeModeEnabled } from "./utils/worktreeModeEnabled.js";
@@ -245,68 +249,12 @@ export function filterToolsByDenyRules<
 	return tools.filter((tool) => !getDenyRuleForTool(permissionContext, tool));
 }
 
-const CORE_TOOLS = new Set([
-	"Bash",
-	"Read",
-	"Write",
-	"Edit",
-	"MultiEdit",
-	"Glob",
-	"Grep",
-]);
-const MEDIUM_TOOLS = new Set([
-	...CORE_TOOLS,
-	"AskUserQuestion",
-	"TodoWrite",
-	"WebFetch",
-	"WebSearch",
-]);
-const FULL_TOOLS = new Set([
-	...MEDIUM_TOOLS,
-	"Agent",
-	"TaskCreate",
-	"TaskGet",
-	"TaskUpdate",
-	"TaskList",
-	"NotebookEdit",
-	"Skill",
-	"EnterPlanMode",
-	"ExitPlanMode",
-	"Sleep",
-	"TeamCreate",
-	"TeamDelete",
-	"CtxInspect",
-	"CreateArtifact",
-	"UpdateArtifact",
-	"LoadArtifact",
-	"PatchArtifact",
-	"CreateGoal",
-	"GetGoal",
-	"SetGoalBudget",
-	"UpdateGoal",
-	"SendDMail",
-]);
-
+// #222: 分档常量 + 数值规模解析抽到 utils/mlxToolTiers (纯函数可单测,
+// 也避免测试直接 import tools.ts 触发重模块图)。
 function getMlxToolFilter(): Set<string> | null {
 	if (!isFusionMlxProvider()) return null;
 	try {
-		const modelId = (getMainLoopModel() ?? "").toLowerCase();
-		if (
-			modelId.includes("0.5b") ||
-			modelId.includes("1b") ||
-			modelId.includes("2b")
-		) {
-			return CORE_TOOLS;
-		}
-		if (
-			modelId.includes("3b") ||
-			modelId.includes("7b") ||
-			modelId.includes("8b") ||
-			modelId.includes("9b")
-		) {
-			return MEDIUM_TOOLS;
-		}
-		return FULL_TOOLS;
+		return getMlxToolFilterForModel(getMainLoopModel() ?? "");
 	} catch {
 		return MEDIUM_TOOLS;
 	}
