@@ -1,8 +1,8 @@
 /**
  * Files are loaded in the following order:
  *
- * 1. Managed memory (eg. /etc/claude-code/CLAUDE.md) - Global instructions for all users
- * 2. User memory (~/.claude/CLAUDE.md) - Private global instructions for all projects
+ * 1. Managed memory (eg. /etc/claude-code/CLAUDE.md, see managedPath.ts) - Global instructions for all users
+ * 2. User memory (~/.fusion-code/CLAUDE.md) - Private global instructions for all projects
  * 3. Project memory (CLAUDE.md, .claude/CLAUDE.md, and .claude/rules/*.md in project roots) - Instructions checked into the codebase
  * 4. Local memory (CLAUDE.local.md in project roots) - Private project-specific instructions
  *
