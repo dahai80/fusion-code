@@ -115,12 +115,20 @@ bun run build
 
 fusion-code supports multiple API backends. The provider is selected automatically by this priority order:
 
-1. **fusionMlx (local)** — if `FUSION_GATEWAY_ENABLED=1` or `FUSION_MLX_ENABLED=1` or no cloud key is set → local MLX at `127.0.0.1:11432`
+1. **fusionMlx (local)** — if `FUSION_GATEWAY_ENABLED=1` or `FUSION_MLX_ENABLED=1` or `FUSION_MLX_BASE_URL`/`FUSION_GATEWAY_URL` is set → local MLX at `127.0.0.1:11432`. **Explicit local opt-in wins over any key** — setting `FUSION_API_KEY` does not pull an explicitly-local session back to the cloud (a key selects credentials, not topology; #221).
 2. **openai** — if `FUSION_CODE_USE_OPENAI=1` → OpenAI Codex (OAuth)
 3. **foundry** — if `FUSION_CODE_USE_FOUNDRY=1` → Azure AI Foundry
 4. **firstParty (Anthropic)** — if `FUSION_API_KEY` is set → Anthropic API (direct or via proxy)
 
 > The first matching provider wins. If none match, local MLX is auto-detected on port 11432.
+
+### Credentials (one canonical key)
+
+**`FUSION_API_KEY` is THE key for the whole fusion stack** — cloud endpoints, gateway, and engine alike. `FUSION_AUTH_TOKEN` is an equivalent alias (bearer-token form).
+
+- Legacy per-layer names (`FUSION_GATEWAY_API_KEY`, `GATEWAY_API_KEY`, `FUSION_MLX_API_KEY`, `MLX_API_KEY`) still work but are **deprecated** — a warning naming the alias fires once per session. Migrate to `FUSION_API_KEY`.
+- `ANTHROPIC_API_KEY` / `ANTHROPIC_AUTH_TOKEN` are cloud-proxy credentials. In local MLX mode they are **ignored** — a leftover cloud token in your shell can no longer 401 against the local gateway (#221). Set `FUSION_ALLOW_ANTHROPIC_TOKEN_LOCAL=1` to deliberately reuse a cloud token locally.
+- A startup debug line logs the active provider, base URL, and which credential **name** (never the value) was used.
 
 **Fallback model**: When the primary model is overloaded (529) or rate-limited (429), fusion-code automatically falls back to a smaller model. The default chain is opus→sonnet→haiku. Override with `FUSION_FALLBACK_MODEL` or the `/config fallbackModel` setting.
 
@@ -129,7 +137,7 @@ fusion-code supports multiple API backends. The provider is selected automatical
 | Provider | Required Env | Auth Method | Notes |
 |---|---|---|---|
 | **fusionMlx (local)** | none (auto on port 11432) | local | Apple Silicon only; use `FUSION_MLX_MODEL` to pin a model |
-| **fusionMlx (remote)** | `FUSION_GATEWAY_URL` (or `FUSION_MLX_BASE_URL`) | local or `FUSION_MLX_API_KEY` | Run MLX on another Mac, connect over network |
+| **fusionMlx (remote)** | `FUSION_GATEWAY_URL` (or `FUSION_MLX_BASE_URL`) | local or `FUSION_API_KEY` | Run MLX on another Mac, connect over network |
 | **Anthropic direct** | `FUSION_API_KEY` | API key / OAuth | Set `FUSION_MODEL` to pin a model |
 | **Anthropic via proxy** | `FUSION_BASE_URL` + `FUSION_API_KEY` | API key or `FUSION_AUTH_TOKEN` | LiteLLM, OpenRouter, internal gateway |
 | **OpenAI Codex** | `FUSION_CODE_USE_OPENAI=1` | OAuth | In-app login flow on first launch |
@@ -278,7 +286,7 @@ Run fusion-mlx on another Mac and connect over the network:
 ```bash
 export FUSION_MLX_BASE_URL="http://192.168.1.10:11432"
 # Optional: if the remote requires auth
-export FUSION_MLX_API_KEY="..."
+export FUSION_API_KEY="..."
 ./fusion-code
 ```
 
@@ -866,6 +874,28 @@ For upstream `fusion-mlx` issues: file an issue first, then a PR, following the 
 
 ---
 
+## Provenance
+
+fusion-code is **derived from [Claude Code](https://github.com/anthropics/claude-code)**, Anthropic's terminal coding agent, and is distributed under the **AGPL-3.0** license (see [LICENSE](./LICENSE)). The full source of this derivative — including all modifications — is available in this repository, satisfying AGPL-3.0 source-disclosure obligations. Upstream de-branding and cleanup commits remain visible in the git history (see issue #220).
+
+### Genuine fusion increments beyond upstream
+
+| Area | What was added |
+|---|---|
+| Local MLX inference | `fusion-mlx-adapter.ts` — full local inference path against fusion-mlx (`:11434`) with size-aware model params, circuit breaker, and semaphore concurrency control |
+| Stream resume | `streamResume.ts` — mid-generation stream drop recovery via `Last-Event-ID` replay + state-continuation merge, instead of restarting the turn |
+| Model-size tool filtering | `utils/mlxToolTiers.ts` — tool set tiered by model parameter count (≤2B / ≤9B / full) so small local models are not drowned in 30+ tool schemas |
+| Trajectory training export | `services/trajectory/` — session JSONL to SFT/DPO/GRPO dataset pipeline feeding fusion-trainer |
+| FUSION.rules | Enhanced rule file (priority above CLAUDE.md) with `denied_tools` and `default_template` frontmatter |
+| Plugin supply-chain verification | Archive sources pin `sha256`; missing pin fails under strict mode (fail-visible) |
+| Anti-sycophancy | verificationAgent prompt hardening against agree-with-the-user failure modes |
+| LLM adapter seam | `services/llm/` — provider-neutral client replacing the Anthropic SDK; any Anthropic-compatible endpoint via direct connect |
+| fusion-memory integration | Cross-session long-term memory (retrieve + commit) against fm-server (`:11435`) |
+
+Residual upstream references (`.claude/` config paths, Anthropic OAuth endpoints for firstParty cloud auth, upstream documentation links) are compatibility shims and are inventoried in [docs/upstream-provenance.md](./docs/upstream-provenance.md).
+
+---
+
 ## License
 
-Use at your own discretion. See the project license terms for details.
+AGPL-3.0. See [LICENSE](./LICENSE).

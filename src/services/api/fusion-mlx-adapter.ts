@@ -345,27 +345,129 @@ function toMlxModelName(model: string): string {
 // _verify_api_key_values 在配置了 api_key 后校验 Authorization: Bearer / x-api-key,
 // 未配置时 anonymous allowed)。配置后不带凭据的请求会被 401 拒绝。
 //
-// 鉴权收敛 (endpoint 统一语义): FUSION_API_KEY / FUSION_AUTH_TOKEN 是唯一
-// 规范凭证 — 无论 endpoint 是云端还是本地推理服务, 同一套配置。历史专用
-// key (FUSION_GATEWAY_API_KEY / FUSION_MLX_API_KEY / MLX_API_KEY / settings.json)
-// 保留为兼容回退, 但不再要求用户区分"哪一层用哪把 key"。
+// 鉴权收敛 (endpoint 统一语义): FUSION_API_KEY 是唯一规范凭证 — 无论
+// endpoint 是云端还是本地推理服务, 同一套配置 (FUSION_AUTH_TOKEN 为等价
+// 别名)。历史专用 key (FUSION_GATEWAY_API_KEY / GATEWAY_API_KEY /
+// FUSION_MLX_API_KEY / MLX_API_KEY / settings.json) 保留为兼容回退, 命中时
+// 打一次弃用告警 (#221)。
+//
+// #221 云凭证隔离: ANTHROPIC_API_KEY / ANTHROPIC_AUTH_TOKEN 是云端 proxy
+// 凭证, 不得参与本地鉴权链 — 残留在 shell env 的云 token 打本地 gateway
+// 直接 401 (live repro)。仅显式 FUSION_ALLOW_ANTHROPIC_TOKEN_LOCAL=1 时
+// 允许 (同 shell 云+本地双栈场景)。
 //
 // 另: fusion-mlx route_guard (#343/#349) Phase 2 默认 enforce,缺失 X-Fusion-Route 头
 // 的请求被 403 拒绝。此处统一注入,值可经 FUSION_ROUTE_HEADER 覆盖。
+
+// #221: 凭证名弃用告警 — 每个别名每会话只打一次
+const _warnedAliasKeys = new Set<string>();
+function warnDeprecatedKeyAlias(name: string): void {
+	if (_warnedAliasKeys.has(name)) return;
+	_warnedAliasKeys.add(name);
+	logForDebugging(
+		`[auth] ${name} is deprecated — set FUSION_API_KEY instead (single canonical key for gateway + engine)`,
+		{ level: "warn" },
+	);
+}
+
+export function _resetAuthDeprecationWarningsForTest(): void {
+	_warnedAliasKeys.clear();
+	_authDebugLogged = false;
+	_cachedMlxApiKey = null;
+}
+
+export function _deprecatedAliasWarningCountForTest(): number {
+	return _warnedAliasKeys.size;
+}
+
+export interface MlxCredentialResolution {
+	value: string | undefined;
+	name: string;
+}
+
+// 本地引擎侧凭证链 (含 settings.json 回退)
+function resolveMlxEngineCredential(): MlxCredentialResolution {
+	const envKey = process.env.FUSION_MLX_API_KEY;
+	if (envKey) {
+		warnDeprecatedKeyAlias("FUSION_MLX_API_KEY");
+		return { value: envKey, name: "FUSION_MLX_API_KEY (deprecated)" };
+	}
+	const legacyKey = process.env.MLX_API_KEY;
+	if (legacyKey) {
+		warnDeprecatedKeyAlias("MLX_API_KEY");
+		return { value: legacyKey, name: "MLX_API_KEY (deprecated)" };
+	}
+	const fromSettings = getMlxApiKey();
+	return {
+		value: fromSettings,
+		name: fromSettings
+			? "~/.fusion-mlx/settings.json auth.api_key"
+			: "none",
+	};
+}
+
+// 完整本地模式凭证解析 (gateway 层 → engine 层), 供鉴权头 + 调试日志共用。
+export function resolveMlxCredential(): MlxCredentialResolution {
+	if (process.env.FUSION_API_KEY) {
+		return { value: process.env.FUSION_API_KEY, name: "FUSION_API_KEY" };
+	}
+	if (process.env.FUSION_AUTH_TOKEN) {
+		return { value: process.env.FUSION_AUTH_TOKEN, name: "FUSION_AUTH_TOKEN" };
+	}
+	// #221: 云端凭证默认不参与本地链; 显式 opt-in 才放行
+	if (process.env.FUSION_ALLOW_ANTHROPIC_TOKEN_LOCAL === "1") {
+		if (process.env.ANTHROPIC_API_KEY) {
+			return {
+				value: process.env.ANTHROPIC_API_KEY,
+				name: "ANTHROPIC_API_KEY (opt-in FUSION_ALLOW_ANTHROPIC_TOKEN_LOCAL)",
+			};
+		}
+		if (process.env.ANTHROPIC_AUTH_TOKEN) {
+			return {
+				value: process.env.ANTHROPIC_AUTH_TOKEN,
+				name: "ANTHROPIC_AUTH_TOKEN (opt-in FUSION_ALLOW_ANTHROPIC_TOKEN_LOCAL)",
+			};
+		}
+	}
+	if (isGatewayBaseUrl()) {
+		const gwKey = process.env.FUSION_GATEWAY_API_KEY;
+		if (gwKey) {
+			warnDeprecatedKeyAlias("FUSION_GATEWAY_API_KEY");
+			return {
+				value: gwKey,
+				name: "FUSION_GATEWAY_API_KEY (deprecated)",
+			};
+		}
+		const legacyGwKey = process.env.GATEWAY_API_KEY;
+		if (legacyGwKey) {
+			warnDeprecatedKeyAlias("GATEWAY_API_KEY");
+			return { value: legacyGwKey, name: "GATEWAY_API_KEY (deprecated)" };
+		}
+	}
+	// gateway 未配 key → 复用 engine key (单机部署常共用)
+	return resolveMlxEngineCredential();
+}
+
+// #221 req 4: 启动调试行 — provider / base URL / 凭证名 (永不打值)。
+// 首次实际发请求时打一条, 避免冷启动额外开销。
+let _authDebugLogged = false;
+function logAuthResolutionOnce(cred: MlxCredentialResolution): void {
+	if (_authDebugLogged) return;
+	_authDebugLogged = true;
+	logForDebugging(
+		`auth resolution: provider=fusionMlx base_url=${getMlxBaseUrl()} credential=${cred.name}`,
+	);
+}
+
 function getMlxAuthHeaders(): Record<string, string> {
 	const headers: Record<string, string> = {
 		"X-Fusion-Route":
 			process.env.FUSION_ROUTE_HEADER || DEFAULT_FUSION_ROUTE_HEADER,
 	};
-	// 规范凭证优先 (与 firstParty 同源); 专用 key 仅作历史配置兼容回退
-	const apiKey =
-		process.env.FUSION_API_KEY ||
-		process.env.FUSION_AUTH_TOKEN ||
-		process.env.ANTHROPIC_API_KEY ||
-		process.env.ANTHROPIC_AUTH_TOKEN ||
-		(isGatewayBaseUrl() ? getGatewayApiKey() : getMlxApiKey());
-	if (apiKey) {
-		headers.Authorization = `Bearer ${apiKey}`;
+	const cred = resolveMlxCredential();
+	logAuthResolutionOnce(cred);
+	if (cred.value) {
+		headers.Authorization = `Bearer ${cred.value}`;
 	}
 	return headers;
 }
@@ -378,20 +480,6 @@ function isGatewayBaseUrl(): boolean {
 	} catch {
 		return true; // 默认 base URL 即 gateway
 	}
-}
-
-let _cachedGatewayApiKey: string | undefined | null = null;
-function getGatewayApiKey(): string | undefined {
-	if (_cachedGatewayApiKey !== null) return _cachedGatewayApiKey;
-	const envKey =
-		process.env.FUSION_GATEWAY_API_KEY || process.env.GATEWAY_API_KEY;
-	if (envKey) {
-		_cachedGatewayApiKey = envKey;
-		return envKey;
-	}
-	// 回退: gateway 未单独配置 key 时复用 MLX key (单机部署常共用)。
-	_cachedGatewayApiKey = getMlxApiKey();
-	return _cachedGatewayApiKey;
 }
 
 let _cachedMlxApiKey: string | undefined | null = null;
@@ -467,7 +555,7 @@ async function mlxFetchWithRetryInner(
 			headers: { ...(init.headers as Record<string, string>), ...authHeaders },
 		};
 		logForDebugging(
-			"[Fusion-MLX] Attaching Authorization header (FUSION_MLX_API_KEY set)",
+			`[Fusion-MLX] Attaching Authorization header (credential: ${authHeaders.Authorization ? "resolved" : "none"})`,
 		);
 	}
 	if (!mlxApiCircuit.allowRequest()) {
