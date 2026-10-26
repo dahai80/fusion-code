@@ -135,8 +135,16 @@ export function preflightMlxQueryCheck(
 		return { fits: true, estimatedTokens: 0, safeBudget: Infinity };
 	}
 
+	// #224: clamp the output reserve like getMlxToolTokenBudget does —
+	// reserving the full COMPACT_MAX_OUTPUT_TOKENS (20000) against a 32k
+	// window starved input to 8937 tokens and silently dropped FULL-tier
+	// tool sets down to 5-tool core on every query.
+	const outputReserve = Math.min(
+		COMPACT_MAX_OUTPUT_TOKENS,
+		contextWindow * 0.25,
+	);
 	const safeBudget = Math.floor(
-		(contextWindow - COMPACT_MAX_OUTPUT_TOKENS) * MLX_QUERY_TOKEN_SAFETY_FACTOR,
+		(contextWindow - outputReserve) * MLX_QUERY_TOKEN_SAFETY_FACTOR,
 	);
 
 	const systemTokens = estimateSystemPromptTokens([systemPrompt]); // log: wrap string in array for TS2345

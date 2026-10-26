@@ -8,6 +8,7 @@ import type {
 	ImageBlockParam,
 } from "src/types/anthropic-protocol.js";
 import { getContentText } from "src/utils/messages.js";
+import { getSessionId } from "../../bootstrap/state.js";
 import {
 	findCommand,
 	getCommandName,
@@ -36,7 +37,6 @@ import {
 	getAttachmentMessages,
 } from "../attachments.js";
 import type { PastedContent } from "../config.js";
-import { getSessionId } from "../../bootstrap/state.js";
 import { logForDebugging } from "../debug.js";
 import type { EffortValue } from "../effort.js";
 import { toArray } from "../generators.js";

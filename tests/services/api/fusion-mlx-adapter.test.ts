@@ -13,8 +13,8 @@
  */
 import { beforeEach, describe, expect, it, spyOn } from "bun:test";
 import {
-	_resetMlxCircuitBreaker,
 	_resetMlxBaseUrl,
+	_resetMlxCircuitBreaker,
 	_resetOriginalFetch,
 	checkFusionMlxHealth,
 	createFusionMlxFetch,
@@ -853,6 +853,122 @@ describe("createFusionMlxFetch", () => {
 		}
 	});
 
+	// ─── #224 native tool_calls path ──────────────────────────
+	// 回归: 之前对支持结构化输出的模型自动注入 response_format(json_schema
+	// "agent_decision"), 强制每轮(含最终回答)输出 {"thinking","call"} 内容,
+	// 且无任何代码把它解析回 tool_use → agentic loop 从不执行工具。
+	// 现在: tools 走原生 tool_calls(engine grammar), 不注入 response_format。
+
+	it("#224: tools present → mlxBody carries tools and NO auto-injected response_format", async () => {
+		const fetchFn = createFusionMlxFetch("test-model");
+		let capturedBody: Record<string, unknown> | undefined;
+		const mockFetch = spyOn(globalThis, "fetch").mockImplementation(
+			async (url, init) => {
+				const urlStr = String(url);
+				if (urlStr.includes("/v1/chat/completions")) {
+					capturedBody = JSON.parse((init as RequestInit).body as string);
+					return mockResponse({
+						id: "chatcmpl-tools",
+						object: "chat.completion",
+						created: 100,
+						model: "test-model",
+						choices: [
+							{
+								index: 0,
+								message: { role: "assistant", content: "" },
+								finish_reason: "stop",
+							},
+						],
+						usage: { prompt_tokens: 5, completion_tokens: 3, total_tokens: 8 },
+					});
+				}
+				return mockResponse({});
+			},
+		);
+
+		try {
+			const res = await fetchFn("http://localhost/v1/messages", {
+				method: "POST",
+				headers: {
+					"content-type": "application/json",
+					"anthropic-version": "2023-06-01",
+				},
+				body: JSON.stringify({
+					model: "test-model",
+					messages: [{ role: "user", content: "Hi" }],
+					max_tokens: 100,
+					tools: [
+						{
+							name: "Read",
+							description: "Read a file",
+							input_schema: {
+								type: "object",
+								properties: { file_path: { type: "string" } },
+								required: ["file_path"],
+							},
+						},
+					],
+				}),
+			});
+			expect(res.status).toBe(200);
+			expect(capturedBody).toBeDefined();
+			const body = capturedBody as Record<string, unknown>;
+			expect(body.tools).toBeArray();
+			expect((body.tools as Array<unknown>).length).toBe(1);
+			expect(body.response_format).toBeUndefined();
+		} finally {
+			mockFetch.mockRestore();
+		}
+	});
+
+	it("#224: caller-provided response_format still passes through", async () => {
+		const fetchFn = createFusionMlxFetch("test-model");
+		let capturedBody: Record<string, unknown> | undefined;
+		const mockFetch = spyOn(globalThis, "fetch").mockImplementation(
+			async (url, init) => {
+				const urlStr = String(url);
+				if (urlStr.includes("/v1/chat/completions")) {
+					capturedBody = JSON.parse((init as RequestInit).body as string);
+					return mockResponse({
+						id: "chatcmpl-rf",
+						object: "chat.completion",
+						created: 100,
+						model: "test-model",
+						choices: [
+							{
+								index: 0,
+								message: { role: "assistant", content: "ok" },
+								finish_reason: "stop",
+							},
+						],
+						usage: { prompt_tokens: 5, completion_tokens: 3, total_tokens: 8 },
+					});
+				}
+				return mockResponse({});
+			},
+		);
+
+		try {
+			const res = await fetchFn("http://localhost/v1/messages", {
+				method: "POST",
+				headers: {
+					"content-type": "application/json",
+					"anthropic-version": "2023-06-01",
+				},
+				body: JSON.stringify({
+					model: "test-model",
+					messages: [{ role: "user", content: "Hi" }],
+					max_tokens: 100,
+					response_format: { type: "json_object" },
+				}),
+			});
+			expect(res.status).toBe(200);
+			expect(capturedBody?.response_format).toEqual({ type: "json_object" });
+		} finally {
+			mockFetch.mockRestore();
+		}
+	});
+
 	// ─── item 15(a) MLX OOM gc-retry ──────────────────────────
 	// OOM 撞顶 → requestMlxGC (POST /api/v1/gc) → 成功则重发同上下文一次,
 	// 成功转正常响应路径; gc 失败/重发仍失败 → fallback x-should-retry:false。
@@ -864,13 +980,19 @@ describe("createFusionMlxFetch", () => {
 			async (url) => {
 				const urlStr = String(url);
 				if (urlStr.includes("/api/v1/gc")) {
-					return mockResponse({ mem_before: 8000, mem_after: 3000, freed: 5000 });
+					return mockResponse({
+						mem_before: 8000,
+						mem_after: 3000,
+						freed: 5000,
+					});
 				}
 				if (urlStr.includes("/v1/chat/completions")) {
 					chatCallCount++;
 					if (chatCallCount === 1) {
 						// 首次 OOM 撞顶
-						return new Response("memory limit exceeded: Reduce context size", { status: 500 });
+						return new Response("memory limit exceeded: Reduce context size", {
+							status: 500,
+						});
 					}
 					// gc 后重发成功
 					return mockResponse({
@@ -879,7 +1001,11 @@ describe("createFusionMlxFetch", () => {
 						created: 100,
 						model: "test-model",
 						choices: [
-							{ index: 0, message: { role: "assistant", content: "recovered" }, finish_reason: "stop" },
+							{
+								index: 0,
+								message: { role: "assistant", content: "recovered" },
+								finish_reason: "stop",
+							},
 						],
 						usage: { prompt_tokens: 5, completion_tokens: 3, total_tokens: 8 },
 					});
@@ -950,11 +1076,17 @@ describe("createFusionMlxFetch", () => {
 			async (url) => {
 				const urlStr = String(url);
 				if (urlStr.includes("/api/v1/gc")) {
-					return mockResponse({ mem_before: 8000, mem_after: 6000, freed: 2000 });
+					return mockResponse({
+						mem_before: 8000,
+						mem_after: 6000,
+						freed: 2000,
+					});
 				}
 				if (urlStr.includes("/v1/chat/completions")) {
 					chatCallCount++;
-					return new Response("memory limit exceeded: Reduce context size", { status: 500 });
+					return new Response("memory limit exceeded: Reduce context size", {
+						status: 500,
+					});
 				}
 				return mockResponse({});
 			},
@@ -984,7 +1116,11 @@ describe("createFusionMlxFetch", () => {
 			async (url) => {
 				const urlStr = String(url);
 				if (urlStr.includes("/api/v1/gc")) {
-					return mockResponse({ mem_before: 8000, mem_after: 6000, freed: 2000 });
+					return mockResponse({
+						mem_before: 8000,
+						mem_after: 6000,
+						freed: 2000,
+					});
 				}
 				if (urlStr.includes("/v1/chat/completions")) {
 					chatCallCount++;
@@ -1073,7 +1209,11 @@ describe("createFusionMlxFetch", () => {
 						created: 100,
 						model: "test-model",
 						choices: [
-							{ index: 0, message: { role: "assistant", content: "ok" }, finish_reason: "stop" },
+							{
+								index: 0,
+								message: { role: "assistant", content: "ok" },
+								finish_reason: "stop",
+							},
 						],
 						usage: { prompt_tokens: 5, completion_tokens: 3, total_tokens: 8 },
 					});
@@ -1086,13 +1226,24 @@ describe("createFusionMlxFetch", () => {
 		const addSpy = spyOn(ac.signal, "addEventListener").mockImplementation(
 			(type: string, listener: EventListenerOrEventListenerObject) => {
 				if (type === "abort") netListeners++;
-				return EventTarget.prototype.addEventListener.call(ac.signal, type, listener);
+				return EventTarget.prototype.addEventListener.call(
+					ac.signal,
+					type,
+					listener,
+				);
 			},
 		);
-		const removeSpy = spyOn(ac.signal, "removeEventListener").mockImplementation(
+		const removeSpy = spyOn(
+			ac.signal,
+			"removeEventListener",
+		).mockImplementation(
 			(type: string, listener: EventListenerOrEventListenerObject) => {
 				if (type === "abort") netListeners--;
-				return EventTarget.prototype.removeEventListener.call(ac.signal, type, listener);
+				return EventTarget.prototype.removeEventListener.call(
+					ac.signal,
+					type,
+					listener,
+				);
 			},
 		);
 

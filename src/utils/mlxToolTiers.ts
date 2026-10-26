@@ -9,47 +9,47 @@
 import { logForDebugging } from "./debug.js";
 
 export const CORE_TOOLS = new Set([
-    "Bash",
-    "Read",
-    "Write",
-    "Edit",
-    "MultiEdit",
-    "Glob",
-    "Grep",
+	"Bash",
+	"Read",
+	"Write",
+	"Edit",
+	"MultiEdit",
+	"Glob",
+	"Grep",
 ]);
 
 export const MEDIUM_TOOLS = new Set([
-    ...CORE_TOOLS,
-    "AskUserQuestion",
-    "TodoWrite",
-    "WebFetch",
-    "WebSearch",
+	...CORE_TOOLS,
+	"AskUserQuestion",
+	"TodoWrite",
+	"WebFetch",
+	"WebSearch",
 ]);
 
 export const FULL_TOOLS = new Set([
-    ...MEDIUM_TOOLS,
-    "Agent",
-    "TaskCreate",
-    "TaskGet",
-    "TaskUpdate",
-    "TaskList",
-    "NotebookEdit",
-    "Skill",
-    "EnterPlanMode",
-    "ExitPlanMode",
-    "Sleep",
-    "TeamCreate",
-    "TeamDelete",
-    "CtxInspect",
-    "CreateArtifact",
-    "UpdateArtifact",
-    "LoadArtifact",
-    "PatchArtifact",
-    "CreateGoal",
-    "GetGoal",
-    "SetGoalBudget",
-    "UpdateGoal",
-    "SendDMail",
+	...MEDIUM_TOOLS,
+	"Agent",
+	"TaskCreate",
+	"TaskGet",
+	"TaskUpdate",
+	"TaskList",
+	"NotebookEdit",
+	"Skill",
+	"EnterPlanMode",
+	"ExitPlanMode",
+	"Sleep",
+	"TeamCreate",
+	"TeamDelete",
+	"CtxInspect",
+	"CreateArtifact",
+	"UpdateArtifact",
+	"LoadArtifact",
+	"PatchArtifact",
+	"CreateGoal",
+	"GetGoal",
+	"SetGoalBudget",
+	"UpdateGoal",
+	"SendDMail",
 ]);
 
 // #222: 数值正则 — 提取 "<n>b" 后缀中的 n (支持小数如 0.6b)。
@@ -57,23 +57,23 @@ export const FULL_TOOLS = new Set([
 const MODEL_SIZE_B_RE = /(\d+(?:\.\d+)?)b\b/i;
 
 export function parseModelSizeB(modelId: string): number | null {
-    const m = MODEL_SIZE_B_RE.exec(modelId);
-    if (!m) return null;
-    const size = Number.parseFloat(m[1]);
-    return Number.isFinite(size) ? size : null;
+	const m = MODEL_SIZE_B_RE.exec(modelId);
+	if (!m) return null;
+	const size = Number.parseFloat(m[1]);
+	return Number.isFinite(size) ? size : null;
 }
 
 export function getMlxToolFilterForModel(modelId: string): Set<string> {
-    const id = modelId.toLowerCase();
-    const sizeB = parseModelSizeB(id);
-    if (sizeB === null) {
-        // 规模解析不出 (云模型名/无后缀): 保持旧行为给全量工具集
-        logForDebugging(
-            `mlx tool filter: model id "${id}" has no parseable size, full toolset`,
-        );
-        return FULL_TOOLS;
-    }
-    if (sizeB <= 2) return CORE_TOOLS;
-    if (sizeB <= 9) return MEDIUM_TOOLS;
-    return FULL_TOOLS;
+	const id = modelId.toLowerCase();
+	const sizeB = parseModelSizeB(id);
+	if (sizeB === null) {
+		// 规模解析不出 (云模型名/无后缀): 保持旧行为给全量工具集
+		logForDebugging(
+			`mlx tool filter: model id "${id}" has no parseable size, full toolset`,
+		);
+		return FULL_TOOLS;
+	}
+	if (sizeB <= 2) return CORE_TOOLS;
+	if (sizeB <= 9) return MEDIUM_TOOLS;
+	return FULL_TOOLS;
 }

@@ -13,16 +13,16 @@ import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import {
+	installProviderEnvIsolation,
+	PROVIDER_ENV_KEYS,
+} from "../../../src/__tests__/helpers/providerEnv.js";
+import {
 	_deprecatedAliasWarningCountForTest,
 	_resetAuthDeprecationWarningsForTest,
 	_resetMlxBaseUrl,
 	resolveMlxCredential,
 } from "../../../src/services/api/fusion-mlx-adapter.js";
 import { getAPIProvider } from "../../../src/utils/model/providers.js";
-import {
-	installProviderEnvIsolation,
-	PROVIDER_ENV_KEYS,
-} from "../../../src/__tests__/helpers/providerEnv.js";
 
 // #221 extra credential env keys beyond provider routing keys
 const EXTRA_ENV_KEYS = [
@@ -103,7 +103,8 @@ describe("#221 auth precedence", () => {
 				expected: "fusionMlx",
 			},
 			{
-				label: "FUSION_MLX_ENABLED=1 + FUSION_API_KEY -> fusionMlx (#221: key is credentials, not topology)",
+				label:
+					"FUSION_MLX_ENABLED=1 + FUSION_API_KEY -> fusionMlx (#221: key is credentials, not topology)",
 				env: { FUSION_MLX_ENABLED: "1", FUSION_API_KEY: "sk-x" },
 				expected: "fusionMlx",
 			},
@@ -123,7 +124,8 @@ describe("#221 auth precedence", () => {
 				expected: "fusionMlx",
 			},
 			{
-				label: "FUSION_MLX_ENABLED=1 beats third-party proxy inference -> fusionMlx",
+				label:
+					"FUSION_MLX_ENABLED=1 beats third-party proxy inference -> fusionMlx",
 				env: {
 					FUSION_MLX_ENABLED: "1",
 					FUSION_BASE_URL: "https://api.someproxy.com",

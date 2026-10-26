@@ -3619,7 +3619,10 @@ function runHeadlessStreaming(
 							async (manualUrl, automaticUrl) => {
 								// automaticUrl is always defined when skipBrowserOpen is set;
 								// the signature is optional only for the existing single-arg callers.
-								urlResolver({ manualUrl, automaticUrl: automaticUrl ?? manualUrl });
+								urlResolver({
+									manualUrl,
+									automaticUrl: automaticUrl ?? manualUrl,
+								});
 							},
 							{
 								loginWithClaudeAi: loginWithClaudeAi ?? true,
@@ -4159,12 +4162,22 @@ function runHeadlessStreaming(
 								stderr += d.toString();
 							});
 							const timer = setTimeout(() => {
-							 proc.kill("SIGKILL");
-							 resolve({ pid: proc.pid ?? -1, exitCode: null, stdout, stderr });
+								proc.kill("SIGKILL");
+								resolve({
+									pid: proc.pid ?? -1,
+									exitCode: null,
+									stdout,
+									stderr,
+								});
 							}, timeoutMs);
 							proc.on("close", (code) => {
-							 clearTimeout(timer);
-							 resolve({ pid: proc.pid ?? -1, exitCode: code, stdout, stderr });
+								clearTimeout(timer);
+								resolve({
+									pid: proc.pid ?? -1,
+									exitCode: code,
+									stdout,
+									stderr,
+								});
 							});
 							proc.on("error", (err) => {
 								clearTimeout(timer);

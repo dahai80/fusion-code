@@ -400,9 +400,7 @@ function resolveMlxEngineCredential(): MlxCredentialResolution {
 	const fromSettings = getMlxApiKey();
 	return {
 		value: fromSettings,
-		name: fromSettings
-			? "~/.fusion-mlx/settings.json auth.api_key"
-			: "none",
+		name: fromSettings ? "~/.fusion-mlx/settings.json auth.api_key" : "none",
 	};
 }
 
@@ -1464,95 +1462,6 @@ export async function getFusionMlxEmbeddings(
 	}
 }
 
-// ─── Structured Output Helpers ────────────────────────────────
-
-/**
- * 从工具列表动态构建 oneOf 联合 Schema。
- * 用于 response_format 的结构化输出约束，强制模型输出合规的工具调用 JSON。
- *
- * 输出格式：
- * ```json
- * {
- *   "thinking": "string (调用工具前的推理过程)",
- *   "call": {
- *     "tool_name": "read_file",
- *     "arguments": { ... }
- *   }
- * }
- * ```
- *
- * 当工具列表为空或未提供时，返回 undefined（不约束输出格式）。
- */
-export function buildToolResponseSchema(
-	tools?: Array<{
-		name: string;
-		description: string;
-		input_schema: Record<string, unknown>;
-	}>,
-): MLXChatCompletionRequest["response_format"] | undefined {
-	if (!tools || tools.length === 0) return undefined;
-
-	const oneOf = tools.map((tool) => ({
-		type: "object" as const,
-		properties: {
-			tool_name: { const: tool.name },
-			arguments: cleanSchemaForResponse(tool.input_schema),
-		},
-		required: ["tool_name", "arguments"],
-		additionalProperties: false,
-	}));
-
-	return {
-		type: "json_schema",
-		json_schema: {
-			name: "agent_decision",
-			description: "Agent tool call decision with thinking process",
-			schema: {
-				type: "object",
-				properties: {
-					thinking: {
-						type: "string",
-						description: "Reasoning and planning before calling the tool",
-					},
-					call: {
-						oneOf,
-					},
-				},
-				required: ["thinking", "call"],
-				additionalProperties: false,
-			},
-			strict: true,
-		},
-	};
-}
-
-/**
- * 清洗工具参数 Schema 以适配结构化输出约束。
- * 移除 outlines/xgrammar 可能不兼容的非标准字段。
- */
-function cleanSchemaForResponse(
-	schema: Record<string, unknown>,
-): Record<string, unknown> {
-	const cleaned = { ...schema };
-	delete cleaned.$schema;
-	delete cleaned.additionalProperties;
-	delete cleaned.definitions;
-	// 确保所有嵌套 properties 也被清洗
-	if (cleaned.properties && typeof cleaned.properties === "object") {
-		const props: Record<string, unknown> = {};
-		for (const [key, val] of Object.entries(
-			cleaned.properties as Record<string, unknown>,
-		)) {
-			props[key] =
-				typeof val === "object" && val !== null
-					? cleanSchemaForResponse(val as Record<string, unknown>)
-					: val;
-		}
-		cleaned.properties = props;
-	}
-	return cleaned;
-}
-
 // ─── Configuration Helpers ─────────────────────────────────────
 
 /**
@@ -1812,8 +1721,16 @@ export function createFusionMlxFetch(model: string): typeof globalThis.fetch {
 			const finalModel = isImageModel
 				? (await getRecommendedCodeModel()) || resolvedModel
 				: resolvedModel;
-			// Auto-inject structured output schema for models that support it
+			// #224: no auto-injected response_format when tools are present.
+			// The injected json_schema forced every turn (incl. the final answer)
+			// into {"thinking","call"} content that nothing parsed back into
+			// tool_use — the agentic loop never executed a tool. Native
+			// tool_calls (engine grammar) is the supported path; caller-provided
+			// body.response_format still passes through below.
 			const caps = await getMlxModelCapabilities(finalModel);
+			logForDebugging(
+				`[Fusion-MLX] native tool_calls path: tools=${(body.tools as Array<Record<string, unknown>> | undefined)?.length ?? 0} response_format=${body.response_format ? "caller-provided" : "none"}`,
+			);
 			const toolsForMlx =
 				(body.tools as Array<Record<string, unknown>> | undefined)?.length > 0
 					? anthropicToMlxTools(
@@ -1824,19 +1741,6 @@ export function createFusionMlxFetch(model: string): typeof globalThis.fetch {
 							}>,
 						)
 					: undefined; // log: assert tool shape
-			const autoResponseFormat =
-				caps.supportsStructuredOutput &&
-				toolsForMlx &&
-				toolsForMlx.length > 0 &&
-				!body.response_format
-					? buildToolResponseSchema(
-							body.tools as Array<{
-								name: string;
-								description: string;
-								input_schema: Record<string, unknown>;
-							}>,
-						) // log: assert tool shape
-					: undefined;
 
 			const inferenceParams = getModelInferenceParams(finalModel);
 
@@ -1870,9 +1774,7 @@ export function createFusionMlxFetch(model: string): typeof globalThis.fetch {
 							response_format:
 								body.response_format as MLXChatCompletionRequest["response_format"],
 						}
-					: autoResponseFormat
-						? { response_format: autoResponseFormat }
-						: {}),
+					: {}),
 			};
 
 			// 调用 fusion-mlx with retry support
