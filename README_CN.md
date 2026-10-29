@@ -72,7 +72,7 @@ fusion-mlx pull qwen2.5-coder-7b-instruct
 
 ```bash
 # 设置 API Key（持久化到 ~/.zshrc 或 ~/.bashrc）
-export FUSION_API_KEY="sk-ant-..."
+export FUSION_CLIENT_KEY="sk-ant-..."
 
 # 可选：指定模型
 export FUSION_MODEL="claude-sonnet-5"
@@ -87,7 +87,7 @@ export FUSION_MODEL="claude-sonnet-5"
 ```bash
 # 指向代理（包含路径，如 OpenAI 兼容代理的 /v1）
 export FUSION_BASE_URL="http://your-proxy:4000/v1"
-export FUSION_API_KEY="sk-..."                    # 代理接受的 Key
+export FUSION_CLIENT_KEY="sk-..."                    # 代理接受的 Key
 
 # 可选：Bearer Token 代替 x-api-key
 export FUSION_AUTH_TOKEN="sk-..."
@@ -118,7 +118,7 @@ fusion-code 支持多个 API 后端。供应商按以下优先级自动选择：
 1. **fusionMlx（本地）** — 若 `FUSION_MLX_ENABLED=1` 或无云端 Key → 本地 MLX `127.0.0.1:11434`
 2. **openai** — 若 `FUSION_CODE_USE_OPENAI=1` → OpenAI Codex（OAuth）
 3. **foundry** — 若 `FUSION_CODE_USE_FOUNDRY=1` → Azure AI Foundry
-4. **firstParty（Anthropic）** — 若 `FUSION_API_KEY` 已设置 → Anthropic API（直连或代理）
+4. **firstParty（Anthropic）** — 若 `FUSION_CLIENT_KEY` 已设置 → Anthropic API（直连或代理）
 
 > 第一个匹配的供应商优先。若均不匹配，自动检测端口 11434 上的本地 MLX。
 
@@ -129,9 +129,9 @@ fusion-code 支持多个 API 后端。供应商按以下优先级自动选择：
 | 供应商 | 必需环境变量 | 认证方式 | 备注 |
 |---|---|---|---|
 | **fusionMlx（本地）** | 无（端口 11434 自动） | 本地 | 仅 Apple Silicon；用 `FUSION_MLX_MODEL` 指定模型 |
-| **fusionMlx（远程）** | `FUSION_MLX_BASE_URL` | 本地或 `FUSION_MLX_API_KEY` | 在另一台 Mac 运行 MLX，通过网络连接 |
-| **Anthropic 直连** | `FUSION_API_KEY` | API Key / OAuth | 用 `FUSION_MODEL` 指定模型 |
-| **Anthropic 代理** | `FUSION_BASE_URL` + `FUSION_API_KEY` | API Key 或 `FUSION_AUTH_TOKEN` | LiteLLM、OpenRouter、内部网关 |
+| **fusionMlx（远程）** | `FUSION_MLX_BASE_URL` | 本地或 `FUSION_CLIENT_KEY` | 在另一台 Mac 运行 MLX，通过网络连接 |
+| **Anthropic 直连** | `FUSION_CLIENT_KEY` | API Key / OAuth | 用 `FUSION_MODEL` 指定模型 |
+| **Anthropic 代理** | `FUSION_BASE_URL` + `FUSION_CLIENT_KEY` | API Key 或 `FUSION_AUTH_TOKEN` | LiteLLM、OpenRouter、内部网关 |
 | **OpenAI Codex** | `FUSION_CODE_USE_OPENAI=1` | OAuth | 首次启动应用内登录 |
 | **Foundry** | `FUSION_CODE_USE_FOUNDRY=1` + `FUSION_FOUNDRY_RESOURCE` | API Key / Azure AD | `FUSION_FOUNDRY_API_KEY` 或 Azure DefaultAzureCredential |
 
@@ -145,7 +145,7 @@ fusion-code 支持多个 API 后端。供应商按以下优先级自动选择：
 
 | Fusion 变量 | Anthropic 等价 | 示例 |
 |---|---|---|
-| `FUSION_API_KEY` | `ANTHROPIC_API_KEY` | `sk-ant-api03-...` |
+| `FUSION_CLIENT_KEY` | `ANTHROPIC_API_KEY` | `sk-ant-api03-...` |
 | `FUSION_BASE_URL` | `ANTHROPIC_BASE_URL` | `http://proxy:4000/v1` |
 | `FUSION_AUTH_TOKEN` | `ANTHROPIC_AUTH_TOKEN` | `sk-...`（Bearer Token） |
 | `FUSION_MODEL` | `ANTHROPIC_MODEL` | `claude-sonnet-5` |
@@ -182,7 +182,7 @@ fusion-code 支持多个 API 后端。供应商按以下优先级自动选择：
 #### Anthropic 直连
 
 ```bash
-export FUSION_API_KEY="sk-ant-..."
+export FUSION_CLIENT_KEY="sk-ant-..."
 # 可选：选择特定模型
 export FUSION_MODEL="claude-sonnet-5"
 ./fusion-code
@@ -199,7 +199,7 @@ OAuth 登录（无需 API Key）也可用 — 启动 `./fusion-code` 并按应�
 
 ```bash
 export FUSION_BASE_URL="http://your-proxy:4000/v1"
-export FUSION_API_KEY="sk-..."
+export FUSION_CLIENT_KEY="sk-..."
 ./fusion-code
 ```
 
@@ -278,7 +278,7 @@ fusion-code mcp logout <server-name>  # 清除已存储的认证
 ```bash
 export FUSION_MLX_BASE_URL="http://192.168.1.10:11434"
 # 可选：若远程需要认证
-export FUSION_MLX_API_KEY="..."
+export FUSION_CLIENT_KEY="..."
 ./fusion-code
 ```
 
@@ -347,7 +347,7 @@ AutoCompact 在有效上下文窗口的 60% 时触发。32K 窗口上，硬压�
 - **频道** — 隐藏（需要 claude.ai 基础设施）
 - **传送 / 远程环境** — 隐藏（需要 claude.ai 会话）
 - **远程代理调度** — 隐藏（需要 claude.ai 基础设施）
-- **认证错误消息** — 显示 "fusion-mlx 不可用 · 运行 `fusion service start mlx` 或设置 FUSION_API_KEY" 而非 "未登录 · 运行 /login"
+- **认证错误消息** — 显示 "fusion-mlx 不可用 · 运行 `fusion service start mlx` 或设置 FUSION_CLIENT_KEY" 而非 "未登录 · 运行 /login"
 
 确保 MLX 用户不会遇到令人困惑的 claude.ai 登录提示。
 

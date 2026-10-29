@@ -308,7 +308,7 @@ function renderErrorSpecificGuidance(
 					<Text dimColor>Gateway service not available</Text>
 					<Text dimColor>
 						Run <Text bold>`fusion service start mlx`</Text> or set{" "}
-						<Text bold>FUSION_API_KEY</Text>
+						<Text bold>FUSION_CLIENT_KEY</Text>
 					</Text>
 				</Box>
 			) : (

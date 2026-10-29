@@ -18,14 +18,14 @@ export type APIProvider =
 
 | Provider | 类型 | 说明 |
 |----------|------|------|
-| `firstParty` | 云端 | **默认 provider**。直连 `FUSION_BASE_URL`（Anthropic 兼容 endpoint，默认 `api.anthropic.com`），`FUSION_API_KEY` / `ANTHROPIC_API_KEY` 鉴权 |
+| `firstParty` | 云端 | **默认 provider**。直连 `FUSION_BASE_URL`（Anthropic 兼容 endpoint，默认 `api.anthropic.com`），`FUSION_CLIENT_KEY` / `ANTHROPIC_API_KEY` 鉴权 |
 | `fusionMlx` | 本地 | MLX 推理，127.0.0.1:11432，**显式 opt-in**（`FUSION_MLX_ENABLED=1` 或 `FUSION_GATEWAY_ENABLED=1`，或模型名为 `mlx-*`） |
 | `openai` | 云端 | OpenAI（`FUSION_CODE_USE_OPENAI=1`，直连已移除 → 抛错引导） |
 | `foundry` | 云端 | Azure Foundry（`FUSION_CODE_USE_FOUNDRY=1`，直连已移除 → 抛错引导） |
 | `bedrock` | 云端 | AWS Bedrock（`FUSION_CODE_USE_BEDROCK=1`，直连已移除 → 抛错引导） |
 | `vertex` | 云端 | GCP Vertex（`FUSION_CODE_USE_VERTEX=1`，直连已移除 → 抛错引导） |
 
-`firstParty` 是 fusion-code 的默认 provider：配置 `FUSION_BASE_URL` + `FUSION_API_KEY` 两个环境变量即可直连任意 Anthropic 兼容 endpoint。**无隐式本地 fallback**——key 缺失会给出明确的鉴权错误，不再静默路由到 127.0.0.1:11432；本地 MLX 需显式 opt-in。
+`firstParty` 是 fusion-code 的默认 provider：配置 `FUSION_BASE_URL` + `FUSION_CLIENT_KEY` 两个环境变量即可直连任意 Anthropic 兼容 endpoint。**无隐式本地 fallback**——key 缺失会给出明确的鉴权错误，不再静默路由到 127.0.0.1:11432；本地 MLX 需显式 opt-in。
 
 ## getAPIProvider() 选择逻辑
 
@@ -40,7 +40,7 @@ export type APIProvider =
 2. FUSION_CODE_USE_FOUNDRY=1 -> foundry
 3. FUSION_CODE_USE_OPENAI=1  -> openai
 
-4. FUSION_API_KEY 已设置        -> firstParty (永远直连, 最高优先)
+4. FUSION_CLIENT_KEY 已设置        -> firstParty (永远直连, 最高优先)
    ANTHROPIC_API_KEY 为 sk-ant- -> firstParty
 
 5. 显式 opt-in 本地推理 (优先于 baseUrl 推断):
@@ -56,11 +56,11 @@ export type APIProvider =
 关键设计（endpoint 统一语义）：
 
 - **客户端不猜测 LLM 跑在哪里**：本地/云端是部署事实，不是客户端语义。协议兼容即直连。
-- **模型名嗅探已删除**：`FUSION_MODEL` 是 `mlx-community/...` 之类名字不会触发任何路由——配置了 `FUSION_API_KEY` 就直连 `FUSION_BASE_URL`（此前模型名嗅探会劫持已配 key 的会话走本地 adapter 并用错误的凭证体系鉴权 → 401）。
-- **API key 优先于一切推断**：`FUSION_BASE_URL` + `FUSION_API_KEY` (+ `FUSION_MODEL`) 是唯一规范配置。
+- **模型名嗅探已删除**：`FUSION_MODEL` 是 `mlx-community/...` 之类名字不会触发任何路由——配置了 `FUSION_CLIENT_KEY` 就直连 `FUSION_BASE_URL`（此前模型名嗅探会劫持已配 key 的会话走本地 adapter 并用错误的凭证体系鉴权 → 401）。
+- **API key 优先于一切推断**：`FUSION_BASE_URL` + `FUSION_CLIENT_KEY` (+ `FUSION_MODEL`) 是唯一规范配置。
 - **显式 opt-in 优先于 baseUrl 推断**：`FUSION_MLX_ENABLED=1` 是明确意图，不被 `FUSION_BASE_URL` 残留压过。
-- **冲突组合行为**（显式 opt-in 本地 + 已配置云端 key）：key 优先级最高，此组合按第 4 条路由 firstParty——若确需本地推理，清空 `FUSION_API_KEY`/`ANTHROPIC_API_KEY` 或用 `FUSION_MLX_DISABLED=1` 之外的显式信号表达意图。反向组合（显式 opt-in 本地成立且无 key）时，本地 endpoint 会收到当前鉴权链解析出的凭证（`FUSION_API_KEY`/`FUSION_AUTH_TOKEN` 优先，历史专用 key 回退）；本地服务若不校验 key 则该凭证被忽略，若校验需与 `~/.fusion-mlx/settings.json` 或 gateway `config.yaml` 的 `auth.api_keys` 匹配。
-- 鉴权统一：`FUSION_API_KEY` / `FUSION_AUTH_TOKEN` 对任何 endpoint 生效（含本地推理）；历史专用 key 仅作兼容回退。
+- **冲突组合行为**（显式 opt-in 本地 + 已配置云端 key）：key 优先级最高，此组合按第 4 条路由 firstParty——若确需本地推理，清空 `FUSION_CLIENT_KEY`/`ANTHROPIC_API_KEY` 或用 `FUSION_MLX_DISABLED=1` 之外的显式信号表达意图。反向组合（显式 opt-in 本地成立且无 key）时，本地 endpoint 会收到当前鉴权链解析出的凭证（`FUSION_CLIENT_KEY`/`FUSION_AUTH_TOKEN` 优先，历史专用 key 回退）；本地服务若不校验 key 则该凭证被忽略，若校验需与 `~/.fusion-mlx/settings.json` 或 gateway `config.yaml` 的 `auth.api_keys` 匹配。
+- 鉴权统一：`FUSION_CLIENT_KEY` / `FUSION_AUTH_TOKEN` 对任何 endpoint 生效（含本地推理）；历史专用 key 仅作兼容回退。
 - `FUSION_MLX_DISABLED=1` 是总开关，显式跳过本地路径走云端。
 - bedrock / vertex 在当前 fork 中已禁用（源码中对应分支为 `if (false)`），保留类型定义供未来恢复。
 
@@ -68,7 +68,7 @@ export type APIProvider =
 
 诊断辅助函数（现仅 `doctorDiagnostic.ts` 消费，用于决定是否检查本地服务健康）：
 
-1. 已配置 `FUSION_API_KEY` / `ANTHROPIC_API_KEY` → 直接 false（key 优先，localhost baseUrl 也不劫持）
+1. 已配置 `FUSION_CLIENT_KEY` / `ANTHROPIC_API_KEY` → 直接 false（key 优先，localhost baseUrl 也不劫持）
 2. `FUSION_GATEWAY_ENABLED=1` / `FUSION_MLX_ENABLED=1` 显式设置 → true
 3. `FUSION_MLX_AUTO=1` 且无任何 key → true
 4. 无 key 且 baseUrl 指向 localhost → true
@@ -157,13 +157,13 @@ FUSION_MLX_MODEL=qwen2.5-coder-32b ./fusion-code
 ### firstParty（Anthropic API）
 
 ```bash
-FUSION_API_KEY=sk-ant-xxx ./fusion-code
+FUSION_CLIENT_KEY=sk-ant-xxx ./fusion-code
 
 # 或用 ANTHROPIC_API_KEY
 ANTHROPIC_API_KEY=sk-ant-xxx ./fusion-code
 
 # 自定义 base URL
-FUSION_API_KEY=sk-ant-xxx FUSION_BASE_URL=https://api.anthropic.com ./fusion-code
+FUSION_CLIENT_KEY=sk-ant-xxx FUSION_BASE_URL=https://api.anthropic.com ./fusion-code
 
 # 指定模型
 FUSION_MODEL=claude-sonnet-4-20250514 ./fusion-code
@@ -171,7 +171,7 @@ FUSION_MODEL=claude-sonnet-4-20250514 ./fusion-code
 
 #### 第三方代理（LiteLLM 等）
 
-第三方代理（baseUrl 非 `api.anthropic.com`，如 LiteLLM）下，`FUSION_API_KEY` 与 `ANTHROPIC_API_KEY` 均可作为 key，`FUSION_API_KEY` 优先。接缝层（去 SDK 后）在第三方代理场景补回了旧 SDK 构造函数对 `ANTHROPIC_API_KEY` 的环境变量回退读取——仅设 `ANTHROPIC_API_KEY`（非 `sk-ant-`）+ 代理 baseUrl 即可工作，无需 `FUSION_API_KEY`。
+第三方代理（baseUrl 非 `api.anthropic.com`，如 LiteLLM）下，`FUSION_CLIENT_KEY` 与 `ANTHROPIC_API_KEY` 均可作为 key，`FUSION_CLIENT_KEY` 优先。接缝层（去 SDK 后）在第三方代理场景补回了旧 SDK 构造函数对 `ANTHROPIC_API_KEY` 的环境变量回退读取——仅设 `ANTHROPIC_API_KEY`（非 `sk-ant-`）+ 代理 baseUrl 即可工作，无需 `FUSION_CLIENT_KEY`。
 
 ```bash
 # LiteLLM 代理：仅 ANTHROPIC_API_KEY + ANTHROPIC_BASE_URL
@@ -191,7 +191,7 @@ FUSION_MLX_DISABLED=1 \
 
 ```bash
 FUSION_BASE_URL=https://your-endpoint.example.com \
-FUSION_API_KEY=sk-... \
+FUSION_CLIENT_KEY=sk-... \
 fusion-code
 ```
 
@@ -205,7 +205,7 @@ fusion-code
 
 ```bash
 FUSION_BASE_URL=https://your-endpoint.example.com \
-FUSION_API_KEY=sk-... \
+FUSION_CLIENT_KEY=sk-... \
 fusion-code
 ```
 
@@ -217,7 +217,7 @@ fusion-code
 
 ```bash
 FUSION_BASE_URL=https://your-endpoint.example.com \
-FUSION_API_KEY=sk-... \
+FUSION_CLIENT_KEY=sk-... \
 fusion-code
 ```
 
@@ -229,7 +229,7 @@ fusion-code
 
 ```bash
 FUSION_BASE_URL=https://your-endpoint.example.com \
-FUSION_API_KEY=sk-... \
+FUSION_CLIENT_KEY=sk-... \
 fusion-code
 ```
 
@@ -248,7 +248,7 @@ claude.ts queryModel()
             └─ chunkStreamToSdkParts()                      ← StreamChunk → SDK part (喂下方既有 switch, 零改动)
 ```
 
-`getAnthropicClient()` 返回 `LlmClient`：firstParty + fusionMlx 经 `createSeamClient(model, fetchOverride, defaultHeaders)` 构造；bedrock / vertex / foundry / openai **抛错**引导直连 Anthropic 兼容 endpoint（`FUSION_BASE_URL` + `FUSION_API_KEY`，云端签名由 endpoint 完成）。`streamViaSeam` 返回 `{ stream, requestId, response }`，填充 `streamRequestId`/`streamResponse`，保留与旧 SDK `.withResponse()` 一致的 request_id 追踪与 body 取消能力。
+`getAnthropicClient()` 返回 `LlmClient`：firstParty + fusionMlx 经 `createSeamClient(model, fetchOverride, defaultHeaders)` 构造；bedrock / vertex / foundry / openai **抛错**引导直连 Anthropic 兼容 endpoint（`FUSION_BASE_URL` + `FUSION_CLIENT_KEY`，云端签名由 endpoint 完成）。`streamViaSeam` 返回 `{ stream, requestId, response }`，填充 `streamRequestId`/`streamResponse`，保留与旧 SDK `.withResponse()` 一致的 request_id 追踪与 body 取消能力。
 
 ### LlmClient 5 方法（替代 SDK API）
 
@@ -278,7 +278,7 @@ claude.ts queryModel()
 - **已完成**：`package.json` 移除 `@anthropic-ai/sdk` + `@anthropic-ai/foundry-sdk` + `@anthropic-ai/claude-agent-sdk`；`client.ts` 不再 `new Anthropic(...)`；全部 8 处 SDK 方法调用点迁移到 LlmClient；编译后二进制 0 处功能性 `@anthropic-ai/sdk` 引用（残留 1 处为 bedrock/vertex/foundry 抛错的用户可见提示串）。
 - **D3 三包评估完成**（issue #65, PR #68）：`@anthropic-ai/claude-agent-sdk` **彻底移除**（print.ts:132 纯 `import type`，本地 `PermissionMode` 6 模式等价覆盖；附带切断 claude-agent-sdk 顶层 deps 含 `@anthropic-ai/sdk` 的传递拉取，连 8 平台原生子包一并移除）；`@anthropic-ai/sandbox-runtime` **保留**（OS 级沙箱执行，无原生等价）；`@anthropic-ai/mcpb` **保留**（Bundle manifest 解包独有，`@modelcontextprotocol/sdk` 无覆盖，已懒加载）。最终 `package.json` 仅余此两运行时必需包。
 - **typecheck 0 错误；build + build:dev:full 通过；514 测试全过**。
-- **遗留（已由直连配置替代）**：bedrock / vertex / foundry 云 provider 直连已移除，设 `FUSION_BASE_URL` + `FUSION_API_KEY` 指向负责签名的 Anthropic 兼容 endpoint 即可。
+- **遗留（已由直连配置替代）**：bedrock / vertex / foundry 云 provider 直连已移除，设 `FUSION_BASE_URL` + `FUSION_CLIENT_KEY` 指向负责签名的 Anthropic 兼容 endpoint 即可。
 
 ### P0.1 Capability Seam 三角色 — 现状（enhance-0819.md:449）
 
@@ -526,4 +526,4 @@ spec P5.2："`agent.fusion.yml` checked-in 声明项目代理工具/沙箱/审�
 - MLX 能力检测：`getMlxModelCapabilities` 结果在 `fusion-mlx-adapter.ts` 启动时打印
 - 模型解析：`/model` 命令展示本地模型列表时，`getFusionMlxModels` 请求 `127.0.0.1:11432/v1/models`
 - 端口检测失败：检查 `lsof -i :11432` 与 `curl http://127.0.0.1:11432/v1/models`
-- provider 误选云端：确认 `FUSION_API_KEY` 未设置，或显式 `FUSION_MLX_ENABLED=1`
+- provider 误选云端：确认 `FUSION_CLIENT_KEY` 未设置，或显式 `FUSION_MLX_ENABLED=1`

@@ -25,7 +25,7 @@ const { modelSupportsISP, modelSupportsContextManagement } = await import(
 import { installProviderEnvIsolation } from "../../helpers/providerEnv.js";
 
 // firstParty needs a key to be selected by getAPIProvider.
-installProviderEnvIsolation({ FUSION_API_KEY: "sk-ant-test" });
+installProviderEnvIsolation({ FUSION_CLIENT_KEY: "sk-ant-test" });
 
 describe("MlxCapabilityProvider", () => {
 	test("small model reuses heuristic: toolCalling false (≤3B)", async () => {
@@ -155,21 +155,21 @@ describe("GatewayCapabilityProvider", () => {
 
 describe("createLlmCapability factory", () => {
 	test("MLX model name does NOT hijack routing (key wins, no name sniffing)", async () => {
-		// 401 根因修复: 模型名嗅探已删除。mlx-* 名字 + FUSION_API_KEY →
+		// 401 根因修复: 模型名嗅探已删除。mlx-* 名字 + FUSION_CLIENT_KEY →
 		// firstParty 直连, 不再强制走本地 MLX adapter。
-		process.env.FUSION_API_KEY = "sk-test";
+		process.env.FUSION_CLIENT_KEY = "sk-test";
 		try {
 			const cap = await createLlmCapability("mlx-community/qwen2.5-3b");
 			expect(cap.provider).toBe("firstParty");
 		} finally {
-			delete process.env.FUSION_API_KEY;
+			delete process.env.FUSION_CLIENT_KEY;
 		}
 	});
 
 	test("MLX model name with explicit MLX opt-in → MlxCapabilityProvider", async () => {
 		// 本地推理仅显式 opt-in (FUSION_MLX_ENABLED=1) 时走 fusionMlx。
 		// 显式清掉 key (前序测试可能泄漏), 保证 opt-in 是唯一路由依据。
-		delete process.env.FUSION_API_KEY;
+		delete process.env.FUSION_CLIENT_KEY;
 		delete process.env.ANTHROPIC_API_KEY;
 		process.env.FUSION_MLX_ENABLED = "1";
 		try {
@@ -182,7 +182,7 @@ describe("createLlmCapability factory", () => {
 		}
 	});
 
-	test("firstParty (FUSION_API_KEY set) → FirstPartyCapabilityProvider", async () => {
+	test("firstParty (FUSION_CLIENT_KEY set) → FirstPartyCapabilityProvider", async () => {
 		const cap = await createLlmCapability("claude-sonnet-4-6");
 		expect(cap.provider).toBe("firstParty");
 		expect(cap.supportsStructuredOutput()).toBe(true);
@@ -190,7 +190,7 @@ describe("createLlmCapability factory", () => {
 
 	test("foundry env → GatewayCapabilityProvider", async () => {
 		// foundry env gate (line 54) returns before key check + MLX fallback.
-		delete process.env.FUSION_API_KEY;
+		delete process.env.FUSION_CLIENT_KEY;
 		delete process.env.ANTHROPIC_API_KEY;
 		process.env.FUSION_CODE_USE_FOUNDRY = "1";
 		const cap = await createLlmCapability("claude-sonnet-4-6");
@@ -289,7 +289,7 @@ describe("createCtx fs/tools/exec seams (PR #4)", () => {
 // because every existing caller passes no ctx.
 describe("modelSupportsISP / modelSupportsContextManagement ctx seam (G1)", () => {
 	test("no ctx = canonical baseline (firstParty sonnet-4 → true)", () => {
-		// FUSION_API_KEY set in beforeEach → firstParty. claude-3-haiku → claude-3- → false.
+		// FUSION_CLIENT_KEY set in beforeEach → firstParty. claude-3-haiku → claude-3- → false.
 		expect(modelSupportsISP("claude-sonnet-4-6")).toBe(true);
 		expect(modelSupportsISP("claude-3-haiku")).toBe(false);
 		expect(modelSupportsContextManagement("claude-sonnet-4-6")).toBe(true);

@@ -3,7 +3,7 @@ import { isEnvTruthy } from "./envUtils.js";
 /**
  * Env vars to strip from subprocess environments when running inside GitHub
  * Actions. This prevents prompt-injection attacks from exfiltrating secrets
- * via shell expansion (e.g., ${FUSION_API_KEY}) in Bash tool commands.
+ * via shell expansion (e.g., ${FUSION_CLIENT_KEY}) in Bash tool commands.
  *
  * The parent claude process keeps these vars (needed for API calls, lazy
  * credential reads). Only child processes (bash, shell snapshot, MCP stdio, LSP, hooks) are scrubbed.
@@ -14,7 +14,7 @@ import { isEnvTruthy } from "./envUtils.js";
  */
 const GHA_SUBPROCESS_SCRUB = [
 	// Anthropic auth — claude re-reads these per-request, subprocesses don't need them
-	"FUSION_API_KEY",
+	"FUSION_CLIENT_KEY",
 	"FUSION_CODE_OAUTH_TOKEN",
 	"FUSION_AUTH_TOKEN",
 	"FUSION_FOUNDRY_API_KEY",
@@ -85,7 +85,7 @@ export function subprocessEnv(): NodeJS.ProcessEnv {
 
 	// Scrub secrets by DEFAULT (P0-4). Previously only scrubbed when
 	// FUSION_CODE_SUBPROCESS_ENV_SCRUB=1 (set only by claude-code-action in GHA),
-	// so local/self-hosted installs leaked FUSION_API_KEY/OAuth/cloud creds into
+	// so local/self-hosted installs leaked FUSION_CLIENT_KEY/OAuth/cloud creds into
 	// every Bash/MCP/LSP/hook subprocess. Now scrub unless explicit passthrough.
 	// FUSION_CODE_SUBPROCESS_ENV_PASSTHROUGH=1 opts out (legacy unscrubbed env).
 	// FUSION_CODE_SUBPROCESS_ENV_SCRUB=1 still honored (redundant, GHA already sets it).
@@ -103,7 +103,7 @@ export function subprocessEnv(): NodeJS.ProcessEnv {
 	for (const k of GHA_SUBPROCESS_SCRUB) {
 		delete env[k];
 		// GitHub Actions auto-creates INPUT_<NAME> for `with:` inputs, duplicating
-		// secrets like INPUT_FUSION_API_KEY. No-op for vars that aren't action inputs.
+		// secrets like INPUT_FUSION_CLIENT_KEY. No-op for vars that aren't action inputs.
 		delete env[`INPUT_${k}`];
 	}
 	return env;

@@ -419,7 +419,7 @@ const SAFE_ENV_VARS = new Set([
 	"PYTEST_DEBUG", // debug output
 
 	// API keys and authentication
-	"FUSION_API_KEY", // API authentication
+	"FUSION_CLIENT_KEY", // API authentication
 
 	// Locale and character encoding
 	"LANG", // default locale

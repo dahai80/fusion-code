@@ -44,7 +44,7 @@ export default defineConfig({
 				"bash -c '",
 				`FUSION_CODE_AUTH_TOKEN=${E2E_TOKEN}`,
 				"FUSION_MLX_ENABLED=1",
-				`FUSION_MLX_API_KEY=${readMlxKey()}`,
+				`FUSION_CLIENT_KEY=${readMlxKey()}`,
 				`FUSION_MLX_MODEL=${E2E_MODEL}`,
 				"./start.sh start'",
 			].join(" "),

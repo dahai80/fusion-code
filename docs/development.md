@@ -49,7 +49,7 @@ bun run ./scripts/build.ts --compile
 ./fusion-code-dev    # dev 构建
 ```
 
-云端 provider 需设置 `FUSION_API_KEY` 或 `ANTHROPIC_API_KEY`；本地 MLX 通过 `fusion service start mlx` 启动（端口 11432 自动检测）。
+云端 provider 需设置 `FUSION_CLIENT_KEY` 或 `ANTHROPIC_API_KEY`；本地 MLX 通过 `fusion service start mlx` 启动（端口 11432 自动检测）。
 
 仓库未配置 test framework 或 linter。
 
@@ -72,7 +72,7 @@ bun run ./scripts/build.ts --compile
 
 | Fusion env | Anthropic equivalent | 用途 |
 |---|---|---|
-| `FUSION_API_KEY` | `ANTHROPIC_API_KEY` | 云端 API key |
+| `FUSION_CLIENT_KEY` | `ANTHROPIC_API_KEY` | 云端 API key |
 | `FUSION_BASE_URL` | `ANTHROPIC_BASE_URL` | API base URL |
 | `FUSION_AUTH_TOKEN` | `ANTHROPIC_AUTH_TOKEN` | auth token |
 | `FUSION_MODEL` | `ANTHROPIC_MODEL` | 默认模型 |

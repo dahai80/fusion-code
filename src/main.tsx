@@ -1111,10 +1111,10 @@ export async function main() {
 	// 本地 fusion-mlx 模式没有 OAuth/cloud 依赖，REPL 不需要真 TTY 也能起，
 	// 因此在这里放过该误伤，让非真终端也能进主界面。
 	// 注意：用户真显式传 -p/--print/--init-only/--sdk-url 时仍走非交互，不放过。
-	// 判据与 providers.ts 的 isCloudFreeMode() 对齐：无 FUSION_API_KEY 且未显式禁用 MLX。
+	// 判据与 providers.ts 的 isCloudFreeMode() 对齐：无 FUSION_CLIENT_KEY 且未显式禁用 MLX。
 	const isFusionMlxLocalMode =
 		!isEnvTruthy(process.env.FUSION_MLX_DISABLED) &&
-		!process.env.FUSION_API_KEY;
+		!process.env.FUSION_CLIENT_KEY;
 	const isNonInteractive =
 		hasPrintFlag ||
 		hasInitOnlyFlag ||
@@ -1196,7 +1196,7 @@ async function getInputPrompt(
 	// When using -p with MLX, we already have the prompt - no need to wait for stdin.
 	const isMlxLocal =
 		!isEnvTruthy(process.env.FUSION_MLX_DISABLED) &&
-		!process.env.FUSION_API_KEY &&
+		!process.env.FUSION_CLIENT_KEY &&
 		!process.env.ANTHROPIC_API_KEY;
 	if (isMlxLocal && prompt) {
 		return prompt;

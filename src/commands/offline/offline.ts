@@ -48,7 +48,7 @@ export async function execute(_args: string): Promise<string> {
 	return [
 		"☁️ Offline mode OFF",
 		"",
-		"• Cloud provider restored (FUSION_API_KEY / ANTHROPIC_API_KEY)",
+		"• Cloud provider restored (FUSION_CLIENT_KEY / ANTHROPIC_API_KEY)",
 		"• Network tools re-enabled",
 	].join("\n");
 }

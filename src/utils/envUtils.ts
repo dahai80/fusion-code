@@ -51,7 +51,7 @@ export function isEnvDefinedFalsy(
 /**
  * --bare / FUSION_CODE_SIMPLE — skip hooks, LSP, plugin sync, skill dir-walk,
  * attribution, background prefetches, and ALL keychain/credential reads.
- * Auth is strictly FUSION_API_KEY env or apiKeyHelper from --settings.
+ * Auth is strictly FUSION_CLIENT_KEY env or apiKeyHelper from --settings.
  * Explicit CLI flags (--plugin-dir, --add-dir, --mcp-config) still honored.
  * ~30 gates across the codebase.
  *

@@ -83,8 +83,8 @@ describe("#221 auth precedence", () => {
 				expected: "firstParty",
 			},
 			{
-				label: "FUSION_API_KEY -> firstParty",
-				env: { FUSION_API_KEY: "sk-x" },
+				label: "FUSION_CLIENT_KEY -> firstParty",
+				env: { FUSION_CLIENT_KEY: "sk-x" },
 				expected: "firstParty",
 			},
 			{
@@ -104,8 +104,8 @@ describe("#221 auth precedence", () => {
 			},
 			{
 				label:
-					"FUSION_MLX_ENABLED=1 + FUSION_API_KEY -> fusionMlx (#221: key is credentials, not topology)",
-				env: { FUSION_MLX_ENABLED: "1", FUSION_API_KEY: "sk-x" },
+					"FUSION_MLX_ENABLED=1 + FUSION_CLIENT_KEY -> fusionMlx (#221: key is credentials, not topology)",
+				env: { FUSION_MLX_ENABLED: "1", FUSION_CLIENT_KEY: "sk-x" },
 				expected: "fusionMlx",
 			},
 			{
@@ -164,13 +164,13 @@ describe("#221 auth precedence", () => {
 			expect(cred.name).toContain("FUSION_GATEWAY_API_KEY");
 		});
 
-		it("FUSION_API_KEY is canonical and wins over everything", () => {
-			process.env.FUSION_API_KEY = "canonical";
+		it("FUSION_CLIENT_KEY is canonical and wins over everything", () => {
+			process.env.FUSION_CLIENT_KEY = "canonical";
 			process.env.ANTHROPIC_AUTH_TOKEN = "cloud";
 			process.env.FUSION_GATEWAY_API_KEY = "gw";
 			const cred = resolveMlxCredential();
 			expect(cred.value).toBe("canonical");
-			expect(cred.name).toBe("FUSION_API_KEY");
+			expect(cred.name).toBe("FUSION_CLIENT_KEY");
 		});
 
 		it("FUSION_AUTH_TOKEN accepted as canonical alias", () => {
@@ -196,29 +196,33 @@ describe("#221 auth precedence", () => {
 			expect(cred.name).toContain("ANTHROPIC_AUTH_TOKEN");
 		});
 
-		it("engine-direct base URL falls to engine key chain", () => {
+		it("FUSION_CLIENT_KEY works for engine-direct base URL too (#226)", () => {
 			process.env.FUSION_MLX_BASE_URL = "http://127.0.0.1:11434";
-			process.env.FUSION_MLX_API_KEY = "engine-key";
+			process.env.FUSION_CLIENT_KEY = "engine-key";
 			const cred = resolveMlxCredential();
 			expect(cred.value).toBe("engine-key");
-			expect(cred.name).toContain("FUSION_MLX_API_KEY");
+			expect(cred.name).toBe("FUSION_CLIENT_KEY");
 		});
 
-		it("gateway without own key reuses engine key (single-host deploy)", () => {
-			process.env.FUSION_MLX_API_KEY = "engine-key";
+		it("legacy mlx env aliases are no longer read (#226)", () => {
+			process.env.FUSION_MLX_API_KEY = "legacy-engine-key";
+			process.env.MLX_API_KEY = "legacy-engine-key";
 			const cred = resolveMlxCredential();
-			expect(cred.value).toBe("engine-key");
+			// no settings.json in tempHome -> no credential from removed alias chain
+			expect(cred.value).toBeUndefined();
+			expect(_deprecatedAliasWarningCountForTest()).toBe(0);
 		});
 
-		it("deprecated aliases warn exactly once per session", () => {
-			process.env.FUSION_MLX_API_KEY = "engine-key";
+		it("deprecated gateway aliases warn exactly once per session", () => {
+			process.env.FUSION_GATEWAY_API_KEY = "gw";
 			resolveMlxCredential();
 			resolveMlxCredential();
 			resolveMlxCredential();
 			// one alias name seen -> deduped to a single warning
 			expect(_deprecatedAliasWarningCountForTest()).toBe(1);
 			// a second distinct alias adds exactly one more
-			process.env.GATEWAY_API_KEY = "gw";
+			delete process.env.FUSION_GATEWAY_API_KEY;
+			process.env.GATEWAY_API_KEY = "gw2";
 			resolveMlxCredential();
 			expect(_deprecatedAliasWarningCountForTest()).toBe(2);
 		});

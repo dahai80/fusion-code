@@ -121,14 +121,14 @@ export function Onboarding({ onDone }: Props): React.ReactNode {
 		// On homespace, ANTHROPIC_API_KEY is preserved in process.env for child
 		// processes but ignored by Fusion-Code itself (see auth.ts).
 		if (
-			!process.env.FUSION_API_KEY ||
+			!process.env.FUSION_CLIENT_KEY ||
 			process.env.ANTHROPIC_API_KEY ||
 			isRunningOnHomespace()
 		) {
 			return "";
 		}
 		const customApiKeyTruncated = normalizeApiKeyForConfig(
-			process.env.FUSION_API_KEY || process.env.ANTHROPIC_API_KEY,
+			process.env.FUSION_CLIENT_KEY || process.env.ANTHROPIC_API_KEY,
 		);
 		if (getCustomApiKeyStatus(customApiKeyTruncated) === "new") {
 			return customApiKeyTruncated;

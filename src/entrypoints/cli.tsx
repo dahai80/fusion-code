@@ -35,8 +35,8 @@ try {
 
 // 将 FUSION_* 环境变量映射到 ANTHROPIC_*（SDK 兼容性）
 // @anthropic-ai/sdk 内部读取 ANTHROPIC_API_KEY 等环境变量
-if (process.env.FUSION_API_KEY && !process.env.ANTHROPIC_API_KEY) {
-	process.env.ANTHROPIC_API_KEY = process.env.FUSION_API_KEY;
+if (process.env.FUSION_CLIENT_KEY && !process.env.ANTHROPIC_API_KEY) {
+	process.env.ANTHROPIC_API_KEY = process.env.FUSION_CLIENT_KEY;
 }
 // FUSION_BASE_URL 仅在 ANTHROPIC_BASE_URL 未设置时映射（与其他变量一致）
 // 如需强制覆盖，请直接设置 ANTHROPIC_BASE_URL
@@ -231,7 +231,7 @@ async function main(): Promise<void> {
 		const authToken =
 			args.find((a) => a.startsWith("--auth="))?.slice(7) ??
 			process.env.FUSION_CODE_AUTH_TOKEN ??
-			process.env.FUSION_API_KEY ??
+			process.env.FUSION_CLIENT_KEY ??
 			"";
 		const authDisabled =
 			args.includes("--no-auth") ||
@@ -463,7 +463,7 @@ async function main(): Promise<void> {
 	if (!process.env.NO_COLOR) process.env.FORCE_COLOR = "1";
 	// 本地 MLX/gateway 自动检测已移除 (audit 0913): 不再探测 127.0.0.1:11432、
 	// 不再自动写入 FUSION_GATEWAY_ENABLED/FUSION_MLX_ENABLED 劫持 provider 选择。
-	// 访问 LLM 只需 FUSION_BASE_URL + FUSION_API_KEY (直连)，或显式设置
+	// 访问 LLM 只需 FUSION_BASE_URL + FUSION_CLIENT_KEY (直连)，或显式设置
 	// FUSION_MLX_ENABLED=1 选择性启用本地推理。
 
 	profileCheckpoint("cli_before_main_import");

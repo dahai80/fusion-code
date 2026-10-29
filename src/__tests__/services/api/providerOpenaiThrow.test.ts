@@ -31,7 +31,7 @@ beforeEach(() => {
 	delete process.env.FUSION_MLX_ENABLED;
 	delete process.env.FUSION_GATEWAY_ENABLED;
 	delete process.env.FUSION_MLX_DISABLED;
-	delete process.env.FUSION_API_KEY;
+	delete process.env.FUSION_CLIENT_KEY;
 	delete process.env.ANTHROPIC_API_KEY;
 	delete process.env.FUSION_BASE_URL;
 	delete process.env.ANTHROPIC_BASE_URL;

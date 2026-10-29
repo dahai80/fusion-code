@@ -3,7 +3,7 @@
 # Focus: memory leaks, brand consistency, UX quality
 
 export FUSION_MLX_ENABLED=1
-export FUSION_MLX_API_KEY=dahai168
+export FUSION_CLIENT_KEY=dahai168
 export FUSION_MLX_MODEL=Qwen3.6-27B-mxfp8
 
 FC="./fusion-code-dev"

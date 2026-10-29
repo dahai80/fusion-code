@@ -59,7 +59,7 @@ export const fetchClaudeAIMcpConfigsIfEligible = memoize(
 			}
 
 			// Check for user:mcp_servers scope directly instead of isClaudeAISubscriber().
-			// In non-interactive mode, isClaudeAISubscriber() returns false when FUSION_API_KEY
+			// In non-interactive mode, isClaudeAISubscriber() returns false when FUSION_CLIENT_KEY
 			// is set (even with valid OAuth tokens) because preferThirdPartyAuthentication() causes
 			// isAnthropicAuthEnabled() to return false. Checking the scope directly allows users
 			// with both API keys and OAuth tokens to access claude.ai MCPs in print mode.

@@ -105,7 +105,7 @@ export async function createSSHSession(
 	const apiKey = getAnthropicApiKey();
 	if (!apiKey) {
 		throw new SSHSessionError(
-			"No API key available. Set FUSION_API_KEY or login first.",
+			"No API key available. Set FUSION_CLIENT_KEY or login first.",
 		);
 	}
 

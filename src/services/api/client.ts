@@ -33,7 +33,7 @@ import { createSeamClient, type LlmClient } from "../llm/client.js";
  * Environment variables for different client types:
  *
  * Direct API (firstParty) / Fusion-MLX (local):
- * - FUSION_API_KEY + FUSION_BASE_URL: direct connect to any Anthropic-compatible
+ * - FUSION_CLIENT_KEY + FUSION_BASE_URL: direct connect to any Anthropic-compatible
  *   /v1/messages endpoint (FUSION_BASE_URL defaults to api.anthropic.com)
  * - FUSION_MLX_BASE_URL / FUSION_GATEWAY_URL: local inference endpoint
  *   (default 127.0.0.1:11432), opt-in via FUSION_MLX_ENABLED=1
@@ -41,7 +41,7 @@ import { createSeamClient, type LlmClient } from "../llm/client.js";
  * Cloud providers (Bedrock / Vertex / Foundry / OpenAI):
  * - SDK removal: these signing paths are no longer bundled in-process.
  *   Point FUSION_BASE_URL at an Anthropic-compatible endpoint that performs
- *   the provider's native auth, and set FUSION_API_KEY — or keep the
+ *   the provider's native auth, and set FUSION_CLIENT_KEY — or keep the
  *   FUSION_CODE_USE_* vars unset to use firstParty directly.
  */
 
@@ -51,7 +51,7 @@ import { createSeamClient, type LlmClient } from "../llm/client.js";
  * - firstParty + fusionMlx: createSeamClient(model, fetchOverride, defaultHeaders)
  *   直接 POST /v1/messages 并 SSE 翻译, 不经 SDK。
  * - bedrock / vertex / foundry / openai: 抛错, 引导配置 FUSION_BASE_URL +
- *   FUSION_API_KEY 直连 Anthropic 兼容 endpoint (云端签名由该 endpoint 完成)。
+ *   FUSION_CLIENT_KEY 直连 Anthropic 兼容 endpoint (云端签名由该 endpoint 完成)。
  */
 export async function getAnthropicClient({
 	apiKey,
@@ -115,7 +115,7 @@ export async function getAnthropicClient({
 			throw new Error(
 				"Local inference service unavailable (default: http://127.0.0.1:11432)\n" +
 					"Set FUSION_MLX_BASE_URL / FUSION_GATEWAY_URL to override, or unset\n" +
-					"FUSION_MLX_ENABLED and use FUSION_BASE_URL + FUSION_API_KEY to connect\n" +
+					"FUSION_MLX_ENABLED and use FUSION_BASE_URL + FUSION_CLIENT_KEY to connect\n" +
 					"to a cloud endpoint instead.",
 			);
 		}
@@ -141,11 +141,11 @@ export async function getAnthropicClient({
 
 	// ── 云端提供商：SDK 签名已剥离，统一引导用户直连自建/第三方 endpoint ──
 	// 语义与 firstParty 相同: FUSION_BASE_URL 指向任意 Anthropic 兼容 /v1/messages
-	// endpoint, FUSION_API_KEY 为鉴权 key。不再强制要求 fusion-gateway。
+	// endpoint, FUSION_CLIENT_KEY 为鉴权 key。不再强制要求 fusion-gateway。
 	if (isEnvTruthy(process.env.FUSION_CODE_USE_FOUNDRY)) {
 		throw new Error(
 			"Foundry (Azure) 直连已随 @anthropic-ai/sdk 一并移除。\n" +
-				"请设置 FUSION_BASE_URL 指向 Anthropic 兼容 endpoint 并配置 FUSION_API_KEY,\n" +
+				"请设置 FUSION_BASE_URL 指向 Anthropic 兼容 endpoint 并配置 FUSION_CLIENT_KEY,\n" +
 				"由该 endpoint 负责 Azure AD 签名 (或去掉 FUSION_CODE_USE_FOUNDRY 走 firstParty)。",
 		);
 	}
@@ -157,21 +157,21 @@ export async function getAnthropicClient({
 	if (isEnvTruthy(process.env.FUSION_CODE_USE_OPENAI)) {
 		throw new Error(
 			"OpenAI 直连已随 @anthropic-ai/sdk 一并移除。\n" +
-				"请设置 FUSION_BASE_URL 指向 Anthropic 兼容 endpoint 并配置 FUSION_API_KEY,\n" +
+				"请设置 FUSION_BASE_URL 指向 Anthropic 兼容 endpoint 并配置 FUSION_CLIENT_KEY,\n" +
 				"由该 endpoint 负责 OpenAI (Azure/Bearer) 签名 (或去掉 FUSION_CODE_USE_OPENAI 走 firstParty)。",
 		);
 	}
 	if (isBedrockProvider()) {
 		throw new Error(
 			"Bedrock 直连已随 @anthropic-ai/bedrock-sdk 一并移除。\n" +
-				"请设置 FUSION_BASE_URL 指向 Anthropic 兼容 endpoint 并配置 FUSION_API_KEY,\n" +
+				"请设置 FUSION_BASE_URL 指向 Anthropic 兼容 endpoint 并配置 FUSION_CLIENT_KEY,\n" +
 				"由该 endpoint 负责 AWS SigV4 签名 (或去掉 FUSION_CODE_USE_BEDROCK 走 firstParty)。",
 		);
 	}
 	if (isVertexProvider()) {
 		throw new Error(
 			"Vertex AI 直连已随 @anthropic-ai/vertex-sdk 一并移除。\n" +
-				"请设置 FUSION_BASE_URL 指向 Anthropic 兼容 endpoint 并配置 FUSION_API_KEY,\n" +
+				"请设置 FUSION_BASE_URL 指向 Anthropic 兼容 endpoint 并配置 FUSION_CLIENT_KEY,\n" +
 				"由该 endpoint 负责 GCP 凭据 (或去掉 FUSION_CODE_USE_VERTEX 走 firstParty)。",
 		);
 	}

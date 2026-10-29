@@ -1452,7 +1452,7 @@ function extractPathsFromCommand(cmd: ParsedCommandElement): {
 			} else if (matchesParam(paramLower, valueParams)) {
 				// Known value-taking non-path parameter (e.g., -Encoding UTF8, -Filter *.txt).
 				// Consume its value; do NOT validate as path, but DO check elementType.
-				// SECURITY: A Variable elementType (e.g., $env:FUSION_API_KEY) in any
+				// SECURITY: A Variable elementType (e.g., $env:FUSION_CLIENT_KEY) in any
 				// argument position means the runtime value is not statically knowable.
 				// Without this check, `-Value $env:SECRET` would be silently auto-allowed
 				// in acceptEdits mode because the Variable elementType was never examined.

@@ -161,11 +161,11 @@ export const INVALID_API_KEY_ERROR_MESSAGE =
 export const INVALID_API_KEY_ERROR_MESSAGE_EXTERNAL =
 	"Invalid API key · Fix external API key";
 export const MLX_UNAVAILABLE_ERROR_MESSAGE =
-	"Gateway not available · Run `fusion service start mlx` or set FUSION_API_KEY";
+	"Gateway not available · Run `fusion service start mlx` or set FUSION_CLIENT_KEY";
 export const ORG_DISABLED_ERROR_MESSAGE_ENV_KEY_WITH_OAUTH =
-	"Your FUSION_API_KEY belongs to a disabled organization · Unset the environment variable to use your subscription instead";
+	"Your FUSION_CLIENT_KEY belongs to a disabled organization · Unset the environment variable to use your subscription instead";
 export const ORG_DISABLED_ERROR_MESSAGE_ENV_KEY =
-	"Your FUSION_API_KEY belongs to a disabled organization · Update or unset the environment variable";
+	"Your FUSION_CLIENT_KEY belongs to a disabled organization · Update or unset the environment variable";
 export const TOKEN_REVOKED_ERROR_MESSAGE =
 	"OAuth token revoked · Please run /login";
 export const CCR_AUTH_ERROR_MESSAGE =
@@ -790,7 +790,7 @@ export function getAssistantMessageFromError(
 			error: "billing_error" as unknown as SDKAssistantMessageError,
 		});
 	}
-	// "Organization has been disabled" — commonly a stale FUSION_API_KEY
+	// "Organization has been disabled" — commonly a stale FUSION_CLIENT_KEY
 	// from a previous employer/project overriding subscription auth. Only handle
 	// the env-var case; apiKeyHelper and /login-managed keys mean the active
 	// auth's org is genuinely disabled with no dormant fallback to point at.
@@ -805,8 +805,8 @@ export function getAssistantMessageFromError(
 		// the env var. The three guards ensure we only blame the env var when it's
 		// actually set and actually on the wire.
 		if (
-			source === "FUSION_API_KEY" &&
-			process.env.FUSION_API_KEY &&
+			source === "FUSION_CLIENT_KEY" &&
+			process.env.FUSION_CLIENT_KEY &&
 			!isClaudeAISubscriber()
 		) {
 			const hasStoredOAuth = getClaudeAIOAuthTokens()?.accessToken != null;
@@ -837,10 +837,10 @@ export function getAssistantMessageFromError(
 		// Check if the API key is from an external source
 		// NOTE: 直接检查 env var，与 auth.ts isAnthropicAuthEnabled() 保持一致
 		// 原因：getAnthropicApiKeyWithSource() 对未 approved 的 key 返回 source='none'
-		// 导致 FUSION_API_KEY 设置时仍显示 "Not logged in" 而非 "Invalid API key"
+		// 导致 FUSION_CLIENT_KEY 设置时仍显示 "Not logged in" 而非 "Invalid API key"
 		const { source } = getAnthropicApiKeyWithSource();
 		const isExternalSource =
-			!!process.env.FUSION_API_KEY || source === "apiKeyHelper";
+			!!process.env.FUSION_CLIENT_KEY || source === "apiKeyHelper";
 		const isMlxProvider = getAPIProvider() === "fusionMlx";
 
 		let authErrorContent: string;

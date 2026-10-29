@@ -10,7 +10,7 @@ import { isFusionMlxProvider } from "../utils/model/providers.js";
 const CLOUD_MODEL = "glm5.2";
 
 function setCloudEnv(): void {
-	process.env.FUSION_API_KEY = "test-cloud-key";
+	process.env.FUSION_CLIENT_KEY = "test-cloud-key";
 	delete process.env.FUSION_MLX_ENABLED;
 	delete process.env.FUSION_GATEWAY_ENABLED;
 	delete process.env.FUSION_MLX_DISABLED;
@@ -18,7 +18,7 @@ function setCloudEnv(): void {
 }
 
 function setMlxEnv(): void {
-	delete process.env.FUSION_API_KEY;
+	delete process.env.FUSION_CLIENT_KEY;
 	delete process.env.ANTHROPIC_API_KEY;
 	delete process.env.FUSION_BASE_URL;
 	delete process.env.ANTHROPIC_BASE_URL;
@@ -32,7 +32,7 @@ const savedEnv: Record<string, string | undefined> = {};
 describe("getCompactOutputTokenCap", () => {
 	beforeEach(() => {
 		for (const k of [
-			"FUSION_API_KEY",
+			"FUSION_CLIENT_KEY",
 			"ANTHROPIC_API_KEY",
 			"FUSION_BASE_URL",
 			"ANTHROPIC_BASE_URL",

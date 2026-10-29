@@ -334,7 +334,7 @@ const FUSION_ENV_CONFLICT_PAIRS: ReadonlyArray<{
 	fusion: string;
 	anthropic: string;
 }> = [
-	{ fusion: "FUSION_API_KEY", anthropic: "ANTHROPIC_API_KEY" },
+	{ fusion: "FUSION_CLIENT_KEY", anthropic: "ANTHROPIC_API_KEY" },
 	{ fusion: "FUSION_BASE_URL", anthropic: "ANTHROPIC_BASE_URL" },
 	{ fusion: "FUSION_AUTH_TOKEN", anthropic: "ANTHROPIC_AUTH_TOKEN" },
 	{ fusion: "FUSION_BETAS", anthropic: "ANTHROPIC_BETAS" },

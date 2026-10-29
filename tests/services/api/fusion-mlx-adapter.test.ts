@@ -678,18 +678,18 @@ describe("shouldUseFusionMlx", () => {
 
 	it("should return true in auto mode with no API key", () => {
 		process.env.FUSION_MLX_AUTO = "1";
-		delete process.env.FUSION_API_KEY;
+		delete process.env.FUSION_CLIENT_KEY;
 		expect(shouldUseFusionMlx()).toBe(true);
 	});
 
 	it("should return false in auto mode with API key", () => {
 		process.env.FUSION_MLX_AUTO = "1";
-		process.env.FUSION_API_KEY = "sk-test";
+		process.env.FUSION_CLIENT_KEY = "sk-test";
 		expect(shouldUseFusionMlx()).toBe(false);
 	});
 
 	it("should return false by default", () => {
-		delete process.env.FUSION_API_KEY;
+		delete process.env.FUSION_CLIENT_KEY;
 		expect(shouldUseFusionMlx()).toBe(false);
 	});
 });

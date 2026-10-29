@@ -65,7 +65,7 @@ FUSION_MLX_MODEL=qwen2.5-coder-32b ./fusion-code
 
 ```bash
 # 设 key（持久化建议写进 ~/.zshrc）
-export FUSION_API_KEY=sk-ant-xxx
+export FUSION_CLIENT_KEY=sk-ant-xxx
 
 # 强制云端（即使本地 mlx 在跑）
 FUSION_MLX_DISABLED=1 ./fusion-code
@@ -74,7 +74,7 @@ FUSION_MLX_DISABLED=1 ./fusion-code
 FUSION_MODEL=claude-sonnet-4-20250514 ./fusion-code
 ```
 
-注意：`FUSION_API_KEY` 优先于 `ANTHROPIC_API_KEY`。设了 key 但不设 `FUSION_MLX_DISABLED=1` 且本地 11432 在跑 → 仍走本地（有 key 不自动切云端，需显式禁用本地或关掉服务）。`FUSION_MLX_ENABLED=1` 会反向锁定本地。
+注意：`FUSION_CLIENT_KEY` 优先于 `ANTHROPIC_API_KEY`。设了 key 但不设 `FUSION_MLX_DISABLED=1` 且本地 11432 在跑 → 仍走本地（有 key 不自动切云端，需显式禁用本地或关掉服务）。`FUSION_MLX_ENABLED=1` 会反向锁定本地。
 
 ### 场景 4：第三方代理（LiteLLM / OpenAI 兼容）
 
@@ -171,9 +171,9 @@ FUSION_CODE_CAPABILITY_MANIFEST_ENABLED=1 ./fusion-code-dev capability export
 
 | 症状 | 先查 | 改哪个配置 | 参考 |
 |------|------|-----------|------|
-| 启动报"无法连接 API" | `lsof -i :11432` 看本地 mlx 是否在跑 | 无 key 且 11432 没服务 → 起 `~/claude-home/fusion-mlx/start.sh start`；或设 `FUSION_API_KEY` 走云端 | 场景 1/3 |
+| 启动报"无法连接 API" | `lsof -i :11432` 看本地 mlx 是否在跑 | 无 key 且 11432 没服务 → 起 `~/claude-home/fusion-mlx/start.sh start`；或设 `FUSION_CLIENT_KEY` 走云端 | 场景 1/3 |
 | 明明设了 key 却走了本地 | env 里有没有 `FUSION_MLX_ENABLED=1` 或 11432 在跑 | 加 `FUSION_MLX_DISABLED=1` 强制云端 | 场景 3 |
-| 想本地却走了云端 | `echo $FUSION_API_KEY` 是否残留 | 清 key，或 `FUSION_MLX_ENABLED=1` 锁本地 | 场景 1/2 |
+| 想本地却走了云端 | `echo $FUSION_CLIENT_KEY` 是否残留 | 清 key，或 `FUSION_MLX_ENABLED=1` 锁本地 | 场景 1/2 |
 | 第三方代理连接失败 | `echo $FUSION_BASE_URL` 是否残留 127.0.0.1 | `FUSION_BASE_URL` 优先级更高 → 清空它，改用 `ANTHROPIC_BASE_URL` | 场景 4 |
 | `/model` 看不到本地模型 | `curl http://127.0.0.1:11432/v1/models` 返回什么 | 11432 服务没起 / 端口被占 → 重启 fusion-mlx | 场景 9 |
 | 小模型不调工具 | 模型规模 ≤3B? | 小模型仅 5 core tools，换 ≥7B 模型 | 场景 2 |

@@ -114,7 +114,7 @@ const apiKeyConflictNotice: StatusNoticeDefinition = {
 		});
 		return (
 			!!getApiKeyFromConfigOrMacOSKeychain() &&
-			(apiKeySource === "FUSION_API_KEY" || apiKeySource === "apiKeyHelper")
+			(apiKeySource === "FUSION_CLIENT_KEY" || apiKeySource === "apiKeyHelper")
 		);
 	},
 	render: () => {
@@ -172,8 +172,8 @@ const bothAuthMethodsNotice: StatusNoticeDefinition = {
 							? "claude.ai"
 							: authTokenInfo.source}
 						?{" "}
-						{apiKeySource === "FUSION_API_KEY"
-							? 'Unset the FUSION_API_KEY environment variable, or claude /logout then say "No" to the API key approval before login.'
+						{apiKeySource === "FUSION_CLIENT_KEY"
+							? 'Unset the FUSION_CLIENT_KEY environment variable, or claude /logout then say "No" to the API key approval before login.'
 							: apiKeySource === "apiKeyHelper"
 								? "Unset the apiKeyHelper setting."
 								: "claude /logout"}

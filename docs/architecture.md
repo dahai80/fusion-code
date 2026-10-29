@@ -128,7 +128,7 @@ Anthropic 与 OpenAI 的 OAuth 流程。
 | Provider | 说明 |
 |----------|------|
 | `fusionMlx` | 本地 MLX 推理（127.0.0.1:11432），默认 |
-| `firstParty` | Anthropic API（`FUSION_API_KEY` / `ANTHROPIC_API_KEY`） |
+| `firstParty` | Anthropic API（`FUSION_CLIENT_KEY` / `ANTHROPIC_API_KEY`） |
 | `openai` | OpenAI（`FUSION_CODE_USE_OPENAI=1`） |
 | `foundry` | Azure Foundry（`FUSION_CODE_USE_FOUNDRY=1`） |
 | `bedrock` | AWS Bedrock（`FUSION_CODE_USE_BEDROCK=1`） |
@@ -140,7 +140,7 @@ Anthropic 与 OpenAI 的 OAuth 流程。
 2. `FUSION_MLX_ENABLED=1` -> `fusionMlx`
 3. `FUSION_CODE_USE_FOUNDRY=1` -> `foundry`
 4. `FUSION_CODE_USE_OPENAI=1` -> `openai`
-5. 无 `FUSION_API_KEY` -> 默认 `fusionMlx`（本地零配置）
+5. 无 `FUSION_CLIENT_KEY` -> 默认 `fusionMlx`（本地零配置）
 6. 否则 -> `firstParty`
 
 ### shouldAutoUseFusionMlx()

@@ -29,7 +29,7 @@ describe("CLI 启动环境变量", () => {
 		delete process.env.FUSION_MLX_AUTO;
 		delete process.env.FUSION_GATEWAY_ENABLED;
 		delete process.env.FUSION_BASE_URL;
-		delete process.env.FUSION_API_KEY;
+		delete process.env.FUSION_CLIENT_KEY;
 		delete process.env.FORCE_COLOR;
 		delete process.env.CLAUDE_CONFIG_DIR;
 		delete process.env.ANTHROPIC_API_KEY;
@@ -78,9 +78,9 @@ describe("CLI 启动环境变量", () => {
 		expect(shouldAutoUseFusionMlx()).toBe(true);
 	});
 
-	it("有 FUSION_API_KEY 时不应自动启用 fusion-mlx", async () => {
+	it("有 FUSION_CLIENT_KEY 时不应自动启用 fusion-mlx", async () => {
 		delete process.env.FUSION_MLX_ENABLED;
-		process.env.FUSION_API_KEY = "sk-test";
+		process.env.FUSION_CLIENT_KEY = "sk-test";
 		const { shouldAutoUseFusionMlx } = await import(
 			"../../src/utils/model/providers.js"
 		);
@@ -94,6 +94,7 @@ describe("Provider 检测", () => {
 	beforeEach(() => {
 		delete process.env.FUSION_MLX_ENABLED;
 		delete process.env.FUSION_MLX_DISABLED;
+		delete process.env.FUSION_CLIENT_KEY;
 		delete process.env.ANTHROPIC_API_KEY;
 		delete process.env.FUSION_CODE_USE_VERTEX;
 		delete process.env.FUSION_CODE_USE_FOUNDRY;
@@ -296,7 +297,7 @@ describe("认证和授权", () => {
 // 背景: 旧 SDK 构造函数在 apiKey 为空时直接读取 ANTHROPIC_API_KEY 环境变量。
 // 接缝层 (seam) 不经 SDK, 丢失了这一回退 → 仅设 ANTHROPIC_API_KEY (非 sk-ant)
 // + 第三方代理 baseUrl 时, firstParty 路径拿不到 key → 401/连接失败。
-// 修复: auth 层在第三方代理场景下回退读取 ANTHROPIC_API_KEY (FUSION_API_KEY 仍优先)。
+// 修复: auth 层在第三方代理场景下回退读取 ANTHROPIC_API_KEY (FUSION_CLIENT_KEY 仍优先)。
 describe("第三方代理 API Key 回退", () => {
 	const savedNodeEnv = process.env.NODE_ENV;
 	beforeEach(() => {
@@ -305,7 +306,7 @@ describe("第三方代理 API Key 回退", () => {
 		delete process.env.FUSION_GATEWAY_ENABLED;
 		process.env.FUSION_MLX_DISABLED = "1";
 		// 清空 key 环境变量, 由各用例按需设置
-		delete process.env.FUSION_API_KEY;
+		delete process.env.FUSION_CLIENT_KEY;
 		delete process.env.ANTHROPIC_API_KEY;
 		delete process.env.FUSION_BASE_URL;
 		delete process.env.ANTHROPIC_BASE_URL;
@@ -322,16 +323,16 @@ describe("第三方代理 API Key 回退", () => {
 		delete process.env.FUSION_MLX_DISABLED;
 	});
 
-	it("FUSION_API_KEY 优先于 ANTHROPIC_API_KEY (第三方代理)", async () => {
+	it("FUSION_CLIENT_KEY 优先于 ANTHROPIC_API_KEY (第三方代理)", async () => {
 		process.env.ANTHROPIC_BASE_URL = "http://litellm.proxy:4000";
-		process.env.FUSION_API_KEY = "sk-fusion-priority";
+		process.env.FUSION_CLIENT_KEY = "sk-fusion-priority";
 		process.env.ANTHROPIC_API_KEY = "sk-anthropic-fallback";
 		const { getAnthropicApiKeyWithSource } = await import(
 			"../../src/utils/auth.js"
 		);
 		const result = getAnthropicApiKeyWithSource();
 		expect(result.key).toBe("sk-fusion-priority");
-		expect(result.source).toBe("FUSION_API_KEY");
+		expect(result.source).toBe("FUSION_CLIENT_KEY");
 	});
 
 	it("仅 ANTHROPIC_API_KEY 时第三方代理回退读取 (回归修复核心)", async () => {
@@ -342,7 +343,7 @@ describe("第三方代理 API Key 回退", () => {
 		);
 		const result = getAnthropicApiKeyWithSource();
 		expect(result.key).toBe("sk-anthropic-only");
-		expect(result.source).toBe("FUSION_API_KEY");
+		expect(result.source).toBe("FUSION_CLIENT_KEY");
 	});
 
 	it("FUSION_BASE_URL 指向第三方代理时同样回退", async () => {
@@ -467,7 +468,7 @@ describe("CLI 启动链路", () => {
 		process.env.FORCE_COLOR = "1";
 		process.env.FUSION_CODE_CONFIG_DIR = join(homedir(), ".fusion-code");
 		delete process.env.FUSION_MLX_MODEL;
-		delete process.env.FUSION_API_KEY;
+		delete process.env.FUSION_CLIENT_KEY;
 	});
 
 	it("FUSION_CODE_CONFIG_DIR 应指向 ~/.fusion-code", async () => {

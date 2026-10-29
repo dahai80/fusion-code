@@ -16,8 +16,8 @@ const { installProviderEnvIsolation } = await import(
 	"../helpers/providerEnv.js"
 );
 
-// firstParty selected by getAPIProvider when FUSION_API_KEY is a sk-ant- key.
-installProviderEnvIsolation({ FUSION_API_KEY: "sk-ant-test" });
+// firstParty selected by getAPIProvider when FUSION_CLIENT_KEY is a sk-ant- key.
+installProviderEnvIsolation({ FUSION_CLIENT_KEY: "sk-ant-test" });
 
 describe("sideQuery ctx.llm wiring (audit 1.1.2)", () => {
 	test("firstParty: ctx-driven answer == no-ctx (old) answer — byte-identical", async () => {
@@ -63,7 +63,7 @@ describe("sideQuery ctx.llm wiring (audit 1.1.2)", () => {
 		// provider===foundry → true (mirrors 1P). Old path also true for allowlist
 		// names; for a non-allowlist foundry model new=true, old=false. This is the
 		// intended capability-authoritative shift, accepted by the migration.
-		delete process.env.FUSION_API_KEY;
+		delete process.env.FUSION_CLIENT_KEY;
 		delete process.env.ANTHROPIC_API_KEY;
 		process.env.FUSION_CODE_USE_FOUNDRY = "1";
 		expect(getAPIProvider("claude-sonnet-4-6")).toBe("foundry");
@@ -72,7 +72,7 @@ describe("sideQuery ctx.llm wiring (audit 1.1.2)", () => {
 	});
 
 	test("bedrock/vertex/openai: ctx path returns false (byte-identical to old)", async () => {
-		delete process.env.FUSION_API_KEY;
+		delete process.env.FUSION_CLIENT_KEY;
 		delete process.env.ANTHROPIC_API_KEY;
 		for (const env of [
 			"FUSION_CODE_USE_BEDROCK",
@@ -97,7 +97,7 @@ describe("sideQuery ctx.llm wiring (audit 1.1.2)", () => {
 		// provider-if fallback runs. MLX qwen3 (capability would say true) must
 		// still return false via the old path — the deferred divergence.
 		// 新契约 (endpoint 统一): MLX 路由需显式 opt-in — 模型名嗅探已删除。
-		delete process.env.FUSION_API_KEY;
+		delete process.env.FUSION_CLIENT_KEY;
 		delete process.env.ANTHROPIC_API_KEY;
 		delete process.env.FUSION_BASE_URL;
 		delete process.env.ANTHROPIC_BASE_URL;

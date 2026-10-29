@@ -201,7 +201,7 @@ const MLX_ECHO_DIAGNOSTIC =
 	"⚠️ The local model echoed the tool definitions / system prompt instead of " +
 	"producing a response (no valid output). This can happen with local models " +
 	"under memory pressure or with very large contexts. Try /compact, reduce the " +
-	"context, free memory, or switch to a cloud model (FUSION_BASE_URL / FUSION_API_KEY).";
+	"context, free memory, or switch to a cloud model (FUSION_BASE_URL / FUSION_CLIENT_KEY).";
 
 function pushTextDelta(
 	state: StreamState,

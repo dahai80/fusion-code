@@ -18,7 +18,7 @@ const call: LocalCommandCall = async () => {
 			`MLX Base URL: ${process.env.FUSION_GATEWAY_URL || process.env.FUSION_MLX_BASE_URL || process.env.MLX_BASE_URL || "http://127.0.0.1:11432"}`,
 		);
 		lines.push(
-			`MLX API Key: ${process.env.FUSION_MLX_API_KEY || process.env.MLX_API_KEY ? "***set***" : "(none)"}`,
+			`MLX API Key: ${process.env.FUSION_CLIENT_KEY || process.env.FUSION_GATEWAY_API_KEY ? "***set***" : "(none)"}`,
 		);
 		lines.push(`MLX Model: ${process.env.FUSION_MLX_MODEL || "(auto-detect)"}`);
 	}
@@ -28,7 +28,7 @@ const call: LocalCommandCall = async () => {
 	lines.push("");
 
 	const envVars = [
-		"FUSION_API_KEY",
+		"FUSION_CLIENT_KEY",
 		"ANTHROPIC_API_KEY",
 		"FUSION_BASE_URL",
 		"ANTHROPIC_BASE_URL",
@@ -40,7 +40,6 @@ const call: LocalCommandCall = async () => {
 		"FUSION_MLX_ENABLED",
 		"FUSION_MLX_BASE_URL",
 		"FUSION_MLX_MODEL",
-		"FUSION_MLX_API_KEY",
 		"NO_COLOR",
 		"NODE_ENV",
 	];

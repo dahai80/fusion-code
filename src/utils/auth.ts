@@ -85,7 +85,7 @@ const DEFAULT_API_KEY_HELPER_TTL = 5 * 60 * 1000;
 /**
  * CCR and Claude Desktop spawn the CLI with OAuth and should never fall back
  * to the user's ~/.claude/settings.json API-key config (apiKeyHelper,
- * env.FUSION_API_KEY, env.FUSION_AUTH_TOKEN). Those settings exist for
+ * env.FUSION_CLIENT_KEY, env.FUSION_AUTH_TOKEN). Those settings exist for
  * the user's terminal CLI, not managed sessions. Without this guard, a user
  * who runs `claude` in their terminal with an API key sees every CCD session
  * also use that key — and fail if it's stale/wrong-org.
@@ -110,7 +110,7 @@ export function isAnthropicAuthEnabled(): boolean {
 	// local auth-injecting proxy. The launcher sets FUSION_CODE_OAUTH_TOKEN as a
 	// placeholder iff the local side is a subscriber (so the remote includes the
 	// oauth-2025 beta header to match what the proxy will inject). The remote's
-	// ~/.claude settings (apiKeyHelper, settings.env.FUSION_API_KEY) MUST NOT
+	// ~/.claude settings (apiKeyHelper, settings.env.FUSION_CLIENT_KEY) MUST NOT
 	// flip this — they'd cause a header mismatch with the proxy and a bogus
 	// "invalid x-api-key" from the API. See src/ssh/sshAuthProxy.ts.
 	if (process.env.FUSION_UNIX_SOCKET) {
@@ -138,7 +138,7 @@ export function isAnthropicAuthEnabled(): boolean {
 		skipRetrievingKeyFromApiKeyHelper: true,
 	});
 	const hasExternalApiKey =
-		!!process.env.FUSION_API_KEY || _apiKeySource === "apiKeyHelper";
+		!!process.env.FUSION_CLIENT_KEY || _apiKeySource === "apiKeyHelper";
 
 	// Disable Anthropic auth if:
 	// 1. Using 3rd party services (Bedrock/Vertex/Foundry)
@@ -213,7 +213,7 @@ export function getAuthTokenSource() {
 }
 
 export type ApiKeySource =
-	| "FUSION_API_KEY"
+	| "FUSION_CLIENT_KEY"
 	| "apiKeyHelper"
 	| "/login managed key"
 	| "none";
@@ -241,12 +241,12 @@ export function getAnthropicApiKeyWithSource(
 		return { key: null, source: "none" };
 	}
 
-	// --bare: hermetic auth. Only FUSION_API_KEY env or apiKeyHelper from
+	// --bare: hermetic auth. Only FUSION_CLIENT_KEY env or apiKeyHelper from
 	// the --settings flag. Never touches keychain, config file, or approval
 	// lists. 3P (Bedrock/Vertex/Foundry) uses provider creds, not this path.
 	if (isBareMode()) {
-		if (process.env.FUSION_API_KEY) {
-			return { key: process.env.FUSION_API_KEY, source: "FUSION_API_KEY" };
+		if (process.env.FUSION_CLIENT_KEY) {
+			return { key: process.env.FUSION_CLIENT_KEY, source: "FUSION_CLIENT_KEY" };
 		}
 		if (getConfiguredApiKeyHelper()) {
 			return {
@@ -259,18 +259,18 @@ export function getAnthropicApiKeyWithSource(
 		return { key: null, source: "none" };
 	}
 
-	// On homespace, don't use FUSION_API_KEY (use Console key instead)
+	// On homespace, don't use FUSION_CLIENT_KEY (use Console key instead)
 	// https://anthropic.slack.com/archives/C08428WSLKV/p1747331773214779
 	const apiKeyEnv = isRunningOnHomespace()
 		? undefined
-		: process.env.FUSION_API_KEY;
+		: process.env.FUSION_CLIENT_KEY;
 
 	// Always check for direct environment variable when the user ran claude --print.
 	// This is useful for CI, etc.
 	if (preferThirdPartyAuthentication() && apiKeyEnv) {
 		return {
 			key: apiKeyEnv,
-			source: "FUSION_API_KEY",
+			source: "FUSION_CLIENT_KEY",
 		};
 	}
 
@@ -280,7 +280,7 @@ export function getAnthropicApiKeyWithSource(
 		if (apiKeyFromFd) {
 			return {
 				key: apiKeyFromFd,
-				source: "FUSION_API_KEY",
+				source: "FUSION_CLIENT_KEY",
 			};
 		}
 
@@ -290,14 +290,14 @@ export function getAnthropicApiKeyWithSource(
 			!process.env.FUSION_CODE_OAUTH_TOKEN_FILE_DESCRIPTOR
 		) {
 			throw new Error(
-				"FUSION_API_KEY or FUSION_CODE_OAUTH_TOKEN env var is required",
+				"FUSION_CLIENT_KEY or FUSION_CODE_OAUTH_TOKEN env var is required",
 			);
 		}
 
 		if (apiKeyEnv) {
 			return {
 				key: apiKeyEnv,
-				source: "FUSION_API_KEY",
+				source: "FUSION_CLIENT_KEY",
 			};
 		}
 
@@ -307,9 +307,9 @@ export function getAnthropicApiKeyWithSource(
 			source: "none",
 		};
 	}
-	// Check for FUSION_API_KEY before checking the apiKeyHelper or /login-managed key
+	// Check for FUSION_CLIENT_KEY before checking the apiKeyHelper or /login-managed key
 	// NOTE: 当 FUSION_BASE_URL 指向非 Anthropic 域名时（第三方代理如 litellm），
-	// 直接接受 FUSION_API_KEY，无需交互式批准。
+	// 直接接受 FUSION_CLIENT_KEY，无需交互式批准。
 	// 原因：第三方代理的 key 不是 Anthropic API key，无法通过 approved 列表验证，
 	// 且不批准会导致 SDK 拿不到 key → 401 → "Not logged in"
 	const baseUrl =
@@ -317,7 +317,7 @@ export function getAnthropicApiKeyWithSource(
 	const isThirdPartyProxy = baseUrl && !baseUrl.includes("api.anthropic.com");
 	// 第三方代理回退: 旧 SDK 构造函数在 apiKey 为空时会直接读取 ANTHROPIC_API_KEY
 	// 环境变量。接缝层 (seam) 不经 SDK, 丢失了这一回退。此处为第三方代理场景补回
-	// ANTHROPIC_API_KEY 读取 (FUSION_API_KEY 仍优先), 保持前后行为一致。
+	// ANTHROPIC_API_KEY 读取 (FUSION_CLIENT_KEY 仍优先), 保持前后行为一致。
 	// 仅限第三方代理 (非 Anthropic 域名): firstParty 直连 Anthropic 仍走 approved 列表。
 	const fallbackKeyEnv = isThirdPartyProxy
 		? process.env.ANTHROPIC_API_KEY
@@ -333,7 +333,7 @@ export function getAnthropicApiKeyWithSource(
 		const key = apiKeyEnv ?? fallbackKeyEnv;
 		return {
 			key: key ?? null,
-			source: "FUSION_API_KEY",
+			source: "FUSION_CLIENT_KEY",
 		};
 	}
 
@@ -342,7 +342,7 @@ export function getAnthropicApiKeyWithSource(
 	if (apiKeyFromFd) {
 		return {
 			key: apiKeyFromFd,
-			source: "FUSION_API_KEY",
+			source: "FUSION_CLIENT_KEY",
 		};
 	}
 

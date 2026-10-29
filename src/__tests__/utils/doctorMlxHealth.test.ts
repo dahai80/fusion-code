@@ -16,7 +16,7 @@ const MLX_ENVS = [
 	"FUSION_GATEWAY_ENABLED",
 	"FUSION_MLX_ENABLED",
 	"FUSION_MLX_AUTO",
-	"FUSION_API_KEY",
+	"FUSION_CLIENT_KEY",
 	"ANTHROPIC_API_KEY",
 	"FUSION_BASE_URL",
 	"ANTHROPIC_BASE_URL",
@@ -52,7 +52,7 @@ function forceMlxProvider(): void {
 // no MLX envs, but a cloud API key is set.
 function forceCloudProvider(): void {
 	clearEnvs();
-	process.env.FUSION_API_KEY = "sk-ant-cloud";
+	process.env.FUSION_CLIENT_KEY = "sk-ant-cloud";
 }
 
 function mockResponse(body: unknown, status = 200): Response {

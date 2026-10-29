@@ -1196,7 +1196,7 @@ export function Config({
 					},
 				]
 			: []),
-		...(process.env.FUSION_API_KEY ||
+		...(process.env.FUSION_CLIENT_KEY ||
 		(process.env.ANTHROPIC_API_KEY && !isRunningOnHomespace())
 			? [
 					{
@@ -1206,18 +1206,18 @@ export function Config({
 								Use custom API key:{" "}
 								<Text bold>
 									{normalizeApiKeyForConfig(
-										process.env.FUSION_API_KEY || process.env.ANTHROPIC_API_KEY,
+										process.env.FUSION_CLIENT_KEY || process.env.ANTHROPIC_API_KEY,
 									)}
 								</Text>
 							</Text>
 						),
 						searchText: "Use custom API key",
 						value: Boolean(
-							process.env.FUSION_API_KEY ||
+							process.env.FUSION_CLIENT_KEY ||
 								(process.env.ANTHROPIC_API_KEY &&
 									globalConfig.customApiKeyResponses?.approved?.includes(
 										normalizeApiKeyForConfig(
-											process.env.FUSION_API_KEY ||
+											process.env.FUSION_CLIENT_KEY ||
 												process.env.ANTHROPIC_API_KEY,
 										),
 									)),
@@ -1247,11 +1247,11 @@ export function Config({
 									};
 								}
 								if (
-									process.env.FUSION_API_KEY ||
+									process.env.FUSION_CLIENT_KEY ||
 									process.env.ANTHROPIC_API_KEY
 								) {
 									const truncatedKey = normalizeApiKeyForConfig(
-										process.env.FUSION_API_KEY || process.env.ANTHROPIC_API_KEY,
+										process.env.FUSION_CLIENT_KEY || process.env.ANTHROPIC_API_KEY,
 									);
 									if (useCustomKey) {
 										updated.customApiKeyResponses = {
@@ -1359,7 +1359,7 @@ export function Config({
 		// processes but ignored by Fusion-Code itself (see auth.ts).
 		const effectiveApiKey = isRunningOnHomespace()
 			? undefined
-			: process.env.FUSION_API_KEY || process.env.ANTHROPIC_API_KEY;
+			: process.env.FUSION_CLIENT_KEY || process.env.ANTHROPIC_API_KEY;
 		const initialUsingCustomKey = Boolean(
 			effectiveApiKey &&
 				initialConfig.current.customApiKeyResponses?.approved?.includes(
@@ -1377,7 +1377,7 @@ export function Config({
 				`${currentUsingCustomKey ? "Enabled" : "Disabled"} custom API key`,
 			);
 			logEvent("tengu_config_changed", {
-				key: "env.FUSION_API_KEY" as AnalyticsMetadata_I_VERIFIED_THIS_IS_NOT_CODE_OR_FILEPATHS,
+				key: "env.FUSION_CLIENT_KEY" as AnalyticsMetadata_I_VERIFIED_THIS_IS_NOT_CODE_OR_FILEPATHS,
 				value:
 					currentUsingCustomKey as AnalyticsMetadata_I_VERIFIED_THIS_IS_NOT_CODE_OR_FILEPATHS,
 			});

@@ -39,5 +39,5 @@ bun run test:e2e        # = bunx playwright test --config tests/e2e/playwright.c
 
 ## 验收中修复的缺陷
 
-1. **`/api/model/status` 硬编码网关 11434/11432 不感知 provider env** — `FUSION_MLX_ENABLED=1` 时返回 `connected:false` (401 拿不到模型表)。改为 provider-aware 解析 (gateway 显式配置优先, 其次 MLX env, 裸默认走网关; key 统一 `FUSION_API_KEY` 优先, legacy 变量兜底)。
+1. **`/api/model/status` 硬编码网关 11434/11432 不感知 provider env** — `FUSION_MLX_ENABLED=1` 时返回 `connected:false` (401 拿不到模型表)。改为 provider-aware 解析 (gateway 显式配置优先, 其次 MLX env, 裸默认走网关; key 统一 `FUSION_CLIENT_KEY` 优先, legacy 变量兜底)。
 2. **WS chat stderr 管道从不读取** — `--verbose` 子进程向 stderr 大量输出, OS 管道缓冲 (~64KB) 写满后子进程阻塞, stdout 停摆, chat 挂死。修复: 逐行排空 stderr 进调试日志。

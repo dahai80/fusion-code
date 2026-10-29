@@ -345,11 +345,12 @@ function toMlxModelName(model: string): string {
 // _verify_api_key_values 在配置了 api_key 后校验 Authorization: Bearer / x-api-key,
 // 未配置时 anonymous allowed)。配置后不带凭据的请求会被 401 拒绝。
 //
-// 鉴权收敛 (endpoint 统一语义): FUSION_API_KEY 是唯一规范凭证 — 无论
+// 鉴权收敛 (endpoint 统一语义, #226): FUSION_CLIENT_KEY 是唯一规范凭证 — 无论
 // endpoint 是云端还是本地推理服务, 同一套配置 (FUSION_AUTH_TOKEN 为等价
-// 别名)。历史专用 key (FUSION_GATEWAY_API_KEY / GATEWAY_API_KEY /
-// FUSION_MLX_API_KEY / MLX_API_KEY / settings.json) 保留为兼容回退, 命中时
-// 打一次弃用告警 (#221)。
+// 别名)。历史 gateway 专用 key (FUSION_GATEWAY_API_KEY / GATEWAY_API_KEY)
+// 保留为兼容回退, 命中时打一次弃用告警 (#221)。引擎专用 env 别名
+// (legacy mlx key 名, #226 移除) 不再读取, 引擎层仅剩
+// ~/.fusion-mlx/settings.json 回退 — 别名兼容是 fusion-core 的职责, 本仓不保留链。
 //
 // #221 云凭证隔离: ANTHROPIC_API_KEY / ANTHROPIC_AUTH_TOKEN 是云端 proxy
 // 凭证, 不得参与本地鉴权链 — 残留在 shell env 的云 token 打本地 gateway
@@ -365,7 +366,7 @@ function warnDeprecatedKeyAlias(name: string): void {
 	if (_warnedAliasKeys.has(name)) return;
 	_warnedAliasKeys.add(name);
 	logForDebugging(
-		`[auth] ${name} is deprecated — set FUSION_API_KEY instead (single canonical key for gateway + engine)`,
+		`[auth] ${name} is deprecated — set FUSION_CLIENT_KEY instead (single canonical key for gateway + engine)`,
 		{ level: "warn" },
 	);
 }
@@ -385,18 +386,8 @@ export interface MlxCredentialResolution {
 	name: string;
 }
 
-// 本地引擎侧凭证链 (含 settings.json 回退)
+// 本地引擎侧凭证链 (#226: legacy env 别名已移除, 仅剩 settings.json 回退)
 function resolveMlxEngineCredential(): MlxCredentialResolution {
-	const envKey = process.env.FUSION_MLX_API_KEY;
-	if (envKey) {
-		warnDeprecatedKeyAlias("FUSION_MLX_API_KEY");
-		return { value: envKey, name: "FUSION_MLX_API_KEY (deprecated)" };
-	}
-	const legacyKey = process.env.MLX_API_KEY;
-	if (legacyKey) {
-		warnDeprecatedKeyAlias("MLX_API_KEY");
-		return { value: legacyKey, name: "MLX_API_KEY (deprecated)" };
-	}
 	const fromSettings = getMlxApiKey();
 	return {
 		value: fromSettings,
@@ -406,8 +397,8 @@ function resolveMlxEngineCredential(): MlxCredentialResolution {
 
 // 完整本地模式凭证解析 (gateway 层 → engine 层), 供鉴权头 + 调试日志共用。
 export function resolveMlxCredential(): MlxCredentialResolution {
-	if (process.env.FUSION_API_KEY) {
-		return { value: process.env.FUSION_API_KEY, name: "FUSION_API_KEY" };
+	if (process.env.FUSION_CLIENT_KEY) {
+		return { value: process.env.FUSION_CLIENT_KEY, name: "FUSION_CLIENT_KEY" };
 	}
 	if (process.env.FUSION_AUTH_TOKEN) {
 		return { value: process.env.FUSION_AUTH_TOKEN, name: "FUSION_AUTH_TOKEN" };
@@ -483,11 +474,6 @@ function isGatewayBaseUrl(): boolean {
 let _cachedMlxApiKey: string | undefined | null = null;
 function getMlxApiKey(): string | undefined {
 	if (_cachedMlxApiKey !== null) return _cachedMlxApiKey;
-	const envKey = process.env.FUSION_MLX_API_KEY || process.env.MLX_API_KEY;
-	if (envKey) {
-		_cachedMlxApiKey = envKey;
-		return envKey;
-	}
 	try {
 		const fs = require("node:fs");
 		const path = require("node:path");
@@ -591,7 +577,7 @@ async function mlxFetchWithRetryInner(
 			const layer = isGatewayBaseUrl() ? "gateway" : "MLX";
 			const hint =
 				response.status === 401
-					? `鉴权失败 (${layer} 层)。请优先检查 FUSION_API_KEY / FUSION_AUTH_TOKEN 是否匹配该 endpoint 的鉴权配置；历史专用 key (FUSION_GATEWAY_API_KEY 匹配 fusion-gateway config.yaml 的 auth.api_keys / FUSION_MLX_API_KEY 匹配 ~/.fusion-mlx/settings.json 的 auth.api_key) 仍作为回退被读取`
+					? `鉴权失败 (${layer} 层)。请优先检查 FUSION_CLIENT_KEY / FUSION_AUTH_TOKEN 是否匹配该 endpoint 的鉴权配置；历史 gateway 专用 key (FUSION_GATEWAY_API_KEY 匹配 fusion-gateway config.yaml 的 auth.api_keys) 仍作为回退被读取, 引擎侧回退 ~/.fusion-mlx/settings.json auth.api_key`
 					: `route_guard 拒绝 (X-Fusion-Route 头缺失或值不被接受)。当前头: X-Fusion-Route=${process.env.FUSION_ROUTE_HEADER || DEFAULT_FUSION_ROUTE_HEADER}`;
 			// ERR-3 (0903 P3): auth/route failure must be observable in production.
 			// logForDebugging is gated by debug-mode (shouldLogDebugMessage returns
@@ -712,8 +698,8 @@ export async function checkFusionMlxHealth(): Promise<FusionMlxStatus> {
 			// 但输出明确诊断引导,而非静默误判。
 			if (response.status === 401) {
 				const hint = isGatewayBaseUrl()
-					? "gateway 层鉴权失败。请优先检查 FUSION_API_KEY / FUSION_AUTH_TOKEN 是否匹配该 endpoint 的鉴权配置；历史专用 key FUSION_GATEWAY_API_KEY (匹配 fusion-gateway config.yaml 的 auth.api_keys) 仍作为回退被读取"
-					: "MLX 层鉴权失败。请优先检查 FUSION_API_KEY / FUSION_AUTH_TOKEN；历史专用 key FUSION_MLX_API_KEY (匹配 ~/.fusion-mlx/settings.json 的 auth.api_key) 仍作为回退被读取";
+					? "gateway 层鉴权失败。请优先检查 FUSION_CLIENT_KEY / FUSION_AUTH_TOKEN 是否匹配该 endpoint 的鉴权配置；历史专用 key FUSION_GATEWAY_API_KEY (匹配 fusion-gateway config.yaml 的 auth.api_keys) 仍作为回退被读取"
+					: "MLX 层鉴权失败。请优先检查 FUSION_CLIENT_KEY / FUSION_AUTH_TOKEN；引擎侧回退 ~/.fusion-mlx/settings.json 的 auth.api_key (#226: legacy env 别名已移除)";
 				logForDebugging(
 					`[Fusion-MLX] Health check got 401 — server running, auth failed. ${hint}`,
 					{ level: "warn" },
@@ -1479,8 +1465,8 @@ export function shouldUseFusionMlx(): boolean {
 		return false;
 	}
 
-	// 默认：如果 FUSION_API_KEY 未设置且 FUSION_MLX_AUTO 启用，则自动检测
-	if (isEnvTruthy(process.env.FUSION_MLX_AUTO) && !process.env.FUSION_API_KEY) {
+	// 默认：如果 FUSION_CLIENT_KEY 未设置且 FUSION_MLX_AUTO 启用，则自动检测
+	if (isEnvTruthy(process.env.FUSION_MLX_AUTO) && !process.env.FUSION_CLIENT_KEY) {
 		return true; // 返回 true 表示优先尝试 MLX
 	}
 

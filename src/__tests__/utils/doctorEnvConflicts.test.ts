@@ -6,7 +6,7 @@ import { detectFusionEnvConflicts } from "../../utils/doctorDiagnostic.js";
 // process-global, so each case snapshots + restores the pairs it touches.
 
 const PAIRS: Array<[fusion: string, anthropic: string]> = [
-	["FUSION_API_KEY", "ANTHROPIC_API_KEY"],
+	["FUSION_CLIENT_KEY", "ANTHROPIC_API_KEY"],
 	["FUSION_BASE_URL", "ANTHROPIC_BASE_URL"],
 	["FUSION_AUTH_TOKEN", "ANTHROPIC_AUTH_TOKEN"],
 	["FUSION_BETAS", "ANTHROPIC_BETAS"],
@@ -121,7 +121,7 @@ describe("detectFusionEnvConflicts", () => {
 		const snap = snapshotEnv();
 		clearAllPairs();
 		// Conflicting: API_KEY pair both set, MODEL pair both set.
-		process.env.FUSION_API_KEY = "fk";
+		process.env.FUSION_CLIENT_KEY = "fk";
 		process.env.ANTHROPIC_API_KEY = "ak";
 		process.env.FUSION_MODEL = "fusion-m";
 		process.env.ANTHROPIC_MODEL = "anthropic-m";
@@ -132,7 +132,7 @@ describe("detectFusionEnvConflicts", () => {
 			const warnings = detectFusionEnvConflicts();
 			expect(warnings).toHaveLength(2);
 			const issues = warnings.map((w) => w.issue).join("\n");
-			expect(issues).toContain("FUSION_API_KEY");
+			expect(issues).toContain("FUSION_CLIENT_KEY");
 			expect(issues).toContain("FUSION_MODEL");
 			expect(issues).not.toContain("FUSION_BASE_URL");
 			expect(issues).not.toContain("FUSION_LOG");

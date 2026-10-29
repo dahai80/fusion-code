@@ -792,7 +792,7 @@ function shouldRetry(error: ApiErrorLike): boolean {
 
 	// Clear API key cache on 401 and allow retry.
 	// OAuth token handling is done in the main retry loop via handleOAuth401Error.
-	// Fusion-MLX 401 is a config error (missing FUSION_MLX_API_KEY), not a transient auth issue.
+	// Fusion-MLX 401 is a config error (missing client key), not a transient auth issue.
 	if (error.status === 401) {
 		if (getAPIProvider() === "fusionMlx") return false;
 		clearApiKeyHelperCache();

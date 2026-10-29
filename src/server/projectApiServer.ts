@@ -542,7 +542,7 @@ routes.set("/api/model/status", async () => {
 	// (FUSION_GATEWAY_URL / FUSION_GATEWAY_ENABLED); otherwise honor
 	// FUSION_MLX_BASE_URL / FUSION_MLX_ENABLED with the fusion-mlx default
 	// 11434. Bare default stays gateway 11432 (architecture preference).
-	// Key follows the same unification as the provider seam: FUSION_API_KEY
+	// Key follows the same unification as the provider seam: FUSION_CLIENT_KEY
 	// works for any endpoint, legacy gateway/mlx vars are fallbacks.
 	const gatewayBase =
 		process.env.FUSION_GATEWAY_URL ||
@@ -553,9 +553,8 @@ routes.set("/api/model/status", async () => {
 		(process.env.FUSION_MLX_ENABLED ? "http://127.0.0.1:11434" : "") ||
 		"http://127.0.0.1:11432";
 	const mlxApiKey =
-		process.env.FUSION_API_KEY ||
+		process.env.FUSION_CLIENT_KEY ||
 		process.env.FUSION_GATEWAY_API_KEY ||
-		process.env.FUSION_MLX_API_KEY ||
 		process.env.ANTHROPIC_API_KEY ||
 		"";
 	const headers: Record<string, string> = {};
@@ -961,12 +960,12 @@ function handleChatCompact(
 // Resolve the effective auth token for this server instance.
 //
 // Pre-fix: `if (config.authToken)` was fail-open — an empty authToken
-// (the default, and what start.sh passes when FUSION_API_KEY is unset)
+// (the default, and what start.sh passes when FUSION_CLIENT_KEY is unset)
 // silently disabled auth, exposing the project API unauthenticated. A
 // process with no explicit token must NOT be reachable without auth.
 //
 // Resolution order:
-//   1. explicit --auth / FUSION_API_KEY -> use verbatim
+//   1. explicit --auth / FUSION_CLIENT_KEY -> use verbatim
 //   2. FUSION_CODE_NO_AUTH=1 / --no-auth -> explicitly disabled (dev only,
 //      loud warning). Only opt-out path.
 //   3. otherwise -> generate a per-instance random token and persist it to

@@ -29,7 +29,7 @@ function withoutSSHTunnelVars(
 	const {
 		FUSION_UNIX_SOCKET: _1,
 		FUSION_BASE_URL: _2,
-		FUSION_API_KEY: _3,
+		FUSION_CLIENT_KEY: _3,
 		FUSION_AUTH_TOKEN: _4,
 		FUSION_CODE_OAUTH_TOKEN: _5,
 		...rest

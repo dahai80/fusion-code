@@ -72,7 +72,7 @@ fusion-mlx pull qwen2.5-coder-7b-instruct
 
 ```bash
 # Set your API key (persist in ~/.zshrc or ~/.bashrc)
-export FUSION_API_KEY="sk-ant-..."
+export FUSION_CLIENT_KEY="sk-ant-..."
 
 # Optional: pin a specific model
 export FUSION_MODEL="claude-sonnet-5"
@@ -87,7 +87,7 @@ For regions where `api.anthropic.com` is unreachable, or to share a key through 
 ```bash
 # Point to your proxy (include the path, e.g. /v1 for OpenAI-compatible proxies)
 export FUSION_BASE_URL="http://your-proxy:4000/v1"
-export FUSION_API_KEY="sk-..."                    # key accepted by the proxy
+export FUSION_CLIENT_KEY="sk-..."                    # key accepted by the proxy
 
 # Optional: bearer token instead of x-api-key
 export FUSION_AUTH_TOKEN="sk-..."
@@ -115,18 +115,18 @@ bun run build
 
 fusion-code supports multiple API backends. The provider is selected automatically by this priority order:
 
-1. **fusionMlx (local)** — if `FUSION_GATEWAY_ENABLED=1` or `FUSION_MLX_ENABLED=1` or `FUSION_MLX_BASE_URL`/`FUSION_GATEWAY_URL` is set → local MLX at `127.0.0.1:11432`. **Explicit local opt-in wins over any key** — setting `FUSION_API_KEY` does not pull an explicitly-local session back to the cloud (a key selects credentials, not topology; #221).
+1. **fusionMlx (local)** — if `FUSION_GATEWAY_ENABLED=1` or `FUSION_MLX_ENABLED=1` or `FUSION_MLX_BASE_URL`/`FUSION_GATEWAY_URL` is set → local MLX at `127.0.0.1:11432`. **Explicit local opt-in wins over any key** — setting `FUSION_CLIENT_KEY` does not pull an explicitly-local session back to the cloud (a key selects credentials, not topology; #221).
 2. **openai** — if `FUSION_CODE_USE_OPENAI=1` → OpenAI Codex (OAuth)
 3. **foundry** — if `FUSION_CODE_USE_FOUNDRY=1` → Azure AI Foundry
-4. **firstParty (Anthropic)** — if `FUSION_API_KEY` is set → Anthropic API (direct or via proxy)
+4. **firstParty (Anthropic)** — if `FUSION_CLIENT_KEY` is set → Anthropic API (direct or via proxy)
 
 > The first matching provider wins. If none match, local MLX is auto-detected on port 11432.
 
 ### Credentials (one canonical key)
 
-**`FUSION_API_KEY` is THE key for the whole fusion stack** — cloud endpoints, gateway, and engine alike. `FUSION_AUTH_TOKEN` is an equivalent alias (bearer-token form).
+**`FUSION_CLIENT_KEY` is THE key for the whole fusion stack** — cloud endpoints, gateway, and engine alike. `FUSION_AUTH_TOKEN` is an equivalent alias (bearer-token form).
 
-- Legacy per-layer names (`FUSION_GATEWAY_API_KEY`, `GATEWAY_API_KEY`, `FUSION_MLX_API_KEY`, `MLX_API_KEY`) still work but are **deprecated** — a warning naming the alias fires once per session. Migrate to `FUSION_API_KEY`.
+- Legacy gateway names (`FUSION_GATEWAY_API_KEY`, `GATEWAY_API_KEY`) still work but are **deprecated** — a warning naming the alias fires once per session. Migrate to `FUSION_CLIENT_KEY`. The former engine-local names (`FUSION_MLX_API_KEY`, `MLX_API_KEY`) were removed in v0.5.6 (#226); the engine-side fallback is `~/.fusion-mlx/settings.json` `auth.api_key`.
 - `ANTHROPIC_API_KEY` / `ANTHROPIC_AUTH_TOKEN` are cloud-proxy credentials. In local MLX mode they are **ignored** — a leftover cloud token in your shell can no longer 401 against the local gateway (#221). Set `FUSION_ALLOW_ANTHROPIC_TOKEN_LOCAL=1` to deliberately reuse a cloud token locally.
 - A startup debug line logs the active provider, base URL, and which credential **name** (never the value) was used.
 
@@ -137,9 +137,9 @@ fusion-code supports multiple API backends. The provider is selected automatical
 | Provider | Required Env | Auth Method | Notes |
 |---|---|---|---|
 | **fusionMlx (local)** | none (auto on port 11432) | local | Apple Silicon only; use `FUSION_MLX_MODEL` to pin a model |
-| **fusionMlx (remote)** | `FUSION_GATEWAY_URL` (or `FUSION_MLX_BASE_URL`) | local or `FUSION_API_KEY` | Run MLX on another Mac, connect over network |
-| **Anthropic direct** | `FUSION_API_KEY` | API key / OAuth | Set `FUSION_MODEL` to pin a model |
-| **Anthropic via proxy** | `FUSION_BASE_URL` + `FUSION_API_KEY` | API key or `FUSION_AUTH_TOKEN` | LiteLLM, OpenRouter, internal gateway |
+| **fusionMlx (remote)** | `FUSION_GATEWAY_URL` (or `FUSION_MLX_BASE_URL`) | local or `FUSION_CLIENT_KEY` | Run MLX on another Mac, connect over network |
+| **Anthropic direct** | `FUSION_CLIENT_KEY` | API key / OAuth | Set `FUSION_MODEL` to pin a model |
+| **Anthropic via proxy** | `FUSION_BASE_URL` + `FUSION_CLIENT_KEY` | API key or `FUSION_AUTH_TOKEN` | LiteLLM, OpenRouter, internal gateway |
 | **OpenAI Codex** | `FUSION_CODE_USE_OPENAI=1` | OAuth | In-app login flow on first launch |
 | **Foundry** | `FUSION_CODE_USE_FOUNDRY=1` + `FUSION_FOUNDRY_RESOURCE` | API key / Azure AD | `FUSION_FOUNDRY_API_KEY` or Azure DefaultAzureCredential |
 
@@ -153,7 +153,7 @@ Session override (`/model`) > `--model` CLI flag > `FUSION_MODEL` / `FUSION_MLX_
 
 | Fusion Variable | Anthropic Equivalent | Example |
 |---|---|---|
-| `FUSION_API_KEY` | `ANTHROPIC_API_KEY` | `sk-ant-api03-...` |
+| `FUSION_CLIENT_KEY` | `ANTHROPIC_API_KEY` | `sk-ant-api03-...` |
 | `FUSION_BASE_URL` | `ANTHROPIC_BASE_URL` | `http://proxy:4000/v1` |
 | `FUSION_AUTH_TOKEN` | `ANTHROPIC_AUTH_TOKEN` | `sk-...` (bearer token) |
 | `FUSION_MODEL` | `ANTHROPIC_MODEL` | `claude-sonnet-5` |
@@ -190,7 +190,7 @@ Session override (`/model`) > `--model` CLI flag > `FUSION_MODEL` / `FUSION_MLX_
 #### Anthropic Direct
 
 ```bash
-export FUSION_API_KEY="sk-ant-..."
+export FUSION_CLIENT_KEY="sk-ant-..."
 # Optional: choose a specific model
 export FUSION_MODEL="claude-sonnet-5"
 ./fusion-code
@@ -207,7 +207,7 @@ Route API calls through a gateway. Useful when:
 
 ```bash
 export FUSION_BASE_URL="http://your-proxy:4000/v1"
-export FUSION_API_KEY="sk-..."
+export FUSION_CLIENT_KEY="sk-..."
 ./fusion-code
 ```
 
@@ -286,7 +286,7 @@ Run fusion-mlx on another Mac and connect over the network:
 ```bash
 export FUSION_MLX_BASE_URL="http://192.168.1.10:11432"
 # Optional: if the remote requires auth
-export FUSION_API_KEY="..."
+export FUSION_CLIENT_KEY="..."
 ./fusion-code
 ```
 
@@ -355,7 +355,7 @@ When using fusion-mlx as the provider, claude.ai-dependent features are automati
 - **Channels** — hidden (requires claude.ai infrastructure)
 - **Teleport / remote-env** — hidden (requires claude.ai sessions)
 - **Remote agent scheduling** — hidden (requires claude.ai infrastructure)
-- **Auth error messages** — show "fusion-mlx not available · Run `fusion service start mlx` or set FUSION_API_KEY" instead of "Not logged in · Run /login"
+- **Auth error messages** — show "fusion-mlx not available · Run `fusion service start mlx` or set FUSION_CLIENT_KEY" instead of "Not logged in · Run /login"
 
 This ensures MLX users never encounter confusing claude.ai login prompts.
 
@@ -763,7 +763,7 @@ Verified: 297 pass, 0 fail across all 16 test files.
      - Client → Server: `{ "action": "chat.stream", "session_id": "...", "message": "...", "cwd": "..." }`
      - Server → Client: `{ "type": "chat_event", ... }` / `{ "type": "chat_done", ... }`
      - Cancel: `{ "action": "chat.cancel" }`
-   - CORS enabled for cross-origin access; optional Bearer token auth via `--auth=` or `FUSION_API_KEY`
+   - CORS enabled for cross-origin access; optional Bearer token auth via `--auth=` or `FUSION_CLIENT_KEY`
    - Fixes #6
 
 2. **Portable CLAUDE.md Parser** (`src/utils/claudemdPortable.ts`) — dependency-injected version of `claudemd.ts` that accepts `cwd` as parameter. No bootstrap/state, no analytics, no hooks. Functions:

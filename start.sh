@@ -8,11 +8,11 @@ DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$DIR"
 
 PORT="${FUSION_CODE_PORT:-11441}"
-# Auth token precedence: explicit FUSION_CODE_AUTH_TOKEN > FUSION_API_KEY.
+# Auth token precedence: explicit FUSION_CODE_AUTH_TOKEN > FUSION_CLIENT_KEY.
 # Empty -> server generates a per-instance token (fail-closed, issue #132),
 # discoverable at ~/.fusion-code/server.token. Set FUSION_CODE_NO_AUTH=1 to
 # disable auth entirely (dev only — NOT recommended).
-AUTH="${FUSION_CODE_AUTH_TOKEN:-${FUSION_API_KEY:-}}"
+AUTH="${FUSION_CODE_AUTH_TOKEN:-${FUSION_CLIENT_KEY:-}}"
 NO_AUTH_FLAG=""
 if [ "${FUSION_CODE_NO_AUTH:-}" = "1" ] || [ "${FUSION_CODE_NO_AUTH:-}" = "true" ]; then
     NO_AUTH_FLAG="--no-auth"
@@ -39,12 +39,29 @@ ensure_binary() {
     fi
 }
 
+# Register-then-start self-check (#226): refuse to start on a port that is not
+# declared in the workspace port registry (architecture/port-registry.yaml).
+check_port_registry() {
+    SERVICE="fusion-code"
+    REGISTRY="${FUSION_REGISTRY:-$HOME/fusion/architecture/port-registry.yaml}"
+    if [ ! -f "$REGISTRY" ]; then
+        echo "[start.sh] warn: port-registry.yaml not found at $REGISTRY — registry self-check skipped" >&2
+    elif ! grep -A3 "^  ${SERVICE}:" "$REGISTRY" 2>/dev/null | grep -q "port: $PORT$"; then
+        if [ "${FUSION_SKIP_REGISTRY_CHECK:-}" != "1" ]; then
+            echo "[start.sh] port $PORT for ${SERVICE} not registered in $REGISTRY — refusing to start" >&2
+            exit 1
+        fi
+        echo "[start.sh] warn: registry check bypassed (FUSION_SKIP_REGISTRY_CHECK=1)" >&2
+    fi
+}
+
 do_start() {
     if is_running; then
         echo "[start.sh] fusion-code already running (pid $(cat "$PID_FILE"))"
         return 0
     fi
     ensure_binary
+    check_port_registry
     echo "[start.sh] Starting Fusion-Code API on port ${PORT}"
     nohup ./fusion-code --serve --port="${PORT}" --auth="${AUTH}" ${NO_AUTH_FLAG} \
         >> "$STDOUT_LOG" 2>> "$STDERR_LOG" &
