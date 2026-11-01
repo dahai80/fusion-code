@@ -1454,6 +1454,8 @@ export const SDKResultErrorSchema = lazySchema(() =>
 			"error_max_turns",
 			"error_max_budget_usd",
 			"error_max_structured_output_retries",
+			"error_tool_error_loop",
+			"error_max_duration",
 		]),
 		duration_ms: z.number(),
 		duration_api_ms: z.number(),

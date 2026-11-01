@@ -1472,6 +1472,20 @@ async function run(): Promise<CommanderCommand> {
 		)
 		.addOption(
 			new Option(
+				"--max-duration <seconds>",
+				"Maximum wall-clock seconds for a non-interactive task before it aborts with error_max_duration (only works with --print)",
+			).argParser((value) => {
+				const seconds = Number(value);
+				if (Number.isNaN(seconds) || seconds <= 0) {
+					throw new Error(
+						"--max-duration must be a positive number of seconds greater than 0",
+					);
+				}
+				return seconds;
+			}),
+		)
+		.addOption(
+			new Option(
 				"--max-budget-usd <amount>",
 				"Maximum dollar amount to spend on API calls (only works with --print)",
 			).argParser((value) => {
@@ -4141,6 +4155,9 @@ async function run(): Promise<CommanderCommand> {
 						allowedTools,
 						thinkingConfig,
 						maxTurns: options.maxTurns,
+						maxDurationMs: options.maxDuration
+							? options.maxDuration * 1000
+							: undefined,
 						maxBudgetUsd: options.maxBudgetUsd,
 						taskBudget: options.taskBudget
 							? {

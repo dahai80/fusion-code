@@ -167,6 +167,7 @@ fusion-code 支持多个 API 后端。供应商按以下优先级自动选择：
 | `CLAUDE_DISABLE_STREAM_WATCHDOG` | 未设置 | 设为 `1` 禁用流空闲看门狗（自动中止挂起连接） |
 | `CLAUDE_STREAM_IDLE_TIMEOUT_MS` | `300000`（5 分钟） | 看门狗中止空闲流的毫秒数 |
 | `FUSION_CODE_FOCUS_VIEW` | 未设置 | 设为 `1` 折叠冗长工具输出（聚焦模式） |
+| `FUSION_CODE_MAX_CONSECUTIVE_TOOL_ERRORS` | 非交互 `5`，交互 `0` | 熔断器（#227）：连续 N 次工具调用以相同错误签名失败后中止 agent 循环，one-shot 任务以结构化 `error_tool_error_loop` 结果退出。`0` 禁用 |
 
 ### 键盘快捷键
 
@@ -418,6 +419,12 @@ bun run ./scripts/build.ts --dev --feature-set=dev-full --feature=BRIDGE_MODE
 ./fusion-code --model <model-id>       # 覆盖模型
 bun run dev                            # 从源码运行
 ```
+
+单次模式守护（#227）：非交互任务在连续 5 次工具调用以相同错误签名失败后，以结构化
+`error_tool_error_loop` 结果中止（`FUSION_CODE_MAX_CONSECUTIVE_TOOL_ERRORS`
+可调，`0` 禁用）— 小模型反复重发同一错误路径不再无限烧 GPU。
+`--max-duration <seconds>` 超过墙钟预算时以 `error_max_duration` 中止，
+`--max-turns <turns>` 限制 agentic 轮数。
 
 ### 权限模式
 

@@ -166,6 +166,7 @@ export type QueryEngineConfig = {
 	fallbackModel?: string;
 	thinkingConfig?: ThinkingConfig;
 	maxTurns?: number;
+	maxDurationMs?: number;
 	maxBudgetUsd?: number;
 	taskBudget?: { total: number };
 	jsonSchema?: Record<string, unknown>;
@@ -247,6 +248,7 @@ export class QueryEngine {
 			verbose = false,
 			thinkingConfig,
 			maxTurns,
+			maxDurationMs,
 			maxBudgetUsd,
 			taskBudget,
 			canUseTool,
@@ -757,6 +759,7 @@ export class QueryEngine {
 			fallbackModel,
 			querySource: "sdk",
 			maxTurns,
+			maxDurationMs,
 			taskBudget,
 		})) {
 			// Record assistant, user, and compact boundary messages
@@ -1044,6 +1047,85 @@ export class QueryEngine {
 							uuid: randomUUID(),
 							errors: [
 								`Reached maximum number of turns (${message.attachment.maxTurns})`,
+							],
+						};
+						return;
+					}
+					// #227: circuit breaker tripped — N consecutive tool calls
+					// failed with an identical error signature. Surface a
+					// structured failure so one-shot consumers (eval arms) score
+					// the task as failed instead of burning GPU forever.
+					else if (message.attachment.type === "tool_error_loop_reached") {
+						logForDebugging(
+							`[circuit-breaker] tripped after ${message.attachment.count} consecutive identical tool errors (${message.attachment.toolName})`,
+							{ level: "warn" },
+						);
+						if (persistSession) {
+							if (
+								isEnvTruthy(process.env.FUSION_CODE_EAGER_FLUSH) ||
+								isEnvTruthy(process.env.FUSION_CODE_IS_COWORK)
+							) {
+								await flushSessionStorage();
+							}
+						}
+						yield {
+							type: "result",
+							subtype: "error_tool_error_loop",
+							duration_ms: Date.now() - startTime,
+							duration_api_ms: getTotalAPIDuration(),
+							is_error: true,
+							num_turns: message.attachment.turnCount,
+							stop_reason: lastStopReason,
+							session_id: getSessionId(),
+							total_cost_usd: getTotalCost(),
+							usage: this.totalUsage,
+							modelUsage: getModelUsage(),
+							permission_denials: this.permissionDenials,
+							fast_mode_state: getFastModeState(
+								mainLoopModel,
+								initialAppState.fastMode,
+							),
+							uuid: randomUUID(),
+							errors: [
+								`Aborted after ${message.attachment.count} consecutive identical tool errors (${message.attachment.toolName}): ${message.attachment.errorText}`,
+							],
+						};
+						return;
+					}
+					// #227: --max-duration wall-clock guard for one-shot tasks.
+					else if (message.attachment.type === "max_duration_reached") {
+						logForDebugging(
+							`[max-duration] task exceeded ${message.attachment.maxDurationMs}ms (elapsed ${message.attachment.elapsedMs}ms)`,
+							{ level: "warn" },
+						);
+						if (persistSession) {
+							if (
+								isEnvTruthy(process.env.FUSION_CODE_EAGER_FLUSH) ||
+								isEnvTruthy(process.env.FUSION_CODE_IS_COWORK)
+							) {
+								await flushSessionStorage();
+							}
+						}
+						yield {
+							type: "result",
+							subtype: "error_max_duration",
+							duration_ms: Date.now() - startTime,
+							duration_api_ms: getTotalAPIDuration(),
+							is_error: true,
+							num_turns: message.attachment.turnCount,
+							stop_reason: lastStopReason,
+							session_id: getSessionId(),
+							total_cost_usd: getTotalCost(),
+							usage: this.totalUsage,
+							modelUsage: getModelUsage(),
+							permission_denials: this.permissionDenials,
+							fast_mode_state: getFastModeState(
+								mainLoopModel,
+								initialAppState.fastMode,
+							),
+							uuid: randomUUID(),
+							errors: [
+								`Exceeded maximum task duration (${Math.round((message.attachment.maxDurationMs as number) / 1000)}s, elapsed ${Math.round((message.attachment.elapsedMs as number) / 1000)}s)`,
 							],
 						};
 						return;
@@ -1404,6 +1486,7 @@ export async function* ask({
 	verbose = false,
 	thinkingConfig,
 	maxTurns,
+	maxDurationMs,
 	maxBudgetUsd,
 	taskBudget,
 	canUseTool,
@@ -1435,6 +1518,7 @@ export async function* ask({
 	mcpClients: MCPServerConnection[];
 	thinkingConfig?: ThinkingConfig;
 	maxTurns?: number;
+	maxDurationMs?: number;
 	maxBudgetUsd?: number;
 	taskBudget?: { total: number };
 	canUseTool: CanUseToolFn;
@@ -1473,6 +1557,7 @@ export async function* ask({
 		fallbackModel,
 		thinkingConfig,
 		maxTurns,
+		maxDurationMs,
 		maxBudgetUsd,
 		taskBudget,
 		jsonSchema,

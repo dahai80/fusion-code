@@ -175,6 +175,7 @@ Session override (`/model`) > `--model` CLI flag > `FUSION_MODEL` / `FUSION_MLX_
 | `CLAUDE_DISABLE_STREAM_WATCHDOG` | unset | Set to `1` to disable the stream idle watchdog (auto-aborts hung connections) |
 | `CLAUDE_STREAM_IDLE_TIMEOUT_MS` | `300000` (5 min) | Milliseconds before the watchdog aborts an idle stream |
 | `FUSION_CODE_FOCUS_VIEW` | unset | Set to `1` to collapse verbose tool output (focus mode) |
+| `FUSION_CODE_MAX_CONSECUTIVE_TOOL_ERRORS` | `5` (non-interactive), `0` (interactive) | Circuit breaker (#227): abort the agent loop after N consecutive tool calls fail with an identical error signature; the one-shot task exits with a structured `error_tool_error_loop` result. `0` disables |
 
 ### Keyboard Shortcuts
 
@@ -430,6 +431,14 @@ A provider-neutral seam (`src/services/llm/`) decouples the runtime from `@anthr
 ./fusion-code --model <model-id>       # Override model
 bun run dev                            # Run from source
 ```
+
+One-shot guards (#227): a non-interactive task aborts with a structured
+`error_tool_error_loop` result after 5 consecutive tool calls fail with an
+identical error signature (`FUSION_CODE_MAX_CONSECUTIVE_TOOL_ERRORS` to tune,
+`0` disables) — a small model stuck re-issuing the same bad path can no longer
+burn GPU in an endless retry loop. `--max-duration <seconds>` aborts with
+`error_max_duration` once the task exceeds a wall-clock budget, and
+`--max-turns <turns>` caps the number of agentic turns.
 
 ### Trajectory Flywheel (D1)
 

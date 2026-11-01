@@ -60,6 +60,12 @@ import {
 	stripSignatureBlocks,
 } from "./utils/messages.js";
 import { generateToolUseSummary } from "./services/toolUseSummary/toolUseSummaryGenerator.js";
+import {
+	getToolErrorLoopThreshold,
+	shouldTripToolErrorLoop,
+	type ToolErrorLoopState,
+	updateToolErrorLoopState,
+} from "./utils/toolErrorCircuitBreaker.js";
 import { prependUserContext, appendSystemContext } from "./utils/api.js";
 import {
 	createAttachmentMessage,
@@ -199,6 +205,8 @@ export type QueryParams = {
 	querySource: QuerySource;
 	maxOutputTokensOverride?: number;
 	maxTurns?: number;
+	// #227: wall-clock guard — abort the loop once elapsed time exceeds this.
+	maxDurationMs?: number;
 	skipCacheWrite?: boolean;
 	// API task_budget (output_config.task_budget, beta task-budgets-2026-03-13).
 	// Distinct from the tokenBudget +500k auto-continue feature. `total` is the
@@ -270,6 +278,7 @@ async function* queryLoop(
 		fallbackModel,
 		querySource,
 		maxTurns,
+		maxDurationMs,
 		skipCacheWrite,
 	} = params;
 	const deps = params.deps ?? productionDeps();
@@ -303,6 +312,12 @@ async function* queryLoop(
 	// trigger point. Loop-local (not on State) to avoid touching the 7 continue
 	// sites.
 	let taskBudgetRemaining: number | undefined;
+
+	// #227: circuit-breaker streak across iterations. Loop-local (not on State)
+	// for the same reason as taskBudgetRemaining — avoids touching the continue
+	// sites. Wall-clock anchor for the optional --max-duration guard.
+	let toolErrorLoop: ToolErrorLoopState | null = null;
+	const queryStartTime = Date.now();
 
 	// Snapshot immutable env/statsig/session state once at entry. See QueryConfig
 	// for what's included and why feature() gates are intentionally excluded.
@@ -1614,6 +1629,52 @@ async function* queryLoop(
 			}
 		}
 		queryCheckpoint("query_tool_execution_end");
+
+		// #227 circuit breaker: count consecutive tool calls failing with an
+		// identical error signature. Small models re-issue the same bad path or
+		// unknown tool every turn; without this the loop only ends when an
+		// external harness kills it. Non-interactive default 5, env-tunable.
+		const toolErrorLoopThreshold = getToolErrorLoopThreshold(
+			toolUseContext.options.isNonInteractiveSession === true,
+		);
+		if (toolErrorLoopThreshold > 0) {
+			toolErrorLoop = updateToolErrorLoopState(
+				toolErrorLoop,
+				toolUseBlocks,
+				toolResults,
+			);
+			if (shouldTripToolErrorLoop(toolErrorLoop, toolErrorLoopThreshold)) {
+				logForDebugging(
+					`[circuit-breaker] aborting: ${toolErrorLoop.count} consecutive identical tool errors (${toolErrorLoop.toolName})`,
+					{ level: "warn" },
+				);
+				yield createAttachmentMessage({
+					type: "tool_error_loop_reached",
+					threshold: toolErrorLoopThreshold,
+					toolName: toolErrorLoop.toolName,
+					errorText: toolErrorLoop.errorText,
+					count: toolErrorLoop.count,
+					turnCount,
+				});
+				return { reason: "tool_error_loop", turnCount };
+			}
+		}
+
+		// #227 wall-clock guard: abort once elapsed time exceeds --max-duration.
+		if (maxDurationMs && Date.now() - queryStartTime > maxDurationMs) {
+			const elapsedMs = Date.now() - queryStartTime;
+			logForDebugging(
+				`[max-duration] aborting after ${elapsedMs}ms (limit ${maxDurationMs}ms)`,
+				{ level: "warn" },
+			);
+			yield createAttachmentMessage({
+				type: "max_duration_reached",
+				maxDurationMs,
+				elapsedMs,
+				turnCount,
+			});
+			return { reason: "max_duration", turnCount };
+		}
 
 		// Generate tool use summary after tool batch completes — passed to next recursive call
 		let nextPendingToolUseSummary:

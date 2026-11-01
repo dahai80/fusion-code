@@ -16,7 +16,9 @@ export type Terminal =
 	| { reason: "hook_stopped" }
 	| { reason: "prompt_too_long" }
 	| { reason: "stop_hook_prevented" }
-	| { reason: "max_turns"; turnCount: number };
+	| { reason: "max_turns"; turnCount: number }
+	| { reason: "tool_error_loop"; turnCount: number }
+	| { reason: "max_duration"; turnCount: number };
 
 export type Continue =
 	| { reason: "next_turn" }

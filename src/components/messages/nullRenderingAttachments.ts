@@ -36,6 +36,8 @@ const NULL_RENDERING_TYPES = [
 	"token_usage",
 	"ultrathink_effort",
 	"max_turns_reached",
+	"tool_error_loop_reached",
+	"max_duration_reached",
 	"task_reminder",
 	"auto_mode",
 	"auto_mode_exit",

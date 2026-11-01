@@ -481,6 +481,7 @@ export async function runHeadless(
 		allowedTools: string[] | undefined;
 		thinkingConfig: ThinkingConfig | undefined;
 		maxTurns: number | undefined;
+		maxDurationMs: number | undefined;
 		maxBudgetUsd: number | undefined;
 		taskBudget: { total: number } | undefined;
 		systemPrompt: string | undefined;
@@ -955,6 +956,22 @@ export async function runHeadless(
 				case "error_max_turns":
 					writeToStdout(`Error: Reached max turns (${options.maxTurns})`);
 					break;
+				case "error_tool_error_loop": {
+					const loopError = (lastMessage as { errors?: string[] })
+						.errors?.[0];
+					writeToStdout(
+						`Error: ${loopError ?? "Aborted after repeated identical tool errors"}`,
+					);
+					break;
+				}
+				case "error_max_duration": {
+					const durationError = (lastMessage as { errors?: string[] })
+						.errors?.[0];
+					writeToStdout(
+						`Error: ${durationError ?? "Exceeded maximum task duration"}`,
+					);
+					break;
+				}
 				case "error_max_budget_usd":
 					writeToStdout(`Error: Exceeded USD budget (${options.maxBudgetUsd})`);
 					break;
@@ -1000,6 +1017,7 @@ function runHeadlessStreaming(
 		allowedTools: string[] | undefined;
 		thinkingConfig: ThinkingConfig | undefined;
 		maxTurns: number | undefined;
+		maxDurationMs: number | undefined;
 		maxBudgetUsd: number | undefined;
 		taskBudget: { total: number } | undefined;
 		systemPrompt: string | undefined;
@@ -2181,6 +2199,7 @@ function runHeadlessStreaming(
 							mcpClients: allMcpClients,
 							thinkingConfig: options.thinkingConfig,
 							maxTurns: options.maxTurns,
+							maxDurationMs: options.maxDurationMs,
 							maxBudgetUsd: options.maxBudgetUsd,
 							taskBudget: options.taskBudget,
 							canUseTool,

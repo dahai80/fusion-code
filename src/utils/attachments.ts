@@ -653,6 +653,20 @@ export type Attachment =
 			turnCount: number;
 	  }
 	| {
+			type: "tool_error_loop_reached";
+			threshold: number;
+			toolName: string;
+			errorText: string;
+			count: number;
+			turnCount: number;
+	  }
+	| {
+			type: "max_duration_reached";
+			maxDurationMs: number;
+			elapsedMs: number;
+			turnCount: number;
+	  }
+	| {
 			type: "current_session_memory";
 			content: string;
 			path: string;
