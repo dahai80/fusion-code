@@ -2,9 +2,9 @@ import { afterAll, beforeAll, describe, expect, test } from 'bun:test';
 import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { __resetStoreForTest, addRepo, createSession, getSession } from '../server/store';
 import { currentBranch, fileChanges, isGitRepo, listBranches } from '../server/gitRepo';
 import { bufferedEvents, startRun, subscribe } from '../server/runner';
+import { __resetStoreForTest, addRepo, createSession, getSession } from '../server/store';
 
 // E2E-ish: real git repo + mock kernel binary + runner orchestration.
 // The runner is the core of #228: server-owned runs, kernel-id promotion,

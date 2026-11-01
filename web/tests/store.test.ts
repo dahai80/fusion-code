@@ -2,7 +2,20 @@ import { afterAll, beforeEach, describe, expect, test } from 'bun:test';
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { __resetStoreForTest, addRepo, createSession, getPermissions, getSession, getSessionByKernelId, listRepos, listSessions, removeRepo, setPermissions, setSessionKernelId, upsertSession } from '../server/store';
+import {
+    __resetStoreForTest,
+    addRepo,
+    createSession,
+    getPermissions,
+    getSession,
+    getSessionByKernelId,
+    listRepos,
+    listSessions,
+    removeRepo,
+    setPermissions,
+    setSessionKernelId,
+    upsertSession,
+} from '../server/store';
 
 const tempDirs: string[] = [];
 
@@ -46,7 +59,12 @@ describe('store: repos', () => {
 describe('store: sessions', () => {
     test('create session, link kernel id (web id stays stable)', () => {
         const repo = addRepo({ name: 'demo', path: '/tmp/demo' });
-        const session = createSession({ title: 'fix login timeout', repoId: repo.id, branch: 'main', environment: 'default' });
+        const session = createSession({
+            title: 'fix login timeout',
+            repoId: repo.id,
+            branch: 'main',
+            environment: 'default',
+        });
         const webId = session.id;
         expect(webId).not.toContain('pending:');
 

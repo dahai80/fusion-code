@@ -1,6 +1,7 @@
 # Fusion Code Web GUI
 
-Session-centric web workbench over the fusion-code kernel (issue #228, DC-1).
+Session-centric web workbench over the fusion-code kernel (issue #228 DC-1,
+#229 checkpoints/verify/rollback/diff/PR, #230 usage view).
 The kernel stays a cross-platform CLI — this thin shell orchestrates kernel
 subprocesses and renders sessions, steps, and file changes in the browser.
 
@@ -9,8 +10,11 @@ subprocesses and renders sessions, steps, and file changes in the browser.
 - `/sessions` — session list grouped by repo + new-session composer with
   repo/branch selector row (frame C1)
 - `/session/:id` — conversation with inline per-step commands, live
-  right-rail file changes, permission panel, follow-up composer (frame C2 v1)
-- `/repos` — repo connect (local git path or clone URL) + branch overview
+  right-rail file changes + per-file diff viewer, checkpoints
+  (verify/rollback), PR flow, permission panel, follow-up composer (frame C2)
+- `/repos` — repo connect (local git path or clone URL) + branch overview +
+  per-repo verify command
+- `/usage` — token/cost totals aggregated per repo and session (#230)
 - `/settings` — permission-mode semantics + environment template notes
 
 ## Architecture
@@ -39,6 +43,46 @@ Key properties:
   default; "ask every time" mode allows read-only tools only and surfaces
   denials in-session.
 
+## Checkpoints, verify, rollback, PR (#229)
+
+Every user prompt is a checkpoint. The runner spawns the kernel with
+`FUSION_CODE_ENABLE_SDK_FILE_CHECKPOINTING=1` so the kernel snapshots the
+worktree at each prompt submit; prompt uuids are synced from the session
+JSONL after each turn (real kernels do not echo the prompt in stream-json).
+
+- **Verify** — runs the repo's verify command (configured per repo on
+  `/repos`, e.g. `bun test`) and stamps the checkpoint pass/fail + output.
+- **Rollback** — `fusion-code --resume <kernel-session-id> --rewind-files
+  <prompt-uuid>` restores tracked files to the state when that prompt was
+  submitted (standalone kernel op, no model call), then the Changes rail
+  refreshes.
+- **Diff viewer** — click any changed file for a unified diff (tracked: vs
+  HEAD; untracked: rendered as a new-file diff).
+- **PR flow** — branch (`fusion-code/web-<session-prefix>`) + `git add -A` +
+  commit + push + `gh pr create`; the PR URL lands on the session. The clean
+  worktree is rejected before commit (locale-independent `git diff --cached
+  --quiet` check).
+
+## Usage (#230)
+
+Each turn's result message carries `usage` + `total_cost_usd`; the server
+records per-turn `TurnUsage` and `GET /api/usage` aggregates totals by repo
+and session for the `/usage` view. Local models report cost 0.
+
+## API
+
+Beyond #228 (`/health`, `/manifest.json`, `/api/repos`, `/api/sessions`,
+`/api/sessions/:id/{,/permissions,/run}`, `/ws/:id`):
+
+| Endpoint | Purpose |
+|---|---|
+| `PATCH /api/repos/:id` | update name / verify command / environment |
+| `GET /api/sessions/:id/diff?path=` | unified diff for one changed file |
+| `POST /api/sessions/:id/checkpoints/:uuid/verify` | run repo verify command |
+| `POST /api/sessions/:id/checkpoints/:uuid/rollback` | kernel `--rewind-files` restore |
+| `POST /api/sessions/:id/pr` | branch + commit + push + `gh pr create` |
+| `GET /api/usage` | token/cost aggregation (#230) |
+
 ## Commands
 
 ```bash
@@ -65,6 +109,7 @@ default `http://127.0.0.1:11483`).
 | `FUSION_CODE_WEB_DATA_DIR` | `~/.fusion-code/web` | Store location (repos/sessions/permissions) |
 | `FUSION_CODE_WEB_KERNEL_BIN` | repo `./fusion-code` binary | Kernel binary (or command, space-split) |
 | `FUSION_CODE_WEB_CLONE_DIR` | `~/fusion-code-repos` | Clone target for git-URL repo connects |
+| `FUSION_CODE_WEB_GH_BIN` | `gh` | `gh` binary used by the PR flow (test shim override) |
 | `FUSION_SHELL_GATEWAY_URL` | unset | Gateway URL — enables manifest registration |
 | `FUSION_ADMIN_KEY` | unset | Gateway admin key (Bearer) for registration + heartbeat |
 
@@ -83,6 +128,8 @@ With `FUSION_SHELL_GATEWAY_URL` + `FUSION_ADMIN_KEY` set, the server posts
 
 `bun test tests` covers: store persistence + session/kernel-id linking, git
 helpers against real temp repos, runner orchestration with a mock kernel
-(events, buffering without subscribers, concurrent-run rejection), and a
-full-stack HTTP+WS smoke test (health, manifest, UC-C1 steps 2-5 over the
-wire).
+(events, buffering without subscribers, concurrent-run rejection), checkpoint
+capture + kernel rollback argv, verify command pass/fail, the PR flow against
+a bare origin with a `gh` shim, usage aggregation, and a full-stack HTTP+WS
+smoke test (health, manifest, UC-C1 steps 2-5, diff/verify/usage/rollback
+over the wire).

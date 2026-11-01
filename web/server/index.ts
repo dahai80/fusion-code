@@ -1,10 +1,19 @@
 import { existsSync } from 'node:fs';
 import { extname, join } from 'node:path';
-import type { FileChange } from '../shared/types';
+import type { FileChange, UsageRepoRow, UsageSessionRow, UsageSummary } from '../shared/types';
 import { bindHost, log, logWarn, webPort } from './config';
 import { startGatewayRegistration, stopGatewayRegistration } from './gateway';
-import { currentBranch, fileChanges, isGitRepo, listBranches, repoOriginUrl } from './gitRepo';
-import { bufferedEvents, isRunning, readHistory, startRun, subscribe } from './runner';
+import {
+    createPullRequest,
+    currentBranch,
+    fileChanges,
+    fileDiff,
+    isGitRepo,
+    listBranches,
+    repoOriginUrl,
+    runVerifyCommand,
+} from './gitRepo';
+import { bufferedEvents, isRunning, readHistory, rollbackToCheckpoint, startRun, subscribe } from './runner';
 import * as store from './store';
 
 const MIME: Record<string, string> = {
@@ -127,6 +136,15 @@ async function handleApi(req: Request, url: URL): Promise<Response | null> {
         if (sub === '' && method === 'GET') {
             return json({ repo, branches: await listBranches(repo.path), current: await currentBranch(repo.path) });
         }
+        if (sub === '' && method === 'PATCH') {
+            const body = await readBody(req);
+            const updated = store.updateRepo(repo.id, {
+                name: body.name !== undefined ? String(body.name) : undefined,
+                testCommand: body.testCommand !== undefined ? String(body.testCommand) : undefined,
+                environment: body.environment !== undefined ? String(body.environment) : undefined,
+            });
+            return json({ repo: updated });
+        }
     }
 
     // ---- sessions ----
@@ -183,6 +201,115 @@ async function handleApi(req: Request, url: URL): Promise<Response | null> {
             });
             return result.ok ? json({ ok: true }) : json({ error: result.error }, result.alreadyRunning ? 409 : 400);
         }
+        // #229: unified diff for one changed file in the session's repo.
+        if (sub === 'diff' && method === 'GET') {
+            const repo = store.getRepo(session.repoId);
+            if (!repo) return json({ error: 'repo not found' }, 404);
+            const filePath = url.searchParams.get('path') ?? '';
+            if (!filePath) return json({ error: 'path query param required' }, 400);
+            return json({ path: filePath, diff: await fileDiff(repo.path, filePath) });
+        }
+        // #229: checkpoint verify — run the repo's testCommand.
+        const cpVerify = sub.match(/^checkpoints\/([^/]+)\/verify$/);
+        if (cpVerify && method === 'POST') {
+            const repo = store.getRepo(session.repoId);
+            if (!repo) return json({ error: 'repo not found' }, 404);
+            const cp = session.checkpoints?.find((c) => c.messageUuid === cpVerify[1]);
+            if (!cp) return json({ error: 'checkpoint not found' }, 404);
+            if (!repo.testCommand) return json({ error: 'no test command configured for this repo' }, 400);
+            const result = await runVerifyCommand(repo.path, repo.testCommand);
+            store.markCheckpointVerified(session.id, cpVerify[1], result.ok, result.output);
+            log(`checkpoint verify: session=${session.id} cp=${cpVerify[1]} ok=${result.ok}`);
+            return json({
+                ok: result.ok,
+                output: result.output,
+                checkpoint: store.getSession(session.id)?.checkpoints?.find((c) => c.messageUuid === cpVerify[1]),
+            });
+        }
+        // #229: checkpoint rollback — kernel --rewind-files restore.
+        const cpRollback = sub.match(/^checkpoints\/([^/]+)\/rollback$/);
+        if (cpRollback && method === 'POST') {
+            const cp = session.checkpoints?.find((c) => c.messageUuid === cpRollback[1]);
+            if (!cp) return json({ error: 'checkpoint not found' }, 404);
+            const result = await rollbackToCheckpoint(session.id, cpRollback[1]);
+            return result.ok ? json({ ok: true }) : json({ error: result.error }, 400);
+        }
+        // #229: PR flow — branch + commit + push + gh pr create.
+        if (sub === 'pr' && method === 'POST') {
+            const repo = store.getRepo(session.repoId);
+            if (!repo) return json({ error: 'repo not found' }, 404);
+            if (isRunning(session.id)) return json({ error: 'a run is active; wait for it to finish' }, 409);
+            const body = await readBody(req);
+            const title = String(body.title ?? session.title).trim();
+            if (!title) return json({ error: 'title required' }, 400);
+            const branch = session.prBranch ?? `fusion-code/web-${session.id.slice(0, 8)}`;
+            const result = await createPullRequest(repo.path, {
+                title,
+                body: String(body.body ?? `Changes from web session ${session.title}`),
+                branch,
+            });
+            if (!result.ok) return json({ error: result.error }, 400);
+            store.setSessionPr(session.id, result.url ?? '', result.branch);
+            return json({ ok: true, url: result.url, branch: result.branch });
+        }
+    }
+
+    // ---- usage (#230) ----
+    if (pathname === '/api/usage' && method === 'GET') {
+        const repos = new Map(store.listRepos().map((r) => [r.id, r.name]));
+        const byRepoMap = new Map<string, UsageRepoRow>();
+        const bySession: UsageSessionRow[] = [];
+        let totalCostUsd = 0;
+        let totalInputTokens = 0;
+        let totalOutputTokens = 0;
+        let totalTurns = 0;
+        for (const sess of store.listSessions()) {
+            const turns = sess.usage?.length ?? 0;
+            if (turns === 0) continue;
+            const costUsd = sess.usage?.reduce((sum, u) => sum + u.costUsd, 0) ?? 0;
+            const inputTokens = sess.usage?.reduce((sum, u) => sum + u.inputTokens, 0) ?? 0;
+            const outputTokens = sess.usage?.reduce((sum, u) => sum + u.outputTokens, 0) ?? 0;
+            const repoName = repos.get(sess.repoId) ?? 'unknown';
+            totalCostUsd += costUsd;
+            totalInputTokens += inputTokens;
+            totalOutputTokens += outputTokens;
+            totalTurns += turns;
+            const repoRow = byRepoMap.get(sess.repoId);
+            if (repoRow) {
+                repoRow.sessions += 1;
+                repoRow.costUsd += costUsd;
+                repoRow.inputTokens += inputTokens;
+                repoRow.outputTokens += outputTokens;
+            } else {
+                byRepoMap.set(sess.repoId, {
+                    repoId: sess.repoId,
+                    repoName,
+                    sessions: 1,
+                    costUsd,
+                    inputTokens,
+                    outputTokens,
+                });
+            }
+            bySession.push({
+                sessionId: sess.id,
+                title: sess.title,
+                repoName,
+                turns,
+                costUsd,
+                inputTokens,
+                outputTokens,
+                updatedAt: sess.updatedAt,
+            });
+        }
+        const summary: UsageSummary = {
+            totalCostUsd,
+            totalInputTokens,
+            totalOutputTokens,
+            totalTurns,
+            byRepo: [...byRepoMap.values()].sort((a, b) => b.costUsd - a.costUsd),
+            bySession: bySession.sort((a, b) => b.costUsd - a.costUsd),
+        };
+        return json(summary);
     }
 
     return null;

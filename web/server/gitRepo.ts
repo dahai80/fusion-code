@@ -92,3 +92,108 @@ export async function fileChanges(repoPath: string): Promise<FileChange[]> {
         deletions: statMap.get(path)?.deletions ?? 0,
     }));
 }
+
+// #229: unified diff for one changed file (tracked: vs HEAD; untracked:
+// presented as a new-file diff).
+export async function fileDiff(repoPath: string, filePath: string): Promise<string> {
+    const tracked = await git(repoPath, ['status', '--porcelain', '--', filePath]);
+    const code = tracked.stdout.slice(0, 2).trim();
+    if (tracked.ok && code && code !== '??') {
+        const res = await git(repoPath, ['diff', 'HEAD', '--', filePath]);
+        if (res.ok) return res.stdout.slice(0, 200_000);
+        return res.stderr.trim();
+    }
+    // Untracked: show content as a new-file diff.
+    try {
+        const content = await Bun.file(join(repoPath, filePath)).text();
+        const body = content
+            .split('\n')
+            .map((l) => `+${l}`)
+            .join('\n');
+        return `--- /dev/null\n+++ b/${filePath}\n${body}`.slice(0, 200_000);
+    } catch (err) {
+        logWarn(`fileDiff read failed for ${filePath}: ${err}`);
+        return '';
+    }
+}
+
+// #229: run the repo's verify command at a checkpoint.
+export async function runVerifyCommand(
+    repoPath: string,
+    testCommand: string,
+    timeoutMs = 120_000
+): Promise<{ ok: boolean; output: string }> {
+    log(`verify: cd ${repoPath} && ${testCommand}`);
+    const proc = Bun.spawn(['sh', '-c', testCommand], {
+        stdout: 'pipe',
+        stderr: 'pipe',
+        cwd: repoPath,
+    });
+    const timer = setTimeout(() => proc.kill(), timeoutMs);
+    const [exitCode, stdout, stderr] = await Promise.all([
+        proc.exited,
+        new Response(proc.stdout).text(),
+        new Response(proc.stderr).text(),
+    ]);
+    clearTimeout(timer);
+    const output = `${stdout}${stderr ? (stdout ? '\n' : '') + stderr : ''}`.slice(-8000);
+    log(`verify done: exit=${exitCode}`);
+    return { ok: exitCode === 0, output };
+}
+
+// #229: PR flow — branch + commit + push + gh pr create. gh binary is
+// overridable (FUSION_CODE_WEB_GH_BIN) so tests can shim it.
+export async function createPullRequest(
+    repoPath: string,
+    input: { title: string; body: string; branch: string }
+): Promise<{ ok: boolean; url?: string; error?: string; branch: string }> {
+    const ghBin = process.env.FUSION_CODE_WEB_GH_BIN ?? 'gh';
+    // Branch (reuse if this session already created one).
+    const current = await git(repoPath, ['rev-parse', '--abbrev-ref', 'HEAD']);
+    if (!current.ok) return { ok: false, error: current.stderr.trim(), branch: input.branch };
+    if (current.stdout.trim() !== input.branch) {
+        const branch = await git(repoPath, ['checkout', '-b', input.branch]);
+        if (!branch.ok) {
+            const existing = await git(repoPath, ['checkout', input.branch]);
+            if (!existing.ok) return { ok: false, error: branch.stderr.trim(), branch: input.branch };
+        }
+    }
+    // Commit everything the session changed.
+    const add = await git(repoPath, ['add', '-A']);
+    if (!add.ok) return { ok: false, error: add.stderr.trim(), branch: input.branch };
+    // Clean worktree check BEFORE commit — git's empty-commit message is
+    // locale-dependent, --cached --quiet exit code is not.
+    const staged = await git(repoPath, ['diff', '--cached', '--quiet']);
+    if (staged.ok) {
+        return { ok: false, error: 'no changes to create a PR from', branch: input.branch };
+    }
+    const commit = await git(repoPath, ['commit', '-m', input.title]);
+    if (!commit.ok) {
+        return { ok: false, error: commit.stderr.trim() || commit.stdout.trim(), branch: input.branch };
+    }
+    const push = await git(repoPath, ['push', '-u', 'origin', input.branch]);
+    if (!push.ok) return { ok: false, error: push.stderr.trim(), branch: input.branch };
+    const proc = Bun.spawn([ghBin, 'pr', 'create', '--title', input.title, '--body', input.body], {
+        stdout: 'pipe',
+        stderr: 'pipe',
+        cwd: repoPath,
+    });
+    const [exitCode, stdout, stderr] = await Promise.all([
+        proc.exited,
+        new Response(proc.stdout).text(),
+        new Response(proc.stderr).text(),
+    ]);
+    const urlMatch = stdout.trim().split('\n').pop() ?? '';
+    if (exitCode !== 0 || !urlMatch) {
+        logWarn(`gh pr create failed: ${stderr.trim().slice(0, 300)}`);
+        return {
+            ok: false,
+            error: stderr.trim().slice(0, 500) || `gh exited with code ${exitCode}`,
+            branch: input.branch,
+        };
+    }
+    log(`PR created: ${urlMatch}`);
+    return { ok: true, url: urlMatch, branch: input.branch };
+}
+
+import { join } from 'node:path';

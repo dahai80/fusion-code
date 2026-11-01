@@ -168,4 +168,75 @@ describe('http + ws stack', () => {
         expect(detail.session.status).toBe('idle');
         expect(detail.events.length).toBeGreaterThan(0);
     }, 20_000);
+
+    test('#229/#230: diff + verify + usage endpoints over the wire', async () => {
+        // Repo + session exist from the previous test (same server, same data
+        // dir) — look them up.
+        const reposRes = await fetch(`http://127.0.0.1:${PORT}/api/repos`);
+        const { repos } = (await reposRes.json()) as { repos: { id: string; path: string }[] };
+        const repo = repos[0];
+        const sessionsRes = await fetch(`http://127.0.0.1:${PORT}/api/sessions`);
+        const { sessions } = (await sessionsRes.json()) as { sessions: { id: string }[] };
+        const sessionId = sessions[0].id;
+
+        // PATCH repo testCommand.
+        const patchRes = await fetch(`http://127.0.0.1:${PORT}/api/repos/${repo.id}`, {
+            method: 'PATCH',
+            headers: { 'content-type': 'application/json' },
+            body: JSON.stringify({ testCommand: 'echo wire-verify-ok' }),
+        });
+        expect(patchRes.status).toBe(200);
+        const { repo: updated } = (await patchRes.json()) as { repo: { testCommand?: string } };
+        expect(updated.testCommand).toBe('echo wire-verify-ok');
+
+        // Modify a tracked file, then GET the diff.
+        writeFileSync(join(tempDirs[0], 'a.txt'), 'hello\nworld\n');
+        const diffRes = await fetch(
+            `http://127.0.0.1:${PORT}/api/sessions/${sessionId}/diff?path=${encodeURIComponent('a.txt')}`
+        );
+        expect(diffRes.status).toBe(200);
+        const { diff } = (await diffRes.json()) as { diff: string };
+        expect(diff).toContain('+world');
+
+        // Verify runs the repo testCommand and stamps the checkpoint.
+        const detailRes = await fetch(`http://127.0.0.1:${PORT}/api/sessions/${sessionId}`);
+        const detail = (await detailRes.json()) as {
+            session: { checkpoints?: { messageUuid: string }[] };
+        };
+        expect(detail.session.checkpoints?.length).toBe(1);
+        const cpUuid = detail.session.checkpoints![0].messageUuid;
+        const verifyRes = await fetch(
+            `http://127.0.0.1:${PORT}/api/sessions/${sessionId}/checkpoints/${cpUuid}/verify`,
+            { method: 'POST' }
+        );
+        expect(verifyRes.status).toBe(200);
+        const verifyBody = (await verifyRes.json()) as {
+            ok: boolean;
+            checkpoint: { verified?: { ok: boolean; output?: string } };
+        };
+        expect(verifyBody.ok).toBe(true);
+        expect(verifyBody.checkpoint.verified?.output).toContain('wire-verify-ok');
+
+        // Usage aggregated from the mock kernel result message.
+        const usageRes = await fetch(`http://127.0.0.1:${PORT}/api/usage`);
+        expect(usageRes.status).toBe(200);
+        const usage = (await usageRes.json()) as {
+            totalTurns: number;
+            totalInputTokens: number;
+            totalCostUsd: number;
+            bySession: { turns: number; costUsd: number }[];
+        };
+        expect(usage.totalTurns).toBeGreaterThanOrEqual(1);
+        expect(usage.totalInputTokens).toBeGreaterThanOrEqual(1200);
+        expect(usage.totalCostUsd).toBeGreaterThanOrEqual(0.01);
+        expect(usage.bySession.length).toBeGreaterThanOrEqual(1);
+
+        // Rollback before a kernel session exists is rejected cleanly.
+        const rbRes = await fetch(
+            `http://127.0.0.1:${PORT}/api/sessions/${sessionId}/checkpoints/${cpUuid}/rollback`,
+            { method: 'POST' }
+        );
+        // Session HAS a kernel id here, so the mock kernel runs and exits 0.
+        expect(rbRes.status).toBe(200);
+    }, 20_000);
 });

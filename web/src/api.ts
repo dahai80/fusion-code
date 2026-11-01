@@ -1,10 +1,12 @@
 import type {
+    Checkpoint,
     FileChange,
     HistoryMessage,
     PermissionMode,
     RepoRecord,
     SessionEvent,
     SessionPermissions,
+    UsageSummary,
     WebSession,
 } from '../shared/types';
 
@@ -53,6 +55,19 @@ async function del<T>(path: string): Promise<T> {
     return (await res.json()) as T;
 }
 
+async function patch<T>(path: string, body?: unknown): Promise<T> {
+    const res = await fetch(path, {
+        method: 'PATCH',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify(body ?? {}),
+    });
+    if (!res.ok) {
+        const payload = (await res.json().catch(() => ({}))) as { error?: string };
+        throw new Error(payload.error ?? `${res.status} ${res.statusText}`);
+    }
+    return (await res.json()) as T;
+}
+
 export const api = {
     listRepos: () => get<{ repos: RepoRecord[] }>('/api/repos'),
     connectRepo: (input: { name?: string; path?: string; gitUrl?: string; environment?: string }) =>
@@ -61,6 +76,8 @@ export const api = {
     repoBranches: (id: string) => get<{ branches: Branch[]; current: string }>(`/api/repos/${id}/branches`),
     repoChanges: (id: string) => get<{ files: FileChange[] }>(`/api/repos/${id}/changes`),
     removeRepo: (id: string) => del<{ ok: boolean }>(`/api/repos/${id}`),
+    updateRepo: (id: string, patchInput: { name?: string; testCommand?: string; environment?: string }) =>
+        patch<{ repo: RepoRecord }>(`/api/repos/${id}`, patchInput),
 
     listSessions: () => get<{ sessions: WebSession[] }>('/api/sessions'),
     createSession: (input: { title: string; repoId: string; branch: string; environment?: string }) =>
@@ -69,6 +86,21 @@ export const api = {
     setPermissions: (id: string, mode: PermissionMode, allowedTools: string[]) =>
         post<{ permissions: SessionPermissions }>(`/api/sessions/${id}/permissions`, { mode, allowedTools }),
     startRun: (id: string, message: string) => post<{ ok: boolean }>(`/api/sessions/${id}/run`, { message }),
+
+    // #229: diff viewer + checkpoint verify/rollback + PR flow.
+    fileDiff: (id: string, filePath: string) =>
+        get<{ path: string; diff: string }>(`/api/sessions/${id}/diff?path=${encodeURIComponent(filePath)}`),
+    verifyCheckpoint: (id: string, messageUuid: string) =>
+        post<{ ok: boolean; output: string; checkpoint: Checkpoint }>(
+            `/api/sessions/${id}/checkpoints/${encodeURIComponent(messageUuid)}/verify`
+        ),
+    rollbackCheckpoint: (id: string, messageUuid: string) =>
+        post<{ ok: boolean }>(`/api/sessions/${id}/checkpoints/${encodeURIComponent(messageUuid)}/rollback`),
+    createPr: (id: string, input: { title: string; body?: string }) =>
+        post<{ ok: boolean; url: string; branch: string }>(`/api/sessions/${id}/pr`, input),
+
+    // #230: usage view.
+    usage: () => get<UsageSummary>('/api/usage'),
 };
 
 // Session WS: live event stream with automatic reconnect + backlog replay.

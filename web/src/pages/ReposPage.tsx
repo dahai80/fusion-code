@@ -1,4 +1,4 @@
-import { AlertCircle, FolderGit2, GitBranch, Trash2 } from 'lucide-react';
+import { AlertCircle, FolderGit2, GitBranch, PlayCircle, Trash2 } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
 import type { RepoRecord } from '../../shared/types';
 import { navigate } from '../App';
@@ -66,6 +66,23 @@ export function ReposPage() {
             return;
         try {
             await api.removeRepo(id);
+            await refresh();
+        } catch (err) {
+            setError(String(err));
+        }
+    };
+
+    // #229: save the repo's verify command (checkpoint [Verify] runs it).
+    const [editingTest, setEditingTest] = useState<Record<string, string>>({});
+    const saveTestCommand = async (id: string) => {
+        const testCommand = (editingTest[id] ?? '').trim();
+        try {
+            await api.updateRepo(id, { testCommand });
+            setEditingTest((prev) => {
+                const next = { ...prev };
+                delete next[id];
+                return next;
+            });
             await refresh();
         } catch (err) {
             setError(String(err));
@@ -167,6 +184,28 @@ export function ReposPage() {
                                 {repo.originUrl}
                             </div>
                         )}
+                        {/* #229: verify command for checkpoint [Verify] */}
+                        <div className="mt-3 flex items-center gap-2">
+                            <PlayCircle size={13} className="shrink-0 text-text-muted" />
+                            <input
+                                value={editingTest[repo.id] ?? repo.testCommand ?? ''}
+                                onChange={(e) => setEditingTest((prev) => ({ ...prev, [repo.id]: e.target.value }))}
+                                onKeyDown={(e) => {
+                                    if (e.key === 'Enter') void saveTestCommand(repo.id);
+                                }}
+                                placeholder={t('验证命令，如 bun test', 'Verify command, e.g. bun test')}
+                                className="min-w-0 flex-1 rounded-xl border border-border bg-bg px-2.5 py-1.5 text-xs outline-none focus:border-brand"
+                            />
+                            {editingTest[repo.id] !== undefined && (
+                                <button
+                                    type="button"
+                                    onClick={() => void saveTestCommand(repo.id)}
+                                    className="shrink-0 rounded-xl bg-brand/10 px-2.5 py-1.5 text-xs text-brand transition-colors hover:bg-brand/20"
+                                >
+                                    {t('保存', 'Save')}
+                                </button>
+                            )}
+                        </div>
                         <button
                             type="button"
                             onClick={() => navigate('/sessions')}

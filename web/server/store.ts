@@ -1,7 +1,14 @@
 import { randomUUID } from 'node:crypto';
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import type { PermissionMode, RepoRecord, SessionPermissions, WebSession } from '../shared/types';
+import type {
+    Checkpoint,
+    PermissionMode,
+    RepoRecord,
+    SessionPermissions,
+    TurnUsage,
+    WebSession,
+} from '../shared/types';
 import { dataDir, log, logWarn } from './config';
 
 // JSON-file persistence for repos / sessions / permissions. Small datasets
@@ -176,4 +183,57 @@ export function setPermissions(sessionId: string, mode: PermissionMode, allowedT
 // effect (each test gets a fresh temp dir).
 export function __resetStoreForTest(): void {
     store = null;
+}
+
+export function updateRepo(
+    id: string,
+    patch: { name?: string; testCommand?: string; environment?: string }
+): RepoRecord | undefined {
+    const st = s();
+    const repo = st.repos.find((r) => r.id === id);
+    if (!repo) return undefined;
+    if (patch.name !== undefined) repo.name = patch.name;
+    if (patch.testCommand !== undefined) repo.testCommand = patch.testCommand;
+    if (patch.environment !== undefined) repo.environment = patch.environment;
+    saveStore(st);
+    log(`repo updated: ${id}`);
+    return repo;
+}
+
+export function addCheckpoint(sessionId: string, checkpoint: Checkpoint): void {
+    const st = s();
+    const session = st.sessions.find((sess) => sess.id === sessionId);
+    if (!session) return;
+    if (!session.checkpoints) session.checkpoints = [];
+    if (session.checkpoints.some((c) => c.messageUuid === checkpoint.messageUuid)) return;
+    session.checkpoints.push(checkpoint);
+    saveStore(st);
+}
+
+export function markCheckpointVerified(sessionId: string, messageUuid: string, ok: boolean, output: string): void {
+    const st = s();
+    const session = st.sessions.find((sess) => sess.id === sessionId);
+    const cp = session?.checkpoints?.find((c) => c.messageUuid === messageUuid);
+    if (!cp) return;
+    cp.verified = { ok, at: Date.now(), output: output.slice(0, 2000) };
+    saveStore(st);
+}
+
+export function addTurnUsage(sessionId: string, usage: TurnUsage): void {
+    const st = s();
+    const session = st.sessions.find((sess) => sess.id === sessionId);
+    if (!session) return;
+    if (!session.usage) session.usage = [];
+    session.usage.push(usage);
+    saveStore(st);
+}
+
+export function setSessionPr(sessionId: string, prUrl: string, prBranch: string): void {
+    const st = s();
+    const session = st.sessions.find((sess) => sess.id === sessionId);
+    if (!session) return;
+    session.prUrl = prUrl;
+    session.prBranch = prBranch;
+    saveStore(st);
+    log(`session PR created: ${sessionId} ${prUrl}`);
 }

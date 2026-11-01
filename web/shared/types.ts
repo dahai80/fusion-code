@@ -8,6 +8,9 @@ export type RepoRecord = {
     originUrl?: string;
     environment: string;
     createdAt: number;
+    // Command run by checkpoint [verify] in this repo (e.g. "bun test").
+    // Empty = verify disabled until configured.
+    testCommand?: string;
 };
 
 export type PermissionMode = 'allowlist' | 'ask';
@@ -18,6 +21,25 @@ export type SessionPermissions = {
 };
 
 export type SessionStatus = 'idle' | 'running' | 'error';
+
+// Checkpoint = a kernel user-message snapshot (#229). The kernel snapshots
+// the worktree at every user prompt (file-history); messageUuid addresses
+// the snapshot for --rewind-files rollback.
+export type Checkpoint = {
+    messageUuid: string;
+    label: string;
+    createdAt: number;
+    verified?: { ok: boolean; at: number; output?: string };
+};
+
+export type TurnUsage = {
+    at: number;
+    inputTokens: number;
+    outputTokens: number;
+    costUsd: number;
+    durationMs: number;
+    model?: string;
+};
 
 export type WebSession = {
     // Web session id (uuid, stable for the session's life — URLs use it).
@@ -34,6 +56,10 @@ export type WebSession = {
     kernelSessionId?: string;
     lastResultIsError?: boolean;
     errorText?: string;
+    checkpoints?: Checkpoint[];
+    usage?: TurnUsage[];
+    prUrl?: string;
+    prBranch?: string;
 };
 
 // Stream events relayed over the session WS. `kind` mirrors the kernel
@@ -54,11 +80,38 @@ export type FileChange = {
     deletions: number;
 };
 
-export type HistoryMessage =
-    | { role: 'user'; text: string }
-    | { role: 'assistant'; text: string; toolNames: string[] };
+export type HistoryMessage = { role: 'user'; text: string } | { role: 'assistant'; text: string; toolNames: string[] };
 
 export type ApiError = { error: string };
+
+export type UsageRepoRow = {
+    repoId: string;
+    repoName: string;
+    sessions: number;
+    costUsd: number;
+    inputTokens: number;
+    outputTokens: number;
+};
+
+export type UsageSessionRow = {
+    sessionId: string;
+    title: string;
+    repoName: string;
+    turns: number;
+    costUsd: number;
+    inputTokens: number;
+    outputTokens: number;
+    updatedAt: number;
+};
+
+export type UsageSummary = {
+    totalCostUsd: number;
+    totalInputTokens: number;
+    totalOutputTokens: number;
+    totalTurns: number;
+    byRepo: UsageRepoRow[];
+    bySession: UsageSessionRow[];
+};
 
 // Distributive omit — Omit<Union, K> collapses to common keys otherwise.
 type DistributiveOmit<T, K extends keyof T> = T extends unknown ? Omit<T, K> : never;

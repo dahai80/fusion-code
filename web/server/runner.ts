@@ -3,7 +3,16 @@ import { join, resolve } from 'node:path';
 import type { FileChange, HistoryMessage, SessionEvent, SessionEventBody } from '../shared/types';
 import { log, logWarn } from './config';
 import { fileChanges } from './gitRepo';
-import { getPermissions, getRepo, getSession, getSessionByKernelId, setSessionKernelId, upsertSession } from './store';
+import {
+    addCheckpoint,
+    addTurnUsage,
+    getPermissions,
+    getRepo,
+    getSession,
+    getSessionByKernelId,
+    setSessionKernelId,
+    upsertSession,
+} from './store';
 
 // Kernel orchestration. One run per session at a time; runs are owned by the
 // SERVER (keyed by session id), so a browser disconnect does NOT kill a run —
@@ -167,6 +176,10 @@ export async function startRun(input: StartRunInput): Promise<StartRunResult> {
         cwd: repo.path,
         env: {
             ...process.env,
+            // #229: kernel file-checkpointing is opt-in for non-interactive
+            // runs — enable it so every user prompt snapshots the worktree
+            // and --rewind-files rollback is available.
+            FUSION_CODE_ENABLE_SDK_FILE_CHECKPOINTING: '1',
         },
     });
     state.proc = proc;
@@ -233,6 +246,13 @@ export async function startRun(input: StartRunInput): Promise<StartRunResult> {
             logWarn(`fileChanges after run failed: ${err}`);
         }
 
+        // #229: sync checkpoints from the kernel transcript after each turn.
+        try {
+            syncCheckpointsFromTranscript(sessionId, repo.path);
+        } catch (err) {
+            logWarn(`checkpoint sync after run failed: ${err}`);
+        }
+
         const sawResult = state.buffer.some((e) => e.kind === 'turn_completed' || e.kind === 'turn_error');
         if (!sawResult) {
             emit(sessionId, {
@@ -281,6 +301,7 @@ function handleKernelLine(sessionId: string, line: string): void {
         const message = msg.message as { content?: unknown } | undefined;
         const content = message?.content;
         const blocks = Array.isArray(content) ? (content as Record<string, unknown>[]) : [];
+        let promptText = '';
         for (const block of blocks) {
             if (block.type === 'tool_result') {
                 emit(sessionId, {
@@ -290,6 +311,18 @@ function handleKernelLine(sessionId: string, line: string): void {
                     isError: block.is_error === true,
                 });
             }
+            if (block.type === 'text' && typeof block.text === 'string' && block.text.trim()) {
+                promptText = block.text;
+            }
+        }
+        // #229: a user text message = a prompt turn; the kernel snapshots
+        // the worktree at prompt submit, so its uuid addresses a checkpoint.
+        if (promptText && typeof msg.uuid === 'string') {
+            addCheckpoint(sessionId, {
+                messageUuid: msg.uuid,
+                label: promptText.slice(0, 80),
+                createdAt: Date.now(),
+            });
         }
         return;
     }
@@ -305,6 +338,16 @@ function handleKernelLine(sessionId: string, line: string): void {
                       num_turns: Number(msg.num_turns) || 0,
                   }),
         } as SessionEventBody);
+        // #230: record per-turn usage for the /usage view.
+        const usage = msg.usage as { input_tokens?: number; output_tokens?: number } | undefined;
+        addTurnUsage(sessionId, {
+            at: Date.now(),
+            inputTokens: Number(usage?.input_tokens) || 0,
+            outputTokens: Number(usage?.output_tokens) || 0,
+            costUsd: Number(msg.total_cost_usd) || 0,
+            durationMs: Number(msg.duration_ms) || 0,
+            model: typeof msg.model === 'string' ? msg.model : undefined,
+        });
     }
 }
 
@@ -362,12 +405,16 @@ export function readHistory(sessionId: string, repoPath: string, limit = 200): H
             const message = entry.message as { content?: unknown } | undefined;
             const blocks = Array.isArray(message?.content) ? (message?.content as Record<string, unknown>[]) : [];
             if (entry.type === 'user') {
-                const text = blocks
-                    .filter((b) => b.type === 'text' && typeof b.text === 'string')
-                    .map((b) => b.text as string)
-                    .join('\n')
-                    .trim();
-                // Skip tool_result-only user entries.
+                // Real transcripts carry prompt text as a plain string
+                // content; skip tool_result-only block entries.
+                const text =
+                    typeof message?.content === 'string'
+                        ? message.content.trim()
+                        : blocks
+                              .filter((b) => b.type === 'text' && typeof b.text === 'string')
+                              .map((b) => b.text as string)
+                              .join('\n')
+                              .trim();
                 if (text) out.push({ role: 'user', text: text.slice(0, 2000) });
             } else {
                 const text = blocks
@@ -386,4 +433,96 @@ export function readHistory(sessionId: string, repoPath: string, limit = 200): H
         logWarn(`readHistory failed for ${sessionId}: ${err}`);
     }
     return out;
+}
+
+// #229: real kernels do not echo the prompt text as a user message in
+// stream-json — the authoritative prompt uuids live in the session JSONL.
+// Sync checkpoints from the transcript at run end (stream-json capture stays
+// as the fast path; addCheckpoint dedups by uuid).
+export function syncCheckpointsFromTranscript(sessionId: string, repoPath: string): void {
+    const session = getSession(sessionId);
+    if (!session?.kernelSessionId) return;
+    const file = findSessionFile(session.kernelSessionId, repoPath);
+    if (!file) return;
+    let added = 0;
+    try {
+        for (const line of readFileSync(file, 'utf-8').split('\n')) {
+            if (!line.trim()) continue;
+            let entry: Record<string, unknown>;
+            try {
+                entry = JSON.parse(line);
+            } catch {
+                continue;
+            }
+            if (entry.type !== 'user' || entry.isSidechain === true) continue;
+            const message = entry.message as { content?: unknown } | undefined;
+            // Real transcripts carry prompt text as a plain string content;
+            // mock/stream-json transcripts use block arrays. Handle both.
+            let text = '';
+            if (typeof message?.content === 'string') {
+                text = message.content.trim();
+            } else if (Array.isArray(message?.content)) {
+                text = (message?.content as Record<string, unknown>[])
+                    .filter((b) => b.type === 'text' && typeof b.text === 'string')
+                    .map((b) => b.text as string)
+                    .join('\n')
+                    .trim();
+            }
+            if (text && typeof entry.uuid === 'string') {
+                addCheckpoint(sessionId, {
+                    messageUuid: entry.uuid,
+                    label: text.slice(0, 80),
+                    createdAt: Date.now(),
+                });
+                added += 1;
+            }
+        }
+        if (added > 0) log(`checkpoints synced from transcript: session=${sessionId} count=${added}`);
+    } catch (err) {
+        logWarn(`syncCheckpoints failed for ${sessionId}: ${err}`);
+    }
+}
+
+// #229: checkpoint rollback — kernel --rewind-files restores the worktree to
+// the state snapshot at the given user message (standalone op, no prompt).
+export async function rollbackToCheckpoint(
+    sessionId: string,
+    messageUuid: string
+): Promise<{ ok: boolean; error?: string }> {
+    const session = getSession(sessionId);
+    if (!session) return { ok: false, error: 'session not found' };
+    if (!session.kernelSessionId) return { ok: false, error: 'session has no kernel run yet' };
+    if (isRunning(sessionId)) return { ok: false, error: 'a run is active; wait for it to finish' };
+    const repo = getRepo(session.repoId);
+    if (!repo) return { ok: false, error: 'repo not found' };
+    const kernelCmd = kernelCommand();
+    const args = ['--resume', session.kernelSessionId, '--rewind-files', messageUuid];
+    log(`rollback: session=${sessionId} checkpoint=${messageUuid}`);
+    const proc = Bun.spawn([...kernelCmd, ...args], {
+        stdout: 'pipe',
+        stderr: 'pipe',
+        cwd: repo.path,
+        env: {
+            ...process.env,
+            FUSION_CODE_ENABLE_SDK_FILE_CHECKPOINTING: '1',
+        },
+    });
+    const [exitCode, stdout, stderr] = await Promise.all([
+        proc.exited,
+        new Response(proc.stdout).text(),
+        new Response(proc.stderr).text(),
+    ]);
+    if (exitCode !== 0) {
+        logWarn(`rollback failed: exit=${exitCode} stderr=${stderr.slice(0, 300)}`);
+        return { ok: false, error: stderr.trim().slice(0, 500) || `kernel exited with code ${exitCode}` };
+    }
+    log(`rollback done: ${stdout.trim().slice(0, 200)}`);
+    // Fresh worktree state after rollback — the Changes rail must re-render.
+    try {
+        const changes: FileChange[] = await fileChanges(repo.path);
+        emit(sessionId, { kind: 'file_changes', files: changes });
+    } catch (err) {
+        logWarn(`fileChanges after rollback failed: ${err}`);
+    }
+    return { ok: true };
 }
