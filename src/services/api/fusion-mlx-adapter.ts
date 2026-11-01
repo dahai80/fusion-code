@@ -1466,7 +1466,10 @@ export function shouldUseFusionMlx(): boolean {
 	}
 
 	// 默认：如果 FUSION_CLIENT_KEY 未设置且 FUSION_MLX_AUTO 启用，则自动检测
-	if (isEnvTruthy(process.env.FUSION_MLX_AUTO) && !process.env.FUSION_CLIENT_KEY) {
+	if (
+		isEnvTruthy(process.env.FUSION_MLX_AUTO) &&
+		!process.env.FUSION_CLIENT_KEY
+	) {
 		return true; // 返回 true 表示优先尝试 MLX
 	}
 
