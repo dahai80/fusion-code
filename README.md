@@ -26,6 +26,7 @@
 | ⚡ **88 Feature Flags** | ULTRAPLAN multi-agent, ULTRATHINK deep reasoning, voice input, IDE bridge, and 80+ more. |
 | 🛡️ **Smart Permissions** | Auto mode auto-approves safe ops, prompts only for dangerous commands. Skill-level `disallowed-tools` for fine-grained control. No LLM classifier needed. |
 | 🧠 **Context Management** | Auto-compact, hard compact (deterministic, zero token cost), MLX memory safety — handles 32K windows. Compaction preserves sensitive instructions. |
+| 🌐 **Web GUI** | Session-centric web workbench (`web/`, port 11482): repos + sessions + per-step commands + live file changes, runs survive browser disconnect. Registers into the fusion gateway shell (`⌨ Code`). See `web/README.md`. |
 
 ---
 

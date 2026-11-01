@@ -1,0 +1,34 @@
+{
+    "id": "fusion-code",
+    "title": "Code",
+    "title_en": "Code",
+    "description": "Code 会话工作台: 连接仓库、按仓库分组管理会话、逐步执行与实时文件改动。",
+    "description_en": "Code session workbench: connect repos, group sessions by repo, step-by-step execution with live file changes.",
+    "version": "0.1.0",
+    "path": "/code",
+    "icon": "Keyboard",
+    "entry": "/shell/fusion-code/",
+    "health": "http://127.0.0.1:11432/shell/fusion-code/health",
+    "backend": "http://127.0.0.1:11432/shell/fusion-code/",
+    "upstream": "http://127.0.0.1:11482",
+    "api_key_env": "FUSION_CODE_WEB_API_KEY",
+    "devices": ["desktop", "mobile-readonly"],
+    "category": "dev",
+    "pages": [
+        {
+            "route": "/sessions",
+            "title": "会话",
+            "title_en": "Sessions"
+        },
+        {
+            "route": "/repos",
+            "title": "仓库",
+            "title_en": "Repos"
+        },
+        {
+            "route": "/settings",
+            "title": "权限与环境",
+            "title_en": "Permissions & Environment"
+        }
+    ]
+}
