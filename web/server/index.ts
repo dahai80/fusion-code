@@ -1,5 +1,5 @@
 import { existsSync } from 'node:fs';
-import { extname, join } from 'node:path';
+import { join } from 'node:path';
 import type { FileChange, UsageRepoRow, UsageSessionRow, UsageSummary } from '../shared/types';
 import { bindHost, log, logWarn, webPort } from './config';
 import { startDesignSync, stopDesignSync } from './designSync';
@@ -15,19 +15,8 @@ import {
     runVerifyCommand,
 } from './gitRepo';
 import { bufferedEvents, isRunning, readHistory, rollbackToCheckpoint, startRun, subscribe } from './runner';
+import { serveStatic } from './static';
 import * as store from './store';
-
-const MIME: Record<string, string> = {
-    '.html': 'text/html; charset=utf-8',
-    '.js': 'text/javascript',
-    '.css': 'text/css',
-    '.json': 'application/json',
-    '.svg': 'image/svg+xml',
-    '.png': 'image/png',
-    '.ico': 'image/x-icon',
-    '.map': 'application/json',
-    '.woff2': 'font/woff2',
-};
 
 function json(data: unknown, status = 200): Response {
     return new Response(JSON.stringify(data), {
@@ -42,22 +31,6 @@ async function readBody(req: Request): Promise<Record<string, unknown>> {
     } catch {
         return {};
     }
-}
-
-function serveStatic(pathAfterPrefix: string): Response | null {
-    const distDir = join(import.meta.dir, '../dist');
-    const candidates = [
-        join(distDir, pathAfterPrefix),
-        join(distDir, pathAfterPrefix, 'index.html'),
-        join(distDir, 'index.html'),
-    ];
-    for (const file of candidates) {
-        if (existsSync(file)) {
-            const type = MIME[extname(file)] ?? 'application/octet-stream';
-            return new Response(Bun.file(file), { headers: { 'content-type': type } });
-        }
-    }
-    return null;
 }
 
 type WsSessionData = {

@@ -115,6 +115,28 @@ Dev mode: run the backend with `FUSION_CODE_WEB_PORT=11483 bun run start`,
 then `bun run dev` (Vite proxies `/api` + `/ws` to `FUSION_DEV_BACKEND`,
 default `http://127.0.0.1:11483`).
 
+## Service lifecycle (#233)
+
+`web/start.sh` follows the fleet `start.sh` convention so fusion-supervisor
+can manage this service like any other:
+
+```bash
+cd web
+./start.sh start | stop | restart | status
+```
+
+Behavior: pid file in `web/run/`, output in `web/logs/`, SPA build check
+(builds `dist/` if missing), and a port-registry self-check that refuses to
+start unless `fusion-code-web: 11482` is declared in
+`~/fusion/architecture/port-registry.yaml` (bypass with
+`FUSION_SKIP_REGISTRY_CHECK=1`). An optional env file
+`${FUSION_CODE_WEB_ENV_FILE:-~/.fusion-code/web.env}` is sourced before
+start — put `FUSION_SHELL_GATEWAY_URL` / `FUSION_ADMIN_KEY` there to enable
+gateway registration.
+
+fusion-supervisor resolves the service to `~/fusion/fusion-code-web/start.sh`;
+that path is a thin exec shim delegating to `web/start.sh`.
+
 ## Environment
 
 | Variable | Default | Purpose |
@@ -128,6 +150,7 @@ default `http://127.0.0.1:11483`).
 | `FUSION_DESIGN_DATA_DIR` | `~/.fusion-design` | Base dir of the fusion-design sync-to-code contract |
 | `FUSION_CODE_WEB_DESIGN_REPO_ID` | latest repo | Pin the target repo for ingested design sessions |
 | `FUSION_CODE_WEB_DESIGN_SYNC_INTERVAL_MS` | `3000` | Design-sync poll interval (0 disables the watcher) |
+| `FUSION_CODE_WEB_ENV_FILE` | `~/.fusion-code/web.env` | Env file sourced by `start.sh` before launch |
 | `FUSION_SHELL_GATEWAY_URL` | unset | Gateway URL — enables manifest registration |
 | `FUSION_ADMIN_KEY` | unset | Gateway admin key (Bearer) for registration + heartbeat |
 
