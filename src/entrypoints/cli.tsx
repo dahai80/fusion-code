@@ -72,17 +72,6 @@ if (typeof MACRO === "undefined") {
 // eslint-disable-next-line custom-rules/no-top-level-side-effects
 process.env.COREPACK_ENABLE_AUTO_PIN = "0";
 
-// Set max heap size for child processes in CCR environments (containers have 16GB)
-// eslint-disable-next-line custom-rules/no-top-level-side-effects, custom-rules/no-process-env-top-level, custom-rules/safe-env-boolean-check
-if (process.env.CLAUDE_CODE_REMOTE === "true") {
-	// eslint-disable-next-line custom-rules/no-top-level-side-effects, custom-rules/no-process-env-top-level
-	const existing = process.env.NODE_OPTIONS || "";
-	// eslint-disable-next-line custom-rules/no-top-level-side-effects, custom-rules/no-process-env-top-level
-	process.env.NODE_OPTIONS = existing
-		? `${existing} --max-old-space-size=8192`
-		: "--max-old-space-size=8192";
-}
-
 // Harness-science L0 ablation baseline. Inlined here (not init.ts) because
 // BashTool/AgentTool/PowerShellTool capture DISABLE_BACKGROUND_TASKS into
 // module-level consts at import time — init() runs too late. feature() gate
@@ -419,11 +408,7 @@ async function main(): Promise<void> {
 		args.length === 1 &&
 		(args[0] === "--update" || args[0] === "--upgrade")
 	) {
-		process.argv = [
-			process.argv[0] ?? "",
-			process.argv[1] ?? "",
-			"update",
-		];
+		process.argv = [process.argv[0] ?? "", process.argv[1] ?? "", "update"];
 	}
 
 	// --bare: set SIMPLE early so gates fire during module eval / commander

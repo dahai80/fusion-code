@@ -83,7 +83,6 @@ import { maybeShowWorktreeTip } from "./worktreeTipCheck.js";
 import { maybeShowSandboxUnavailable } from "./sandboxUnavailableCheck.js";
 import { maybeCountQueueUse } from "./queueUseCountCheck.js";
 import { maybeShowSwarmTurnDuration } from "./swarmTurnDurationCheck.js";
-import { applyRemoteInit } from "./remoteInitCheck.js";
 import { maybeShowCostThreshold } from "./costThresholdCheck.js";
 import { maybeAccumulatePauseTiming } from "./pauseAccumulatorCheck.js";
 import { createSandboxAskHandler } from "./sandboxAskCheck.js";
@@ -129,19 +128,15 @@ import {
 } from "../history.js";
 import { useAfterFirstRender } from "../hooks/useAfterFirstRender.js";
 import { useApiKeyVerification } from "../hooks/useApiKeyVerification.js";
-import { useAssistantHistory } from "../hooks/useAssistantHistory.js";
 import { useBackgroundTaskNavigation } from "../hooks/useBackgroundTaskNavigation.js";
 import { CancelRequestHandler } from "../hooks/useCancelRequest.js";
 import { CommandKeybindingHandlers } from "../hooks/useCommandKeybindings.js";
 import { useDeferredHookMessages } from "../hooks/useDeferredHookMessages.js";
-import { useDirectConnect } from "../hooks/useDirectConnect.js";
 import { GlobalKeybindingHandlers } from "../hooks/useGlobalKeybindings.js";
 import { useIdeLogging } from "../hooks/useIdeLogging.js";
 import { useLogMessages } from "../hooks/useLogMessages.js";
-import { useRemoteSession } from "../hooks/useRemoteSession.js";
 import { useReplBridge } from "../hooks/useReplBridge.js";
 import { useSkillImprovementSurvey } from "../hooks/useSkillImprovementSurvey.js";
-import { useSSHSession } from "../hooks/useSSHSession.js";
 import { useSwarmInitialization } from "../hooks/useSwarmInitialization.js";
 import { useTeammateViewAutoExit } from "../hooks/useTeammateViewAutoExit.js";
 import { useTerminalSize } from "../hooks/useTerminalSize.js";
@@ -162,13 +157,11 @@ import {
 import { KeybindingSetup } from "../keybindings/KeybindingProviderSetup.js";
 import { getShortcutDisplay } from "../keybindings/shortcutFormat.js";
 import { useMoreRight } from "../moreright/useMoreRight.js";
-import type { DirectConnectConfig } from "../server/directConnectManager.js";
 import { sendNotification } from "../services/notifier.js";
 import {
 	startPreventSleep,
 	stopPreventSleep,
 } from "../services/preventSleep.js";
-import type { SSHSession } from "../ssh/createSSHSession.js";
 import {
 	getAllInProcessTeammateTasks,
 	injectUserMessageToTeammate,
@@ -288,7 +281,6 @@ import { stripDangerousPermissionsForAutoMode } from "../utils/permissions/permi
 
 // Cloud-only tool stub (directory removed)
 const SLEEP_TOOL_NAME = "Sleep";
-import { buildRemoteMessageContent } from "../utils/remoteMessageContent.js";
 import { randomUUID, type UUID } from "crypto";
 import { getFeatureValue_CACHED_MAY_BE_STALE } from "src/services/analytics/index.js";
 import {
@@ -441,7 +433,6 @@ import {
 } from "../components/EffortCallout.js";
 import { ExitFlow } from "../components/ExitFlow.js";
 import { IdeOnboardingDialog } from "../components/IdeOnboardingDialog.js";
-import { RemoteCallout } from "../components/RemoteCallout.js";
 import { SessionBackgroundHint } from "../components/SessionBackgroundHint.js";
 import { useCommandQueue } from "../hooks/useCommandQueue.js";
 import { useIDEIntegration } from "../hooks/useIDEIntegration.js";
@@ -584,7 +575,6 @@ import { useIssueFlagBanner } from "../hooks/useIssueFlagBanner.js";
 import { AlternateScreen } from "../ink/components/AlternateScreen.js";
 import type { ScrollBoxHandle } from "../ink/components/ScrollBox.js";
 // Session manager removed - using AppState now
-import type { RemoteSessionConfig } from "../remote/RemoteSessionManager.js";
 import {
 	createAttachmentMessage,
 	getQueuedCommandAttachments,
@@ -666,12 +656,6 @@ export type Props = {
 	disableSlashCommands?: boolean;
 	// Task list id: when set, enables tasks mode that watches a task list and auto-processes tasks.
 	taskListId?: string;
-	// Remote session config for --remote mode (uses CCR as execution engine)
-	remoteSessionConfig?: RemoteSessionConfig;
-	// Direct connect config for `claude connect` mode (connects to a claude server)
-	directConnectConfig?: DirectConnectConfig;
-	// SSH session for `claude ssh` mode (local REPL, remote tools over ssh)
-	sshSession?: SSHSession;
 	// Thinking configuration to use when thinking is enabled
 	thinkingConfig: ThinkingConfig;
 };
@@ -698,13 +682,8 @@ export function REPL({
 	mainThreadAgentDefinition: initialMainThreadAgentDefinition,
 	disableSlashCommands = false,
 	taskListId,
-	remoteSessionConfig,
-	directConnectConfig,
-	sshSession,
 	thinkingConfig,
 }: Props): React.ReactNode {
-	const isRemoteSession = !!remoteSessionConfig;
-
 	// Env-var gates hoisted to mount-time — isEnvTruthy does toLowerCase+trim+
 	// includes, and these were on the render path (hot during PageUp spam).
 	const titleDisabled = useMemo(
@@ -791,10 +770,7 @@ export function REPL({
 	const [localCommands, setLocalCommands] = useState(initialCommands);
 
 	// Watch for skill file changes and reload all commands
-	useSkillsChange(
-		isRemoteSession ? undefined : getProjectRoot(),
-		setLocalCommands,
-	);
+	useSkillsChange(getProjectRoot(), setLocalCommands);
 
 	// Track proactive mode for tools dependency - SleepTool filters by proactive state
 	const proactiveActive = React.useSyncExternalStore(
@@ -868,7 +844,6 @@ export function REPL({
 	const [showEffortCallout, setShowEffortCallout] = useState(() =>
 		shouldShowEffortCallout(mainLoopModel),
 	);
-	const showRemoteCallout = useAppState((s) => s.showRemoteCallout);
 	const [showDesktopUpsellStartup, setShowDesktopUpsellStartup] = useState(() =>
 		shouldShowDesktopUpsellStartup(),
 	);
@@ -908,9 +883,7 @@ export function REPL({
 	}, [localTools, initialTools]);
 
 	// Initialize plugin management
-	useManagePlugins({
-		enabled: !isRemoteSession,
-	});
+	useManagePlugins({ enabled: true });
 	const tasksV2 = useTasksV2WithCollapseEffect();
 
 	// Start background plugin installations
@@ -922,34 +895,27 @@ export function REPL({
 	// This ensures that plugin installations from repository and user settings only
 	// happen after explicit user consent to trust the current working directory.
 	useEffect(() => {
-		if (isRemoteSession) return;
 		void performStartupChecks(setAppState);
-	}, [setAppState, isRemoteSession]);
+	}, [setAppState]);
 
 	// audit 1.4.3 / 2.1.2 (HIGH): 周期 reaper 回收超 TTL 的后台 task。
 	// 默认 OFF (FUSION_CODE_TASK_REAPER_ENABLED), byte-identical 旧无 reaper 行为。
 	// mount 时注入 store 访问器, unmount 时 stop。
 	useEffect(() => {
-		if (isRemoteSession) return;
 		const stop = startTaskReaper({
 			getAppState: () => store.getState(),
 			setAppState,
 		});
 		return stop;
-	}, [store, setAppState, isRemoteSession]);
+	}, [store, setAppState]);
 
 	// Allow Claude in Chrome MCP to send prompts through MCP notifications
 	// and sync permission mode changes to the Chrome extension
-	usePromptsFromClaudeInChrome(
-		isRemoteSession ? EMPTY_MCP_CLIENTS : mcpClients,
-		toolPermissionContext.mode,
-	);
+	usePromptsFromClaudeInChrome(mcpClients, toolPermissionContext.mode);
 
 	// Initialize swarm features: teammate hooks and context
 	// Handles both fresh spawns and resumed teammate sessions
-	useSwarmInitialization(setAppState, initialMessages, {
-		enabled: !isRemoteSession,
-	});
+	useSwarmInitialization(setAppState, initialMessages, { enabled: true });
 	const mergedTools = useMergedTools(
 		combinedInitialTools,
 		mcp.tools,
@@ -977,11 +943,8 @@ export function REPL({
 		() => (disableSlashCommands ? [] : mergedCommands),
 		[disableSlashCommands, mergedCommands],
 	);
-	useIdeLogging(isRemoteSession ? EMPTY_MCP_CLIENTS : mcp.clients);
-	useIdeSelection(
-		isRemoteSession ? EMPTY_MCP_CLIENTS : mcp.clients,
-		setIDESelection,
-	);
+	useIdeLogging(mcp.clients);
+	useIdeSelection(mcp.clients, setIDESelection);
 	const [streamMode, setStreamMode] = useState<SpinnerMode>("responding");
 	// Ref mirror so onSubmit can read the latest value without adding
 	// streamMode to its deps. streamMode flips between
@@ -1054,13 +1017,10 @@ export function REPL({
 	);
 
 	// Separate loading flag for operations outside the local query guard:
-	// remote sessions (useRemoteSession / useDirectConnect) and foregrounded
-	// background tasks (useSessionBackgrounding). These don't route through
-	// onQuery / queryGuard, so they need their own spinner-visibility state.
-	// Initialize true if remote mode with initial prompt (CCR processing it).
-	const [isExternalLoading, setIsExternalLoadingRaw] = React.useState(
-		remoteSessionConfig?.hasInitialPrompt ?? false,
-	);
+	// foregrounded background tasks (useSessionBackgrounding). These don't
+	// route through onQuery / queryGuard, so they need their own
+	// spinner-visibility state.
+	const [isExternalLoading, setIsExternalLoadingRaw] = React.useState(false);
 
 	// Derived: any loading source active. Read-only — no setter. Local query
 	// loading is driven by queryGuard (reserve/tryStart/end/cancelReservation),
@@ -1405,15 +1365,7 @@ export function REPL({
 	// KAIROS build + config.viewerOnly. feature() is build-time constant so
 	// the branch is dead-code-eliminated in non-KAIROS builds (same pattern
 	// as useUnseenDivider above).
-	const { maybeLoadOlder } = feature("KAIROS")
-		? // biome-ignore lint/correctness/useHookAtTopLevel: feature() is a compile-time constant
-			useAssistantHistory({
-				config: remoteSessionConfig,
-				setMessages,
-				scrollRef,
-				onPrepend: shiftDivider,
-			})
-		: HISTORY_STUB;
+	const { maybeLoadOlder } = HISTORY_STUB;
 	// Compose useUnseenDivider's callbacks with the lazy-load trigger.
 	const composedOnScroll = useCallback(
 		(sticky: boolean, handle: ScrollBoxHandle) =>
@@ -1500,56 +1452,11 @@ export function REPL({
 		| undefined
 	>();
 
-	// Callback to filter commands based on CCR's available slash commands
-	const handleRemoteInit = useCallback(
-		(remoteSlashCommands: string[]) =>
-			applyRemoteInit({ setLocalCommands })(remoteSlashCommands),
-		[setLocalCommands],
-	);
 	const [inProgressToolUseIDs, setInProgressToolUseIDs] = useState<Set<string>>(
 		new Set(),
 	);
 	const hasInterruptibleToolInProgressRef = useRef(false);
 
-	// Remote session hook - manages WebSocket connection and message handling for --remote mode
-	const remoteSession = useRemoteSession({
-		config: remoteSessionConfig,
-		setMessages,
-		setIsLoading: setIsExternalLoading,
-		onInit: handleRemoteInit,
-		setToolUseConfirmQueue,
-		tools: combinedInitialTools,
-		setStreamingToolUses,
-		setStreamMode,
-		setInProgressToolUseIDs,
-	});
-
-	// Direct connect hook - manages WebSocket to a claude server for `claude connect` mode
-	const directConnect = useDirectConnect({
-		config: directConnectConfig,
-		setMessages,
-		setIsLoading: setIsExternalLoading,
-		setToolUseConfirmQueue,
-		tools: combinedInitialTools,
-	});
-
-	// SSH session hook - manages ssh child process for `claude ssh` mode.
-	// Same callback shape as useDirectConnect; only the transport under the
-	// hood differs (ChildProcess stdin/stdout vs WebSocket).
-	const sshRemote = useSSHSession({
-		session: sshSession,
-		setMessages,
-		setIsLoading: setIsExternalLoading,
-		setToolUseConfirmQueue,
-		tools: combinedInitialTools,
-	});
-
-	// Use whichever remote mode is active
-	const activeRemote = sshRemote.isRemoteMode
-		? sshRemote
-		: directConnect.isRemoteMode
-			? directConnect
-			: remoteSession;
 	const [pastedContents, setPastedContents] = useState<
 		Record<number, PastedContent>
 	>({});
@@ -1827,16 +1734,11 @@ export function REPL({
 		messages,
 		isLoading,
 		hasActivePrompt,
-		{
-			enabled: !isRemoteSession,
-		},
 	);
 
 	// Memory survey: shown when the assistant mentions memory and a memory file
 	// was read this conversation
-	const memorySurvey = useMemorySurvey(messages, isLoading, hasActivePrompt, {
-		enabled: !isRemoteSession,
-	});
+	const memorySurvey = useMemorySurvey(messages, isLoading, hasActivePrompt);
 
 	// Frustration detection: show transcript sharing prompt after detecting frustrated messages
 	const frustrationDetection = useFrustrationDetection(
@@ -2108,7 +2010,6 @@ export function REPL({
 		showModelSwitchCallout,
 		showUndercoverCallout,
 		showEffortCallout,
-		showRemoteCallout,
 		lspRecommendation,
 		hintRecommendation,
 		showDesktopUpsellStartup,
@@ -2176,7 +2077,6 @@ export function REPL({
 		setPromptQueue,
 		abortController,
 		setAbortController,
-		activeRemote,
 		mrOnTurnComplete,
 		messagesRef,
 	});
@@ -3182,11 +3082,6 @@ export function REPL({
 				}
 			}
 
-			// Remote mode: skip empty input early before any state mutations
-			if (activeRemote.isRemoteMode && !input.trim()) {
-				return;
-			}
-
 			// audit 1.1.1: idle-return gate 外移到 idleReturnDialog.ts (PURE-ROUTING SUB-BLOCK)。
 			// tengu_willow_mode 控制: "dialog"(阻塞)/"hint"/"off"。6 个闭包依赖经 ctx 传入, 行为字节等价。
 			if (
@@ -3233,10 +3128,8 @@ export function REPL({
 			// In both deferred cases, the stash is restored after await handlePromptSubmit.
 			const isSlashCommand = !speculationAccept && input.trim().startsWith("/");
 			// Submit runs "now" (not queued) when not already loading, or when
-			// accepting speculation, or in remote mode (which sends via WS and
-			// returns early without calling handlePromptSubmit).
-			const submitsNow =
-				!isLoading || speculationAccept || activeRemote.isRemoteMode;
+			// accepting speculation.
+			const submitsNow = !isLoading || speculationAccept;
 			if (stashedPrompt !== undefined && !isSlashCommand && submitsNow) {
 				setInputValue(stashedPrompt.text);
 				helpers.setCursorOffset(stashedPrompt.cursorOffset);
@@ -3259,14 +3152,8 @@ export function REPL({
 				tipPickedThisTurnRef.current = false;
 
 				// Show the placeholder in the same React batch as setInputValue('').
-				// Skip for slash/bash (they have their own echo), speculation and remote
-				// mode (both setMessages directly with no gap to bridge).
-				if (
-					!isSlashCommand &&
-					inputMode === "prompt" &&
-					!speculationAccept &&
-					!activeRemote.isRemoteMode
-				) {
+				// Skip for slash/bash (they have their own echo) and speculation.
+				if (!isSlashCommand && inputMode === "prompt" && !speculationAccept) {
 					setUserInputOnProcessing(input);
 					// showSpinner includes userInputOnProcessing, so the spinner appears
 					// on this render. Reset timing refs now (before queryGuard.reserve()
@@ -3309,49 +3196,6 @@ export function REPL({
 					setAbortController(newAbortController);
 					void onQuery([], newAbortController, true, [], mainLoopModel);
 				}
-				return;
-			}
-
-			// Remote mode: send input via stream-json instead of local query.
-			// Permission requests from the remote are bridged into toolUseConfirmQueue
-			// and rendered using the standard PermissionRequest component.
-			//
-			// local-jsx slash commands (e.g. /agents, /config) render UI in THIS
-			// process — they have no remote equivalent. Let those fall through to
-			// handlePromptSubmit so they execute locally. Prompt commands and
-			// plain text go to the remote.
-			if (
-				activeRemote.isRemoteMode &&
-				!(
-					isSlashCommand &&
-					commands.find((c) => {
-						const name = input.trim().slice(1).split(/\s/)[0];
-						return (
-							isCommandEnabled(c) &&
-							(c.name === name ||
-								c.aliases?.includes(name!) ||
-								getCommandName(c) === name)
-						);
-					})?.type === "local-jsx"
-				)
-			) {
-				// audit 1.1.1: pasted-attachment content-block 构建 → buildRemoteMessageContent (PURE-ROUTING SUB-BLOCK)。
-				// 2 个闭包依赖 (input + pastedContents) 直接传入, 行为字节等价。输出 messageContent/remoteContent/imagePasteIds 3 locals。
-				const { messageContent, remoteContent, imagePasteIds } =
-					buildRemoteMessageContent(input, pastedContents);
-
-				// Create and add user message to UI
-				// Note: empty input already handled by early return above
-				const userMessage = createUserMessage({
-					content: messageContent,
-					imagePasteIds,
-				});
-				setMessages((prev) => [...prev, userMessage]);
-
-				// Send to remote session
-				await activeRemote.sendMessage(remoteContent, {
-					uuid: userMessage.uuid,
-				});
 				return;
 			}
 
@@ -3437,7 +3281,6 @@ export function REPL({
 			setAppState,
 			onBeforeQuery,
 			canUseTool,
-			remoteSession,
 			setMessages,
 			awaitPendingHooks,
 			repinScroll,
@@ -4786,24 +4629,6 @@ export function REPL({
 													effortValue: selection,
 												}));
 											}
-										}}
-									/>
-								)}
-								{focusedInputDialog === "remote-callout" && (
-									<RemoteCallout
-										onDone={(selection) => {
-											setAppState((prev) => {
-												if (!prev.showRemoteCallout) return prev;
-												return {
-													...prev,
-													showRemoteCallout: false,
-													...(selection === "enable" && {
-														replBridgeEnabled: true,
-														replBridgeExplicit: true,
-														replBridgeOutboundOnly: false,
-													}),
-												};
-											});
 										}}
 									/>
 								)}

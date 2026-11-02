@@ -9,9 +9,9 @@ export function Usage(): React.ReactNode {
 	return (
 		<Box flexDirection="column" paddingX={1}>
 			<Text dimColor>
-				Usage tracking is a claude.ai subscription feature and is not
-				available. fusion-code connects directly to an Anthropic-compatible
-				endpoint via FUSION_BASE_URL + FUSION_CLIENT_KEY.
+				Usage tracking is a claude.ai subscription feature and is not available.
+				fusion-code connects directly to an Anthropic-compatible endpoint via
+				FUSION_BASE_URL + FUSION_CLIENT_KEY.
 			</Text>
 		</Box>
 	);

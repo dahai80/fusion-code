@@ -223,10 +223,13 @@ export function useTextInput({
 	const handleCtrl = mapInput([
 		["a", () => cursor.startOfLine()],
 		["b", () => cursor.left()],
-		["c", () => {
-			handleCtrlC();
-			return undefined;
-		}],
+		[
+			"c",
+			() => {
+				handleCtrlC();
+				return undefined;
+			},
+		],
 		["d", handleCtrlD],
 		["e", () => cursor.endOfLine()],
 		["f", () => cursor.right()],

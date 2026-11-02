@@ -229,11 +229,11 @@ export async function probeSeedCacheAnyVersion(
 		// getVersionedCachePathIn, just without the version component.
 		const pluginDir = dirname(getVersionedCachePathIn(seedDir, pluginId, "_"));
 		try {
-		 const versions = await readdir(pluginDir);
-		 if (versions.length !== 1) continue;
-		 const versionName = versions[0];
-		 if (versionName === undefined) continue;
-		 const versionDir = join(pluginDir, versionName);
+			const versions = await readdir(pluginDir);
+			if (versions.length !== 1) continue;
+			const versionName = versions[0];
+			if (versionName === undefined) continue;
+			const versionDir = join(pluginDir, versionName);
 			const entries = await readdir(versionDir);
 			if (entries.length > 0) return versionDir;
 		} catch {

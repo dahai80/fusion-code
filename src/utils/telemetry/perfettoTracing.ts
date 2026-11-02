@@ -645,7 +645,8 @@ export function endLLMRequestPerfettoSpan(
 			for (let i = 0; i < attemptStartTimes.length - 1; i++) {
 				const startMs = attemptStartTimes[i] ?? baseWallMs;
 				const endMs = attemptStartTimes[i + 1] ?? baseWallMs;
-				const attemptStartUs = pending.startTime + (startMs - baseWallMs) * 1000;
+				const attemptStartUs =
+					pending.startTime + (startMs - baseWallMs) * 1000;
 				const attemptEndUs = pending.startTime + (endMs - baseWallMs) * 1000;
 
 				events.push({

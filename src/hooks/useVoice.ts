@@ -273,14 +273,17 @@ export function useVoice({
 	onErrorRef.current = onError;
 
 	// useCallback 稳定标识，供下游 effect/hook 作为依赖使用（内部只读 refs）
-	const updateState = useCallback((newState: VoiceState): void => {
-		stateRef.current = newState;
-		setState(newState);
-		setVoiceState((prev) => {
-			if (prev.voiceState === newState) return prev;
-			return { ...prev, voiceState: newState };
-		});
-	}, [setVoiceState]);
+	const updateState = useCallback(
+		(newState: VoiceState): void => {
+			stateRef.current = newState;
+			setState(newState);
+			setVoiceState((prev) => {
+				if (prev.voiceState === newState) return prev;
+				return { ...prev, voiceState: newState };
+			});
+		},
+		[setVoiceState],
+	);
 
 	const cleanup = useCallback((): void => {
 		// Stale any in-flight session (main connection isStale(), replay
@@ -952,7 +955,13 @@ export function useVoice({
 		};
 
 		void getVoiceKeyterms().then(attemptConnect);
-	}, [cleanup, updateState, setVoiceState, armFocusSilenceTimer, finishRecording]);
+	}, [
+		cleanup,
+		updateState,
+		setVoiceState,
+		armFocusSilenceTimer,
+		finishRecording,
+	]);
 
 	// ── Focus-driven recording ──────────────────────────────────────────
 	// In focus mode, start recording when the terminal gains focus and
@@ -1020,7 +1029,6 @@ export function useVoice({
 		finishRecording,
 		startRecordingSession,
 	]);
-
 
 	// ── Hold-to-talk handler ────────────────────────────────────────────
 	// Called on every keypress (including terminal auto-repeats while

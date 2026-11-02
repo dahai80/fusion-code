@@ -1279,7 +1279,8 @@ export function stripWrappersFromArgv(argv: string[]): string[] {
 			// `inf` — strtod formats GNU timeout accepts) → return a unchanged.
 			// Safe because checkSemantics (ast.ts) fails CLOSED on the same input
 			// and runs first in bashToolHasPermission, so we never reach here.
-			if (i < 0 || !a[i] || !/^\d+(?:\.\d+)?[smhd]?$/.test(a[i] ?? "")) return a;
+			if (i < 0 || !a[i] || !/^\d+(?:\.\d+)?[smhd]?$/.test(a[i] ?? ""))
+				return a;
 			a = a.slice(i + 1);
 		} else if (a[0] === "nice") {
 			// SECURITY (PR #21503 round 3): mirror checkSemantics — handle bare

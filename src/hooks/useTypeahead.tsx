@@ -872,9 +872,9 @@ export function useTypeahead({
 					const suggestions = matches.map((log) => {
 						const sessionId = getSessionIdFromLog(log);
 						return {
-						 id: `resume-title-${sessionId}`,
-						 displayText: log.customTitle ?? "",
-						 description: formatLogMetadata(log),
+							id: `resume-title-${sessionId}`,
+							displayText: log.customTitle ?? "",
+							description: formatLogMetadata(log),
 							metadata: {
 								sessionId,
 							},

@@ -1,22 +1,12 @@
-import { randomUUID } from "node:crypto";
-import { copyFile, writeFile } from "node:fs/promises";
+import { copyFile } from "node:fs/promises";
 import { join, resolve, sep } from "node:path";
 import memoize from "lodash-es/memoize.js";
 import type { AgentId, SessionId } from "src/types/ids.js";
 import type { LogOption } from "src/types/logs.js";
-import type {
-	AssistantMessage,
-	AttachmentMessage,
-	SystemFileSnapshotMessage,
-	UserMessage,
-} from "src/types/message.js";
 import { getPlanSlugCache, getSessionId } from "../bootstrap/state.js";
-import { EXIT_PLAN_MODE_V2_TOOL_NAME } from "../tools/ExitPlanModeTool/constants.js";
 import { getCwd } from "./cwd.js";
-import { logForDebugging } from "./debug.js";
 import { getClaudeConfigHomeDir } from "./envUtils.js";
 import { isENOENT } from "./errors.js";
-import { getEnvironmentKind } from "./filePersistence/outputsScanner.js";
 import { getFsImplementation } from "./fsOperations.js";
 import { logError } from "./log.js";
 import { getInitialSettings } from "./settings/settings.js";
@@ -185,47 +175,8 @@ export async function copyPlanForResume(
 			logError(e);
 			return false;
 		}
-		// Only attempt recovery in remote sessions (CCR) where files don't persist
-		if (getEnvironmentKind() === null) {
-			return false;
-		}
-
-		logForDebugging(
-			`Plan file missing during resume: ${planPath}. Attempting recovery.`,
-		);
-
-		// Try file snapshot first (written incrementally during session)
-		const snapshotPlan = findFileSnapshotEntry(log.messages, "plan");
-		let recovered: string | null = null;
-		if (snapshotPlan && snapshotPlan.content.length > 0) {
-			recovered = snapshotPlan.content;
-			logForDebugging(
-				`Plan recovered from file snapshot, ${recovered.length} chars`,
-				{ level: "info" },
-			);
-		} else {
-			// Fall back to searching message history
-			recovered = recoverPlanFromMessages(log);
-			if (recovered) {
-				logForDebugging(
-					`Plan recovered from message history, ${recovered.length} chars`,
-					{ level: "info" },
-				);
-			}
-		}
-
-		if (recovered) {
-			try {
-				await writeFile(planPath, recovered, { encoding: "utf-8" });
-				return true;
-			} catch (writeError) {
-				logError(writeError);
-				return false;
-			}
-		}
-		logForDebugging(
-			"Plan file recovery failed: no file snapshot or plan content found in message history",
-		);
+		// Recovery was remote-session (CCR) only; cloud stack removed. Local
+		// sessions have no missing-file case to recover.
 		return false;
 	}
 }
@@ -260,138 +211,5 @@ export async function copyPlanForFork(
 		}
 		logError(error);
 		return false;
-	}
-}
-
-/**
- * Recover plan content from the message history. Plan content can appear in
- * three forms depending on what happened during the session:
- *
- * 1. ExitPlanMode tool_use input — normalizeToolInput injects the plan content
- *    into the tool_use input, which persists in the transcript.
- *
- * 2. planContent field on user messages — set during the "clear context and
- *    implement" flow when ExitPlanMode is approved.
- *
- * 3. plan_file_reference attachment — created by auto-compact to preserve the
- *    plan across compaction boundaries.
- */
-function recoverPlanFromMessages(log: LogOption): string | null {
-	for (let i = log.messages.length - 1; i >= 0; i--) {
-		const msg = log.messages[i];
-		if (!msg) {
-			continue;
-		}
-
-		if (msg.type === "assistant") {
-			const { content } = (msg as AssistantMessage).message;
-			if (Array.isArray(content)) {
-				for (const block of content) {
-					if (
-						block.type === "tool_use" &&
-						block.name === EXIT_PLAN_MODE_V2_TOOL_NAME
-					) {
-						const input = block.input as Record<string, unknown> | undefined;
-						const plan = input?.plan;
-						if (typeof plan === "string" && plan.length > 0) {
-							return plan;
-						}
-					}
-				}
-			}
-		}
-
-		if (msg.type === "user") {
-			const userMsg = msg as UserMessage;
-			if (
-				typeof userMsg.planContent === "string" &&
-				userMsg.planContent.length > 0
-			) {
-				return userMsg.planContent;
-			}
-		}
-
-		if (msg.type === "attachment") {
-			const attachmentMsg = msg as AttachmentMessage;
-			if (attachmentMsg.attachment?.type === "plan_file_reference") {
-				const plan = (attachmentMsg.attachment as { planContent?: string })
-					.planContent;
-				if (typeof plan === "string" && plan.length > 0) {
-					return plan;
-				}
-			}
-		}
-	}
-	return null;
-}
-
-/**
- * Find a file entry in the most recent file-snapshot system message in the transcript.
- * Scans backwards to find the latest snapshot.
- */
-function findFileSnapshotEntry(
-	messages: LogOption["messages"],
-	key: string,
-): { key: string; path: string; content: string } | undefined {
-	for (let i = messages.length - 1; i >= 0; i--) {
-		const msg = messages[i];
-		if (
-			msg?.type === "system" &&
-			"subtype" in msg &&
-			msg.subtype === "file_snapshot" &&
-			"snapshotFiles" in msg
-		) {
-			const files = msg.snapshotFiles as Array<{
-				key: string;
-				path: string;
-				content: string;
-			}>;
-			return files.find((f) => f.key === key);
-		}
-	}
-	return undefined;
-}
-
-/**
- * Persist a snapshot of session files (plan, todos) to the transcript.
- * Called incrementally whenever these files change. Only active in remote
- * sessions (CCR) where local files don't persist between sessions.
- */
-export async function persistFileSnapshotIfRemote(): Promise<void> {
-	if (getEnvironmentKind() === null) {
-		return;
-	}
-	try {
-		const snapshotFiles: SystemFileSnapshotMessage["snapshotFiles"] = [];
-
-		// Snapshot plan file
-		const plan = getPlan();
-		if (plan) {
-			snapshotFiles.push({
-				key: "plan",
-				path: getPlanFilePath(),
-				content: plan,
-			});
-		}
-
-		if (snapshotFiles.length === 0) {
-			return;
-		}
-
-		const message: SystemFileSnapshotMessage = {
-			type: "system",
-			subtype: "file_snapshot",
-			content: "File snapshot",
-			level: "info",
-			isMeta: true,
-			timestamp: new Date().toISOString(),
-			uuid: randomUUID(),
-			snapshotFiles,
-		};
-
-		const { recordTranscript } = await import("./sessionStorage.js");
-		await recordTranscript([message]);
-	} catch (error) {
-		logError(error);
 	}
 }

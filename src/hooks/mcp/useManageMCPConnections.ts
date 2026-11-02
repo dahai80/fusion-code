@@ -702,9 +702,9 @@ export function useManageMCPConnections(
 											: Promise.resolve([]),
 									]);
 									updateServer({
-									 ...client,
-									 // biome-ignore lint/suspicious/noExplicitAny: (Command|MCPSkill)[] 与 Command[] 结构兼容但类型名不同, 定向透传给下层命令注册
-									 commands: [...mcpPrompts, ...(mcpSkills as any[])],
+										...client,
+										// biome-ignore lint/suspicious/noExplicitAny: (Command|MCPSkill)[] 与 Command[] 结构兼容但类型名不同, 定向透传给下层命令注册
+										commands: [...mcpPrompts, ...(mcpSkills as any[])],
 									});
 									// MCP skills changed — invalidate skill-search index so
 									// next discovery rebuilds with the new set.
@@ -746,10 +746,10 @@ export function useManageMCPConnections(
 												fetchMcpSkillsForClient?.(client.name), // log: pass server name string instead of ConnectedMCPServer
 											]);
 										updateServer({
-										 ...client,
-										 resources: newResources,
-										 // biome-ignore lint/suspicious/noExplicitAny: (Command|MCPSkill)[] 结构兼容但类型名不同, 定向透传给下层命令注册
-										 commands: [...mcpPrompts, ...(mcpSkills as any[])],
+											...client,
+											resources: newResources,
+											// biome-ignore lint/suspicious/noExplicitAny: (Command|MCPSkill)[] 结构兼容但类型名不同, 定向透传给下层命令注册
+											commands: [...mcpPrompts, ...(mcpSkills as any[])],
 										});
 										// MCP skills changed — invalidate skill-search index so
 										// next discovery rebuilds with the new set.

@@ -82,8 +82,19 @@ import { AsyncAgentDetailDialog } from "./AsyncAgentDetailDialog.js";
 import { BackgroundTask as BackgroundTaskComponent } from "./BackgroundTask.js";
 import { DreamDetailDialog } from "./DreamDetailDialog.js";
 import { InProcessTeammateDetailDialog } from "./InProcessTeammateDetailDialog.js";
-import { RemoteSessionDetailDialog } from "./RemoteSessionDetailDialog.js";
 import { ShellDetailDialog } from "./ShellDetailDialog.js";
+
+// RemoteSessionDetailDialog removed - cloud-only. Null stub keeps the
+// react-compiler memo structure and the Parameters<typeof ...> cast valid.
+function RemoteSessionDetailDialog(_props: {
+	session: unknown;
+	onDone: () => void;
+	toolUseContext: unknown;
+	onBack: () => void;
+	onKill?: (() => void) | undefined;
+}): null {
+	return null;
+}
 
 type ViewState =
 	| {

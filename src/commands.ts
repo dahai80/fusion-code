@@ -119,7 +119,6 @@ import exportCommand from "./commands/export/index.js";
 import model from "./commands/model/index.js";
 import tag from "./commands/tag/index.js";
 import outputStyle from "./commands/output-style/index.js";
-import remoteEnv from "./commands/remote-env/index.js";
 import statusline from "./commands/statusline.js";
 import effort from "./commands/effort/index.js";
 import stats from "./commands/stats/index.js";
@@ -232,7 +231,6 @@ const COMMANDS = memoize((): Command[] => [
 	memory,
 	model,
 	outputStyle,
-	remoteEnv,
 	reloadPlugins,
 	reloadSkills,
 	rename,

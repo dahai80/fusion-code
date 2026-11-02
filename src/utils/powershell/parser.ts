@@ -850,43 +850,43 @@ export function transformCommandAst(
 	if (cmdElements.length > 0) {
 		const first = cmdElements[0];
 		if (first !== undefined) {
-		// SECURITY: only trust .value for string-literal element types with a
-		// string-typed value. Numeric ConstantExpressionAst (e.g. `& 1`) emits an
-		// integer .value that crashes stripModulePrefix() → parser falls through
-		// to passthrough. For non-string-literal or non-string .value, use .text.
-		const isFirstStringLiteral =
-			first.type === "StringConstantExpressionAst" ||
-			first.type === "ExpandableStringExpressionAst";
-		const rawNameUnstripped =
-			isFirstStringLiteral && typeof first.value === "string"
-				? first.value
-				: first.text;
-		// SECURITY: strip surrounding quotes from the command name. When .value is
-		// unavailable (no StaticType on the raw node), .text preserves quotes —
-		// `& 'Invoke-Expression' 'x'` yields "'Invoke-Expression'". Stripping here
-		// at the source means every downstream reader of element.name (deny-rule
-		// matching, GIT_SAFETY_WRITE_CMDLETS lookup, resolveToCanonical, etc.)
-		// sees the bare cmdlet name. No-op when .value already stripped.
-		const rawName = rawNameUnstripped.replace(/^['"]|['"]$/g, "");
-		// SECURITY: PowerShell built-in cmdlet names are ASCII-only. Non-ASCII
-		// characters in cmdlet position are inherently suspicious — .NET
-		// OrdinalIgnoreCase folds U+017F (ſ) → S and U+0131 (ı) → I per
-		// UnicodeData.txt SimpleUppercaseMapping, so PowerShell resolves
-		// `ſtart-proceſſ` → Start-Process at runtime. JS .toLowerCase() does NOT
-		// fold these (ſ is already lowercase), so every downstream name
-		// comparison (NEVER_SUGGEST, deny-rule strEquals, resolveToCanonical,
-		// security validators) misses. Force 'application' to gate auto-allow
-		// (blocks at the nameType !== 'application' checks). Finding #31.
-		// Verified on Windows (pwsh 7.x, 2026-03): ſtart-proceſſ does NOT resolve.
-		// Retained as defense-in-depth against future .NET/PS behavior changes
-		// or module-provided command resolution hooks.
-		if (/[\u0080-\uFFFF]/.test(rawName)) {
-			nameType = "application";
-		} else {
-			nameType = classifyCommandName(rawName);
-		}
-		name = stripModulePrefix(rawName);
-		elementTypes.push(mapElementType(first.type, first.expressionType));
+			// SECURITY: only trust .value for string-literal element types with a
+			// string-typed value. Numeric ConstantExpressionAst (e.g. `& 1`) emits an
+			// integer .value that crashes stripModulePrefix() → parser falls through
+			// to passthrough. For non-string-literal or non-string .value, use .text.
+			const isFirstStringLiteral =
+				first.type === "StringConstantExpressionAst" ||
+				first.type === "ExpandableStringExpressionAst";
+			const rawNameUnstripped =
+				isFirstStringLiteral && typeof first.value === "string"
+					? first.value
+					: first.text;
+			// SECURITY: strip surrounding quotes from the command name. When .value is
+			// unavailable (no StaticType on the raw node), .text preserves quotes —
+			// `& 'Invoke-Expression' 'x'` yields "'Invoke-Expression'". Stripping here
+			// at the source means every downstream reader of element.name (deny-rule
+			// matching, GIT_SAFETY_WRITE_CMDLETS lookup, resolveToCanonical, etc.)
+			// sees the bare cmdlet name. No-op when .value already stripped.
+			const rawName = rawNameUnstripped.replace(/^['"]|['"]$/g, "");
+			// SECURITY: PowerShell built-in cmdlet names are ASCII-only. Non-ASCII
+			// characters in cmdlet position are inherently suspicious — .NET
+			// OrdinalIgnoreCase folds U+017F (ſ) → S and U+0131 (ı) → I per
+			// UnicodeData.txt SimpleUppercaseMapping, so PowerShell resolves
+			// `ſtart-proceſſ` → Start-Process at runtime. JS .toLowerCase() does NOT
+			// fold these (ſ is already lowercase), so every downstream name
+			// comparison (NEVER_SUGGEST, deny-rule strEquals, resolveToCanonical,
+			// security validators) misses. Force 'application' to gate auto-allow
+			// (blocks at the nameType !== 'application' checks). Finding #31.
+			// Verified on Windows (pwsh 7.x, 2026-03): ſtart-proceſſ does NOT resolve.
+			// Retained as defense-in-depth against future .NET/PS behavior changes
+			// or module-provided command resolution hooks.
+			if (/[\u0080-\uFFFF]/.test(rawName)) {
+				nameType = "application";
+			} else {
+				nameType = classifyCommandName(rawName);
+			}
+			name = stripModulePrefix(rawName);
+			elementTypes.push(mapElementType(first.type, first.expressionType));
 		}
 
 		for (let i = 1; i < cmdElements.length; i++) {

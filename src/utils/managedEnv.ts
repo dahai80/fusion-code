@@ -149,7 +149,6 @@ export function applySafeConfigEnvironmentVariables(): void {
 		);
 	}
 
-
 	Object.assign(
 		process.env,
 		filterSettingsEnv(getSettingsForSource("policySettings")?.env),

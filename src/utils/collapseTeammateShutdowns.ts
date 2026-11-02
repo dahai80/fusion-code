@@ -28,7 +28,8 @@ export function collapseTeammateShutdowns(
 			let count = 0;
 			while (i < messages.length) {
 				const candidate = messages[i];
-				if (candidate === undefined || !isTeammateShutdownAttachment(candidate)) break;
+				if (candidate === undefined || !isTeammateShutdownAttachment(candidate))
+					break;
 				count++;
 				i++;
 			}

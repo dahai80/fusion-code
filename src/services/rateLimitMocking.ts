@@ -7,6 +7,6 @@ export function shouldProcessRateLimits(subscriber: boolean): boolean {
 	return subscriber;
 }
 
-export function processRateLimitHeaders< HeadersT >(headers: HeadersT): HeadersT {
+export function processRateLimitHeaders<HeadersT>(headers: HeadersT): HeadersT {
 	return headers;
 }

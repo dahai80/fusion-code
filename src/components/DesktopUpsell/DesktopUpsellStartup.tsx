@@ -7,7 +7,6 @@ import {
 } from "../../services/analytics/index.js";
 import { getGlobalConfig, saveGlobalConfig } from "../../utils/config.js";
 import { Select } from "../CustomSelect/select.js";
-import { DesktopHandoff } from "../DesktopHandoff.js";
 import { PermissionDialog } from "../permissions/PermissionDialog.js";
 
 type DesktopUpsellConfig = {
@@ -54,9 +53,10 @@ export function DesktopUpsellStartup(t0) {
 	}
 	useEffect(_temp, t1);
 	if (showHandoff) {
+		// Desktop handoff removed with the cloud account stack; dismiss instead.
 		let t2;
 		if ($[1] !== onDone) {
-			t2 = <DesktopHandoff onDone={() => onDone()} />;
+			t2 = null;
 			$[1] = onDone;
 			$[2] = t2;
 		} else {

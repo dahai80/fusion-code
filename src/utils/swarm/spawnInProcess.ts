@@ -290,9 +290,8 @@ export function killInProcessTeammate(
 					onIdleCallbacks: [], // Clear callbacks to prevent stale references
 					messages: teammateTask.messages?.length
 						? [
-								teammateTask.messages[
-									teammateTask.messages.length - 1
-								] ?? teammateTask.messages[0],
+								teammateTask.messages[teammateTask.messages.length - 1] ??
+									teammateTask.messages[0],
 							].filter((m) => m !== undefined)
 						: undefined,
 					pendingUserMessages: [],

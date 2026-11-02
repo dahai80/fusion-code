@@ -93,7 +93,9 @@ function psExeHasParamAbbreviation(
 	const normalized: ParsedCommandElement = {
 		...cmd,
 		args: cmd.args.map((a) =>
-			a.length > 0 && PS_ALT_PARAM_PREFIXES.has(a[0] ?? "") ? `-${a.slice(1)}` : a,
+			a.length > 0 && PS_ALT_PARAM_PREFIXES.has(a[0] ?? "")
+				? `-${a.slice(1)}`
+				: a,
 		),
 	};
 	return commandHasArgAbbreviation(normalized, fullParam, minPrefix);

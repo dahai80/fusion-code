@@ -672,7 +672,8 @@ export function preflightMlxTokenTruncate(
 				JSON.stringify(
 					toolDefs.map((t) => ({
 						name: t.name,
-						description: (t as unknown as { description?: string }).description ?? "",
+						description:
+							(t as unknown as { description?: string }).description ?? "",
 					})),
 				),
 			)

@@ -108,7 +108,7 @@ function buildHookSchemas() {
 			.record(z.string(), z.string())
 			.optional()
 			.describe(
-				'Additional headers to include in the request. Values may reference environment variables using $VAR_NAME or $' +
+				"Additional headers to include in the request. Values may reference environment variables using $VAR_NAME or $" +
 					'{VAR_NAME} syntax (e.g., "Authorization": "Bearer $MY_TOKEN"). Only variables listed in allowedEnvVars will be interpolated.',
 			),
 		allowedEnvVars: z

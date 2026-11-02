@@ -777,9 +777,9 @@ export function normalizeMessagesCore(
 						type: "assistant" as const,
 						timestamp: message.timestamp,
 						message: {
-						 ...message.message,
-						 content: [contentBlock],
-						 context_management: message.message.context_management ?? null,
+							...message.message,
+							content: [contentBlock],
+							context_management: message.message.context_management ?? null,
 						},
 						isMeta: message.isMeta,
 						isVirtual: message.isVirtual,
@@ -2296,10 +2296,10 @@ export function normalizeMessagesForAPI(
 					// since concurrent agents (teammates) can interleave streaming content
 					// blocks from multiple API responses with different message IDs.
 					for (let i = result.length - 1; i >= 0; i--) {
-					 const msg = result[i];
-					 if (msg === undefined) break;
+						const msg = result[i];
+						if (msg === undefined) break;
 
-					 if (msg.type !== "assistant" && !isToolResultMessage(msg)) {
+						if (msg.type !== "assistant" && !isToolResultMessage(msg)) {
 							break;
 						}
 
@@ -5433,7 +5433,7 @@ export function ensureToolResultPairing(
 				// (pairing runs after normalize). Re-smoosh just this one message.
 				result.push(
 					checkStatsigFeatureGate_CACHED_MAY_BE_STALE("tengu_chair_sermon")
-						? smooshSystemReminderSiblings([patchedNext])[0] ?? patchedNext
+						? (smooshSystemReminderSiblings([patchedNext])[0] ?? patchedNext)
 						: patchedNext,
 				);
 			} else {

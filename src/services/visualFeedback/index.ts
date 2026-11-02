@@ -383,9 +383,9 @@ export async function ingestVisualFeedback(opts: {
 			}
 		} catch (err) {
 			logError(
-			 new Error(
-			  `visual-feedback auto-fix save failed: ${(err as Error).message}`,
-			 ),
+				new Error(
+					`visual-feedback auto-fix save failed: ${(err as Error).message}`,
+				),
 			);
 		}
 	} else if (autoFixLoop) {

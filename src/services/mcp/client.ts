@@ -101,7 +101,6 @@ import {
 	getWebSocketProxyUrl,
 } from "../../utils/proxy.js";
 import { recursivelySanitizeUnicode } from "../../utils/sanitization.js";
-import { getSessionIngressAuthToken } from "../../utils/sessionIngressAuth.js";
 import { sideQuery } from "../../utils/sideQuery.js";
 import { subprocessEnv } from "../../utils/subprocessEnv.js";
 import {
@@ -753,10 +752,6 @@ export const connectToServer = memoize(
 		try {
 			let transport: Transport;
 
-			// If we have the session ingress JWT, we will connect via the session ingress rather than
-			// to remote MCP's directly.
-			const sessionIngressToken = getSessionIngressAuthToken();
-
 			if (serverRef.type === "sse") {
 				// Create an auth provider for this server
 				const authProvider = new ClaudeAuthProvider(name, serverRef);
@@ -884,9 +879,6 @@ export const connectToServer = memoize(
 				const tlsOptions = getWebSocketTLSOptions();
 				const wsHeaders = {
 					"User-Agent": getMCPUserAgent(),
-					...(sessionIngressToken && {
-						Authorization: `Bearer ${sessionIngressToken}`,
-					}),
 					...combinedHeaders,
 				};
 
@@ -900,7 +892,6 @@ export const connectToServer = memoize(
 					`WebSocket transport options: ${jsonStringify({
 						url: serverRef.url,
 						headers: wsHeadersForLogging,
-						hasSessionAuth: !!sessionIngressToken,
 					})}`,
 				);
 
@@ -945,13 +936,6 @@ export const connectToServer = memoize(
 				// Get combined headers (static + dynamic)
 				const combinedHeaders = await getMcpServerHeaders(name, serverRef);
 
-				// Check if this server has stored OAuth tokens. If so, the SDK's
-				// authProvider will set Authorization — don't override with the
-				// session ingress token (SDK merges requestInit AFTER authProvider).
-				// CCR proxy URLs (ccr_shttp_mcp) have no stored OAuth, so they still
-				// get the ingress token. See PR #24454 discussion.
-				const hasOAuthTokens = !!(await authProvider.tokens());
-
 				// Use the auth provider with StreamableHTTPClientTransport
 				const proxyOptions = getProxyFetchOptions();
 				logMCPDebug(
@@ -971,10 +955,6 @@ export const connectToServer = memoize(
 						...proxyOptions,
 						headers: {
 							"User-Agent": getMCPUserAgent(),
-							...(sessionIngressToken &&
-								!hasOAuthTokens && {
-									Authorization: `Bearer ${sessionIngressToken}`,
-								}),
 							...combinedHeaders,
 						},
 					},
@@ -1691,90 +1671,61 @@ export const connectToServer = memoize(
 								void (async () => {
 									let resolved = false;
 
-								// Set up a timer to check if process still exists
-								const checkInterval = setInterval(() => {
-									try {
-										// process.kill(pid, 0) checks if process exists without killing it
-										process.kill(childPid, 0);
-									} catch {
-										// Process no longer exists
-										if (!resolved) {
-											resolved = true;
-											clearInterval(checkInterval);
-											clearTimeout(failsafeTimeout);
-											logMCPDebug(name, "MCP server process exited cleanly");
-											resolve();
-										}
-									}
-								}, 50);
-
-								// Absolute failsafe: clear interval after 600ms no matter what
-								const failsafeTimeout = setTimeout(() => {
-									if (!resolved) {
-										resolved = true;
-										clearInterval(checkInterval);
-										logMCPDebug(
-											name,
-											"Cleanup timeout reached, stopping process monitoring",
-										);
-										resolve();
-									}
-								}, 600);
-
-								try {
-									// Wait 100ms for SIGINT to work (usually much faster)
-									await sleep(100);
-
-									if (!resolved) {
-										// Check if process still exists
+									// Set up a timer to check if process still exists
+									const checkInterval = setInterval(() => {
 										try {
+											// process.kill(pid, 0) checks if process exists without killing it
 											process.kill(childPid, 0);
-											// Process still exists, SIGINT failed, try SIGTERM
-											logMCPDebug(
-												name,
-												"SIGINT failed, sending SIGTERM to MCP server process",
-											);
-											try {
-												process.kill(childPid, "SIGTERM");
-											} catch (termError) {
-												logMCPDebug(
-													name,
-													`Error sending SIGTERM: ${termError}`,
-												);
+										} catch {
+											// Process no longer exists
+											if (!resolved) {
 												resolved = true;
 												clearInterval(checkInterval);
 												clearTimeout(failsafeTimeout);
+												logMCPDebug(name, "MCP server process exited cleanly");
 												resolve();
-												return;
 											}
-										} catch {
-											// Process already exited
+										}
+									}, 50);
+
+									// Absolute failsafe: clear interval after 600ms no matter what
+									const failsafeTimeout = setTimeout(() => {
+										if (!resolved) {
 											resolved = true;
 											clearInterval(checkInterval);
-											clearTimeout(failsafeTimeout);
+											logMCPDebug(
+												name,
+												"Cleanup timeout reached, stopping process monitoring",
+											);
 											resolve();
-											return;
 										}
+									}, 600);
 
-										// Wait 400ms for SIGTERM to work (slower than SIGINT, often used for cleanup)
-										await sleep(400);
+									try {
+										// Wait 100ms for SIGINT to work (usually much faster)
+										await sleep(100);
 
 										if (!resolved) {
 											// Check if process still exists
 											try {
 												process.kill(childPid, 0);
-												// Process still exists, SIGTERM failed, force kill with SIGKILL
+												// Process still exists, SIGINT failed, try SIGTERM
 												logMCPDebug(
 													name,
-													"SIGTERM failed, sending SIGKILL to MCP server process",
+													"SIGINT failed, sending SIGTERM to MCP server process",
 												);
 												try {
-													process.kill(childPid, "SIGKILL");
-												} catch (killError) {
+													process.kill(childPid, "SIGTERM");
+												} catch (termError) {
 													logMCPDebug(
 														name,
-														`Error sending SIGKILL: ${killError}`,
+														`Error sending SIGTERM: ${termError}`,
 													);
+													resolved = true;
+													clearInterval(checkInterval);
+													clearTimeout(failsafeTimeout);
+													resolve();
+													return;
 												}
 											} catch {
 												// Process already exited
@@ -1782,26 +1733,55 @@ export const connectToServer = memoize(
 												clearInterval(checkInterval);
 												clearTimeout(failsafeTimeout);
 												resolve();
+												return;
+											}
+
+											// Wait 400ms for SIGTERM to work (slower than SIGINT, often used for cleanup)
+											await sleep(400);
+
+											if (!resolved) {
+												// Check if process still exists
+												try {
+													process.kill(childPid, 0);
+													// Process still exists, SIGTERM failed, force kill with SIGKILL
+													logMCPDebug(
+														name,
+														"SIGTERM failed, sending SIGKILL to MCP server process",
+													);
+													try {
+														process.kill(childPid, "SIGKILL");
+													} catch (killError) {
+														logMCPDebug(
+															name,
+															`Error sending SIGKILL: ${killError}`,
+														);
+													}
+												} catch {
+													// Process already exited
+													resolved = true;
+													clearInterval(checkInterval);
+													clearTimeout(failsafeTimeout);
+													resolve();
+												}
 											}
 										}
-									}
 
-									// Final timeout - always resolve after 500ms max (total cleanup time)
-									if (!resolved) {
-										resolved = true;
-										clearInterval(checkInterval);
-										clearTimeout(failsafeTimeout);
-										resolve();
+										// Final timeout - always resolve after 500ms max (total cleanup time)
+										if (!resolved) {
+											resolved = true;
+											clearInterval(checkInterval);
+											clearTimeout(failsafeTimeout);
+											resolve();
+										}
+									} catch {
+										// Handle any errors in the escalation sequence
+										if (!resolved) {
+											resolved = true;
+											clearInterval(checkInterval);
+											clearTimeout(failsafeTimeout);
+											resolve();
+										}
 									}
-								} catch {
-									// Handle any errors in the escalation sequence
-									if (!resolved) {
-										resolved = true;
-										clearInterval(checkInterval);
-										clearTimeout(failsafeTimeout);
-										resolve();
-									}
-								}
 								})();
 							});
 						}

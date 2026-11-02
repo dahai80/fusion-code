@@ -55,7 +55,8 @@ export function collapseBackgroundBashNotifications(
 			let count = 0;
 			while (i < messages.length) {
 				const candidate = messages[i];
-				if (candidate === undefined || !isCompletedBackgroundBash(candidate)) break;
+				if (candidate === undefined || !isCompletedBackgroundBash(candidate))
+					break;
 				count++;
 				i++;
 			}

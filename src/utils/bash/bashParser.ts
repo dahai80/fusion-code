@@ -3235,10 +3235,12 @@ function parseIf(P: ParseState, ifTok: Token): TsNode {
 		} else if (t.type === "WORD" && t.value === "else") {
 			const elKw = leaf(P, "else", t);
 			const elBody = parseStatements(P, null);
-			const last =
-				elBody.length > 0 ? elBody[elBody.length - 1] : undefined;
+			const last = elBody.length > 0 ? elBody[elBody.length - 1] : undefined;
 			kids.push(
-				mk(P, "else_clause", elKw.startIndex, last?.endIndex ?? elKw.endIndex, [elKw, ...elBody]),
+				mk(P, "else_clause", elKw.startIndex, last?.endIndex ?? elKw.endIndex, [
+					elKw,
+					...elBody,
+				]),
 			);
 		} else {
 			restoreLex(P.L, save);

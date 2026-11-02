@@ -415,13 +415,11 @@ function NotificationContent({
 			{(apiKeyStatus === "invalid" || apiKeyStatus === "missing") && (
 				<Box>
 					<Text color="error" wrap="truncate">
-						{isEnvTruthy(process.env.CLAUDE_CODE_REMOTE)
-							? "Authentication error · Try again"
-							: isFusionMlxProvider()
-								? "Gateway not available · Run `fusion service start mlx` or set FUSION_CLIENT_KEY"
-								: !isAnthropicAuthEnabled()
-									? "API key missing · Set FUSION_CLIENT_KEY or configure a provider"
-									: "Not logged in · Run /login"}
+						{isFusionMlxProvider()
+							? "Gateway not available · Run `fusion service start mlx` or set FUSION_CLIENT_KEY"
+							: !isAnthropicAuthEnabled()
+								? "API key missing · Set FUSION_CLIENT_KEY or configure a provider"
+								: "Not logged in · Run /login"}
 					</Text>
 				</Box>
 			)}

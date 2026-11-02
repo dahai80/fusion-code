@@ -306,7 +306,10 @@ export function useVirtualScroll(
 		for (let i = 0; i < n; i++) {
 			const k = itemKeys[i];
 			arr[i + 1] =
-				(arr[i] ?? 0) + (k === undefined ? DEFAULT_ESTIMATE : (heightCache.current.get(k) ?? DEFAULT_ESTIMATE));
+				(arr[i] ?? 0) +
+				(k === undefined
+					? DEFAULT_ESTIMATE
+					: (heightCache.current.get(k) ?? DEFAULT_ESTIMATE));
 		}
 		offsetsRef.current = { arr, version: offsetVersionRef.current, n };
 	}
@@ -426,7 +429,11 @@ export function useVirtualScroll(
 				if (p && p[0] < start) {
 					for (let i = p[0]; i < Math.min(start, p[1]); i++) {
 						const k = itemKeys[i];
-						if (k !== undefined && itemRefs.current.has(k) && !heightCache.current.has(k)) {
+						if (
+							k !== undefined &&
+							itemRefs.current.has(k) &&
+							!heightCache.current.has(k)
+						) {
 							start = i;
 							break;
 						}
@@ -441,9 +448,13 @@ export function useVirtualScroll(
 			while (end < maxEnd) {
 				const oe = offsets[end];
 				if (oe === undefined) break;
-				if (coverage >= needed && oe >= effHi + viewportH + OVERSCAN_ROWS) break;
+				if (coverage >= needed && oe >= effHi + viewportH + OVERSCAN_ROWS)
+					break;
 				const k = itemKeys[end];
-				coverage += k === undefined ? PESSIMISTIC_HEIGHT : (heightCache.current.get(k) ?? PESSIMISTIC_HEIGHT);
+				coverage +=
+					k === undefined
+						? PESSIMISTIC_HEIGHT
+						: (heightCache.current.get(k) ?? PESSIMISTIC_HEIGHT);
 				end++;
 			}
 		}
@@ -454,12 +465,18 @@ export function useVirtualScroll(
 		let coverage = 0;
 		for (let i = start; i < end; i++) {
 			const k = itemKeys[i];
-			coverage += k === undefined ? PESSIMISTIC_HEIGHT : (heightCache.current.get(k) ?? PESSIMISTIC_HEIGHT);
+			coverage +=
+				k === undefined
+					? PESSIMISTIC_HEIGHT
+					: (heightCache.current.get(k) ?? PESSIMISTIC_HEIGHT);
 		}
 		while (start > minStart && coverage < needed) {
 			start--;
 			const k = itemKeys[start];
-			coverage += k === undefined ? PESSIMISTIC_HEIGHT : (heightCache.current.get(k) ?? PESSIMISTIC_HEIGHT);
+			coverage +=
+				k === undefined
+					? PESSIMISTIC_HEIGHT
+					: (heightCache.current.get(k) ?? PESSIMISTIC_HEIGHT);
 		}
 		// Slide cap: limit how many NEW items mount this commit. Scrolling into
 		// a fresh range would otherwise mount 194 items at PESSIMISTIC_HEIGHT=1

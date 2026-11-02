@@ -6,8 +6,14 @@ import { truncate } from "src/utils/format.js";
 import { toInkColor } from "src/utils/ink.js";
 import { plural } from "src/utils/stringUtils.js";
 import { DIAMOND_FILLED, DIAMOND_OPEN } from "../../constants/figures.js";
-import { RemoteSessionProgress } from "./RemoteSessionProgress.js";
 import { ShellProgress, TaskStatusText } from "./ShellProgress.js";
+
+// RemoteSessionProgress removed - cloud-only. Null stub keeps the
+// react-compiler memo slot structure intact.
+function RemoteSessionProgress(_props: { session: unknown }): null {
+	return null;
+}
+
 import { describeTeammateActivity } from "./taskStatusUtils.js";
 
 type Props = {

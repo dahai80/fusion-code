@@ -40,7 +40,6 @@ const base = {
 	showModelSwitchCallout: false,
 	showUndercoverCallout: false,
 	showEffortCallout: false,
-	showRemoteCallout: false,
 	lspRecommendation: null,
 	hintRecommendation: null,
 	showDesktopUpsellStartup: false,
@@ -158,12 +157,6 @@ describe("getFocusedInputDialog — animation-gated dialogs", () => {
 	it("returns effort-callout when showing", () => {
 		expect(getFocusedInputDialog({ ...base, showEffortCallout: true })).toBe(
 			"effort-callout",
-		);
-	});
-
-	it("returns remote-callout when showing", () => {
-		expect(getFocusedInputDialog({ ...base, showRemoteCallout: true })).toBe(
-			"remote-callout",
 		);
 	});
 

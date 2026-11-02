@@ -78,6 +78,7 @@ import {
 	logEvent,
 	sanitizeToolNameForAnalytics,
 } from "../../services/analytics/index.js";
+import type { YoloClassifierResult } from "../../types/permissions.js";
 import {
 	clearClassifierChecking,
 	setClassifierChecking,
@@ -106,7 +107,6 @@ import {
 	classifyYoloAction,
 	formatActionForClassifier,
 } from "./yoloClassifier.js";
-import type { YoloClassifierResult } from "../../types/permissions.js";
 
 const CLASSIFIER_FAIL_CLOSED_REFRESH_MS = 30 * 60 * 1000; // 30 minutes
 
@@ -438,11 +438,11 @@ async function runPermissionRequestHooksForHeadlessAgent(
 					context.setAppState((prev) => ({
 						...prev,
 						toolPermissionContext: decision.updatedPermissions
-						 ? applyPermissionUpdates(
-						   prev.toolPermissionContext,
-						   decision.updatedPermissions,
-						  )
-						 : prev.toolPermissionContext,
+							? applyPermissionUpdates(
+									prev.toolPermissionContext,
+									decision.updatedPermissions,
+								)
+							: prev.toolPermissionContext,
 					}));
 				}
 				return {

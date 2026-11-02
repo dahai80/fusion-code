@@ -307,5 +307,3 @@ export function formatModelAndBilling(
 		truncatedBilling: billingType,
 	};
 }
-
-

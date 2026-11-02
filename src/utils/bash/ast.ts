@@ -337,20 +337,20 @@ function maskBracesInQuotedContexts(cmd: string): string {
 	let inDouble = false;
 	let i = 0;
 	while (i < cmd.length) {
-	 const c = cmd[i];
-	 if (c === undefined) break;
-	 if (inSingle) {
-	  // Bash single quotes: no escapes, `'` always terminates.
-	  if (c === "'") inSingle = false;
-	  out.push(c === "{" ? " " : c);
+		const c = cmd[i];
+		if (c === undefined) break;
+		if (inSingle) {
+			// Bash single quotes: no escapes, `'` always terminates.
+			if (c === "'") inSingle = false;
+			out.push(c === "{" ? " " : c);
 			i++;
 		} else if (inDouble) {
 			// Bash double quotes: `\` escapes `"` and `\` (also `$`, backtick,
 			// newline — but those don't affect quote state so we let them pass).
 			if (c === "\\" && (cmd[i + 1] === '"' || cmd[i + 1] === "\\")) {
-			 const nxt = cmd[i + 1];
-			 if (nxt !== undefined) out.push(c, nxt);
-			 i += 2;
+				const nxt = cmd[i + 1];
+				if (nxt !== undefined) out.push(c, nxt);
+				i += 2;
 			} else {
 				if (c === '"') inDouble = false;
 				out.push(c === "{" ? " " : c);
@@ -1901,7 +1901,7 @@ function walkVariableAssignment(
 				kind: "too-complex",
 				reason:
 					"PS4 value outside safe charset — only $" +
-						"{VAR} refs and [A-Za-z0-9 _+:.=/[]-] allowed",
+					"{VAR} refs and [A-Za-z0-9 _+:.=/[]-] allowed",
 				nodeType: "variable_assignment",
 			};
 		}

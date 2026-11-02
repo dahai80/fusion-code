@@ -37,7 +37,6 @@ export type FocusedDialogInput = {
 	showModelSwitchCallout: boolean;
 	showUndercoverCallout: boolean;
 	showEffortCallout: boolean;
-	showRemoteCallout: boolean;
 	lspRecommendation: unknown;
 	hintRecommendation: unknown;
 	showDesktopUpsellStartup: boolean;
@@ -116,8 +115,6 @@ export function getFocusedInputDialog(
 		return "undercover-callout";
 	if (allowDialogsWithAnimation && input.showEffortCallout)
 		return "effort-callout";
-	if (allowDialogsWithAnimation && input.showRemoteCallout)
-		return "remote-callout";
 	if (allowDialogsWithAnimation && input.lspRecommendation)
 		return "lsp-recommendation";
 	if (allowDialogsWithAnimation && input.hintRecommendation)

@@ -131,13 +131,11 @@ describe("P1-5 no bare process.exit after init (audit R11)", () => {
 					violations.join("\n"),
 			);
 		}
-		// 0 violations — but assert at least the expected allowlisted exits
-		// still exist, so the test cannot pass vacuously if all exits were
-		// accidentally removed.
-		const remaining = lines
-			.map((l, i) => ({ l, ln: i + 1 }))
-			.filter(({ l, ln }) => ln > initLine && isBareExitCall(l));
-		expect(remaining.length).toBeGreaterThan(0);
+		// Deep-link/URL-scheme fast paths (the last allowlisted post-init bare
+		// exits) were removed with the cloud stack (P1f 1102 cleanup). Contract
+		// is now zero bare process.exit after init; any new one fails above
+		// until classified.
+		expect(violations.length).toBe(0);
 	});
 
 	it("SIGHUP handler routes through gracefulShutdown (audit R11)", () => {

@@ -38,23 +38,6 @@ import {
 	updateAgentProgress as updateAsyncAgentProgress,
 	updateProgressFromMessage,
 } from "../../tasks/LocalAgentTask/LocalAgentTask.js";
-import { checkSubagentGuardrails } from "./subagentGuardrails.js";
-
-// RemoteAgentTask removed - cloud-only. Stubs for dead-code-eliminated remote path:
-const checkRemoteAgentEligibility = async (): Promise<{
-	eligible: boolean;
-	reason?: string;
-	errors: unknown[];
-}> => ({
-	eligible: false,
-	errors: [],
-});
-const formatPreconditionError = (e: unknown): string => String(e);
-const getRemoteTaskSessionUrl = (_sessionId: string): string => "";
-const registerRemoteAgentTask = (
-	_opts: unknown,
-): { taskId: string; sessionId: string } => ({ taskId: "", sessionId: "" });
-
 import { assembleToolPool } from "../../tools.js";
 import { asAgentId } from "../../types/ids.js";
 import { runWithAgentContext } from "../../utils/agentContext.js";
@@ -90,7 +73,6 @@ import { asSystemPrompt } from "../../utils/systemPromptType.js";
 import { getTaskOutputPath } from "../../utils/task/diskOutput.js";
 import { getParentSessionId, isTeammate } from "../../utils/teammate.js";
 import { isInProcessTeammate } from "../../utils/teammateContext.js";
-import { teleportToRemote } from "../../utils/teleport.js";
 import { getAssistantMessageContentLength } from "../../utils/tokens.js";
 import { createAgentId } from "../../utils/uuid.js";
 import {
@@ -137,6 +119,7 @@ import {
 } from "./loadAgentsDir.js";
 import { getPrompt } from "./prompt.js";
 import { runAgent } from "./runAgent.js";
+import { checkSubagentGuardrails } from "./subagentGuardrails.js";
 import {
 	renderGroupedAgentToolUse,
 	renderToolResultMessage,
@@ -712,55 +695,9 @@ export const AgentTool = buildTool({
 		// Resolve effective isolation mode (explicit param overrides agent def)
 		const effectiveIsolation = isolation ?? selectedAgent.isolation;
 
-		// Remote isolation: delegate to CCR. Gated ant-only — the guard enables
-		// dead code elimination of the entire block for external builds.
+		// Remote isolation removed: cloud agent delegation (CCR/teleport) is gone.
 		if (isInternalBuild() && effectiveIsolation === "remote") {
-			const eligibility = await checkRemoteAgentEligibility();
-			if (!eligibility.eligible) {
-				const reasons = eligibility.errors
-					.map(formatPreconditionError)
-					.join("\n");
-				throw new Error(`Cannot launch remote agent:\n${reasons}`);
-			}
-			let bundleFailHint: string | undefined;
-			const session = await teleportToRemote({
-				initialMessage: prompt,
-				description,
-				signal: toolUseContext.abortController.signal,
-				onBundleFail: (msg) => {
-					bundleFailHint = msg;
-				},
-			});
-			if (!session) {
-				throw new Error(bundleFailHint ?? "Failed to create remote session");
-			}
-			const { taskId, sessionId } = registerRemoteAgentTask({
-				remoteTaskType: "remote-agent",
-				session: {
-					id: session.id,
-					title: session.title || description,
-				},
-				command: prompt,
-				context: toolUseContext,
-				toolUseId: toolUseContext.toolUseId,
-			});
-			logEvent("tengu_agent_tool_remote_launched", {
-				agent_type:
-					selectedAgent.agentType as AnalyticsMetadata_I_VERIFIED_THIS_IS_NOT_CODE_OR_FILEPATHS,
-			});
-			const remoteResult: RemoteLaunchedOutput = {
-				status: "remote_launched",
-				taskId,
-				sessionUrl: getRemoteTaskSessionUrl(sessionId),
-				description,
-				prompt,
-				outputFile: getTaskOutputPath(taskId),
-			};
-			return {
-				data: remoteResult,
-			} as unknown as {
-				data: Output;
-			};
+			throw new Error("Remote isolation is not available in this build");
 		}
 		// System prompt + prompt messages: branch on fork path.
 		//
@@ -1092,7 +1029,7 @@ export const AgentTool = buildTool({
 					runAsyncAgentLifecycle({
 						taskId: agentBackgroundTask.agentId,
 						abortController:
-						 agentBackgroundTask.abortController ?? new AbortController(),
+							agentBackgroundTask.abortController ?? new AbortController(),
 						makeStream: (onCacheSafeParams) =>
 							runAgent({
 								...runAgentParams,
@@ -1100,7 +1037,8 @@ export const AgentTool = buildTool({
 									...runAgentParams.override,
 									agentId: asAgentId(agentBackgroundTask.agentId),
 									abortController:
-										agentBackgroundTask.abortController ?? new AbortController(),
+										agentBackgroundTask.abortController ??
+										new AbortController(),
 								},
 								onCacheSafeParams,
 							}),

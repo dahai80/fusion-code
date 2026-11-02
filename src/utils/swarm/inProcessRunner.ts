@@ -793,19 +793,19 @@ async function waitForNextPromptOrShutdown(
 						allMessages.slice(0, shutdownIndex),
 						(m) => !m.read,
 					);
-				logForDebugging(
-					`[inProcessRunner] ${identity.agentName} received shutdown request from ${shutdownParsed?.from} (prioritized over ${skippedUnread} unread messages)`,
-				);
-				await markMessageAsReadByIndex(
-					identity.agentName,
-					identity.teamName,
-					shutdownIndex,
-				);
-				return {
-					type: "shutdown_request",
-					request: shutdownParsed,
-					originalMessage: msg.text,
-				};
+					logForDebugging(
+						`[inProcessRunner] ${identity.agentName} received shutdown request from ${shutdownParsed?.from} (prioritized over ${skippedUnread} unread messages)`,
+					);
+					await markMessageAsReadByIndex(
+						identity.agentName,
+						identity.teamName,
+						shutdownIndex,
+					);
+					return {
+						type: "shutdown_request",
+						request: shutdownParsed,
+						originalMessage: msg.text,
+					};
 				}
 			}
 

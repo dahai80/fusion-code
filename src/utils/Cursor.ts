@@ -280,7 +280,7 @@ export class Cursor {
 				) {
 					// First ghost character goes in the inverted cursor (grapheme-safe)
 					const firstGhostChar =
-					 firstGrapheme(ghostText.text) || (ghostText.text[0] ?? "");
+						firstGrapheme(ghostText.text) || (ghostText.text[0] ?? "");
 					renderedCursor = cursorChar ? invert(firstGhostChar) : firstGhostChar;
 					// Rest of ghost text is dimmed after cursor
 					const ghostRest = ghostText.text.slice(firstGhostChar.length);

@@ -132,8 +132,7 @@ export function LogoV2() {
 	let t4;
 	if ($[5] === Symbol.for("react.memo_cache_sentinel")) {
 		t4 =
-			!showOnboarding &&
-			!isEnvTruthy(process.env.CLAUDE_CODE_FORCE_FULL_LOGO);
+			!showOnboarding && !isEnvTruthy(process.env.CLAUDE_CODE_FORCE_FULL_LOGO);
 		$[5] = t4;
 	} else {
 		t4 = $[5];

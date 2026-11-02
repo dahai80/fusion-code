@@ -337,13 +337,12 @@ async function processSessionFiles(
 
 						const agg = modelUsageAgg[model];
 						if (agg) {
-						 agg.inputTokens += usage.input_tokens || 0;
-						 agg.outputTokens += usage.output_tokens || 0;
+							agg.inputTokens += usage.input_tokens || 0;
+							agg.outputTokens += usage.output_tokens || 0;
 						}
 						const agg2 = modelUsageAgg[model];
 						if (agg2) {
-							agg2.cacheReadInputTokens +=
-								usage.cache_read_input_tokens || 0;
+							agg2.cacheReadInputTokens += usage.cache_read_input_tokens || 0;
 							agg2.cacheCreationInputTokens +=
 								usage.cache_creation_input_tokens || 0;
 						}

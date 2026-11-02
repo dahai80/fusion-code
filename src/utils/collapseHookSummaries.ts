@@ -32,7 +32,12 @@ export function collapseHookSummaries(
 			const group: SystemStopHookSummaryMessage[] = [];
 			while (i < messages.length) {
 				const next = messages[i];
-				if (next === undefined || !isLabeledHookSummary(next) || next.hookLabel !== label) break;
+				if (
+					next === undefined ||
+					!isLabeledHookSummary(next) ||
+					next.hookLabel !== label
+				)
+					break;
 				group.push(next);
 				i++;
 			}

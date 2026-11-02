@@ -706,7 +706,8 @@ export function stripWrappersFromArgv(argv: string[]): string[] {
 			a = a.slice(a[1] === "--" ? 2 : 1);
 		} else if (a[0] === "timeout") {
 			const i = skipTimeoutFlags(a);
-			if (i < 0 || !a[i] || !/^\d+(?:\.\d+)?[smhd]?$/.test(a[i] ?? "")) return a;
+			if (i < 0 || !a[i] || !/^\d+(?:\.\d+)?[smhd]?$/.test(a[i] ?? ""))
+				return a;
 			a = a.slice(i + 1);
 		} else if (
 			a[0] === "nice" &&

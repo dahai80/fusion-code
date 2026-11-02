@@ -570,7 +570,12 @@ export class TmuxBackend implements PaneBackend {
 		}
 		const isFirstTeammate = paneCount === 1;
 
-		let splitResult: { stdout: string; stderr: string; code: number; error?: string };
+		let splitResult: {
+			stdout: string;
+			stderr: string;
+			code: number;
+			error?: string;
+		};
 		if (isFirstTeammate) {
 			// First teammate: split horizontally from the leader pane
 			splitResult = await execFileNoThrow(TMUX_COMMAND, [
@@ -734,7 +739,13 @@ export class TmuxBackend implements PaneBackend {
 
 		const leaderPane = panes[0];
 		if (leaderPane !== undefined) {
-			await runTmuxInUserSession(["resize-pane", "-t", leaderPane, "-x", "30%"]);
+			await runTmuxInUserSession([
+				"resize-pane",
+				"-t",
+				leaderPane,
+				"-x",
+				"30%",
+			]);
 		}
 
 		logForDebugging(

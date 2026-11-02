@@ -33,8 +33,6 @@ import chalk from "chalk";
 import mapValues from "lodash-es/mapValues.js";
 import pickBy from "lodash-es/pickBy.js";
 import uniqBy from "lodash-es/uniqBy.js";
-import { getOauthConfig } from "./constants/oauth.js";
-import { getRemoteSessionUrl } from "./constants/product.js";
 import { getSystemContext, getUserContext } from "./context.js";
 import { init, initializeTelemetryAfterTrust } from "./entrypoints/init.js";
 import { addToHistory } from "./history.js";
@@ -45,12 +43,6 @@ import {
 	initializeGrowthBook,
 	refreshGrowthBookAfterAuthChange,
 } from "./services/analytics/index.js";
-import {
-	type DownloadResult,
-	downloadSessionFiles,
-	type FilesApiConfig,
-	parseFileSpecs,
-} from "./services/api/index.js";
 import type {
 	McpSdkServerConfig,
 	McpServerConfig,
@@ -58,10 +50,8 @@ import type {
 } from "./services/mcp/index.js";
 import { prefetchOfficialMcpUrls } from "./services/mcp/index.js";
 import {
-	isPolicyAllowed,
 	loadPolicyLimits,
 	refreshPolicyLimits,
-	waitForPolicyLimitsToLoad,
 } from "./services/policyLimits/index.js";
 import type { ToolInputJSONSchema } from "./Tool.js";
 import {
@@ -77,7 +67,7 @@ import {
 	modelSupportsAdvisor,
 } from "./utils/advisor.js";
 import { isAgentSwarmsEnabled } from "./utils/agentSwarmsEnabled.js";
-import { count, uniq } from "./utils/array.js";
+import { uniq } from "./utils/array.js";
 import { installAsciicastRecorder } from "./utils/asciicast.js";
 import {
 	getSubscriptionType,
@@ -99,9 +89,8 @@ import {
 	resolveFastModeStatusFromCache,
 } from "./utils/fastMode.js";
 import { applyConfigEnvironmentVariables } from "./utils/managedEnv.js";
-import { createSystemMessage, createUserMessage } from "./utils/messages.js";
+import { createUserMessage } from "./utils/messages.js";
 import { getPlatform } from "./utils/platform.js";
-import { getSessionIngressAuthToken } from "./utils/sessionIngressAuth.js";
 import { settingsChangeDetector } from "./utils/settings/changeDetector.js";
 import { skillChangeDetector } from "./utils/skills/skillChangeDetector.js";
 import { jsonParse, writeFileSyncSlow } from "./utils/slowOperations.js";
@@ -144,26 +133,19 @@ import {
 import {
 	getOriginalCwd,
 	setAdditionalDirectoriesForClaudeMd,
-	setIsRemoteMode,
 	setMainLoopModelOverride,
 	setMainThreadAgentType,
-	setTeleportedSessionInfo,
 } from "./bootstrap/state.js";
-import { filterCommandsForRemoteMode, getCommands } from "./commands.js";
+import { getCommands } from "./commands.js";
 import type { StatsStore } from "./context/stats.js";
 import {
-	launchAssistantInstallWizard,
-	launchAssistantSessionChooser,
 	launchInvalidSettingsDialog,
 	launchResumeChooser,
 	launchSnapshotUpdateDialog,
-	launchTeleportRepoMismatchDialog,
-	launchTeleportResumeWrapper,
 } from "./dialogLaunchers.js";
 import { SHOW_CURSOR } from "./ink/termio/dec.js";
 import {
 	exitWithError,
-	exitWithMessage,
 	getRenderContext,
 	renderAndRun,
 	showSetupScreens,
@@ -194,7 +176,6 @@ import {
 } from "./utils/claudeInChromeGate.js";
 import { getContextWindowForModel } from "./utils/context.js";
 import { loadConversationForResume } from "./utils/conversationRecovery.js";
-import { buildDeepLinkBanner } from "./utils/deepLink/banner.js";
 import {
 	hasNodeOption,
 	isBareMode,
@@ -204,12 +185,7 @@ import {
 import { refreshExampleCommands } from "./utils/exampleCommands.js";
 import type { FpsMetrics } from "./utils/fpsTracker.js";
 import { getWorktreePaths } from "./utils/getWorktreePaths.js";
-import {
-	findGitRoot,
-	getBranch,
-	getIsGit,
-	getWorktreeCount,
-} from "./utils/git.js";
+import { findGitRoot, getIsGit, getWorktreeCount } from "./utils/git.js";
 import { getGhAuthStatus } from "./utils/github/ghAuthStatus.js";
 import { safeParseJSON } from "./utils/json.js";
 import { logError } from "./utils/log.js";
@@ -302,13 +278,7 @@ import {
 } from "src/utils/concurrentSessions.js";
 import { getCwd } from "src/utils/cwd.js";
 import { logForDebugging, setHasFormattedOutput } from "src/utils/debug.js";
-import {
-	errorMessage,
-	getErrnoCode,
-	isENOENT,
-	TeleportOperationError,
-	toError,
-} from "src/utils/errors.js";
+import { errorMessage, getErrnoCode, isENOENT } from "src/utils/errors.js";
 import {
 	getFsImplementation,
 	safeResolvePath,
@@ -320,7 +290,6 @@ import {
 import { setAllHookEventsEnabled } from "src/utils/hooks/hookEvents.js";
 import { refreshModelCapabilities } from "src/utils/model/modelCapabilities.js";
 import { peekForStdinData, writeToStderr } from "src/utils/process.js";
-import { setCwd } from "src/utils/Shell.js";
 import {
 	type ProcessedResume,
 	processResumedConversation,
@@ -332,33 +301,27 @@ import {
 	getInitialMainLoopModel,
 	getIsNonInteractiveSession,
 	getSdkBetas,
-	getSessionId,
 	getUserMsgOptIn,
 	setAllowedChannels,
 	setAllowedSettingSources,
 	setChromeFlagOverride,
 	setClientType,
-	setCwdState,
-	setDirectConnectServerUrl,
 	setFlagSettingsPath,
 	setInitialMainLoopModel,
 	setInlinePlugins,
 	setIsInteractive,
 	setKairosActive,
-	setOriginalCwd,
 	setQuestionPreviewFormat,
 	setSdkBetas,
 	setSessionBypassPermissionsMode,
 	setSessionPersistenceDisabled,
 	setSessionSource,
 	setUserMsgOptIn,
-	switchSession,
 } from "./bootstrap/state.js";
 import { registerAntCommands } from "./main/antCommands.js";
 import { registerMcpCommands } from "./main/mcpCommands.js";
 import { registerAuthCommands } from "./main/miscCommands.js";
 import { registerMiscSubCommands } from "./main/miscSubCommands.js";
-import { registerOpenCommand } from "./main/openSubCommands.js";
 import { registerPluginCommands } from "./main/pluginCommands.js";
 import { registerServerSubCommands } from "./main/serverSubCommands.js";
 
@@ -366,7 +329,6 @@ import { registerServerSubCommands } from "./main/serverSubCommands.js";
 const autoModeStateModule =
 	require("./utils/permissions/autoModeState.js") as typeof import("./utils/permissions/autoModeState.js");
 
-// TeleportRepoMismatchDialog, TeleportResumeWrapper dynamically imported at call sites
 import { migrateAutoUpdatesToSettings } from "./migrations/migrateAutoUpdatesToSettings.js";
 import { migrateBypassPermissionsAcceptedToSettings } from "./migrations/migrateBypassPermissionsAcceptedToSettings.js";
 import { migrateEnableAllProjectMcpServersToSettings } from "./migrations/migrateEnableAllProjectMcpServersToSettings.js";
@@ -378,13 +340,7 @@ import { migrateSonnet1mToSonnet45 } from "./migrations/migrateSonnet1mToSonnet4
 import { migrateSonnet45ToSonnet46 } from "./migrations/migrateSonnet45ToSonnet46.js";
 import { resetAutoModeOptInForDefaultOffer } from "./migrations/resetAutoModeOptInForDefaultOffer.js";
 import { resetProToOpusDefault } from "./migrations/resetProToOpusDefault.js";
-import { createRemoteSessionConfig } from "./remote/RemoteSessionManager.js";
 /* eslint-enable @typescript-eslint/no-require-imports */
-// teleportWithProgress dynamically imported at call site
-import {
-	createDirectConnectSession,
-	DirectConnectError,
-} from "./server/createDirectConnectSession.js";
 import { initializeExecutorManager } from "./services/executor/index.js";
 import { initializeLspServerManager } from "./services/lsp/index.js";
 import { shouldEnablePromptSuggestion } from "./services/PromptSuggestion/index.js";
@@ -395,28 +351,15 @@ import {
 } from "./state/AppStateStore.js";
 import { onChangeAppState } from "./state/onChangeAppState.js";
 import { createStore } from "./state/store.js";
-import { asSessionId } from "./types/ids.js";
 import { filterAllowedSdkBetas } from "./utils/betas.js";
 import { isInternalBuild } from "./utils/buildConstants.js";
 import { isInBundledMode, isRunningWithBun } from "./utils/bundledMode.js";
 import { logForDiagnosticsNoPII } from "./utils/diagLogs.js";
 import {
-	filterExistingPaths,
-	getKnownPathsForRepo,
-} from "./utils/githubRepoPathMapping.js";
-import {
 	clearPluginCache,
 	loadAllPluginsCacheOnly,
 } from "./utils/plugins/pluginLoader.js";
 import { SandboxManager } from "./utils/sandbox/sandbox-adapter.js";
-import { fetchSession, prepareApiRequest } from "./utils/teleport/api.js";
-import {
-	checkOutTeleportedSessionBranch,
-	processMessagesForTeleportResume,
-	teleportToRemoteWithErrorHandling,
-	validateGitState,
-	validateSessionRepository,
-} from "./utils/teleport.js";
 import {
 	shouldEnableThinkingByDefault,
 	type ThinkingConfig,
@@ -789,57 +732,6 @@ function initializeEntrypoint(isNonInteractive: boolean): void {
 	process.env.CLAUDE_CODE_ENTRYPOINT = isNonInteractive ? "sdk-cli" : "cli";
 }
 
-// Set by early argv processing when `claude open <url>` is detected (interactive mode only)
-type PendingConnect = {
-	url: string | undefined;
-	authToken: string | undefined;
-	dangerouslySkipPermissions: boolean;
-};
-const _pendingConnect: PendingConnect | undefined = feature("DIRECT_CONNECT")
-	? {
-			url: undefined,
-			authToken: undefined,
-			dangerouslySkipPermissions: false,
-		}
-	: undefined;
-
-// Set by early argv processing when `claude assistant [sessionId]` is detected
-type PendingAssistantChat = {
-	sessionId?: string;
-	discover: boolean;
-};
-const _pendingAssistantChat: PendingAssistantChat | undefined = feature(
-	"KAIROS",
-)
-	? {
-			sessionId: undefined,
-			discover: false,
-		}
-	: undefined;
-
-// `claude ssh <host> [dir]` — parsed from argv early (same pattern as
-// DIRECT_CONNECT above) so the main command path can pick it up and hand
-// the REPL an SSH-backed session instead of a local one.
-type PendingSSH = {
-	host: string | undefined;
-	cwd: string | undefined;
-	permissionMode: string | undefined;
-	dangerouslySkipPermissions: boolean;
-	/** --local: spawn the child CLI directly, skip ssh/probe/deploy. e2e test mode. */
-	local: boolean;
-	/** Extra CLI args to forward to the remote CLI on initial spawn (--resume, -c). */
-	extraCliArgs: string[];
-};
-const _pendingSSH: PendingSSH | undefined = feature("SSH_REMOTE")
-	? {
-			host: undefined,
-			cwd: undefined,
-			permissionMode: undefined,
-			dangerouslySkipPermissions: false,
-			local: false,
-			extraCliArgs: [],
-		}
-	: undefined;
 export async function main() {
 	profileCheckpoint("main_function_start");
 
@@ -865,232 +757,17 @@ export async function main() {
 	});
 	profileCheckpoint("main_warning_handler_initialized");
 
-	// Check for cc:// or cc+unix:// URL in argv — rewrite so the main command
-	// handles it, giving the full interactive TUI instead of a stripped-down subcommand.
-	// For headless (-p), we rewrite to the internal `open` subcommand.
-	if (feature("DIRECT_CONNECT")) {
-		const rawCliArgs = process.argv.slice(2);
-		const ccIdx = rawCliArgs.findIndex(
-			(a) => a.startsWith("cc://") || a.startsWith("cc+unix://"),
-		);
-		if (ccIdx !== -1 && _pendingConnect) {
-			const ccUrl = rawCliArgs[ccIdx];
-			const { parseConnectUrl } = await import("./server/parseConnectUrl.js");
-			const parsed = parseConnectUrl(ccUrl);
-			_pendingConnect.dangerouslySkipPermissions = rawCliArgs.includes(
-				"--dangerously-skip-permissions",
-			);
-			if (rawCliArgs.includes("-p") || rawCliArgs.includes("--print")) {
-				// Headless: rewrite to internal `open` subcommand
-				const stripped = rawCliArgs.filter((_, i) => i !== ccIdx);
-				const dspIdx = stripped.indexOf("--dangerously-skip-permissions");
-				if (dspIdx !== -1) {
-					stripped.splice(dspIdx, 1);
-				}
-				process.argv = [
-					process.argv[0],
-					process.argv[1],
-					"open",
-					ccUrl,
-					...stripped,
-				];
-			} else {
-				// Interactive: strip cc:// URL and flags, run main command
-				_pendingConnect.url = parsed.serverUrl;
-				_pendingConnect.authToken = parsed.authToken;
-				const stripped = rawCliArgs.filter((_, i) => i !== ccIdx);
-				const dspIdx = stripped.indexOf("--dangerously-skip-permissions");
-				if (dspIdx !== -1) {
-					stripped.splice(dspIdx, 1);
-				}
-				process.argv = [process.argv[0], process.argv[1], ...stripped];
-			}
-		}
-	}
-
-	// Handle deep link URIs early — this is invoked by the OS protocol handler
-	// and should bail out before full init since it only needs to parse the URI
-	// and open a terminal.
-	if (feature("LODESTONE")) {
-		const handleUriIdx = process.argv.indexOf("--handle-uri");
-		if (handleUriIdx !== -1 && process.argv[handleUriIdx + 1]) {
-			const { enableConfigs } = await import("./utils/config.js");
-			enableConfigs();
-			const uri = process.argv[handleUriIdx + 1];
-			const { handleDeepLinkUri } = await import(
-				"./utils/deepLink/protocolHandler.js"
-			);
-			const exitCode = await handleDeepLinkUri(uri);
-			process.exit(exitCode);
-		}
-
-		// macOS URL handler: when LaunchServices launches our .app bundle, the
-		// URL arrives via Apple Event (not argv). LaunchServices overwrites
-		// __CFBundleIdentifier to the launching bundle's ID, which is a precise
-		// positive signal — cheaper than importing and guessing with heuristics.
-		if (
-			process.platform === "darwin" &&
-			process.env.__CFBundleIdentifier ===
-				"com.anthropic.claude-code-url-handler"
-		) {
-			const { enableConfigs } = await import("./utils/config.js");
-			enableConfigs();
-			const { handleUrlSchemeLaunch } = await import(
-				"./utils/deepLink/protocolHandler.js"
-			);
-			const urlSchemeResult = await handleUrlSchemeLaunch();
-			process.exit(urlSchemeResult ?? 1);
-		}
-	}
-
-	// `claude assistant [sessionId]` — stash and strip so the main
-	// command handles it, giving the full interactive TUI. Position-0 only
-	// (matching the ssh pattern below) — indexOf would false-positive on
-	// `claude -p "explain assistant"`. Root-flag-before-subcommand
-	// (e.g. `--debug assistant`) falls through to the stub, which
-	// prints usage.
-	if (feature("KAIROS") && _pendingAssistantChat) {
-		const rawArgs = process.argv.slice(2);
-		if (rawArgs[0] === "assistant") {
-			const nextArg = rawArgs[1];
-			if (nextArg && !nextArg.startsWith("-")) {
-				_pendingAssistantChat.sessionId = nextArg;
-				rawArgs.splice(0, 2); // drop 'assistant' and sessionId
-				process.argv = [process.argv[0], process.argv[1], ...rawArgs];
-			} else if (!nextArg) {
-				_pendingAssistantChat.discover = true;
-				rawArgs.splice(0, 1); // drop 'assistant'
-				process.argv = [process.argv[0], process.argv[1], ...rawArgs];
-			}
-			// else: `claude assistant --help` → fall through to stub
-		}
-	}
-
-	// `claude ssh <host> [dir]` — strip from argv so the main command handler
-	// runs (full interactive TUI), stash the host/dir for the REPL branch at
-	// ~line 3720 to pick up. Headless (-p) mode not supported in v1: SSH
-	// sessions need the local REPL to drive them (interrupt, permissions).
-	if (feature("SSH_REMOTE") && _pendingSSH) {
-		const rawCliArgs = process.argv.slice(2);
-		// SSH-specific flags can appear before the host positional (e.g.
-		// `ssh --permission-mode auto host /tmp` — standard POSIX flags-before-
-		// positionals). Pull them all out BEFORE checking whether a host was
-		// given, so `claude ssh --permission-mode auto host` and `claude ssh host
-		// --permission-mode auto` are equivalent. The host check below only needs
-		// to guard against `-h`/`--help` (which commander should handle).
-		if (rawCliArgs[0] === "ssh") {
-			const localIdx = rawCliArgs.indexOf("--local");
-			if (localIdx !== -1) {
-				_pendingSSH.local = true;
-				rawCliArgs.splice(localIdx, 1);
-			}
-			const dspIdx = rawCliArgs.indexOf("--dangerously-skip-permissions");
-			if (dspIdx !== -1) {
-				_pendingSSH.dangerouslySkipPermissions = true;
-				rawCliArgs.splice(dspIdx, 1);
-			}
-			const pmIdx = rawCliArgs.indexOf("--permission-mode");
-			if (
-				pmIdx !== -1 &&
-				rawCliArgs[pmIdx + 1] &&
-				!rawCliArgs[pmIdx + 1]?.startsWith("-")
-			) {
-				_pendingSSH.permissionMode = rawCliArgs[pmIdx + 1];
-				rawCliArgs.splice(pmIdx, 2);
-			}
-			const pmEqIdx = rawCliArgs.findIndex((a) =>
-				a.startsWith("--permission-mode="),
-			);
-			if (pmEqIdx !== -1) {
-				_pendingSSH.permissionMode = rawCliArgs[pmEqIdx]?.split("=")[1];
-				rawCliArgs.splice(pmEqIdx, 1);
-			}
-			// Forward session-resume + model flags to the remote CLI's initial spawn.
-			// --continue/-c and --resume <uuid> operate on the REMOTE session history
-			// (which persists under the remote's ~/.claude/projects/<cwd>/).
-			// --model controls which model the remote uses.
-			const extractFlag = (
-				flag: string,
-				opts: {
-					hasValue?: boolean;
-					as?: string;
-				} = {},
-			) => {
-				const i = rawCliArgs.indexOf(flag);
-				if (i !== -1) {
-					_pendingSSH.extraCliArgs.push(opts.as ?? flag);
-					const val = rawCliArgs[i + 1];
-					if (opts.hasValue && val && !val.startsWith("-")) {
-						_pendingSSH.extraCliArgs.push(val);
-						rawCliArgs.splice(i, 2);
-					} else {
-						rawCliArgs.splice(i, 1);
-					}
-				}
-				const eqI = rawCliArgs.findIndex((a) => a.startsWith(`${flag}=`));
-				if (eqI !== -1) {
-					_pendingSSH.extraCliArgs.push(
-						opts.as ?? flag,
-						rawCliArgs[eqI]?.slice(flag.length + 1),
-					);
-					rawCliArgs.splice(eqI, 1);
-				}
-			};
-			extractFlag("-c", {
-				as: "--continue",
-			});
-			extractFlag("--continue");
-			extractFlag("--resume", {
-				hasValue: true,
-			});
-			extractFlag("--model", {
-				hasValue: true,
-			});
-		}
-		// After pre-extraction, any remaining dash-arg at [1] is either -h/--help
-		// (commander handles) or an unknown-to-ssh flag (fall through to commander
-		// so it surfaces a proper error). Only a non-dash arg is the host.
-		if (
-			rawCliArgs[0] === "ssh" &&
-			rawCliArgs[1] &&
-			!rawCliArgs[1].startsWith("-")
-		) {
-			_pendingSSH.host = rawCliArgs[1];
-			// Optional positional cwd.
-			let consumed = 2;
-			if (rawCliArgs[2] && !rawCliArgs[2].startsWith("-")) {
-				_pendingSSH.cwd = rawCliArgs[2];
-				consumed = 3;
-			}
-			const rest = rawCliArgs.slice(consumed);
-
-			// Headless (-p) mode is not supported with SSH in v1 — reject early
-			// so the flag doesn't silently cause local execution.
-			if (rest.includes("-p") || rest.includes("--print")) {
-				process.stderr.write(
-					"Error: headless (-p/--print) mode is not supported with claude ssh\n",
-				);
-				gracefulShutdownSync(1);
-				return;
-			}
-
-			// Rewrite argv so the main command sees remaining flags but not `ssh`.
-			process.argv = [process.argv[0], process.argv[1], ...rest];
-		}
-	}
-
 	// Check for -p/--print and --init-only flags early to set isInteractiveSession before init()
 	// This is needed because telemetry initialization calls auth functions that need this flag
 	const cliArgs = process.argv.slice(2);
 	const hasPrintFlag = cliArgs.includes("-p") || cliArgs.includes("--print");
 	const hasInitOnlyFlag = cliArgs.includes("--init-only");
-	const hasSdkUrl = cliArgs.some((arg) => arg.startsWith("--sdk-url"));
 	// Fusion-MLX 本地模式下放过 TTY 误伤：
 	// 当用户用 timeout / 后台 & / pipe / IDE 内嵌非真终端 跑时，stdin.isTTY 变 false，
 	// 会被误判成 --print 非交互模式，导致入口跑到 print.ts 要 prompt 参数而崩。
 	// 本地 fusion-mlx 模式没有 OAuth/cloud 依赖，REPL 不需要真 TTY 也能起，
 	// 因此在这里放过该误伤，让非真终端也能进主界面。
-	// 注意：用户真显式传 -p/--print/--init-only/--sdk-url 时仍走非交互，不放过。
+	// 注意：用户真显式传 -p/--print/--init-only 时仍走非交互，不放过。
 	// 判据与 providers.ts 的 isCloudFreeMode() 对齐：无 FUSION_CLIENT_KEY 且未显式禁用 MLX。
 	const isFusionMlxLocalMode =
 		!isEnvTruthy(process.env.FUSION_MLX_DISABLED) &&
@@ -1098,7 +775,6 @@ export async function main() {
 	const isNonInteractive =
 		hasPrintFlag ||
 		hasInitOnlyFlag ||
-		hasSdkUrl ||
 		(!process.stdin.isTTY && !isFusionMlxLocalMode);
 
 	// Stop capturing early input for non-interactive modes
@@ -1576,29 +1252,6 @@ async function run(): Promise<CommanderCommand> {
 				"Pre-fill the prompt input with text without submitting it",
 			).hideHelp(),
 		)
-		.addOption(
-			new Option(
-				"--deep-link-origin",
-				"Signal that this session was launched from a deep link",
-			).hideHelp(),
-		)
-		.addOption(
-			new Option(
-				"--deep-link-repo <slug>",
-				"Repo slug the deep link ?repo= parameter resolved to the current cwd",
-			).hideHelp(),
-		)
-		.addOption(
-			new Option(
-				"--deep-link-last-fetch <ms>",
-				"FETCH_HEAD mtime in epoch ms, precomputed by the deep link trampoline",
-			)
-				.argParser((v) => {
-					const n = Number(v);
-					return Number.isFinite(n) ? n : undefined;
-				})
-				.hideHelp(),
-		)
 		.option(
 			"--from-pr [value]",
 			"Resume a session linked to a PR by PR number/URL, or open interactive picker with optional search term",
@@ -1892,8 +1545,6 @@ async function run(): Promise<CommanderCommand> {
 				seedEarlyInput(options.prefill);
 			}
 
-			// Promise for file downloads - started early, awaited before REPL renders
-			let fileDownloadPromise: Promise<DownloadResult[]> | undefined;
 			const agentsJson = options.agents;
 			const agentCli = options.agent;
 			if (feature("BG_SESSIONS") && agentCli) {
@@ -1905,14 +1556,21 @@ async function run(): Promise<CommanderCommand> {
 			// executing code in untrusted directories before user consent.
 
 			// Extract these separately so they can be modified if needed
-			let verbose = options.verbose ?? getGlobalConfig().verbose;
-			let print = options.print;
+			const verbose = options.verbose ?? getGlobalConfig().verbose;
+			const print = options.print;
 			const init = options.init ?? false;
 			const initOnly = options.initOnly ?? false;
 			const maintenance = options.maintenance ?? false;
 
 			// Extract disable slash commands flag
 			const disableSlashCommands = options.disableSlashCommands || false;
+			// SDK stream-json toggles (hook events / partial messages)
+			if (includeHookEvents) {
+				setAllHookEventsEnabled(true);
+			}
+			const effectiveIncludePartialMessages =
+				includePartialMessages ||
+				isEnvTruthy(process.env.CLAUDE_CODE_INCLUDE_PARTIAL_MESSAGES);
 
 			// --safe-mode: inject disallowed tools for read-only operation
 			if (process.env.FUSION_SAFE_MODE === "1") {
@@ -2059,61 +1717,6 @@ async function run(): Promise<CommanderCommand> {
 				}
 			}
 
-			// Extract remote sdk options
-			const sdkUrl =
-				(
-					options as {
-						sdkUrl?: string;
-					}
-				).sdkUrl ?? undefined;
-
-			// Allow env var to enable partial messages (used by sandbox gateway for baku)
-			const effectiveIncludePartialMessages =
-				includePartialMessages ||
-				isEnvTruthy(process.env.CLAUDE_CODE_INCLUDE_PARTIAL_MESSAGES);
-
-			// Enable all hook event types when explicitly requested via SDK option
-			// or when running in CLAUDE_CODE_REMOTE mode (CCR needs them).
-			// Without this, only SessionStart and Setup events are emitted.
-			if (includeHookEvents || isEnvTruthy(process.env.CLAUDE_CODE_REMOTE)) {
-				setAllHookEventsEnabled(true);
-			}
-
-			// Auto-set input/output formats, verbose mode, and print mode when SDK URL is provided
-			if (sdkUrl) {
-				// If SDK URL is provided, automatically use stream-json formats unless explicitly set
-				if (!(options as { inputFormat?: string }).inputFormat) {
-					(options as { inputFormat?: string }).inputFormat = "stream-json";
-				}
-				if (!(options as { outputFormat?: string }).outputFormat) {
-					(options as { outputFormat?: string }).outputFormat = "stream-json";
-				}
-				// Auto-enable verbose mode unless explicitly disabled or already set
-				if (options.verbose === undefined) {
-					verbose = true;
-				}
-				// Auto-enable print mode unless explicitly disabled
-				if (!options.print) {
-					print = true;
-				}
-			}
-
-			// Extract teleport option
-			const teleport =
-				(
-					options as {
-						teleport?: string | true;
-					}
-				).teleport ?? null;
-
-			// Extract remote option (can be true if no description provided, or a string)
-			const remoteOption = (
-				options as {
-					remote?: string | true;
-				}
-			).remote;
-			const remote = remoteOption === true ? "" : (remoteOption ?? null);
-
 			// Extract --remote-control / --rc flag (enable bridge in interactive session)
 			const remoteControlOption =
 				(
@@ -2149,66 +1752,22 @@ async function run(): Promise<CommanderCommand> {
 					gracefulShutdownSync(1);
 				}
 
-				// When --sdk-url is provided (bridge/remote mode), the session ID is a
-				// server-assigned tagged ID (e.g. "session_local_01...") rather than a
-				// UUID. Skip UUID validation and local existence checks in that case.
-				if (!sdkUrl) {
-					const validatedSessionId = validateUuid(sessionId);
-					if (!validatedSessionId) {
-						process.stderr.write(
-							chalk.red("Error: Invalid session ID. Must be a valid UUID.\n"),
-						);
-						gracefulShutdownSync(1);
-					}
-
-					// Check if session ID already exists
-					if (sessionIdExists(validatedSessionId)) {
-						process.stderr.write(
-							chalk.red(
-								`Error: Session ID ${validatedSessionId} is already in use.\n`,
-							),
-						);
-						gracefulShutdownSync(1);
-					}
-				}
-			}
-
-			// Download file resources if specified via --file flag
-			const fileSpecs = (
-				options as {
-					file?: string[];
-				}
-			).file;
-			if (fileSpecs && fileSpecs.length > 0) {
-				// Get session ingress token (provided by EnvManager via CLAUDE_CODE_SESSION_ACCESS_TOKEN)
-				const sessionToken = getSessionIngressAuthToken();
-				if (!sessionToken) {
+				const validatedSessionId = validateUuid(sessionId);
+				if (!validatedSessionId) {
 					process.stderr.write(
-						chalk.red(
-							"Error: Session token required for file downloads. CLAUDE_CODE_SESSION_ACCESS_TOKEN must be set.\n",
-						),
+						chalk.red("Error: Invalid session ID. Must be a valid UUID.\n"),
 					);
 					gracefulShutdownSync(1);
 				}
 
-				// Resolve session ID: prefer remote session ID, fall back to internal session ID
-				const fileSessionId =
-					process.env.CLAUDE_CODE_REMOTE_SESSION_ID || getSessionId();
-				const files = parseFileSpecs(fileSpecs);
-				if (files.length > 0) {
-					// Use FUSION_BASE_URL (mapped to ANTHROPIC_BASE_URL) if set (by EnvManager), otherwise use OAuth config
-					// This ensures consistency with session ingress API in all environments
-					const config: FilesApiConfig = {
-						baseUrl:
-							process.env.FUSION_BASE_URL ||
-							process.env.ANTHROPIC_BASE_URL ||
-							getOauthConfig().BASE_API_URL,
-						oauthToken: sessionToken,
-						sessionId: fileSessionId,
-					};
-
-					// Start download without blocking startup - await before REPL renders
-					fileDownloadPromise = downloadSessionFiles(files, config);
+				// Check if session ID already exists
+				if (sessionIdExists(validatedSessionId)) {
+					process.stderr.write(
+						chalk.red(
+							`Error: Session ID ${validatedSessionId} is already in use.\n`,
+						),
+					);
+					gracefulShutdownSync(1);
 				}
 			}
 
@@ -2820,15 +2379,6 @@ async function run(): Promise<CommanderCommand> {
 			if (inputFormat === "stream-json" && outputFormat !== "stream-json") {
 				console.error(
 					`Error: --input-format=stream-json requires output-format=stream-json.`,
-				);
-				gracefulShutdownSync(1);
-			}
-			if (
-				sdkUrl &&
-				(inputFormat !== "stream-json" || outputFormat !== "stream-json")
-			) {
-				console.error(
-					`Error: --sdk-url requires both --input-format=stream-json and --output-format=stream-json.`,
 				);
 				gracefulShutdownSync(1);
 			}
@@ -3813,13 +3363,13 @@ async function run(): Promise<CommanderCommand> {
 				// Kick SessionStart hooks now so the subprocess spawn overlaps with
 				// MCP connect + plugin init + print.ts import below. loadInitialMessages
 				// joins this at print.ts:4397. Guarded same as loadInitialMessages —
-				// continue/resume/teleport paths don't fire startup hooks (or fire them
+				// continue/resume paths don't fire startup hooks (or fire them
 				// conditionally inside the resume branch, where this promise is
 				// undefined and the ?? fallback runs). Also skip when setupTrigger is
 				// set — those paths run setup hooks first (print.ts:544), and session
 				// start hooks must wait until setup completes.
 				const sessionStartHooksPromise =
-					options.continue || options.resume || teleport || setupTrigger
+					options.continue || options.resume || setupTrigger
 						? undefined
 						: processSessionStartHooks("startup");
 				// Suppress transient unhandledRejection if this rejects before
@@ -4121,8 +3671,6 @@ async function run(): Promise<CommanderCommand> {
 						appendSystemPrompt,
 						userSpecifiedModel: effectiveModel,
 						fallbackModel: userSpecifiedFallbackModel,
-						teleport,
-						sdkUrl,
 						replayUserMessages: effectiveReplayUserMessages,
 						includePartialMessages: effectiveIncludePartialMessages,
 						forkSession: options.forkSession || false,
@@ -4276,7 +3824,6 @@ async function run(): Promise<CommanderCommand> {
 				replBridgeSessionId: undefined,
 				replBridgeError: undefined,
 				replBridgeInitialName: remoteControlName,
-				showRemoteCallout: false,
 				notifications: {
 					current: null,
 					queue: initialNotifications,
@@ -4487,276 +4034,7 @@ async function run(): Promise<CommanderCommand> {
 					logError(error);
 					gracefulShutdownSync(1);
 				}
-			} else if (feature("DIRECT_CONNECT") && _pendingConnect?.url) {
-				// `claude connect <url>` — full interactive TUI connected to a remote server
-				let directConnectConfig: Awaited<
-					ReturnType<typeof createDirectConnectSession>
-				>["config"];
-				try {
-					const session = await createDirectConnectSession({
-						serverUrl: _pendingConnect.url,
-						authToken: _pendingConnect.authToken,
-						cwd: getOriginalCwd(),
-						dangerouslySkipPermissions:
-							_pendingConnect.dangerouslySkipPermissions,
-					});
-					if (session.workDir) {
-						setOriginalCwd(session.workDir);
-						setCwdState(session.workDir);
-					}
-					setDirectConnectServerUrl(_pendingConnect.url);
-					directConnectConfig = session.config;
-				} catch (err) {
-					return await exitWithError(
-						root,
-						err instanceof DirectConnectError ? err.message : String(err),
-						() => gracefulShutdown(1),
-					);
-				}
-				const connectInfoMessage = createSystemMessage(
-					`Connected to server at ${_pendingConnect.url}\nSession: ${directConnectConfig.sessionId}`,
-					"info",
-				);
-				await launchRepl(
-					root,
-					{
-						getFpsMetrics,
-						stats,
-						initialState,
-					},
-					{
-						debug: debug || debugToStderr,
-						commands,
-						initialTools: [],
-						initialMessages: [connectInfoMessage],
-						mcpClients: [],
-						autoConnectIdeFlag: ide,
-						mainThreadAgentDefinition,
-						disableSlashCommands,
-						directConnectConfig,
-						thinkingConfig,
-					},
-					renderAndRun,
-				);
-				return;
-			} else if (feature("SSH_REMOTE") && _pendingSSH?.host) {
-				// `claude ssh <host> [dir]` — probe remote, deploy binary if needed,
-				// spawn ssh with unix-socket -R forward to a local auth proxy, hand
-				// the REPL an SSHSession. Tools run remotely, UI renders locally.
-				// `--local` skips probe/deploy/ssh and spawns the current binary
-				// directly with the same env — e2e test of the proxy/auth plumbing.
-				const { createSSHSession, createLocalSSHSession, SSHSessionError } =
-					await import("./ssh/createSSHSession.js");
-				let sshSession: Awaited<ReturnType<typeof createSSHSession>>;
-				try {
-					if (_pendingSSH.local) {
-						process.stderr.write("Starting local ssh-proxy test session...\n");
-						sshSession = createLocalSSHSession({
-							cwd: _pendingSSH.cwd,
-							permissionMode: _pendingSSH.permissionMode,
-							dangerouslySkipPermissions:
-								_pendingSSH.dangerouslySkipPermissions,
-						});
-					} else {
-						process.stderr.write(`Connecting to ${_pendingSSH.host}…\n`);
-						// In-place progress: \r + EL0 (erase to end of line). Final \n on
-						// success so the next message lands on a fresh line. No-op when
-						// stderr isn't a TTY (piped/redirected) — \r would just emit noise.
-						const isTTY = process.stderr.isTTY;
-						let hadProgress = false;
-						sshSession = await createSSHSession({
-							host: _pendingSSH.host,
-							cwd: _pendingSSH.cwd,
-							localVersion: MACRO.VERSION,
-							permissionMode: _pendingSSH.permissionMode,
-							dangerouslySkipPermissions:
-								_pendingSSH.dangerouslySkipPermissions,
-							...(isTTY
-								? {
-										onProgress: (msg: string) => {
-											hadProgress = true;
-											process.stderr.write(`\r  ${msg}\x1b[K`);
-										},
-									}
-								: {}),
-						});
-						if (hadProgress) process.stderr.write("\n");
-					}
-					setOriginalCwd(sshSession.remoteCwd);
-					setCwdState(sshSession.remoteCwd);
-					setDirectConnectServerUrl(
-						_pendingSSH.local ? "local" : _pendingSSH.host,
-					);
-				} catch (err) {
-					return await exitWithError(
-						root,
-						err instanceof SSHSessionError ? err.message : String(err),
-						() => gracefulShutdown(1),
-					);
-				}
-				const sshInfoMessage = createSystemMessage(
-					_pendingSSH.local
-						? `Local ssh-proxy test session\ncwd: ${sshSession.remoteCwd}\nAuth: unix socket → local proxy`
-						: `SSH session to ${_pendingSSH.host}\nRemote cwd: ${sshSession.remoteCwd}\nAuth: unix socket -R → local proxy`,
-					"info",
-				);
-				await launchRepl(
-					root,
-					{
-						getFpsMetrics,
-						stats,
-						initialState,
-					},
-					{
-						debug: debug || debugToStderr,
-						commands,
-						initialTools: [],
-						initialMessages: [sshInfoMessage],
-						mcpClients: [],
-						autoConnectIdeFlag: ide,
-						mainThreadAgentDefinition,
-						disableSlashCommands,
-						sshSession,
-						thinkingConfig,
-					},
-					renderAndRun,
-				);
-				return;
-			} else if (
-				feature("KAIROS") &&
-				_pendingAssistantChat &&
-				(_pendingAssistantChat.sessionId || _pendingAssistantChat.discover)
-			) {
-				// `claude assistant [sessionId]` — REPL as a pure viewer client
-				// of a remote assistant session. The agentic loop runs remotely; this
-				// process streams live events and POSTs messages. History is lazy-
-				// loaded by useAssistantHistory on scroll-up (no blocking fetch here).
-				const { discoverAssistantSessions } = await import(
-					"./assistant/sessionDiscovery.js"
-				);
-				let targetSessionId = _pendingAssistantChat.sessionId;
-
-				// Discovery flow — list bridge environments, filter sessions
-				if (!targetSessionId) {
-					let sessions: Awaited<ReturnType<typeof discoverAssistantSessions>>;
-					try {
-						sessions = await discoverAssistantSessions();
-					} catch (e) {
-						return await exitWithError(
-							root,
-							`Failed to discover sessions: ${e instanceof Error ? e.message : e}`,
-							() => gracefulShutdown(1),
-						);
-					}
-					if (sessions.length === 0) {
-						let installedDir: string | null;
-						try {
-							installedDir = await launchAssistantInstallWizard(root);
-						} catch (e) {
-							return await exitWithError(
-								root,
-								`Assistant installation failed: ${e instanceof Error ? e.message : e}`,
-								() => gracefulShutdown(1),
-							);
-						}
-						if (installedDir === null) {
-							await gracefulShutdown(0);
-							process.exit(0);
-						}
-						// The daemon needs a few seconds to spin up its worker and
-						// establish a bridge session before discovery will find it.
-						return await exitWithMessage(
-							root,
-							`Assistant installed in ${installedDir}. The daemon is starting up — run \`claude assistant\` again in a few seconds to connect.`,
-							{
-								exitCode: 0,
-								beforeExit: () => gracefulShutdown(0),
-							},
-						);
-					}
-					if (sessions.length === 1) {
-						targetSessionId = sessions[0]?.sessionId;
-					} else {
-						const picked = await launchAssistantSessionChooser(root, {
-							sessions,
-						});
-						if (!picked) {
-							await gracefulShutdown(0);
-							process.exit(0);
-						}
-						targetSessionId = picked;
-					}
-				}
-
-				// Auth — call prepareApiRequest() once for orgUUID, but use a
-				// getAccessToken closure for the token so reconnects get fresh tokens.
-				const { checkAndRefreshOAuthTokenIfNeeded, getClaudeAIOAuthTokens } =
-					await import("./utils/auth.js");
-				await checkAndRefreshOAuthTokenIfNeeded();
-				let apiCreds: Awaited<ReturnType<typeof prepareApiRequest>>;
-				try {
-					apiCreds = await prepareApiRequest();
-				} catch (e) {
-					return await exitWithError(
-						root,
-						`Error: ${e instanceof Error ? e.message : "Failed to authenticate"}`,
-						() => gracefulShutdown(1),
-					);
-				}
-				const getAccessToken = (): string =>
-					getClaudeAIOAuthTokens()?.accessToken ?? apiCreds.accessToken;
-
-				// Brief mode activation: setKairosActive(true) satisfies BOTH opt-in
-				// and entitlement for isBriefEnabled() (BriefTool.ts:124-132).
-				setKairosActive(true);
-				setUserMsgOptIn(true);
-				setIsRemoteMode(true);
-				const remoteSessionConfig = createRemoteSessionConfig(
-					targetSessionId,
-					getAccessToken,
-					apiCreds.orgUUID,
-					/* hasInitialPrompt */ false,
-					/* viewerOnly */ true,
-				);
-				const infoMessage = createSystemMessage(
-					`Attached to assistant session ${targetSessionId.slice(0, 8)}…`,
-					"info",
-				);
-				const assistantInitialState: AppState = {
-					...initialState,
-					isBriefOnly: true,
-					kairosEnabled: false,
-					replBridgeEnabled: false,
-				};
-				const remoteCommands = filterCommandsForRemoteMode(commands);
-				await launchRepl(
-					root,
-					{
-						getFpsMetrics,
-						stats,
-						initialState: assistantInitialState,
-					},
-					{
-						debug: debug || debugToStderr,
-						commands: remoteCommands,
-						initialTools: [],
-						initialMessages: [infoMessage],
-						mcpClients: [],
-						autoConnectIdeFlag: ide,
-						mainThreadAgentDefinition,
-						disableSlashCommands,
-						remoteSessionConfig,
-						thinkingConfig,
-					},
-					renderAndRun,
-				);
-				return;
-			} else if (
-				options.resume ||
-				options.fromPr ||
-				teleport ||
-				remote !== null
-			) {
+			} else if (options.resume || options.fromPr) {
 				// Handle resume flow - from file (ant-only), session ID, or interactive selector
 
 				// Clear stale caches before resuming to ensure fresh file/skill discovery
@@ -4764,7 +4042,7 @@ async function run(): Promise<CommanderCommand> {
 					"./commands/clear/caches.js"
 				);
 				clearSessionCaches();
-				let messages: MessageType[] | null = null;
+				const messages: MessageType[] | null = null;
 				let processedResume: ProcessedResume | undefined;
 				let maybeSessionId = validateUuid(options.resume);
 				let searchTerm: string | undefined;
@@ -4806,262 +4084,6 @@ async function run(): Promise<CommanderCommand> {
 					}
 				}
 
-				// --remote and --teleport both create/resume Fusion-Code Web (CCR) sessions.
-				// Remote Control (--rc) is a separate feature gated in initReplBridge.ts.
-				if (remote !== null || teleport) {
-					await waitForPolicyLimitsToLoad();
-					if (!isPolicyAllowed("allow_remote_sessions")) {
-						return await exitWithError(
-							root,
-							"Error: Remote sessions are disabled by your organization's policy.",
-							() => gracefulShutdown(1),
-						);
-					}
-				}
-				if (remote !== null) {
-					// Create remote session (optionally with initial prompt)
-					const hasInitialPrompt = remote.length > 0;
-
-					// Check if TUI mode is enabled - description is only optional in TUI mode
-					const isRemoteTuiEnabled = getFeatureValue_CACHED_MAY_BE_STALE(
-						"tengu_remote_backend",
-						false,
-					);
-					if (!isRemoteTuiEnabled && !hasInitialPrompt) {
-						return await exitWithError(
-							root,
-							'Error: --remote requires a description.\nUsage: fusion-code --remote "your task description"',
-							() => gracefulShutdown(1),
-						);
-					}
-					logEvent("tengu_remote_create_session", {
-						has_initial_prompt: String(
-							hasInitialPrompt,
-						) as AnalyticsMetadata_I_VERIFIED_THIS_IS_NOT_CODE_OR_FILEPATHS,
-					});
-
-					// Pass current branch so CCR clones the repo at the right revision
-					const currentBranch = await getBranch();
-					const createdSession = await teleportToRemoteWithErrorHandling(
-						root,
-						hasInitialPrompt ? remote : null,
-						new AbortController().signal,
-						currentBranch || undefined,
-					);
-					if (!createdSession) {
-						logEvent("tengu_remote_create_session_error", {
-							error:
-								"unable_to_create_session" as AnalyticsMetadata_I_VERIFIED_THIS_IS_NOT_CODE_OR_FILEPATHS,
-						});
-						return await exitWithError(
-							root,
-							"Error: Unable to create remote session",
-							() => gracefulShutdown(1),
-						);
-					}
-					logEvent("tengu_remote_create_session_success", {
-						session_id:
-							createdSession.id as AnalyticsMetadata_I_VERIFIED_THIS_IS_NOT_CODE_OR_FILEPATHS,
-					});
-
-					// Check if new remote TUI mode is enabled via feature gate
-					if (!isRemoteTuiEnabled) {
-						// Original behavior: print session info and exit
-						process.stdout.write(
-							`Created remote session: ${createdSession.title}\n`,
-						);
-						process.stdout.write(
-							`View: ${getRemoteSessionUrl(createdSession.id)}?m=0\n`,
-						);
-						process.stdout.write(
-							`Resume with: fusion-code --teleport ${createdSession.id}\n`,
-						);
-						await gracefulShutdown(0);
-						process.exit(0);
-					}
-
-					// New behavior: start local TUI with CCR engine
-					// Mark that we're in remote mode for command visibility
-					setIsRemoteMode(true);
-					switchSession(asSessionId(createdSession.id));
-
-					// Get OAuth credentials for remote session
-					let apiCreds: {
-						accessToken: string;
-						orgUUID: string;
-					};
-					try {
-						apiCreds = await prepareApiRequest();
-					} catch (error) {
-						logError(toError(error));
-						return await exitWithError(
-							root,
-							`Error: ${errorMessage(error) || "Failed to authenticate"}`,
-							() => gracefulShutdown(1),
-						);
-					}
-
-					// Create remote session config for the REPL
-					const { getClaudeAIOAuthTokens: getTokensForRemote } = await import(
-						"./utils/auth.js"
-					);
-					const getAccessTokenForRemote = (): string =>
-						getTokensForRemote()?.accessToken ?? apiCreds.accessToken;
-					const remoteSessionConfig = createRemoteSessionConfig(
-						createdSession.id,
-						getAccessTokenForRemote,
-						apiCreds.orgUUID,
-						hasInitialPrompt,
-					);
-
-					// Add remote session info as initial system message
-					const remoteSessionUrl = `${getRemoteSessionUrl(createdSession.id)}?m=0`;
-					const remoteInfoMessage = createSystemMessage(
-						`/remote-control is active. Code in CLI or at ${remoteSessionUrl}`,
-						"info",
-					);
-
-					// Create initial user message from the prompt if provided (CCR echoes it back but we ignore that)
-					const initialUserMessage = hasInitialPrompt
-						? createUserMessage({
-								content: remote,
-							})
-						: null;
-
-					// Set remote session URL in app state for footer indicator
-					const remoteInitialState = {
-						...initialState,
-						remoteSessionUrl,
-					};
-
-					// Pre-filter commands to only include remote-safe ones.
-					// CCR's init response may further refine the list (via handleRemoteInit in REPL).
-					const remoteCommands = filterCommandsForRemoteMode(commands);
-					await launchRepl(
-						root,
-						{
-							getFpsMetrics,
-							stats,
-							initialState: remoteInitialState,
-						},
-						{
-							debug: debug || debugToStderr,
-							commands: remoteCommands,
-							initialTools: [],
-							initialMessages: initialUserMessage
-								? [remoteInfoMessage, initialUserMessage]
-								: [remoteInfoMessage],
-							mcpClients: [],
-							autoConnectIdeFlag: ide,
-							mainThreadAgentDefinition,
-							disableSlashCommands,
-							remoteSessionConfig,
-							thinkingConfig,
-						},
-						renderAndRun,
-					);
-					return;
-				} else if (teleport) {
-					if (teleport === true || teleport === "") {
-						// Interactive mode: show task selector and handle resume
-						logEvent("tengu_teleport_interactive_mode", {});
-						logForDebugging(
-							"selectAndResumeTeleportTask: Starting teleport flow...",
-						);
-						const teleportResult = await launchTeleportResumeWrapper(root);
-						if (!teleportResult) {
-							// User cancelled or error occurred
-							await gracefulShutdown(0);
-							process.exit(0);
-						}
-						const { branchError } = await checkOutTeleportedSessionBranch(
-							teleportResult.branch,
-						);
-						messages = processMessagesForTeleportResume(
-							teleportResult.log,
-							branchError,
-						);
-					} else if (typeof teleport === "string") {
-						logEvent("tengu_teleport_resume_session", {
-							mode: "direct" as AnalyticsMetadata_I_VERIFIED_THIS_IS_NOT_CODE_OR_FILEPATHS,
-						});
-						try {
-							// First, fetch session and validate repository before checking git state
-							const sessionData = await fetchSession(teleport);
-							const repoValidation =
-								await validateSessionRepository(sessionData);
-
-							// Handle repo mismatch or not in repo cases
-							if (
-								repoValidation.status === "mismatch" ||
-								repoValidation.status === "not_in_repo"
-							) {
-								const sessionRepo = repoValidation.sessionRepo;
-								if (sessionRepo) {
-									// Check for known paths
-									const knownPaths = getKnownPathsForRepo(sessionRepo);
-									const existingPaths = await filterExistingPaths(knownPaths);
-									if (existingPaths.length > 0) {
-										// Show directory switch dialog
-										const selectedPath = await launchTeleportRepoMismatchDialog(
-											root,
-											{
-												targetRepo: sessionRepo,
-												initialPaths: existingPaths,
-											},
-										);
-										if (selectedPath) {
-											// Change to the selected directory
-											process.chdir(selectedPath);
-											setCwd(selectedPath);
-											setOriginalCwd(selectedPath);
-										} else {
-											// User cancelled
-											await gracefulShutdown(0);
-										}
-									} else {
-										// No known paths - show original error
-										throw new TeleportOperationError(
-											`You must run fusion-code --teleport ${teleport} from a checkout of ${sessionRepo}.`,
-											chalk.red(
-												`You must run fusion-code --teleport ${teleport} from a checkout of ${chalk.bold(sessionRepo)}.\n`,
-											),
-										);
-									}
-								}
-							} else if (repoValidation.status === "error") {
-								throw new TeleportOperationError(
-									repoValidation.errorMessage || "Failed to validate session",
-									chalk.red(
-										`Error: ${repoValidation.errorMessage || "Failed to validate session"}\n`,
-									),
-								);
-							}
-							await validateGitState();
-
-							// Use progress UI for teleport
-							const { teleportWithProgress } = await import(
-								"./components/TeleportProgress.js"
-							);
-							const result = await teleportWithProgress(root, teleport);
-							// Track teleported session for reliability logging
-							setTeleportedSessionInfo({
-								sessionId: teleport,
-							});
-							messages = result.messages;
-						} catch (error) {
-							if (error instanceof TeleportOperationError) {
-								process.stderr.write(`${error.formattedMessage}\n`);
-							} else {
-								logError(error);
-								process.stderr.write(
-									chalk.red(`Error: ${errorMessage(error)}\n`),
-								);
-							}
-							await gracefulShutdown(1);
-						}
-					}
-				}
 				if (isInternalBuild()) {
 					if (
 						options.resume &&
@@ -5245,27 +4267,7 @@ async function run(): Promise<CommanderCommand> {
 					}
 				}
 
-				// Await file downloads before rendering REPL (files must be available)
-				if (fileDownloadPromise) {
-					try {
-						const results = await fileDownloadPromise;
-						const failedCount = count(results, (r) => !r.success);
-						if (failedCount > 0) {
-							process.stderr.write(
-								chalk.yellow(
-									`Warning: ${failedCount}/${results.length} file(s) failed to download.\n`,
-								),
-							);
-						}
-					} catch (error) {
-						return await exitWithError(
-							root,
-							`Error downloading files: ${errorMessage(error)}`,
-						);
-					}
-				}
-
-				// If we have a processed resume or teleport messages, render the REPL
+				// If we have a processed resume, render the REPL
 				const resumeData =
 					processedResume ??
 					(Array.isArray(messages)
@@ -5339,44 +4341,8 @@ async function run(): Promise<CommanderCommand> {
 					);
 				}
 
-				// If launched via a deep link, show a provenance banner so the user
-				// knows the session originated externally. Linux xdg-open and
-				// browsers with "always allow" set dispatch the link with no OS-level
-				// confirmation, so this is the only signal the user gets that the
-				// prompt — and the working directory / CLAUDE.md it implies — came
-				// from an external source rather than something they typed.
-				let deepLinkBanner: ReturnType<typeof createSystemMessage> | null =
-					null;
-				if (feature("LODESTONE")) {
-					if (options.deepLinkOrigin) {
-						logEvent("tengu_deep_link_opened", {
-							has_prefill: Boolean(options.prefill),
-							has_repo: Boolean(options.deepLinkRepo),
-						});
-						deepLinkBanner = createSystemMessage(
-							buildDeepLinkBanner({
-								cwd: getCwd(),
-								prefillLength: options.prefill?.length,
-								repo: options.deepLinkRepo,
-								lastFetch:
-									options.deepLinkLastFetch !== undefined
-										? new Date(options.deepLinkLastFetch)
-										: undefined,
-							}),
-							"warn",
-						);
-					} else if (options.prefill) {
-						deepLinkBanner = createSystemMessage(
-							"Launched with a pre-filled prompt — review it before pressing Enter.",
-							"warn",
-						);
-					}
-				}
-				const initialMessages = deepLinkBanner
-					? [deepLinkBanner, ...hookMessages]
-					: hookMessages.length > 0
-						? hookMessages
-						: undefined;
+				const initialMessages =
+					hookMessages.length > 0 ? hookMessages : undefined;
 				await launchRepl(
 					root,
 					{
@@ -5558,19 +4524,6 @@ async function run(): Promise<CommanderCommand> {
 		).hideHelp(),
 	);
 
-	// Enable teleport/remote flags for all builds but keep them undocumented until GA
-	program.addOption(
-		new Option(
-			"--teleport [session]",
-			"Resume a teleport session, optionally specify session ID",
-		).hideHelp(),
-	);
-	program.addOption(
-		new Option(
-			"--remote [description]",
-			"Create a remote session with the given description",
-		).hideHelp(),
-	);
 	if (feature("HARD_FAIL")) {
 		program.addOption(
 			new Option(
@@ -5608,16 +4561,6 @@ async function run(): Promise<CommanderCommand> {
 	// (DIRECT_CONNECT/SSH_REMOTE). extracted to ./main/serverSubCommands.ts
 	// (audit P2-1 / R17 god-module split, slice C3).
 	registerServerSubCommands(program);
-
-	// claude connect — subcommand only handles -p (headless) mode.
-	// Interactive mode (without -p) is handled by early argv rewriting in main()
-	// which redirects to the main command with full TUI support.
-	// (DIRECT_CONNECT). extracted to ./main/openSubCommands.ts
-	// (audit P2-1 / R17 god-module split, slice C4).
-	registerOpenCommand(
-		program,
-		() => _pendingConnect?.dangerouslySkipPermissions ?? false,
-	);
 
 	// claude auth — subcommand group extracted to ./main/miscCommands.ts (issue #133)
 	registerAuthCommands(program);

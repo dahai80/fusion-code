@@ -1206,7 +1206,8 @@ export function Config({
 								Use custom API key:{" "}
 								<Text bold>
 									{normalizeApiKeyForConfig(
-										process.env.FUSION_CLIENT_KEY || process.env.ANTHROPIC_API_KEY,
+										process.env.FUSION_CLIENT_KEY ||
+											process.env.ANTHROPIC_API_KEY,
 									)}
 								</Text>
 							</Text>
@@ -1251,7 +1252,8 @@ export function Config({
 									process.env.ANTHROPIC_API_KEY
 								) {
 									const truncatedKey = normalizeApiKeyForConfig(
-										process.env.FUSION_CLIENT_KEY || process.env.ANTHROPIC_API_KEY,
+										process.env.FUSION_CLIENT_KEY ||
+											process.env.ANTHROPIC_API_KEY,
 									);
 									if (useCustomKey) {
 										updated.customApiKeyResponses = {

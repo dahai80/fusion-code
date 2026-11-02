@@ -154,7 +154,6 @@ export type AppState = DeepImmutable<{
 	// Always-on bridge: session name set via `/remote-control <name>` (used as session title)
 	replBridgeInitialName: string | undefined;
 	// Always-on bridge: first-time remote dialog pending (set by /remote-control command)
-	showRemoteCallout: boolean;
 }> & {
 	// Unified task state - excluded from DeepImmutable because TaskState contains function types
 	tasks: { [taskId: string]: TaskState };
@@ -511,7 +510,6 @@ export function getDefaultAppState(): AppState {
 		replBridgeSessionId: undefined,
 		replBridgeError: undefined,
 		replBridgeInitialName: undefined,
-		showRemoteCallout: false,
 		toolPermissionContext: {
 			...getEmptyToolPermissionContext(),
 			mode: initialMode,

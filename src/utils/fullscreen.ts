@@ -1,4 +1,4 @@
-import { spawnSync, type SpawnSyncReturns } from "node:child_process";
+import { type SpawnSyncReturns, spawnSync } from "node:child_process";
 import { getIsInteractive } from "../bootstrap/state.js";
 import { logForDebugging } from "./debug.js";
 import { isEnvDefinedFalsy, isEnvTruthy } from "./envUtils.js";

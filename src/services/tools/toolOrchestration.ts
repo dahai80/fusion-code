@@ -172,12 +172,7 @@ async function* runToolsConcurrently(
 			if (ownerMessage === undefined) {
 				throw new Error(`No assistant message owns tool_use ${toolUse.id}`);
 			}
-			yield* runToolUse(
-				toolUse,
-				ownerMessage,
-				canUseTool,
-				toolUseContext,
-			);
+			yield* runToolUse(toolUse, ownerMessage, canUseTool, toolUseContext);
 			markToolUseAsComplete(toolUseContext, toolUse.id);
 		}),
 		getMaxToolUseConcurrency(),

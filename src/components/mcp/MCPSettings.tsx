@@ -13,7 +13,6 @@ import {
 	filterToolsByServer,
 } from "../../services/mcp/index.js";
 import { useAppState } from "../../state/AppState.js";
-import { getSessionIngressAuthToken } from "../../utils/sessionIngressAuth.js";
 import { MCPAgentServerMenu } from "./MCPAgentServerMenu.js";
 import { MCPListPanel } from "./MCPListPanel.js";
 import { MCPRemoteServerMenu } from "./MCPRemoteServerMenu.js";
@@ -91,14 +90,10 @@ export function MCPSettings(t0) {
 								client_0.config as McpSSEServerConfig | McpHTTPServerConfig,
 							);
 							const tokens = await authProvider.tokens();
-							const hasSessionAuth =
-								getSessionIngressAuthToken() !== null &&
-								client_0.type === "connected";
 							const hasToolsAndConnected =
 								client_0.type === "connected" &&
 								filterToolsByServer(mcp.tools, client_0.name).length > 0;
-							isAuthenticated =
-								Boolean(tokens) || hasSessionAuth || hasToolsAndConnected;
+							isAuthenticated = Boolean(tokens) || hasToolsAndConnected;
 						}
 						const baseInfo = {
 							name: client_0.name,

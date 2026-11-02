@@ -19,7 +19,6 @@ import { clearFileSuggestionCaches } from "../../hooks/fileSuggestions.js";
 import { clearAllPendingCallbacks } from "../../hooks/useSwarmPermissionPoller.js";
 import {
 	clearAllDumpState,
-	clearAllSessions,
 	resetPromptCacheBreakDetection,
 } from "../../services/api/index.js";
 import { runPostCompactCleanup } from "../../services/compact/index.js";
@@ -88,8 +87,6 @@ export function clearSessionCaches(
 	// Clear stored image paths cache
 	clearStoredImagePaths();
 
-	// Clear all session ingress caches (lastUuidMap, sequentialAppendBySession)
-	clearAllSessions();
 	// Clear swarm permission pending callbacks
 	if (!hasPreserved) clearAllPendingCallbacks();
 

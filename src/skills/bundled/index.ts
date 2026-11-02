@@ -77,14 +77,6 @@ export function initBundledSkills(): void {
 		// the skill's own isEnabled callback decides visibility.
 		registerLoopSkill();
 	}
-	if (feature("AGENT_TRIGGERS_REMOTE")) {
-		/* eslint-disable @typescript-eslint/no-require-imports */
-		const {
-			registerScheduleRemoteAgentsSkill,
-		} = require("./scheduleRemoteAgents.js");
-		/* eslint-enable @typescript-eslint/no-require-imports */
-		registerScheduleRemoteAgentsSkill();
-	}
 	// claudeApi.js (BUILDING_CLAUDE_APPS) block removed: the skill's
 	// claudeApiContent.ts statically imports 26 `./claude-api/*.md` files from a
 	// vendored doc tree that was never committed. Dead in shipped builds

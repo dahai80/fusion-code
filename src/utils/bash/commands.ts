@@ -781,10 +781,11 @@ export function extractOutputRedirections(cmd: string): {
 	}
 
 	return {
-		commandWithoutRedirections: restoreHeredocs(
-			[reconstructCommand(kept, processedCommand)],
-			heredocs,
-		)[0] ?? "",
+		commandWithoutRedirections:
+			restoreHeredocs(
+				[reconstructCommand(kept, processedCommand)],
+				heredocs,
+			)[0] ?? "",
 		redirections,
 		hasDangerousRedirection,
 	};

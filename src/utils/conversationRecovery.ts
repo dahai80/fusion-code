@@ -130,11 +130,6 @@ function migrateLegacyAttachmentTypes(message: Message): Message {
 	return message;
 }
 
-export type TeleportRemoteResponse = {
-	log: Message[];
-	branch?: string;
-};
-
 export type TurnInterruptionState =
 	| { kind: "none" }
 	| { kind: "interrupted_prompt"; message: NormalizedUserMessage };
@@ -569,7 +564,9 @@ export async function loadConversationForResume(
 
 		// Restore skill state from invoked_skills attachments before deserialization.
 		// This ensures skills survive multiple compaction cycles after resume.
-		let deserialized: ReturnType<typeof deserializeMessagesWithInterruptDetection> | undefined;
+		let deserialized:
+			| ReturnType<typeof deserializeMessagesWithInterruptDetection>
+			| undefined;
 		if (messages !== undefined) {
 			restoreSkillStateFromMessages(messages);
 

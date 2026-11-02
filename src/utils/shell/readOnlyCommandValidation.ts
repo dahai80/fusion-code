@@ -1851,9 +1851,9 @@ export function validateFlags(
 					if (
 						i + 1 >= tokens.length ||
 						(tokens[i + 1] &&
-						 tokens[i + 1]?.startsWith("-") &&
-						 tokens[i + 1]?.length > 1 &&
-						 FLAG_PATTERN.test(tokens[i + 1] ?? ""))
+							tokens[i + 1]?.startsWith("-") &&
+							tokens[i + 1]?.length > 1 &&
+							FLAG_PATTERN.test(tokens[i + 1] ?? ""))
 					) {
 						return false; // Missing required argument
 					}

@@ -273,7 +273,8 @@ export function saveMcpServerUserConfig(
 					: 0;
 				logForDebugging(
 					`saveMcpServerUserConfig: scrubbed ${
-						existingKeys - (secureScrubbed ? Object.keys(secureScrubbed).length : 0)
+						existingKeys -
+						(secureScrubbed ? Object.keys(secureScrubbed).length : 0)
 					} stale non-sensitive key(s) from secureStorage for ${k}`,
 				);
 			}

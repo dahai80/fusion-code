@@ -168,11 +168,15 @@ export function MarkdownTable({
 	} else if (totalMin <= availableWidth) {
 		// Need to shrink - give each column its min, distribute remaining space
 		const extraSpace = availableWidth - totalMin;
-		const overflows = idealWidths.map((ideal, i) => ideal - (minWidths[i] ?? 0));
+		const overflows = idealWidths.map(
+			(ideal, i) => ideal - (minWidths[i] ?? 0),
+		);
 		const totalOverflow = overflows.reduce((sum_1, o) => sum_1 + o, 0);
 		columnWidths = minWidths.map((min, i_0) => {
 			if (totalOverflow === 0) return min;
-			const extra = Math.floor(((overflows[i_0] ?? 0) / totalOverflow) * extraSpace);
+			const extra = Math.floor(
+				((overflows[i_0] ?? 0) / totalOverflow) * extraSpace,
+			);
 			return min + extra;
 		});
 	} else {
@@ -200,9 +204,13 @@ export function MarkdownTable({
 		for (const row_1 of token.rows) {
 			for (let i_2 = 0; i_2 < row_1.length; i_2++) {
 				const content_0 = formatCell(row_1[i_2]?.tokens);
-				const wrapped_0 = wrapText(content_0, columnWidths[i_2] ?? availableWidth, {
-					hard: needsHardWrap,
-				});
+				const wrapped_0 = wrapText(
+					content_0,
+					columnWidths[i_2] ?? availableWidth,
+					{
+						hard: needsHardWrap,
+					},
+				);
 				maxLines = Math.max(maxLines, wrapped_0.length);
 			}
 		}

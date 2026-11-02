@@ -6,7 +6,7 @@
 // onCancel 经 ref 透传 3 处消费: cancelRequestProps (slice #58 ctx) L2325 / createMessageActionCaps L3743 / <MessageSelector onPreRestore> L5119; 无 pre-decl 直调 (hoist 不依赖, const 安全)。
 // 18 ctx 字段 (闭包捕获): focusedInputDialog/streamMode/proactiveModule/queryGuard/skipIdleCheckRef/streamingText/setMessages/
 // resetLoadingState/snapshotOutputTokensForTurn/toolUseConfirmQueue/setToolUseConfirmQueue/promptQueue/setPromptQueue/
-// abortController/setAbortController/activeRemote/mrOnTurnComplete/messagesRef。
+// abortController/setAbortController/mrOnTurnComplete/messagesRef。
 // 导入直接 (非 ctx, per imported-helpers-directly rule; REPL 多用, 保留 REPL import): logForDebugging (utils/debug) +
 // feature (bun:bundle, build-time macro, sandboxAskCheck 已证可用) + createAssistantMessage (utils/messages) +
 // FocusedDialogKind/SpinnerMode/ToolUseConfirm/PromptRequest/PromptResponse/QueryGuard/MessageType (类型)。
@@ -30,11 +30,6 @@ type PromptQueueItem = {
 	reject: (error: Error) => void;
 };
 
-type ActiveRemoteLike = {
-	isRemoteMode: boolean;
-	cancelRequest: () => void;
-};
-
 type ProactiveModuleLike = {
 	pauseProactive: () => void;
 } | null;
@@ -55,7 +50,6 @@ export type OnCancelCtx = {
 	setPromptQueue: (queue: PromptQueueItem[]) => void;
 	abortController: AbortController | null;
 	setAbortController: (controller: AbortController | null) => void;
-	activeRemote: ActiveRemoteLike;
 	mrOnTurnComplete: (all: MessageType[], aborted: boolean) => Promise<void>;
 	messagesRef: React.MutableRefObject<MessageType[]>;
 };
@@ -65,7 +59,7 @@ export type OnCancelCtx = {
 //     focusedInputDialog, streamMode, proactiveModule, queryGuard, skipIdleCheckRef,
 //     streamingText, setMessages, resetLoadingState, snapshotOutputTokensForTurn,
 //     toolUseConfirmQueue, setToolUseConfirmQueue, promptQueue, setPromptQueue,
-//     abortController, setAbortController, activeRemote, mrOnTurnComplete, messagesRef,
+//     abortController, setAbortController, mrOnTurnComplete, messagesRef,
 //   });
 export function createOnCancel(ctx: OnCancelCtx): () => void {
 	return () => {
@@ -114,11 +108,6 @@ export function createOnCancel(ctx: OnCancelCtx): () => void {
 				item.reject(new Error("Prompt cancelled by user"));
 			}
 			ctx.setPromptQueue([]);
-			ctx.abortController?.abort("user-cancel");
-		} else if (ctx.activeRemote.isRemoteMode) {
-			// Remote mode: send interrupt signal to CCR
-			ctx.activeRemote.cancelRequest();
-		} else {
 			ctx.abortController?.abort("user-cancel");
 		}
 

@@ -7,9 +7,6 @@ import { initSkillImprovement } from "./hooks/skillImprovement.js";
 const extractMemoriesModule = feature("EXTRACT_MEMORIES")
 	? (require("../services/extractMemories/index.js") as typeof import("../services/extractMemories/index.js"))
 	: null;
-const registerProtocolModule = feature("LODESTONE")
-	? (require("./deepLink/registerProtocol.js") as typeof import("./deepLink/registerProtocol.js"))
-	: null;
 
 /* eslint-enable @typescript-eslint/no-require-imports */
 
@@ -31,9 +28,6 @@ export function startBackgroundHousekeeping(): void {
 	}
 	initAutoDream();
 	void autoUpdateMarketplacesAndPluginsInBackground();
-	if (feature("LODESTONE") && getIsInteractive()) {
-		void registerProtocolModule?.ensureDeepLinkProtocolRegistered();
-	}
 
 	let needsCleanup = true;
 	async function runVerySlowOps(): Promise<void> {

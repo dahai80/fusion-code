@@ -1381,12 +1381,12 @@ function validateObfuscatedFlags(context: ValidationContext): PermissionResult {
 					let pos = j + 1; // Start at charAfterQuote (an opening quote)
 					let combinedContent = insideQuote; // Track what the shell will see
 					while (
-					 pos < originalCommand.length &&
-					 /['"`]/.test(originalCommand[pos] ?? "")
+						pos < originalCommand.length &&
+						/['"`]/.test(originalCommand[pos] ?? "")
 					) {
-					 const segQuote = originalCommand[pos];
-					 if (segQuote === undefined) break;
-					 let end = pos + 1;
+						const segQuote = originalCommand[pos];
+						if (segQuote === undefined) break;
+						let end = pos + 1;
 						while (
 							end < originalCommand.length &&
 							originalCommand[end] !== segQuote
@@ -1417,14 +1417,14 @@ function validateObfuscatedFlags(context: ValidationContext): PermissionResult {
 					}
 					// Also check the unquoted char at the end of the chain
 					if (
-					 pos < originalCommand.length &&
-					 FLAG_CONTINUATION_CHARS.test(originalCommand[pos] ?? "")
+						pos < originalCommand.length &&
+						FLAG_CONTINUATION_CHARS.test(originalCommand[pos] ?? "")
 					) {
-					 // If we have dashes in combined content, the trailing char completes a flag
-					 if (/^-+$/.test(combinedContent) || combinedContent === "") {
-					  // Check if we're about to form a flag with the following content
-					  const nextChar = originalCommand[pos];
-					  if (nextChar === "-") {
+						// If we have dashes in combined content, the trailing char completes a flag
+						if (/^-+$/.test(combinedContent) || combinedContent === "") {
+							// Check if we're about to form a flag with the following content
+							const nextChar = originalCommand[pos];
+							if (nextChar === "-") {
 								// More dashes, could still form a flag
 								return true;
 							}

@@ -3,7 +3,6 @@ import { feature } from "bun:bundle";
 import { readFile, stat } from "node:fs/promises";
 import { dirname } from "node:path";
 import { StructuredIO } from "src/cli/structuredIO.js";
-import { RemoteIO } from "src/cli/remoteIO.js";
 import {
 	type Command,
 	formatDescriptionWithSource,
@@ -90,7 +89,6 @@ import {
 import { expandPath } from "src/utils/path.js";
 import { extractReadFilesFromMessages } from "src/utils/queryHelpers.js";
 import { registerHookEventHandler } from "src/utils/hooks/hookEvents.js";
-import { executeFilePersistence } from "src/utils/filePersistence/filePersistence.js";
 import { finalizePendingAsyncHooks } from "src/utils/hooks/AsyncHookRegistry.js";
 import {
 	gracefulShutdown,
@@ -126,7 +124,6 @@ import { cwd } from "node:process";
 import { getCwd } from "src/utils/cwd.js";
 import omit from "lodash-es/omit.js";
 import reject from "lodash-es/reject.js";
-import { isPolicyAllowed } from "src/services/policyLimits/index.js";
 import type { ReplBridgeHandle } from "src/bridge/replBridge.js";
 import { getRemoteSessionUrl } from "src/constants/product.js";
 import { buildBridgeConnectUrl } from "src/bridge/bridgeStatusUtil.js";
@@ -196,7 +193,6 @@ import {
 import { createSyntheticOutputTool } from "src/tools/SyntheticOutputTool/SyntheticOutputTool.js";
 import { parseSessionIdentifier } from "src/utils/sessionUrl.js";
 import {
-	hydrateRemoteSession,
 	hydrateFromCCRv2InternalEvents,
 	resetSessionFilePointer,
 	doesMessageExistInSession,
@@ -475,8 +471,6 @@ export async function runHeadless(
 		appendSystemPrompt: string | undefined;
 		userSpecifiedModel: string | undefined;
 		fallbackModel: string | undefined;
-		teleport: string | true | null | undefined;
-		sdkUrl: string | undefined;
 		replayUserMessages: boolean | undefined;
 		includePartialMessages: boolean | undefined;
 		forkSession: boolean | undefined;
@@ -669,7 +663,6 @@ export async function runHeadless(
 		agentSetting: resumedAgentSetting,
 	} = await loadInitialMessages(setAppState, {
 		continue: options.continue,
-		teleport: options.teleport,
 		resume: options.resume,
 		resumeSessionAt: options.resumeSessionAt,
 		forkSession: options.forkSession,
@@ -754,14 +747,13 @@ export async function runHeadless(
 		return;
 	}
 
-	// Check if we need input prompt - skip if we're resuming with a valid session ID/JSONL file or using SDK URL
+	// Check if we need input prompt - skip if we're resuming with a valid session ID/JSONL file
 	const hasValidResumeSessionId =
 		typeof options.resume === "string" &&
 		(Boolean(validateUuid(options.resume)) ||
 			options.resume.endsWith(".jsonl"));
-	const isUsingSdkUrl = Boolean(options.sdkUrl);
 
-	if (!inputPrompt && !hasValidResumeSessionId && !isUsingSdkUrl) {
+	if (!inputPrompt && !hasValidResumeSessionId) {
 		process.stderr.write(
 			`Error: Input must be provided either through stdin or as a prompt argument when using --print\n`,
 		);
@@ -784,10 +776,7 @@ export async function runHeadless(
 	);
 	let filteredTools = [...tools, ...allowedMcpTools];
 
-	// When using SDK URL, always use stdio permission prompting to delegate to the SDK
-	const effectivePermissionPromptToolName = options.sdkUrl
-		? "stdio"
-		: options.permissionPromptToolName;
+	const effectivePermissionPromptToolName = options.permissionPromptToolName;
 
 	// Callback for when a permission prompt is shown
 	const onPermissionPrompt = (details: RequiresActionDetails) => {
@@ -2096,12 +2085,6 @@ function runHeadlessStreaming(
 
 					const input = command.value;
 
-					if (structuredIO instanceof RemoteIO && command.mode === "prompt") {
-						logEvent("tengu_bridge_message_received", {
-							is_repl: false,
-						});
-					}
-
 					// Abort any in-flight suggestion generation and track acceptance
 					suggestionState.abortController?.abort();
 					suggestionState.abortController = null;
@@ -2132,9 +2115,6 @@ function runHeadlessStreaming(
 					}
 
 					abortController = createAbortController();
-					const turnStartTime = feature("FILE_PERSISTENCE")
-						? Date.now()
-						: undefined;
 
 					headlessProfilerCheckpoint("before_ask");
 					startQueryProfile();
@@ -2254,24 +2234,6 @@ function runHeadlessStreaming(
 					// Forward messages to bridge after each turn
 					forwardMessagesToBridge();
 					bridgeHandle?.sendResult(undefined);
-
-					if (feature("FILE_PERSISTENCE") && turnStartTime !== undefined) {
-						void executeFilePersistence(
-							turnStartTime,
-							abortController.signal,
-							(result) => {
-								output.enqueue({
-									type: "system" as const,
-									subtype: "files_persisted" as const,
-									files: result.files,
-									failed: result.failed,
-									processed_at: new Date().toISOString(),
-									uuid: randomUUID(),
-									session_id: getSessionId(),
-								});
-							},
-						);
-					}
 
 					// Generate and emit prompt suggestion for SDK consumers
 					if (
@@ -5284,7 +5246,6 @@ async function loadInitialMessages(
 	setAppState: (f: (prev: AppState) => AppState) => void,
 	options: {
 		continue: boolean | undefined;
-		teleport: string | true | null | undefined;
 		resume: string | boolean | undefined;
 		resumeSessionAt: string | undefined;
 		forkSession: boolean | undefined;
@@ -5376,45 +5337,6 @@ async function loadInitialMessages(
 		}
 	}
 
-	// Handle teleport in print mode
-	if (options.teleport) {
-		try {
-			if (!isPolicyAllowed("allow_remote_sessions")) {
-				throw new Error(
-					"Remote sessions are disabled by your organization's policy.",
-				);
-			}
-
-			logEvent("tengu_teleport_print", {});
-
-			if (typeof options.teleport !== "string") {
-				throw new Error("No session ID provided for teleport");
-			}
-
-			const {
-				checkOutTeleportedSessionBranch,
-				processMessagesForTeleportResume,
-				teleportResumeCodeSession,
-				validateGitState,
-			} = await import("src/utils/teleport.js");
-			await validateGitState();
-			const teleportResult = await teleportResumeCodeSession(options.teleport);
-			const { branchError } = await checkOutTeleportedSessionBranch(
-				teleportResult.branch,
-			);
-			return {
-				messages: processMessagesForTeleportResume(
-					teleportResult.log,
-					branchError,
-				),
-			};
-		} catch (error) {
-			logError(error);
-			gracefulShutdownSync(1);
-			return { messages: [] };
-		}
-	}
-
 	// Handle resume in print mode (accepts session ID or URL)
 	// URLs are [ANT-ONLY]
 	if (options.resume) {
@@ -5450,16 +5372,6 @@ async function loadInitialMessages(
 						setMainLoopModelOverride(metadata.model);
 					}
 				}
-			} else if (
-				parsedSessionId.isUrl &&
-				parsedSessionId.ingressUrl &&
-				isEnvTruthy(process.env.ENABLE_SESSION_PERSISTENCE)
-			) {
-				// v1: fetch session logs from Session Ingress
-				await hydrateRemoteSession(
-					parsedSessionId.sessionId,
-					parsedSessionId.ingressUrl,
-				);
 			}
 
 			// Load the conversation with the specified session ID
@@ -5591,7 +5503,6 @@ async function loadInitialMessages(
 function getStructuredIO(
 	inputPrompt: string | AsyncIterable<string>,
 	options: {
-		sdkUrl: string | undefined;
 		replayUserMessages?: boolean;
 	},
 ): StructuredIO {
@@ -5618,10 +5529,7 @@ function getStructuredIO(
 		inputStream = inputPrompt;
 	}
 
-	// Use RemoteIO if sdkUrl is provided, otherwise use regular StructuredIO
-	return options.sdkUrl
-		? new RemoteIO(options.sdkUrl, inputStream, options.replayUserMessages)
-		: new StructuredIO(inputStream, options.replayUserMessages);
+	return new StructuredIO(inputStream, options.replayUserMessages);
 }
 
 /**
