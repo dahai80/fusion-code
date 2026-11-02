@@ -41,7 +41,6 @@ import { CondensedLogo } from "./CondensedLogo.js";
 import { EmergencyTip } from "./EmergencyTip.js";
 import { FeedColumn } from "./FeedColumn.js";
 import {
-	createGuestPassesFeed,
 	createProjectOnboardingFeed,
 	createRecentActivityFeed,
 } from "./feedConfigs.js";
@@ -70,7 +69,6 @@ import {
 	useShowGuestPassesUpsell,
 } from "./GuestPassesUpsell.js";
 import {
-	createOverageCreditFeed,
 	incrementOverageCreditUpsellSeenCount,
 	useShowOverageCreditUpsell,
 } from "./OverageCreditUpsell.js";
@@ -141,51 +139,6 @@ export function LogoV2() {
 		t4 = $[5];
 	}
 	const isCondensedMode = t4;
-	let t5;
-	let t6;
-	if ($[6] !== showGuestPassesUpsell) {
-		t5 = () => {
-			if (showGuestPassesUpsell && !showOnboarding && !isCondensedMode) {
-				incrementGuestPassesSeenCount();
-			}
-		};
-		t6 = [showGuestPassesUpsell, showOnboarding, isCondensedMode];
-		$[6] = showGuestPassesUpsell;
-		$[7] = t5;
-		$[8] = t6;
-	} else {
-		t5 = $[7];
-		t6 = $[8];
-	}
-	useEffect(t5, t6);
-	let t7;
-	let t8;
-	if ($[9] !== showGuestPassesUpsell || $[10] !== showOverageCreditUpsell) {
-		t7 = () => {
-			if (
-				showOverageCreditUpsell &&
-				!showOnboarding &&
-				!showGuestPassesUpsell &&
-				!isCondensedMode
-			) {
-				incrementOverageCreditUpsellSeenCount();
-			}
-		};
-		t8 = [
-			showOverageCreditUpsell,
-			showOnboarding,
-			showGuestPassesUpsell,
-			isCondensedMode,
-		];
-		$[9] = showGuestPassesUpsell;
-		$[10] = showOverageCreditUpsell;
-		$[11] = t7;
-		$[12] = t8;
-	} else {
-		t7 = $[11];
-		t8 = $[12];
-	}
-	useEffect(t7, t8);
 	const model = useMainLoopModel();
 	const fullModelDisplayName = renderModelSetting(model);
 	const {
@@ -610,14 +563,7 @@ export function LogoV2() {
 							createProjectOnboardingFeed(getSteps()),
 							createRecentActivityFeed(activities),
 						]
-					: showGuestPassesUpsell
-						? [createRecentActivityFeed(activities), createGuestPassesFeed()]
-						: showOverageCreditUpsell
-							? [
-									createRecentActivityFeed(activities),
-									createOverageCreditFeed(),
-								]
-							: [createRecentActivityFeed(activities)]
+					: [createRecentActivityFeed(activities)]
 			}
 			maxWidth={rightWidth}
 		/>

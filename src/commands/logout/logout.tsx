@@ -2,10 +2,6 @@ import type * as React from "react";
 import { clearTrustedDeviceTokenCache } from "../../bridge/trustedDevice.js";
 import { Text } from "../../ink.js";
 import { refreshGrowthBookAfterAuthChange } from "../../services/analytics/index.js";
-import {
-	getGroveNoticeConfig,
-	getGroveSettings,
-} from "../../services/api/index.js";
 import { clearPolicyLimitsCache } from "../../services/policyLimits/index.js";
 // flushTelemetry is loaded lazily to avoid pulling in ~1.1MB of OpenTelemetry at startup
 import { getClaudeAIOAuthTokens, removeApiKey } from "../../utils/auth.js";
@@ -60,10 +56,6 @@ export async function clearAuthRelatedCaches(): Promise<void> {
 	// Clear user data cache BEFORE GrowthBook refresh so it picks up fresh credentials
 	resetUserCache();
 	refreshGrowthBookAfterAuthChange();
-
-	// Clear Grove config cache
-	getGroveNoticeConfig.cache?.clear?.();
-	getGroveSettings.cache?.clear?.();
 
 	// Clear policy limits cache
 	await clearPolicyLimitsCache();

@@ -1,21 +1,10 @@
 import isEqual from "lodash-es/isEqual.js";
-import type { MessageParam } from "src/types/anthropic-protocol.js";
-import { getIsNonInteractiveSession } from "../bootstrap/state.js";
 import { isClaudeAISubscriber } from "../utils/auth.js";
-import { getModelBetas } from "../utils/betas.js";
 import { getGlobalConfig, saveGlobalConfig } from "../utils/config.js";
 import { logError } from "../utils/log.js";
-import { getSmallFastModel } from "../utils/model/model.js";
-import { isEssentialTrafficOnly } from "../utils/privacyLevel.js";
 import type { AnalyticsMetadata_I_VERIFIED_THIS_IS_NOT_CODE_OR_FILEPATHS } from "./analytics/index.js";
 import { logEvent } from "./analytics/index.js";
-import { getAPIMetadata } from "./api/claude.js";
-import { getAnthropicClient } from "./api/client.js";
-import { isApiErrorLike } from "./llm/errors.js";
-import {
-	processRateLimitHeaders,
-	shouldProcessRateLimits,
-} from "./rateLimitMocking.js";
+import { shouldProcessRateLimits } from "./rateLimitMocking.js";
 
 // Re-export message functions from centralized location
 export {
@@ -196,59 +185,6 @@ export function emitStatusChange(limits: ClaudeAILimits) {
 		unifiedRateLimitFallbackAvailable: limits.unifiedRateLimitFallbackAvailable,
 		hoursTillReset,
 	});
-}
-
-async function makeTestQuery() {
-	const model = getSmallFastModel();
-	const anthropic = await getAnthropicClient({
-		maxRetries: 0,
-		model,
-		source: "quota_check",
-	});
-	const messages: MessageParam[] = [{ role: "user", content: "quota" }];
-	const betas = getModelBetas(model);
-	const raw = await anthropic.createMessageRaw(
-		{
-			model,
-			max_tokens: 1,
-			messages,
-			metadata: getAPIMetadata(),
-			...(betas.length > 0 ? { betas } : {}),
-		},
-		{},
-	);
-	return raw.response;
-}
-
-export async function checkQuotaStatus(): Promise<void> {
-	// Skip network requests if nonessential traffic is disabled
-	if (isEssentialTrafficOnly()) {
-		return;
-	}
-
-	// Check if we should process rate limits (real subscriber or mock testing)
-	if (!shouldProcessRateLimits(isClaudeAISubscriber())) {
-		return;
-	}
-
-	// In non-interactive mode (-p), the real query follows immediately and
-	// extractQuotaStatusFromHeaders() will update limits from its response
-	// headers (claude.ts), so skip this pre-check API call.
-	if (getIsNonInteractiveSession()) {
-		return;
-	}
-
-	try {
-		// Make a minimal request to check quota
-		const raw = await makeTestQuery();
-
-		// Update limits based on the response
-		extractQuotaStatusFromHeaders(raw.headers);
-	} catch (error) {
-		if (isApiErrorLike(error)) {
-			extractQuotaStatusFromError(error);
-		}
-	}
 }
 
 /**
@@ -474,8 +410,7 @@ export function extractQuotaStatusFromHeaders(
 		return;
 	}
 
-	// Process headers (applies mocks from /mock-limits command if active)
-	const headersToUse = processRateLimitHeaders(headers);
+	const headersToUse = headers;
 	rawUtilization = extractRawUtilization(headersToUse);
 	const newLimits = computeNewLimitsFromHeaders(headersToUse);
 
@@ -492,20 +427,14 @@ export function extractQuotaStatusFromError(error: {
 	message: string;
 	headers?: unknown;
 }): void {
-	if (
-		!shouldProcessRateLimits(isClaudeAISubscriber()) ||
-		error.status !== 429
-	) {
+	if (error.status !== 429) {
 		return;
 	}
 
 	try {
 		let newLimits = { ...currentLimits };
 		if (error.headers) {
-			// Process headers (applies mocks from /mock-limits command if active)
-			const headersToUse = processRateLimitHeaders(
-				error.headers as globalThis.Headers,
-			);
+			const headersToUse = error.headers as globalThis.Headers;
 			rawUtilization = extractRawUtilization(headersToUse);
 			newLimits = computeNewLimitsFromHeaders(headersToUse);
 

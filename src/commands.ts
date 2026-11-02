@@ -49,8 +49,6 @@ import { feature } from "bun:bundle";
 import permissions from "./commands/permissions/index.js";
 import plan from "./commands/plan/index.js";
 import fast from "./commands/fast/index.js";
-import passes from "./commands/passes/index.js";
-import privacySettings from "./commands/privacy-settings/index.js";
 import hooks from "./commands/hooks/index.js";
 import files from "./commands/files/index.js";
 import fork from "./commands/fork/index.js";
@@ -291,7 +289,6 @@ const COMMANDS = memoize((): Command[] => [
 	vim,
 	permissions,
 	plan,
-	privacySettings,
 	hooks,
 	exportCommand,
 	sandboxToggle,
@@ -299,7 +296,6 @@ const COMMANDS = memoize((): Command[] => [
 	...((!isUsing3PServices() && !isFusionMlxProvider()
 		? [logout, login()]
 		: []) as Command[]),
-	passes,
 	tasks,
 	usageReport,
 	...(process.env.USER_TYPE === "ant" && !process.env.IS_DEMO

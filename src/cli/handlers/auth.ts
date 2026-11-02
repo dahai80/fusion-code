@@ -8,10 +8,7 @@ import {
 	type AnalyticsMetadata_I_VERIFIED_THIS_IS_NOT_CODE_OR_FILEPATHS,
 	logEvent,
 } from "../../services/analytics/index.js";
-import {
-	fetchAndStoreClaudeCodeFirstTokenDate,
-	getSSLErrorHint,
-} from "../../services/api/index.js";
+import { getSSLErrorHint } from "../../services/api/index.js";
 import type { OAuthTokens } from "../../services/oauth/index.js";
 import {
 	createAndStoreApiKey,
@@ -105,11 +102,7 @@ export async function installOAuthTokens(tokens: OAuthTokens): Promise<void> {
 		logForDebugging(String(err), { level: "error" }),
 	);
 
-	if (shouldUseClaudeAIAuth(tokens.scopes)) {
-		await fetchAndStoreClaudeCodeFirstTokenDate().catch((err) =>
-			logForDebugging(String(err), { level: "error" }),
-		);
-	} else if (hasAnyAnthropicScope(tokens.scopes)) {
+	if (!shouldUseClaudeAIAuth(tokens.scopes) && hasAnyAnthropicScope(tokens.scopes)) {
 		// API key creation is critical for Console users — let it throw.
 		const apiKey = await createAndStoreApiKey(tokens.accessToken);
 		if (!apiKey) {

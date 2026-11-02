@@ -27,7 +27,6 @@ import {
 	initializeGrowthBook,
 	resetGrowthBook,
 } from "./services/analytics/index.js";
-import { isQualifiedForGrove } from "./services/api/index.js";
 import { handleMcpjsonServerApprovals } from "./services/mcpServerApproval.js";
 import { AppStateProvider } from "./state/AppState.js";
 import { onChangeAppState } from "./state/onChangeAppState.js";
@@ -261,22 +260,6 @@ export async function showSetupScreens(
 	// Defer to next tick so the OTel dynamic import resolves after first render
 	// instead of during the pre-render microtask queue.
 	setImmediate(() => initializeTelemetryAfterTrust());
-	if (await isQualifiedForGrove()) {
-		const { GroveDialog } = await import("src/components/grove/Grove.js");
-		const decision = await showSetupDialog<string>(root, (done) => (
-			<GroveDialog
-				showIfAlreadyViewed={false}
-				location={onboardingShown ? "onboarding" : "policy_update_modal"}
-				onDone={done}
-			/>
-		));
-		if (decision === "escape") {
-			logEvent("tengu_grove_policy_exited", {});
-			gracefulShutdownSync(0);
-			return false;
-		}
-	}
-
 	// Check for custom API key
 	// On homespace, ANTHROPIC_API_KEY is preserved in process.env for child
 	// processes but ignored by Fusion-Code itself (see auth.ts).

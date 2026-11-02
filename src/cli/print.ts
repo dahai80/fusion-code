@@ -250,10 +250,6 @@ import {
 import { setupVscodeSdkMcp } from "src/services/mcp/index.js";
 import { getAllMcpConfigs } from "src/services/mcp/index.js";
 import {
-	isQualifiedForGrove,
-	checkGroveForNonInteractive,
-} from "src/services/api/index.js";
-import {
 	toInternalMessages,
 	toSDKRateLimitInfo,
 } from "src/utils/messages/mappers.js";
@@ -561,10 +557,6 @@ export async function runHeadless(
 	headlessProfilerStartTurn();
 	headlessProfilerCheckpoint("runHeadless_entry");
 
-	// Check Grove requirements for non-interactive consumer subscribers
-	if (await isQualifiedForGrove()) {
-		await checkGroveForNonInteractive();
-	}
 	headlessProfilerCheckpoint("after_grove_check");
 
 	// Initialize GrowthBook so feature flags take effect in headless mode.

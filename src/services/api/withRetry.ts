@@ -42,10 +42,6 @@ import {
 	isConnectionErrorLike,
 	isDeterministicError,
 } from "../llm/errors.js";
-import {
-	checkMockRateLimitError,
-	isMockRateLimitError,
-} from "../rateLimitMocking.js";
 import { REPEATED_529_ERROR_MESSAGE } from "./errors.js";
 import { extractConnectionErrorDetails } from "./errorUtils.js";
 
@@ -242,17 +238,6 @@ export async function* withRetry<T>(
 			: false;
 
 		try {
-			// Check for mock rate limits (used by /mock-limits command for Ant employees)
-			if (process.env.USER_TYPE === "ant") {
-				const mockError = checkMockRateLimitError(
-					retryContext.model,
-					wasFastModeActive,
-				);
-				if (mockError) {
-					throw mockError;
-				}
-			}
-
 			// Get a fresh client instance on first attempt or after authentication errors
 			// - 401 for first-party API authentication failures
 			// - 403 "OAuth token has been revoked" (another process refreshed the token)
@@ -715,12 +700,6 @@ function handleGcpCredentialError(_error: unknown): boolean {
 }
 
 function shouldRetry(error: ApiErrorLike): boolean {
-	// Never retry mock errors - they're from /mock-limits command for testing
-	// rateLimitMocking 仍用 SDK APIError 形参 (ant-only mock), 此处形态兼容, 安全转换。
-	if (isMockRateLimitError(error as unknown as APIError)) {
-		return false;
-	}
-
 	// Persistent mode: 429/529 always retryable, bypass subscriber gates and
 	// x-should-retry header.
 	if (isPersistentRetryEnabled() && isTransientCapacityError(error)) {

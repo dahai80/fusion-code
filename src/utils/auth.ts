@@ -18,10 +18,6 @@ import {
 	getIsNonInteractiveSession,
 	preferThirdPartyAuthentication,
 } from "../bootstrap/state.js";
-import {
-	getMockSubscriptionType,
-	shouldUseMockSubscription,
-} from "../services/mockRateLimits.js";
 import type {
 	CodexTokens,
 	OAuthTokens,
@@ -1920,11 +1916,6 @@ export function hasOpusAccess(): boolean {
 }
 
 export function getSubscriptionType(): SubscriptionType | null {
-	// Check for mock subscription type first (ANT-only testing)
-	if (shouldUseMockSubscription()) {
-		return getMockSubscriptionType();
-	}
-
 	if (!isAnthropicAuthEnabled()) {
 		return null;
 	}

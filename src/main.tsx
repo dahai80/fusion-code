@@ -49,9 +49,7 @@ import {
 	type DownloadResult,
 	downloadSessionFiles,
 	type FilesApiConfig,
-	fetchBootstrapData,
 	parseFileSpecs,
-	prefetchPassesEligibility,
 } from "./services/api/index.js";
 import type {
 	McpSdkServerConfig,
@@ -172,7 +170,6 @@ import {
 } from "./interactiveHelpers.js";
 import { initBuiltinPlugins } from "./plugins/bundled/index.js";
 /* eslint-enable @typescript-eslint/no-require-imports */
-import { checkQuotaStatus } from "./services/claudeAiLimits.js";
 import {
 	getMcpToolsCommandsAndResources,
 	prefetchAllMcpResources,
@@ -3505,12 +3502,11 @@ async function run(): Promise<CommanderCommand> {
 				}
 			}
 
-			// Check quota status, fast mode, passes eligibility, and bootstrap data
-			// after trust is established. These make API calls which could trigger
-			// apiKeyHelper execution.
+			// Check quota status and fast mode after trust is established. These make
+			// API calls which could trigger apiKeyHelper execution.
 			// --bare / SIMPLE: skip — these are cache-warms for the REPL's
-			// first-turn responsiveness (quota, passes, fastMode, bootstrap data). Fast
-			// mode doesn't apply to the Agent SDK anyway (see getFastModeUnavailableReason).
+			// first-turn responsiveness (quota, fastMode). Fast mode doesn't apply to
+			// the Agent SDK anyway (see getFastModeUnavailableReason).
 			const bgRefreshThrottleMs = getFeatureValue_CACHED_MAY_BE_STALE(
 				"tengu_cicada_nap_ms",
 				0,
@@ -3528,13 +3524,6 @@ async function run(): Promise<CommanderCommand> {
 				logForDebugging(
 					`Starting background startup prefetches${lastPrefetchedInfo}`,
 				);
-				checkQuotaStatus().catch((error) => logError(error));
-
-				// Fetch bootstrap data from the server and update all cache values.
-				void fetchBootstrapData();
-
-				// TODO: Consolidate other prefetches into a single bootstrap request.
-				void prefetchPassesEligibility();
 				if (
 					!getFeatureValue_CACHED_MAY_BE_STALE("tengu_miraculo_the_bard", false)
 				) {
