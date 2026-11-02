@@ -277,10 +277,7 @@ export function FastModePicker(t0) {
 	if ($[25] === Symbol.for("react.memo_cache_sentinel")) {
 		t11 = (
 			<Text dimColor={true}>
-				Learn more:{" "}
-				<Link url="https://code.claude.com/docs/en/fast-mode">
-					https://code.claude.com/docs/en/fast-mode
-				</Link>
+				See docs/feature-flags.md for FAST_MODE details.
 			</Text>
 		);
 		$[25] = t11;

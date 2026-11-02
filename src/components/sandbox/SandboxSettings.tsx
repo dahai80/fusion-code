@@ -366,12 +366,7 @@ function SandboxModeTab(t0) {
 		t6 = (
 			<Box flexDirection="column" marginTop={1} gap={1}>
 				{t5}
-				<Text dimColor={true}>
-					Learn more:{" "}
-					<Link url="https://code.claude.com/docs/en/sandboxing">
-						code.claude.com/docs/en/sandboxing
-					</Link>
-				</Text>
+				<Text dimColor={true}>Learn more in docs/enterprise-hardening.md.</Text>
 			</Box>
 		);
 		$[12] = t6;

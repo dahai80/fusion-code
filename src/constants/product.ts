@@ -2,9 +2,9 @@
 export const PRODUCT_URL = "https://github.com/dahai80/fusion-code";
 
 // Fusion-Code Remote session URLs
-// #220: Anthropic 内部 staging 域名 (claude-ai.staging.ant.dev) 已删除 —
-// staging session 只存在于上游内部部署, fusion 构建永不触达。
-export const CLAUDE_AI_BASE_URL = "https://claude.ai";
+// #220: 上游 claude.ai / 内部 staging 域名已删除 — remote session 只存在于
+// 上游内部部署, fusion 构建永不触达; base URL 指向本仓库。
+export const CLAUDE_AI_BASE_URL = PRODUCT_URL;
 export const CLAUDE_AI_LOCAL_BASE_URL = "http://localhost:4000";
 
 /**

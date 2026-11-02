@@ -84,8 +84,7 @@ export function ClaudeMdExternalIncludesDialog(t0) {
 		t8 = (
 			<Text dimColor={true}>
 				Important: Only use Fusion-Code with files you trust. Accessing
-				untrusted files may pose security risks{" "}
-				<Link url="https://code.claude.com/docs/en/security" />{" "}
+				untrusted files may pose security risks.
 			</Text>
 		);
 		$[8] = t8;

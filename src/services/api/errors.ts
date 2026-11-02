@@ -1202,8 +1202,8 @@ export function getErrorMessageIfRefusal(
 	logEvent("fusion_refusal_api_response", {});
 
 	const baseMessage = getIsNonInteractiveSession()
-		? `${API_ERROR_MESSAGE_PREFIX}: Fusion-Code is unable to respond to this request, which appears to violate our Usage Policy (https://www.anthropic.com/legal/aup). Try rephrasing the request or attempting a different approach.`
-		: `${API_ERROR_MESSAGE_PREFIX}: Fusion-Code is unable to respond to this request, which appears to violate our Usage Policy (https://www.anthropic.com/legal/aup). Please double press esc to edit your last message or start a new session for Fusion-Code to assist with a different task.`;
+		? `${API_ERROR_MESSAGE_PREFIX}: Fusion-Code is unable to respond to this request, which appears to violate the usage policy. Try rephrasing the request or attempting a different approach.`
+		: `${API_ERROR_MESSAGE_PREFIX}: Fusion-Code is unable to respond to this request, which appears to violate the usage policy. Please double press esc to edit your last message or start a new session for Fusion-Code to assist with a different task.`;
 
 	const modelSuggestion = "";
 

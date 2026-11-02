@@ -68,8 +68,7 @@ export function SelectEventMode(t0) {
 			<Box flexDirection="column">
 				<Text dimColor={true}>
 					{figures.info} This menu is read-only. To add or modify hooks, edit
-					settings.json directly or ask Claude.{" "}
-					<Link url="https://code.claude.com/docs/en/hooks">Learn more</Link>
+					settings.json directly.
 				</Text>
 			</Box>
 		);

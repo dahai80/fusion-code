@@ -14,7 +14,6 @@ export function CostThresholdDialog(t0) {
 		t1 = (
 			<Box flexDirection="column">
 				<Text>Learn more about how to monitor your spending:</Text>
-				<Link url="https://code.claude.com/docs/en/costs" />
 			</Box>
 		);
 		$[0] = t1;

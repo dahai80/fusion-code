@@ -249,12 +249,7 @@ function OverridesSelect(t0) {
 			<Box flexDirection="column" marginTop={1} gap={1}>
 				{t11}
 				{t12}
-				<Text dimColor={true}>
-					Learn more:{" "}
-					<Link url="https://code.claude.com/docs/en/sandboxing#configure-sandboxing">
-						code.claude.com/docs/en/sandboxing#configure-sandboxing
-					</Link>
-				</Text>
+				<Text dimColor={true}>Learn more in docs/enterprise-hardening.md.</Text>
 			</Box>
 		);
 		$[22] = t13;

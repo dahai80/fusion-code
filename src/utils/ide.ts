@@ -1,8 +1,6 @@
 import { createConnection } from "node:net";
-import * as os from "node:os";
 import { basename, join, sep as pathSeparator, resolve } from "node:path";
 import type { Client } from "@modelcontextprotocol/sdk/client/index.js";
-import axios from "axios";
 import { execa } from "execa";
 import capitalize from "lodash-es/capitalize.js";
 import memoize from "lodash-es/memoize.js";
@@ -884,9 +882,6 @@ async function installIDEExtension(ideType: IdeType): Promise<string | null> {
 		const command = await getVSCodeIDECommand(ideType);
 
 		if (command) {
-			if (process.env.USER_TYPE === "ant") {
-				return await installFromArtifactory(command);
-			}
 			let version = await getInstalledVSCodeExtensionVersion(command);
 			// If it's not installed or the version is older than the one we have bundled,
 			if (!version || lt(version, getClaudeCodeVersion())) {
@@ -1393,107 +1388,3 @@ const detectHostIP = memoize(
 	},
 	(isIdeRunningInWindows, port) => `${isIdeRunningInWindows}:${port}`,
 );
-
-async function installFromArtifactory(command: string): Promise<string> {
-	// Read auth token from ~/.npmrc
-	const npmrcPath = join(os.homedir(), ".npmrc");
-	let authToken: string | null = null;
-	const fs = getFsImplementation();
-
-	try {
-		const npmrcContent = await fs.readFile(npmrcPath, {
-			encoding: "utf8",
-		});
-		const lines = npmrcContent.split("\n");
-		for (const line of lines) {
-			// Look for the artifactory auth token line
-			const match = line.match(
-				/\/\/artifactory\.infra\.ant\.dev\/artifactory\/api\/npm\/npm-all\/:_authToken=(.+)/,
-			);
-			if (match?.[1]) {
-				authToken = match[1].trim();
-				break;
-			}
-		}
-	} catch (error) {
-		logError(error as Error);
-		throw new Error(`Failed to read npm authentication: ${error}`);
-	}
-
-	if (!authToken) {
-		throw new Error("No artifactory auth token found in ~/.npmrc");
-	}
-
-	// Fetch the version from artifactory
-	const versionUrl =
-		"https://artifactory.infra.ant.dev/artifactory/armorcode-claude-code-internal/claude-vscode-releases/stable";
-
-	try {
-		const versionResponse = await axios.get(versionUrl, {
-			headers: {
-				Authorization: `Bearer ${authToken}`,
-			},
-		});
-
-		const version = versionResponse.data.trim();
-		if (!version) {
-			throw new Error("No version found in artifactory response");
-		}
-
-		// Download the .vsix file from artifactory
-		const vsixUrl = `https://artifactory.infra.ant.dev/artifactory/armorcode-claude-code-internal/claude-vscode-releases/${version}/claude-code.vsix`;
-		const tempVsixPath = join(
-			os.tmpdir(),
-			`claude-code-${version}-${Date.now()}.vsix`,
-		);
-
-		try {
-			const vsixResponse = await axios.get(vsixUrl, {
-				headers: {
-					Authorization: `Bearer ${authToken}`,
-				},
-				responseType: "stream",
-			});
-
-			// Write the downloaded file to disk
-			const writeStream = getFsImplementation().createWriteStream(tempVsixPath);
-			await new Promise<void>((resolve, reject) => {
-				vsixResponse.data.pipe(writeStream);
-				writeStream.on("finish", resolve);
-				writeStream.on("error", reject);
-			});
-
-			// Install the .vsix file
-			// Add delay to prevent code command crashes
-			await sleep(500);
-
-			const result = await execFileNoThrowWithCwd(
-				command,
-				["--force", "--install-extension", tempVsixPath],
-				{
-					env: getInstallationEnv(),
-				},
-			);
-
-			if (result.code !== 0) {
-				throw new Error(`${result.code}: ${result.error} ${result.stderr}`);
-			}
-
-			return version;
-		} finally {
-			// Clean up the temporary file
-			try {
-				await fs.unlink(tempVsixPath);
-			} catch {
-				// Ignore cleanup errors
-			}
-		}
-	} catch (error) {
-		if (axios.isAxiosError(error)) {
-			throw new Error(
-				`Failed to fetch extension version from artifactory: ${error.message}`,
-			);
-		}
-		throw error;
-	}
-}

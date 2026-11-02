@@ -219,9 +219,7 @@ export function HelpV2(t0) {
 	if ($[33] === Symbol.for("react.memo_cache_sentinel")) {
 		t7 = (
 			<Box marginTop={1}>
-				<Text>
-					For more help: <Link url="https://code.claude.com/docs/en/overview" />
-				</Text>
+				<Text>For more help: run \`fusion --help\`.</Text>
 			</Box>
 		);
 		$[33] = t7;

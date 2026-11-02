@@ -3,7 +3,7 @@
  *
  * Pure Node.js — no internal dependencies on logging, experiments, or feature
  * flags. Shared between the CLI (src/utils/sessionStorage.ts) and the VS Code
- * extension (packages/claude-vscode/src/common-host/sessionStorage.ts).
+ * extension (the VS Code extension common-host sessionStorage).
  */
 
 import type { UUID } from "node:crypto";

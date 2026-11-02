@@ -7,9 +7,7 @@ export function MCPServerDialogCopy() {
 		t0 = (
 			<Text>
 				MCP servers may execute code or access system resources. All tool calls
-				require approval. Learn more in the{" "}
-				<Link url="https://code.claude.com/docs/en/mcp">MCP documentation</Link>
-				.
+				require approval.
 			</Text>
 		);
 		$[0] = t0;

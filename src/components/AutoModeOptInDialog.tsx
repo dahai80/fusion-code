@@ -67,7 +67,6 @@ export function AutoModeOptInDialog(t0) {
 		t3 = (
 			<Box flexDirection="column" gap={1}>
 				<Text>{AUTO_MODE_DESCRIPTION}</Text>
-				<Link url="https://code.claude.com/docs/en/security" />
 			</Box>
 		);
 		$[4] = t3;

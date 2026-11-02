@@ -241,10 +241,7 @@ export function McpParsingWarnings() {
 				{t4}
 				<Box marginTop={1}>
 					<Text dimColor={true}>
-						For help configuring MCP servers, see:{" "}
-						<Link url="https://code.claude.com/docs/en/mcp">
-							https://code.claude.com/docs/en/mcp
-						</Link>
+						For help configuring MCP servers, run \`fusion mcp --help\`.
 					</Text>
 				</Box>
 				{scopes.map(_temp5)}

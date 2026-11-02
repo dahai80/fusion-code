@@ -542,14 +542,7 @@ export function MCPListPanel(t0) {
 	}
 	let t27;
 	if ($[62] === Symbol.for("react.memo_cache_sentinel")) {
-		t27 = (
-			<Text dimColor={true}>
-				<Link url="https://code.claude.com/docs/en/mcp">
-					https://code.claude.com/docs/en/mcp
-				</Link>{" "}
-				for help
-			</Text>
-		);
+		t27 = <Text dimColor={true}>Run \`fusion mcp --help\` for help</Text>;
 		$[62] = t27;
 	} else {
 		t27 = $[62];

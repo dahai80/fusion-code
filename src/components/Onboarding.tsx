@@ -97,9 +97,7 @@ export function Onboarding({ onDone }: Props): React.ReactNode {
 							Due to prompt injection risks, only use it with code you trust
 						</Text>
 						<Text dimColor wrap="wrap">
-							For more details see:
-							<Newline />
-							<Link url="https://code.claude.com/docs/en/security" />
+							Only use Fusion-Code with files you trust.
 						</Text>
 					</OrderedList.Item>
 				</OrderedList>

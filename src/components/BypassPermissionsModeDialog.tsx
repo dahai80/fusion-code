@@ -60,7 +60,6 @@ export function BypassPermissionsModeDialog(t0) {
 					By proceeding, you accept all responsibility for actions taken while
 					running in Bypass Permissions mode.
 				</Text>
-				<Link url="https://code.claude.com/docs/en/security" />
 			</Box>
 		);
 		$[3] = t3;
