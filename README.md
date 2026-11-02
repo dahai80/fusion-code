@@ -20,10 +20,10 @@
 | | |
 |---|---|
 | 🖥️ **Local MLX Inference** | Deep [fusion-mlx](https://github.com/fusion-mlxs/fusion-mlx) integration at `127.0.0.1:11432`. Auto-detects local models, zero cloud dependency. |
-| ☁️ **Cloud LLM Backends** | Anthropic (direct or proxy/LiteLLM), OpenAI Codex, Azure Foundry — plug in an API key and go. Fallback model chain on 429/529 errors. |
+| ☁️ **Cloud LLM Backends** | Any Anthropic-compatible endpoint — direct or via proxy/LiteLLM. Plug in `FUSION_CLIENT_KEY` and go. Fallback model chain on 429/529 errors. |
 | 🔒 **Zero Telemetry** | No outbound analytics, crash reporting, or usage tracking. Everything stays on your machine. |
 | 🧩 **Builtin Plugins** | GitHub integration, UI/UX Pro Max design assistant, Chrome DevTools — all bundled, user-toggleable. |
-| ⚡ **88 Feature Flags** | ULTRAPLAN multi-agent, ULTRATHINK deep reasoning, voice input, IDE bridge, and 80+ more. |
+| ⚡ **80 Feature Flags** | ULTRAPLAN multi-agent, ULTRATHINK deep reasoning, voice input, IDE bridge, and 80+ more. |
 | 🛡️ **Smart Permissions** | Auto mode auto-approves safe ops, prompts only for dangerous commands. Skill-level `disallowed-tools` for fine-grained control. No LLM classifier needed. |
 | 🧠 **Context Management** | Auto-compact, hard compact (deterministic, zero token cost), MLX memory safety — handles 32K windows. Compaction preserves sensitive instructions. |
 | 🌐 **Web GUI** | Session-centric web workbench (`web/`, port 11482): repos + sessions + per-step commands + live file changes, checkpoints (verify/rollback), diff viewer, PR flow, usage stats; runs survive browser disconnect. Registers into the fusion gateway shell (`⌨ Code`). See `web/README.md`. |
@@ -116,12 +116,11 @@ bun run build
 
 fusion-code supports multiple API backends. The provider is selected automatically by this priority order:
 
-1. **fusionMlx (local)** — if `FUSION_GATEWAY_ENABLED=1` or `FUSION_MLX_ENABLED=1` or `FUSION_MLX_BASE_URL`/`FUSION_GATEWAY_URL` is set → local MLX at `127.0.0.1:11432`. **Explicit local opt-in wins over any key** — setting `FUSION_CLIENT_KEY` does not pull an explicitly-local session back to the cloud (a key selects credentials, not topology; #221).
-2. **openai** — if `FUSION_CODE_USE_OPENAI=1` → OpenAI Codex (OAuth)
-3. **foundry** — if `FUSION_CODE_USE_FOUNDRY=1` → Azure AI Foundry
-4. **firstParty (Anthropic)** — if `FUSION_CLIENT_KEY` is set → Anthropic API (direct or via proxy)
+1. **firstParty (direct connect)** — if `FUSION_CLIENT_KEY` is set (or `ANTHROPIC_API_KEY` is a valid API key) → any Anthropic-compatible endpoint at `FUSION_BASE_URL` (default `api.anthropic.com`). **Highest priority — a key selects credentials, not topology.**
+2. **fusionMlx (local)** — if `FUSION_GATEWAY_ENABLED=1` / `FUSION_MLX_ENABLED=1` / `FUSION_MLX_BASE_URL`/`FUSION_GATEWAY_URL` is set → local MLX at `127.0.0.1:11432`. Explicit local opt-in only — never auto-detected.
+3. Otherwise **firstParty** with a clear auth error if no key is configured.
 
-> The first matching provider wins. If none match, local MLX is auto-detected on port 11432.
+> The first matching provider wins. `FUSION_CODE_USE_OPENAI` / `FUSION_CODE_USE_FOUNDRY` / `FUSION_CODE_USE_BEDROCK` / `FUSION_CODE_USE_VERTEX` throw with guidance to direct-connect — OpenAI/Codex OAuth and the cloud SDK providers are removed.
 
 ### Credentials (one canonical key)
 
@@ -139,10 +138,9 @@ fusion-code supports multiple API backends. The provider is selected automatical
 |---|---|---|---|
 | **fusionMlx (local)** | none (auto on port 11432) | local | Apple Silicon only; use `FUSION_MLX_MODEL` to pin a model |
 | **fusionMlx (remote)** | `FUSION_GATEWAY_URL` (or `FUSION_MLX_BASE_URL`) | local or `FUSION_CLIENT_KEY` | Run MLX on another Mac, connect over network |
-| **Anthropic direct** | `FUSION_CLIENT_KEY` | API key / OAuth | Set `FUSION_MODEL` to pin a model |
-| **Anthropic via proxy** | `FUSION_BASE_URL` + `FUSION_CLIENT_KEY` | API key or `FUSION_AUTH_TOKEN` | LiteLLM, OpenRouter, internal gateway |
-| **OpenAI Codex** | `FUSION_CODE_USE_OPENAI=1` | OAuth | In-app login flow on first launch |
-| **Foundry** | `FUSION_CODE_USE_FOUNDRY=1` + `FUSION_FOUNDRY_RESOURCE` | API key / Azure AD | `FUSION_FOUNDRY_API_KEY` or Azure DefaultAzureCredential |
+| **Direct connect** | `FUSION_CLIENT_KEY` | API key / auth token | Any Anthropic-compatible endpoint; set `FUSION_MODEL` to pin a model |
+| **Via proxy** | `FUSION_BASE_URL` + `FUSION_CLIENT_KEY` | API key or `FUSION_AUTH_TOKEN` | LiteLLM, OpenRouter, internal gateway |
+| **Local MLX** | `FUSION_MLX_ENABLED=1` (or `FUSION_GATEWAY_URL`) | none / `FUSION_CLIENT_KEY` | `FUSION_MLX_MODEL` to pin a model |
 
 ### Model Selection Priority
 
@@ -164,8 +162,6 @@ Session override (`/model`) > `--model` CLI flag > `FUSION_MODEL` / `FUSION_MLX_
 | `FUSION_BETAS` | `ANTHROPIC_BETAS` | `max-tokens-3-5-sonnet-2024-07-15` |
 | `FUSION_FALLBACK_MODEL` | — | `claude-sonnet-5` (auto-derived if unset) |
 | `FUSION_CREDENTIAL_SANDBOX` | — | `1` to redact secrets from tool output |
-| `FUSION_CODE_USE_BEDROCK` | — | `1` to use AWS Bedrock as provider |
-| `FUSION_CODE_USE_VERTEX` | — | `1` to use Google Vertex AI as provider |
 | `FUSION_SAFE_MODE` | — | `1` for read-only + no shell + no network |
 | `FUSION_CODE_FOCUS_VIEW` | — | `1` to hide verbose tool output (focus mode) |
 
@@ -198,7 +194,7 @@ export FUSION_MODEL="claude-sonnet-5"
 ./fusion-code
 ```
 
-OAuth login (no API key) is also available — launch `./fusion-code` and follow the in-app browser login prompt.
+OAuth browser login has been removed — API-key/token auth via `FUSION_CLIENT_KEY` / `FUSION_AUTH_TOKEN` is the only credential path.
 
 #### Anthropic via Proxy / LiteLLM
 
@@ -215,46 +211,9 @@ export FUSION_CLIENT_KEY="sk-..."
 
 > **URL format:** `FUSION_BASE_URL` should point to the base endpoint. The SDK appends `/messages` automatically. For LiteLLM, use `http://host:4000` (no `/v1` suffix). For OpenAI-compatible proxies, include `/v1`.
 
-#### OpenAI Codex
+#### Removed Cloud Providers
 
-```bash
-export FUSION_CODE_USE_OPENAI=1
-./fusion-code   # OAuth login will start automatically
-```
-
-#### Azure AI Foundry
-
-```bash
-export FUSION_CODE_USE_FOUNDRY=1
-export FUSION_FOUNDRY_RESOURCE="my-foundry"   # or FUSION_FOUNDRY_BASE_URL
-export FUSION_FOUNDRY_API_KEY="..."
-./fusion-code
-```
-
-Azure AD `DefaultAzureCredential` is used if no key is set. Set `FUSION_CODE_SKIP_FOUNDRY_AUTH=1` for unauthenticated test endpoints.
-
-#### AWS Bedrock
-
-```bash
-export FUSION_CODE_USE_BEDROCK=1
-export AWS_REGION="us-east-1"
-# AWS credentials via environment, profile, or IAM role
-./fusion-code
-```
-
-Requires `@anthropic-ai/bedrock-sdk` (`bun add @anthropic-ai/bedrock-sdk`). Set `AWS_PROFILE` for named profiles, `AWS_BEDROCK_MODEL` for model ID.
-
-#### Google Vertex AI
-
-```bash
-export FUSION_CODE_USE_VERTEX=1
-export GOOGLE_CLOUD_PROJECT="my-project"
-export CLOUD_ML_REGION="us-east5"
-# ADC or service account credentials
-./fusion-code
-```
-
-Requires `@anthropic-ai/vertex-sdk` (`bun add @anthropic-ai/vertex-sdk`). Set `VERTEX_MODEL` for model ID.
+OpenAI Codex (OAuth), Azure AI Foundry, AWS Bedrock, and Google Vertex AI provider modes were removed. Setting their `FUSION_CODE_USE_*` flags throws with guidance to use `FUSION_BASE_URL` + `FUSION_CLIENT_KEY` against an Anthropic-compatible endpoint (an out-of-process signing proxy can front cloud providers if needed).
 
 #### Safe Mode
 
@@ -651,8 +610,8 @@ src/
   components/             # Ink/React terminal UI components
   hooks/                  # React hooks
   services/
-    api/                  # claude.ts + fusion-mlx adapter/stream + codex adapter
-    oauth/                # OAuth flows (Anthropic + OpenAI)
+    api/                  # claude.ts + fusion-mlx adapter/stream
+    oauth/                # OAuth profile reader + MCP OAuth types (login flows removed)
     mcp/                  # Model Context Protocol integration
     lsp/                  # Language Server Protocol integration
     compact/              # Context compaction (auto/reactive/micro + hardCompact + smartCompactV2)
@@ -691,7 +650,7 @@ src/
 | **Code Search** | ripgrep (bundled) |
 | **Protocols** | MCP, LSP |
 | **Local Inference** | [fusion-mlx](https://github.com/fusion-mlxs/fusion-mlx) (MLX) |
-| **Cloud APIs** | Anthropic Messages, OpenAI Codex, Azure Foundry |
+| **Cloud APIs** | Anthropic Messages (any compatible endpoint via FUSION_BASE_URL) |
 
 ---
 
