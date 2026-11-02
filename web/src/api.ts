@@ -11,8 +11,15 @@ import type {
 } from '../shared/types';
 
 // Same-origin REST client. Behind the gateway the module is served at
-// /shell/fusion-code/ and the proxy keeps /api + /health same-origin; in
-// dev, Vite proxies them to the backend. Absolute '/api' paths work in both.
+// /shell/fusion-code/ and the proxy strips that prefix before hitting the
+// backend — absolute '/api/...' paths would bypass it and 404 at the gateway.
+// API_BASE resolves the module prefix from the current path (embedded:
+// '/shell/fusion-code', standalone: ''); Vite dev proxies '/api' + '/health'.
+export const API_BASE = (() => {
+    if (typeof location === 'undefined') return '';
+    const m = location.pathname.match(/^(\/shell\/[^/]+)\//);
+    return m ? m[1] : '';
+})();
 
 export type SessionDetail = {
     session: WebSession;
@@ -25,7 +32,7 @@ export type SessionDetail = {
 export type Branch = { name: string; current: boolean };
 
 async function get<T>(path: string): Promise<T> {
-    const res = await fetch(path, { headers: { accept: 'application/json' } });
+    const res = await fetch(`${API_BASE}${path}`, { headers: { accept: 'application/json' } });
     if (!res.ok) {
         const body = (await res.json().catch(() => ({}))) as { error?: string };
         throw new Error(body.error ?? `${res.status} ${res.statusText}`);
@@ -34,7 +41,7 @@ async function get<T>(path: string): Promise<T> {
 }
 
 async function post<T>(path: string, body?: unknown): Promise<T> {
-    const res = await fetch(path, {
+    const res = await fetch(`${API_BASE}${path}`, {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify(body ?? {}),
@@ -47,7 +54,7 @@ async function post<T>(path: string, body?: unknown): Promise<T> {
 }
 
 async function del<T>(path: string): Promise<T> {
-    const res = await fetch(path, { method: 'DELETE' });
+    const res = await fetch(`${API_BASE}${path}`, { method: 'DELETE' });
     if (!res.ok) {
         const body = (await res.json().catch(() => ({}))) as { error?: string };
         throw new Error(body.error ?? `${res.status} ${res.statusText}`);
@@ -56,7 +63,7 @@ async function del<T>(path: string): Promise<T> {
 }
 
 async function patch<T>(path: string, body?: unknown): Promise<T> {
-    const res = await fetch(path, {
+    const res = await fetch(`${API_BASE}${path}`, {
         method: 'PATCH',
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify(body ?? {}),
@@ -117,7 +124,7 @@ export function connectSessionWs(
     const connect = () => {
         if (closed) return;
         const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
-        ws = new WebSocket(`${proto}//${location.host}/ws/${sessionId}`);
+        ws = new WebSocket(`${proto}//${location.host}${API_BASE}/ws/${sessionId}`);
         ws.onmessage = (raw) => {
             try {
                 const msg = JSON.parse(String(raw.data)) as {

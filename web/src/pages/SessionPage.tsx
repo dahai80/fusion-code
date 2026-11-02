@@ -15,7 +15,7 @@ import {
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { FileChange, SessionEvent, SessionPermissions, WebSession } from '../../shared/types';
 import { navigate } from '../App';
-import { api, connectSessionWs } from '../api';
+import { API_BASE, api, connectSessionWs } from '../api';
 import { useT } from '../i18n';
 
 // /session/:id — frame C2: conversation with inline per-step commands, live
@@ -45,7 +45,7 @@ export function SessionPage({ sessionId }: { sessionId: string }) {
             setEvents(detail.events);
             setChanges(detail.changes);
             setRunning(detail.running);
-            const permRes = await fetch(`/api/sessions/${encodeURIComponent(sessionId)}/permissions`);
+            const permRes = await fetch(`${API_BASE}/api/sessions/${encodeURIComponent(sessionId)}/permissions`);
             if (permRes.ok) {
                 setPermissions(((await permRes.json()) as { permissions: SessionPermissions }).permissions);
             }

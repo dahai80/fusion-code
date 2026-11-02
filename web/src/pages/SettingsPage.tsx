@@ -1,5 +1,6 @@
 import { Info, ShieldCheck } from 'lucide-react';
 import { useEffect, useState } from 'react';
+import { API_BASE } from '../api';
 import { useT } from '../i18n';
 
 // /settings — permission rule reference + environment template info (v1:
@@ -18,7 +19,7 @@ export function SettingsPage() {
     const [version, setVersion] = useState('');
 
     useEffect(() => {
-        void fetch('/health')
+        void fetch(`${API_BASE}/health`)
             .then((res) => res.json())
             .then((body: { version?: string }) => setVersion(body.version ?? ''))
             .catch(() => setVersion(''));
