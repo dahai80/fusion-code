@@ -117,13 +117,15 @@ export async function fileDiff(repoPath: string, filePath: string): Promise<stri
     }
 }
 
-// #229: run the repo's verify command at a checkpoint.
+// #229: run the repo's verify command at a checkpoint. Also reused for the
+// v2 environment-template setup command (label distinguishes log lines).
 export async function runVerifyCommand(
     repoPath: string,
     testCommand: string,
-    timeoutMs = 120_000
+    timeoutMs = 120_000,
+    label = 'verify'
 ): Promise<{ ok: boolean; output: string }> {
-    log(`verify: cd ${repoPath} && ${testCommand}`);
+    log(`${label}: cd ${repoPath} && ${testCommand}`);
     const proc = Bun.spawn(['sh', '-c', testCommand], {
         stdout: 'pipe',
         stderr: 'pipe',
@@ -137,7 +139,7 @@ export async function runVerifyCommand(
     ]);
     clearTimeout(timer);
     const output = `${stdout}${stderr ? (stdout ? '\n' : '') + stderr : ''}`.slice(-8000);
-    log(`verify done: exit=${exitCode}`);
+    log(`${label} done: exit=${exitCode}`);
     return { ok: exitCode === 0, output };
 }
 

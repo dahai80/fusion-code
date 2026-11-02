@@ -187,7 +187,7 @@ export function __resetStoreForTest(): void {
 
 export function updateRepo(
     id: string,
-    patch: { name?: string; testCommand?: string; environment?: string }
+    patch: { name?: string; testCommand?: string; environment?: string; setupCommand?: string }
 ): RepoRecord | undefined {
     const st = s();
     const repo = st.repos.find((r) => r.id === id);
@@ -195,8 +195,20 @@ export function updateRepo(
     if (patch.name !== undefined) repo.name = patch.name;
     if (patch.testCommand !== undefined) repo.testCommand = patch.testCommand;
     if (patch.environment !== undefined) repo.environment = patch.environment;
+    if (patch.setupCommand !== undefined) repo.setupCommand = patch.setupCommand;
     saveStore(st);
     log(`repo updated: ${id}`);
+    return repo;
+}
+
+// v2 environment templates: record the result of an on-demand setup run.
+export function markRepoSetup(id: string, ok: boolean, output: string): RepoRecord | undefined {
+    const st = s();
+    const repo = st.repos.find((r) => r.id === id);
+    if (!repo) return undefined;
+    repo.lastSetup = { ok, at: Date.now(), output };
+    saveStore(st);
+    log(`repo setup recorded: ${id} ok=${ok}`);
     return repo;
 }
 

@@ -93,8 +93,8 @@ export function SettingsPage() {
                 </h2>
                 <p className="mt-2 text-xs leading-relaxed text-text-secondary">
                     {t(
-                        'v1 环境模板为记录性字段（default / node / python），会话在仓库工作树内运行，使用仓库自带依赖环境；setup 脚本执行留待 v2。',
-                        'v1 environment templates are descriptive labels (default / node / python); sessions run in the repo worktree using its own dependencies. Setup-script execution is deferred to v2.'
+                        '会话在仓库工作树内运行。环境模板 v2：在仓库页为每个仓库配置 setup 命令（如 bun install / pip install -e .），点击"运行 setup"即在仓库工作树内执行并记录结果。',
+                        'Sessions run in the repo worktree. Environment templates v2: configure a per-repo setup command (e.g. bun install / pip install -e .) on the Repos page and run it on demand in the repo worktree — the result is recorded.'
                     )}
                 </p>
                 {version && <p className="mt-3 text-xs text-text-muted">fusion-code-web v{version}</p>}

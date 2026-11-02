@@ -16,6 +16,7 @@ subprocesses and renders sessions, steps, and file changes in the browser.
   per-repo verify command
 - `/usage` — token/cost totals aggregated per repo and session (#230)
 - `/settings` — permission-mode semantics + environment template notes
+- `/repos` — per-repo setup command (env templates v2): configure e.g. `bun install`, run on demand, see recorded output
 
 ## Architecture
 
@@ -91,7 +92,8 @@ Beyond #228 (`/health`, `/manifest.json`, `/api/repos`, `/api/sessions`,
 
 | Endpoint | Purpose |
 |---|---|
-| `PATCH /api/repos/:id` | update name / verify command / environment |
+| `PATCH /api/repos/:id` | update name / verify command / environment / setup command |
+| `POST /api/repos/:id/setup` | run the repo's setup command in the worktree (v2 env templates); result recorded as `lastSetup` |
 | `GET /api/sessions/:id/diff?path=` | unified diff for one changed file |
 | `POST /api/sessions/:id/checkpoints/:uuid/verify` | run repo verify command |
 | `POST /api/sessions/:id/checkpoints/:uuid/rollback` | kernel `--rewind-files` restore |

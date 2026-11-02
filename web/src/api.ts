@@ -83,8 +83,12 @@ export const api = {
     repoBranches: (id: string) => get<{ branches: Branch[]; current: string }>(`/api/repos/${id}/branches`),
     repoChanges: (id: string) => get<{ files: FileChange[] }>(`/api/repos/${id}/changes`),
     removeRepo: (id: string) => del<{ ok: boolean }>(`/api/repos/${id}`),
-    updateRepo: (id: string, patchInput: { name?: string; testCommand?: string; environment?: string }) =>
-        patch<{ repo: RepoRecord }>(`/api/repos/${id}`, patchInput),
+    updateRepo: (
+        id: string,
+        patchInput: { name?: string; testCommand?: string; environment?: string; setupCommand?: string }
+    ) => patch<{ repo: RepoRecord }>(`/api/repos/${id}`, patchInput),
+    // v2 environment templates: run the repo's setup command on demand.
+    runSetup: (id: string) => post<{ ok: boolean; output: string; repo: RepoRecord }>(`/api/repos/${id}/setup`),
 
     listSessions: () => get<{ sessions: WebSession[] }>('/api/sessions'),
     createSession: (input: { title: string; repoId: string; branch: string; environment?: string }) =>

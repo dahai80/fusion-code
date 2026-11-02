@@ -11,6 +11,11 @@ export type RepoRecord = {
     // Command run by checkpoint [verify] in this repo (e.g. "bun test").
     // Empty = verify disabled until configured.
     testCommand?: string;
+    // v2 environment templates: setup command executed on demand in the repo
+    // worktree (dependency install etc.). Empty = setup not configured.
+    setupCommand?: string;
+    // Result of the last on-demand setup run.
+    lastSetup?: { ok: boolean; at: number; output: string };
 };
 
 export type PermissionMode = 'allowlist' | 'ask';

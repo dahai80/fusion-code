@@ -104,6 +104,16 @@ async function handleApi(req: Request, url: URL): Promise<Response | null> {
         if (sub === 'changes' && method === 'GET') {
             return json({ files: await fileChanges(repo.path) });
         }
+        // v2 environment templates: run the repo's setup command on demand.
+        if (sub === 'setup' && method === 'POST') {
+            if (!repo.setupCommand || !repo.setupCommand.trim()) {
+                return json({ error: 'no setup command configured for this repo' }, 400);
+            }
+            const result = await runVerifyCommand(repo.path, repo.setupCommand.trim(), 600_000, 'setup');
+            const updated = store.markRepoSetup(repo.id, result.ok, result.output);
+            log(`repo setup: id=${repo.id} ok=${result.ok}`);
+            return json({ ok: result.ok, output: result.output, repo: updated });
+        }
         if (sub === '' && method === 'DELETE') {
             return store.removeRepo(repo.id) ? json({ ok: true }) : json({ error: 'repo not found' }, 404);
         }
@@ -116,6 +126,7 @@ async function handleApi(req: Request, url: URL): Promise<Response | null> {
                 name: body.name !== undefined ? String(body.name) : undefined,
                 testCommand: body.testCommand !== undefined ? String(body.testCommand) : undefined,
                 environment: body.environment !== undefined ? String(body.environment) : undefined,
+                setupCommand: body.setupCommand !== undefined ? String(body.setupCommand) : undefined,
             });
             return json({ repo: updated });
         }

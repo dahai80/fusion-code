@@ -1,4 +1,4 @@
-import { AlertCircle, FolderGit2, GitBranch, PlayCircle, Trash2 } from 'lucide-react';
+import { AlertCircle, FolderGit2, GitBranch, PlayCircle, Settings2, Trash2, Wrench } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
 import type { RepoRecord } from '../../shared/types';
 import { navigate } from '../App';
@@ -74,6 +74,38 @@ export function ReposPage() {
 
     // #229: save the repo's verify command (checkpoint [Verify] runs it).
     const [editingTest, setEditingTest] = useState<Record<string, string>>({});
+    // v2: per-repo setup command (environment template) + last run result.
+    const [editingSetup, setEditingSetup] = useState<Record<string, string>>({});
+    const [setupBusy, setSetupBusy] = useState<Record<string, boolean>>({});
+    const [setupOutput, setSetupOutput] = useState<Record<string, { ok: boolean; output: string }>>({});
+
+    const saveSetupCommand = async (id: string) => {
+        const setupCommand = (editingSetup[id] ?? '').trim();
+        try {
+            await api.updateRepo(id, { setupCommand });
+            setEditingSetup((prev) => {
+                const next = { ...prev };
+                delete next[id];
+                return next;
+            });
+            await refresh();
+        } catch (err) {
+            setError(String(err));
+        }
+    };
+
+    const runSetup = async (id: string) => {
+        setSetupBusy((prev) => ({ ...prev, [id]: true }));
+        try {
+            const result = await api.runSetup(id);
+            setSetupOutput((prev) => ({ ...prev, [id]: { ok: result.ok, output: result.output } }));
+            await refresh();
+        } catch (err) {
+            setError(String(err));
+        } finally {
+            setSetupBusy((prev) => ({ ...prev, [id]: false }));
+        }
+    };
     const saveTestCommand = async (id: string) => {
         const testCommand = (editingTest[id] ?? '').trim();
         try {
@@ -206,6 +238,51 @@ export function ReposPage() {
                                 </button>
                             )}
                         </div>
+                        {/* v2: environment template setup command + on-demand run */}
+                        <div className="mt-3 flex items-center gap-2">
+                            <Wrench size={13} className="shrink-0 text-text-muted" />
+                            <input
+                                value={editingSetup[repo.id] ?? repo.setupCommand ?? ''}
+                                onChange={(e) => setEditingSetup((prev) => ({ ...prev, [repo.id]: e.target.value }))}
+                                onKeyDown={(e) => {
+                                    if (e.key === 'Enter') void saveSetupCommand(repo.id);
+                                }}
+                                placeholder={t(
+                                    '环境 setup 命令，如 bun install',
+                                    'Environment setup command, e.g. bun install'
+                                )}
+                                className="min-w-0 flex-1 rounded-xl border border-border bg-bg px-2.5 py-1.5 text-xs outline-none focus:border-brand"
+                            />
+                            {editingSetup[repo.id] !== undefined && (
+                                <button
+                                    type="button"
+                                    onClick={() => void saveSetupCommand(repo.id)}
+                                    className="shrink-0 rounded-xl bg-brand/10 px-2.5 py-1.5 text-xs text-brand transition-colors hover:bg-brand/20"
+                                >
+                                    {t('保存', 'Save')}
+                                </button>
+                            )}
+                            <button
+                                type="button"
+                                disabled={!repo.setupCommand || setupBusy[repo.id] === true}
+                                onClick={() => void runSetup(repo.id)}
+                                className="flex shrink-0 items-center gap-1 rounded-xl bg-bg-muted px-2.5 py-1.5 text-xs text-text-secondary transition-colors hover:text-text-primary disabled:cursor-not-allowed disabled:opacity-50"
+                            >
+                                <Settings2 size={12} />
+                                {setupBusy[repo.id] === true ? t('运行中…', 'Running…') : t('运行 setup', 'Run setup')}
+                            </button>
+                        </div>
+                        {(setupOutput[repo.id] ?? repo.lastSetup) && (
+                            <pre
+                                className={`mt-2 max-h-32 overflow-auto rounded-xl px-3 py-2 text-xs ${
+                                    (setupOutput[repo.id] ?? repo.lastSetup)?.ok
+                                        ? 'bg-success/10 text-text-secondary'
+                                        : 'bg-error/10 text-text-secondary'
+                                }`}
+                            >
+                                {(setupOutput[repo.id] ?? repo.lastSetup)?.output}
+                            </pre>
+                        )}
                         <button
                             type="button"
                             onClick={() => navigate('/sessions')}
