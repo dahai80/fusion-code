@@ -1,6 +1,6 @@
 import { existsSync } from 'node:fs';
 import { join, resolve } from 'node:path';
-import type { FileChange, HistoryMessage, SessionEvent, SessionEventBody } from '../shared/types';
+import type { FileChange, HistoryMessage, SessionEvent, SessionEventBody, WebSession } from '../shared/types';
 import { log, logWarn } from './config';
 import { fileChanges } from './gitRepo';
 import {
@@ -132,6 +132,27 @@ export type StartRunInput = {
 
 export type StartRunResult = { ok: boolean; error?: string; alreadyRunning?: boolean };
 
+// #231: first-run prompt for design-handoff sessions — the design files are
+// the source of truth, delivered once as inline context before the user's
+// instruction. Exported for tests.
+export function buildDesignPrompt(context: NonNullable<WebSession['designContext']>, message: string): string {
+    const parts: string[] = [
+        `[Design handoff from fusion-design] Component: ${context.component}`,
+        '',
+        'The following design files are the source of truth for this task. Implement them in this repo:',
+        '',
+    ];
+    for (const file of context.files) {
+        parts.push(`--- FILE: ${file.name} (${file.language}${file.truncated ? ', truncated' : ''}) ---`);
+        parts.push(file.content);
+        parts.push('--- END FILE ---');
+        parts.push('');
+    }
+    parts.push('User instruction:');
+    parts.push(message);
+    return parts.join('\n');
+}
+
 export async function startRun(input: StartRunInput): Promise<StartRunResult> {
     const { sessionId, message } = input;
     const session = getSession(sessionId);
@@ -145,7 +166,18 @@ export async function startRun(input: StartRunInput): Promise<StartRunResult> {
     const kernelSessionId = session.kernelSessionId;
     const kernelCmd = kernelCommand();
 
-    const args = ['-p', message, '--output-format', 'stream-json', '--verbose'];
+    // #231: design handoff — the first run of a design session gets the
+    // design files inlined as context (delivered once, then designPending
+    // clears so follow-up turns stay lean).
+    let prompt = message;
+    if (session.designPending && session.designContext && !kernelSessionId) {
+        prompt = buildDesignPrompt(session.designContext, message);
+        session.designPending = false;
+        upsertSession(session);
+        log(`design context delivered: session=${sessionId} component=${session.designContext.component}`);
+    }
+
+    const args = ['-p', prompt, '--output-format', 'stream-json', '--verbose'];
     if (kernelSessionId) {
         args.push('--resume', kernelSessionId);
     }

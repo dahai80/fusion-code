@@ -232,10 +232,9 @@ describe('http + ws stack', () => {
         expect(usage.bySession.length).toBeGreaterThanOrEqual(1);
 
         // Rollback before a kernel session exists is rejected cleanly.
-        const rbRes = await fetch(
-            `http://127.0.0.1:${PORT}/api/sessions/${sessionId}/checkpoints/${cpUuid}/rollback`,
-            { method: 'POST' }
-        );
+        const rbRes = await fetch(`http://127.0.0.1:${PORT}/api/sessions/${sessionId}/checkpoints/${cpUuid}/rollback`, {
+            method: 'POST',
+        });
         // Session HAS a kernel id here, so the mock kernel runs and exits 0.
         expect(rbRes.status).toBe(200);
     }, 20_000);

@@ -2,6 +2,7 @@ import { existsSync } from 'node:fs';
 import { extname, join } from 'node:path';
 import type { FileChange, UsageRepoRow, UsageSessionRow, UsageSummary } from '../shared/types';
 import { bindHost, log, logWarn, webPort } from './config';
+import { startDesignSync, stopDesignSync } from './designSync';
 import { startGatewayRegistration, stopGatewayRegistration } from './gateway';
 import {
     createPullRequest,
@@ -391,15 +392,18 @@ const server = Bun.serve<WsSessionData>({
 
 log(`listening on http://${bindHost()}:${server.port}`);
 startGatewayRegistration();
+startDesignSync();
 
 process.on('SIGINT', () => {
     log('shutting down');
     stopGatewayRegistration();
+    stopDesignSync();
     server.stop(true);
     process.exit(0);
 });
 process.on('SIGTERM', () => {
     stopGatewayRegistration();
+    stopDesignSync();
     server.stop(true);
     process.exit(0);
 });

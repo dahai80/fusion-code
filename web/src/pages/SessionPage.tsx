@@ -5,6 +5,7 @@ import {
     GitPullRequest,
     History,
     Loader2,
+    Palette,
     RotateCcw,
     ShieldCheck,
     Terminal,
@@ -232,6 +233,39 @@ export function SessionPage({ sessionId }: { sessionId: string }) {
             <div className="grid gap-4 lg:grid-cols-[1fr_300px]">
                 {/* Conversation column */}
                 <div className="space-y-3">
+                    {/* #231: design handoff context card */}
+                    {session?.designContext && (
+                        <div className="rounded-2xl border border-brand/30 bg-brand/5 p-4">
+                            <div className="flex items-center gap-2">
+                                <Palette size={15} className="text-brand" />
+                                <span className="text-sm font-medium">
+                                    {t('设计交付', 'Design handoff')}: {session.designContext.component}
+                                </span>
+                                <span
+                                    className={`ml-auto rounded-lg px-2 py-0.5 text-xs ${
+                                        session.designPending ? 'bg-brand/15 text-brand' : 'bg-bg-muted text-text-muted'
+                                    }`}
+                                >
+                                    {session.designPending
+                                        ? t('将随首条指令发送', 'Attached to first run')
+                                        : t('已注入首轮上下文', 'Delivered in first run')}
+                                </span>
+                            </div>
+                            <div className="mt-2 space-y-1">
+                                {session.designContext.files.map((file) => (
+                                    <details key={file.path} className="rounded-xl bg-bg-elevated px-3 py-2">
+                                        <summary className="cursor-pointer truncate font-mono text-xs text-text-secondary">
+                                            {file.name}
+                                            <span className="ml-2 text-text-muted">{file.language}</span>
+                                        </summary>
+                                        <pre className="mt-2 max-h-64 overflow-auto whitespace-pre-wrap break-all font-mono text-[11px] leading-relaxed text-text-secondary">
+                                            {file.content}
+                                        </pre>
+                                    </details>
+                                ))}
+                            </div>
+                        </div>
+                    )}
                     {steps.length === 0 && (
                         <div className="rounded-2xl border border-dashed border-border bg-bg-elevated p-6 text-center text-sm text-text-muted">
                             {t('发送第一条指令开始任务。', 'Send the first instruction to start the task.')}

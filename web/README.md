@@ -69,6 +69,21 @@ Each turn's result message carries `usage` + `total_cost_usd`; the server
 records per-turn `TurnUsage` and `GET /api/usage` aggregates totals by repo
 and session for the `/usage` view. Local models report cost 0.
 
+## Design handoff from fusion-design (#231)
+
+fusion-design's [Send to Code] writes design export files plus a JSON
+notification into `<FUSION_DESIGN_DATA_DIR>/fusion-code/` (default
+`~/.fusion-design/fusion-code`). The backend polls that directory (3s), and
+for each valid `sync-to-code` notification creates a web session titled
+`Design: <component>` with the referenced files snapshotted as design
+context, then archives the notification to `processed/` so restarts don't
+re-ingest. The session's first run consumes the design files as inline
+prompt context (`designPending` clears after delivery); the session page
+shows the design card with per-file previews. Target repo = most recently
+added repo, or `FUSION_CODE_WEB_DESIGN_REPO_ID` to pin one. Requires at
+least one repo to be connected in `/repos` — with none registered the
+notification is deferred and retried on later polls.
+
 ## API
 
 Beyond #228 (`/health`, `/manifest.json`, `/api/repos`, `/api/sessions`,
@@ -110,6 +125,9 @@ default `http://127.0.0.1:11483`).
 | `FUSION_CODE_WEB_KERNEL_BIN` | repo `./fusion-code` binary | Kernel binary (or command, space-split) |
 | `FUSION_CODE_WEB_CLONE_DIR` | `~/fusion-code-repos` | Clone target for git-URL repo connects |
 | `FUSION_CODE_WEB_GH_BIN` | `gh` | `gh` binary used by the PR flow (test shim override) |
+| `FUSION_DESIGN_DATA_DIR` | `~/.fusion-design` | Base dir of the fusion-design sync-to-code contract |
+| `FUSION_CODE_WEB_DESIGN_REPO_ID` | latest repo | Pin the target repo for ingested design sessions |
+| `FUSION_CODE_WEB_DESIGN_SYNC_INTERVAL_MS` | `3000` | Design-sync poll interval (0 disables the watcher) |
 | `FUSION_SHELL_GATEWAY_URL` | unset | Gateway URL — enables manifest registration |
 | `FUSION_ADMIN_KEY` | unset | Gateway admin key (Bearer) for registration + heartbeat |
 

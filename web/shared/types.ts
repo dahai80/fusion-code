@@ -41,6 +41,24 @@ export type TurnUsage = {
     model?: string;
 };
 
+// #231: design handoff from fusion-design (sync-to-code file-IPC). The web
+// server ingests the notification, snapshots the design files and attaches
+// them to a new session; the first run consumes them as prompt context.
+export type DesignFile = {
+    path: string;
+    name: string;
+    language: string;
+    content: string;
+    truncated: boolean;
+};
+
+export type DesignContext = {
+    component: string;
+    source: string;
+    ingestedAt: number;
+    files: DesignFile[];
+};
+
 export type WebSession = {
     // Web session id (uuid, stable for the session's life — URLs use it).
     // kernelSessionId links to the kernel transcript once the first run
@@ -60,6 +78,9 @@ export type WebSession = {
     usage?: TurnUsage[];
     prUrl?: string;
     prBranch?: string;
+    designContext?: DesignContext;
+    // True until the first run consumes the design context as prompt input.
+    designPending?: boolean;
 };
 
 // Stream events relayed over the session WS. `kind` mirrors the kernel
