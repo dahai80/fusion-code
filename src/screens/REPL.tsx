@@ -525,11 +525,9 @@ import { useCanSwitchToExistingSubscription } from "src/hooks/notifs/useCanSwitc
 import { useDeprecationWarningNotification } from "src/hooks/notifs/useDeprecationWarningNotification.js";
 import { useFastModeNotification } from "src/hooks/notifs/useFastModeNotification.js";
 import { useIDEStatusIndicator } from "src/hooks/notifs/useIDEStatusIndicator.js";
-import { useInstallMessages } from "src/hooks/notifs/useInstallMessages.js";
 import { useLspInitializationNotification } from "src/hooks/notifs/useLspInitializationNotification.js";
 import { useMcpConnectivityStatus } from "src/hooks/notifs/useMcpConnectivityStatus.js";
 import { useModelMigrationNotifications } from "src/hooks/notifs/useModelMigrationNotifications.js";
-import { useNpmDeprecationNotification } from "src/hooks/notifs/useNpmDeprecationNotification.js";
 import { usePluginAutoupdateNotification } from "src/hooks/notifs/usePluginAutoupdateNotification.js";
 import { usePluginInstallationStatus } from "src/hooks/notifs/usePluginInstallationStatus.js";
 import { useRateLimitWarningNotification } from "src/hooks/notifs/useRateLimitWarningNotification.js";
@@ -540,7 +538,6 @@ import { useChromeExtensionNotification } from "src/hooks/useChromeExtensionNoti
 import { useClaudeCodeHintRecommendation } from "src/hooks/useClaudeCodeHintRecommendation.js";
 import { useFileHistorySnapshotInit } from "src/hooks/useFileHistorySnapshotInit.js";
 import { useLspPluginRecommendation } from "src/hooks/useLspPluginRecommendation.js";
-import { useOfficialMarketplaceNotification } from "src/hooks/useOfficialMarketplaceNotification.js";
 import { usePromptsFromClaudeInChrome } from "src/hooks/usePromptsFromClaudeInChrome.js";
 import {
 	checkAndDisableAutoModeIfNeeded,
@@ -894,11 +891,8 @@ export function REPL({
 	useRateLimitWarningNotification(mainLoopModel);
 	useFastModeNotification();
 	useDeprecationWarningNotification(mainLoopModel);
-	useNpmDeprecationNotification();
 	useAntOrgWarningNotification();
-	useInstallMessages();
 	useChromeExtensionNotification();
-	useOfficialMarketplaceNotification();
 	useLspInitializationNotification();
 	useTeammateLifecycleNotification();
 	const {

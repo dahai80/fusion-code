@@ -31,7 +31,6 @@
 		"sessionTranscript",
 		"MagicDocs",
 		"AgentSummary",
-		"remoteManagedSettings",
 		"analytics"
 	],
 	"allowDeepImports": [
@@ -54,11 +53,6 @@
 			"file": "src/utils/plugins/schemas.ts",
 			"spec": "../../services/mcp/types.js",
 			"reason": "settings-cone leaf (imported by settings/types.ts); barrel import eager-loads mcp/config → settings re-entry TDZ (audit 1.1.3 Phase B)"
-		},
-		{
-			"file": "src/utils/settings/settings.ts",
-			"spec": "../../services/remoteManagedSettings/syncCacheState.js",
-			"reason": "settings-layer leaf; barrel import eager-loads index.ts → settingsChangeDetector → ./settings.js re-entry TDZ (audit 1.1.3 Phase B)"
 		}
 	]
 }

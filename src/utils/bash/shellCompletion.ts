@@ -5,7 +5,6 @@ import {
 	tryParseShellCommand,
 } from "../bash/shellQuote.js";
 import { logForDebugging } from "../debug.js";
-import { getShellType } from "../localInstaller.js";
 import * as Shell from "../Shell.js";
 
 // Constants
@@ -223,7 +222,14 @@ export async function getShellCompletions(
 	cursorOffset: number,
 	abortSignal: AbortSignal,
 ): Promise<SuggestionItem[]> {
-	const shellType = getShellType();
+	const shellPath = process.env.SHELL || "";
+	const shellType = shellPath.includes("zsh")
+		? "zsh"
+		: shellPath.includes("bash")
+			? "bash"
+			: shellPath.includes("fish")
+				? "fish"
+				: "unknown";
 
 	// Only support bash/zsh (matches Shell.ts execution support)
 	if (shellType !== "bash" && shellType !== "zsh") {

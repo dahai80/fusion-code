@@ -3,9 +3,7 @@
 // 2. startMdmRawRead fires MDM subprocesses (plutil/reg query) so they run in
 //    parallel with the remaining ~135ms of imports below
 // 3. startKeychainPrefetch fires both macOS keychain reads (OAuth + legacy API
-//    key) in parallel — isRemoteManagedSettingsEligible() otherwise reads them
-//    sequentially via sync spawn inside applySafeConfigEnvironmentVariables()
-//    (~65ms on every macOS startup)
+//    key) in parallel with the remaining imports (~65ms on every macOS startup)
 import { profileCheckpoint, profileReport } from "./utils/startupProfiler.js";
 
 // eslint-disable-next-line custom-rules/no-top-level-side-effects
@@ -67,10 +65,6 @@ import {
 	refreshPolicyLimits,
 	waitForPolicyLimitsToLoad,
 } from "./services/policyLimits/index.js";
-import {
-	loadRemoteManagedSettings,
-	refreshRemoteManagedSettings,
-} from "./services/remoteManagedSettings/index.js";
 import type { ToolInputJSONSchema } from "./Tool.js";
 import {
 	createSyntheticOutputTool,
@@ -96,7 +90,6 @@ import {
 	checkHasTrustDialogAccepted,
 	getGlobalConfig,
 	getRemoteControlAtStartup,
-	isAutoUpdaterDisabled,
 	saveGlobalConfig,
 } from "./utils/config.js";
 import { seedEarlyInput, stopCapturingEarlyInput } from "./utils/earlyInput.js";
@@ -195,7 +188,6 @@ import {
 } from "./tools/AgentTool/loadAgentsDir.js";
 import type { LogOption } from "./types/logs.js";
 import type { Message as MessageType } from "./types/message.js";
-import { assertMinVersion } from "./utils/autoUpdater.js";
 import {
 	CLAUDE_IN_CHROME_SKILL_HINT,
 	CLAUDE_IN_CHROME_SKILL_HINT_WITH_WEBBROWSER,
@@ -419,7 +411,6 @@ import {
 	clearPluginCache,
 	loadAllPluginsCacheOnly,
 } from "./utils/plugins/pluginLoader.js";
-import { migrateChangelogFromConfig } from "./utils/releaseNotes.js";
 import { SandboxManager } from "./utils/sandbox/sandbox-adapter.js";
 import { fetchSession, prepareApiRequest } from "./utils/teleport/api.js";
 import {
@@ -566,7 +557,6 @@ async function logStartupTelemetry(): Promise<void> {
 			SandboxManager.areUnsandboxedCommandsAllowed(),
 		is_auto_bash_allowed_if_sandbox_enabled:
 			SandboxManager.isAutoAllowBashIfSandboxedEnabled(),
-		auto_updater_disabled: isAutoUpdaterDisabled(),
 		prefers_reduced_motion: getInitialSettings().prefersReducedMotion ?? false,
 		...getCertEnvVarTelemetry(),
 	});
@@ -599,13 +589,6 @@ function runMigrations(): void {
 					},
 		);
 	}
-	// Async migration - fire and forget since it's non-blocking
-	migrateChangelogFromConfig().catch((e) => {
-		logForDebugging(
-			"changelog migration failed: " +
-				(e instanceof Error ? e.message : String(e)),
-		);
-	});
 }
 
 /**
@@ -1267,8 +1250,7 @@ async function run(): Promise<CommanderCommand> {
 		// Await async subprocess loads started at module evaluation (lines 12-20).
 		// Nearly free — subprocesses complete during the ~135ms of imports above.
 		// Must resolve before init() which triggers the first settings read
-		// (applySafeConfigEnvironmentVariables → getSettingsForSource('policySettings')
-		// → isRemoteManagedSettingsEligible → sync keychain reads otherwise ~65ms).
+		// (applySafeConfigEnvironmentVariables → sync keychain reads otherwise ~65ms).
 		await Promise.all([
 			ensureMdmSettingsLoaded(),
 			ensureKeychainPrefetchCompleted(),
@@ -1312,12 +1294,6 @@ async function run(): Promise<CommanderCommand> {
 		}
 		runMigrations();
 		profileCheckpoint("preAction_after_migrations");
-
-		// Load remote managed settings for enterprise customers (non-blocking)
-		// Fails open - if fetch fails, continues without remote settings
-		// Settings are applied via hot-reload when they arrive
-		// Must happen after init() to ensure config reading is allowed
-		void loadRemoteManagedSettings();
 		void loadPolicyLimits();
 		profileCheckpoint("preAction_after_remote_settings");
 
@@ -2788,8 +2764,6 @@ async function run(): Promise<CommanderCommand> {
 			warnings.forEach((warning) => {
 				console.error(warning);
 			});
-			void assertMinVersion();
-
 			// claude.ai config fetch: -p mode only (interactive uses useManageMCPConnections
 			// two-phase loading). Kicked off here to overlap with setup(); awaited
 			// before runHeadless so single-turn -p sees connectors. Skipped under
@@ -3470,7 +3444,6 @@ async function run(): Promise<CommanderCommand> {
 				if (onboardingShown) {
 					// Refresh auth-dependent services now that the user has logged in during onboarding.
 					// Keep in sync with the post-login logic in src/commands/login.tsx
-					void refreshRemoteManagedSettings();
 					void refreshPolicyLimits();
 					// Clear user data cache BEFORE GrowthBook refresh so it picks up fresh credentials
 					resetUserCache();

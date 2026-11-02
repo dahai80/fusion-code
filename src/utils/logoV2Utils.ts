@@ -13,10 +13,6 @@ import {
 	truncateToWidth,
 	truncateToWidthNoEllipsis,
 } from "./format.js";
-import {
-	getRecentReleaseNotes,
-	getStoredChangelogFromMemory,
-} from "./releaseNotes.js";
 import { loadMessageLogs } from "./sessionStorage.js";
 import { getInitialSettings } from "./settings/settings.js";
 
@@ -312,34 +308,4 @@ export function formatModelAndBilling(
 	};
 }
 
-/**
- * Gets recent release notes for Logo v2 display
- * For ants, uses commits bundled at build time
- * For external users, uses public changelog
- */
-export function getRecentReleaseNotesSync(
-	maxItems: number,
-	currentVersion: string = MACRO.VERSION,
-	lastSeenVersion?: string | null,
-): string[] {
-	// For ants, use bundled changelog
-	if (process.env.USER_TYPE === "ant") {
-		const changelog = MACRO.VERSION_CHANGELOG;
-		if (changelog) {
-			const commits = changelog.trim().split("\n").filter(Boolean);
-			return commits.slice(0, maxItems);
-		}
-		return [];
-	}
 
-	const changelog = getStoredChangelogFromMemory();
-	if (!changelog) {
-		return [];
-	}
-
-	return getRecentReleaseNotes(
-		currentVersion,
-		lastSeenVersion,
-		changelog,
-	).slice(0, maxItems);
-}

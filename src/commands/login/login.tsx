@@ -14,7 +14,6 @@ import { useMainLoopModel } from "../../hooks/useMainLoopModel.js";
 import { Text } from "../../ink.js";
 import { refreshGrowthBookAfterAuthChange } from "../../services/analytics/index.js";
 import { refreshPolicyLimits } from "../../services/policyLimits/index.js";
-import { refreshRemoteManagedSettings } from "../../services/remoteManagedSettings/index.js";
 import type { LocalJSXCommandOnDone } from "../../types/command.js";
 import { stripSignatureBlocks } from "../../utils/messages.js";
 import {
@@ -39,8 +38,6 @@ export async function call(
 					// Post-login refresh logic. Keep in sync with onboarding in src/interactiveHelpers.tsx
 					// Reset cost state when switching accounts
 					resetCostState();
-					// Refresh remotely managed settings after login (non-blocking)
-					void refreshRemoteManagedSettings();
 					// Refresh policy limits after login (non-blocking)
 					void refreshPolicyLimits();
 					// Clear user data cache BEFORE GrowthBook refresh so it picks up fresh credentials

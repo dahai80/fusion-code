@@ -26,7 +26,6 @@ import {
 } from "./model/model.js";
 import { getAPIProvider } from "./model/providers.js";
 import { getMTLSConfig } from "./mtls.js";
-import { checkInstall } from "./nativeInstaller/index.js";
 import { getProxyUrl } from "./proxy.js";
 import { SandboxManager } from "./sandbox/sandbox-adapter.js";
 import { getSettingsWithAllErrors } from "./settings/allErrors.js";
@@ -232,8 +231,8 @@ export function buildSettingSourcesProperties(): Property[] {
 	];
 }
 export async function buildInstallationDiagnostics(): Promise<Diagnostic[]> {
-	const installWarnings = await checkInstall();
-	return installWarnings.map((warning) => warning.message);
+	// Installer removed — fusion-code ships as a source build / compiled binary.
+	return [];
 }
 export async function buildInstallationHealthDiagnostics(): Promise<
 	Diagnostic[]

@@ -1,4 +1,3 @@
-import { isRemoteManagedSettingsEligible } from "../services/remoteManagedSettings/index.js";
 import { clearCACertsCache } from "./caCerts.js";
 import { getGlobalConfig } from "./config.js";
 import { logForDebugging } from "./debug.js";
@@ -150,13 +149,6 @@ export function applySafeConfigEnvironmentVariables(): void {
 		);
 	}
 
-	// Compute remote-managed-settings eligibility now, with userSettings and
-	// flagSettings env applied. Eligibility reads FUSION_CODE_USE_BEDROCK,
-	// FUSION_BASE_URL — both settable via settings.env.
-	// getSettingsForSource('policySettings') below consults the remote cache,
-	// which guards on this. The two-phase structure makes the ordering
-	// dependency visible: non-policy env → eligibility → policy env.
-	isRemoteManagedSettingsEligible();
 
 	Object.assign(
 		process.env,

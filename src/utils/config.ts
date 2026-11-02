@@ -28,7 +28,6 @@ import * as lockfile from "./lockfile.js";
 import { logError } from "./log.js";
 import type { MemoryType } from "./memory/types.js";
 import { normalizePathForConfigKey } from "./path.js";
-import { getEssentialTrafficOnlyReason } from "./privacyLevel.js";
 import { getManagedFilePath } from "./settings/managedPath.js";
 import type { ThemeSetting } from "./theme.js";
 
@@ -198,12 +197,6 @@ export type GlobalConfig = {
 	hasCompletedOnboarding?: boolean;
 	// Tracks the last version that reset onboarding, used with MIN_VERSION_REQUIRING_ONBOARDING_RESET
 	lastOnboardingVersion?: string;
-	// Tracks the last version for which release notes were seen, used for managing release notes
-	lastReleaseNotesSeen?: string;
-	// Timestamp when changelog was last fetched (content stored in ~/.claude/cache/changelog.md)
-	changelogLastFetched?: number;
-	// @deprecated - Migrated to ~/.claude/cache/changelog.md. Keep for migration support.
-	cachedChangelog?: string;
 	mcpServers?: Record<string, McpServerConfig>;
 	// claude.ai MCP connectors that have successfully connected at least once.
 	// Used to gate "connector unavailable" / "needs auth" startup notifications:
@@ -1739,8 +1732,10 @@ export function saveCurrentProjectConfig(
 	}
 }
 
+// Auto-updater removed: fusion-code has no self-update channel (built from
+// source, released as git tags). Stubs keep /config + telemetry compiling.
 export function isAutoUpdaterDisabled(): boolean {
-	return getAutoUpdaterDisabledReason() !== null;
+	return true;
 }
 
 /**
@@ -1770,30 +1765,12 @@ export function formatAutoUpdaterDisabledReason(
 		case "env":
 			return `${reason.envVar} set`;
 		case "config":
-			return "config";
+			return "no self-update channel (built from source)";
 	}
 }
 
 export function getAutoUpdaterDisabledReason(): AutoUpdaterDisabledReason | null {
-	if (process.env.NODE_ENV === "development") {
-		return { type: "development" };
-	}
-	if (isEnvTruthy(process.env.DISABLE_AUTOUPDATER)) {
-		return { type: "env", envVar: "DISABLE_AUTOUPDATER" };
-	}
-	const essentialTrafficEnvVar = getEssentialTrafficOnlyReason();
-	if (essentialTrafficEnvVar) {
-		return { type: "env", envVar: essentialTrafficEnvVar };
-	}
-	const config = getGlobalConfig();
-	if (
-		config.autoUpdates === false &&
-		(config.installMethod !== "native" ||
-			config.autoUpdatesProtectedForNative !== true)
-	) {
-		return { type: "config" };
-	}
-	return null;
+	return { type: "config" };
 }
 
 export function getOrCreateUserID(): string {

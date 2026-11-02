@@ -6,7 +6,6 @@ import {
 	downloadUserSettings,
 	redownloadUserSettings,
 } from "src/services/settingsSync/index.js";
-import { waitForRemoteManagedSettingsToLoad } from "src/services/remoteManagedSettings/index.js";
 import { StructuredIO } from "src/cli/structuredIO.js";
 import { RemoteIO } from "src/cli/remoteIO.js";
 import {
@@ -1736,20 +1735,16 @@ function runHeadlessStreaming(
 	// NOTE: Nested function required - needs closure access to applyMcpServerChanges and updateSdkMcp
 	async function installPluginsAndApplyMcpInBackground(): Promise<void> {
 		try {
-			// Join point for user settings (fired at runHeadless entry) and managed
-			// settings (fired in main.tsx preAction). downloadUserSettings() caches
-			// its promise so this awaits the same in-flight request.
-			await Promise.all([
+			// User settings download (fired at runHeadless entry). downloadUserSettings()
+			// caches its promise so this awaits the same in-flight request.
+			if (
 				feature("DOWNLOAD_USER_SETTINGS") &&
 				(isEnvTruthy(process.env.FUSION_CODE_REMOTE) || getIsRemoteMode())
-					? withDiagnosticsTiming("headless_user_settings_download", () =>
-							downloadUserSettings(),
-						)
-					: Promise.resolve(),
-				withDiagnosticsTiming("headless_managed_settings_wait", () =>
-					waitForRemoteManagedSettingsToLoad(),
-				),
-			]);
+			) {
+				await withDiagnosticsTiming("headless_user_settings_download", () =>
+					downloadUserSettings(),
+				);
+			}
 
 			const pluginsInstalled = await installPluginsForHeadless();
 

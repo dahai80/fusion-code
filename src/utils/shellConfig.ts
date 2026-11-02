@@ -7,7 +7,7 @@ import { open, readFile, stat } from "node:fs/promises";
 import { homedir as osHomedir } from "node:os";
 import { join } from "node:path";
 import { isFsInaccessible } from "./errors.js";
-import { getLocalClaudePath } from "./localInstaller.js";
+import { getClaudeConfigHomeDir } from "./envUtils.js";
 
 export const CLAUDE_ALIAS_REGEX = /^\s*alias\s+claude\s*=/;
 
@@ -62,7 +62,10 @@ export function filterClaudeAliases(lines: string[]): {
 				const target = match[1].trim();
 				// Only remove if it points to the installer location
 				// The installer always creates aliases with the full expanded path
-				if (target === getLocalClaudePath()) {
+								// Legacy managed local install path (installer removed; kept so
+				// old aliases pointing there still get cleaned up)
+				const legacyLocalClaudePath = join(getClaudeConfigHomeDir(), "local", "claude");
+				if (target === legacyLocalClaudePath) {
 					hadAlias = true;
 					return false; // Remove this line
 				}

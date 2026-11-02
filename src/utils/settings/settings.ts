@@ -8,7 +8,6 @@ import {
 	getOriginalCwd,
 	getUseCoworkPlugins,
 } from "../../bootstrap/state.js";
-import { getRemoteManagedSettingsSyncFromCache } from "../../services/remoteManagedSettings/syncCacheState.js";
 import { uniq } from "../array.js";
 import { logForDebugging } from "../debug.js";
 import { logForDiagnosticsNoPII } from "../diagLogs.js";
@@ -319,13 +318,8 @@ export function getSettingsForSource(
 function getSettingsForSourceUncached(
 	source: SettingSource,
 ): SettingsJson | null {
-	// For policySettings: first source wins (remote > HKLM/plist > file > HKCU)
+	// For policySettings: first source wins (HKLM/plist > file > HKCU)
 	if (source === "policySettings") {
-		const remoteSettings = getRemoteManagedSettingsSyncFromCache();
-		if (remoteSettings && Object.keys(remoteSettings).length > 0) {
-			return remoteSettings;
-		}
-
 		const mdmResult = getMdmSettings();
 		if (Object.keys(mdmResult.settings).length > 0) {
 			return mdmResult.settings;
@@ -379,19 +373,13 @@ export function getPolicySettingsOrigin():
 	| "file"
 	| "hkcu"
 	| null {
-	// 1. Remote (highest)
-	const remoteSettings = getRemoteManagedSettingsSyncFromCache();
-	if (remoteSettings && Object.keys(remoteSettings).length > 0) {
-		return "remote";
-	}
-
-	// 2. Admin-only MDM (HKLM / macOS plist)
+	// 1. Admin-only MDM (HKLM / macOS plist)
 	const mdmResult = getMdmSettings();
 	if (Object.keys(mdmResult.settings).length > 0) {
 		return getPlatform() === "macos" ? "plist" : "hklm";
 	}
 
-	// 3. managed-settings.json + managed-settings.d/ (file-based, requires admin)
+	// 2. managed-settings.json + managed-settings.d/ (file-based, requires admin)
 	const { settings: fileSettings } = loadManagedFileSettings();
 	if (fileSettings) {
 		return "file";
@@ -678,21 +666,7 @@ function loadSettingsFromDisk(): SettingsWithErrors {
 				let policySettings: SettingsJson | null = null;
 				const policyErrors: ValidationError[] = [];
 
-				// 1. Remote (highest priority)
-				const remoteSettings = getRemoteManagedSettingsSyncFromCache();
-				if (remoteSettings && Object.keys(remoteSettings).length > 0) {
-					const result = SettingsSchema().safeParse(remoteSettings);
-					if (result.success) {
-						policySettings = result.data;
-					} else {
-						// Remote exists but is invalid — surface errors even as we fall through
-						policyErrors.push(
-							...formatZodError(result.error, "remote managed settings"),
-						);
-					}
-				}
-
-				// 2. Admin-only MDM (HKLM / macOS plist)
+				// 1. Admin-only MDM (HKLM / macOS plist)
 				if (!policySettings) {
 					const mdmResult = getMdmSettings();
 					if (Object.keys(mdmResult.settings).length > 0) {
@@ -701,7 +675,7 @@ function loadSettingsFromDisk(): SettingsWithErrors {
 					policyErrors.push(...mdmResult.errors);
 				}
 
-				// 3. managed-settings.json + managed-settings.d/ (file-based, requires admin)
+				// 2. managed-settings.json + managed-settings.d/ (file-based, requires admin)
 				if (!policySettings) {
 					const { settings, errors } = loadManagedFileSettings();
 					if (settings) {
@@ -710,7 +684,7 @@ function loadSettingsFromDisk(): SettingsWithErrors {
 					policyErrors.push(...errors);
 				}
 
-				// 4. HKCU (lowest — user-writable, only if nothing above exists)
+				// 3. HKCU (lowest — user-writable, only if nothing above exists)
 				if (!policySettings) {
 					const hkcu = getHkcuSettings();
 					if (Object.keys(hkcu.settings).length > 0) {

@@ -10,10 +10,6 @@ import {
 	initializePolicyLimitsLoadingPromise,
 	isPolicyLimitsEligible,
 } from "../services/policyLimits/index.js";
-import {
-	initializeRemoteManagedSettingsLoadingPromise,
-	isEligibleForRemoteManagedSettings,
-} from "../services/remoteManagedSettings/index.js";
 import { preconnectAnthropicApi } from "../utils/apiPreconnect.js";
 import { asyncMemoize } from "../utils/asyncMemoize.js";
 import { applyExtraCACertsFromConfig } from "../utils/caCertsConfig.js";
@@ -98,17 +94,10 @@ export const init = asyncMemoize(async (): Promise<void> => {
 				`[init] detectCurrentRepository failed: ${(e as Error).message}`,
 			),
 		);
-
-		// Initialize the loading promise early so that other systems (like plugin hooks)
-		// can await remote settings loading. The promise includes a timeout to prevent
-		// deadlocks if loadRemoteManagedSettings() is never called (e.g., Agent SDK tests).
-		if (isEligibleForRemoteManagedSettings()) {
-			initializeRemoteManagedSettingsLoadingPromise();
-		}
 		if (isPolicyLimitsEligible()) {
 			initializePolicyLimitsLoadingPromise();
 		}
-		profileCheckpoint("init_after_remote_settings_check");
+		profileCheckpoint("init_after_policy_check");
 
 		// Record the first start time
 		recordFirstStartTime();

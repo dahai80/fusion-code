@@ -2,7 +2,7 @@ import { feature } from "bun:bundle";
 import { useEffect, useState } from "react";
 import { c as _c } from "react/compiler-runtime";
 import { getDumpPromptsPath } from "src/services/api/index.js";
-import { getGlobalConfig, saveGlobalConfig } from "src/utils/config.js";
+import { getGlobalConfig } from "src/utils/config.js";
 import {
 	getDebugLogPath,
 	isDebugMode,
@@ -33,10 +33,8 @@ import {
 	getLayoutMode,
 	getLogoDisplayData,
 	getRecentActivitySync,
-	getRecentReleaseNotesSync,
 	truncatePath,
 } from "../../utils/logoV2Utils.js";
-import { checkForReleaseNotesSync } from "../../utils/releaseNotes.js";
 import { OffscreenFreeze } from "../OffscreenFreeze.js";
 import { Clawd } from "./Clawd.js";
 import { CondensedLogo } from "./CondensedLogo.js";
@@ -46,7 +44,6 @@ import {
 	createGuestPassesFeed,
 	createProjectOnboardingFeed,
 	createRecentActivityFeed,
-	createWhatsNewFeed,
 } from "./feedConfigs.js";
 import { Opus1mMergeNotice } from "./Opus1mMergeNotice.js";
 import { VoiceModeNotice } from "./VoiceModeNotice.js";
@@ -105,16 +102,6 @@ export function LogoV2() {
 	const agent = useAppState(_temp);
 	const effortValue = useAppState(_temp2);
 	const config = getGlobalConfig();
-	let changelog;
-	try {
-		changelog = getRecentReleaseNotesSync(
-			3,
-			MACRO.VERSION,
-			config.lastReleaseNotesSeen,
-		);
-	} catch {
-		changelog = [];
-	}
 	const [announcement] = useState(() => {
 		const announcements = getInitialSettings().companyAnnouncements;
 		if (!announcements || announcements.length === 0) {
@@ -124,17 +111,9 @@ export function LogoV2() {
 			? announcements[0]
 			: announcements[Math.floor(Math.random() * announcements.length)];
 	});
-	const { hasReleaseNotes } = checkForReleaseNotesSync(
-		config.lastReleaseNotesSeen,
-	);
 	let t2;
 	if ($[2] === Symbol.for("react.memo_cache_sentinel")) {
 		t2 = () => {
-			const currentConfig = getGlobalConfig();
-			if (currentConfig.lastReleaseNotesSeen === MACRO.VERSION) {
-				return;
-			}
-			saveGlobalConfig(_temp3);
 			if (showOnboarding) {
 				incrementProjectOnboardingSeenCount();
 			}
@@ -155,7 +134,6 @@ export function LogoV2() {
 	let t4;
 	if ($[5] === Symbol.for("react.memo_cache_sentinel")) {
 		t4 =
-			!hasReleaseNotes &&
 			!showOnboarding &&
 			!isEnvTruthy(process.env.CLAUDE_CODE_FORCE_FULL_LOGO);
 		$[5] = t4;
@@ -229,7 +207,6 @@ export function LogoV2() {
 	}
 	const modelDisplayName = t10;
 	if (
-		!hasReleaseNotes &&
 		!showOnboarding &&
 		!isEnvTruthy(process.env.CLAUDE_CODE_FORCE_FULL_LOGO)
 	) {
@@ -640,10 +617,7 @@ export function LogoV2() {
 									createRecentActivityFeed(activities),
 									createOverageCreditFeed(),
 								]
-							: [
-									createRecentActivityFeed(activities),
-									createWhatsNewFeed(changelog),
-								]
+							: [createRecentActivityFeed(activities)]
 			}
 			maxWidth={rightWidth}
 		/>
@@ -844,15 +818,6 @@ export function LogoV2() {
 		t41 = $[93];
 	}
 	return t41;
-}
-function _temp3(current) {
-	if (current.lastReleaseNotesSeen === MACRO.VERSION) {
-		return current;
-	}
-	return {
-		...current,
-		lastReleaseNotesSeen: MACRO.VERSION,
-	};
 }
 function _temp2(s_0) {
 	return s_0.effortValue;
