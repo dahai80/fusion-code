@@ -18,11 +18,7 @@ import {
 	getIsNonInteractiveSession,
 	preferThirdPartyAuthentication,
 } from "../bootstrap/state.js";
-import type {
-	CodexTokens,
-	OAuthTokens,
-	SubscriptionType,
-} from "../services/oauth/index.js";
+import type { OAuthTokens, SubscriptionType } from "../services/oauth/index.js";
 import {
 	getOauthProfileFromOauthToken,
 	isOAuthTokenExpired,
@@ -242,7 +238,10 @@ export function getAnthropicApiKeyWithSource(
 	// lists. 3P (Bedrock/Vertex/Foundry) uses provider creds, not this path.
 	if (isBareMode()) {
 		if (process.env.FUSION_CLIENT_KEY) {
-			return { key: process.env.FUSION_CLIENT_KEY, source: "FUSION_CLIENT_KEY" };
+			return {
+				key: process.env.FUSION_CLIENT_KEY,
+				source: "FUSION_CLIENT_KEY",
+			};
 		}
 		if (getConfiguredApiKeyHelper()) {
 			return {
@@ -1445,114 +1444,16 @@ export function clearOAuthTokenCache(): void {
  * Saves the OpenAI Codex OAuth tokens to SecureStorage.
  * Does NOT overwrite or interfere with Anthropic's claudeAiOauth block.
  */
-export function saveCodexOAuthTokens(tokens: CodexTokens): void {
-	try {
-		const secureStorage = getSecureStorage();
-		const storageData = secureStorage.read() || {};
-		storageData.codexOAuth = {
-			accessToken: tokens.accessToken,
-			refreshToken: tokens.refreshToken,
-			expiresAt: tokens.expiresAt,
-			accountId: tokens.accountId,
-		};
-		const updateStatus = secureStorage.update(storageData);
-		if (!updateStatus.success) {
-			console.error(
-				"[Fusion-Code] Failed to save Codex OAuth tokens to secure storage",
-			);
-		}
-		// Also remove from global config if previously stored there (migration)
-		const cfg = getGlobalConfig();
-		if (cfg.codexOAuth) {
-			saveGlobalConfig((c) => {
-				const { codexOAuth: _removed, ...rest } = c;
-				return rest as typeof c;
-			});
-		}
-	} catch (error) {
-		console.error("[Fusion-Code] Error saving Codex OAuth tokens:", error);
-	}
-}
 
 /**
  * Retrieves the stored Codex OAuth tokens from SecureStorage.
  * Falls back to GlobalConfig for migration from older versions.
  * Returns null if no Codex tokens are stored.
  */
-export function getCodexOAuthTokens(): CodexTokens | null {
-	// Primary: read from SecureStorage
-	try {
-		const secureStorage = getSecureStorage();
-		const storageData = secureStorage.read();
-		const stored = storageData?.codexOAuth;
-		if (
-			stored?.accessToken &&
-			stored.refreshToken &&
-			stored.expiresAt &&
-			stored.accountId
-		) {
-			return {
-				accessToken: stored.accessToken,
-				refreshToken: stored.refreshToken,
-				expiresAt: stored.expiresAt,
-				accountId: stored.accountId,
-			};
-		}
-	} catch (error) {
-		console.error(
-			"[Fusion-Code] Error reading Codex OAuth tokens from secure storage:",
-			error,
-		);
-	}
-
-	// Fallback: read from GlobalConfig (migration path)
-	const cfg = getGlobalConfig();
-	const legacy = cfg.codexOAuth;
-	if (
-		legacy?.accessToken &&
-		legacy.refreshToken &&
-		legacy.expiresAt &&
-		legacy.accountId
-	) {
-		// Migrate to SecureStorage
-		saveCodexOAuthTokens({
-			accessToken: legacy.accessToken,
-			refreshToken: legacy.refreshToken,
-			expiresAt: legacy.expiresAt,
-			accountId: legacy.accountId,
-		});
-		return {
-			accessToken: legacy.accessToken,
-			refreshToken: legacy.refreshToken,
-			expiresAt: legacy.expiresAt,
-			accountId: legacy.accountId,
-		};
-	}
-
-	return null;
-}
 
 /**
  * Removes Codex OAuth tokens from SecureStorage and GlobalConfig (e.g., on logout).
  */
-export function clearCodexOAuthTokens(): void {
-	try {
-		const secureStorage = getSecureStorage();
-		const storageData = secureStorage.read() || {};
-		delete storageData.codexOAuth;
-		secureStorage.update(storageData);
-	} catch (error) {
-		console.error(
-			"[Fusion-Code] Error clearing Codex OAuth tokens from secure storage:",
-			error,
-		);
-	}
-	// Also clear from GlobalConfig in case of legacy data
-	saveGlobalConfig((cfg) => {
-		const { codexOAuth: _removed, ...rest } = cfg;
-		return rest as typeof cfg;
-	});
-}
 
 let lastCredentialsMtimeMs = 0;
 
@@ -1818,15 +1719,11 @@ export function isClaudeAISubscriber(): boolean {
 	return shouldUseClaudeAIAuth(getClaudeAIOAuthTokens()?.scopes);
 }
 
+// Codex OAuth removed (codex-client.ts deleted) — OpenAI direct connect is
+// gone (P0-4), so this can no longer be true. Kept as a false stub for the
+// model-gating call sites.
 export function isCodexSubscriber(): boolean {
-	// Only treat as Codex subscriber when explicitly using OpenAI provider
-	if (getAPIProvider() !== "openai") {
-		return false;
-	}
-
-	// Verify we actually have valid Codex tokens
-	const tokens = getCodexOAuthTokens();
-	return !!tokens?.accessToken;
+	return false;
 }
 
 /**

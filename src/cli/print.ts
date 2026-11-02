@@ -2,10 +2,6 @@
 import { feature } from "bun:bundle";
 import { readFile, stat } from "node:fs/promises";
 import { dirname } from "node:path";
-import {
-	downloadUserSettings,
-	redownloadUserSettings,
-} from "src/services/settingsSync/index.js";
 import { StructuredIO } from "src/cli/structuredIO.js";
 import { RemoteIO } from "src/cli/remoteIO.js";
 import {
@@ -27,10 +23,7 @@ import {
 } from "src/services/analytics/index.js";
 import { getFeatureValue_CACHED_MAY_BE_STALE } from "src/services/analytics/index.js";
 import { logForDebugging } from "src/utils/debug.js";
-import {
-	logForDiagnosticsNoPII,
-	withDiagnosticsTiming,
-} from "src/utils/diagLogs.js";
+import { logForDiagnosticsNoPII } from "src/utils/diagLogs.js";
 import { toolMatchesName, type Tool, type Tools } from "src/Tool.js";
 import {
 	type AgentDefinition,
@@ -282,7 +275,6 @@ import {
 	setMainThreadAgentType,
 	switchSession,
 	isSessionPersistenceDisabled,
-	getIsRemoteMode,
 	getFlagSettingsInline,
 	setFlagSettingsInline,
 	getMainThreadAgentType,
@@ -513,13 +505,6 @@ export async function runHeadless(
 	// user settings a similar head start. The cached promise is joined in
 	// installPluginsAndApplyMcpInBackground before plugin install reads
 	// enabledPlugins.
-	if (
-		feature("DOWNLOAD_USER_SETTINGS") &&
-		(isEnvTruthy(process.env.FUSION_CODE_REMOTE) || getIsRemoteMode())
-	) {
-		void downloadUserSettings();
-	}
-
 	// In headless mode there is no React tree, so the useSettingsChange hook
 	// never runs. Subscribe directly so that settings changes (including
 	// managed-settings / policy updates) are fully applied.
@@ -1727,17 +1712,6 @@ function runHeadlessStreaming(
 	// NOTE: Nested function required - needs closure access to applyMcpServerChanges and updateSdkMcp
 	async function installPluginsAndApplyMcpInBackground(): Promise<void> {
 		try {
-			// User settings download (fired at runHeadless entry). downloadUserSettings()
-			// caches its promise so this awaits the same in-flight request.
-			if (
-				feature("DOWNLOAD_USER_SETTINGS") &&
-				(isEnvTruthy(process.env.FUSION_CODE_REMOTE) || getIsRemoteMode())
-			) {
-				await withDiagnosticsTiming("headless_user_settings_download", () =>
-					downloadUserSettings(),
-				);
-			}
-
 			const pluginsInstalled = await installPluginsForHeadless();
 
 			if (pluginsInstalled) {
@@ -3103,18 +3077,6 @@ function runHeadlessStreaming(
 					}
 				} else if (message.request.subtype === "reload_plugins") {
 					try {
-						if (
-							feature("DOWNLOAD_USER_SETTINGS") &&
-							(isEnvTruthy(process.env.FUSION_CODE_REMOTE) || getIsRemoteMode())
-						) {
-							// Re-pull user settings so enabledPlugins pushed from the
-							// user's local CLI take effect before the cache sweep.
-							const applied = await redownloadUserSettings();
-							if (applied) {
-								settingsChangeDetector.notifyChange("userSettings");
-							}
-						}
-
 						const r = await refreshActivePlugins(setAppState);
 
 						const sdkAgents = currentAgents.filter(

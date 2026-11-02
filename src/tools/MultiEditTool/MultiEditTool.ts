@@ -6,7 +6,6 @@ import {
 	getLspServerManager,
 } from "../../services/lsp/index.js";
 import { notifyVscodeFileUpdated } from "../../services/mcp/index.js";
-import { checkTeamMemSecrets } from "../../services/teamMemorySync/index.js";
 import {
 	activateConditionalSkillsForPaths,
 	addSkillDirectories,
@@ -158,11 +157,6 @@ export const MultiEditTool = buildTool({
 
 		for (const edit of input.edits) {
 			const fullFilePath = expandPath(edit.file_path);
-
-			const secretError = checkTeamMemSecrets(fullFilePath, edit.new_string);
-			if (secretError) {
-				return { result: false, message: secretError, errorCode: 0 };
-			}
 
 			if (edit.old_string === edit.new_string) {
 				return {

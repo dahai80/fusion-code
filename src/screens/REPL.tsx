@@ -521,7 +521,6 @@ import { UserTextMessage } from "src/components/messages/UserTextMessage.js";
 import { SandboxPermissionRequest } from "src/components/permissions/SandboxPermissionRequest.js";
 import { SandboxViolationExpandedView } from "src/components/SandboxViolationExpandedView.js";
 import { useAutoModeUnavailableNotification } from "src/hooks/notifs/useAutoModeUnavailableNotification.js";
-import { useCanSwitchToExistingSubscription } from "src/hooks/notifs/useCanSwitchToExistingSubscription.js";
 import { useDeprecationWarningNotification } from "src/hooks/notifs/useDeprecationWarningNotification.js";
 import { useFastModeNotification } from "src/hooks/notifs/useFastModeNotification.js";
 import { useIDEStatusIndicator } from "src/hooks/notifs/useIDEStatusIndicator.js";
@@ -875,7 +874,6 @@ export function REPL({
 	);
 	// notifications
 	useModelMigrationNotifications();
-	useCanSwitchToExistingSubscription();
 	useIDEStatusIndicator({
 		ideSelection,
 		mcpClients,

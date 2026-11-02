@@ -19,6 +19,7 @@ const dev = args.includes("--dev");
 // when adding new feature() gates. Sorted alphabetically for stable diffs.
 // P1-4 (audit R10): kept in sync by scripts/check-feature-flags.ts (CI gate).
 const fullExperimentalFeatures = [
+	"TEAMMEM",
 	"ABLATION_BASELINE",
 	"AGENT_MEMORY_SNAPSHOT",
 	"AGENT_TRIGGERS",
@@ -55,7 +56,6 @@ const fullExperimentalFeatures = [
 	"COORDINATOR_MODE",
 	"COWORKER_TYPE_TELEMETRY",
 	"DIRECT_CONNECT",
-	"DOWNLOAD_USER_SETTINGS",
 	"DUMP_CONFIG",
 	"DUMP_SYSTEM_PROMPT",
 	"EXPERIMENTAL_SKILL_SEARCH",
@@ -98,7 +98,6 @@ const fullExperimentalFeatures = [
 	"SLOW_OPERATION_LOGGING",
 	"SSH_REMOTE",
 	"STREAMLINED_OUTPUT",
-	"TEAMMEM",
 	"TEMPLATES",
 	"TELEMETRY",
 	"TERMINAL_PANEL",
@@ -110,7 +109,6 @@ const fullExperimentalFeatures = [
 	"ULTRAPLAN",
 	"ULTRATHINK",
 	"UNATTENDED_RETRY",
-	"UPLOAD_USER_SETTINGS",
 	"VERIFICATION_AGENT",
 	"VOICE_MODE",
 	"WEB_BROWSER_TOOL",

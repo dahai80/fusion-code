@@ -6,7 +6,6 @@ import {
 } from "src/utils/background/remote/preconditions.js";
 import { gracefulShutdownSync } from "src/utils/gracefulShutdown.js";
 import { Box, Text } from "../ink.js";
-import { ConsoleOAuthFlow } from "./ConsoleOAuthFlow.js";
 import { Select } from "./CustomSelect/index.js";
 import { Dialog } from "./design-system/Dialog.js";
 import { TeleportStash } from "./TeleportStash.js";
@@ -137,23 +136,6 @@ export function TeleportError(t0) {
 			return t9;
 		}
 		case "needsLogin": {
-			if (isLoggingIn) {
-				let t9;
-				if ($[14] !== handleLoginComplete) {
-					t9 = (
-						<ConsoleOAuthFlow
-							onDone={handleLoginComplete}
-							mode="login"
-							forceLoginMethod="claudeai"
-						/>
-					);
-					$[14] = handleLoginComplete;
-					$[15] = t9;
-				} else {
-					t9 = $[15];
-				}
-				return t9;
-			}
 			let t9;
 			if ($[16] === Symbol.for("react.memo_cache_sentinel")) {
 				t9 = (

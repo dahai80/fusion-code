@@ -8,14 +8,11 @@ import {
 	type AnalyticsMetadata_I_VERIFIED_THIS_IS_NOT_CODE_OR_FILEPATHS,
 	logEvent,
 } from "../../services/analytics/index.js";
-import { getSSLErrorHint } from "../../services/api/index.js";
 import type { OAuthTokens } from "../../services/oauth/index.js";
 import {
 	createAndStoreApiKey,
 	fetchAndStoreUserRoles,
 	getOauthProfileFromOauthToken,
-	OAuthService,
-	refreshOAuthToken,
 	shouldUseClaudeAIAuth,
 	storeOAuthAccountInfo,
 } from "../../services/oauth/index.js";
@@ -26,17 +23,11 @@ import {
 	getOauthAccountInfo,
 	getSubscriptionType,
 	isUsing3PServices,
-	saveCodexOAuthTokens,
 	saveOAuthTokensIfNeeded,
-	validateForceLoginOrg,
 } from "../../utils/auth.js";
-import { saveGlobalConfig } from "../../utils/config.js";
 import { logForDebugging } from "../../utils/debug.js";
 import { isRunningOnHomespace } from "../../utils/envUtils.js";
-import { errorMessage } from "../../utils/errors.js";
-import { logError } from "../../utils/log.js";
 import { getAPIProvider } from "../../utils/model/providers.js";
-import { getInitialSettings } from "../../utils/settings/settings.js";
 import { jsonStringify } from "../../utils/slowOperations.js";
 import {
 	buildAccountProperties,
@@ -102,7 +93,10 @@ export async function installOAuthTokens(tokens: OAuthTokens): Promise<void> {
 		logForDebugging(String(err), { level: "error" }),
 	);
 
-	if (!shouldUseClaudeAIAuth(tokens.scopes) && hasAnyAnthropicScope(tokens.scopes)) {
+	if (
+		!shouldUseClaudeAIAuth(tokens.scopes) &&
+		hasAnyAnthropicScope(tokens.scopes)
+	) {
 		// API key creation is critical for Console users — let it throw.
 		const apiKey = await createAndStoreApiKey(tokens.accessToken);
 		if (!apiKey) {
@@ -110,139 +104,9 @@ export async function installOAuthTokens(tokens: OAuthTokens): Promise<void> {
 				"Unable to create API key. The server accepted the request but did not return a key.",
 			);
 		}
-	} else {
-		// Third-party provider (e.g. OpenAI Codex) — tokens carry no Anthropic
-		// scopes. Skip Anthropic API key creation entirely and store the tokens
-		// in their own dedicated config slot.
-		saveCodexOAuthTokens({
-			accessToken: tokens.accessToken,
-			refreshToken: tokens.refreshToken ?? "",
-			expiresAt: tokens.expiresAt ?? Date.now() + 3600_000,
-			accountId: tokens.tokenAccount?.uuid ?? "",
-		});
 	}
 
 	await clearAuthRelatedCaches();
-}
-
-export async function authLogin({
-	email,
-	sso,
-	console: useConsole,
-	claudeai,
-}: {
-	email?: string;
-	sso?: boolean;
-	console?: boolean;
-	claudeai?: boolean;
-}): Promise<void> {
-	if (useConsole && claudeai) {
-		process.stderr.write(
-			"Error: --console and --claudeai cannot be used together.\n",
-		);
-		process.exit(1);
-	}
-
-	const settings = getInitialSettings();
-	// forceLoginMethod is a hard constraint (enterprise setting) — matches ConsoleOAuthFlow behavior.
-	// Without it, --console selects Console; --claudeai (or no flag) selects claude.ai.
-	const loginWithClaudeAi = settings.forceLoginMethod
-		? settings.forceLoginMethod === "claudeai"
-		: !useConsole;
-	const orgUUID = settings.forceLoginOrgUUID;
-
-	// Fast path: if a refresh token is provided via env var, skip the browser
-	// OAuth flow and exchange it directly for tokens.
-	const envRefreshToken = process.env.FUSION_CODE_OAUTH_REFRESH_TOKEN;
-	if (envRefreshToken) {
-		const envScopes = process.env.FUSION_CODE_OAUTH_SCOPES;
-		if (!envScopes) {
-			process.stderr.write(
-				"FUSION_CODE_OAUTH_SCOPES is required when using FUSION_CODE_OAUTH_REFRESH_TOKEN.\n" +
-					"Set it to the space-separated scopes the refresh token was issued with\n" +
-					'(e.g. "user:inference" or "user:profile user:inference user:sessions:claude_code user:mcp_servers").\n',
-			);
-			process.exit(1);
-		}
-
-		const scopes = envScopes.split(/\s+/).filter(Boolean);
-
-		try {
-			logEvent("tengu_login_from_refresh_token", {});
-
-			const tokens = await refreshOAuthToken(envRefreshToken, { scopes });
-			await installOAuthTokens(tokens);
-
-			const orgResult = await validateForceLoginOrg();
-			if (!orgResult.valid) {
-				process.stderr.write(`${orgResult.message}\n`);
-				process.exit(1);
-			}
-
-			// Mark onboarding complete — interactive paths handle this via
-			// the Onboarding component, but the env var path skips it.
-			saveGlobalConfig((current) => {
-				if (current.hasCompletedOnboarding) return current;
-				return { ...current, hasCompletedOnboarding: true };
-			});
-
-			logEvent("tengu_oauth_success", {
-				loginWithClaudeAi: shouldUseClaudeAIAuth(tokens.scopes),
-			});
-			process.stdout.write("Login successful.\n");
-			process.exit(0);
-		} catch (err) {
-			logError(err);
-			const sslHint = getSSLErrorHint(err);
-			process.stderr.write(
-				`Login failed: ${errorMessage(err)}\n${sslHint ? `${sslHint}\n` : ""}`,
-			);
-			process.exit(1);
-		}
-	}
-
-	const resolvedLoginMethod = sso ? "sso" : undefined;
-
-	const oauthService = new OAuthService();
-
-	try {
-		logEvent("tengu_oauth_flow_start", { loginWithClaudeAi });
-
-		const result = await oauthService.startOAuthFlow(
-			async (url) => {
-				process.stdout.write("Opening browser to sign in…\n");
-				process.stdout.write(`If the browser didn't open, visit: ${url}\n`);
-			},
-			{
-				loginWithClaudeAi,
-				loginHint: email,
-				loginMethod: resolvedLoginMethod,
-				orgUUID,
-			},
-		);
-
-		await installOAuthTokens(result);
-
-		const orgResult = await validateForceLoginOrg();
-		if (!orgResult.valid) {
-			process.stderr.write(`${orgResult.message}\n`);
-			process.exit(1);
-		}
-
-		logEvent("tengu_oauth_success", { loginWithClaudeAi });
-
-		process.stdout.write("Login successful.\n");
-		process.exit(0);
-	} catch (err) {
-		logError(err);
-		const sslHint = getSSLErrorHint(err);
-		process.stderr.write(
-			`Login failed: ${errorMessage(err)}\n${sslHint ? `${sslHint}\n` : ""}`,
-		);
-		process.exit(1);
-	} finally {
-		oauthService.cleanup();
-	}
 }
 
 export async function authStatus(opts: {

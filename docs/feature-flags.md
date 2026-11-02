@@ -62,7 +62,6 @@ CONTEXT_COLLAPSE
 COORDINATOR_MODE
 COWORKER_TYPE_TELEMETRY
 DIRECT_CONNECT
-DOWNLOAD_USER_SETTINGS
 DUMP_CONFIG
 DUMP_SYSTEM_PROMPT
 EXPERIMENTAL_SKILL_SEARCH
@@ -106,7 +105,6 @@ SKILL_IMPROVEMENT
 SLOW_OPERATION_LOGGING
 SSH_REMOTE
 STREAMLINED_OUTPUT
-TEAMMEM
 TEMPLATES
 TELEMETRY
 TERMINAL_PANEL
@@ -119,7 +117,6 @@ UDS_INBOX
 ULTRAPLAN
 ULTRATHINK
 UNATTENDED_RETRY
-UPLOAD_USER_SETTINGS
 VERIFICATION_AGENT
 VOICE_MODE
 WEB_BROWSER_TOOL
@@ -364,3 +361,4 @@ LC_ALL=C comm -13 /tmp/build-flags.txt /tmp/src-flags.txt   # src 有但 build.t
 - runtime flag 未生效: 多数入口有 logForDebugging, 查启动日志; env 名拼写 (全大写下划线)
 - runtime flag crash: 检查是否依赖 OAuth / GrowthBook / 原生模块 (见运行时 caveat)
 - build flag 未 DCE: `feature()` 参数必须是**字符串字面量**, 运行时变量 cast 破坏 DCE 且致 build:dev 报错 (PR #9)
+TEAMMEM

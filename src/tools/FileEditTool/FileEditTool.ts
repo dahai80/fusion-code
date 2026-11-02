@@ -7,7 +7,6 @@ import {
 	getLspServerManager,
 } from "../../services/lsp/index.js";
 import { notifyVscodeFileUpdated } from "../../services/mcp/index.js";
-import { checkTeamMemSecrets } from "../../services/teamMemorySync/index.js";
 import {
 	activateConditionalSkillsForPaths,
 	addSkillDirectories,
@@ -141,12 +140,6 @@ export const FileEditTool = buildTool({
 		// Use expandPath for consistent path normalization (especially on Windows
 		// where "/" vs "\" can cause readFileState lookup mismatches)
 		const fullFilePath = expandPath(file_path);
-
-		// Reject edits to team memory files that introduce secrets
-		const secretError = checkTeamMemSecrets(fullFilePath, new_string);
-		if (secretError) {
-			return { result: false, message: secretError, errorCode: 0 };
-		}
 		if (old_string === new_string) {
 			return {
 				result: false,

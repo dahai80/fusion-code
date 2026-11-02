@@ -220,7 +220,6 @@ export class OAuthService {
 }
 
 export * from "./client.js";
-export * from "./codex-client.js";
 export * from "./getOauthProfile.js";
 // #203 Phase B (audit 1.1.3): oauth public barrel re-exports. Consumers
 // outside src/services/** must import these from here, not deep files

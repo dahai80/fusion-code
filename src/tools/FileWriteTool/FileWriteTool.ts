@@ -8,7 +8,6 @@ import {
 	getLspServerManager,
 } from "../../services/lsp/index.js";
 import { notifyVscodeFileUpdated } from "../../services/mcp/index.js";
-import { checkTeamMemSecrets } from "../../services/teamMemorySync/index.js";
 import {
 	activateConditionalSkillsForPaths,
 	addSkillDirectories,
@@ -152,14 +151,8 @@ export const FileWriteTool = buildTool({
 		// shown — phantom. Under-count: tool_use already indexes file_path.
 		return "";
 	},
-	async validateInput({ file_path, content }, toolUseContext: ToolUseContext) {
+	async validateInput({ file_path }, toolUseContext: ToolUseContext) {
 		const fullFilePath = expandPath(file_path);
-
-		// Reject writes to team memory files that contain secrets
-		const secretError = checkTeamMemSecrets(fullFilePath, content);
-		if (secretError) {
-			return { result: false, message: secretError, errorCode: 0 };
-		}
 
 		// Check if path should be ignored based on permission settings
 		const appState = toolUseContext.getAppState();

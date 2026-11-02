@@ -23,7 +23,6 @@ import ide from "./commands/ide/index.js";
 import init from "./commands/init.js";
 import initVerifiers from "./commands/init-verifiers.js";
 import keybindings from "./commands/keybindings/index.js";
-import login from "./commands/login/index.js";
 import ast from "./commands/ast/index.js";
 import fastpath from "./commands/fastpath/index.js";
 import search from "./commands/search/index.js";
@@ -121,7 +120,6 @@ import model from "./commands/model/index.js";
 import tag from "./commands/tag/index.js";
 import outputStyle from "./commands/output-style/index.js";
 import remoteEnv from "./commands/remote-env/index.js";
-import upgrade from "./commands/upgrade/index.js";
 import statusline from "./commands/statusline.js";
 import effort from "./commands/effort/index.js";
 import stats from "./commands/stats/index.js";
@@ -285,7 +283,6 @@ const COMMANDS = memoize((): Command[] => [
 	rollback,
 	terminalSetup,
 	tui,
-	upgrade,
 	vim,
 	permissions,
 	plan,
@@ -294,7 +291,7 @@ const COMMANDS = memoize((): Command[] => [
 	sandboxToggle,
 	securityReview,
 	...((!isUsing3PServices() && !isFusionMlxProvider()
-		? [logout, login()]
+		? [logout]
 		: []) as Command[]),
 	tasks,
 	usageReport,

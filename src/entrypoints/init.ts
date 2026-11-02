@@ -5,7 +5,6 @@ import "../utils/config.js";
 // 后者在 bun build --compile 下脆弱, 且与同文件 L2 不一致。
 import { getIsNonInteractiveSession } from "../bootstrap/state.js";
 import { shutdownLspServerManager } from "../services/lsp/index.js";
-import { populateOAuthAccountInfoIfNeeded } from "../services/oauth/index.js";
 import {
 	initializePolicyLimitsLoadingPromise,
 	isPolicyLimitsEligible,
@@ -67,16 +66,6 @@ export const init = asyncMemoize(async (): Promise<void> => {
 		// Make sure things get flushed on exit
 		setupGracefulShutdown();
 		profileCheckpoint("init_after_graceful_shutdown");
-
-		// Populate OAuth account info if it is not already cached in config. This is needed since the
-		// OAuth account info may not be populated when logging in through the VSCode extension.
-		// P3-18: .catch 防 reject → unhandledRejection (OAuth 缓存静默填充失败无退出, 仅记日志)。
-		void populateOAuthAccountInfoIfNeeded().catch((e) =>
-			logForDebugging(
-				`[init] populateOAuthAccountInfoIfNeeded failed: ${(e as Error).message}`,
-			),
-		);
-		profileCheckpoint("init_after_oauth_populate");
 
 		// Initialize JetBrains IDE detection asynchronously (populates cache for later sync access)
 		// P3-18: .catch 同上。
