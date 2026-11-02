@@ -64,8 +64,12 @@ check_port_registry() {
 load_env_file() {
     local env_file="${FUSION_CODE_WEB_ENV_FILE:-$HOME/.fusion-code/web.env}"
     if [ -f "$env_file" ]; then
+        # set -a: sourced assignments must be exported, or the child bun
+        # process never sees them.
+        set -a
         # shellcheck disable=SC1090
         . "$env_file"
+        set +a
         log "loaded env file: $env_file"
     fi
 }
