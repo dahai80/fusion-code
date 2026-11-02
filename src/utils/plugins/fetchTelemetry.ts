@@ -9,14 +9,13 @@
  *
  * Volume: these fire at startup (install-counts 24h-TTL)
  * and on explicit user action (install/update). NOT per-interaction. Similar
- * envelope to tengu_binary_download_*.
+ * envelope to fusion_binary_download_*.
  */
 
 import {
 	logEvent,
 	type AnalyticsMetadata_I_VERIFIED_THIS_IS_NOT_CODE_OR_FILEPATHS as SafeString,
 } from "../../services/analytics/index.js";
-import { OFFICIAL_MARKETPLACE_NAME } from "./officialMarketplace.js";
 
 export type PluginFetchSource =
 	| "install_counts"
@@ -84,8 +83,8 @@ export function logPluginFetch(
 	errorKind?: string,
 ): void {
 	// String values are bounded enums / hostname-only — no code, no paths,
-	// no raw error messages. Same privacy envelope as tengu_web_fetch_host.
-	logEvent("tengu_plugin_remote_fetch", {
+	// no raw error messages. Same privacy envelope as fusion_web_fetch_host.
+	logEvent("fusion_plugin_remote_fetch", {
 		source: source as SafeString,
 		host: (urlOrSpec ? extractHost(urlOrSpec) : "unknown") as SafeString,
 		is_official: urlOrSpec ? isOfficialRepo(urlOrSpec) : false,

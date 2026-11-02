@@ -280,7 +280,7 @@ export function isCompactLinePrefixEnabled(): boolean {
 	// 3P default: killswitch off = compact format enabled. Client-side only —
 	// no server support needed, safe for Bedrock/Vertex/Foundry.
 	return !getFeatureValue_CACHED_MAY_BE_STALE(
-		"tengu_compact_line_prefix_killswitch",
+		"fusion_compact_line_prefix_killswitch",
 		false,
 	);
 }
@@ -441,7 +441,7 @@ export function writeFileSyncAndFlush(
 		logForDebugging(`Failed to write file atomically: ${atomicError}`, {
 			level: "error",
 		});
-		logEvent("tengu_atomic_write_error", {});
+		logEvent("fusion_atomic_write_error", {});
 
 		// Clean up temp file on error
 		try {

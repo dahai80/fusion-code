@@ -161,21 +161,21 @@ export function PermissionPrompt(t0) {
 			if (type_0 === "accept") {
 				if (acceptInputMode) {
 					setAcceptInputMode(false);
-					logEvent("tengu_accept_feedback_mode_collapsed", analyticsProps);
+					logEvent("fusion_accept_feedback_mode_collapsed", analyticsProps);
 				} else {
 					setAcceptInputMode(true);
 					setAcceptFeedbackModeEntered(true);
-					logEvent("tengu_accept_feedback_mode_entered", analyticsProps);
+					logEvent("fusion_accept_feedback_mode_entered", analyticsProps);
 				}
 			} else {
 				if (type_0 === "reject") {
 					if (rejectInputMode) {
 						setRejectInputMode(false);
-						logEvent("tengu_reject_feedback_mode_collapsed", analyticsProps);
+						logEvent("fusion_reject_feedback_mode_collapsed", analyticsProps);
 					} else {
 						setRejectInputMode(true);
 						setRejectFeedbackModeEntered(true);
-						logEvent("tengu_reject_feedback_mode_entered", analyticsProps);
+						logEvent("fusion_reject_feedback_mode_entered", analyticsProps);
 					}
 				}
 			}
@@ -228,10 +228,10 @@ export function PermissionPrompt(t0) {
 							: rejectFeedbackModeEntered,
 				};
 				if (option_0.feedbackConfig.type === "accept") {
-					logEvent("tengu_accept_submitted", analyticsProps_0);
+					logEvent("fusion_accept_submitted", analyticsProps_0);
 				} else {
 					if (option_0.feedbackConfig.type === "reject") {
-						logEvent("tengu_reject_submitted", analyticsProps_0);
+						logEvent("fusion_reject_submitted", analyticsProps_0);
 					}
 				}
 			}
@@ -278,7 +278,7 @@ export function PermissionPrompt(t0) {
 	let t7;
 	if ($[31] !== onCancel || $[32] !== setAppState) {
 		t7 = () => {
-			logEvent("tengu_permission_request_escape", {});
+			logEvent("fusion_permission_request_escape", {});
 			setAppState(_temp);
 			onCancel?.();
 		};

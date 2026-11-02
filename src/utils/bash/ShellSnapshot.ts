@@ -511,7 +511,7 @@ export const createAndSaveSnapshot = async (
 									execError.signal as keyof typeof os.constants.signals
 								]
 							: undefined;
-						logEvent("tengu_shell_snapshot_failed", {
+						logEvent("fusion_shell_snapshot_failed", {
 							stderr_length: stderr?.length || 0,
 							has_error_code: !!execError?.code,
 							error_signal_number: signalNumber,
@@ -564,7 +564,7 @@ export const createAndSaveSnapshot = async (
 									`Parent directory does not exist or is not accessible: ${snapshotsDir}`,
 								);
 							}
-							logEvent("tengu_shell_unknown_error", {});
+							logEvent("fusion_shell_unknown_error", {});
 							resolve(undefined);
 						}
 					}
@@ -576,7 +576,7 @@ export const createAndSaveSnapshot = async (
 				logForDebugging(`Error stack trace: ${error.stack}`);
 			}
 			logError(error);
-			logEvent("tengu_shell_snapshot_error", {});
+			logEvent("fusion_shell_snapshot_error", {});
 			resolve(undefined);
 		}
 	});

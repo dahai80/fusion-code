@@ -552,7 +552,7 @@ export async function call(
 	context: LocalJSXCommandContext,
 	args: string,
 ): Promise<React.ReactNode | null> {
-	logEvent("tengu_ext_ide_command", {});
+	logEvent("fusion_ext_ide_command", {});
 	const {
 		options: { dynamicMcpConfig },
 		onChangeDynamicMcpConfig,

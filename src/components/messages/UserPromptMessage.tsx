@@ -70,7 +70,7 @@ export function UserPromptMessage({
 					(getUserMsgOptIn() &&
 						(briefEnvEnabled ||
 							getFeatureValue_CACHED_MAY_BE_STALE(
-								"tengu_kairos_brief",
+								"fusion_kairos_brief",
 								false,
 							)))) &&
 				isBriefOnly &&

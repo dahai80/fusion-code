@@ -78,7 +78,7 @@ export interface SlackContext {
  * Source table: proj-product-data-nhme.raw_statsig_internal_tools.events
  */
 export interface ClaudeCodeInternalEvent {
-	/** Event name (e.g., "tengu_binary_feedback", "tengu_api_success") */
+	/** Event name (e.g., "fusion_binary_feedback", "fusion_api_success") */
 	event_name?: string | undefined;
 	/** Event timestamp */
 	client_timestamp?: Date | undefined;

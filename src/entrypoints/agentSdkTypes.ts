@@ -349,7 +349,7 @@ export type CronTask = {
 
 /**
  * Cron scheduler tuning knobs (jitter + expiry). Sourced at runtime from the
- * `tengu_kairos_cron_config` GrowthBook config in CLI sessions; daemon hosts
+ * `fusion_kairos_cron_config` GrowthBook config in CLI sessions; daemon hosts
  * pass this through `watchScheduledTasks({ getJitterConfig })` to get the
  * same tuning.
  * @internal
@@ -488,7 +488,7 @@ export type RemoteControlHandle = {
  * stream. Handle `controlRequests()` locally (interrupt → abort, set_model
  * → reconfigure).
  *
- * Skips the `tengu_ccr_bridge` gate and policy-limits check — @internal
+ * Skips the `fusion_ccr_bridge` gate and policy-limits check — @internal
  * caller is pre-entitled. OAuth is still required (env var or keychain).
  *
  * Returns null on no-OAuth or registration failure.

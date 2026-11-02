@@ -253,7 +253,7 @@ export async function call(
 		const effectiveTitle = await getUniqueForkName(baseName);
 		await saveCustomTitle(sessionId, effectiveTitle, forkPath);
 
-		logEvent("tengu_conversation_forked", {
+		logEvent("fusion_conversation_forked", {
 			message_count: serializedMessages.length,
 			has_custom_title: !!title,
 		});

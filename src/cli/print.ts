@@ -951,7 +951,7 @@ export async function runHeadless(
 	// already flushed above, so this adds no user-visible latency — it just
 	// delays process exit so gracefulShutdownSync's 5s failsafe doesn't kill
 	// the forked agent mid-flight. Gated by isExtractModeActive so the
-	// tengu_slate_thimble flag controls non-interactive extraction end-to-end.
+	// fusion_slate_thimble flag controls non-interactive extraction end-to-end.
 	if (feature("EXTRACT_MEMORIES") && isExtractModeActive()) {
 		await extractMemoriesModule?.drainPendingExtraction();
 	}
@@ -1276,7 +1276,7 @@ function runHeadlessStreaming(
 
 						const mode = request.params.mode === "url" ? "url" : "form";
 
-						logEvent("tengu_mcp_elicitation_shown", {
+						logEvent("fusion_mcp_elicitation_shown", {
 							mode: mode as AnalyticsMetadata_I_VERIFIED_THIS_IS_NOT_CODE_OR_FILEPATHS,
 						});
 
@@ -1291,7 +1291,7 @@ function runHeadlessStreaming(
 								serverName,
 								`Elicitation resolved by hook: ${jsonStringify(hookResponse)}`,
 							);
-							logEvent("tengu_mcp_elicitation_response", {
+							logEvent("fusion_mcp_elicitation_response", {
 								mode: mode as AnalyticsMetadata_I_VERIFIED_THIS_IS_NOT_CODE_OR_FILEPATHS,
 								action:
 									hookResponse.action as AnalyticsMetadata_I_VERIFIED_THIS_IS_NOT_CODE_OR_FILEPATHS,
@@ -1334,7 +1334,7 @@ function runHeadlessStreaming(
 							elicitationId,
 						);
 
-						logEvent("tengu_mcp_elicitation_response", {
+						logEvent("fusion_mcp_elicitation_response", {
 							mode: mode as AnalyticsMetadata_I_VERIFIED_THIS_IS_NOT_CODE_OR_FILEPATHS,
 							action:
 								result.action as AnalyticsMetadata_I_VERIFIED_THIS_IS_NOT_CODE_OR_FILEPATHS,
@@ -1872,7 +1872,7 @@ function runHeadlessStreaming(
 							`FUSION_CODE_SYNC_PLUGIN_INSTALL: plugin installation timed out after ${timeoutMs}ms`,
 						),
 					);
-					logEvent("tengu_sync_plugin_install_timeout", {
+					logEvent("fusion_sync_plugin_install_timeout", {
 						timeout_ms: timeoutMs,
 					});
 				}
@@ -2858,7 +2858,7 @@ function runHeadlessStreaming(
 
 					if (
 						message.request.agentProgressSummaries &&
-						getFeatureValue_CACHED_MAY_BE_STALE("tengu_slate_prism", true)
+						getFeatureValue_CACHED_MAY_BE_STALE("fusion_slate_prism", true)
 					) {
 						setSdkAgentProgressSummariesEnabled(true);
 					}
@@ -4826,7 +4826,7 @@ function handleSetPermissionMode(
  * goes to the consumer's canUseTool callback over stdio; there is no CLI-side
  * dialog for a remote "yes tbxkq" to resolve. If an IDE wants channel-relayed
  * tool approval, that's IDE-side plumbing against its own pending-map. (Also
- * gated separately by tengu_harbor_permissions — not yet shipping on
+ * gated separately by fusion_harbor_permissions — not yet shipping on
  * interactive either.)
  */
 function handleChannelEnable(
@@ -4898,7 +4898,7 @@ function handleChannelEnable(
 	const pluginId =
 		`${entry.name}@${entry.marketplace}` as AnalyticsMetadata_I_VERIFIED_THIS_IS_NOT_CODE_OR_FILEPATHS;
 	logMCPDebug(serverName, "Channel notifications registered");
-	logEvent("tengu_mcp_channel_enable", { plugin: pluginId });
+	logEvent("fusion_mcp_channel_enable", { plugin: pluginId });
 
 	// Identical enqueue shape to the interactive register block in
 	// useManageMCPConnections. drainCommandQueue processes it between turns —
@@ -4912,7 +4912,7 @@ function handleChannelEnable(
 				serverName,
 				`notifications/claude/channel: ${content.slice(0, 80)}`,
 			);
-			logEvent("tengu_mcp_channel_message", {
+			logEvent("fusion_mcp_channel_message", {
 				content_length: content.length,
 				meta_key_count: Object.keys(meta ?? {}).length,
 				entry_kind:
@@ -4988,7 +4988,7 @@ function reregisterChannelHandlerAfterReconnect(
 				connection.name,
 				`notifications/claude/channel: ${content.slice(0, 80)}`,
 			);
-			logEvent("tengu_mcp_channel_message", {
+			logEvent("fusion_mcp_channel_message", {
 				content_length: content.length,
 				meta_key_count: Object.keys(meta ?? {}).length,
 				entry_kind:
@@ -5080,7 +5080,7 @@ async function loadInitialMessages(
 	// Handle continue in print mode
 	if (options.continue) {
 		try {
-			logEvent("tengu_continue_print", {});
+			logEvent("fusion_continue_print", {});
 
 			const result = await loadConversationForResume(
 				undefined /* sessionId */,
@@ -5163,7 +5163,7 @@ async function loadInitialMessages(
 	// URLs are [ANT-ONLY]
 	if (options.resume) {
 		try {
-			logEvent("tengu_resume_print", {});
+			logEvent("fusion_resume_print", {});
 
 			// In print mode - we require a valid session ID, JSONL file or URL
 			const parsedSessionId = parseSessionIdentifier(

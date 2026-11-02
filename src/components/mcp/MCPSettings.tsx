@@ -80,7 +80,7 @@ export function MCPSettings(t0) {
 						const scope = client_0.config.scope;
 						const isSSE = client_0.config.type === "sse";
 						const isHTTP = client_0.config.type === "http";
-											let isAuthenticated = undefined;
+						let isAuthenticated = undefined;
 						if (isSSE || isHTTP) {
 							const authProvider = new ClaudeAuthProvider(
 								client_0.name,

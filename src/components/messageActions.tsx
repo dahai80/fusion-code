@@ -318,7 +318,7 @@ export function useMessageActions(
 		return h;
 	}, [setCursor, navRef]);
 	const enter = useCallback(() => {
-		logEvent("tengu_message_actions_enter", {});
+		logEvent("fusion_message_actions_enter", {});
 		navRef.current?.enterCursor();
 	}, [navRef]);
 	return {

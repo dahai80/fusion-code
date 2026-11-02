@@ -29,7 +29,7 @@ export function registerMiscSubCommands(program: CommanderCommand): void {
 			process.exit(0);
 		});
 	if (feature("TRANSCRIPT_CLASSIFIER")) {
-		// Skip when tengu_auto_mode_config.enabled === 'disabled' (circuit breaker).
+		// Skip when fusion_auto_mode_config.enabled === 'disabled' (circuit breaker).
 		// Reads from disk cache — GrowthBook isn't initialized at registration time.
 		if (getAutoModeEnabledStateIfCached() !== "disabled") {
 			const autoModeCmd = program

@@ -164,6 +164,6 @@ export async function installPluginsForHeadless(): Promise<boolean> {
 		logError(error);
 		return false;
 	} finally {
-		logEvent("tengu_headless_plugin_install", metrics);
+		logEvent("fusion_headless_plugin_install", metrics);
 	}
 }

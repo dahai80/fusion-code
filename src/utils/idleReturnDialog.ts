@@ -1,6 +1,6 @@
 // audit 1.1.1: 从 REPL.tsx onSubmit idle-return gate 块抽出 (PURE-ROUTING SUB-BLOCK class, 像 slice #25/#26)。
 // 行为等价 REPL.tsx:3865-3900 (block-scope {})。无 React hooks, 无 JSX, 无 await。
-// idle-return: 长对话 + 冷 cache 时引导 returning 用户开新会话。tengu_willow_mode 控制: "dialog"(阻塞)/"hint"/"off"。
+// idle-return: 长对话 + 冷 cache 时引导 returning 用户开新会话。fusion_willow_mode 控制: "dialog"(阻塞)/"hint"/"off"。
 // 仅当 willowMode!=="off" && !idleReturnDismissed && !skipIdleCheckRef && !speculationAccept
 //   && 非 slash-command && lastQueryCompletionTime>0 && totalTokens>=tokenThreshold:
 //   idleMinutes = (now - lastQueryCompletionTime)/60000;
@@ -36,7 +36,7 @@ export function maybeTriggerIdleReturnDialog(
 	ctx: IdleReturnCtx,
 ): boolean {
 	const willowMode = getFeatureValue_CACHED_MAY_BE_STALE(
-		"tengu_willow_mode",
+		"fusion_willow_mode",
 		"off",
 	);
 	const idleThresholdMin = Number(

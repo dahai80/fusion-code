@@ -458,7 +458,7 @@ type CompactSummaryRetryOptions = {
 			| "mlx_server_error"
 			| "context_window_exceeded",
 	) => void;
-	// Extra fields appended to tengu_compact_ptl_retry (e.g. path: "partial")
+	// Extra fields appended to fusion_compact_ptl_retry (e.g. path: "partial")
 	retryLogExtra?: TruncateRetryLogExtra;
 	// 测试缝 (DI): 默认生产实现; 断言用例注入受控 stub 模拟 PTL 重试轮次。
 	streamFn?: typeof streamCompactSummary;
@@ -598,7 +598,7 @@ export async function runCompactSummaryWithTruncateRetry(
 						: ERROR_MESSAGE_PROMPT_TOO_LONG,
 			);
 		}
-		logEvent("tengu_compact_ptl_retry", {
+		logEvent("fusion_compact_ptl_retry", {
 			attempt: ptlAttempts,
 			droppedMessages: currentMessages.length - truncated.length,
 			remainingMessages: truncated.length,
@@ -767,7 +767,7 @@ export interface CompactionResult {
 
 /**
  * Diagnosis context passed from autoCompactIfNeeded into compactConversation.
- * Lets the tengu_compact event disambiguate same-chain loops (H2) from
+ * Lets the fusion_compact event disambiguate same-chain loops (H2) from
  * cross-agent (H1/H5) and manual-vs-auto (H3) compactions without joins.
  */
 export type RecompactionInfo = {
@@ -907,7 +907,7 @@ export async function compactConversation(
 		// fleet cache_creation (~38B tok/day), concentrated in ephemeral envs (CCR/GHA/SDK)
 		// with cold GB cache and 3P providers where GB is disabled. GB gate kept as kill-switch.
 		const promptCacheSharingEnabled = getFeatureValue_CACHED_MAY_BE_STALE(
-			"tengu_compact_cache_prefix",
+			"fusion_compact_cache_prefix",
 			true,
 		);
 
@@ -937,7 +937,7 @@ export async function compactConversation(
 					).length ?? 0,
 			});
 			const hardBudget = getHardCompactTokenBudget();
-			logEvent("tengu_compact_hard", {
+			logEvent("fusion_compact_hard", {
 				originalMessageCount: messages.length,
 				hardCompactMessageCount: hardResult.messages.length,
 				truncatedToolResults: hardResult.truncatedToolResults,
@@ -1004,7 +1004,7 @@ export async function compactConversation(
 			context,
 		);
 		if (preflightTruncated) {
-			logEvent("tengu_compact_mlx_preflight_truncate", {
+			logEvent("fusion_compact_mlx_preflight_truncate", {
 				originalMessageCount: messages.length,
 				truncatedMessageCount: preflightTruncated.length,
 				preCompactTokenCount,
@@ -1029,7 +1029,7 @@ export async function compactConversation(
 				cacheSafeParams: retryCacheSafeParams,
 				logPrefix: "[Compact]",
 				logFailed: (ptlAttempts, finalMessageCount, failReason) => {
-					logEvent("tengu_compact_failed", {
+					logEvent("fusion_compact_failed", {
 						reason:
 							failReason as AnalyticsMetadata_I_VERIFIED_THIS_IS_NOT_CODE_OR_FILEPATHS,
 						preCompactTokenCount,
@@ -1049,7 +1049,7 @@ export async function compactConversation(
 				`Compact failed: no summary text in response. Response: ${jsonStringify(summaryResponse)}`,
 				{ level: "error" },
 			);
-			logEvent("tengu_compact_failed", {
+			logEvent("fusion_compact_failed", {
 				reason:
 					"no_summary" as AnalyticsMetadata_I_VERIFIED_THIS_IS_NOT_CODE_OR_FILEPATHS,
 				preCompactTokenCount,
@@ -1059,7 +1059,7 @@ export async function compactConversation(
 				`Failed to generate conversation summary - response did not contain valid text content`,
 			);
 		} else if (startsWithApiErrorPrefix(summary)) {
-			logEvent("tengu_compact_failed", {
+			logEvent("fusion_compact_failed", {
 				reason:
 					"api_error" as AnalyticsMetadata_I_VERIFIED_THIS_IS_NOT_CODE_OR_FILEPATHS,
 				preCompactTokenCount,
@@ -1215,7 +1215,7 @@ export async function compactConversation(
 		const querySourceForEvent =
 			recompactionInfo?.querySource ?? context.options.querySource ?? "unknown";
 
-		logEvent("tengu_compact", {
+		logEvent("fusion_compact", {
 			preCompactTokenCount,
 			// Kept for continuity — semantically the compact API call's total usage
 			postCompactTokenCount: compactionCallTotalTokens,
@@ -1464,7 +1464,7 @@ export async function partialCompactConversation(
 			context,
 		);
 		if (partialPreflight) {
-			logEvent("tengu_compact_mlx_preflight_truncate", {
+			logEvent("fusion_compact_mlx_preflight_truncate", {
 				originalMessageCount: apiMessages.length,
 				truncatedMessageCount: partialPreflight.length,
 				preCompactTokenCount,
@@ -1494,7 +1494,7 @@ export async function partialCompactConversation(
 				cacheSafeParams: retryCacheSafeParams,
 				logPrefix: "[Partial Compact]",
 				logFailed: (ptlAttempts, finalMessageCount, failReason) => {
-					logEvent("tengu_partial_compact_failed", {
+					logEvent("fusion_partial_compact_failed", {
 						reason:
 							failReason as AnalyticsMetadata_I_VERIFIED_THIS_IS_NOT_CODE_OR_FILEPATHS,
 						...failureMetadata,
@@ -1511,7 +1511,7 @@ export async function partialCompactConversation(
 			finalMessageCount = result.finalMessageCount;
 		}
 		if (!summary) {
-			logEvent("tengu_partial_compact_failed", {
+			logEvent("fusion_partial_compact_failed", {
 				reason:
 					"no_summary" as AnalyticsMetadata_I_VERIFIED_THIS_IS_NOT_CODE_OR_FILEPATHS,
 				...failureMetadata,
@@ -1521,7 +1521,7 @@ export async function partialCompactConversation(
 				"Failed to generate conversation summary - response did not contain valid text content",
 			);
 		} else if (startsWithApiErrorPrefix(summary)) {
-			logEvent("tengu_partial_compact_failed", {
+			logEvent("fusion_partial_compact_failed", {
 				reason:
 					"api_error" as AnalyticsMetadata_I_VERIFIED_THIS_IS_NOT_CODE_OR_FILEPATHS,
 				...failureMetadata,
@@ -1611,7 +1611,7 @@ export async function partialCompactConversation(
 		]);
 		const compactionUsage = getTokenUsage(summaryResponse);
 
-		logEvent("tengu_partial_compact", {
+		logEvent("fusion_partial_compact", {
 			preCompactTokenCount,
 			postCompactTokenCount,
 			messagesKept: messagesToKeep.length,
@@ -1779,9 +1779,9 @@ async function streamCompactSummary({
 	// When prompt cache sharing is enabled, use forked agent to reuse the
 	// main conversation's cached prefix (system prompt, tools, context messages).
 	// Falls back to regular streaming path on failure.
-	// 3P default: true — see comment at the other tengu_compact_cache_prefix read above.
+	// 3P default: true — see comment at the other fusion_compact_cache_prefix read above.
 	const promptCacheSharingEnabled = getFeatureValue_CACHED_MAY_BE_STALE(
-		"tengu_compact_cache_prefix",
+		"fusion_compact_cache_prefix",
 		true,
 	);
 	// Send keep-alive signals during compaction to prevent remote session
@@ -1879,7 +1879,7 @@ async function streamCompactSummary({
 					// Skip success logging for PTL error text — it's returned so the
 					// caller's retry loop catches it, but it's not a successful summary.
 					if (!assistantText.startsWith(PROMPT_TOO_LONG_ERROR_MESSAGE)) {
-						logEvent("tengu_compact_cache_sharing_success", {
+						logEvent("fusion_compact_cache_sharing_success", {
 							preCompactTokenCount,
 							outputTokens: result.totalUsage.output_tokens,
 							cacheReadInputTokens: result.totalUsage.cache_read_input_tokens,
@@ -1900,14 +1900,14 @@ async function streamCompactSummary({
 					`Compact cache sharing: no text in response, falling back. Response: ${jsonStringify(assistantMsg)}`,
 					{ level: "warn" },
 				);
-				logEvent("tengu_compact_cache_sharing_fallback", {
+				logEvent("fusion_compact_cache_sharing_fallback", {
 					reason:
 						"no_text_response" as AnalyticsMetadata_I_VERIFIED_THIS_IS_NOT_CODE_OR_FILEPATHS,
 					preCompactTokenCount,
 				});
 			} catch (error) {
 				logError(error);
-				logEvent("tengu_compact_cache_sharing_fallback", {
+				logEvent("fusion_compact_cache_sharing_fallback", {
 					reason:
 						"error" as AnalyticsMetadata_I_VERIFIED_THIS_IS_NOT_CODE_OR_FILEPATHS,
 					preCompactTokenCount,
@@ -1917,7 +1917,7 @@ async function streamCompactSummary({
 
 		// Regular streaming path (fallback when cache sharing fails or is disabled)
 		const retryEnabled = getFeatureValue_CACHED_MAY_BE_STALE(
-			"tengu_compact_streaming_retry",
+			"fusion_compact_streaming_retry",
 			false,
 		);
 		const maxAttempts = retryEnabled ? MAX_COMPACT_STREAMING_RETRIES : 1;
@@ -2037,7 +2037,7 @@ async function streamCompactSummary({
 			}
 
 			if (attempt < maxAttempts) {
-				logEvent("tengu_compact_streaming_retry", {
+				logEvent("fusion_compact_streaming_retry", {
 					attempt,
 					preCompactTokenCount,
 					hasStartedStreaming,
@@ -2057,7 +2057,7 @@ async function streamCompactSummary({
 				`Compact streaming failed after ${attempt} attempts. hasStartedStreaming=${hasStartedStreaming}`,
 				{ level: "error" },
 			);
-			logEvent("tengu_compact_failed", {
+			logEvent("fusion_compact_failed", {
 				reason:
 					"no_streaming_response" as AnalyticsMetadata_I_VERIFIED_THIS_IS_NOT_CODE_OR_FILEPATHS,
 				preCompactTokenCount,
@@ -2122,8 +2122,8 @@ export async function createPostCompactFileAttachments(
 						maxTokens: POST_COMPACT_MAX_TOKENS_PER_FILE,
 					},
 				},
-				"tengu_post_compact_file_restore_success",
-				"tengu_post_compact_file_restore_error",
+				"fusion_post_compact_file_restore_success",
+				"fusion_post_compact_file_restore_error",
 				"compact",
 			);
 			return attachment ? createAttachmentMessage(attachment) : null;

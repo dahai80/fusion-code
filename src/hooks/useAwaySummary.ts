@@ -47,7 +47,7 @@ export function useAwaySummary(
 
 	// 3P default: false
 	const gbEnabled = getFeatureValue_CACHED_MAY_BE_STALE(
-		"tengu_sedge_lantern",
+		"fusion_sedge_lantern",
 		false,
 	);
 

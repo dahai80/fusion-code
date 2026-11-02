@@ -1,5 +1,5 @@
 import { exec } from "node:child_process";
-import { mkdir, stat } from "node:fs/promises";
+import { stat } from "node:fs/promises";
 import { join } from "node:path";
 import chalk from "chalk";
 import { execa } from "execa";
@@ -21,7 +21,6 @@ import {
 import type { OAuthTokens, SubscriptionType } from "../services/oauth/index.js";
 import {
 	getOauthProfileFromOauthToken,
-	isOAuthTokenExpired,
 	shouldUseClaudeAIAuth,
 } from "../services/oauth/index.js";
 import {
@@ -49,7 +48,6 @@ import {
 } from "./envUtils.js";
 import { errorMessage } from "./errors.js";
 import { execSyncWithDefaults } from "./execFileNoThrow.js";
-import * as lockfile from "./lockfile.js";
 import { logError } from "./log.js";
 import { memoizeWithTTLAsync } from "./memoize.js";
 import { getSecureStorage } from "./secureStorage/index.js";
@@ -572,7 +570,7 @@ async function _executeApiKeyHelper(
 				`Security: apiKeyHelper executed before workspace trust is confirmed. If you see this message, post in ${MACRO.FEEDBACK_CHANNEL}.`,
 			);
 			logAntError("apiKeyHelper invoked before trust check", error);
-			logEvent("tengu_apiKeyHelper_missing_trust11", {});
+			logEvent("fusion_apiKeyHelper_missing_trust11", {});
 			return null;
 		}
 	}
@@ -685,7 +683,7 @@ async function runAwsAuthRefresh(): Promise<boolean> {
 				`Security: awsAuthRefresh executed before workspace trust is confirmed. If you see this message, post in ${MACRO.FEEDBACK_CHANNEL}.`,
 			);
 			logAntError("awsAuthRefresh invoked before trust check", error);
-			logEvent("tengu_awsAuthRefresh_missing_trust", {});
+			logEvent("fusion_awsAuthRefresh_missing_trust", {});
 			return false;
 		}
 	}
@@ -787,7 +785,7 @@ async function getAwsCredsFromCredentialExport(): Promise<{
 				`Security: awsCredentialExport executed before workspace trust is confirmed. If you see this message, post in ${MACRO.FEEDBACK_CHANNEL}.`,
 			);
 			logAntError("awsCredentialExport invoked before trust check", error);
-			logEvent("tengu_awsCredentialExport_missing_trust", {});
+			logEvent("fusion_awsCredentialExport_missing_trust", {});
 			return null;
 		}
 	}
@@ -956,7 +954,7 @@ async function runGcpAuthRefresh(): Promise<boolean> {
 				`Security: gcpAuthRefresh executed before workspace trust is confirmed. If you see this message, post in ${MACRO.FEEDBACK_CHANNEL}.`,
 			);
 			logAntError("gcpAuthRefresh invoked before trust check", error);
-			logEvent("tengu_gcpAuthRefresh_missing_trust", {});
+			logEvent("fusion_gcpAuthRefresh_missing_trust", {});
 			return false;
 		}
 	}
@@ -1217,11 +1215,11 @@ export async function saveApiKey(apiKey: string): Promise<void> {
 				reject: false,
 			});
 
-			logEvent("tengu_api_key_saved_to_keychain", {});
+			logEvent("fusion_api_key_saved_to_keychain", {});
 			savedToKeychain = true;
 		} catch (e) {
 			logError(e);
-			logEvent("tengu_api_key_keychain_error", {
+			logEvent("fusion_api_key_keychain_error", {
 				error: errorMessage(
 					e,
 				) as AnalyticsMetadata_I_VERIFIED_THIS_IS_NOT_CODE_OR_FILEPATHS,
@@ -1238,12 +1236,12 @@ export async function saveApiKey(apiKey: string): Promise<void> {
 			const result = secureStorage.update(storageData);
 			if (result.success) {
 				savedToKeychain = true;
-				logEvent("tengu_api_key_saved_to_secure_storage", {
+				logEvent("fusion_api_key_saved_to_secure_storage", {
 					backend:
 						secureStorage.name as AnalyticsMetadata_I_VERIFIED_THIS_IS_NOT_CODE_OR_FILEPATHS,
 				});
 			} else {
-				logEvent("tengu_api_key_secure_storage_failed", {
+				logEvent("fusion_api_key_secure_storage_failed", {
 					backend:
 						secureStorage.name as AnalyticsMetadata_I_VERIFIED_THIS_IS_NOT_CODE_OR_FILEPATHS,
 				});
@@ -1314,13 +1312,13 @@ export function saveOAuthTokensIfNeeded(tokens: OAuthTokens): {
 	warning?: string;
 } {
 	if (!shouldUseClaudeAIAuth(tokens.scopes)) {
-		logEvent("tengu_oauth_tokens_not_claude_ai", {});
+		logEvent("fusion_oauth_tokens_not_claude_ai", {});
 		return { success: true };
 	}
 
 	// Skip saving inference-only tokens (they come from env vars)
 	if (!tokens.refreshToken || !tokens.expiresAt) {
-		logEvent("tengu_oauth_tokens_inference_only", {});
+		logEvent("fusion_oauth_tokens_inference_only", {});
 		return { success: true };
 	}
 
@@ -1349,9 +1347,9 @@ export function saveOAuthTokensIfNeeded(tokens: OAuthTokens): {
 		const updateStatus = secureStorage.update(storageData);
 
 		if (updateStatus.success) {
-			logEvent("tengu_oauth_tokens_saved", { storageBackend });
+			logEvent("fusion_oauth_tokens_saved", { storageBackend });
 		} else {
-			logEvent("tengu_oauth_tokens_save_failed", { storageBackend });
+			logEvent("fusion_oauth_tokens_save_failed", { storageBackend });
 		}
 
 		getClaudeAIOAuthTokens.cache?.clear?.();
@@ -1360,7 +1358,7 @@ export function saveOAuthTokensIfNeeded(tokens: OAuthTokens): {
 		return updateStatus;
 	} catch (error) {
 		logError(error);
-		logEvent("tengu_oauth_tokens_save_exception", {
+		logEvent("fusion_oauth_tokens_save_exception", {
 			storageBackend,
 			error: errorMessage(
 				error,
@@ -1461,7 +1459,7 @@ let lastCredentialsMtimeMs = 0;
 // Without this, terminal 1's /login fixes terminal 1; terminal 2's /login
 // then revokes terminal 1 server-side, and terminal 1's memoize never
 // re-reads — infinite /login regress (CC-1096, GH#24317).
-async function invalidateOAuthCacheIfDiskChanged(): Promise<void> {
+async function _invalidateOAuthCacheIfDiskChanged(): Promise<void> {
 	try {
 		const { mtimeMs } = await stat(
 			join(getClaudeConfigHomeDir(), ".credentials.json"),
@@ -1527,7 +1525,7 @@ async function handleOAuth401ErrorImpl(
 
 	// If keychain has a different token, another tab already refreshed - use it
 	if (currentTokens.accessToken !== failedAccessToken) {
-		logEvent("tengu_oauth_401_recovered_from_keychain", {});
+		logEvent("fusion_oauth_401_recovered_from_keychain", {});
 		return true;
 	}
 

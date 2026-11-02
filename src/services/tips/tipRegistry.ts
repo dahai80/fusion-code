@@ -493,7 +493,7 @@ const externalTips: Tip[] = [
 			const cmd = blue("/effort high");
 			const variant = getFeatureValue_CACHED_MAY_BE_STALE<
 				"off" | "copy_a" | "copy_b"
-			>("tengu_tide_elm", "off");
+			>("fusion_tide_elm", "off");
 			return variant === "copy_b"
 				? `Use ${cmd} for better one-shot answers. Fusion-Code thinks it through first.`
 				: `Working on something tricky? ${cmd} gives better first answers`;
@@ -510,7 +510,7 @@ const externalTips: Tip[] = [
 			if (persisted === "high" || persisted === "max") return false;
 			return (
 				getFeatureValue_CACHED_MAY_BE_STALE<"off" | "copy_a" | "copy_b">(
-					"tengu_tide_elm",
+					"fusion_tide_elm",
 					"off",
 				) !== "off"
 			);
@@ -525,7 +525,7 @@ const externalTips: Tip[] = [
 			);
 			const variant = getFeatureValue_CACHED_MAY_BE_STALE<
 				"off" | "copy_a" | "copy_b"
-			>("tengu_tern_alloy", "off");
+			>("fusion_tern_alloy", "off");
 			return variant === "copy_b"
 				? `For big tasks, tell Fusion-Code to ${blue("use subagents")}. They work in parallel and keep your main thread clean.`
 				: `Say ${blue('"fan out subagents"')} and Fusion-Code sends a team. Each one digs deep so nothing gets missed.`;
@@ -535,7 +535,7 @@ const externalTips: Tip[] = [
 			if (!is1PApiCustomer()) return false;
 			return (
 				getFeatureValue_CACHED_MAY_BE_STALE<"off" | "copy_a" | "copy_b">(
-					"tengu_tern_alloy",
+					"fusion_tern_alloy",
 					"off",
 				) !== "off"
 			);
@@ -550,7 +550,7 @@ const externalTips: Tip[] = [
 			);
 			const variant = getFeatureValue_CACHED_MAY_BE_STALE<
 				"off" | "copy_a" | "copy_b"
-			>("tengu_timber_lark", "off");
+			>("fusion_timber_lark", "off");
 			return variant === "copy_b"
 				? `Use ${blue("/loop 5m check the deploy")} to run any prompt on a schedule. Set it and forget it.`
 				: `${blue("/loop")} runs any prompt on a recurring schedule. Great for monitoring deploys, babysitting PRs, or polling status.`;
@@ -561,7 +561,7 @@ const externalTips: Tip[] = [
 			if (!isKairosCronEnabled()) return false;
 			return (
 				getFeatureValue_CACHED_MAY_BE_STALE<"off" | "copy_a" | "copy_b">(
-					"tengu_timber_lark",
+					"fusion_timber_lark",
 					"off",
 				) !== "off"
 			);

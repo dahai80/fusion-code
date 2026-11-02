@@ -138,9 +138,7 @@ export type McpServerConfigForProcessTransport =
 	| McpHttpServerConfig
 	| McpSdkServerConfig;
 
-export type McpServerStatusConfig =
-	| McpServerConfigForProcessTransport
-;
+export type McpServerStatusConfig = McpServerConfigForProcessTransport;
 
 export type McpToolInfo = {
 	name: string;

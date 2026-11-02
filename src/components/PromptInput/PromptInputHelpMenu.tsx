@@ -127,7 +127,7 @@ export function PromptInputHelpMenu(props) {
 	let t20;
 	if ($[20] !== dimColor || $[21] !== terminalShortcut) {
 		t20 = feature("TERMINAL_PANEL") ? (
-			getFeatureValue_CACHED_MAY_BE_STALE("tengu_terminal_panel", false) ? (
+			getFeatureValue_CACHED_MAY_BE_STALE("fusion_terminal_panel", false) ? (
 				<Box>
 					<Text dimColor={dimColor}>{terminalShortcut} for terminal</Text>
 				</Box>

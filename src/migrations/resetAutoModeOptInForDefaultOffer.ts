@@ -15,7 +15,7 @@ import {
  * Guard lives in GlobalConfig (~/.claude.json), not settings.json, so it
  * survives settings resets and doesn't re-arm itself.
  *
- * Only runs when tengu_auto_mode_config.enabled === 'enabled'. For 'opt-in'
+ * Only runs when fusion_auto_mode_config.enabled === 'enabled'. For 'opt-in'
  * users, clearing skipAutoPermissionPrompt would remove auto from the carousel
  * (permissionSetup.ts:988) — the dialog would become unreachable and the
  * migration would defeat itself. In practice the ~40 target ants are all
@@ -41,7 +41,7 @@ export function resetAutoModeOptInForDefaultOffer(): void {
 			updateSettingsForSource("userSettings", {
 				skipAutoPermissionPrompt: undefined,
 			});
-			logEvent("tengu_migrate_reset_auto_opt_in_for_default_offer", {});
+			logEvent("fusion_migrate_reset_auto_opt_in_for_default_offer", {});
 		}
 
 		saveGlobalConfig((c) => {

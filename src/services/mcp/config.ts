@@ -1642,7 +1642,7 @@ export function setMcpServerEnabled(name: string, enabled: boolean): void {
 	});
 
 	if (isBuiltinStateChange) {
-		logEvent("tengu_builtin_mcp_toggle", {
+		logEvent("fusion_builtin_mcp_toggle", {
 			serverName:
 				name as AnalyticsMetadata_I_VERIFIED_THIS_IS_NOT_CODE_OR_FILEPATHS,
 			enabled,

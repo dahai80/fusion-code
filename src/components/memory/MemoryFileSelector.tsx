@@ -245,7 +245,7 @@ export function MemoryFileSelector(t0) {
 				autoMemoryEnabled: newValue,
 			});
 			setAutoMemoryOn(newValue);
-			logEvent("tengu_auto_memory_toggled", {
+			logEvent("fusion_auto_memory_toggled", {
 				enabled: newValue,
 			});
 		};
@@ -263,7 +263,7 @@ export function MemoryFileSelector(t0) {
 				autoDreamEnabled: newValue_0,
 			});
 			setAutoDreamOn(newValue_0);
-			logEvent("tengu_auto_dream_toggled", {
+			logEvent("fusion_auto_dream_toggled", {
 				enabled: newValue_0,
 			});
 		};

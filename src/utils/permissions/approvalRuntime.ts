@@ -32,7 +32,7 @@ export function cancelBySource(source: EditableSettingSource): boolean {
 		}
 		const cleaned = { ...settingsData, permissions: {} };
 		updateSettingsForSource(source, cleaned);
-		logEvent("tengu_permission_cancel_by_source", {
+		logEvent("fusion_permission_cancel_by_source", {
 			source: source as unknown as number | boolean,
 		} as Record<string, number | boolean | undefined>); // log: cast for LogEventMetadata
 		return true;
@@ -63,7 +63,7 @@ export function approveForSession(
 			SESSION_SOURCE,
 		);
 		if (success) {
-			logEvent("tengu_permission_approve_for_session", {
+			logEvent("fusion_permission_approve_for_session", {
 				tool_name: toolName as unknown as number | boolean,
 				rule_content: (ruleContent ?? "") as unknown as number | boolean,
 			} as Record<string, number | boolean | undefined>); // log: cast for LogEventMetadata
@@ -92,7 +92,7 @@ export function denyForSession(
 			SESSION_SOURCE,
 		);
 		if (success) {
-			logEvent("tengu_permission_deny_for_session", {
+			logEvent("fusion_permission_deny_for_session", {
 				tool_name: toolName as unknown as number | boolean,
 				rule_content: (ruleContent ?? "") as unknown as number | boolean,
 			} as Record<string, number | boolean | undefined>); // log: cast for LogEventMetadata

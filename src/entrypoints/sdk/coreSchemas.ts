@@ -150,12 +150,9 @@ export const McpServerConfigForProcessTransportSchema = lazySchema(() =>
 	]),
 );
 
-
 // Broader config type for status responses (includes claudeai-proxy which is output-only)
 export const McpServerStatusConfigSchema = lazySchema(() =>
-	z.union([
-		McpServerConfigForProcessTransportSchema(),
-	]),
+	z.union([McpServerConfigForProcessTransportSchema()]),
 );
 
 export const McpServerStatusSchema = lazySchema(() =>

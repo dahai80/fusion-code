@@ -1,24 +1,13 @@
 /* eslint-disable custom-rules/no-process-exit -- CLI subcommand handler intentionally exits */
 
+import { performLogout } from "../../commands/logout/logout.js";
 import {
-	clearAuthRelatedCaches,
-	performLogout,
-} from "../../commands/logout/logout.js";
-import {
-	type AnalyticsMetadata_I_VERIFIED_THIS_IS_NOT_CODE_OR_FILEPATHS,
-	logEvent,
-} from "../../services/analytics/index.js";
-import type { OAuthTokens } from "../../services/oauth/index.js";
-import {
-	clearOAuthTokenCache,
 	getAnthropicApiKeyWithSource,
 	getAuthTokenSource,
 	getOauthAccountInfo,
 	getSubscriptionType,
 	isUsing3PServices,
-	saveOAuthTokensIfNeeded,
 } from "../../utils/auth.js";
-import { logForDebugging } from "../../utils/debug.js";
 import { isRunningOnHomespace } from "../../utils/envUtils.js";
 import { getAPIProvider } from "../../utils/model/providers.js";
 import { jsonStringify } from "../../utils/slowOperations.js";

@@ -202,7 +202,7 @@ function CopyPicker(t0) {
 				if (!getGlobalConfig().copyFullResponse) {
 					saveGlobalConfig(_temp2);
 				}
-				logEvent("tengu_copy", {
+				logEvent("fusion_copy", {
 					block_count: codeBlocks.length,
 					always: true,
 					message_age: messageAge,
@@ -213,7 +213,7 @@ function CopyPicker(t0) {
 				);
 				return;
 			}
-			logEvent("tengu_copy", {
+			logEvent("fusion_copy", {
 				selected_block: content.blockIndex,
 				block_count: codeBlocks.length,
 				message_age: messageAge,
@@ -239,7 +239,7 @@ function CopyPicker(t0) {
 	) {
 		const handleWrite = async function handleWrite(selected_1) {
 			const content_0 = getSelectionContent(selected_1);
-			logEvent("tengu_copy", {
+			logEvent("fusion_copy", {
 				selected_block: content_0.blockIndex,
 				block_count: codeBlocks.length,
 				message_age: messageAge,
@@ -411,7 +411,7 @@ export const call: LocalJSXCommandCall = async (onDone, context, args) => {
 	const codeBlocks = extractCodeBlocks(text);
 	const config = getGlobalConfig();
 	if (codeBlocks.length === 0 || config.copyFullResponse) {
-		logEvent("tengu_copy", {
+		logEvent("fusion_copy", {
 			always: config.copyFullResponse,
 			block_count: codeBlocks.length,
 			message_age: age,

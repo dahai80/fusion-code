@@ -115,7 +115,7 @@ type CronSchedulerOptions = {
 	 * Killswitch: polled once per check() tick. When true, check() bails
 	 * before firing anything — existing crons stop dead mid-session. CLI
 	 * callers inject `() => !isKairosCronEnabled()` so flipping the
-	 * tengu_kairos_cron gate off stops already-running schedulers (not just
+	 * fusion_kairos_cron gate off stops already-running schedulers (not just
 	 * new ones). Daemon callers omit this, same rationale as getJitterConfig.
 	 */
 	isKilled?: () => boolean;
@@ -204,7 +204,7 @@ export function createCronScheduler(
 				// removeCronTasks + chokidar reload chain is in progress.
 				nextFireAt.set(t.id, Infinity);
 			}
-			logEvent("tengu_scheduled_task_missed", {
+			logEvent("fusion_scheduled_task_missed", {
 				count: missed.length,
 				taskIds: missed
 					.map((t) => t.id)
@@ -287,7 +287,7 @@ export function createCronScheduler(
 			logForDebugging(
 				`[ScheduledTasks] firing ${t.id}${t.recurring ? " (recurring)" : ""}`,
 			);
-			logEvent("tengu_scheduled_task_fire", {
+			logEvent("fusion_scheduled_task_fire", {
 				recurring: t.recurring ?? false,
 				taskId:
 					t.id as AnalyticsMetadata_I_VERIFIED_THIS_IS_NOT_CODE_OR_FILEPATHS,
@@ -307,7 +307,7 @@ export function createCronScheduler(
 				logForDebugging(
 					`[ScheduledTasks] recurring task ${t.id} aged out (${ageHours}h since creation), deleting after final fire`,
 				);
-				logEvent("tengu_scheduled_task_expired", {
+				logEvent("fusion_scheduled_task_expired", {
 					taskId:
 						t.id as AnalyticsMetadata_I_VERIFIED_THIS_IS_NOT_CODE_OR_FILEPATHS,
 					ageHours,

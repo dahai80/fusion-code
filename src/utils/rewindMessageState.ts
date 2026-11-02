@@ -51,7 +51,7 @@ export function rewindConversationTo(
 	const prev = setters.messagesRef.current;
 	const messageIndex = prev.lastIndexOf(message);
 	if (messageIndex === -1) return;
-	logEvent("tengu_conversation_rewind", {
+	logEvent("fusion_conversation_rewind", {
 		preRewindMessageCount: prev.length,
 		postRewindMessageCount: messageIndex,
 		messagesRemoved: prev.length - messageIndex,

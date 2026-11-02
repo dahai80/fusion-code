@@ -298,7 +298,7 @@ async function generateBashSuggestions(
 		return suggestions;
 	} catch {
 		// Silent failure - don't break UX
-		logEvent("tengu_shell_completion_failed", {});
+		logEvent("fusion_shell_completion_failed", {});
 		return [];
 	}
 }

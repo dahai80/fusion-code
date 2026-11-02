@@ -50,7 +50,7 @@ export function migrateLegacyOpusToCurrent(): void {
 		...current,
 		legacyOpusMigrationTimestamp: Date.now(),
 	}));
-	logEvent("tengu_legacy_opus_migration", {
+	logEvent("fusion_legacy_opus_migration", {
 		from_model:
 			model as AnalyticsMetadata_I_VERIFIED_THIS_IS_NOT_CODE_OR_FILEPATHS,
 	});

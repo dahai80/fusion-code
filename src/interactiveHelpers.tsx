@@ -314,7 +314,7 @@ export async function showSetupScreens(
 	// is NOT bypassed — gateChannelServer() still runs; this flag only exists
 	// to sidestep the --channels approved-server allowlist.
 	if (feature("KAIROS") || feature("KAIROS_CHANNELS")) {
-		// gateChannelServer and ChannelsNotice read tengu_harbor after this
+		// gateChannelServer and ChannelsNotice read fusion_harbor after this
 		// function returns. A cold disk cache (fresh install, or first run after
 		// the flag was added server-side) defaults to false and silently drops
 		// channel notifications for the whole session — gh#37026.
@@ -323,7 +323,7 @@ export async function showSetupScreens(
 		// initializeGrowthBook promise fired earlier). Also warms the
 		// isChannelsEnabled() check in the dev-channels dialog below.
 		if (getAllowedChannels().length > 0 || (devChannels?.length ?? 0) > 0) {
-			await checkGate_CACHED_OR_BLOCKING("tengu_harbor");
+			await checkGate_CACHED_OR_BLOCKING("fusion_harbor");
 		}
 		if (devChannels && devChannels.length > 0) {
 			const [{ isChannelsEnabled }, { getClaudeAIOAuthTokens }] =
@@ -331,7 +331,7 @@ export async function showSetupScreens(
 					import("./services/mcp/index.js"),
 					import("./utils/auth.js"),
 				]);
-			// Skip the dialog when channels are blocked (tengu_harbor off or no
+			// Skip the dialog when channels are blocked (fusion_harbor off or no
 			// OAuth) — accepting then immediately seeing "not available" in
 			// ChannelsNotice is worse than no dialog. Append entries anyway so
 			// ChannelsNotice renders the blocked branch with the dev entries
@@ -400,7 +400,7 @@ export function getRenderContext(exitOnCtrlC: boolean): {
 
 	// Log analytics event when stdin override is active
 	if (baseOptions.stdin) {
-		logEvent("tengu_stdin_interactive", {});
+		logEvent("fusion_stdin_interactive", {});
 	}
 	const fpsTracker = new FpsTracker();
 	const stats = createStatsStore();
@@ -445,7 +445,7 @@ export function getRenderContext(exitOnCtrlC: boolean): {
 					}
 					const now = Date.now();
 					if (now - lastFlickerTime < 1000) {
-						logEvent("tengu_flicker", {
+						logEvent("fusion_flicker", {
 							desiredHeight: flicker.desiredHeight,
 							actualHeight: flicker.availableHeight,
 							reason: flicker.reason,

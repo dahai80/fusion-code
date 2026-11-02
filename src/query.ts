@@ -431,7 +431,7 @@ async function* queryLoop(
 				await injectArtifactsIntoMessages(messagesForQuery);
 			messagesForQuery = injectionResult.messages;
 			if (injectionResult.injectedCount > 0) {
-				logEvent("tengu_artifact_injection", {
+				logEvent("fusion_artifact_injection", {
 					injectedCount: injectionResult.injectedCount,
 					totalTokensInjected: injectionResult.totalTokensInjected,
 				});
@@ -526,7 +526,7 @@ async function* queryLoop(
 				compactionUsage,
 			} = compactionResult;
 
-			logEvent("tengu_auto_compact_succeeded", {
+			logEvent("fusion_auto_compact_succeeded", {
 				originalMessageCount: messages.length,
 				compactedMessageCount:
 					compactionResult.summaryMessages.length +
@@ -913,7 +913,7 @@ async function* queryLoop(
 							for (const msg of assistantMessages) {
 								yield { type: "tombstone" as const, message: msg };
 							}
-							logEvent("tengu_orphaned_messages_tombstoned", {
+							logEvent("fusion_orphaned_messages_tombstoned", {
 								orphanedMessageCount: assistantMessages.length,
 								queryChainId: queryChainIdForAnalytics,
 								queryDepth: queryTracking.depth,
@@ -1130,7 +1130,7 @@ async function* queryLoop(
 						}
 
 						// Log the fallback event
-						logEvent("tengu_model_fallback_triggered", {
+						logEvent("fusion_model_fallback_triggered", {
 							original_model:
 								innerError.originalModel as AnalyticsMetadata_I_VERIFIED_THIS_IS_NOT_CODE_OR_FILEPATHS,
 							fallback_model:
@@ -1157,7 +1157,7 @@ async function* queryLoop(
 			logError(error);
 			const errorMessage =
 				error instanceof Error ? error.message : String(error);
-			logEvent("tengu_query_error", {
+			logEvent("fusion_query_error", {
 				assistantMessages: assistantMessages.length,
 				toolUses: assistantMessages.flatMap((_) =>
 					_.message.content.filter((content) => content.type === "tool_use"),
@@ -1399,7 +1399,7 @@ async function* queryLoop(
 				// 3P default: false (not validated on Bedrock/Vertex)
 				// MLX: always allow escalation — local models need it most
 				const capEnabled = getFeatureValue_CACHED_MAY_BE_STALE(
-					"tengu_otk_slot_v1",
+					"fusion_otk_slot_v1",
 					false,
 				);
 				const isMlxProvider =
@@ -1412,7 +1412,7 @@ async function* queryLoop(
 					maxOutputTokensOverride === undefined &&
 					!process.env.FUSION_CODE_MAX_OUTPUT_TOKENS
 				) {
-					logEvent("tengu_max_tokens_escalate", {
+					logEvent("fusion_max_tokens_escalate", {
 						escalatedTo: ESCALATED_MAX_TOKENS,
 					});
 					const next: State = {
@@ -1569,7 +1569,7 @@ async function* queryLoop(
 							`Token budget early stop: diminishing returns at ${decision.completionEvent.pct}%`,
 						);
 					}
-					logEvent("tengu_token_budget_completed", {
+					logEvent("fusion_token_budget_completed", {
 						...decision.completionEvent,
 						queryChainId: queryChainIdForAnalytics,
 						queryDepth: queryTracking.depth,
@@ -1586,13 +1586,13 @@ async function* queryLoop(
 		queryCheckpoint("query_tool_execution_start");
 
 		if (streamingToolExecutor) {
-			logEvent("tengu_streaming_tool_execution_used", {
+			logEvent("fusion_streaming_tool_execution_used", {
 				tool_count: toolUseBlocks.length,
 				queryChainId: queryChainIdForAnalytics,
 				queryDepth: queryTracking.depth,
 			});
 		} else {
-			logEvent("tengu_streaming_tool_execution_not_used", {
+			logEvent("fusion_streaming_tool_execution_not_used", {
 				tool_count: toolUseBlocks.length,
 				queryChainId: queryChainIdForAnalytics,
 				queryDepth: queryTracking.depth,
@@ -1799,7 +1799,7 @@ async function* queryLoop(
 
 		if (tracking?.compacted) {
 			tracking.turnCounter++;
-			logEvent("tengu_post_autocompact_turn", {
+			logEvent("fusion_post_autocompact_turn", {
 				turnId:
 					tracking.turnId as AnalyticsMetadata_I_VERIFIED_THIS_IS_NOT_CODE_OR_FILEPATHS,
 				turnCounter: tracking.turnCounter,
@@ -1813,7 +1813,7 @@ async function* queryLoop(
 		// will error if we interleave tool_result messages with regular user messages.
 
 		// Instrumentation: Track message count before attachments
-		logEvent("tengu_query_before_attachments", {
+		logEvent("fusion_query_before_attachments", {
 			messagesForQueryCount: messagesForQuery.length,
 			assistantMessagesCount: assistantMessages.length,
 			toolResultsCount: toolResults.length,
@@ -1926,7 +1926,7 @@ async function* queryLoop(
 				tr.type === "attachment" && tr.attachment.type === "edited_text_file",
 		);
 
-		logEvent("tengu_query_after_attachments", {
+		logEvent("fusion_query_after_attachments", {
 			totalToolResultsCount: toolResults.length,
 			fileChangeAttachmentCount,
 			queryChainId: queryChainIdForAnalytics,

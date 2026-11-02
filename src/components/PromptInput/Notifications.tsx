@@ -173,7 +173,7 @@ export function Notifications(t0) {
 	) {
 		t9 = () => {
 			if (shouldShowExternalEditorHint && editor) {
-				logEvent("tengu_external_editor_hint_shown", {});
+				logEvent("fusion_external_editor_hint_shown", {});
 				addNotification({
 					key: "external-editor-hint",
 					jsx: (

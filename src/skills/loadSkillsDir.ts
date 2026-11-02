@@ -998,7 +998,7 @@ export async function addSkillDirectories(dirs: string[]): Promise<void> {
 			`[skills] Dynamically discovered ${newSkillCount} skills from ${dirs.length} directories`,
 		);
 		if (addedSkills.length > 0) {
-			logEvent("tengu_dynamic_skills_changed", {
+			logEvent("fusion_dynamic_skills_changed", {
 				source:
 					"file_operation" as AnalyticsMetadata_I_VERIFIED_THIS_IS_NOT_CODE_OR_FILEPATHS,
 				previousCount: previousSkillNamesForLogging.size,
@@ -1090,7 +1090,7 @@ export function activateConditionalSkillsForPaths(
 	}
 
 	if (activated.length > 0) {
-		logEvent("tengu_dynamic_skills_changed", {
+		logEvent("fusion_dynamic_skills_changed", {
 			source:
 				"conditional_paths" as AnalyticsMetadata_I_VERIFIED_THIS_IS_NOT_CODE_OR_FILEPATHS,
 			previousCount: dynamicSkills.size - activated.length,

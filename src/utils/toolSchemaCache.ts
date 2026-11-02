@@ -3,7 +3,7 @@ import type { BetaTool } from "src/types/anthropic-protocol.js";
 // Session-scoped cache of rendered tool schemas. Tool schemas render at server
 // position 2 (before system prompt), so any byte-level change busts the entire
 // ~11K-token tool block AND everything downstream. GrowthBook gate flips
-// (tengu_tool_pear, tengu_fgts), MCP reconnects, or dynamic content in
+// (fusion_tool_pear, fusion_fgts), MCP reconnects, or dynamic content in
 // tool.prompt() all cause this churn. Memoizing per-session locks the schema
 // bytes at first render — mid-session GB refreshes no longer bust the cache.
 //

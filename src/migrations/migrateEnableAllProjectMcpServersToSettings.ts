@@ -98,7 +98,7 @@ export function migrateEnableAllProjectMcpServersToSettings(): void {
 			if (result?.error) {
 				// settings 写失败 — 不删 project 字段, 保留源数据待重跑, 大声日志
 				logError(result.error);
-				logEvent("tengu_migrate_mcp_approval_fields_error", {});
+				logEvent("fusion_migrate_mcp_approval_fields_error", {});
 				return;
 			}
 			// settings 写成功 — 记录所有本轮推送的字段为已迁移
@@ -124,12 +124,12 @@ export function migrateEnableAllProjectMcpServersToSettings(): void {
 		}
 
 		// Log the migration event
-		logEvent("tengu_migrate_mcp_approval_fields_success", {
+		logEvent("fusion_migrate_mcp_approval_fields_success", {
 			migratedCount: fieldsToRemove.length,
 		});
 	} catch (e: unknown) {
 		// Log migration failure but don't throw to avoid breaking startup
 		logError(e);
-		logEvent("tengu_migrate_mcp_approval_fields_error", {});
+		logEvent("fusion_migrate_mcp_approval_fields_error", {});
 	}
 }

@@ -325,7 +325,7 @@ export function finalizeAgentTool(
 	const totalTokens = sumAssistantMessageTokens(agentMessages);
 	const totalToolUseCount = countToolUses(agentMessages);
 
-	logEvent("tengu_agent_tool_completed", {
+	logEvent("fusion_agent_tool_completed", {
 		agent_type:
 			agentType as AnalyticsMetadata_I_VERIFIED_THIS_IS_NOT_CODE_OR_FILEPATHS,
 		model:
@@ -343,7 +343,7 @@ export function finalizeAgentTool(
 	// Signal to inference that this subagent's cache chain can be evicted.
 	const lastRequestId = lastAssistantMessage.requestId;
 	if (lastRequestId) {
-		logEvent("tengu_cache_eviction_hint", {
+		logEvent("fusion_cache_eviction_hint", {
 			scope:
 				"subagent_end" as AnalyticsMetadata_I_VERIFIED_THIS_IS_NOT_CODE_OR_FILEPATHS,
 			last_request_id:
@@ -434,7 +434,7 @@ export async function classifyHandoffIfNeeded({
 			: classifierResult.shouldBlock
 				? "blocked"
 				: "allowed";
-		logEvent("tengu_auto_mode_decision", {
+		logEvent("fusion_auto_mode_decision", {
 			decision:
 				handoffDecision as AnalyticsMetadata_I_VERIFIED_THIS_IS_NOT_CODE_OR_FILEPATHS,
 			toolName:
@@ -658,7 +658,7 @@ export async function runAsyncAgentLifecycle({
 			// must fire unconditionally. Transition status BEFORE worktree cleanup
 			// so TaskOutput unblocks even if git hangs (gh-20236).
 			killAsyncAgent(taskId, rootSetAppState);
-			logEvent("tengu_agent_tool_terminated", {
+			logEvent("fusion_agent_tool_terminated", {
 				agent_type:
 					metadata.agentType as AnalyticsMetadata_I_VERIFIED_THIS_IS_NOT_CODE_OR_FILEPATHS,
 				model:

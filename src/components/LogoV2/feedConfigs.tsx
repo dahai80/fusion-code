@@ -44,9 +44,7 @@ export function createWhatsNewFeed(releaseNotes: string[]): FeedConfig {
 		? "Unable to fetch latest commits"
 		: "Check the Fusion Code changelog for updates";
 	return {
-		title: isInternalBuild()
-			? "What's new [commits]"
-			: "What's new",
+		title: isInternalBuild() ? "What's new [commits]" : "What's new",
 		lines,
 		footer:
 			lines.length > 0 ? "Check the Fusion Code changelog for more" : undefined,

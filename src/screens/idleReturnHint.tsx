@@ -40,7 +40,7 @@ export function maybeScheduleIdleReturnHint(
 	if (ctx.lastQueryCompletionTime === 0) return;
 	if (ctx.isLoading) return;
 	const willowMode: string = getFeatureValue_CACHED_MAY_BE_STALE(
-		"tengu_willow_mode",
+		"fusion_willow_mode",
 		"off",
 	);
 	if (willowMode !== "hint" && willowMode !== "hint_v2") return;
@@ -81,7 +81,7 @@ export function maybeScheduleIdleReturnHint(
 				timeoutMs: 0x7fffffff,
 			});
 			hintRef.current = mode;
-			logEvent("tengu_idle_return_action", {
+			logEvent("fusion_idle_return_action", {
 				action:
 					"hint_shown" as AnalyticsMetadata_I_VERIFIED_THIS_IS_NOT_CODE_OR_FILEPATHS,
 				variant:

@@ -60,7 +60,7 @@ export function shouldInjectAgentListInMessages(): boolean {
 	if (isEnvTruthy(process.env.FUSION_CODE_AGENT_LIST_IN_MESSAGES)) return true;
 	if (isEnvDefinedFalsy(process.env.FUSION_CODE_AGENT_LIST_IN_MESSAGES))
 		return false;
-	return getFeatureValue_CACHED_MAY_BE_STALE("tengu_agent_list_attach", false);
+	return getFeatureValue_CACHED_MAY_BE_STALE("fusion_agent_list_attach", false);
 }
 
 export async function getPrompt(

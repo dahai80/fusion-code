@@ -13,7 +13,7 @@ import type { ConnectedMCPServer, MCPServerConnection } from "./types.js";
 type AutoModeEnabledState = "enabled" | "disabled" | "opt-in";
 function readAutoModeEnabledState(): AutoModeEnabledState | undefined {
 	const v = getFeatureValue_CACHED_MAY_BE_STALE<{ enabled?: string }>(
-		"tengu_auto_mode_config",
+		"fusion_auto_mode_config",
 		{},
 	)?.enabled;
 	return v === "enabled" || v === "disabled" || v === "opt-in" ? v : undefined;
@@ -73,7 +73,7 @@ export function setupVscodeSdkMcp(sdkClients: MCPServerConnection[]): void {
 			async (notification) => {
 				const { eventName, eventData } = notification.params;
 				logEvent(
-					`tengu_vscode_${eventName}`,
+					`fusion_vscode_${eventName}`,
 					eventData as { [key: string]: boolean | number | undefined },
 				);
 			},
@@ -81,20 +81,20 @@ export function setupVscodeSdkMcp(sdkClients: MCPServerConnection[]): void {
 
 		// Send necessary experiment gates to VSCode immediately.
 		const gates: Record<string, boolean | string> = {
-			tengu_vscode_review_upsell: checkStatsigFeatureGate_CACHED_MAY_BE_STALE(
-				"tengu_vscode_review_upsell",
+			fusion_vscode_review_upsell: checkStatsigFeatureGate_CACHED_MAY_BE_STALE(
+				"fusion_vscode_review_upsell",
 			),
-			tengu_vscode_onboarding: checkStatsigFeatureGate_CACHED_MAY_BE_STALE(
-				"tengu_vscode_onboarding",
+			fusion_vscode_onboarding: checkStatsigFeatureGate_CACHED_MAY_BE_STALE(
+				"fusion_vscode_onboarding",
 			),
 			// Browser support.
-			tengu_quiet_fern: getFeatureValue_CACHED_MAY_BE_STALE(
-				"tengu_quiet_fern",
+			fusion_quiet_fern: getFeatureValue_CACHED_MAY_BE_STALE(
+				"fusion_quiet_fern",
 				false,
 			),
 			// In-band OAuth via claude_authenticate (vs. extension-native PKCE).
-			tengu_vscode_cc_auth: getFeatureValue_CACHED_MAY_BE_STALE(
-				"tengu_vscode_cc_auth",
+			fusion_vscode_cc_auth: getFeatureValue_CACHED_MAY_BE_STALE(
+				"fusion_vscode_cc_auth",
 				false,
 			),
 		};
@@ -102,7 +102,7 @@ export function setupVscodeSdkMcp(sdkClients: MCPServerConnection[]): void {
 		// fails closed (treats absent as 'disabled').
 		const autoModeState = readAutoModeEnabledState();
 		if (autoModeState !== undefined) {
-			gates.tengu_auto_mode_state = autoModeState;
+			gates.fusion_auto_mode_state = autoModeState;
 		}
 		void client.client.notification({
 			method: "experiment_gates",

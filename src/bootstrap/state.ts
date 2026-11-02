@@ -247,7 +247,7 @@ type State = {
 	// Read at shutdown to send cache eviction hints to inference.
 	lastMainRequestId: string | undefined;
 	// Timestamp (Date.now()) of the last successful API call completion.
-	// Used to compute timeSinceLastApiCallMs in tengu_api_success for
+	// Used to compute timeSinceLastApiCallMs in fusion_api_success for
 	// correlating cache misses with idle time (cache TTL is ~5min).
 	lastApiCompletionTimestamp: number | null;
 	// Set to true after compaction (auto or manual /compact). Consumed by

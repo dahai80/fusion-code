@@ -66,7 +66,7 @@ export type SideQueryOptions = {
 	thinking?: number | false;
 	/** Stop sequences — generation stops when any of these strings is emitted */
 	stop_sequences?: string[];
-	/** Attributes this call in tengu_api_success for COGS joining against reporting.sampling_calls. */
+	/** Attributes this call in fusion_api_success for COGS joining against reporting.sampling_calls. */
 	querySource: QuerySource;
 };
 
@@ -226,7 +226,7 @@ export async function sideQuery(opts: SideQueryOptions): Promise<BetaMessage> {
 		(response as { _request_id?: string | null })._request_id ?? undefined;
 	const now = Date.now();
 	const lastCompletion = getLastApiCompletionTimestamp();
-	logEvent("tengu_api_success", {
+	logEvent("fusion_api_success", {
 		requestId:
 			requestId as AnalyticsMetadata_I_VERIFIED_THIS_IS_NOT_CODE_OR_FILEPATHS,
 		querySource:

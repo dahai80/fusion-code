@@ -316,7 +316,7 @@ export function ResumeConversation({
 				);
 				/* eslint-enable @typescript-eslint/no-require-imports */
 			}
-			logEvent("tengu_session_resumed", {
+			logEvent("fusion_session_resumed", {
 				entrypoint:
 					"picker" as AnalyticsMetadata_I_VERIFIED_THIS_IS_NOT_CODE_OR_FILEPATHS,
 				success: true,
@@ -334,7 +334,7 @@ export function ResumeConversation({
 				mainThreadAgentDefinition: resolvedAgentDef,
 			});
 		} catch (e) {
-			logEvent("tengu_session_resumed", {
+			logEvent("fusion_session_resumed", {
 				entrypoint:
 					"picker" as AnalyticsMetadata_I_VERIFIED_THIS_IS_NOT_CODE_OR_FILEPATHS,
 				success: false,

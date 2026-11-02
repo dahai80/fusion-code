@@ -69,5 +69,5 @@ export function logFileOperation(params: {
 			params.type as AnalyticsMetadata_I_VERIFIED_THIS_IS_NOT_CODE_OR_FILEPATHS;
 	}
 
-	logEvent("tengu_file_operation", metadata);
+	logEvent("fusion_file_operation", metadata);
 }

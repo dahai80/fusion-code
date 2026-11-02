@@ -78,7 +78,7 @@ export function shouldAutoEnableClaudeInChrome(): boolean {
 		getIsInteractive() &&
 		isChromeExtensionInstalled_CACHED_MAY_BE_STALE() &&
 		(process.env.USER_TYPE === "ant" ||
-			getFeatureValue_CACHED_MAY_BE_STALE("tengu_chrome_auto_enable", false));
+			getFeatureValue_CACHED_MAY_BE_STALE("fusion_chrome_auto_enable", false));
 
 	return shouldAutoEnable;
 }

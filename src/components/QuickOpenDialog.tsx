@@ -145,7 +145,7 @@ export function QuickOpenDialog(t0) {
 	if ($[8] !== onDone || $[9] !== results.length) {
 		t7 = (p_1) => {
 			const opened = openFileInExternalEditor(path.resolve(getCwd(), p_1));
-			logEvent("tengu_quick_open_select", {
+			logEvent("fusion_quick_open_select", {
 				result_count: results.length,
 				opened_editor: opened,
 			});
@@ -162,7 +162,7 @@ export function QuickOpenDialog(t0) {
 	if ($[11] !== onDone || $[12] !== onInsert || $[13] !== results.length) {
 		t8 = (p_2, mention) => {
 			onInsert(mention ? `@${p_2} ` : `${p_2} `);
-			logEvent("tengu_quick_open_insert", {
+			logEvent("fusion_quick_open_insert", {
 				result_count: results.length,
 				mention,
 			});

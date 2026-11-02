@@ -237,7 +237,7 @@ export async function setup(
 			gracefulShutdownSync(1);
 		}
 
-		logEvent("tengu_worktree_created", { tmux_enabled: tmuxEnabled });
+		logEvent("fusion_worktree_created", { tmux_enabled: tmuxEnabled });
 
 		// Create tmux session for the worktree if enabled
 		if (tmuxEnabled && tmuxSessionName) {
@@ -323,7 +323,7 @@ export async function setup(
 	// bookkeeping for commit attribution + usage metrics — scripted calls don't
 	// commit code, and the 49ms attribution hook stat check (measured) is pure
 	// overhead. NOT an early-return: the --dangerously-skip-permissions safety
-	// gate, tengu_started beacon, and apiKeyHelper prefetch below must still run.
+	// gate, fusion_started beacon, and apiKeyHelper prefetch below must still run.
 	if (!isBareMode()) {
 		if (process.env.USER_TYPE === "ant") {
 			// Prime repo classification cache for auto-undercover mode. Default is
@@ -361,7 +361,7 @@ export async function setup(
 	// inc-3694 (P0 CHANGELOG crash) threw at checkForReleaseNotes below; every
 	// event after this point was dead. This beacon is the earliest reliable
 	// "process started" signal for release health monitoring.
-	logEvent("tengu_started", {});
+	logEvent("fusion_started", {});
 
 	void prefetchApiKeyFromApiKeyHelperIfSafe(getIsNonInteractiveSession()); // Prefetch safely - only executes if trust already confirmed
 	profileCheckpoint("setup_after_prefetch");
@@ -424,13 +424,13 @@ export async function setup(
 		return;
 	}
 
-	// Log tengu_exit event from the last session?
+	// Log fusion_exit event from the last session?
 	const projectConfig = getCurrentProjectConfig();
 	if (
 		projectConfig.lastCost !== undefined &&
 		projectConfig.lastDuration !== undefined
 	) {
-		logEvent("tengu_exit", {
+		logEvent("fusion_exit", {
 			last_session_cost: projectConfig.lastCost,
 			last_session_api_duration: projectConfig.lastAPIDuration,
 			last_session_tool_duration: projectConfig.lastToolDuration,

@@ -34,7 +34,7 @@ const PROMPT_HEAD = `Fetches full schema definitions for deferred tools so they 
 function getToolLocationHint(): string {
 	const deltaEnabled =
 		process.env.USER_TYPE === "ant" ||
-		getFeatureValue_CACHED_MAY_BE_STALE("tengu_glacier_2xr", false);
+		getFeatureValue_CACHED_MAY_BE_STALE("fusion_glacier_2xr", false);
 	return deltaEnabled
 		? "Deferred tools appear by name in <system-reminder> messages."
 		: "Deferred tools appear by name in <available-deferred-tools> messages.";

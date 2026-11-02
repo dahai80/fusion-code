@@ -42,13 +42,13 @@ export function Onboarding({ onDone }: Props): React.ReactNode {
 	const [currentStepIndex, setCurrentStepIndex] = useState(0);
 	const [theme, setTheme] = useTheme();
 	useEffect(() => {
-		logEvent("tengu_began_setup", {});
+		logEvent("fusion_began_setup", {});
 	}, []);
 	function goToNextStep() {
 		if (currentStepIndex < steps.length - 1) {
 			const nextIndex = currentStepIndex + 1;
 			setCurrentStepIndex(nextIndex);
-			logEvent("tengu_onboarding_step", {
+			logEvent("fusion_onboarding_step", {
 				stepId: steps[nextIndex]
 					?.id as AnalyticsMetadata_I_VERIFIED_THIS_IS_NOT_CODE_OR_FILEPATHS,
 			});

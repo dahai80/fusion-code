@@ -115,7 +115,7 @@ export function getGitContextInjection(
 	if (!hasData) {
 		return null;
 	}
-	logEvent("tengu_git_context_injected", {
+	logEvent("fusion_git_context_injected", {
 		agent_type: agentType as unknown as number, // log: fix TS2322 string not assignable to number | boolean
 		branch: (ctx.branch ?? "") as unknown as number, // log: fix TS2322 string not assignable to number | boolean
 		commit_count: ctx.recentCommits.length,

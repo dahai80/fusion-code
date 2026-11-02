@@ -305,7 +305,7 @@ export function Config({
 	const autoUpdaterDisabledReason = getAutoUpdaterDisabledReason();
 	function onChangeMainModelConfig(value: string | null): void {
 		const previousModel = mainLoopModel;
-		logEvent("tengu_config_model_changed", {
+		logEvent("fusion_config_model_changed", {
 			from_model:
 				previousModel as AnalyticsMetadata_I_VERIFIED_THIS_IS_NOT_CODE_OR_FILEPATHS,
 			to_model:
@@ -380,7 +380,7 @@ export function Config({
 					...getGlobalConfig(),
 					autoCompactEnabled,
 				});
-				logEvent("tengu_auto_compact_setting_changed", {
+				logEvent("fusion_auto_compact_setting_changed", {
 					enabled: autoCompactEnabled,
 				});
 			},
@@ -399,7 +399,7 @@ export function Config({
 					...prev_3,
 					spinnerTipsEnabled,
 				}));
-				logEvent("tengu_tips_setting_changed", {
+				logEvent("fusion_tips_setting_changed", {
 					enabled: spinnerTipsEnabled,
 				});
 			},
@@ -425,7 +425,7 @@ export function Config({
 						prefersReducedMotion,
 					},
 				}));
-				logEvent("tengu_reduce_motion_setting_changed", {
+				logEvent("fusion_reduce_motion_setting_changed", {
 					enabled: prefersReducedMotion,
 				});
 			},
@@ -443,7 +443,7 @@ export function Config({
 				updateSettingsForSource("userSettings", {
 					alwaysThinkingEnabled: enabled ? undefined : false,
 				});
-				logEvent("tengu_thinking_toggled", {
+				logEvent("fusion_thinking_toggled", {
 					enabled,
 				});
 			},
@@ -487,7 +487,7 @@ export function Config({
 					},
 				]
 			: []),
-		...(getFeatureValue_CACHED_MAY_BE_STALE("tengu_chomp_inflection", false)
+		...(getFeatureValue_CACHED_MAY_BE_STALE("fusion_chomp_inflection", false)
 			? [
 					{
 						id: "promptSuggestionEnabled",
@@ -527,7 +527,7 @@ export function Config({
 								...getGlobalConfig(),
 								speculationEnabled: enabled_2,
 							});
-							logEvent("tengu_speculation_setting_changed", {
+							logEvent("fusion_speculation_setting_changed", {
 								enabled: enabled_2,
 							});
 						},
@@ -550,7 +550,7 @@ export function Config({
 								...getGlobalConfig(),
 								fileCheckpointingEnabled: enabled_3,
 							});
-							logEvent("tengu_file_history_snapshots_setting_changed", {
+							logEvent("fusion_file_history_snapshots_setting_changed", {
 								enabled: enabled_3,
 							});
 						},
@@ -578,12 +578,12 @@ export function Config({
 					...getGlobalConfig(),
 					terminalProgressBarEnabled,
 				});
-				logEvent("tengu_terminal_progress_bar_setting_changed", {
+				logEvent("fusion_terminal_progress_bar_setting_changed", {
 					enabled: terminalProgressBarEnabled,
 				});
 			},
 		},
-		...(getFeatureValue_CACHED_MAY_BE_STALE("tengu_terminal_sidebar", false)
+		...(getFeatureValue_CACHED_MAY_BE_STALE("fusion_terminal_sidebar", false)
 			? [
 					{
 						id: "showStatusInTerminalTab",
@@ -599,7 +599,7 @@ export function Config({
 								...getGlobalConfig(),
 								showStatusInTerminalTab,
 							});
-							logEvent("tengu_terminal_tab_status_setting_changed", {
+							logEvent("fusion_terminal_tab_status_setting_changed", {
 								enabled: showStatusInTerminalTab,
 							});
 						},
@@ -620,7 +620,7 @@ export function Config({
 					...getGlobalConfig(),
 					showTurnDuration,
 				});
-				logEvent("tengu_show_turn_duration_setting_changed", {
+				logEvent("fusion_show_turn_duration_setting_changed", {
 					enabled: showTurnDuration,
 				});
 			},
@@ -681,7 +681,7 @@ export function Config({
 					...prev_13,
 					defaultPermissionMode: mode,
 				}));
-				logEvent("tengu_config_changed", {
+				logEvent("fusion_config_changed", {
 					setting:
 						"defaultPermissionMode" as AnalyticsMetadata_I_VERIFIED_THIS_IS_NOT_CODE_OR_FILEPATHS,
 					value:
@@ -746,7 +746,7 @@ export function Config({
 					...getGlobalConfig(),
 					respectGitignore,
 				});
-				logEvent("tengu_respect_gitignore_setting_changed", {
+				logEvent("fusion_respect_gitignore_setting_changed", {
 					enabled: respectGitignore,
 				});
 			},
@@ -765,7 +765,7 @@ export function Config({
 					...getGlobalConfig(),
 					copyFullResponse,
 				});
-				logEvent("tengu_config_changed", {
+				logEvent("fusion_config_changed", {
 					setting:
 						"copyFullResponse" as AnalyticsMetadata_I_VERIFIED_THIS_IS_NOT_CODE_OR_FILEPATHS,
 					value: String(
@@ -792,7 +792,7 @@ export function Config({
 								...getGlobalConfig(),
 								copyOnSelect,
 							});
-							logEvent("tengu_config_changed", {
+							logEvent("fusion_config_changed", {
 								setting:
 									"copyOnSelect" as AnalyticsMetadata_I_VERIFIED_THIS_IS_NOT_CODE_OR_FILEPATHS,
 								value: String(
@@ -958,7 +958,7 @@ export function Config({
 								...prev_19,
 								"Default view": selected,
 							}));
-							logEvent("tengu_default_view_setting_changed", {
+							logEvent("fusion_default_view_setting_changed", {
 								value: (defaultView ??
 									"unset") as AnalyticsMetadata_I_VERIFIED_THIS_IS_NOT_CODE_OR_FILEPATHS,
 							});
@@ -992,7 +992,7 @@ export function Config({
 					...getGlobalConfig(),
 					editorMode: value_1 as GlobalConfig["editorMode"],
 				});
-				logEvent("tengu_editor_mode_changed", {
+				logEvent("fusion_editor_mode_changed", {
 					mode: value_1 as AnalyticsMetadata_I_VERIFIED_THIS_IS_NOT_CODE_OR_FILEPATHS,
 					source:
 						"config_panel" as AnalyticsMetadata_I_VERIFIED_THIS_IS_NOT_CODE_OR_FILEPATHS,
@@ -1016,7 +1016,7 @@ export function Config({
 					...getGlobalConfig(),
 					prStatusFooterEnabled: enabled_4,
 				});
-				logEvent("tengu_pr_status_footer_setting_changed", {
+				logEvent("fusion_pr_status_footer_setting_changed", {
 					enabled: enabled_4,
 				});
 			},
@@ -1045,7 +1045,7 @@ export function Config({
 								...getGlobalConfig(),
 								diffTool: diffTool as GlobalConfig["diffTool"],
 							});
-							logEvent("tengu_diff_tool_changed", {
+							logEvent("fusion_diff_tool_changed", {
 								tool: diffTool as AnalyticsMetadata_I_VERIFIED_THIS_IS_NOT_CODE_OR_FILEPATHS,
 								source:
 									"config_panel" as AnalyticsMetadata_I_VERIFIED_THIS_IS_NOT_CODE_OR_FILEPATHS,
@@ -1070,7 +1070,7 @@ export function Config({
 								...getGlobalConfig(),
 								autoConnectIde,
 							});
-							logEvent("tengu_auto_connect_ide_changed", {
+							logEvent("fusion_auto_connect_ide_changed", {
 								enabled: autoConnectIde,
 								source:
 									"config_panel" as AnalyticsMetadata_I_VERIFIED_THIS_IS_NOT_CODE_OR_FILEPATHS,
@@ -1095,7 +1095,7 @@ export function Config({
 								...getGlobalConfig(),
 								autoInstallIdeExtension,
 							});
-							logEvent("tengu_auto_install_ide_extension_changed", {
+							logEvent("fusion_auto_install_ide_extension_changed", {
 								enabled: autoInstallIdeExtension,
 								source:
 									"config_panel" as AnalyticsMetadata_I_VERIFIED_THIS_IS_NOT_CODE_OR_FILEPATHS,
@@ -1120,7 +1120,7 @@ export function Config({
 								...getGlobalConfig(),
 								claudeInChromeDefaultEnabled: enabled_5,
 							});
-							logEvent("tengu_claude_in_chrome_setting_changed", {
+							logEvent("fusion_claude_in_chrome_setting_changed", {
 								enabled: enabled_5,
 							});
 						},
@@ -1159,7 +1159,7 @@ export function Config({
 									...getGlobalConfig(),
 									teammateMode: mode_0,
 								});
-								logEvent("tengu_teammate_mode_changed", {
+								logEvent("fusion_teammate_mode_changed", {
 									mode: mode_0 as AnalyticsMetadata_I_VERIFIED_THIS_IS_NOT_CODE_OR_FILEPATHS,
 								});
 							},
@@ -1348,7 +1348,7 @@ export function Config({
 		// TODO: Make these proper messages
 		const formattedChanges: string[] = Object.entries(changes).map(
 			([key, value_2]) => {
-				logEvent("tengu_config_changed", {
+				logEvent("fusion_config_changed", {
 					key: key as AnalyticsMetadata_I_VERIFIED_THIS_IS_NOT_CODE_OR_FILEPATHS,
 					value:
 						value_2 as AnalyticsMetadata_I_VERIFIED_THIS_IS_NOT_CODE_OR_FILEPATHS,
@@ -1378,7 +1378,7 @@ export function Config({
 			formattedChanges.push(
 				`${currentUsingCustomKey ? "Enabled" : "Disabled"} custom API key`,
 			);
-			logEvent("tengu_config_changed", {
+			logEvent("fusion_config_changed", {
 				key: "env.FUSION_CLIENT_KEY" as AnalyticsMetadata_I_VERIFIED_THIS_IS_NOT_CODE_OR_FILEPATHS,
 				value:
 					currentUsingCustomKey as AnalyticsMetadata_I_VERIFIED_THIS_IS_NOT_CODE_OR_FILEPATHS,
@@ -1721,7 +1721,7 @@ export function Config({
 					autoUpdatesChannel: "latest",
 					minimumVersion: undefined,
 				}));
-				logEvent("tengu_autoupdate_channel_changed", {
+				logEvent("fusion_autoupdate_channel_changed", {
 					channel:
 						"latest" as AnalyticsMetadata_I_VERIFIED_THIS_IS_NOT_CODE_OR_FILEPATHS,
 				});
@@ -1946,7 +1946,7 @@ export function Config({
 								...prev_25,
 								teammateDefaultModel: teammateModelDisplayString(model_1),
 							}));
-							logEvent("tengu_teammate_default_model_changed", {
+							logEvent("fusion_teammate_default_model_changed", {
 								model:
 									model_1 as AnalyticsMetadata_I_VERIFIED_THIS_IS_NOT_CODE_OR_FILEPATHS,
 							});
@@ -2003,7 +2003,7 @@ export function Config({
 							updateSettingsForSource("localSettings", {
 								outputStyle: style,
 							});
-							void logEvent("tengu_output_style_changed", {
+							void logEvent("fusion_output_style_changed", {
 								style: (style ??
 									DEFAULT_OUTPUT_STYLE_NAME) as AnalyticsMetadata_I_VERIFIED_THIS_IS_NOT_CODE_OR_FILEPATHS,
 								source:
@@ -2043,7 +2043,7 @@ export function Config({
 							updateSettingsForSource("userSettings", {
 								language,
 							});
-							void logEvent("tengu_language_changed", {
+							void logEvent("fusion_language_changed", {
 								language: (language ??
 									"default") as AnalyticsMetadata_I_VERIFIED_THIS_IS_NOT_CODE_OR_FILEPATHS,
 								source:
@@ -2124,7 +2124,7 @@ export function Config({
 									autoUpdatesChannel: channel as "latest" | "stable",
 									minimumVersion: undefined,
 								}));
-								logEvent("tengu_autoupdate_enabled", {
+								logEvent("fusion_autoupdate_enabled", {
 									channel:
 										channel as AnalyticsMetadata_I_VERIFIED_THIS_IS_NOT_CODE_OR_FILEPATHS,
 								});
@@ -2159,7 +2159,7 @@ export function Config({
 							...prev_27,
 							...newSettings,
 						}));
-						logEvent("tengu_autoupdate_channel_changed", {
+						logEvent("fusion_autoupdate_channel_changed", {
 							channel:
 								"stable" as AnalyticsMetadata_I_VERIFIED_THIS_IS_NOT_CODE_OR_FILEPATHS,
 							minimum_version_set: choice === "stay",

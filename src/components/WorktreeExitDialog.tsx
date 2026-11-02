@@ -117,7 +117,7 @@ export function WorktreeExitDialog({
 		const hasTmux = Boolean(worktreeSession.tmuxSessionName);
 		if (value === "keep" || value === "keep-with-tmux") {
 			setStatus("keeping");
-			logEvent("tengu_worktree_kept", {
+			logEvent("fusion_worktree_kept", {
 				commits: commitCount,
 				changed_files: changes.length,
 			});
@@ -138,7 +138,7 @@ export function WorktreeExitDialog({
 			setStatus("done");
 		} else if (value === "keep-kill-tmux") {
 			setStatus("keeping");
-			logEvent("tengu_worktree_kept", {
+			logEvent("fusion_worktree_kept", {
 				commits: commitCount,
 				changed_files: changes.length,
 			});
@@ -156,7 +156,7 @@ export function WorktreeExitDialog({
 			setStatus("done");
 		} else if (value === "remove" || value === "remove-with-tmux") {
 			setStatus("removing");
-			logEvent("tengu_worktree_removed", {
+			logEvent("fusion_worktree_removed", {
 				commits: commitCount,
 				changed_files: changes.length,
 			});

@@ -139,7 +139,7 @@ export function TrustDialog(t0) {
 	if ($[13] !== hasAnyBashExecution) {
 		t12 = () => {
 			const isHomeDir = homedir() === getCwd();
-			logEvent("tengu_trust_dialog_shown", {
+			logEvent("fusion_trust_dialog_shown", {
 				isHomeDir,
 				hasMcpServers,
 				hasHooks,
@@ -177,7 +177,7 @@ export function TrustDialog(t0) {
 				return;
 			}
 			const isHomeDir_0 = homedir() === getCwd();
-			logEvent("tengu_trust_dialog_accept", {
+			logEvent("fusion_trust_dialog_accept", {
 				isHomeDir: isHomeDir_0,
 				hasMcpServers,
 				hasHooks,

@@ -274,7 +274,7 @@ export function ModelPicker(t0) {
 		$[39] !== skipSettingsWrite
 	) {
 		t14 = function handleSelect(value_0) {
-			logEvent("tengu_model_command_menu_effort", {
+			logEvent("fusion_model_command_menu_effort", {
 				effort:
 					effort as AnalyticsMetadata_I_VERIFIED_THIS_IS_NOT_CODE_OR_FILEPATHS,
 			});

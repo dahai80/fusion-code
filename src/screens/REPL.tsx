@@ -1258,7 +1258,7 @@ export function REPL({
 	// the title spinner in terminals that render both. When the flag is
 	// on, the user-facing config setting controls whether it's active.
 	const tabStatusGateEnabled = getFeatureValue_CACHED_MAY_BE_STALE(
-		"tengu_terminal_sidebar",
+		"fusion_terminal_sidebar",
 		false,
 	);
 	const showStatusInTerminalTab =
@@ -1916,7 +1916,7 @@ export function REPL({
 					setInputValue,
 				});
 			} catch (error) {
-				logEvent("tengu_session_resumed", {
+				logEvent("fusion_session_resumed", {
 					entrypoint:
 						entrypoint as AnalyticsMetadata_I_VERIFIED_THIS_IS_NOT_CODE_OR_FILEPATHS,
 					success: false,
@@ -1938,7 +1938,7 @@ export function REPL({
 	const bashTools = useRef(new Set<string>());
 	const bashToolsProcessedIdx = useRef(0);
 	// Session-scoped skill discovery tracking (feeds was_discovered on
-	// tengu_skill_tool_invocation). Must persist across getToolUseContext
+	// fusion_skill_tool_invocation). Must persist across getToolUseContext
 	// rebuilds within a session: turn-0 discovery writes via processUserInput
 	// before onQuery builds its own context, and discovery on turn N must
 	// still attribute a SkillTool call on turn N+k. Cleared in clearConversation.
@@ -2718,7 +2718,7 @@ export function REPL({
 			// Returns null if already running — no separate check-then-set.
 			const thisGeneration = queryGuard.tryStart();
 			if (thisGeneration === null) {
-				logEvent("tengu_concurrent_onquery_detected", {});
+				logEvent("fusion_concurrent_onquery_detected", {});
 
 				// Extract and enqueue user message text, skipping meta messages
 				// (e.g. expanded skill content, tick prompts) that should not be
@@ -2733,7 +2733,7 @@ export function REPL({
 							mode: "prompt",
 						});
 						if (i === 0) {
-							logEvent("tengu_concurrent_onquery_enqueued", {});
+							logEvent("fusion_concurrent_onquery_enqueued", {});
 						}
 					});
 				return;
@@ -3014,7 +3014,7 @@ export function REPL({
 							getCommandName(cmd) === commandName),
 				);
 				if (matchingCommand?.name === "clear" && idleHintShownRef.current) {
-					logEvent("tengu_idle_return_action", {
+					logEvent("fusion_idle_return_action", {
 						action:
 							"hint_converted" as AnalyticsMetadata_I_VERIFIED_THIS_IS_NOT_CODE_OR_FILEPATHS,
 						variant:
@@ -3052,11 +3052,11 @@ export function REPL({
 						(sum, r) => sum + (pastedContents[r.id]?.content.length ?? 0),
 						0,
 					);
-					logEvent("tengu_paste_text", {
+					logEvent("fusion_paste_text", {
 						pastedTextCount,
 						pastedTextBytes,
 					});
-					logEvent("tengu_immediate_command_executed", {
+					logEvent("fusion_immediate_command_executed", {
 						commandName:
 							matchingCommand.name as AnalyticsMetadata_I_VERIFIED_THIS_IS_NOT_CODE_OR_FILEPATHS,
 						fromKeybinding: options?.fromKeybinding ?? false,
@@ -3083,7 +3083,7 @@ export function REPL({
 			}
 
 			// audit 1.1.1: idle-return gate 外移到 idleReturnDialog.ts (PURE-ROUTING SUB-BLOCK)。
-			// tengu_willow_mode 控制: "dialog"(阻塞)/"hint"/"off"。6 个闭包依赖经 ctx 传入, 行为字节等价。
+			// fusion_willow_mode 控制: "dialog"(阻塞)/"hint"/"off"。6 个闭包依赖经 ctx 传入, 行为字节等价。
 			if (
 				maybeTriggerIdleReturnDialog(input, {
 					skipIdleCheckRef,
@@ -3658,7 +3658,7 @@ export function REPL({
 		// Assistant mode bypasses the isLoading gate (the proactive tick →
 		// Sleep → tick loop would otherwise starve the scheduler).
 		// kairosEnabled is set once in initialState (main.tsx) and never mutated — no
-		// subscription needed. The tengu_kairos_cron runtime gate is checked inside
+		// subscription needed. The fusion_kairos_cron runtime gate is checked inside
 		// useScheduledTasks's effect (not here) since wrapping a hook call in a dynamic
 		// condition would break rules-of-hooks.
 		const assistantMode = store.getState().kairosEnabled;
@@ -4530,7 +4530,7 @@ export function REPL({
 												...current,
 												hasAcknowledgedCostThreshold: true,
 											}));
-											logEvent("tengu_cost_threshold_acknowledged", {});
+											logEvent("fusion_cost_threshold_acknowledged", {});
 										}}
 									/>
 								)}
@@ -4541,7 +4541,7 @@ export function REPL({
 										onDone={async (action) => {
 											const pending = idleReturnPending;
 											setIdleReturnPending(null);
-											logEvent("tengu_idle_return_action", {
+											logEvent("fusion_idle_return_action", {
 												action:
 													action as AnalyticsMetadata_I_VERIFIED_THIS_IS_NOT_CODE_OR_FILEPATHS,
 												idleMinutes: Math.round(pending.idleMinutes),

@@ -130,7 +130,7 @@ async function executeForkedSlashCommand(
 	const pluginMarketplace = command.pluginInfo
 		? parsePluginIdentifier(command.pluginInfo.repository).marketplace
 		: undefined;
-	logEvent("tengu_slash_command_forked", {
+	logEvent("fusion_slash_command_forked", {
 		command_name:
 			command.name as AnalyticsMetadata_I_VERIFIED_THIS_IS_NOT_CODE_OR_FILEPATHS,
 		invocation_trigger:
@@ -517,7 +517,7 @@ export async function processSlashCommand(
 ): Promise<ProcessUserInputBaseResult> {
 	const parsed = parseSlashCommand(inputString);
 	if (!parsed) {
-		logEvent("tengu_input_slash_missing", {});
+		logEvent("fusion_input_slash_missing", {});
 		const errorMessage = "Commands are in the form `/command [args]`";
 		return {
 			messages: [
@@ -575,7 +575,7 @@ export async function processSlashCommand(
 			// Not a file path — treat as command name
 		}
 		if (looksLikeCommand(commandName) && !isFilePath) {
-			logEvent("tengu_input_slash_invalid", {
+			logEvent("fusion_input_slash_invalid", {
 				input:
 					commandName as AnalyticsMetadata_I_VERIFIED_THIS_IS_NOT_CODE_OR_FILEPATHS,
 			});
@@ -607,7 +607,7 @@ export async function processSlashCommand(
 		}
 		const promptId = randomUUID();
 		setPromptId(promptId);
-		logEvent("tengu_input_prompt", {});
+		logEvent("fusion_input_prompt", {});
 		// Log user prompt event for OTLP
 		void logOTelEvent("user_prompt", {
 			prompt_length: String(inputString.length),
@@ -690,7 +690,7 @@ export async function processSlashCommand(
 				buildPluginCommandTelemetryFields(returnedCommand.pluginInfo),
 			);
 		}
-		logEvent("tengu_input_command", {
+		logEvent("fusion_input_command", {
 			...eventData,
 			invocation_trigger:
 				"user-slash" as AnalyticsMetadata_I_VERIFIED_THIS_IS_NOT_CODE_OR_FILEPATHS,
@@ -734,7 +734,7 @@ export async function processSlashCommand(
 			inputString.startsWith("/tmp") ||
 			inputString.startsWith("/private");
 		if (!looksLikeFilePath) {
-			logEvent("tengu_input_slash_invalid", {
+			logEvent("fusion_input_slash_invalid", {
 				input:
 					commandName as AnalyticsMetadata_I_VERIFIED_THIS_IS_NOT_CODE_OR_FILEPATHS,
 			});
@@ -780,7 +780,7 @@ export async function processSlashCommand(
 			buildPluginCommandTelemetryFields(returnedCommand.pluginInfo),
 		);
 	}
-	logEvent("tengu_input_command", {
+	logEvent("fusion_input_command", {
 		...eventData,
 		invocation_trigger:
 			"user-slash" as AnalyticsMetadata_I_VERIFIED_THIS_IS_NOT_CODE_OR_FILEPATHS,

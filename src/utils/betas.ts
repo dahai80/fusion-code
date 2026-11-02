@@ -179,13 +179,13 @@ export function modelSupportsAutoMode(model: string): boolean {
 		if (process.env.USER_TYPE !== "ant" && getAPIProvider() !== "firstParty") {
 			return false;
 		}
-		// GrowthBook override: tengu_auto_mode_config.allowModels force-enables
+		// GrowthBook override: fusion_auto_mode_config.allowModels force-enables
 		// auto mode for listed models, bypassing the denylist/allowlist below.
 		// Exact model IDs (e.g. "claude-strudel-v6-p") match only that model;
 		// canonical names (e.g. "claude-strudel") match the whole family.
 		const config = getFeatureValue_CACHED_MAY_BE_STALE<{
 			allowModels?: string[];
-		}>("tengu_auto_mode_config", {});
+		}>("fusion_auto_mode_config", {});
 		const rawLower = model.toLowerCase();
 		if (
 			config?.allowModels?.some(
@@ -291,7 +291,7 @@ export const getAllModelBetas = memoize((model: string): string[] => {
 	// API buffers assistant text between tool calls, summarizes it, and returns
 	// the summary with a signature so the original can be restored on subsequent
 	// turns — same mechanism as thinking blocks. Ant-only while we measure
-	// TTFT/TTLT/capacity; betas already flow to tengu_api_success for splitting.
+	// TTFT/TTLT/capacity; betas already flow to fusion_api_success for splitting.
 	// Backend independently requires Capability.FUSION_INTERNAL_RESEARCH.
 	//
 	// USE_CONNECTOR_TEXT_SUMMARIZATION is tri-state: =1 forces on (opt-in even
@@ -303,7 +303,7 @@ export const getAllModelBetas = memoize((model: string): string[] => {
 		includeFirstPartyOnlyBetas &&
 		!isEnvDefinedFalsy(process.env.USE_CONNECTOR_TEXT_SUMMARIZATION) &&
 		(isEnvTruthy(process.env.USE_CONNECTOR_TEXT_SUMMARIZATION) ||
-			getFeatureValue_CACHED_MAY_BE_STALE("tengu_slate_prism", false))
+			getFeatureValue_CACHED_MAY_BE_STALE("fusion_slate_prism", false))
 	) {
 		betaHeaders.push(SUMMARIZE_CONNECTOR_TEXT_BETA_HEADER);
 	}
@@ -328,12 +328,12 @@ export const getAllModelBetas = memoize((model: string): string[] => {
 	// firstParty but forward to Vertex reject this header with 400.
 	// github.com/deshaw/anthropic-issues/issues/5
 	const strictToolsEnabled =
-		checkStatsigFeatureGate_CACHED_MAY_BE_STALE("tengu_tool_pear");
+		checkStatsigFeatureGate_CACHED_MAY_BE_STALE("fusion_tool_pear");
 	// 3P default: false. API rejects strict + token-efficient-tools together
 	// (tool_use.py:139), so these are mutually exclusive — strict wins.
 	const tokenEfficientToolsEnabled =
 		!strictToolsEnabled &&
-		getFeatureValue_CACHED_MAY_BE_STALE("tengu_amber_json_tools", false);
+		getFeatureValue_CACHED_MAY_BE_STALE("fusion_amber_json_tools", false);
 	if (
 		includeFirstPartyOnlyBetas &&
 		modelSupportsStructuredOutputs(model) &&

@@ -14,7 +14,7 @@
  * Ant builds: always enabled.
  * External builds require both:
  * 1. Opt-in via FUSION_CODE_EXPERIMENTAL_AGENT_TEAMS env var OR --agent-teams flag
- * 2. GrowthBook gate 'tengu_amber_flint' enabled (killswitch)
+ * 2. GrowthBook gate 'fusion_amber_flint' enabled (killswitch)
  */
 export function isAgentSwarmsEnabled(): boolean {
 	// Ant: always on

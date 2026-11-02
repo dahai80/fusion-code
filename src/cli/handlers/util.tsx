@@ -39,7 +39,7 @@ function DoctorWithPlugins(t0) {
 	return t1;
 }
 export async function doctorHandler(root: Root): Promise<void> {
-	logEvent("tengu_doctor_command", {});
+	logEvent("fusion_doctor_command", {});
 	await new Promise<void>((resolve) => {
 		root.render(
 			<AppStateProvider>

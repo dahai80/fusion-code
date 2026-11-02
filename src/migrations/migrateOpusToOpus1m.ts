@@ -39,5 +39,5 @@ export function migrateOpusToOpus1m(): void {
 			: migrated;
 	updateSettingsForSource("userSettings", { model: modelToSet });
 
-	logEvent("tengu_opus_to_opus1m_migration", {});
+	logEvent("fusion_opus_to_opus1m_migration", {});
 }

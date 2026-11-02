@@ -408,7 +408,7 @@ function handleMemoryFileReadError(error: unknown, filePath: string): void {
 	// Log permission errors (EACCES) as they're actionable
 	if (code === "EACCES") {
 		// Don't log the full file path to avoid PII/security issues
-		logEvent("tengu_claude_md_permission_error", {
+		logEvent("fusion_claude_md_permission_error", {
 			is_access_error: 1,
 			has_home_dir: filePath.includes(getClaudeConfigHomeDir()) ? 1 : 0,
 		});
@@ -780,7 +780,7 @@ export async function processMdRules({
 		return result;
 	} catch (error) {
 		if (error instanceof Error && error.message.includes("EACCES")) {
-			logEvent("tengu_claude_rules_md_permission_error", {
+			logEvent("fusion_claude_rules_md_permission_error", {
 				is_access_error: 1,
 				has_home_dir: rulesDir.includes(getClaudeConfigHomeDir()) ? 1 : 0,
 			});
@@ -1082,7 +1082,7 @@ export const getMemoryFiles = memoize(
 
 		if (!hasLoggedInitialLoad) {
 			hasLoggedInitialLoad = true;
-			logEvent("tengu_claudemd__initial_load", {
+			logEvent("fusion_claudemd__initial_load", {
 				file_count: result.length,
 				total_content_length: totalContentLength,
 				user_count: typeCounts.User ?? 0,
@@ -1193,7 +1193,7 @@ export function getLargeMemoryFiles(files: MemoryFileInfo[]): MemoryFileInfo[] {
 }
 
 /**
- * When tengu_moth_copse is on, the findRelevantMemories prefetch surfaces
+ * When fusion_moth_copse is on, the findRelevantMemories prefetch surfaces
  * memory files via attachments, so the MEMORY.md index is no longer injected
  * into the system prompt. Callsites that care about "what's actually in
  * context" (context builder, /context viz) should filter through this.
@@ -1202,7 +1202,7 @@ export function filterInjectedMemoryFiles(
 	files: MemoryFileInfo[],
 ): MemoryFileInfo[] {
 	const skipMemoryIndex = getFeatureValue_CACHED_MAY_BE_STALE(
-		"tengu_moth_copse",
+		"fusion_moth_copse",
 		false,
 	);
 	if (!skipMemoryIndex) return files;
@@ -1215,7 +1215,7 @@ export const getClaudeMds = (
 ): string => {
 	const memories: string[] = [];
 	const skipProjectLevel = getFeatureValue_CACHED_MAY_BE_STALE(
-		"tengu_paper_halyard",
+		"fusion_paper_halyard",
 		false,
 	);
 

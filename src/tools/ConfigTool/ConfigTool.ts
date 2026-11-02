@@ -394,7 +394,7 @@ export const ConfigTool = buildTool({
 				});
 			}
 
-			logEvent("tengu_config_tool_changed", {
+			logEvent("fusion_config_tool_changed", {
 				setting:
 					setting as AnalyticsMetadata_I_VERIFIED_THIS_IS_NOT_CODE_OR_FILEPATHS,
 				value: String(

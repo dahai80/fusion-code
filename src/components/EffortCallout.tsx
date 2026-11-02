@@ -245,7 +245,7 @@ function EffortOptionLabel(t0) {
  *
  * Audience:
  * - Pro: already had medium default; show unless they saw v1 (effortCalloutDismissed)
- * - Max/Team: getting medium via tengu_grey_step2 config; show when enabled
+ * - Max/Team: getting medium via fusion_grey_step2 config; show when enabled
  * - Everyone else: mark as dismissed so it never shows
  */
 export function shouldShowEffortCallout(model: string): boolean {
@@ -274,7 +274,7 @@ export function shouldShowEffortCallout(model: string): boolean {
 		return getOpusDefaultEffortConfig().enabled;
 	}
 
-	// Max/Team are the target of the tengu_grey_step2 config.
+	// Max/Team are the target of the fusion_grey_step2 config.
 	// Don't mark dismissed when config is disabled — they should see the dialog
 	// once it's enabled for them.
 	if (isMaxSubscriber() || isTeamSubscriber()) {

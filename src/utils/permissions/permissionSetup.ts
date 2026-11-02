@@ -690,7 +690,7 @@ export function initialPermissionModeFromCLI({
 	// Check GrowthBook gate first - highest precedence
 	const growthBookDisableBypassPermissionsMode =
 		checkStatsigFeatureGate_CACHED_MAY_BE_STALE(
-			"tengu_disable_bypass_permissions_mode",
+			"fusion_disable_bypass_permissions_mode",
 		);
 
 	// Then check settings - lower precedence
@@ -745,7 +745,7 @@ export function initialPermissionModeFromCLI({
 				`settings defaultMode "${settingsMode}" is not supported in FUSION_CODE_REMOTE — only acceptEdits and plan are allowed`,
 				{ level: "warn" },
 			);
-			logEvent("tengu_ccr_unsupported_default_mode_ignored", {
+			logEvent("fusion_ccr_unsupported_default_mode_ignored", {
 				mode: settingsMode as AnalyticsMetadata_I_VERIFIED_THIS_IS_NOT_CODE_OR_FILEPATHS,
 			});
 		}
@@ -930,7 +930,7 @@ export async function initializeToolPermissionContext({
 	try {
 		growthBookDisableBypassPermissionsMode =
 			checkStatsigFeatureGate_CACHED_MAY_BE_STALE(
-				"tengu_disable_bypass_permissions_mode",
+				"fusion_disable_bypass_permissions_mode",
 			);
 	} catch {
 		// Default to allowing bypass permissions when GrowthBook is unavailable
@@ -1062,9 +1062,7 @@ export function getAutoModeUnavailableNotification(
 			base = "auto mode unavailable for this model";
 			break;
 	}
-	return process.env.USER_TYPE === "ant"
-		? `${base}`
-		: base;
+	return process.env.USER_TYPE === "ant" ? `${base}` : base;
 }
 
 /**
@@ -1087,14 +1085,14 @@ export async function verifyAutoModeGateAccess(
 	fastMode?: boolean,
 ): Promise<AutoModeGateCheckResult> {
 	// Auto-mode config — runs in ALL builds (circuit breaker, carousel, kick-out)
-	// Fresh read of tengu_auto_mode_config.enabled — this async check runs once
+	// Fresh read of fusion_auto_mode_config.enabled — this async check runs once
 	// after GrowthBook initialization and is the authoritative source for
 	// isAutoModeAvailable. The sync startup path uses stale cache; this
 	// corrects it. Circuit breaker (enabled==='disabled') takes effect here.
 	const autoModeConfig = await getDynamicConfig_BLOCKS_ON_INIT<{
 		enabled?: AutoModeEnabledState;
 		disableFastMode?: boolean;
-	}>("tengu_auto_mode_config", {});
+	}>("fusion_auto_mode_config", {});
 	const enabledState = parseAutoModeEnabledState(autoModeConfig?.enabled);
 	const disabledBySettings = isAutoModeDisabledBySettings();
 	// Treat settings-disable the same as GrowthBook 'disabled' for circuit-breaker
@@ -1106,7 +1104,7 @@ export async function verifyAutoModeGateAccess(
 	// Carousel availability: not circuit-broken, not disabled-by-settings,
 	// model supports it, disableFastMode breaker not firing, and (enabled or opted-in)
 	const mainModel = getMainLoopModel();
-	// Temp circuit breaker: tengu_auto_mode_config.disableFastMode blocks auto
+	// Temp circuit breaker: fusion_auto_mode_config.disableFastMode blocks auto
 	// mode when fast mode is on. Checks runtime AppState.fastMode (if provided)
 	// and, for ants, model name '-fast' substring (ant-internal fast models
 	// like capybara-v2-fast[1m] encode speed in the model ID itself).
@@ -1170,7 +1168,7 @@ export async function verifyAutoModeGateAccess(
 	} else if (enabledState === "disabled") {
 		reason = "circuit-breaker";
 		logForDebugging(
-			'auto mode disabled: tengu_auto_mode_config.enabled === "disabled" (circuit breaker)',
+			'auto mode disabled: fusion_auto_mode_config.enabled === "disabled" (circuit breaker)',
 			{ level: "warn" },
 		);
 	} else {
@@ -1266,7 +1264,7 @@ export async function verifyAutoModeGateAccess(
  * Core logic to check if bypassPermissions should be disabled based on Statsig gate
  */
 export function shouldDisableBypassPermissions(): Promise<boolean> {
-	return checkSecurityRestrictionGate("tengu_disable_bypass_permissions_mode");
+	return checkSecurityRestrictionGate("fusion_disable_bypass_permissions_mode");
 }
 
 function isAutoModeDisabledBySettings(): boolean {
@@ -1304,7 +1302,7 @@ export function getAutoModeUnavailableReason(): AutoModeUnavailableReason | null
 }
 
 /**
- * The `enabled` field in the tengu_auto_mode_config GrowthBook JSON config.
+ * The `enabled` field in the fusion_auto_mode_config GrowthBook JSON config.
  * Controls auto mode availability in UI surfaces (CLI, IDE, Desktop).
  * - 'enabled': auto mode is available in the shift-tab carousel (or equivalent)
  * - 'disabled': auto mode is fully unavailable — circuit breaker for incident response
@@ -1329,7 +1327,7 @@ function parseAutoModeEnabledState(value: unknown): AutoModeEnabledState {
 }
 
 /**
- * Reads the `enabled` field from tengu_auto_mode_config (cached, may be stale).
+ * Reads the `enabled` field from fusion_auto_mode_config (cached, may be stale).
  * Defaults to 'disabled' if GrowthBook is unavailable or the field is unset.
  * Other surfaces (IDE, Desktop) should call this to decide whether to surface
  * auto mode in their mode pickers.
@@ -1337,7 +1335,7 @@ function parseAutoModeEnabledState(value: unknown): AutoModeEnabledState {
 export function getAutoModeEnabledState(): AutoModeEnabledState {
 	const config = getFeatureValue_CACHED_MAY_BE_STALE<{
 		enabled?: AutoModeEnabledState;
-	}>("tengu_auto_mode_config", {});
+	}>("fusion_auto_mode_config", {});
 	return parseAutoModeEnabledState(config?.enabled);
 }
 
@@ -1355,7 +1353,7 @@ export function getAutoModeEnabledStateIfCached():
 	| undefined {
 	const config = getFeatureValue_CACHED_MAY_BE_STALE<
 		{ enabled?: AutoModeEnabledState } | typeof NO_CACHED_AUTO_MODE_CONFIG
-	>("tengu_auto_mode_config", NO_CACHED_AUTO_MODE_CONFIG);
+	>("fusion_auto_mode_config", NO_CACHED_AUTO_MODE_CONFIG);
 	if (config === NO_CACHED_AUTO_MODE_CONFIG) return undefined;
 	return parseAutoModeEnabledState(config?.enabled);
 }
@@ -1380,7 +1378,7 @@ export function hasAutoModeOptInAnySource(): boolean {
 export function isBypassPermissionsModeDisabled(): boolean {
 	const growthBookDisableBypassPermissionsMode =
 		checkStatsigFeatureGate_CACHED_MAY_BE_STALE(
-			"tengu_disable_bypass_permissions_mode",
+			"fusion_disable_bypass_permissions_mode",
 		);
 	const settings = getInitialSettings() || {};
 	const settingsDisableBypassPermissionsMode =

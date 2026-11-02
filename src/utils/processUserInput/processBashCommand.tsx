@@ -40,7 +40,7 @@ export async function processBashCommand(
 	// actual shell, not the raw setting.
 	const usePowerShell =
 		isPowerShellToolEnabled() && resolveDefaultShell() === "powershell";
-	logEvent("tengu_input_bash", {
+	logEvent("fusion_input_bash", {
 		powershell: usePowerShell,
 	});
 	const userMessage = createUserMessage({

@@ -170,7 +170,7 @@ describe("rewindConversationTo", () => {
 		expect(result.toolPermissionContext).toBe(prev.toolPermissionContext);
 	});
 
-	it("logs tengu_conversation_rewind with correct counts", () => {
+	it("logs fusion_conversation_rewind with correct counts", () => {
 		const target = makeUserMessage({});
 		const messages = [makeUserMessage({}), target, makeUserMessage({})];
 		const logSpy = spyOn({ logEvent: () => {} }, "logEvent");

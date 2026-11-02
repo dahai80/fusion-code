@@ -1,9 +1,4 @@
-// OAuth client for handling authentication flows with Claude services
-import axios from "axios";
-import {
-	type AnalyticsMetadata_I_VERIFIED_THIS_IS_NOT_CODE_OR_FILEPATHS,
-	logEvent,
-} from "src/services/analytics/index.js";
+import { logEvent } from "src/services/analytics/index.js";
 import { CLAUDE_AI_INFERENCE_SCOPE } from "../../constants/oauth.js";
 import {
 	getClaudeAIOAuthTokens,
@@ -17,11 +12,8 @@ import { getOauthProfileFromOauthToken } from "./getOauthProfile.js";
 import type {
 	BillingType,
 	OAuthProfileResponse,
-	OAuthTokenExchangeResponse,
-	OAuthTokens,
 	RateLimitTier,
 	SubscriptionType,
-	UserRolesResponse,
 } from "./types.js";
 
 /**
@@ -109,7 +101,7 @@ export async function fetchProfileInfo(accessToken: string): Promise<{
 		result.subscriptionCreatedAt = profile.organization.subscription_created_at;
 	}
 
-	logEvent("tengu_oauth_profile_fetch_success", {});
+	logEvent("fusion_oauth_profile_fetch_success", {});
 
 	return { ...result, rawProfile: profile };
 }

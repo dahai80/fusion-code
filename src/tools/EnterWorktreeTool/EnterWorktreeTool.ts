@@ -106,7 +106,7 @@ export const EnterWorktreeTool: Tool<InputSchema, Output> = buildTool({
 				process.chdir(prevCwd);
 				setCwd(prevCwd);
 			} catch (rollbackErr) {
-				logEvent("tengu_worktree_rollback_failed", {});
+				logEvent("fusion_worktree_rollback_failed", {});
 				logError(rollbackErr as Error);
 			}
 			throw createError;
@@ -122,7 +122,7 @@ export const EnterWorktreeTool: Tool<InputSchema, Output> = buildTool({
 		clearMemoryFileCaches();
 		getPlansDirectory.cache.clear?.();
 
-		logEvent("tengu_worktree_created", {
+		logEvent("fusion_worktree_created", {
 			mid_session: true,
 		});
 

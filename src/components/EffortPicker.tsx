@@ -54,7 +54,7 @@ export function EffortPicker({
 }: EffortPickerProps): React.ReactNode {
 	const handleSelect = useCallback(
 		(level: string) => {
-			logEvent("tengu_effort_command", {
+			logEvent("fusion_effort_command", {
 				effort:
 					level as AnalyticsMetadata_I_VERIFIED_THIS_IS_NOT_CODE_OR_FILEPATHS,
 			});

@@ -22,7 +22,7 @@ export function isUltrathinkEnabled(): boolean {
 	if (!feature("ULTRATHINK")) {
 		return false;
 	}
-	return getFeatureValue_CACHED_MAY_BE_STALE("tengu_turtle_carbon", true);
+	return getFeatureValue_CACHED_MAY_BE_STALE("fusion_turtle_carbon", true);
 }
 
 /**

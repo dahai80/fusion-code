@@ -99,7 +99,7 @@ export const TeamDeleteTool: Tool<InputSchema, Output> = buildTool({
 			clearTeammateColors();
 			clearLeaderTeamName();
 
-			logEvent("tengu_team_deleted", {
+			logEvent("fusion_team_deleted", {
 				team_name: teamName as unknown as number, // log: LogEventMetadata only allows boolean|number|undefined
 			});
 		}

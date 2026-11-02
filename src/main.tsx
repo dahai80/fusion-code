@@ -383,7 +383,7 @@ function logManagedSettings(): void {
 		const policySettings = getSettingsForSource("policySettings");
 		if (policySettings) {
 			const allKeys = getManagedSettingsKeysForLogging(policySettings);
-			logEvent("tengu_managed_settings_loaded", {
+			logEvent("fusion_managed_settings_loaded", {
 				keyCount: allKeys.length,
 				keys: allKeys.join(
 					",",
@@ -486,7 +486,7 @@ async function logStartupTelemetry(): Promise<void> {
 		getWorktreeCount(),
 		getGhAuthStatus(),
 	]);
-	logEvent("tengu_startup_telemetry", {
+	logEvent("fusion_startup_telemetry", {
 		is_git: isGit,
 		worktree_count: worktreeCount,
 		gh_auth_status:
@@ -1420,7 +1420,7 @@ async function run(): Promise<CommanderCommand> {
 
 			// Ignore "code" as a prompt - treat it the same as no prompt
 			if (prompt === "code") {
-				logEvent("tengu_code_prompt_ignored", {});
+				logEvent("fusion_code_prompt_ignored", {});
 				console.warn(
 					chalk.yellow(
 						"Tip: You can launch Fusion-Code with just `fusion-code`",
@@ -1436,13 +1436,13 @@ async function run(): Promise<CommanderCommand> {
 				!/\s/.test(prompt) &&
 				prompt.length > 0
 			) {
-				logEvent("tengu_single_word_prompt", {
+				logEvent("fusion_single_word_prompt", {
 					length: prompt.length,
 				});
 			}
 
 			// Assistant mode: when .claude/settings.json has assistant: true AND
-			// the tengu_kairos GrowthBook gate is on, force brief on. Permission
+			// the fusion_kairos GrowthBook gate is on, force brief on. Permission
 			// mode is left to the user — settings defaultMode or --permission-mode
 			// apply as normal. REPL-typed messages already default to 'next'
 			// priority (messageQueueManager.enqueue) so they drain mid-turn between
@@ -1475,7 +1475,7 @@ async function run(): Promise<CommanderCommand> {
 			) {
 				// --assistant (Agent SDK daemon mode): force the latch before
 				// isAssistantMode() runs below. The daemon has already checked
-				// entitlement — don't make the child re-check tengu_kairos.
+				// entitlement — don't make the child re-check fusion_kairos.
 				assistantModule.markAssistantForced();
 			}
 			if (
@@ -2019,7 +2019,7 @@ async function run(): Promise<CommanderCommand> {
 			if (feature("CHROME") && enableClaudeInChrome) {
 				const platform = getPlatform();
 				try {
-					logEvent("tengu_claude_in_chrome_setup", {
+					logEvent("fusion_claude_in_chrome_setup", {
 						platform:
 							platform as AnalyticsMetadata_I_VERIFIED_THIS_IS_NOT_CODE_OR_FILEPATHS,
 					});
@@ -2039,7 +2039,7 @@ async function run(): Promise<CommanderCommand> {
 							: chromeSystemPrompt;
 					}
 				} catch (error) {
-					logEvent("tengu_claude_in_chrome_setup_failed", {
+					logEvent("fusion_claude_in_chrome_setup_failed", {
 						platform:
 							platform as AnalyticsMetadata_I_VERIFIED_THIS_IS_NOT_CODE_OR_FILEPATHS,
 					});
@@ -2220,9 +2220,9 @@ async function run(): Promise<CommanderCommand> {
 					}
 				}
 				// Flag-usage telemetry. Plugin identifiers are logged (same tier as
-				// tengu_plugin_installed — public-registry-style names); server-kind
+				// fusion_plugin_installed — public-registry-style names); server-kind
 				// names are not (MCP-server-name tier, opt-in-only elsewhere).
-				// Per-server gate outcomes land in tengu_mcp_channel_gate once
+				// Per-server gate outcomes land in fusion_mcp_channel_gate once
 				// servers connect. Dev entries go through a confirmation dialog after
 				// this — dev_plugins captures what was typed, not what was accepted.
 				if (channelEntries.length > 0 || (devChannels?.length ?? 0) > 0) {
@@ -2238,7 +2238,7 @@ async function run(): Promise<CommanderCommand> {
 									) as AnalyticsMetadata_I_VERIFIED_THIS_IS_NOT_CODE_OR_FILEPATHS)
 							: undefined;
 					};
-					logEvent("tengu_mcp_channel_flags", {
+					logEvent("fusion_mcp_channel_flags", {
 						channels_count: channelEntries.length,
 						dev_count: devChannels?.length ?? 0,
 						plugins: joinPluginIds(channelEntries),
@@ -2444,7 +2444,7 @@ async function run(): Promise<CommanderCommand> {
 					// This tool is excluded from normal filtering (see tools.ts) because it's
 					// an implementation detail for structured output, not a user-controlled tool.
 					tools = [...tools, syntheticOutputResult.tool];
-					logEvent("tengu_structured_output_enabled", {
+					logEvent("fusion_structured_output_enabled", {
 						schema_property_count: Object.keys(
 							(jsonSchema.properties as Record<string, unknown>) || {},
 						)
@@ -2454,7 +2454,7 @@ async function run(): Promise<CommanderCommand> {
 						) as AnalyticsMetadata_I_VERIFIED_THIS_IS_NOT_CODE_OR_FILEPATHS,
 					});
 				} else {
-					logEvent("tengu_structured_output_failure", {
+					logEvent("fusion_structured_output_failure", {
 						error:
 							"Invalid JSON schema" as AnalyticsMetadata_I_VERIFIED_THIS_IS_NOT_CODE_OR_FILEPATHS,
 					});
@@ -2585,7 +2585,7 @@ async function run(): Promise<CommanderCommand> {
 			}
 
 			// Ant model aliases (capybara-fast etc.) resolve via the
-			// tengu_ant_model_override GrowthBook flag. _CACHED_MAY_BE_STALE reads
+			// fusion_ant_model_override GrowthBook flag. _CACHED_MAY_BE_STALE reads
 			// disk synchronously; disk is populated by a fire-and-forget write. On a
 			// cold cache, parseUserSpecifiedModel returns the unresolved alias, the
 			// API 404s, and -p exits before the async write lands — crashloop on
@@ -2603,8 +2603,8 @@ async function run(): Promise<CommanderCommand> {
 				isInternalBuild() &&
 				explicitModel &&
 				explicitModel !== "default" &&
-				!hasGrowthBookEnvOverride("tengu_ant_model_override") &&
-				getGlobalConfig().cachedGrowthBookFeatures?.tengu_ant_model_override ==
+				!hasGrowthBookEnvOverride("fusion_ant_model_override") &&
+				getGlobalConfig().cachedGrowthBookFeatures?.fusion_ant_model_override ==
 					null
 			) {
 				await initializeGrowthBook();
@@ -2688,7 +2688,7 @@ async function run(): Promise<CommanderCommand> {
 
 			// Log agent flag usage — only log agent name for built-in agents to avoid leaking custom agent names
 			if (mainThreadAgentDefinition) {
-				logEvent("tengu_agent_flag", {
+				logEvent("fusion_agent_flag", {
 					agentType: isBuiltInAgent(mainThreadAgentDefinition)
 						? (mainThreadAgentDefinition.agentType as AnalyticsMetadata_I_VERIFIED_THIS_IS_NOT_CODE_OR_FILEPATHS)
 						: ("custom" as AnalyticsMetadata_I_VERIFIED_THIS_IS_NOT_CODE_OR_FILEPATHS),
@@ -2821,7 +2821,7 @@ async function run(): Promise<CommanderCommand> {
 
 					// Log agent memory loaded event for tmux teammates
 					if (customAgent.memory) {
-						logEvent("tengu_agent_memory_loaded", {
+						logEvent("fusion_agent_memory_loaded", {
 							...(isInternalBuild() && {
 								agent_type:
 									customAgent.agentType as AnalyticsMetadata_I_VERIFIED_THIS_IS_NOT_CODE_OR_FILEPATHS,
@@ -2925,7 +2925,7 @@ async function run(): Promise<CommanderCommand> {
 				// from REPL's first render (the old location) included however long
 				// the user sat on trust/OAuth/onboarding/resume-picker — p99 was ~70s
 				// dominated by dialog-wait time, not code-path startup.
-				logEvent("tengu_timer", {
+				logEvent("fusion_timer", {
 					event:
 						"startup" as AnalyticsMetadata_I_VERIFIED_THIS_IS_NOT_CODE_OR_FILEPATHS,
 					durationMs: Math.round(process.uptime() * 1000),
@@ -2987,7 +2987,7 @@ async function run(): Promise<CommanderCommand> {
 					// Refresh GrowthBook after login to get updated feature flags (e.g., for claude.ai MCPs)
 					refreshGrowthBookAfterAuthChange();
 					// Clear any stale trusted device token then enroll for Remote Control.
-					// Both self-gate on tengu_sessions_elevated_auth_enforcement internally
+					// Both self-gate on fusion_sessions_elevated_auth_enforcement internally
 					// — enrollTrustedDevice() via checkGate_CACHED_OR_BLOCKING (awaits
 					// the GrowthBook reinit above), clearTrustedDeviceToken() via the
 					// sync cached check (acceptable since clear is idempotent).
@@ -3048,7 +3048,7 @@ async function run(): Promise<CommanderCommand> {
 			// first-turn responsiveness (quota, fastMode). Fast mode doesn't apply to
 			// the Agent SDK anyway (see getFastModeUnavailableReason).
 			const bgRefreshThrottleMs = getFeatureValue_CACHED_MAY_BE_STALE(
-				"tengu_cicada_nap_ms",
+				"fusion_cicada_nap_ms",
 				0,
 			);
 			const lastPrefetched = getGlobalConfig().startupPrefetchedAt ?? 0;
@@ -3065,7 +3065,10 @@ async function run(): Promise<CommanderCommand> {
 					`Starting background startup prefetches${lastPrefetchedInfo}`,
 				);
 				if (
-					!getFeatureValue_CACHED_MAY_BE_STALE("tengu_miraculo_the_bard", false)
+					!getFeatureValue_CACHED_MAY_BE_STALE(
+						"fusion_miraculo_the_bard",
+						false,
+					)
 				) {
 					void prefetchFastModeStatus();
 				} else {
@@ -3292,7 +3295,7 @@ async function run(): Promise<CommanderCommand> {
 				}
 				void countConcurrentSessions().then((count) => {
 					if (count >= 2) {
-						logEvent("tengu_concurrent_sessions", {
+						logEvent("fusion_concurrent_sessions", {
 							num_sessions: count,
 						});
 					}
@@ -3525,7 +3528,7 @@ async function run(): Promise<CommanderCommand> {
 				// Dedup: suppress plugin MCP servers that duplicate a claude.ai
 				// connector (connector wins), then connect claude.ai servers.
 				// Bounded wait — #23725 made this blocking so single-turn -p sees
-				// connectors, but with 40+ slow connectors tengu_startup_perf p99
+				// connectors, but with 40+ slow connectors fusion_startup_perf p99
 				// climbed to 76s. If fetch+connect doesn't finish in time, proceed;
 				// the promise keeps running and updates headlessStore in the
 				// background so turn 2+ still sees connectors.
@@ -3684,7 +3687,7 @@ async function run(): Promise<CommanderCommand> {
 			}
 
 			// Log model config at startup
-			logEvent("tengu_startup_manual_model_config", {
+			logEvent("fusion_startup_manual_model_config", {
 				cli_flag:
 					options.model as AnalyticsMetadata_I_VERIFIED_THIS_IS_NOT_CODE_OR_FILEPATHS,
 				env_var: (process.env.FUSION_MODEL ||
@@ -3976,7 +3979,7 @@ async function run(): Promise<CommanderCommand> {
 						!!options.forkSession,
 					);
 					if (!result) {
-						logEvent("tengu_continue", {
+						logEvent("fusion_continue", {
 							success: false,
 						});
 						return await exitWithError(
@@ -3998,7 +4001,7 @@ async function run(): Promise<CommanderCommand> {
 					}
 					maybeActivateProactive(options);
 					maybeActivateBrief(options);
-					logEvent("tengu_continue", {
+					logEvent("fusion_continue", {
 						success: true,
 						resume_duration_ms: Math.round(performance.now() - resumeStart),
 					});
@@ -4024,7 +4027,7 @@ async function run(): Promise<CommanderCommand> {
 					);
 				} catch (error) {
 					if (!resumeSucceeded) {
-						logEvent("tengu_continue", {
+						logEvent("fusion_continue", {
 							success: false,
 						});
 					}
@@ -4116,7 +4119,7 @@ async function run(): Promise<CommanderCommand> {
 										mainThreadAgentDefinition =
 											processedResume.restoredAgentDef;
 									}
-									logEvent("tengu_session_resumed", {
+									logEvent("fusion_session_resumed", {
 										entrypoint:
 											"ccshare" as AnalyticsMetadata_I_VERIFIED_THIS_IS_NOT_CODE_OR_FILEPATHS,
 										success: true,
@@ -4125,14 +4128,14 @@ async function run(): Promise<CommanderCommand> {
 										),
 									});
 								} else {
-									logEvent("tengu_session_resumed", {
+									logEvent("fusion_session_resumed", {
 										entrypoint:
 											"ccshare" as AnalyticsMetadata_I_VERIFIED_THIS_IS_NOT_CODE_OR_FILEPATHS,
 										success: false,
 									});
 								}
 							} catch (error) {
-								logEvent("tengu_session_resumed", {
+								logEvent("fusion_session_resumed", {
 									entrypoint:
 										"ccshare" as AnalyticsMetadata_I_VERIFIED_THIS_IS_NOT_CODE_OR_FILEPATHS,
 									success: false,
@@ -4177,7 +4180,7 @@ async function run(): Promise<CommanderCommand> {
 											mainThreadAgentDefinition =
 												processedResume.restoredAgentDef;
 										}
-										logEvent("tengu_session_resumed", {
+										logEvent("fusion_session_resumed", {
 											entrypoint:
 												"file" as AnalyticsMetadata_I_VERIFIED_THIS_IS_NOT_CODE_OR_FILEPATHS,
 											success: true,
@@ -4186,7 +4189,7 @@ async function run(): Promise<CommanderCommand> {
 											),
 										});
 									} else {
-										logEvent("tengu_session_resumed", {
+										logEvent("fusion_session_resumed", {
 											entrypoint:
 												"file" as AnalyticsMetadata_I_VERIFIED_THIS_IS_NOT_CODE_OR_FILEPATHS,
 											success: false,
@@ -4194,7 +4197,7 @@ async function run(): Promise<CommanderCommand> {
 									}
 								}
 							} catch (error) {
-								logEvent("tengu_session_resumed", {
+								logEvent("fusion_session_resumed", {
 									entrypoint:
 										"file" as AnalyticsMetadata_I_VERIFIED_THIS_IS_NOT_CODE_OR_FILEPATHS,
 									success: false,
@@ -4224,7 +4227,7 @@ async function run(): Promise<CommanderCommand> {
 							!!options.forkSession,
 						);
 						if (!result) {
-							logEvent("tengu_session_resumed", {
+							logEvent("fusion_session_resumed", {
 								entrypoint:
 									"cli_flag" as AnalyticsMetadata_I_VERIFIED_THIS_IS_NOT_CODE_OR_FILEPATHS,
 								success: false,
@@ -4247,14 +4250,14 @@ async function run(): Promise<CommanderCommand> {
 						if (processedResume.restoredAgentDef) {
 							mainThreadAgentDefinition = processedResume.restoredAgentDef;
 						}
-						logEvent("tengu_session_resumed", {
+						logEvent("fusion_session_resumed", {
 							entrypoint:
 								"cli_flag" as AnalyticsMetadata_I_VERIFIED_THIS_IS_NOT_CODE_OR_FILEPATHS,
 							success: true,
 							resume_duration_ms: Math.round(performance.now() - resumeStart),
 						});
 					} catch (error) {
-						logEvent("tengu_session_resumed", {
+						logEvent("fusion_session_resumed", {
 							entrypoint:
 								"cli_flag" as AnalyticsMetadata_I_VERIFIED_THIS_IS_NOT_CODE_OR_FILEPATHS,
 							success: false,
@@ -4630,7 +4633,7 @@ async function logTenguInit({
 	assistantActivationPath: string | undefined;
 }): Promise<void> {
 	try {
-		logEvent("tengu_init", {
+		logEvent("fusion_init", {
 			entrypoint:
 				"claude" as AnalyticsMetadata_I_VERIFIED_THIS_IS_NOT_CODE_OR_FILEPATHS,
 			hasInitialPrompt,
@@ -4741,7 +4744,7 @@ function maybeActivateBrief(options: unknown): void {
 	}
 	// Fire unconditionally once intent is seen: enabled=false captures the
 	// "user tried but was gated" failure mode in Datadog.
-	logEvent("tengu_brief_mode_enabled", {
+	logEvent("fusion_brief_mode_enabled", {
 		enabled: entitled,
 		gated: !entitled,
 		source: (briefEnv

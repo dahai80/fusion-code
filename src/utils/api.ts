@@ -129,7 +129,7 @@ export async function toolToAPISchema(
 ): Promise<BetaToolUnion> {
 	// Session-stable base schema: name, description, input_schema, strict,
 	// eager_input_streaming. These are computed once per session and cached to
-	// prevent mid-session GrowthBook flips (tengu_tool_pear, tengu_fgts) or
+	// prevent mid-session GrowthBook flips (fusion_tool_pear, fusion_fgts) or
 	// tool.prompt() drift from churning the serialized tool array bytes.
 	// See toolSchemaCache.ts for rationale.
 	//
@@ -146,7 +146,7 @@ export async function toolToAPISchema(
 	let base = cache.get(cacheKey);
 	if (!base) {
 		const strictToolsEnabled =
-			checkStatsigFeatureGate_CACHED_MAY_BE_STALE("tengu_tool_pear");
+			checkStatsigFeatureGate_CACHED_MAY_BE_STALE("fusion_tool_pear");
 		// Use tool's JSON schema directly if provided, otherwise convert Zod schema
 		let input_schema = (
 			"inputJSONSchema" in tool && tool.inputJSONSchema
@@ -202,7 +202,7 @@ export async function toolToAPISchema(
 		if (
 			getAPIProvider() === "firstParty" &&
 			isFirstPartyAnthropicBaseUrl() &&
-			(getFeatureValue_CACHED_MAY_BE_STALE("tengu_fgts", false) ||
+			(getFeatureValue_CACHED_MAY_BE_STALE("fusion_fgts", false) ||
 				isEnvTruthy(process.env.FUSION_CODE_ENABLE_FINE_GRAINED_TOOL_STREAMING))
 		) {
 			base.eager_input_streaming = true;
@@ -284,7 +284,7 @@ function logStripOnce(stripped: string[]): void {
 export function logAPIPrefix(systemPrompt: SystemPrompt): void {
 	const [firstSyspromptBlock] = splitSysPromptPrefix(systemPrompt);
 	const firstSystemPrompt = firstSyspromptBlock?.text;
-	logEvent("tengu_sysprompt_block", {
+	logEvent("fusion_sysprompt_block", {
 		snippet: firstSystemPrompt?.slice(
 			0,
 			20,
@@ -327,7 +327,7 @@ export function splitSysPromptPrefix(
 ): SystemPromptBlock[] {
 	const useGlobalCacheFeature = shouldUseGlobalCacheScope();
 	if (useGlobalCacheFeature && options?.skipGlobalCacheForSystemPrompt) {
-		logEvent("tengu_sysprompt_using_tool_based_cache", {
+		logEvent("fusion_sysprompt_using_tool_based_cache", {
 			promptBlockCount: systemPrompt.length,
 		});
 
@@ -396,7 +396,7 @@ export function splitSysPromptPrefix(
 			const dynamicJoined = dynamicBlocks.join("\n\n");
 			if (dynamicJoined) result.push({ text: dynamicJoined, cacheScope: null });
 
-			logEvent("tengu_sysprompt_boundary_found", {
+			logEvent("fusion_sysprompt_boundary_found", {
 				blockCount: result.length,
 				staticBlockLength: staticJoined.length,
 				dynamicBlockLength: dynamicJoined.length,
@@ -404,7 +404,7 @@ export function splitSysPromptPrefix(
 
 			return result;
 		} else {
-			logEvent("tengu_sysprompt_missing_boundary_marker", {
+			logEvent("fusion_sysprompt_missing_boundary_marker", {
 				promptBlockCount: systemPrompt.length,
 			});
 		}
@@ -550,7 +550,7 @@ export async function logContextMetrics(
 		nonMcpToolsTokens += roughTokenCountEstimation(jsonStringify(schema));
 	}
 
-	logEvent("tengu_context_size", {
+	logEvent("fusion_context_size", {
 		git_status_size: gitStatusSize,
 		claude_md_size: claudeMdSize,
 		total_context_size: totalContextSize,
@@ -595,7 +595,7 @@ export function normalizeToolInput<T extends Tool>(
 
 			// Logging for commands that are only echoing a string. This is to help us understand how often  Claude talks via bash
 			if (/^echo\s+["']?[^|&;><]*["']?$/i.test(normalizedCommand.trim())) {
-				logEvent("tengu_bash_tool_simple_echo", {});
+				logEvent("fusion_bash_tool_simple_echo", {});
 			}
 
 			// Check for run_in_background (may not exist in schema if FUSION_CODE_DISABLE_BACKGROUND_TASKS is set)

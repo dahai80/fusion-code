@@ -19,7 +19,7 @@ const DESKTOP_UPSELL_DEFAULT: DesktopUpsellConfig = {
 };
 export function getDesktopUpsellConfig(): DesktopUpsellConfig {
 	return getDynamicConfig_CACHED_MAY_BE_STALE(
-		"tengu_desktop_upsell",
+		"fusion_desktop_upsell",
 		DESKTOP_UPSELL_DEFAULT,
 	);
 }
@@ -184,7 +184,7 @@ function _temp() {
 			desktopUpsellSeenCount: newCount,
 		};
 	});
-	logEvent("tengu_desktop_upsell_shown", {
+	logEvent("fusion_desktop_upsell_shown", {
 		seen_count: newCount,
 	});
 }

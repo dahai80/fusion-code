@@ -159,9 +159,9 @@ async function handleSessionFileAccess(
 	const subagentProps = subagentName ? { subagent_name: subagentName } : {};
 
 	if (fileType === "session_memory") {
-		logEvent("tengu_session_memory_accessed", { ...subagentProps });
+		logEvent("fusion_session_memory_accessed", { ...subagentProps });
 	} else if (fileType === "session_transcript") {
-		logEvent("tengu_transcript_accessed", { ...subagentProps });
+		logEvent("fusion_transcript_accessed", { ...subagentProps });
 	}
 
 	// Memdir access tracking
@@ -170,40 +170,40 @@ async function handleSessionFileAccess(
 		input.tool_input,
 	); // log: fix TS2345
 	if (filePath && isAutoMemFile(filePath)) {
-		logEvent("tengu_memdir_accessed", {
+		logEvent("fusion_memdir_accessed", {
 			tool: input.tool_name as AnalyticsMetadata_I_VERIFIED_THIS_IS_NOT_CODE_OR_FILEPATHS,
 			...subagentProps,
 		});
 
 		switch (input.tool_name) {
 			case FILE_READ_TOOL_NAME:
-				logEvent("tengu_memdir_file_read", { ...subagentProps });
+				logEvent("fusion_memdir_file_read", { ...subagentProps });
 				break;
 			case FILE_EDIT_TOOL_NAME:
-				logEvent("tengu_memdir_file_edit", { ...subagentProps });
+				logEvent("fusion_memdir_file_edit", { ...subagentProps });
 				break;
 			case FILE_WRITE_TOOL_NAME:
-				logEvent("tengu_memdir_file_write", { ...subagentProps });
+				logEvent("fusion_memdir_file_write", { ...subagentProps });
 				break;
 		}
 	}
 
 	// Team memory access tracking
 	if (feature("TEAMMEM") && filePath && teamMemPaths?.isTeamMemFile(filePath)) {
-		logEvent("tengu_team_mem_accessed", {
+		logEvent("fusion_team_mem_accessed", {
 			tool: input.tool_name as AnalyticsMetadata_I_VERIFIED_THIS_IS_NOT_CODE_OR_FILEPATHS,
 			...subagentProps,
 		});
 
 		switch (input.tool_name) {
 			case FILE_READ_TOOL_NAME:
-				logEvent("tengu_team_mem_file_read", { ...subagentProps });
+				logEvent("fusion_team_mem_file_read", { ...subagentProps });
 				break;
 			case FILE_EDIT_TOOL_NAME:
-				logEvent("tengu_team_mem_file_edit", { ...subagentProps });
+				logEvent("fusion_team_mem_file_edit", { ...subagentProps });
 				break;
 			case FILE_WRITE_TOOL_NAME:
-				logEvent("tengu_team_mem_file_write", { ...subagentProps });
+				logEvent("fusion_team_mem_file_write", { ...subagentProps });
 				break;
 		}
 	}

@@ -75,7 +75,7 @@ const FUSION_PERMISSIONS_TEMPLATE: string = "";
 function isUsingExternalPermissions(): boolean {
 	if (process.env.USER_TYPE !== "ant") return true;
 	const config = getFeatureValue_CACHED_MAY_BE_STALE(
-		"tengu_auto_mode_config",
+		"fusion_auto_mode_config",
 		{} as AutoModeConfig,
 	);
 	return config?.forceExternalPermissions === true;
@@ -406,7 +406,7 @@ function toCompactBlock(
 			logForDebugging(
 				`toAutoClassifierInput failed for ${block.name}: ${errorMessage(e)}`,
 			);
-			logEvent("tengu_auto_mode_malformed_tool_input", {
+			logEvent("fusion_auto_mode_malformed_tool_input", {
 				toolName:
 					block.name as AnalyticsMetadata_I_VERIFIED_THIS_IS_NOT_CODE_OR_FILEPATHS,
 			});
@@ -673,7 +673,7 @@ function replaceOutputFormatWithXml(systemPrompt: string): string {
  *
  * For most models: send { type: 'disabled' } via sideQuery's `thinking: false`.
  *
- * Models with alwaysOnThinking (declared in tengu_ant_model_override) default
+ * Models with alwaysOnThinking (declared in fusion_ant_model_override) default
  * to adaptive thinking server-side and reject `disabled` with a 400. For those:
  * don't pass `thinking: false`, instead pad max_tokens so adaptive thinking
  * (observed 0–1114 tokens replaying go/ccshare/shawnm-20260310-202833) doesn't
@@ -1344,7 +1344,7 @@ function getClassifierModel(): string {
 		if (envModel) return envModel;
 	}
 	const config = getFeatureValue_CACHED_MAY_BE_STALE(
-		"tengu_auto_mode_config",
+		"fusion_auto_mode_config",
 		{} as AutoModeConfig,
 	);
 	if (config?.model) {
@@ -1369,7 +1369,7 @@ function resolveTwoStageClassifier():
 		if (isEnvDefinedFalsy(env)) return false;
 	}
 	const config = getFeatureValue_CACHED_MAY_BE_STALE(
-		"tengu_auto_mode_config",
+		"fusion_auto_mode_config",
 		{} as AutoModeConfig,
 	);
 	return config?.twoStageClassifier;
@@ -1390,7 +1390,7 @@ function isJsonlTranscriptEnabled(): boolean {
 		if (isEnvDefinedFalsy(env)) return false;
 	}
 	const config = getFeatureValue_CACHED_MAY_BE_STALE(
-		"tengu_auto_mode_config",
+		"fusion_auto_mode_config",
 		{} as AutoModeConfig,
 	);
 	return config?.jsonlTranscript === true;
@@ -1425,7 +1425,7 @@ type AutoModeOutcome =
 	| "transcript_too_long";
 
 /**
- * Telemetry helper for tengu_auto_mode_outcome. All string fields are
+ * Telemetry helper for fusion_auto_mode_outcome. All string fields are
  * enum-like values (outcome, model name, classifier type, failure kind) —
  * never code or file paths, so the AnalyticsMetadata casts are safe.
  */
@@ -1444,7 +1444,7 @@ function logAutoModeOutcome(
 	},
 ): void {
 	const { classifierType, failureKind, ...rest } = extra ?? {};
-	logEvent("tengu_auto_mode_outcome", {
+	logEvent("fusion_auto_mode_outcome", {
 		outcome:
 			outcome as AnalyticsMetadata_I_VERIFIED_THIS_IS_NOT_CODE_OR_FILEPATHS,
 		classifierModel:

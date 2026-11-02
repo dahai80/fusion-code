@@ -96,7 +96,7 @@ export function HistorySearchDialog({
 			getKey={(item_0) => String(item_0.entry.timestamp)}
 			onQueryChange={setQuery}
 			onSelect={(item_1) => {
-				logEvent("tengu_history_picker_select", {
+				logEvent("fusion_history_picker_select", {
 					result_count: filtered.length,
 					query_length: query.length,
 				});

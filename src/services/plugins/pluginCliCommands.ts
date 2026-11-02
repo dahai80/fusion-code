@@ -47,7 +47,7 @@ type PluginCliCommand =
 
 /**
  * Generic error handler for plugin CLI commands. Emits
- * tengu_plugin_command_failed before exit so dashboards can compute a
+ * fusion_plugin_command_failed before exit so dashboards can compute a
  * success rate against the corresponding success events.
  */
 function handlePluginCommandError(
@@ -82,7 +82,7 @@ function handlePluginCommandError(
 				};
 			})()
 		: {};
-	logEvent("tengu_plugin_command_failed", {
+	logEvent("fusion_plugin_command_failed", {
 		command:
 			command as AnalyticsMetadata_I_VERIFIED_THIS_IS_NOT_CODE_OR_FILEPATHS,
 		error_category: classifyPluginCommandError(
@@ -121,7 +121,7 @@ export async function installPlugin(
 		const { name, marketplace } = parsePluginIdentifier(
 			result.pluginId || plugin,
 		);
-		logEvent("tengu_plugin_installed_cli", {
+		logEvent("fusion_plugin_installed_cli", {
 			_PROTO_plugin_name:
 				name as AnalyticsMetadata_I_VERIFIED_THIS_IS_PII_TAGGED,
 			...(marketplace && {
@@ -164,7 +164,7 @@ export async function uninstallPlugin(
 		const { name, marketplace } = parsePluginIdentifier(
 			result.pluginId || plugin,
 		);
-		logEvent("tengu_plugin_uninstalled_cli", {
+		logEvent("fusion_plugin_uninstalled_cli", {
 			_PROTO_plugin_name:
 				name as AnalyticsMetadata_I_VERIFIED_THIS_IS_PII_TAGGED,
 			...(marketplace && {
@@ -204,7 +204,7 @@ export async function enablePlugin(
 		const { name, marketplace } = parsePluginIdentifier(
 			result.pluginId || plugin,
 		);
-		logEvent("tengu_plugin_enabled_cli", {
+		logEvent("fusion_plugin_enabled_cli", {
 			_PROTO_plugin_name:
 				name as AnalyticsMetadata_I_VERIFIED_THIS_IS_PII_TAGGED,
 			...(marketplace && {
@@ -244,7 +244,7 @@ export async function disablePlugin(
 		const { name, marketplace } = parsePluginIdentifier(
 			result.pluginId || plugin,
 		);
-		logEvent("tengu_plugin_disabled_cli", {
+		logEvent("fusion_plugin_disabled_cli", {
 			_PROTO_plugin_name:
 				name as AnalyticsMetadata_I_VERIFIED_THIS_IS_PII_TAGGED,
 			...(marketplace && {
@@ -276,7 +276,7 @@ export async function disableAllPlugins(): Promise<void> {
 
 		console.log(`${figures.tick} ${result.message}`);
 
-		logEvent("tengu_plugin_disabled_all_cli", {});
+		logEvent("fusion_plugin_disabled_all_cli", {});
 
 		// eslint-disable-next-line custom-rules/no-process-exit
 		process.exit(0);
@@ -311,7 +311,7 @@ export async function updatePluginCli(
 			const { name, marketplace } = parsePluginIdentifier(
 				result.pluginId || plugin,
 			);
-			logEvent("tengu_plugin_updated_cli", {
+			logEvent("fusion_plugin_updated_cli", {
 				_PROTO_plugin_name:
 					name as AnalyticsMetadata_I_VERIFIED_THIS_IS_PII_TAGGED,
 				...(marketplace && {

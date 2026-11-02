@@ -459,7 +459,7 @@ export async function getURLMarkdownContent(
 		}
 
 		if (process.env.USER_TYPE === "ant") {
-			logEvent("tengu_web_fetch_host", {
+			logEvent("fusion_web_fetch_host", {
 				hostname:
 					hostname as AnalyticsMetadata_I_VERIFIED_THIS_IS_NOT_CODE_OR_FILEPATHS,
 			});

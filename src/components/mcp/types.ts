@@ -35,11 +35,7 @@ export type HTTPServerInfo = {
 	config: McpHTTPServerConfig;
 };
 
-export type ServerInfo =
-	| StdioServerInfo
-	| SSEServerInfo
-	| HTTPServerInfo
-;
+export type ServerInfo = StdioServerInfo | SSEServerInfo | HTTPServerInfo;
 // AgentMcpServerInfo: discriminated union on `transport`
 // Constructed in services/mcp/utils.ts extractAgentMcpServers()
 // Only stdio/sse/http/ws variants are produced

@@ -75,7 +75,7 @@ export async function mcpServeHandler({
 	verbose?: boolean;
 }): Promise<void> {
 	const providedCwd = cwd();
-	logEvent("tengu_mcp_start", {});
+	logEvent("fusion_mcp_start", {});
 	try {
 		await stat(providedCwd);
 	} catch (error) {
@@ -116,7 +116,7 @@ export async function mcpRemoveHandler(
 	try {
 		if (options.scope) {
 			const scope = ensureConfigScope(options.scope);
-			logEvent("tengu_mcp_delete", {
+			logEvent("fusion_mcp_delete", {
 				name: name as AnalyticsMetadata_I_VERIFIED_THIS_IS_NOT_CODE_OR_FILEPATHS,
 				scope:
 					scope as AnalyticsMetadata_I_VERIFIED_THIS_IS_NOT_CODE_OR_FILEPATHS,
@@ -146,7 +146,7 @@ export async function mcpRemoveHandler(
 			// Server exists in only one scope, remove it
 			const scope = scopes[0];
 			if (!scope) return;
-			logEvent("tengu_mcp_delete", {
+			logEvent("fusion_mcp_delete", {
 				name: name as AnalyticsMetadata_I_VERIFIED_THIS_IS_NOT_CODE_OR_FILEPATHS,
 				scope:
 					scope as AnalyticsMetadata_I_VERIFIED_THIS_IS_NOT_CODE_OR_FILEPATHS,
@@ -178,7 +178,7 @@ export async function mcpRemoveHandler(
 
 // mcp list (lines 4641–4688)
 export async function mcpListHandler(): Promise<void> {
-	logEvent("tengu_mcp_list", {});
+	logEvent("fusion_mcp_list", {});
 	const { servers: configs } = await getAllMcpConfigs();
 	if (Object.keys(configs).length === 0) {
 		console.log(
@@ -206,7 +206,7 @@ export async function mcpListHandler(): Promise<void> {
 				console.log(`${name}: ${server.url} (SSE) - ${status}`);
 			} else if (server.type === "http") {
 				console.log(`${name}: ${server.url} (HTTP) - ${status}`);
-						} else if (!server.type || server.type === "stdio") {
+			} else if (!server.type || server.type === "stdio") {
 				if ("command" in server) {
 					// log: fix TS2339
 					const args = Array.isArray(server.args) ? server.args : [];
@@ -224,7 +224,7 @@ export async function mcpListHandler(): Promise<void> {
 
 // mcp get (lines 4694–4786)
 export async function mcpGetHandler(name: string): Promise<void> {
-	logEvent("tengu_mcp_get", {
+	logEvent("fusion_mcp_get", {
 		name: name as AnalyticsMetadata_I_VERIFIED_THIS_IS_NOT_CODE_OR_FILEPATHS,
 	});
 	const server = getMcpConfigByName(name);
@@ -350,7 +350,7 @@ export async function mcpAddJsonHandler(
 				clientSecret,
 			);
 		}
-		logEvent("tengu_mcp_add", {
+		logEvent("fusion_mcp_add", {
 			scope:
 				scope as AnalyticsMetadata_I_VERIFIED_THIS_IS_NOT_CODE_OR_FILEPATHS,
 			source:
@@ -370,7 +370,7 @@ export async function mcpAddFromDesktopHandler(options: {
 	try {
 		const scope = ensureConfigScope(options.scope);
 		const platform = getPlatform();
-		logEvent("tengu_mcp_add", {
+		logEvent("fusion_mcp_add", {
 			scope:
 				scope as AnalyticsMetadata_I_VERIFIED_THIS_IS_NOT_CODE_OR_FILEPATHS,
 			platform:
@@ -410,7 +410,7 @@ export async function mcpAddFromDesktopHandler(options: {
 
 // mcp reset-project-choices (lines 4935–4952)
 export async function mcpResetChoicesHandler(): Promise<void> {
-	logEvent("tengu_mcp_reset_mcpjson_choices", {});
+	logEvent("fusion_mcp_reset_mcpjson_choices", {});
 	saveCurrentProjectConfig((current) => ({
 		...current,
 		enabledMcpjsonServers: [],
@@ -424,7 +424,7 @@ export async function mcpResetChoicesHandler(): Promise<void> {
 }
 
 export async function mcpLoginHandler(name: string): Promise<void> {
-	logEvent("tengu_mcp_login", { name: 1 }); // log: analytics metadata must be number|boolean
+	logEvent("fusion_mcp_login", { name: 1 }); // log: analytics metadata must be number|boolean
 	const configs = await getAllMcpConfigs();
 	const serverConfig = configs.servers[name];
 	if (!serverConfig) {
@@ -457,7 +457,7 @@ export async function mcpLoginHandler(name: string): Promise<void> {
 }
 
 export async function mcpLogoutHandler(name: string): Promise<void> {
-	logEvent("tengu_mcp_logout", { name: 1 }); // log: analytics metadata must be number|boolean
+	logEvent("fusion_mcp_logout", { name: 1 }); // log: analytics metadata must be number|boolean
 	try {
 		const configs = await getAllMcpConfigs();
 		const serverConfig = configs.servers[name];

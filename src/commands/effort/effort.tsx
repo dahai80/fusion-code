@@ -37,7 +37,7 @@ function setEffortValue(effortValue: EffortValue): EffortCommandResult {
 			};
 		}
 	}
-	logEvent("tengu_effort_command", {
+	logEvent("fusion_effort_command", {
 		effort:
 			effortValue as AnalyticsMetadata_I_VERIFIED_THIS_IS_NOT_CODE_OR_FILEPATHS,
 	});
@@ -99,7 +99,7 @@ function unsetEffortLevel(): EffortCommandResult {
 			message: `Failed to set effort level: ${result.error.message}`,
 		};
 	}
-	logEvent("tengu_effort_command", {
+	logEvent("fusion_effort_command", {
 		effort:
 			"auto" as AnalyticsMetadata_I_VERIFIED_THIS_IS_NOT_CODE_OR_FILEPATHS,
 	});

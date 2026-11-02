@@ -10,6 +10,6 @@ import { getFeatureValue_CACHED_MAY_BE_STALE } from "../services/analytics/index
 export function shouldInferenceConfigCommandBeImmediate(): boolean {
 	return (
 		process.env.USER_TYPE === "ant" ||
-		getFeatureValue_CACHED_MAY_BE_STALE("tengu_immediate_model_command", false)
+		getFeatureValue_CACHED_MAY_BE_STALE("fusion_immediate_model_command", false)
 	);
 }

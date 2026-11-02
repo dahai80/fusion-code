@@ -589,8 +589,7 @@ function OverviewTab({
 				</Box>
 				<Box flexDirection="column" width={28}>
 					<Text wrap="truncate">
-						Total tokens:{" "}
-						<Text color="brand">{formatNumber(totalTokens)}</Text>
+						Total tokens: <Text color="brand">{formatNumber(totalTokens)}</Text>
 					</Text>
 				</Box>
 			</Box>
@@ -732,8 +731,7 @@ function OverviewTab({
 					<Box flexDirection="row" gap={4}>
 						<Box flexDirection="column" width={28}>
 							<Text wrap="truncate">
-								Avg/session:{" "}
-								<Text color="brand">{shotStatsData.avgShots}</Text>
+								Avg/session: <Text color="brand">{shotStatsData.avgShots}</Text>
 							</Text>
 						</Box>
 					</Box>

@@ -12,7 +12,7 @@ export const call: LocalJSXCommandCall = async (onDone, _context, args) => {
 		return null;
 	}
 
-	logEvent("tengu_subtask", { description: 1 }); // log: analytics metadata must be number|boolean
+	logEvent("fusion_subtask", { description: 1 }); // log: analytics metadata must be number|boolean
 	logForDebugging(`[Subtask] Creating subtask: ${trimmed}`);
 
 	onDone(`Subtask: ${trimmed}`, {

@@ -164,7 +164,7 @@ export function logHeadlessProfilerTurn(): void {
 	// Log to Statsig if sampled
 	if (STATSIG_LOGGING_SAMPLED) {
 		logEvent(
-			"tengu_headless_latency",
+			"fusion_headless_latency",
 			metadata as AnalyticsMetadata_I_VERIFIED_THIS_IS_NOT_CODE_OR_FILEPATHS,
 		);
 	}

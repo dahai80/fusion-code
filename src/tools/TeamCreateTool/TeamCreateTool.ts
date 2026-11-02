@@ -188,7 +188,7 @@ export const TeamCreateTool: Tool<InputSchema, Output> = buildTool({
 			},
 		}));
 
-		logEvent("tengu_team_created", {
+		logEvent("fusion_team_created", {
 			team_name: finalTeamName as unknown as number, // log: LogEventMetadata only allows boolean|number|undefined
 			teammate_count: 1,
 			lead_agent_type: leadAgentType as unknown as number, // log: same

@@ -128,7 +128,7 @@ export function registerMcpAddCommand(mcp: Command): void {
 					actualCommand.endsWith("/sse") ||
 					actualCommand.endsWith("/mcp");
 
-				logEvent("tengu_mcp_add", {
+				logEvent("fusion_mcp_add", {
 					type: transport as AnalyticsMetadata_I_VERIFIED_THIS_IS_NOT_CODE_OR_FILEPATHS,
 					scope:
 						scope as AnalyticsMetadata_I_VERIFIED_THIS_IS_NOT_CODE_OR_FILEPATHS,

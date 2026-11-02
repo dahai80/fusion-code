@@ -303,7 +303,6 @@ async function fetchPolicyLimits(
 	cachedChecksum?: string,
 ): Promise<PolicyLimitsFetchResult> {
 	try {
-
 		const authHeaders = getAuthHeaders();
 		if (authHeaders.error) {
 			return {

@@ -548,7 +548,7 @@ export function detectBlockedSleepPattern(command: string): string | null {
 /**
  * Checks if a command contains tools that shouldn't run in sandbox
  * This includes:
- * - Dynamic config-based disabled commands and substrings (tengu_sandbox_disabled_commands)
+ * - Dynamic config-based disabled commands and substrings (fusion_sandbox_disabled_commands)
  * - User-configured commands from settings.json (sandbox.excludedCommands)
  *
  * User-configured commands support the same pattern syntax as permission rules:
@@ -1007,7 +1007,7 @@ export const BashTool = buildTool({
 
 			// Check for git index.lock error (stderr is in stdout now)
 			if (result.stdout?.includes(".git/index.lock': File exists")) {
-				logEvent("tengu_git_index_lock_error", {});
+				logEvent("fusion_git_index_lock_error", {});
 			}
 			if (interpretationResult.isError && !isInterrupt) {
 				// Only add exit code if it's actually an error
@@ -1089,7 +1089,7 @@ export const BashTool = buildTool({
 			}
 		}
 		const commandType = input.command.split(" ")[0];
-		logEvent("tengu_bash_tool_command_executed", {
+		logEvent("fusion_bash_tool_command_executed", {
 			command_type:
 				commandType as AnalyticsMetadata_I_VERIFIED_THIS_IS_NOT_CODE_OR_FILEPATHS,
 			stdout_length: stdout.length,
@@ -1101,7 +1101,7 @@ export const BashTool = buildTool({
 		// Log code indexing tool usage
 		const codeIndexingTool = detectCodeIndexingFromCommand(input.command);
 		if (codeIndexingTool) {
-			logEvent("tengu_code_indexing_tool_used", {
+			logEvent("fusion_code_indexing_tool_used", {
 				tool: codeIndexingTool as AnalyticsMetadata_I_VERIFIED_THIS_IS_NOT_CODE_OR_FILEPATHS,
 				source:
 					"cli" as AnalyticsMetadata_I_VERIFIED_THIS_IS_NOT_CODE_OR_FILEPATHS,
@@ -1337,7 +1337,7 @@ async function* runShellCommand({
 	if (shellCommand.onTimeout && shouldAutoBackground) {
 		shellCommand.onTimeout((backgroundFn) => {
 			startBackgrounding(
-				"tengu_bash_command_timeout_backgrounded",
+				"fusion_bash_command_timeout_backgrounded",
 				backgroundFn,
 			);
 		});
@@ -1359,7 +1359,7 @@ async function* runShellCommand({
 				backgroundShellId === undefined
 			) {
 				assistantAutoBackgrounded = true;
-				startBackgrounding("tengu_bash_command_assistant_auto_backgrounded");
+				startBackgrounding("fusion_bash_command_assistant_auto_backgrounded");
 			}
 		}, ASSISTANT_BLOCKING_BUDGET_MS).unref();
 	}
@@ -1370,7 +1370,7 @@ async function* runShellCommand({
 	// Skip if background tasks are disabled - run in foreground instead
 	if (run_in_background === true && !isBackgroundTasksDisabled) {
 		const shellId = await spawnBackgroundTask();
-		logEvent("tengu_bash_command_explicitly_backgrounded", {
+		logEvent("fusion_bash_command_explicitly_backgrounded", {
 			command_type: getCommandTypeForLogging(command),
 		});
 		return {

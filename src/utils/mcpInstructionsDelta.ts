@@ -41,7 +41,7 @@ export function isMcpInstructionsDeltaEnabled(): boolean {
 	if (isEnvDefinedFalsy(process.env.FUSION_CODE_MCP_INSTR_DELTA)) return false;
 	return (
 		process.env.USER_TYPE === "ant" ||
-		getFeatureValue_CACHED_MAY_BE_STALE("tengu_basalt_3kr", false)
+		getFeatureValue_CACHED_MAY_BE_STALE("fusion_basalt_3kr", false)
 	);
 }
 
@@ -115,9 +115,9 @@ export function getMcpInstructionsDelta(
 
 	if (added.length === 0 && removed.length === 0) return null;
 
-	// Same diagnostic fields as tengu_deferred_tools_pool_change — same
+	// Same diagnostic fields as fusion_deferred_tools_pool_change — same
 	// scan-fails-in-prod bug, same attachment persistence path.
-	logEvent("tengu_mcp_instructions_pool_change", {
+	logEvent("fusion_mcp_instructions_pool_change", {
 		addedCount: added.length,
 		removedCount: removed.length,
 		priorAnnouncedCount: announced.size,

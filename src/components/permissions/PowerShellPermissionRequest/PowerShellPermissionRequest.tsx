@@ -61,7 +61,7 @@ export function PowerShellPermissionRequest(
 		explainerVisible: explainerState.visible,
 	});
 	const destructiveWarning = getFeatureValue_CACHED_MAY_BE_STALE(
-		"tengu_destructive_command_warning",
+		"fusion_destructive_command_warning",
 		false,
 	)
 		? getDestructiveCommandWarning(command)
@@ -154,7 +154,7 @@ export function PowerShellPermissionRequest(
 			"yes-prefix-edited": 2,
 			no: 3,
 		};
-		logEvent("tengu_permission_request_option_selected", {
+		logEvent("fusion_permission_request_option_selected", {
 			option_index: optionIndex[value],
 			explainer_visible: explainerState.visible,
 		});
@@ -190,7 +190,7 @@ export function PowerShellPermissionRequest(
 				const trimmedFeedback = acceptFeedback.trim();
 				logUnaryPermissionEvent("tool_use_single", toolUseConfirm, "accept");
 				// Log accept submission with feedback context
-				logEvent("tengu_accept_submitted", {
+				logEvent("fusion_accept_submitted", {
 					toolName: toolNameForAnalytics,
 					isMcp: toolUseConfirm.tool.isMcp ?? false,
 					has_instructions: !!trimmedFeedback,
@@ -220,7 +220,7 @@ export function PowerShellPermissionRequest(
 				const trimmedFeedback = rejectFeedback.trim();
 
 				// Log reject submission with feedback context
-				logEvent("tengu_reject_submitted", {
+				logEvent("fusion_reject_submitted", {
 					toolName: toolNameForAnalytics,
 					isMcp: toolUseConfirm.tool.isMcp ?? false,
 					has_instructions: !!trimmedFeedback,

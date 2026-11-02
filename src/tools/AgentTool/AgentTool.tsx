@@ -160,7 +160,7 @@ function getAutoBackgroundMs(): number {
 	}
 	if (
 		isEnvTruthy(process.env.CLAUDE_AUTO_BACKGROUND_TASKS) ||
-		getFeatureValue_CACHED_MAY_BE_STALE("tengu_auto_background_agents", false)
+		getFeatureValue_CACHED_MAY_BE_STALE("fusion_auto_background_agents", false)
 	) {
 		return 120_000;
 	}
@@ -675,7 +675,7 @@ export const AgentTool = buildTool({
 			isForkPath ? undefined : model,
 			permissionMode,
 		);
-		logEvent("tengu_agent_tool_selected", {
+		logEvent("fusion_agent_tool_selected", {
 			agent_type:
 				selectedAgent.agentType as AnalyticsMetadata_I_VERIFIED_THIS_IS_NOT_CODE_OR_FILEPATHS,
 			model:
@@ -755,7 +755,7 @@ export const AgentTool = buildTool({
 
 				// Log agent memory loaded event for subagents
 				if (selectedAgent.memory) {
-					logEvent("tengu_agent_memory_loaded", {
+					logEvent("fusion_agent_memory_loaded", {
 						...(isInternalBuild() && {
 							agent_type:
 								selectedAgent.agentType as AnalyticsMetadata_I_VERIFIED_THIS_IS_NOT_CODE_OR_FILEPATHS,
@@ -1380,7 +1380,7 @@ export const AgentTool = buildTool({
 												// Transition status BEFORE worktree cleanup so
 												// TaskOutput unblocks even if git hangs (gh-20236).
 												killAsyncAgent(backgroundedTaskId, rootSetAppState);
-												logEvent("tengu_agent_tool_terminated", {
+												logEvent("fusion_agent_tool_terminated", {
 													agent_type:
 														metadata.agentType as AnalyticsMetadata_I_VERIFIED_THIS_IS_NOT_CODE_OR_FILEPATHS,
 													model:
@@ -1551,7 +1551,7 @@ export const AgentTool = buildTool({
 						// AbortError should be re-thrown for proper interruption handling
 						if (error instanceof AbortError) {
 							wasAborted = true;
-							logEvent("tengu_agent_tool_terminated", {
+							logEvent("fusion_agent_tool_terminated", {
 								agent_type:
 									metadata.agentType as AnalyticsMetadata_I_VERIFIED_THIS_IS_NOT_CODE_OR_FILEPATHS,
 								model:
@@ -1637,7 +1637,7 @@ export const AgentTool = buildTool({
 						(_) => _.type !== "system" && _.type !== "progress",
 					);
 					if (lastMessage && isSyntheticMessage(lastMessage)) {
-						logEvent("tengu_agent_tool_terminated", {
+						logEvent("fusion_agent_tool_terminated", {
 							agent_type:
 								metadata.agentType as AnalyticsMetadata_I_VERIFIED_THIS_IS_NOT_CODE_OR_FILEPATHS,
 							model:

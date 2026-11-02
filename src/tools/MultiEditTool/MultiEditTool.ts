@@ -387,7 +387,7 @@ export const MultiEditTool = buildTool({
 					});
 				}
 
-				logEvent("tengu_multi_edit", {
+				logEvent("fusion_multi_edit", {
 					editCount: fileEdits.length,
 					fileCount: editsByFile.size,
 				});
