@@ -419,7 +419,7 @@ function NotificationContent({
 							? "Gateway not available · Run `fusion service start mlx` or set FUSION_CLIENT_KEY"
 							: !isAnthropicAuthEnabled()
 								? "API key missing · Set FUSION_CLIENT_KEY or configure a provider"
-								: "Not logged in · Run /login"}
+								: "API key missing · Set FUSION_CLIENT_KEY"}
 					</Text>
 				</Box>
 			)}

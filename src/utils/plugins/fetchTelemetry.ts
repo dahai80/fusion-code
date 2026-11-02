@@ -68,12 +68,12 @@ function extractHost(urlOrSpec: string): string {
 }
 
 /**
- * True if the URL/spec points at anthropics/claude-plugins-official — the
- * repo GitHub complained about. Lets the dashboard separate "our problem"
- * traffic from user-configured marketplaces.
+ * True if the URL/spec points at the official Fusion plugins marketplace
+ * repo. Lets the dashboard separate "our problem" traffic from
+ * user-configured marketplaces.
  */
 function isOfficialRepo(urlOrSpec: string): boolean {
-	return urlOrSpec.includes(`anthropics/${OFFICIAL_MARKETPLACE_NAME}`);
+	return urlOrSpec.includes("dahai80/fusion-plugins-official");
 }
 
 export function logPluginFetch(

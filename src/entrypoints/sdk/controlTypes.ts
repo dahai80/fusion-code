@@ -138,15 +138,9 @@ export type McpServerConfigForProcessTransport =
 	| McpHttpServerConfig
 	| McpSdkServerConfig;
 
-export type McpClaudeAIProxyServerConfig = {
-	type: "claudeai-proxy";
-	url: string;
-	id: string;
-};
-
 export type McpServerStatusConfig =
 	| McpServerConfigForProcessTransport
-	| McpClaudeAIProxyServerConfig;
+;
 
 export type McpToolInfo = {
 	name: string;

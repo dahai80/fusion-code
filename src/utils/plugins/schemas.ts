@@ -13,10 +13,14 @@ import { lazySchema } from "../lazySchema.js";
  */
 
 /**
- * Official marketplace names that are reserved for Anthropic/Claude official use.
+ * Official marketplace names that are reserved for first-party use
+ * (Fusion-Code official marketplaces, plus legacy upstream names kept
+ * reserved to prevent third-party squatting).
  * These names are allowed ONLY for official marketplaces and blocked for third parties.
  */
 export const ALLOWED_OFFICIAL_MARKETPLACE_NAMES = new Set([
+	"fusion-plugins-official",
+	"fusion-code-marketplace",
 	"claude-code-marketplace",
 	"claude-code-plugins",
 	"claude-plugins-official",

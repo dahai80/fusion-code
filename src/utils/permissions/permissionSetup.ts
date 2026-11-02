@@ -1063,7 +1063,7 @@ export function getAutoModeUnavailableNotification(
 			break;
 	}
 	return process.env.USER_TYPE === "ant"
-		? `${base} · #claude-code-feedback`
+		? `${base}`
 		: base;
 }
 

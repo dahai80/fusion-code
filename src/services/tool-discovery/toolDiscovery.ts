@@ -50,7 +50,6 @@ const TOOL_TIER_MAP: Record<string, ToolTier> = {
 	Sleep: "extended",
 	CtxInspect: "extended",
 	Workflow: "extended",
-	DesignSync: "extended",
 	CronCreate: "extended",
 	CronDelete: "extended",
 	CronList: "extended",

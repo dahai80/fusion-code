@@ -150,19 +150,11 @@ export const McpServerConfigForProcessTransportSchema = lazySchema(() =>
 	]),
 );
 
-export const McpClaudeAIProxyServerConfigSchema = lazySchema(() =>
-	z.object({
-		type: z.literal("claudeai-proxy"),
-		url: z.string(),
-		id: z.string(),
-	}),
-);
 
 // Broader config type for status responses (includes claudeai-proxy which is output-only)
 export const McpServerStatusConfigSchema = lazySchema(() =>
 	z.union([
 		McpServerConfigForProcessTransportSchema(),
-		McpClaudeAIProxyServerConfigSchema(),
 	]),
 );
 
@@ -1362,7 +1354,7 @@ export const SDKRateLimitInfoSchema = lazySchema(() =>
 			isUsingOverage: z.boolean().optional(),
 			surpassedThreshold: z.number().optional(),
 		})
-		.describe("Rate limit information for claude.ai subscription users."),
+		.describe("Rate limit information for subscription users."),
 );
 
 export const SDKAssistantMessageSchema = lazySchema(() =>

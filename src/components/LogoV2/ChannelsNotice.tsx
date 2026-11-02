@@ -93,7 +93,7 @@ export function ChannelsNotice() {
 		if ($[9] === Symbol.for("react.memo_cache_sentinel")) {
 			t2 = (
 				<Text dimColor={true}>
-					Channels require claude.ai authentication · run /login, then restart
+					Channels require channel configuration · see docs/channels.md
 				</Text>
 			);
 			$[9] = t2;

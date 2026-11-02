@@ -22,7 +22,6 @@ import type { OAuthTokens, SubscriptionType } from "../services/oauth/index.js";
 import {
 	getOauthProfileFromOauthToken,
 	isOAuthTokenExpired,
-	refreshOAuthToken,
 	shouldUseClaudeAIAuth,
 } from "../services/oauth/index.js";
 import {
@@ -1532,8 +1531,10 @@ async function handleOAuth401ErrorImpl(
 		return true;
 	}
 
-	// Same token that failed - force refresh, bypassing local expiration check
-	return checkAndRefreshOAuthTokenIfNeeded(0, true);
+	// Same token that failed. Token refresh machinery was removed with the
+	// OAuth login stack (P2 1102 cleanup) — legacy tokens cannot be refreshed,
+	// so surface the 401.
+	return false;
 }
 
 /**
@@ -1563,151 +1564,6 @@ export async function getClaudeAIOAuthTokensAsync(): Promise<OAuthTokens | null>
 	} catch (error) {
 		logError(error);
 		return null;
-	}
-}
-
-// In-flight promise for deduplicating concurrent calls
-let pendingRefreshCheck: Promise<boolean> | null = null;
-
-export function checkAndRefreshOAuthTokenIfNeeded(
-	retryCount = 0,
-	force = false,
-): Promise<boolean> {
-	// Deduplicate concurrent non-retry, non-force calls
-	if (retryCount === 0 && !force) {
-		if (pendingRefreshCheck) {
-			return pendingRefreshCheck;
-		}
-
-		const promise = checkAndRefreshOAuthTokenIfNeededImpl(retryCount, force);
-		pendingRefreshCheck = promise.finally(() => {
-			pendingRefreshCheck = null;
-		});
-		return pendingRefreshCheck;
-	}
-
-	return checkAndRefreshOAuthTokenIfNeededImpl(retryCount, force);
-}
-
-async function checkAndRefreshOAuthTokenIfNeededImpl(
-	retryCount: number,
-	force: boolean,
-): Promise<boolean> {
-	// Fusion-MLX 本地模式：无需 OAuth 认证
-	if (isFusionMlxProvider()) {
-		return false;
-	}
-
-	const MAX_RETRIES = 5;
-
-	await invalidateOAuthCacheIfDiskChanged();
-
-	// First check if token is expired with cached value
-	// Skip this check if force=true (server already told us token is bad)
-	const tokens = getClaudeAIOAuthTokens();
-	if (!force) {
-		if (!tokens?.refreshToken || !isOAuthTokenExpired(tokens.expiresAt)) {
-			return false;
-		}
-	}
-
-	if (!tokens?.refreshToken) {
-		return false;
-	}
-
-	if (!shouldUseClaudeAIAuth(tokens.scopes)) {
-		return false;
-	}
-
-	// Re-read tokens async to check if they're still expired
-	// Another process might have refreshed them
-	getClaudeAIOAuthTokens.cache?.clear?.();
-	clearKeychainCache();
-	const freshTokens = await getClaudeAIOAuthTokensAsync();
-	if (
-		!freshTokens?.refreshToken ||
-		!isOAuthTokenExpired(freshTokens.expiresAt)
-	) {
-		return false;
-	}
-
-	// Tokens are still expired, try to acquire lock and refresh
-	const claudeDir = getClaudeConfigHomeDir();
-	await mkdir(claudeDir, { recursive: true });
-
-	let release: (() => Promise<void>) | undefined;
-	try {
-		logEvent("tengu_oauth_token_refresh_lock_acquiring", {});
-		release = await lockfile.lock(claudeDir);
-		logEvent("tengu_oauth_token_refresh_lock_acquired", {});
-	} catch (err) {
-		if ((err as { code?: string }).code === "ELOCKED") {
-			// Another process has the lock, let's retry if we haven't exceeded max retries
-			if (retryCount < MAX_RETRIES) {
-				logEvent("tengu_oauth_token_refresh_lock_retry", {
-					retryCount: retryCount + 1,
-				});
-				// Wait a bit before retrying
-				await sleep(1000 + Math.random() * 1000);
-				return checkAndRefreshOAuthTokenIfNeededImpl(retryCount + 1, force);
-			}
-			logEvent("tengu_oauth_token_refresh_lock_retry_limit_reached", {
-				maxRetries: MAX_RETRIES,
-			});
-			return false;
-		}
-		logError(err);
-		logEvent("tengu_oauth_token_refresh_lock_error", {
-			error: errorMessage(
-				err,
-			) as AnalyticsMetadata_I_VERIFIED_THIS_IS_NOT_CODE_OR_FILEPATHS,
-		});
-		return false;
-	}
-	try {
-		// Check one more time after acquiring lock
-		getClaudeAIOAuthTokens.cache?.clear?.();
-		clearKeychainCache();
-		const lockedTokens = await getClaudeAIOAuthTokensAsync();
-		if (
-			!lockedTokens?.refreshToken ||
-			!isOAuthTokenExpired(lockedTokens.expiresAt)
-		) {
-			logEvent("tengu_oauth_token_refresh_race_resolved", {});
-			return false;
-		}
-
-		logEvent("tengu_oauth_token_refresh_starting", {});
-		const refreshedTokens = await refreshOAuthToken(lockedTokens.refreshToken, {
-			// For Claude.ai subscribers, omit scopes so the default
-			// CLAUDE_AI_OAUTH_SCOPES applies — this allows scope expansion
-			// (e.g. adding user:file_upload) on refresh without re-login.
-			scopes: shouldUseClaudeAIAuth(lockedTokens.scopes)
-				? undefined
-				: lockedTokens.scopes,
-		});
-		saveOAuthTokensIfNeeded(refreshedTokens);
-
-		// Clear the cache after refreshing token
-		getClaudeAIOAuthTokens.cache?.clear?.();
-		clearKeychainCache();
-		return true;
-	} catch (error) {
-		logError(error);
-
-		getClaudeAIOAuthTokens.cache?.clear?.();
-		clearKeychainCache();
-		const currentTokens = await getClaudeAIOAuthTokensAsync();
-		if (currentTokens && !isOAuthTokenExpired(currentTokens.expiresAt)) {
-			logEvent("tengu_oauth_token_refresh_race_recovered", {});
-			return true;
-		}
-
-		return false;
-	} finally {
-		logEvent("tengu_oauth_token_refresh_lock_releasing", {});
-		await release();
-		logEvent("tengu_oauth_token_refresh_lock_released", {});
 	}
 }
 
@@ -2082,10 +1938,6 @@ export async function validateForceLoginOrg(): Promise<OrgValidationResult> {
 	if (!requiredOrgUuid) {
 		return { valid: true };
 	}
-
-	// Ensure the access token is fresh before hitting the profile endpoint.
-	// No-op for env-var tokens (refreshToken is null).
-	await checkAndRefreshOAuthTokenIfNeeded();
 
 	const tokens = getClaudeAIOAuthTokens();
 	if (!tokens) {

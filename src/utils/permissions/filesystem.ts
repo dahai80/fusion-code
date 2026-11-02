@@ -301,30 +301,30 @@ export function isScratchpadEnabled(): boolean {
 }
 
 /**
- * Returns the user-specific Claude temp directory name.
- * On Unix: 'claude-{uid}' to prevent multi-user permission conflicts
- * On Windows: 'claude' (tmpdir() is already per-user)
+ * Returns the user-specific Fusion temp directory name.
+ * On Unix: 'fusion-{uid}' to prevent multi-user permission conflicts
+ * On Windows: 'fusion' (tmpdir() is already per-user)
  */
 export function getClaudeTempDirName(): string {
 	if (getPlatform() === "windows") {
-		return "claude";
+		return "fusion";
 	}
 	// Use UID to create per-user directories, preventing permission conflicts
 	// when multiple users share the same /tmp directory
 	const uid = process.getuid?.() ?? 0;
-	return `claude-${uid}`;
+	return `fusion-${uid}`;
 }
 
 /**
  * Returns the Claude temp directory path with symlinks resolved.
  * Uses TMPDIR env var if set, otherwise:
- * - On Unix: /tmp/claude-{uid}/ (resolved to /private/tmp/claude-{uid}/ on macOS)
- * - On Windows: {tmpdir}/claude/ (e.g., C:\Users\{user}\AppData\Local\Temp\claude\)
+ * - On Unix: /tmp/fusion-{uid}/ (resolved to /private/tmp/fusion-{uid}/ on macOS)
+ * - On Windows: {tmpdir}/fusion/ (e.g., C:\Users\{user}\AppData\Local\Temp\fusione\)
  * This is a per-user temporary directory used by Fusion-Code for all temp files.
  *
  * NOTE: We resolve symlinks to ensure this path matches the resolved paths used
  * in permission checks. On macOS, /tmp is a symlink to /private/tmp, so without
- * resolution, paths like /tmp/claude-{uid}/... wouldn't match /private/tmp/claude-{uid}/...
+ * resolution, paths like /tmp/fusion-{uid}/... wouldn't match /private/tmp/fusion-{uid}/...
  */
 // Memoized: called per-tool from permission checks (yoloClassifier, sandbox-adapter)
 // and per-turn from BashTool prompt. Inputs (FUSION_CODE_TMPDIR env + platform) are

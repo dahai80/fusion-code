@@ -41,11 +41,11 @@ export function createWhatsNewFeed(releaseNotes: string[]): FeedConfig {
 		};
 	});
 	const emptyMessage = isInternalBuild()
-		? "Unable to fetch latest claude-cli-internal commits"
+		? "Unable to fetch latest commits"
 		: "Check the Fusion Code changelog for updates";
 	return {
 		title: isInternalBuild()
-			? "What's new [ANT-ONLY: Latest CC commits]"
+			? "What's new [commits]"
 			: "What's new",
 		lines,
 		footer:
@@ -65,7 +65,7 @@ export function createProjectOnboardingFeed(steps: Step[]): FeedConfig {
 	});
 	const warningText =
 		getCwd() === homedir()
-			? "Note: You have launched claude in your home directory. For the best experience, launch it in a project directory instead."
+			? "Note: You have launched Fusion-Code in your home directory. For the best experience, launch it in a project directory instead."
 			: undefined;
 	if (warningText) {
 		lines.push({

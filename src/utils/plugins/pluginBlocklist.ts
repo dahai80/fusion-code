@@ -28,7 +28,7 @@ import type { InstalledPluginsFileV2, PluginMarketplace } from "./schemas.js";
  *
  * @param installedPlugins All installed plugins
  * @param marketplace The marketplace to check against
- * @param marketplaceName The marketplace name suffix (e.g. "claude-plugins-official")
+ * @param marketplaceName The marketplace name suffix (e.g. "fusion-plugins-official")
  * @returns List of delisted plugin IDs in "name@marketplace" format
  */
 export function detectDelistedPlugins(

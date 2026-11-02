@@ -384,7 +384,7 @@ const LABEL_MAP: Record<string, string> = {
 	wrong_approach: "Wrong Approach",
 	buggy_code: "Buggy Code",
 	user_rejected_action: "User Rejected Action",
-	claude_got_blocked: "Claude Got Blocked",
+	claude_got_blocked: "Agent Got Blocked",
 	user_stopped_early: "User Stopped Early",
 	wrong_file_or_location: "Wrong File/Location",
 	excessive_changes: "Excessive Changes",
@@ -439,8 +439,8 @@ const FACET_EXTRACTION_PROMPT = `Analyze this Fusion-Code session and extract st
 CRITICAL GUIDELINES:
 
 1. **goal_categories**: Count ONLY what the USER explicitly asked for.
-   - DO NOT count Claude's autonomous codebase exploration
-   - DO NOT count work Claude decided to do on its own
+   - DO NOT count the agent's autonomous codebase exploration
+   - DO NOT count work the agent decided to do on its own
    - ONLY count when user says "can you...", "please...", "I need...", "let's..."
 
 2. **user_satisfaction_counts**: Base ONLY on explicit user signals.
@@ -451,7 +451,7 @@ CRITICAL GUIDELINES:
    - "this is broken", "I give up" → frustrated
 
 3. **friction_counts**: Be specific about what went wrong.
-   - misunderstood_request: Claude interpreted incorrectly
+   - misunderstood_request: the agent interpreted incorrectly
    - wrong_approach: Right goal, wrong solution method
    - buggy_code: Code didn't work correctly
    - user_rejected_action: User said no/stop to a tool call
@@ -879,7 +879,7 @@ function formatTranscriptForFacets(log: LogOption): string {
 
 const SUMMARIZE_CHUNK_PROMPT = `Summarize this portion of a Fusion-Code session transcript. Focus on:
 1. What the user asked for
-2. What Claude did (tools used, files modified)
+2. What the agent did (tools used, files modified)
 3. Any friction or issues
 4. The outcome
 
@@ -1408,8 +1408,8 @@ Include 3 friction categories with 2 examples each.`,
 		prompt: `Analyze this Fusion-Code usage data and suggest improvements.
 
 ## CC FEATURES REFERENCE (pick from these for features_to_try):
-1. **MCP Servers**: Connect Claude to external tools, databases, and APIs via Model Context Protocol.
-   - How to use: Run \`claude mcp add <server-name> -- <command>\`
+1. **MCP Servers**: Connect Fusion-Code to external tools, databases, and APIs via Model Context Protocol.
+   - How to use: Run \`fusion mcp add <server-name> -- <command>\`
    - Good for: database queries, Slack integration, GitHub issue lookup, connecting to internal APIs
 
 2. **Custom Skills**: Reusable prompts you define as markdown files that run with a single /command.
@@ -1420,11 +1420,11 @@ Include 3 friction categories with 2 examples each.`,
    - How to use: Add to \`.claude/settings.json\` under "hooks" key.
    - Good for: auto-formatting code, running type checks, enforcing conventions
 
-4. **Headless Mode**: Run Claude non-interactively from scripts and CI/CD.
-   - How to use: \`claude -p "fix lint errors" --allowedTools "Edit,Read,Bash"\`
+4. **Headless Mode**: Run Fusion-Code non-interactively from scripts and CI/CD.
+   - How to use: \`fusion -p "fix lint errors" --allowedTools "Edit,Read,Bash"\`
    - Good for: CI/CD integration, batch code fixes, automated reviews
 
-5. **Task Agents**: Claude spawns focused sub-agents for complex exploration or parallel work.
+5. **Task Agents**: Fusion-Code spawns focused sub-agents for complex exploration or parallel work.
    - How to use: Claude auto-invokes when helpful, or ask "use an agent to explore X"
    - Good for: codebase exploration, understanding complex systems
 

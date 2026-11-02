@@ -133,7 +133,6 @@ import btw from "./commands/btw/index.js";
 import approveSession from "./commands/approve-session/index.js";
 import focus from "./commands/focus/index.js";
 import tui from "./commands/tui/index.js";
-import feedback from "./commands/feedback/index.jsx";
 import skills from "./commands/skills/index.jsx";
 import screenReader from "./commands/screen-reader/index.js";
 // insights.ts is 113KB (3200 lines, includes diffLines/html rendering). Lazy
@@ -208,7 +207,6 @@ const COMMANDS = memoize((): Command[] => [
 	env,
 	exit,
 	fast,
-	feedback,
 	focus,
 	goal,
 	health,

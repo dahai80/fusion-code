@@ -2,7 +2,6 @@ import React, { useEffect } from "react";
 import { c as _c } from "react/compiler-runtime";
 import type { CommandResultDisplay } from "../../commands.js";
 import type {
-	McpClaudeAIProxyServerConfig,
 	McpHTTPServerConfig,
 	McpSSEServerConfig,
 	McpStdioServerConfig,
@@ -15,7 +14,6 @@ import {
 import { useAppState } from "../../state/AppState.js";
 import { MCPAgentServerMenu } from "./MCPAgentServerMenu.js";
 import { MCPListPanel } from "./MCPListPanel.js";
-import { MCPRemoteServerMenu } from "./MCPRemoteServerMenu.js";
 import { MCPStdioServerMenu } from "./MCPStdioServerMenu.js";
 import { MCPToolDetailView } from "./MCPToolDetailView.js";
 import { MCPToolListView } from "./MCPToolListView.js";
@@ -82,8 +80,7 @@ export function MCPSettings(t0) {
 						const scope = client_0.config.scope;
 						const isSSE = client_0.config.type === "sse";
 						const isHTTP = client_0.config.type === "http";
-						const isClaudeAIProxy = client_0.config.type === "claudeai-proxy";
-						let isAuthenticated = undefined;
+											let isAuthenticated = undefined;
 						if (isSSE || isHTTP) {
 							const authProvider = new ClaudeAuthProvider(
 								client_0.name,
@@ -100,14 +97,7 @@ export function MCPSettings(t0) {
 							client: client_0,
 							scope,
 						};
-						if (isClaudeAIProxy) {
-							return {
-								...baseInfo,
-								transport: "claudeai-proxy" as const,
-								isAuthenticated: false,
-								config: client_0.config as McpClaudeAIProxyServerConfig,
-							};
-						} else {
+						{
 							if (isSSE) {
 								return {
 									...baseInfo,
@@ -248,10 +238,7 @@ export function MCPSettings(t0) {
 				t9 = $[25];
 			}
 			const serverTools_0 = t9;
-			const defaultTab =
-				viewState.server.transport === "claudeai-proxy"
-					? "claude.ai"
-					: "Fusion-Code";
+			const defaultTab = "Fusion-Code";
 			if (viewState.server.transport === "stdio") {
 				let t10;
 				if ($[26] !== viewState.server) {
@@ -337,15 +324,8 @@ export function MCPSettings(t0) {
 					$[43] !== t11 ||
 					$[44] !== viewState.server
 				) {
-					t12 = (
-						<MCPRemoteServerMenu
-							server={viewState.server}
-							serverToolsCount={serverTools_0.length}
-							onViewTools={t10}
-							onCancel={t11}
-							onComplete={onComplete}
-						/>
-					);
+					// MCPRemoteServerMenu removed with the claude.ai connectors stack.
+					t12 = null;
 					$[40] = onComplete;
 					$[41] = serverTools_0.length;
 					$[42] = t10;

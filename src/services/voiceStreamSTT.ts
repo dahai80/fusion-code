@@ -15,7 +15,6 @@ import type { ClientRequest, IncomingMessage } from "node:http";
 import WebSocket from "ws";
 import { getOauthConfig } from "../constants/oauth.js";
 import {
-	checkAndRefreshOAuthTokenIfNeeded,
 	getClaudeAIOAuthTokens,
 	isAnthropicAuthEnabled,
 } from "../utils/auth.js";
@@ -116,7 +115,6 @@ export async function connectVoiceStream(
 	options?: { language?: string; keyterms?: string[] },
 ): Promise<VoiceStreamConnection | null> {
 	// Ensure OAuth token is fresh before connecting
-	await checkAndRefreshOAuthTokenIfNeeded();
 
 	const tokens = getClaudeAIOAuthTokens();
 	if (!tokens?.accessToken) {
@@ -128,7 +126,7 @@ export async function connectVoiceStream(
 	// the api.anthropic.com listener (service_definitions.yaml private-api:
 	// visibility.external: true). We target that host instead of claude.ai
 	// because the claude.ai CF zone uses TLS fingerprinting and challenges
-	// non-browser clients (anthropics/claude-code#34094). Same private-api
+	// non-browser clients (upstream#34094). Same private-api
 	// pod, same OAuth Bearer auth — just a CF zone that doesn't block us.
 	// Desktop dictation still uses claude.ai (Swift URLSession has a
 	// browser-class JA3 fingerprint, so CF lets it through).
@@ -514,7 +512,7 @@ export async function connectVoiceStream(
 	ws.on("unexpected-response", (req: ClientRequest, res: IncomingMessage) => {
 		const status = res.statusCode ?? 0;
 		// Bun's ws implementation on Windows can fire this event for a
-		// successful 101 Switching Protocols response (anthropics/claude-code#40510).
+		// successful 101 Switching Protocols response (upstream#40510).
 		// 101 is never a rejection — bail before we destroy a working upgrade.
 		if (status === 101) {
 			logForDebugging(

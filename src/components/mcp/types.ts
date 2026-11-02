@@ -1,7 +1,6 @@
 import type {
 	ConfigScope,
 	MCPServerConnection,
-	McpClaudeAIProxyServerConfig,
 	McpHTTPServerConfig,
 	McpSSEServerConfig,
 	McpStdioServerConfig,
@@ -36,21 +35,11 @@ export type HTTPServerInfo = {
 	config: McpHTTPServerConfig;
 };
 
-export type ClaudeAIServerInfo = {
-	name: string;
-	client: MCPServerConnection;
-	scope: ConfigScope;
-	transport: "claudeai-proxy";
-	isAuthenticated: false;
-	config: McpClaudeAIProxyServerConfig;
-};
-
 export type ServerInfo =
 	| StdioServerInfo
 	| SSEServerInfo
 	| HTTPServerInfo
-	| ClaudeAIServerInfo;
-
+;
 // AgentMcpServerInfo: discriminated union on `transport`
 // Constructed in services/mcp/utils.ts extractAgentMcpServers()
 // Only stdio/sse/http/ws variants are produced

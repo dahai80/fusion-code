@@ -546,7 +546,7 @@ export function getAssistantMessageFromError(
 		// (e.g. 1M context without Extra Usage) and infra capacity 429s land here.
 		if (error.message.includes("Extra usage is required for long context")) {
 			const hint = getIsNonInteractiveSession()
-				? "enable extra usage at claude.ai/settings/usage, or use --model to switch to standard context"
+				? "enable extra usage with your provider, or use --model to switch to standard context"
 				: "run /extra-usage to enable, or /model to switch to standard context";
 			return createAssistantAPIErrorMessage({
 				content: `${API_ERROR_MESSAGE_PREFIX}: Extra usage is required for 1M context · ${hint}`,
@@ -770,7 +770,7 @@ export function getAssistantMessageFromError(
 	) {
 		// Get organization ID from config - only use OAuth account data when actively using OAuth
 		const orgId = getOauthAccountInfo()?.organizationUuid;
-		const baseMsg = `[ANT-ONLY] Your org isn't gated into the \`${model}\` model. Either run \`claude\` with \`FUSION_MODEL=${getDefaultMainLoopModelSetting()}\``;
+		const baseMsg = `Your org isn't gated into the \`${model}\` model. Either run \`fusion-code\` with \`FUSION_MODEL=${getDefaultMainLoopModelSetting()}\``;
 		const msg = orgId
 			? `${baseMsg} or share your orgId (${orgId}) in ${MACRO.FEEDBACK_CHANNEL} for help getting access.`
 			: `${baseMsg} or reach out in ${MACRO.FEEDBACK_CHANNEL} for help getting access.`;
@@ -1205,10 +1205,7 @@ export function getErrorMessageIfRefusal(
 		? `${API_ERROR_MESSAGE_PREFIX}: Fusion-Code is unable to respond to this request, which appears to violate our Usage Policy (https://www.anthropic.com/legal/aup). Try rephrasing the request or attempting a different approach.`
 		: `${API_ERROR_MESSAGE_PREFIX}: Fusion-Code is unable to respond to this request, which appears to violate our Usage Policy (https://www.anthropic.com/legal/aup). Please double press esc to edit your last message or start a new session for Fusion-Code to assist with a different task.`;
 
-	const modelSuggestion =
-		model !== "claude-sonnet-4-20250514"
-			? " If you are seeing this refusal repeatedly, try running /model claude-sonnet-4-20250514 to switch models."
-			: "";
+	const modelSuggestion = "";
 
 	return createAssistantAPIErrorMessage({
 		content: baseMessage + modelSuggestion,

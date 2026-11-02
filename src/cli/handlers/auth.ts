@@ -10,13 +10,6 @@ import {
 } from "../../services/analytics/index.js";
 import type { OAuthTokens } from "../../services/oauth/index.js";
 import {
-	createAndStoreApiKey,
-	fetchAndStoreUserRoles,
-	getOauthProfileFromOauthToken,
-	shouldUseClaudeAIAuth,
-	storeOAuthAccountInfo,
-} from "../../services/oauth/index.js";
-import {
 	clearOAuthTokenCache,
 	getAnthropicApiKeyWithSource,
 	getAuthTokenSource,
@@ -33,81 +26,6 @@ import {
 	buildAccountProperties,
 	buildAPIProviderProperties,
 } from "../../utils/status.js";
-
-/**
- * Returns true if the token carries any Anthropic-issued scope (user:* or org:*).
- * Codex tokens use OpenID Connect scopes (openid, profile, email, offline_access)
- * which are not Anthropic scopes, so this returns false for them.
- */
-function hasAnyAnthropicScope(scopes: string[] | undefined): boolean {
-	if (!scopes?.length) return false;
-	return scopes.some((s) => s.startsWith("user:") || s.startsWith("org:"));
-}
-
-/**
- * Shared post-token-acquisition logic. Saves tokens, fetches profile/roles,
- * and sets up the local auth state.
- */
-export async function installOAuthTokens(tokens: OAuthTokens): Promise<void> {
-	// Clear old state before saving new credentials
-	await performLogout({ clearOnboarding: false });
-
-	// Reuse pre-fetched profile if available, otherwise fetch fresh
-	const profile =
-		tokens.profile ?? (await getOauthProfileFromOauthToken(tokens.accessToken));
-	if (profile) {
-		storeOAuthAccountInfo({
-			accountUuid: profile.account.uuid,
-			emailAddress: profile.account.email,
-			organizationUuid: profile.organization.uuid,
-			displayName: profile.account.display_name || undefined,
-			hasExtraUsageEnabled:
-				profile.organization.has_extra_usage_enabled ?? undefined,
-			billingType: profile.organization.billing_type ?? undefined,
-			subscriptionCreatedAt:
-				profile.organization.subscription_created_at ?? undefined,
-			accountCreatedAt: profile.account.created_at,
-		});
-	} else if (tokens.tokenAccount) {
-		// Fallback to token exchange account data when profile endpoint fails
-		storeOAuthAccountInfo({
-			accountUuid: tokens.tokenAccount.uuid,
-			emailAddress: tokens.tokenAccount.emailAddress,
-			organizationUuid: tokens.tokenAccount.organizationUuid,
-		});
-	}
-
-	const storageResult = saveOAuthTokensIfNeeded(tokens);
-	clearOAuthTokenCache();
-
-	if (storageResult.warning) {
-		logEvent("tengu_oauth_storage_warning", {
-			warning:
-				storageResult.warning as AnalyticsMetadata_I_VERIFIED_THIS_IS_NOT_CODE_OR_FILEPATHS,
-		});
-	}
-
-	// Roles and first-token-date may fail for limited-scope tokens (e.g.
-	// inference-only from setup-token). They're not required for core auth.
-	await fetchAndStoreUserRoles(tokens.accessToken).catch((err) =>
-		logForDebugging(String(err), { level: "error" }),
-	);
-
-	if (
-		!shouldUseClaudeAIAuth(tokens.scopes) &&
-		hasAnyAnthropicScope(tokens.scopes)
-	) {
-		// API key creation is critical for Console users — let it throw.
-		const apiKey = await createAndStoreApiKey(tokens.accessToken);
-		if (!apiKey) {
-			throw new Error(
-				"Unable to create API key. The server accepted the request but did not return a key.",
-			);
-		}
-	}
-
-	await clearAuthRelatedCaches();
-}
 
 export async function authStatus(opts: {
 	json?: boolean;

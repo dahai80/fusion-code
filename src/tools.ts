@@ -70,7 +70,6 @@ import { DMailTool } from "./tools/DMailTool/DMailTool.js";
 import { CtxInspectTool } from "./tools/CtxInspectTool/CtxInspectTool.js";
 import { ReportFindingsTool } from "./tools/ReportFindingsTool/ReportFindingsTool.js";
 import { WorkflowTool } from "./tools/WorkflowTool/WorkflowTool.js";
-import { DesignSyncTool } from "./tools/DesignSyncTool/DesignSyncTool.js";
 import { CreateSessionSkillTool } from "./tools/CreateSessionSkillTool/CreateSessionSkillTool.js";
 import { isSessionSkillsEnabled } from "./tools/CreateSessionSkillTool/runtime.js";
 import { ListMcpResourcesTool } from "./tools/ListMcpResourcesTool/ListMcpResourcesTool.js";
@@ -205,7 +204,6 @@ export function getAllBaseTools(): Tools {
 		CtxInspectTool,
 		ReportFindingsTool,
 		WorkflowTool,
-		DesignSyncTool,
 		// P5.4 session skills: 会话级一次性技能 (in-memory, 不持久, 仅元数据审计)。
 		// 双门禁: feature("SESSION_SKILLS") 编译期 (CreateSessionSkillTool.isEnabled 内) +
 		// FUSION_CODE_SESSION_SKILLS_ENABLED 运行期 (此处 preset 门控 + isEnabled 二次校验)。

@@ -48,7 +48,6 @@ import type {
 	McpServerConfig,
 	ScopedMcpServerConfig,
 } from "./services/mcp/index.js";
-import { prefetchOfficialMcpUrls } from "./services/mcp/index.js";
 import {
 	loadPolicyLimits,
 	refreshPolicyLimits,
@@ -591,7 +590,6 @@ export function startDeferredPrefetches(): void {
 
 	// Analytics and feature flag initialization
 	void initializeAnalyticsGates();
-	void prefetchOfficialMcpUrls();
 	void refreshModelCapabilities();
 
 	// File change detectors deferred from init() to unblock first render
@@ -1582,7 +1580,6 @@ async function run(): Promise<CommanderCommand> {
 					"NotebookEdit",
 					"WebFetch",
 					"WebSearch",
-					"DesignSync",
 					"CronCreate",
 					"CronDelete",
 				];

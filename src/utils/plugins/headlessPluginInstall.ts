@@ -64,7 +64,7 @@ export async function installPluginsForHeadless(): Promise<boolean> {
 		await getFsImplementation().mkdir(getZipCachePluginsDir());
 	}
 
-	// Declared now includes an implicit claude-plugins-official entry when any
+	// Declared now includes an implicit fusion-plugins-official entry when any
 	// enabled plugin references it (see getDeclaredMarketplaces). This routes
 	// the official marketplace through the same reconciler path as any other —
 	// which composes correctly with FUSION_CODE_PLUGIN_SEED_DIR: seed registers

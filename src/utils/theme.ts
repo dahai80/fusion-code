@@ -4,11 +4,11 @@ import { env } from "./env.js";
 export type Theme = {
 	autoAccept: string;
 	bashBorder: string;
-	claude: string;
+	brand: string;
 	startupAccent: string;
-	claudeShimmer: string; // Lighter version of claude color for shimmer effect
-	claudeBlue_FOR_SYSTEM_SPINNER: string;
-	claudeBlueShimmer_FOR_SYSTEM_SPINNER: string;
+	brandShimmer: string; // Lighter version of brand color for shimmer effect
+	accentBlue_FOR_SYSTEM_SPINNER: string;
+	accentBlueShimmer_FOR_SYSTEM_SPINNER: string;
 	permission: string;
 	permissionShimmer: string; // Lighter version of permission color for shimmer effect
 	planMode: string;
@@ -116,11 +116,11 @@ export type ThemeSetting = (typeof THEME_SETTINGS)[number];
 const lightTheme: Theme = {
 	autoAccept: "rgb(135,0,255)", // Electric violet
 	bashBorder: "rgb(255,0,135)", // Vibrant pink
-	claude: "rgb(215,119,87)", // Claude orange
+	brand: "rgb(215,119,87)", // Brand orange
 	startupAccent: "rgb(124,176,133)", // Fusion-Code pastel green
-	claudeShimmer: "rgb(245,149,117)", // Lighter claude orange for shimmer effect
-	claudeBlue_FOR_SYSTEM_SPINNER: "rgb(87,105,247)", // Medium blue for system spinner
-	claudeBlueShimmer_FOR_SYSTEM_SPINNER: "rgb(117,135,255)", // Lighter blue for system spinner shimmer
+	brandShimmer: "rgb(245,149,117)", // Lighter brand orange for shimmer effect
+	accentBlue_FOR_SYSTEM_SPINNER: "rgb(87,105,247)", // Medium blue for system spinner
+	accentBlueShimmer_FOR_SYSTEM_SPINNER: "rgb(117,135,255)", // Lighter blue for system spinner shimmer
 	permission: "rgb(87,105,247)", // Medium blue
 	permissionShimmer: "rgb(137,155,255)", // Lighter blue for shimmer effect
 	planMode: "rgb(0,102,102)", // Muted teal
@@ -199,11 +199,11 @@ const lightTheme: Theme = {
 const lightAnsiTheme: Theme = {
 	autoAccept: "ansi:magenta",
 	bashBorder: "ansi:magenta",
-	claude: "ansi:redBright",
+	brand: "ansi:redBright",
 	startupAccent: "ansi:greenBright",
-	claudeShimmer: "ansi:yellowBright",
-	claudeBlue_FOR_SYSTEM_SPINNER: "ansi:blue",
-	claudeBlueShimmer_FOR_SYSTEM_SPINNER: "ansi:blueBright",
+	brandShimmer: "ansi:yellowBright",
+	accentBlue_FOR_SYSTEM_SPINNER: "ansi:blue",
+	accentBlueShimmer_FOR_SYSTEM_SPINNER: "ansi:blueBright",
 	permission: "ansi:blue",
 	permissionShimmer: "ansi:blueBright",
 	planMode: "ansi:cyan",
@@ -281,11 +281,11 @@ const lightAnsiTheme: Theme = {
 const darkAnsiTheme: Theme = {
 	autoAccept: "ansi:magentaBright",
 	bashBorder: "ansi:magentaBright",
-	claude: "ansi:redBright",
+	brand: "ansi:redBright",
 	startupAccent: "ansi:greenBright",
-	claudeShimmer: "ansi:yellowBright",
-	claudeBlue_FOR_SYSTEM_SPINNER: "ansi:blueBright",
-	claudeBlueShimmer_FOR_SYSTEM_SPINNER: "ansi:blueBright",
+	brandShimmer: "ansi:yellowBright",
+	accentBlue_FOR_SYSTEM_SPINNER: "ansi:blueBright",
+	accentBlueShimmer_FOR_SYSTEM_SPINNER: "ansi:blueBright",
 	permission: "ansi:blueBright",
 	permissionShimmer: "ansi:blueBright",
 	planMode: "ansi:cyanBright",
@@ -363,11 +363,11 @@ const darkAnsiTheme: Theme = {
 const lightDaltonizedTheme: Theme = {
 	autoAccept: "rgb(135,0,255)", // Electric violet
 	bashBorder: "rgb(0,102,204)", // Blue instead of pink
-	claude: "rgb(255,153,51)", // Orange adjusted for deuteranopia
+	brand: "rgb(255,153,51)", // Orange adjusted for deuteranopia
 	startupAccent: "rgb(124,176,133)", // Fusion-Code pastel green
-	claudeShimmer: "rgb(255,183,101)", // Lighter orange for shimmer effect
-	claudeBlue_FOR_SYSTEM_SPINNER: "rgb(51,102,255)", // Bright blue for system spinner
-	claudeBlueShimmer_FOR_SYSTEM_SPINNER: "rgb(101,152,255)", // Lighter bright blue for system spinner shimmer
+	brandShimmer: "rgb(255,183,101)", // Lighter orange for shimmer effect
+	accentBlue_FOR_SYSTEM_SPINNER: "rgb(51,102,255)", // Bright blue for system spinner
+	accentBlueShimmer_FOR_SYSTEM_SPINNER: "rgb(101,152,255)", // Lighter bright blue for system spinner shimmer
 	permission: "rgb(51,102,255)", // Bright blue
 	permissionShimmer: "rgb(101,152,255)", // Lighter bright blue for shimmer
 	planMode: "rgb(51,102,102)", // Muted blue-gray (works for color-blind)
@@ -445,11 +445,11 @@ const lightDaltonizedTheme: Theme = {
 const darkTheme: Theme = {
 	autoAccept: "rgb(175,135,255)", // Electric violet
 	bashBorder: "rgb(253,93,177)", // Bright pink
-	claude: "rgb(215,119,87)", // Claude orange
+	brand: "rgb(215,119,87)", // Brand orange
 	startupAccent: "rgb(184,225,174)", // Fusion-Code pastel green
-	claudeShimmer: "rgb(235,159,127)", // Lighter claude orange for shimmer effect
-	claudeBlue_FOR_SYSTEM_SPINNER: "rgb(147,165,255)", // Blue for system spinner
-	claudeBlueShimmer_FOR_SYSTEM_SPINNER: "rgb(177,195,255)", // Lighter blue for system spinner shimmer
+	brandShimmer: "rgb(235,159,127)", // Lighter claude orange for shimmer effect
+	accentBlue_FOR_SYSTEM_SPINNER: "rgb(147,165,255)", // Blue for system spinner
+	accentBlueShimmer_FOR_SYSTEM_SPINNER: "rgb(177,195,255)", // Lighter blue for system spinner shimmer
 	permission: "rgb(177,185,249)", // Light blue-purple
 	permissionShimmer: "rgb(207,215,255)", // Lighter blue-purple for shimmer
 	planMode: "rgb(72,150,140)", // Muted sage green
@@ -527,11 +527,11 @@ const darkTheme: Theme = {
 const darkDaltonizedTheme: Theme = {
 	autoAccept: "rgb(175,135,255)", // Electric violet
 	bashBorder: "rgb(51,153,255)", // Bright blue
-	claude: "rgb(255,153,51)", // Orange adjusted for deuteranopia
+	brand: "rgb(255,153,51)", // Orange adjusted for deuteranopia
 	startupAccent: "rgb(184,225,174)", // Fusion-Code pastel green
-	claudeShimmer: "rgb(255,183,101)", // Lighter orange for shimmer effect
-	claudeBlue_FOR_SYSTEM_SPINNER: "rgb(153,204,255)", // Light blue for system spinner
-	claudeBlueShimmer_FOR_SYSTEM_SPINNER: "rgb(183,224,255)", // Lighter blue for system spinner shimmer
+	brandShimmer: "rgb(255,183,101)", // Lighter orange for shimmer effect
+	accentBlue_FOR_SYSTEM_SPINNER: "rgb(153,204,255)", // Light blue for system spinner
+	accentBlueShimmer_FOR_SYSTEM_SPINNER: "rgb(183,224,255)", // Lighter blue for system spinner shimmer
 	permission: "rgb(153,204,255)", // Light blue
 	permissionShimmer: "rgb(183,224,255)", // Lighter blue for shimmer
 	planMode: "rgb(102,153,153)", // Muted gray-teal (works for color-blind)

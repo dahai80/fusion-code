@@ -1,7 +1,6 @@
 import { randomUUID } from "node:crypto";
 import type { ClientOptions, SdkFetch } from "src/types/anthropic-protocol.js";
 import {
-	checkAndRefreshOAuthTokenIfNeeded,
 	getAnthropicApiKey,
 	getApiKeyFromApiKeyHelper,
 	getClaudeAIOAuthTokens,
@@ -178,7 +177,6 @@ export async function getAnthropicClient({
 
 	// ── firstParty (Anthropic API 直连) ──
 	logForDebugging("[API:auth] OAuth token check starting");
-	await checkAndRefreshOAuthTokenIfNeeded();
 	logForDebugging("[API:auth] OAuth token check complete");
 
 	if (!isClaudeAISubscriber()) {

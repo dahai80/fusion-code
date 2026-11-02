@@ -603,9 +603,6 @@ function expandEnvVars(config: McpServerConfig): {
 		case "sdk":
 			expanded = config;
 			break;
-		case "claudeai-proxy":
-			expanded = config;
-			break;
 	}
 
 	return {

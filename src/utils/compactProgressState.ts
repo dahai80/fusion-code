@@ -29,8 +29,8 @@ export function applyOnCompactProgress(
 ): void {
 	switch (event.type) {
 		case "hooks_start":
-			setters.setSpinnerColor("claudeBlue_FOR_SYSTEM_SPINNER");
-			setters.setSpinnerShimmerColor("claudeBlueShimmer_FOR_SYSTEM_SPINNER");
+			setters.setSpinnerColor("accentBlue_FOR_SYSTEM_SPINNER");
+			setters.setSpinnerShimmerColor("accentBlueShimmer_FOR_SYSTEM_SPINNER");
 			setters.setSpinnerMessage(
 				event.hookType === "pre_compact"
 					? "Running PreCompact hooks…"

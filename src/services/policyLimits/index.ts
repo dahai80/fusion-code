@@ -23,7 +23,6 @@ import {
 	OAUTH_BETA_HEADER,
 } from "../../constants/oauth.js";
 import {
-	checkAndRefreshOAuthTokenIfNeeded,
 	getAnthropicApiKeyWithSource,
 	getClaudeAIOAuthTokens,
 } from "../../utils/auth.js";
@@ -39,7 +38,7 @@ import {
 import { isEssentialTrafficOnly } from "../../utils/privacyLevel.js";
 import { sleep } from "../../utils/sleep.js";
 import { jsonStringify } from "../../utils/slowOperations.js";
-import { getClaudeCodeUserAgent } from "../../utils/userAgent.js";
+import { getFusionCodeUserAgent } from "../../utils/userAgent.js";
 import { getRetryDelay } from "../api/withRetry.js";
 import {
 	type PolicyLimitsFetchResult,
@@ -304,7 +303,6 @@ async function fetchPolicyLimits(
 	cachedChecksum?: string,
 ): Promise<PolicyLimitsFetchResult> {
 	try {
-		await checkAndRefreshOAuthTokenIfNeeded();
 
 		const authHeaders = getAuthHeaders();
 		if (authHeaders.error) {
@@ -318,7 +316,7 @@ async function fetchPolicyLimits(
 		const endpoint = getPolicyLimitsEndpoint();
 		const headers: Record<string, string> = {
 			...authHeaders.headers,
-			"User-Agent": getClaudeCodeUserAgent(),
+			"User-Agent": getFusionCodeUserAgent(),
 		};
 
 		if (cachedChecksum) {

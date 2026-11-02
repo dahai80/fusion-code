@@ -16,7 +16,6 @@ import { normalizeApiKeyForConfig } from "../utils/authPortable.js";
 import { getCustomApiKeyStatus } from "../utils/config.js";
 import { env } from "../utils/env.js";
 import { isRunningOnHomespace } from "../utils/envUtils.js";
-import { PreflightStep } from "../utils/preflightChecks.js";
 import type { ThemeSetting } from "../utils/theme.js";
 import { ApproveApiKey } from "./ApproveApiKey.js";
 import { Select } from "./CustomSelect/select.js";
@@ -41,21 +40,15 @@ type Props = {
 };
 export function Onboarding({ onDone }: Props): React.ReactNode {
 	const [currentStepIndex, setCurrentStepIndex] = useState(0);
-	// OAuth login flow removed — fusion-code authenticates via FUSION_CLIENT_KEY
-	// direct connect only, so onboarding never shows preflight/OAuth steps.
-	const [oauthEnabled] = useState(() => false);
 	const [theme, setTheme] = useTheme();
 	useEffect(() => {
-		logEvent("tengu_began_setup", {
-			oauthEnabled,
-		});
-	}, [oauthEnabled]);
+		logEvent("tengu_began_setup", {});
+	}, []);
 	function goToNextStep() {
 		if (currentStepIndex < steps.length - 1) {
 			const nextIndex = currentStepIndex + 1;
 			setCurrentStepIndex(nextIndex);
 			logEvent("tengu_onboarding_step", {
-				oauthEnabled,
 				stepId: steps[nextIndex]
 					?.id as AnalyticsMetadata_I_VERIFIED_THIS_IS_NOT_CODE_OR_FILEPATHS,
 			});
@@ -114,7 +107,6 @@ export function Onboarding({ onDone }: Props): React.ReactNode {
 			<PressEnterToContinue />
 		</Box>
 	);
-	const preflightStep = <PreflightStep onSuccess={goToNextStep} />;
 	// Create the steps array - determine which steps to include based on reAuth and oauthEnabled
 	const apiKeyNeedingApproval = useMemo(() => {
 		// Add API key step if needed
@@ -138,12 +130,6 @@ export function Onboarding({ onDone }: Props): React.ReactNode {
 		goToNextStep();
 	}
 	const steps: OnboardingStep[] = [];
-	if (oauthEnabled) {
-		steps.push({
-			id: "preflight",
-			component: preflightStep,
-		});
-	}
 	steps.push({
 		id: "theme",
 		component: themeStep,
@@ -223,10 +209,10 @@ export function Onboarding({ onDone }: Props): React.ReactNode {
 		} else {
 			goToNextStep();
 		}
-	}, [currentStepIndex, steps.length, oauthEnabled, onDone]);
+	}, [currentStepIndex, steps.length, onDone]);
 	const handleTerminalSetupSkip = useCallback(() => {
 		goToNextStep();
-	}, [currentStepIndex, steps.length, oauthEnabled, onDone]);
+	}, [currentStepIndex, steps.length, onDone]);
 	useKeybindings(
 		{
 			"confirm:yes": handleSecurityContinue,

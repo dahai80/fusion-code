@@ -35,8 +35,8 @@ describe("applyOnCompactProgress", () => {
 			{ type: "hooks_start", hookType: "pre_compact" },
 			setters,
 		);
-		expect(rec.colors).toEqual(["claudeBlue_FOR_SYSTEM_SPINNER"]);
-		expect(rec.shimmers).toEqual(["claudeBlueShimmer_FOR_SYSTEM_SPINNER"]);
+		expect(rec.colors).toEqual(["accentBlue_FOR_SYSTEM_SPINNER"]);
+		expect(rec.shimmers).toEqual(["accentBlueShimmer_FOR_SYSTEM_SPINNER"]);
 		expect(rec.messages).toEqual(["Running PreCompact hooks…"]);
 	});
 
@@ -47,7 +47,7 @@ describe("applyOnCompactProgress", () => {
 			setters,
 		);
 		expect(rec.messages).toEqual(["Running PostCompact hooks…"]);
-		expect(rec.colors).toEqual(["claudeBlue_FOR_SYSTEM_SPINNER"]);
+		expect(rec.colors).toEqual(["accentBlue_FOR_SYSTEM_SPINNER"]);
 	});
 
 	it("hooks_start session_start: SessionStart text", () => {

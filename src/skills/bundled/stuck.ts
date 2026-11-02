@@ -5,7 +5,7 @@ import { registerBundledSkill } from "../bundledSkills.js";
 // eslint-disable-next-line custom-rules/no-direct-ps-commands
 const STUCK_PROMPT = `# /stuck — diagnose frozen/slow Fusion-Code sessions
 
-The user thinks another Fusion-Code session on this machine is frozen, stuck, or very slow. Investigate and post a report to #claude-code-feedback.
+The user thinks another Fusion-Code session on this machine is frozen, stuck, or very slow. Investigate and post a report to the team support channel.
 
 ## What to look for
 

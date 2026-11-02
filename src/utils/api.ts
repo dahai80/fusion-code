@@ -242,7 +242,7 @@ export async function toolToAPISchema(
 	// standard prompt caching (Bedrock/Vertex supported); the beta sub-fields
 	// (scope, ttl) are already gated upstream by shouldIncludeFirstPartyOnlyBetas
 	// which independently respects this kill switch.
-	// github.com/anthropics/claude-code/issues/20031
+	// upstream issue 20031
 	if (isEnvTruthy(process.env.FUSION_CODE_DISABLE_EXPERIMENTAL_BETAS)) {
 		const allowed = new Set([
 			"name",
