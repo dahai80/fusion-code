@@ -90,6 +90,11 @@ export const api = {
     // v2 environment templates: run the repo's setup command on demand.
     runSetup: (id: string) => post<{ ok: boolean; output: string; repo: RepoRecord }>(`/api/repos/${id}/setup`),
 
+    // Global default permissions applied to new sessions (settings page).
+    getDefaultPermissions: () => get<{ permissions: SessionPermissions }>('/api/permissions/default'),
+    setDefaultPermissions: (mode: PermissionMode, allowedTools: string[]) =>
+        post<{ permissions: SessionPermissions }>('/api/permissions/default', { mode, allowedTools }),
+
     listSessions: () => get<{ sessions: WebSession[] }>('/api/sessions'),
     createSession: (input: { title: string; repoId: string; branch: string; environment?: string }) =>
         post<{ session: WebSession }>('/api/sessions', input),

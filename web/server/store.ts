@@ -19,6 +19,9 @@ type StoreShape = {
     repos: RepoRecord[];
     sessions: WebSession[];
     permissions: Record<string, SessionPermissions>;
+    // Global default for NEW sessions (settings page). Absent = hardcoded
+    // read-only default below.
+    defaultPermissions?: SessionPermissions;
 };
 
 function storePath(): string {
@@ -167,8 +170,23 @@ export function getSessionByKernelId(kernelSessionId: string): WebSession | unde
 
 const DEFAULT_PERMISSIONS: SessionPermissions = { mode: 'allowlist', allowedTools: ['Read', 'Glob', 'Grep'] };
 
+// Global default permissions for new sessions (settings-editable); falls
+// back to the hardcoded read-only default when never configured.
+export function getDefaultPermissions(): SessionPermissions {
+    const configured = s().defaultPermissions;
+    return configured ? { ...configured, allowedTools: [...configured.allowedTools] } : { ...DEFAULT_PERMISSIONS };
+}
+
+export function setDefaultPermissions(mode: PermissionMode, allowedTools: string[]): SessionPermissions {
+    const perms: SessionPermissions = { mode, allowedTools };
+    s().defaultPermissions = perms;
+    saveStore(s());
+    log(`default permissions set: mode=${mode} tools=${allowedTools.join(',')}`);
+    return perms;
+}
+
 export function getPermissions(sessionId: string): SessionPermissions {
-    return s().permissions[sessionId] ?? { ...DEFAULT_PERMISSIONS };
+    return s().permissions[sessionId] ?? getDefaultPermissions();
 }
 
 export function setPermissions(sessionId: string, mode: PermissionMode, allowedTools: string[]): SessionPermissions {

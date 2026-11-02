@@ -132,6 +132,17 @@ async function handleApi(req: Request, url: URL): Promise<Response | null> {
         }
     }
 
+    // ---- global default permissions (new sessions) ----
+    if (pathname === '/api/permissions/default' && method === 'GET') {
+        return json({ permissions: store.getDefaultPermissions() });
+    }
+    if (pathname === '/api/permissions/default' && method === 'POST') {
+        const body = await readBody(req);
+        const mode = body.mode === 'ask' ? 'ask' : 'allowlist';
+        const tools = Array.isArray(body.allowedTools) ? body.allowedTools.map(String) : [];
+        return json({ permissions: store.setDefaultPermissions(mode, tools) });
+    }
+
     // ---- sessions ----
     if (pathname === '/api/sessions' && method === 'GET') {
         return json({ sessions: store.listSessions() });

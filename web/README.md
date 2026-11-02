@@ -94,6 +94,7 @@ Beyond #228 (`/health`, `/manifest.json`, `/api/repos`, `/api/sessions`,
 |---|---|
 | `PATCH /api/repos/:id` | update name / verify command / environment / setup command |
 | `POST /api/repos/:id/setup` | run the repo's setup command in the worktree (v2 env templates); result recorded as `lastSetup` |
+| `GET/POST /api/permissions/default` | global default permissions applied to NEW sessions (settings page); existing sessions keep their own rules |
 | `GET /api/sessions/:id/diff?path=` | unified diff for one changed file |
 | `POST /api/sessions/:id/checkpoints/:uuid/verify` | run repo verify command |
 | `POST /api/sessions/:id/checkpoints/:uuid/rollback` | kernel `--rewind-files` restore |
