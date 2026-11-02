@@ -1,12 +1,12 @@
 import { afterEach, describe, expect, test } from "bun:test";
 import {
 	DEFAULT_NONINTERACTIVE_THRESHOLD,
-	TOOL_ERROR_LOOP_ENV,
 	getToolErrorLoopThreshold,
 	shouldTripToolErrorLoop,
+	TOOL_ERROR_LOOP_ENV,
+	type ToolErrorLoopState,
 	toolErrorSignature,
 	updateToolErrorLoopState,
-	type ToolErrorLoopState,
 } from "../utils/toolErrorCircuitBreaker.js";
 
 // #227: circuit breaker for one-shot agent loops stuck re-issuing the same
@@ -47,9 +47,10 @@ function errorResult(
 	};
 }
 
-function successResult(
-	toolUseId: string,
-): { type: string; message: { content: unknown[] } } {
+function successResult(toolUseId: string): {
+	type: string;
+	message: { content: unknown[] };
+} {
 	return {
 		type: "user",
 		message: {

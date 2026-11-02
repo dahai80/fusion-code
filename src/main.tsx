@@ -1812,7 +1812,6 @@ async function run(): Promise<CommanderCommand> {
 				prompt = undefined;
 			}
 
-
 			// Log event for any single-word prompt
 			if (
 				prompt &&
@@ -1999,7 +1998,6 @@ async function run(): Promise<CommanderCommand> {
 				typeof worktreeOption === "string" ? worktreeOption : undefined;
 			const worktreeEnabled = worktreeOption !== undefined;
 
-
 			// Check if worktree name is a PR reference (#N or GitHub PR URL)
 			let worktreePRNumber: number | undefined;
 			if (worktreeName) {
@@ -2119,10 +2117,10 @@ async function run(): Promise<CommanderCommand> {
 			if (sdkUrl) {
 				// If SDK URL is provided, automatically use stream-json formats unless explicitly set
 				if (!(options as { inputFormat?: string }).inputFormat) {
-				 (options as { inputFormat?: string }).inputFormat = "stream-json";
+					(options as { inputFormat?: string }).inputFormat = "stream-json";
 				}
 				if (!(options as { outputFormat?: string }).outputFormat) {
-				 (options as { outputFormat?: string }).outputFormat = "stream-json";
+					(options as { outputFormat?: string }).outputFormat = "stream-json";
 				}
 				// Auto-enable verbose mode unless explicitly disabled or already set
 				if (options.verbose === undefined) {
@@ -2247,7 +2245,6 @@ async function run(): Promise<CommanderCommand> {
 					fileDownloadPromise = downloadSessionFiles(files, config);
 				}
 			}
-
 
 			// Get isNonInteractiveSession from state (was set before init())
 			const isNonInteractiveSession = getIsNonInteractiveSession();
@@ -2754,8 +2751,6 @@ async function run(): Promise<CommanderCommand> {
 				}
 			}
 
-
-
 			// This await replaces blocking existsSync/statSync calls that were already in
 			// the startup path. Wall-clock time is unchanged; we just yield to the event
 			// loop during the fs I/O instead of blocking it. See #19661.
@@ -2843,8 +2838,11 @@ async function run(): Promise<CommanderCommand> {
 
 			// NOTE: We do NOT call prefetchAllMcpResources here - that's deferred until after trust dialog
 			// Extract format options via options object (bare variable access hangs in Bun runtime)
-			const inputFormat = (options as { inputFormat?: string }).inputFormat as string | undefined;
-			const outputFormat = (options as { outputFormat?: string }).outputFormat as string | undefined;
+			const inputFormat = (options as { inputFormat?: string }).inputFormat as
+				| string
+				| undefined;
+			const outputFormat = (options as { outputFormat?: string })
+				.outputFormat as string | undefined;
 
 			// Inline validation
 			if (

@@ -2,11 +2,7 @@ import { afterAll, beforeAll, describe, expect, test } from 'bun:test';
 import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import {
-    createPullRequest,
-    fileDiff,
-    runVerifyCommand,
-} from '../server/gitRepo';
+import { createPullRequest, fileDiff, runVerifyCommand } from '../server/gitRepo';
 import { rollbackToCheckpoint, startRun } from '../server/runner';
 import {
     __resetStoreForTest,
@@ -138,7 +134,12 @@ describe('checkpoint + usage capture from kernel stream (#229/#230)', () => {
         try {
             const repoDir = makeRepo();
             const repo = addRepo({ name: 'rb-demo', path: repoDir });
-            const session = createSession({ title: 'rb task', repoId: repo.id, branch: 'main', environment: 'default' });
+            const session = createSession({
+                title: 'rb task',
+                repoId: repo.id,
+                branch: 'main',
+                environment: 'default',
+            });
             await startRun({ sessionId: session.id, message: 'make changes' });
             await waitFor(() => getSession(session.id)?.status === 'idle', 10_000);
 
@@ -247,7 +248,15 @@ describe('createPullRequest (#229)', () => {
             expect(String(branch.stdout).trim()).toBe('fusion-code/web-test1');
             const log = Bun.spawnSync(['git', '-C', dir, 'log', '-1', '--pretty=%s']);
             expect(String(log.stdout).trim()).toBe('feat: from web session');
-            const remoteBranch = Bun.spawnSync(['git', '-C', dir, 'ls-remote', '--heads', 'origin', 'fusion-code/web-test1']);
+            const remoteBranch = Bun.spawnSync([
+                'git',
+                '-C',
+                dir,
+                'ls-remote',
+                '--heads',
+                'origin',
+                'fusion-code/web-test1',
+            ]);
             expect(String(remoteBranch.stdout)).toContain('refs/heads/fusion-code/web-test1');
         } finally {
             delete process.env.FUSION_CODE_WEB_GH_BIN;

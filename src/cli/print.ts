@@ -957,8 +957,7 @@ export async function runHeadless(
 					writeToStdout(`Error: Reached max turns (${options.maxTurns})`);
 					break;
 				case "error_tool_error_loop": {
-					const loopError = (lastMessage as { errors?: string[] })
-						.errors?.[0];
+					const loopError = (lastMessage as { errors?: string[] }).errors?.[0];
 					writeToStdout(
 						`Error: ${loopError ?? "Aborted after repeated identical tool errors"}`,
 					);
