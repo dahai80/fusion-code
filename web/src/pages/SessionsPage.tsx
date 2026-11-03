@@ -1,4 +1,4 @@
-import { AlertCircle, ChevronDown, CircleDot, MessageSquarePlus, Send } from 'lucide-react';
+import { AlertCircle, ChevronDown, CircleDot, FolderGit2, MessageSquarePlus, Send } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { RepoRecord, WebSession } from '../../shared/types';
 import { navigate } from '../App';
@@ -15,6 +15,7 @@ export function SessionsPage() {
     const [branch, setBranch] = useState('');
     const [branches, setBranches] = useState<Branch[]>([]);
     const [title, setTitle] = useState('');
+    const [isolate, setIsolate] = useState(false);
     const [error, setError] = useState('');
     const [busy, setBusy] = useState(false);
 
@@ -70,7 +71,12 @@ export function SessionsPage() {
         setBusy(true);
         setError('');
         try {
-            const { session } = await api.createSession({ title: title.trim(), repoId, branch });
+            const { session } = await api.createSession({
+                title: title.trim(),
+                repoId,
+                branch,
+                isolateWorktree: isolate,
+            });
             navigate(`/session/${encodeURIComponent(session.id)}`);
         } catch (err) {
             setError(String(err));
@@ -136,6 +142,22 @@ export function SessionsPage() {
                             className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 text-text-muted"
                         />
                     </div>
+                    <label
+                        className="flex cursor-pointer items-center gap-1.5 text-sm text-text-secondary"
+                        title={t(
+                            '在独立 git worktree 中运行，编辑不直接落到仓库工作树',
+                            'Run in an isolated git worktree — edits never touch the repo checkout directly'
+                        )}
+                    >
+                        <FolderGit2 size={14} className="text-text-muted" />
+                        <input
+                            type="checkbox"
+                            checked={isolate}
+                            onChange={(e) => setIsolate(e.target.checked)}
+                            className="h-3.5 w-3.5 accent-[var(--color-brand)]"
+                        />
+                        {t('隔离 worktree', 'Isolated worktree')}
+                    </label>
                     <button
                         type="button"
                         onClick={() => void createSession()}

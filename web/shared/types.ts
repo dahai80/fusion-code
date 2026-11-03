@@ -86,6 +86,21 @@ export type WebSession = {
     designContext?: DesignContext;
     // True until the first run consumes the design context as prompt input.
     designPending?: boolean;
+    // #237 GUI parity: run the kernel in an isolated git worktree instead of
+    // the repo worktree directly. worktreePath is the created worktree
+    // (dataDir/worktrees/<sessionId>), resolved lazily on the first run.
+    isolateWorktree?: boolean;
+    worktreePath?: string;
+};
+
+// #237 GUI parity: inline diff comment anchored to a line of the per-file
+// diff text (1-based index within the unified diff the viewer renders).
+export type DiffComment = {
+    id: string;
+    path: string;
+    line: number;
+    text: string;
+    at: number;
 };
 
 // Stream events relayed over the session WS. `kind` mirrors the kernel

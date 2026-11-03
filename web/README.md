@@ -8,10 +8,11 @@ subprocesses and renders sessions, steps, and file changes in the browser.
 ## Views
 
 - `/sessions` — session list grouped by repo + new-session composer with
-  repo/branch selector row (frame C1)
+  repo/branch selector row and an optional isolated-worktree toggle (#237)
 - `/session/:id` — conversation with inline per-step commands, live
-  right-rail file changes + per-file diff viewer, checkpoints
-  (verify/rollback), PR flow, permission panel, follow-up composer (frame C2)
+  right-rail file changes + per-file diff viewer with inline comments
+  (click a +/- diff line to anchor one, #237), checkpoints (verify/rollback),
+  PR flow, permission panel with tier hints, follow-up composer (frame C2)
 - `/repos` — repo connect (local git path or clone URL) + branch overview +
   per-repo verify command
 - `/usage` — token/cost totals aggregated per repo and session (#230)
@@ -97,6 +98,7 @@ Beyond #228 (`/health`, `/manifest.json`, `/api/repos`, `/api/sessions`,
 | `GET/POST /api/permissions/default` | global default permissions applied to NEW sessions (settings page); existing sessions keep their own rules |
 | `GET /api/sessions/:id/diff?path=` | unified diff for one changed file |
 | `GET /api/sessions/:id/checkpoints` | list captured checkpoints (#236) |
+| `GET/POST /api/sessions/:id/comments` | inline diff comments, anchored to a diff line (#237) |
 | `POST /api/sessions/:id/checkpoints/:uuid/verify` | run repo verify command |
 | `POST /api/sessions/:id/checkpoints/:uuid/rollback` | kernel `--rewind-files` restore |
 | `POST /api/sessions/:id/pr` | branch + commit + push + `gh pr create` |
@@ -140,6 +142,17 @@ gateway registration.
 
 fusion-supervisor resolves the service to `~/fusion/fusion-code-web/start.sh`;
 that path is a thin exec shim delegating to `web/start.sh`.
+
+### Isolated worktrees (#237)
+
+Sessions created with the "Isolated worktree" toggle run the kernel in a
+dedicated git worktree (`<FUSION_CODE_CONFIG_DIR ?? ~/.fusion-code>/worktrees/<sessionId>`,
+branch `fusion-code/web-<session-prefix>`) instead of the repo checkout, so
+session edits never touch the repo directly. The path is load-bearing: the
+kernel's permission engine whitelists the structural `<configDir>/worktrees/`
+prefix — worktrees anywhere under the config dir get every write denied as a
+sensitive file. Diff/verify/rollback/PR operations for the session resolve
+against the worktree; deleting the repo removes its sessions' worktrees.
 
 ## Environment
 

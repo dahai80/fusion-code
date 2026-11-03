@@ -13,7 +13,7 @@ import {
     XCircle,
 } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import type { FileChange, SessionEvent, SessionPermissions, WebSession } from '../../shared/types';
+import type { DiffComment, FileChange, SessionEvent, SessionPermissions, WebSession } from '../../shared/types';
 import { navigate } from '../App';
 import { API_BASE, api, connectSessionWs } from '../api';
 import { useT } from '../i18n';
@@ -31,6 +31,11 @@ export function SessionPage({ sessionId }: { sessionId: string }) {
     const [input, setInput] = useState('');
     const [error, setError] = useState('');
     const [diffView, setDiffView] = useState<{ path: string; text: string; loading: boolean } | null>(null);
+    // #237: inline diff comments — anchored to a clicked diff line.
+    const [diffComments, setDiffComments] = useState<DiffComment[]>([]);
+    const [commentLine, setCommentLine] = useState<number | null>(null);
+    const [commentText, setCommentText] = useState('');
+    const [commentBusy, setCommentBusy] = useState(false);
     const [cpBusy, setCpBusy] = useState<string | null>(null);
     const [prOpen, setPrOpen] = useState(false);
     const [prTitle, setPrTitle] = useState('');
@@ -128,15 +133,42 @@ export function SessionPage({ sessionId }: { sessionId: string }) {
 
     const TOOL_CHOICES = ['Read', 'Glob', 'Grep', 'Edit', 'Write', 'Bash'];
 
-    // #229: open the per-file diff panel.
+    // #229: open the per-file diff panel. #237: load its inline comments.
     const openDiff = async (filePath: string) => {
         setDiffView({ path: filePath, text: '', loading: true });
+        setCommentLine(null);
+        setCommentText('');
         try {
-            const res = await api.fileDiff(sessionId, filePath);
+            const [res, commentsRes] = await Promise.all([
+                api.fileDiff(sessionId, filePath),
+                api.listDiffComments(sessionId),
+            ]);
             setDiffView({ path: filePath, text: res.diff, loading: false });
+            setDiffComments(commentsRes.comments.filter((c) => c.path === filePath));
         } catch (err) {
             setError(String(err));
             setDiffView(null);
+        }
+    };
+
+    // #237: attach a comment to a diff line.
+    const submitComment = async () => {
+        if (!diffView || commentLine === null || !commentText.trim()) return;
+        setCommentBusy(true);
+        setError('');
+        try {
+            const { comment } = await api.addDiffComment(sessionId, {
+                path: diffView.path,
+                line: commentLine,
+                text: commentText.trim(),
+            });
+            setDiffComments((prev) => [...prev, comment]);
+            setCommentLine(null);
+            setCommentText('');
+        } catch (err) {
+            setError(String(err));
+        } finally {
+            setCommentBusy(false);
         }
     };
 
@@ -538,6 +570,23 @@ export function SessionPage({ sessionId }: { sessionId: string }) {
                                 {t('每次确认', 'Ask every time')}
                             </button>
                         </div>
+                        {/* #237: permission-tier hint — what the current tier lets the kernel do. */}
+                        <p className="mt-2 text-xs leading-relaxed text-text-muted">
+                            {permissions?.mode === 'ask'
+                                ? t(
+                                      '当前层级：每次确认 — 只读工具直接放行，写操作被拒绝并在会话中提示。',
+                                      'Current tier: ask — read-only tools run, writes are denied and surfaced in-session.'
+                                  )
+                                : permissions?.allowedTools.every((x) => ['Read', 'Glob', 'Grep'].includes(x))
+                                  ? t(
+                                        '当前层级：只读 — 会话无法修改文件；勾选 Edit / Write / Bash 授予写入。',
+                                        'Current tier: read-only — the session cannot modify files; check Edit / Write / Bash to grant writes.'
+                                    )
+                                  : t(
+                                        '当前层级：允许列表 — 勾选的工具可执行，其余一律拒绝。',
+                                        'Current tier: allowlist — checked tools run, everything else is denied.'
+                                    )}
+                        </p>
                         <div className="mt-3 space-y-1">
                             {TOOL_CHOICES.map((tool) => {
                                 const active = permissions?.allowedTools.includes(tool) ?? false;
@@ -603,25 +652,100 @@ export function SessionPage({ sessionId }: { sessionId: string }) {
                                 </div>
                             ) : diffView.text ? (
                                 <pre className="whitespace-pre-wrap break-all font-mono text-xs leading-relaxed">
-                                    {diffView.text.split('\n').map((line, i) => (
-                                        <span
-                                            key={i}
-                                            className={`block ${
-                                                line.startsWith('+') && !line.startsWith('+++')
-                                                    ? 'bg-success/10 text-success'
-                                                    : line.startsWith('-') && !line.startsWith('---')
-                                                      ? 'bg-error/10 text-error'
-                                                      : line.startsWith('@@')
-                                                        ? 'text-brand'
-                                                        : 'text-text-secondary'
-                                            }`}
-                                        >
-                                            {line || ' '}
-                                        </span>
-                                    ))}
+                                    {diffView.text.split('\n').map((line, i) => {
+                                        const lineNo = i + 1;
+                                        const lineComments = diffComments.filter((c) => c.line === lineNo);
+                                        const clickable =
+                                            !diffView.loading &&
+                                            (line.startsWith('+') || line.startsWith('-')) &&
+                                            !line.startsWith('+++') &&
+                                            !line.startsWith('---');
+                                        return (
+                                            <span key={i} className="block">
+                                                <span
+                                                    role={clickable ? 'button' : undefined}
+                                                    tabIndex={clickable ? 0 : undefined}
+                                                    onClick={clickable ? () => setCommentLine(lineNo) : undefined}
+                                                    onKeyDown={
+                                                        clickable
+                                                            ? (e) => {
+                                                                  if (e.key === 'Enter') setCommentLine(lineNo);
+                                                              }
+                                                            : undefined
+                                                    }
+                                                    className={`block rounded ${
+                                                        clickable
+                                                            ? 'cursor-pointer hover:outline hover:outline-brand/40'
+                                                            : ''
+                                                    } ${
+                                                        line.startsWith('+') && !line.startsWith('+++')
+                                                            ? 'bg-success/10 text-success'
+                                                            : line.startsWith('-') && !line.startsWith('---')
+                                                              ? 'bg-error/10 text-error'
+                                                              : line.startsWith('@@')
+                                                                ? 'text-brand'
+                                                                : 'text-text-secondary'
+                                                    } ${commentLine === lineNo ? 'outline outline-brand' : ''}`}
+                                                >
+                                                    {line || ' '}
+                                                </span>
+                                                {lineComments.map((c) => (
+                                                    <span
+                                                        key={c.id}
+                                                        className="my-0.5 block rounded-xl border border-brand/30 bg-brand/5 px-2 py-1 font-sans text-xs text-text-secondary"
+                                                    >
+                                                        {c.text}
+                                                    </span>
+                                                ))}
+                                            </span>
+                                        );
+                                    })}
                                 </pre>
                             ) : (
                                 <div className="text-sm text-text-muted">{t('无 diff 内容', 'No diff content')}</div>
+                            )}
+                        </div>
+                        {/* #237: inline comment composer — click a +/- diff line to anchor. */}
+                        <div className="border-t border-border px-4 py-3">
+                            {commentLine === null ? (
+                                <div className="text-xs text-text-muted">
+                                    {t(
+                                        '点击 diff 中的 +/- 行可添加行内评论',
+                                        'Click a +/- diff line to anchor an inline comment'
+                                    )}
+                                </div>
+                            ) : (
+                                <div className="flex items-center gap-2">
+                                    <span className="shrink-0 rounded-lg bg-bg-muted px-2 py-1 font-mono text-xs text-text-muted">
+                                        L{commentLine}
+                                    </span>
+                                    <input
+                                        value={commentText}
+                                        onChange={(e) => setCommentText(e.target.value)}
+                                        onKeyDown={(e) => {
+                                            if (e.key === 'Enter') void submitComment();
+                                        }}
+                                        placeholder={t('评论内容…', 'Comment…')}
+                                        className="min-w-0 flex-1 rounded-xl border border-border bg-bg px-3 py-1.5 text-sm outline-none focus:border-brand"
+                                        autoFocus
+                                    />
+                                    <button
+                                        type="button"
+                                        onClick={() => void submitComment()}
+                                        disabled={commentBusy || !commentText.trim()}
+                                        className="flex shrink-0 items-center gap-1 rounded-xl bg-brand px-3 py-1.5 text-sm font-medium text-white transition-opacity hover:opacity-90 disabled:opacity-40"
+                                    >
+                                        {commentBusy ? <Loader2 size={13} className="animate-spin" /> : null}
+                                        {t('添加', 'Add')}
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={() => setCommentLine(null)}
+                                        className="rounded-xl p-1 text-text-muted transition-colors hover:bg-bg-muted hover:text-text-primary"
+                                    >
+                                        <X size={14} />
+                                    </button>
+                                </div>
                             )}
                         </div>
                     </div>

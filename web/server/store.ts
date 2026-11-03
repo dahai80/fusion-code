@@ -3,6 +3,7 @@ import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import type {
     Checkpoint,
+    DiffComment,
     PermissionMode,
     RepoRecord,
     SessionPermissions,
@@ -22,6 +23,8 @@ type StoreShape = {
     // Global default for NEW sessions (settings page). Absent = hardcoded
     // read-only default below.
     defaultPermissions?: SessionPermissions;
+    // #237: inline diff comments keyed by session id.
+    comments?: Record<string, DiffComment[]>;
 };
 
 function storePath(): string {
@@ -39,6 +42,7 @@ function loadStore(): StoreShape {
             repos: Array.isArray(raw.repos) ? raw.repos : [],
             sessions: Array.isArray(raw.sessions) ? raw.sessions : [],
             permissions: raw.permissions && typeof raw.permissions === 'object' ? raw.permissions : {},
+            comments: raw.comments && typeof raw.comments === 'object' ? raw.comments : {},
         };
     } catch {
         return emptyStore();
@@ -136,6 +140,7 @@ export function createSession(input: {
     repoId: string;
     branch: string;
     environment: string;
+    isolateWorktree?: boolean;
 }): WebSession {
     const session: WebSession = {
         id: randomUUID(),
@@ -146,10 +151,13 @@ export function createSession(input: {
         status: 'idle',
         createdAt: Date.now(),
         updatedAt: Date.now(),
+        isolateWorktree: input.isolateWorktree ?? false,
     };
     s().sessions.push(session);
     saveStore(s());
-    log(`session created: ${session.id} repo=${input.repoId} branch=${input.branch}`);
+    log(
+        `session created: ${session.id} repo=${input.repoId} branch=${input.branch} isolate=${session.isolateWorktree}`
+    );
     return session;
 }
 
@@ -266,4 +274,25 @@ export function setSessionPr(sessionId: string, prUrl: string, prBranch: string)
     session.prBranch = prBranch;
     saveStore(st);
     log(`session PR created: ${sessionId} ${prUrl}`);
+}
+
+// #237: inline diff comments.
+export function listDiffComments(sessionId: string): DiffComment[] {
+    return [...(s().comments?.[sessionId] ?? [])];
+}
+
+export function addDiffComment(sessionId: string, input: { path: string; line: number; text: string }): DiffComment {
+    const st = s();
+    if (!st.comments) st.comments = {};
+    const comment: DiffComment = {
+        id: randomUUID(),
+        path: input.path,
+        line: input.line,
+        text: input.text,
+        at: Date.now(),
+    };
+    st.comments[sessionId] = [...(st.comments[sessionId] ?? []), comment];
+    saveStore(st);
+    log(`diff comment added: session=${sessionId} path=${input.path} line=${input.line}`);
+    return comment;
 }

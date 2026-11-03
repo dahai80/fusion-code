@@ -14,7 +14,16 @@ import {
     repoOriginUrl,
     runVerifyCommand,
 } from './gitRepo';
-import { bufferedEvents, isRunning, readHistory, rollbackToCheckpoint, startRun, subscribe } from './runner';
+import {
+    bufferedEvents,
+    cleanupSessionWorktree,
+    isRunning,
+    readHistory,
+    rollbackToCheckpoint,
+    sessionCwd,
+    startRun,
+    subscribe,
+} from './runner';
 import { serveStatic } from './static';
 import * as store from './store';
 
@@ -117,6 +126,11 @@ async function handleApi(req: Request, url: URL): Promise<Response | null> {
             return json({ ok: result.ok, output: result.output, repo: updated });
         }
         if (sub === '' && method === 'DELETE') {
+            // Best-effort cleanup of isolated worktrees owned by this repo's sessions.
+            for (const sess of store.listSessions()) {
+                if (sess.repoId !== repo.id) continue;
+                cleanupSessionWorktree(sess, repo);
+            }
             return store.removeRepo(repo.id) ? json({ ok: true }) : json({ error: 'repo not found' }, 404);
         }
         if (sub === '' && method === 'GET') {
@@ -156,13 +170,21 @@ async function handleApi(req: Request, url: URL): Promise<Response | null> {
         // #234 P2: absent/invalid input is a 400 with a field-located
         // message, not a bare 404 'repo not found'.
         if (!repoId) return json({ error: 'repoId required', field: 'repoId' }, 400);
-        if (!store.getRepo(repoId)) return json({ error: `repoId does not exist: ${repoId}`, field: 'repoId' }, 400);
+        if (!store.getRepo(repoId)) {
+            const valid =
+                store
+                    .listRepos()
+                    .map((r) => `${r.name} (${r.id})`)
+                    .join(', ') || 'none — connect a repo first';
+            return json({ error: `repoId does not exist: ${repoId} — valid repos: ${valid}`, field: 'repoId' }, 400);
+        }
         if (!title) return json({ error: 'title required' }, 400);
         const session = store.createSession({
             title,
             repoId,
             branch: String(body.branch ?? 'main'),
             environment: String(body.environment ?? 'default'),
+            isolateWorktree: body.isolateWorktree === true,
         });
         return json({ session });
     }
@@ -171,15 +193,18 @@ async function handleApi(req: Request, url: URL): Promise<Response | null> {
         const session = store.getSession(sessionMatch[1]) ?? store.getSessionByKernelId(sessionMatch[1]);
         if (!session) return json({ error: 'session not found' }, 404);
         const sub = sessionMatch[2] ?? '';
+        // #237: isolated-worktree sessions surface all repo operations against
+        // the dedicated worktree, not the repo checkout.
+        const repo = store.getRepo(session.repoId);
+        const cwd = repo ? sessionCwd(session, repo) : '';
         if (sub === '' && method === 'GET') {
-            const repo = store.getRepo(session.repoId);
-            const history = session.kernelSessionId && repo ? readHistory(session.kernelSessionId, repo.path) : [];
+            const history = session.kernelSessionId && repo ? readHistory(session.kernelSessionId, cwd) : [];
             return json({
                 session,
                 running: isRunning(session.id),
                 events: bufferedEvents(session.id),
                 history,
-                changes: repo ? await fileChanges(repo.path) : [],
+                changes: repo ? await fileChanges(cwd) : [],
             });
         }
         if (sub === 'permissions' && method === 'GET') {
@@ -204,11 +229,26 @@ async function handleApi(req: Request, url: URL): Promise<Response | null> {
         }
         // #229: unified diff for one changed file in the session's repo.
         if (sub === 'diff' && method === 'GET') {
-            const repo = store.getRepo(session.repoId);
             if (!repo) return json({ error: 'repo not found' }, 404);
             const filePath = url.searchParams.get('path') ?? '';
             if (!filePath) return json({ error: 'path query param required' }, 400);
-            return json({ path: filePath, diff: await fileDiff(repo.path, filePath) });
+            return json({ path: filePath, diff: await fileDiff(cwd, filePath) });
+        }
+        // #237: inline diff comments.
+        if (sub === 'comments' && method === 'GET') {
+            return json({ comments: store.listDiffComments(session.id) });
+        }
+        if (sub === 'comments' && method === 'POST') {
+            const body = await readBody(req);
+            const path = String(body.path ?? '').trim();
+            const text = String(body.text ?? '').trim();
+            const line = Number(body.line ?? 0);
+            if (!path) return json({ error: 'path required', field: 'path' }, 400);
+            if (!text) return json({ error: 'text required', field: 'text' }, 400);
+            if (!Number.isInteger(line) || line < 1) {
+                return json({ error: 'line must be a positive integer (1-based diff line)', field: 'line' }, 400);
+            }
+            return json({ comment: store.addDiffComment(session.id, { path, line, text }) });
         }
         // #236: checkpoint list — enumerate captured checkpoints for the session.
         if (sub === 'checkpoints' && method === 'GET') {
@@ -222,7 +262,7 @@ async function handleApi(req: Request, url: URL): Promise<Response | null> {
             const cp = session.checkpoints?.find((c) => c.messageUuid === cpVerify[1]);
             if (!cp) return json({ error: 'checkpoint not found' }, 404);
             if (!repo.testCommand) return json({ error: 'no test command configured for this repo' }, 400);
-            const result = await runVerifyCommand(repo.path, repo.testCommand);
+            const result = await runVerifyCommand(cwd, repo.testCommand);
             store.markCheckpointVerified(session.id, cpVerify[1], result.ok, result.output);
             log(`checkpoint verify: session=${session.id} cp=${cpVerify[1]} ok=${result.ok}`);
             return json({
@@ -248,7 +288,7 @@ async function handleApi(req: Request, url: URL): Promise<Response | null> {
             const title = String(body.title ?? session.title).trim();
             if (!title) return json({ error: 'title required' }, 400);
             const branch = session.prBranch ?? `fusion-code/web-${session.id.slice(0, 8)}`;
-            const result = await createPullRequest(repo.path, {
+            const result = await createPullRequest(cwd, {
                 title,
                 body: String(body.body ?? `Changes from web session ${session.title}`),
                 branch,

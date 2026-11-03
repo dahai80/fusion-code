@@ -1,6 +1,13 @@
-import { existsSync } from 'node:fs';
+import { existsSync, statSync } from 'node:fs';
 import { join, resolve } from 'node:path';
-import type { FileChange, HistoryMessage, SessionEvent, SessionEventBody, WebSession } from '../shared/types';
+import type {
+    FileChange,
+    HistoryMessage,
+    RepoRecord,
+    SessionEvent,
+    SessionEventBody,
+    WebSession,
+} from '../shared/types';
 import { log, logWarn } from './config';
 import { fileChanges } from './gitRepo';
 import {
@@ -196,20 +203,70 @@ export function missingAuthEnv(env: Record<string, string>): string[] {
 export function precheckSpawn(repoPath: string, kernelCmd: string[]): string | null {
     try {
         if (!existsSync(repoPath) || !statSync(repoPath).isDirectory()) {
-            return `repo worktree missing or not a directory: ${repoPath}`;
+            return `cwd check failed: repo worktree missing or not a directory: ${repoPath} — reconnect the repo on /repos or restore the directory`;
         }
     } catch {
-        return `repo worktree missing: ${repoPath}`;
+        return `cwd check failed: repo worktree missing: ${repoPath} — reconnect the repo on /repos or restore the directory`;
     }
     const bin = kernelCmd[0] ?? '';
     if (bin.includes('/') && !existsSync(bin)) {
-        return `kernel binary not found: ${bin}`;
+        return `binary check failed: kernel binary not found: ${bin} — set FUSION_CODE_WEB_KERNEL_BIN or build ./fusion-code`;
     }
     const missing = missingAuthEnv(kernelSpawnEnv());
     if (missing.length > 0) {
-        return `kernel auth env missing: ${missing.join(', ')} — set them for the web server process or in ${webEnvFile()}`;
+        return `auth-env check failed: kernel auth env missing: ${missing.join(', ')} — set them for the web server process or in ${webEnvFile()}`;
     }
     return null;
+}
+
+// #237 GUI parity: isolated-worktree sessions run the kernel in a dedicated
+// git worktree under <configDir>/worktrees/<sessionId> instead of the repo
+// worktree, so the session's edits never touch the repo checkout directly.
+export function sessionCwd(session: WebSession, repo: RepoRecord): string {
+    return session.worktreePath ?? repo.path;
+}
+
+function ensureWorktree(session: WebSession, repo: RepoRecord): string | null {
+    if (session.worktreePath && existsSync(session.worktreePath)) return session.worktreePath;
+    if (!session.isolateWorktree) return null;
+    // Path matters: the kernel's permission engine treats <configDir> as a
+    // dangerous directory but whitelists the structural path
+    // <configDir>/worktrees/... — so isolated worktrees must live there or
+    // every kernel write inside them is denied as a sensitive file.
+    const configDir = process.env.FUSION_CODE_CONFIG_DIR ?? join(homedir(), '.fusion-code');
+    const wt = join(configDir, 'worktrees', session.id);
+    const branch = `fusion-code/web-${session.id.slice(0, 8)}`;
+    const git = (args: string[]) => Bun.spawnSync(['git', ...args], { cwd: repo.path, stdout: 'pipe', stderr: 'pipe' });
+    let res = git(['worktree', 'add', wt, '-b', branch]);
+    if (res.exitCode !== 0) {
+        // Branch already exists from an earlier partial attempt — reuse it.
+        res = git(['worktree', 'add', wt, branch]);
+    }
+    if (res.exitCode !== 0) {
+        logWarn(`worktree create failed for ${session.id}: ${res.stderr.toString().slice(0, 300)}`);
+        return null;
+    }
+    session.worktreePath = wt;
+    upsertSession(session);
+    log(`worktree created: session=${session.id} path=${wt} branch=${branch}`);
+    return wt;
+}
+
+// Best-effort worktree cleanup when the owning session goes away.
+export function cleanupSessionWorktree(session: WebSession, repo: RepoRecord): void {
+    if (!session.worktreePath) return;
+    try {
+        const res = Bun.spawnSync(['git', 'worktree', 'remove', '--force', session.worktreePath], {
+            cwd: repo.path,
+            stdout: 'pipe',
+            stderr: 'pipe',
+        });
+        log(`worktree removed: session=${session.id} exit=${res.exitCode}`);
+    } catch (err) {
+        logWarn(`worktree remove failed for ${session.id}: ${err}`);
+    }
+    session.worktreePath = undefined;
+    upsertSession(session);
 }
 
 function failSpawn(sessionId: string, session: WebSession, reason: string): StartRunResult {
@@ -253,9 +310,20 @@ export async function startRun(input: StartRunInput): Promise<StartRunResult> {
         return { ok: false, error: 'a run is already active for this session', alreadyRunning: true };
 
     // #234 P1: fail fast with a structured turn_error instead of a raw
-    // ENOENT mid-turn.
+    // ENOENT mid-turn. #237: isolated-worktree sessions resolve their cwd to
+    // the dedicated worktree (created lazily on the first run).
+    if (session.isolateWorktree) {
+        const wt = ensureWorktree(session, repo);
+        if (!wt)
+            return failSpawn(
+                sessionId,
+                session,
+                `worktree check failed: could not create isolated worktree for repo ${repo.path} — check the repo's git state`
+            );
+    }
+    const cwd = sessionCwd(session, repo);
     const kernelCmd = kernelCommand();
-    const precheckError = precheckSpawn(repo.path, kernelCmd);
+    const precheckError = precheckSpawn(cwd, kernelCmd);
     if (precheckError) return failSpawn(sessionId, session, precheckError);
 
     const perms = getPermissions(sessionId);
@@ -303,7 +371,7 @@ export async function startRun(input: StartRunInput): Promise<StartRunResult> {
                 proc: Bun.spawn([...kernelCmd, ...args], {
                     stdout: 'pipe',
                     stderr: 'pipe',
-                    cwd: repo.path,
+                    cwd,
                     env: kernelSpawnEnv(),
                 }),
             } as const;
@@ -376,7 +444,7 @@ export async function startRun(input: StartRunInput): Promise<StartRunResult> {
 
         // Post-turn file changes — the C2 right rail feed.
         try {
-            const changes: FileChange[] = await fileChanges(repo.path);
+            const changes: FileChange[] = await fileChanges(cwd);
             emit(sessionId, { kind: 'file_changes', files: changes });
         } catch (err) {
             logWarn(`fileChanges after run failed: ${err}`);
@@ -384,7 +452,7 @@ export async function startRun(input: StartRunInput): Promise<StartRunResult> {
 
         // #229: sync checkpoints from the kernel transcript after each turn.
         try {
-            syncCheckpointsFromTranscript(sessionId, repo.path);
+            syncCheckpointsFromTranscript(sessionId, cwd);
         } catch (err) {
             logWarn(`checkpoint sync after run failed: ${err}`);
         }
@@ -488,7 +556,7 @@ function handleKernelLine(sessionId: string, line: string): void {
     }
 }
 
-import { readFileSync, readdirSync, statSync } from 'node:fs';
+import { readFileSync, readdirSync } from 'node:fs';
 // Light transcript reader for session history display (no kernel spawn).
 // Walks the session JSONL and extracts user text / assistant text + tool
 // names. Uses the CLI's own projects dir layout (~/.fusion-code/projects).
@@ -634,11 +702,12 @@ export async function rollbackToCheckpoint(
     if (!repo) return { ok: false, error: 'repo not found' };
     const kernelCmd = kernelCommand();
     const args = ['--resume', session.kernelSessionId, '--rewind-files', messageUuid];
+    const cwd = sessionCwd(session, repo);
     log(`rollback: session=${sessionId} checkpoint=${messageUuid}`);
     const proc = Bun.spawn([...kernelCmd, ...args], {
         stdout: 'pipe',
         stderr: 'pipe',
-        cwd: repo.path,
+        cwd,
         env: kernelSpawnEnv(),
     });
     const [exitCode, stdout, stderr] = await Promise.all([
@@ -653,7 +722,7 @@ export async function rollbackToCheckpoint(
     log(`rollback done: ${stdout.trim().slice(0, 200)}`);
     // Fresh worktree state after rollback — the Changes rail must re-render.
     try {
-        const changes: FileChange[] = await fileChanges(repo.path);
+        const changes: FileChange[] = await fileChanges(cwd);
         emit(sessionId, { kind: 'file_changes', files: changes });
     } catch (err) {
         logWarn(`fileChanges after rollback failed: ${err}`);

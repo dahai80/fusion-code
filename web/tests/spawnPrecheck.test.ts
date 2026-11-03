@@ -90,7 +90,9 @@ describe('spawn precheck (#234 P1)', () => {
         const envFile = join(worktree, 'kernel.env');
         writeFileSync(
             envFile,
-            ['# kernel auth contract', 'FUSION_BASE_URL=http://127.0.0.1:11432', 'FUSION_AUTH_TOKEN=envfile-key'].join('\n'),
+            ['# kernel auth contract', 'FUSION_BASE_URL=http://127.0.0.1:11432', 'FUSION_AUTH_TOKEN=envfile-key'].join(
+                '\n'
+            )
         );
         process.env.FUSION_CODE_WEB_ENV_FILE = envFile;
         // Ambient env (e.g. supervisor-injected) must NOT clobber the file.

@@ -247,4 +247,60 @@ describe('http + ws stack', () => {
         expect(list.checkpoints.length).toBe(1);
         expect(list.checkpoints[0].messageUuid).toBe(cpUuid);
     }, 20_000);
+
+    test('#239/#237: repoId error contract + inline diff comments over the wire', async () => {
+        // #239: nonexistent repoId → 400 with the valid ids listed.
+        const badRepo = await fetch(`http://127.0.0.1:${PORT}/api/sessions`, {
+            method: 'POST',
+            headers: { 'content-type': 'application/json' },
+            body: JSON.stringify({ title: 'x', repoId: 'no-such-repo', branch: 'main' }),
+        });
+        expect(badRepo.status).toBe(400);
+        const badRepoBody = (await badRepo.json()) as { error: string; field?: string };
+        expect(badRepoBody.field).toBe('repoId');
+        expect(badRepoBody.error).toContain('valid repos');
+
+        // Session for the comment routes.
+        const reposRes = await fetch(`http://127.0.0.1:${PORT}/api/repos`);
+        const { repos } = (await reposRes.json()) as { repos: { id: string }[] };
+        const sessRes = await fetch(`http://127.0.0.1:${PORT}/api/sessions`, {
+            method: 'POST',
+            headers: { 'content-type': 'application/json' },
+            body: JSON.stringify({ title: 'comments-e2e', repoId: repos[0].id, branch: 'main' }),
+        });
+        const { session } = (await sessRes.json()) as { session: { id: string } };
+        const base = `http://127.0.0.1:${PORT}/api/sessions/${session.id}`;
+
+        // #237: validation — bad line / missing text are field-located 400s.
+        const badLine = await fetch(`${base}/comments`, {
+            method: 'POST',
+            headers: { 'content-type': 'application/json' },
+            body: JSON.stringify({ path: 'a.txt', line: 0, text: 'x' }),
+        });
+        expect(badLine.status).toBe(400);
+        expect(((await badLine.json()) as { field?: string }).field).toBe('line');
+        const noText = await fetch(`${base}/comments`, {
+            method: 'POST',
+            headers: { 'content-type': 'application/json' },
+            body: JSON.stringify({ path: 'a.txt', line: 2 }),
+        });
+        expect(noText.status).toBe(400);
+        expect(((await noText.json()) as { field?: string }).field).toBe('text');
+
+        // Valid comment lands and lists back.
+        const okRes = await fetch(`${base}/comments`, {
+            method: 'POST',
+            headers: { 'content-type': 'application/json' },
+            body: JSON.stringify({ path: 'a.txt', line: 2, text: 'rename this var' }),
+        });
+        expect(okRes.status).toBe(200);
+        const { comment } = (await okRes.json()) as {
+            comment: { id: string; path: string; line: number; text: string };
+        };
+        expect(comment.line).toBe(2);
+        expect(comment.text).toBe('rename this var');
+        const listRes = await fetch(`${base}/comments`);
+        const { comments } = (await listRes.json()) as { comments: { id: string }[] };
+        expect(comments.some((c) => c.id === comment.id)).toBe(true);
+    }, 20_000);
 });

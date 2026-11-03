@@ -1,5 +1,6 @@
 import type {
     Checkpoint,
+    DiffComment,
     FileChange,
     HistoryMessage,
     PermissionMode,
@@ -96,8 +97,13 @@ export const api = {
         post<{ permissions: SessionPermissions }>('/api/permissions/default', { mode, allowedTools }),
 
     listSessions: () => get<{ sessions: WebSession[] }>('/api/sessions'),
-    createSession: (input: { title: string; repoId: string; branch: string; environment?: string }) =>
-        post<{ session: WebSession }>('/api/sessions', input),
+    createSession: (input: {
+        title: string;
+        repoId: string;
+        branch: string;
+        environment?: string;
+        isolateWorktree?: boolean;
+    }) => post<{ session: WebSession }>('/api/sessions', input),
     getSession: (id: string) => get<SessionDetail>(`/api/sessions/${id}`),
     setPermissions: (id: string, mode: PermissionMode, allowedTools: string[]) =>
         post<{ permissions: SessionPermissions }>(`/api/sessions/${id}/permissions`, { mode, allowedTools }),
@@ -114,6 +120,11 @@ export const api = {
         post<{ ok: boolean }>(`/api/sessions/${id}/checkpoints/${encodeURIComponent(messageUuid)}/rollback`),
     createPr: (id: string, input: { title: string; body?: string }) =>
         post<{ ok: boolean; url: string; branch: string }>(`/api/sessions/${id}/pr`, input),
+
+    // #237: inline diff comments.
+    listDiffComments: (id: string) => get<{ comments: DiffComment[] }>(`/api/sessions/${id}/comments`),
+    addDiffComment: (id: string, input: { path: string; line: number; text: string }) =>
+        post<{ comment: DiffComment }>(`/api/sessions/${id}/comments`, input),
 
     // #230: usage view.
     usage: () => get<UsageSummary>('/api/usage'),
