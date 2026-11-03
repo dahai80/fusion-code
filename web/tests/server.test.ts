@@ -37,6 +37,9 @@ beforeAll(() => {
     tempDirs.push(dataDir);
     process.env.FUSION_CODE_WEB_DATA_DIR = dataDir;
     process.env.FUSION_CODE_WEB_KERNEL_BIN = `bun ${mockKernel}`;
+    // #234: spawn precheck requires auth env — tests inject dummies.
+    process.env.FUSION_BASE_URL = 'http://127.0.0.1:11432';
+    process.env.FUSION_AUTH_TOKEN = 'test-token';
     __resetStoreForTest();
 });
 
@@ -44,6 +47,8 @@ afterAll(() => {
     for (const dir of tempDirs) rmSync(dir, { recursive: true, force: true });
     delete process.env.FUSION_CODE_WEB_DATA_DIR;
     delete process.env.FUSION_CODE_WEB_KERNEL_BIN;
+    delete process.env.FUSION_BASE_URL;
+    delete process.env.FUSION_AUTH_TOKEN;
 });
 
 describe('gitRepo helpers', () => {

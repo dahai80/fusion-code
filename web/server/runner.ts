@@ -132,6 +132,93 @@ export type StartRunInput = {
 
 export type StartRunResult = { ok: boolean; error?: string; alreadyRunning?: boolean };
 
+// #234 P1: spawn-time environment hygiene. The web server process may be
+// started bare (`bun run server/index.ts`) without the supervisor env file —
+// then spawned kernel processes have no FUSION_BASE_URL / auth token and the
+// LLM call fails mid-turn with an opaque 403. Resolve auth from an optional
+// env file (the same one start.sh sources) plus process.env, and fail fast
+// BEFORE spawn with a structured error when auth is still missing.
+
+function webEnvFile(): string {
+    return process.env.FUSION_CODE_WEB_ENV_FILE ?? join(homedir(), '.fusion-code', 'web.env');
+}
+
+// Parse KEY=VALUE lines (ignores comments/blank lines, strips one pair of
+// surrounding quotes). Malformed lines are skipped, not fatal.
+function parseEnvFile(path: string): Record<string, string> {
+    const out: Record<string, string> = {};
+    let raw = '';
+    try {
+        raw = readFileSync(path, 'utf-8');
+    } catch {
+        return out; // no env file — process.env only
+    }
+    for (const line of raw.split('\n')) {
+        const trimmed = line.trim();
+        if (!trimmed || trimmed.startsWith('#')) continue;
+        const eq = trimmed.indexOf('=');
+        if (eq <= 0) continue;
+        const key = trimmed.slice(0, eq).trim();
+        let value = trimmed.slice(eq + 1).trim();
+        if ((value.startsWith('"') && value.endsWith('"')) || (value.startsWith("'") && value.endsWith("'"))) {
+            value = value.slice(1, -1);
+        }
+        if (key) out[key] = value;
+    }
+    return out;
+}
+
+// Merged env for spawned kernel processes: env file first, then the server
+// process env (explicit env wins), then the checkpointing opt-in.
+export function kernelSpawnEnv(): Record<string, string> {
+    return {
+        ...parseEnvFile(webEnvFile()),
+        ...process.env,
+        FUSION_CODE_ENABLE_SDK_FILE_CHECKPOINTING: '1',
+    } as Record<string, string>;
+}
+
+// Names the auth pieces missing from the resolved env — empty = spawn-safe.
+export function missingAuthEnv(env: Record<string, string>): string[] {
+    const missing: string[] = [];
+    if (!env.FUSION_BASE_URL && !env.ANTHROPIC_BASE_URL) missing.push('FUSION_BASE_URL');
+    if (!env.FUSION_AUTH_TOKEN && !env.FUSION_CLIENT_KEY && !env.ANTHROPIC_API_KEY) {
+        missing.push('FUSION_AUTH_TOKEN (or FUSION_CLIENT_KEY)');
+    }
+    return missing;
+}
+
+// #234 P1: pre-spawn sanity checks — deleted workdir or missing binary used
+// to surface as a raw ENOENT with no structured event.
+export function precheckSpawn(repoPath: string, kernelCmd: string[]): string | null {
+    try {
+        if (!existsSync(repoPath) || !statSync(repoPath).isDirectory()) {
+            return `repo worktree missing or not a directory: ${repoPath}`;
+        }
+    } catch {
+        return `repo worktree missing: ${repoPath}`;
+    }
+    const bin = kernelCmd[0] ?? '';
+    if (bin.includes('/') && !existsSync(bin)) {
+        return `kernel binary not found: ${bin}`;
+    }
+    const missing = missingAuthEnv(kernelSpawnEnv());
+    if (missing.length > 0) {
+        return `kernel auth env missing: ${missing.join(', ')} — set them for the web server process or in ${webEnvFile()}`;
+    }
+    return null;
+}
+
+function failSpawn(sessionId: string, session: WebSession, reason: string): StartRunResult {
+    session.status = 'error';
+    session.errorText = reason;
+    session.updatedAt = Date.now();
+    upsertSession(session);
+    emit(sessionId, { kind: 'turn_error', text: reason });
+    logWarn(`spawn precheck failed: session=${sessionId} reason=${reason}`);
+    return { ok: false, error: reason };
+}
+
 // #231: first-run prompt for design-handoff sessions — the design files are
 // the source of truth, delivered once as inline context before the user's
 // instruction. Exported for tests.
@@ -162,9 +249,14 @@ export async function startRun(input: StartRunInput): Promise<StartRunResult> {
     if (isRunning(sessionId))
         return { ok: false, error: 'a run is already active for this session', alreadyRunning: true };
 
+    // #234 P1: fail fast with a structured turn_error instead of a raw
+    // ENOENT mid-turn.
+    const kernelCmd = kernelCommand();
+    const precheckError = precheckSpawn(repo.path, kernelCmd);
+    if (precheckError) return failSpawn(sessionId, session, precheckError);
+
     const perms = getPermissions(sessionId);
     const kernelSessionId = session.kernelSessionId;
-    const kernelCmd = kernelCommand();
 
     // #231: design handoff — the first run of a design session gets the
     // design files inlined as context (delivered once, then designPending
@@ -202,18 +294,26 @@ export async function startRun(input: StartRunInput): Promise<StartRunResult> {
     const state = runState(sessionId);
     state.startedAt = Date.now();
 
-    const proc = Bun.spawn([...kernelCmd, ...args], {
-        stdout: 'pipe',
-        stderr: 'pipe',
-        cwd: repo.path,
-        env: {
-            ...process.env,
-            // #229: kernel file-checkpointing is opt-in for non-interactive
-            // runs — enable it so every user prompt snapshots the worktree
-            // and --rewind-files rollback is available.
-            FUSION_CODE_ENABLE_SDK_FILE_CHECKPOINTING: '1',
-        },
-    });
+    const spawnAttempt = (() => {
+        try {
+            return {
+                proc: Bun.spawn([...kernelCmd, ...args], {
+                    stdout: 'pipe',
+                    stderr: 'pipe',
+                    cwd: repo.path,
+                    env: kernelSpawnEnv(),
+                }),
+            } as const;
+        } catch (err) {
+            // Prechecks cover the known cases; this catches anything that
+            // still slips through (permissions, exec format, ...).
+            return { err } as const;
+        }
+    })();
+    if ('err' in spawnAttempt) {
+        return failSpawn(sessionId, session, `kernel spawn failed: ${spawnAttempt.err}`);
+    }
+    const proc = spawnAttempt.proc;
     state.proc = proc;
 
     // Drain stderr continuously — verbose kernel writes enough diagnostics to
@@ -534,10 +634,7 @@ export async function rollbackToCheckpoint(
         stdout: 'pipe',
         stderr: 'pipe',
         cwd: repo.path,
-        env: {
-            ...process.env,
-            FUSION_CODE_ENABLE_SDK_FILE_CHECKPOINTING: '1',
-        },
+        env: kernelSpawnEnv(),
     });
     const [exitCode, stdout, stderr] = await Promise.all([
         proc.exited,

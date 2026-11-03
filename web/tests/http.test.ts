@@ -62,6 +62,8 @@ beforeAll(async () => {
             FUSION_CODE_WEB_PORT: String(PORT),
             FUSION_CODE_WEB_DATA_DIR: dataDir,
             FUSION_CODE_WEB_KERNEL_BIN: `bun ${join(import.meta.dir, 'fixtures/mockKernel.ts')}`,
+            FUSION_BASE_URL: 'http://127.0.0.1:11432',
+            FUSION_AUTH_TOKEN: 'test-token',
         },
     });
     void new Response(serverProc.stderr).text().then((t) => {

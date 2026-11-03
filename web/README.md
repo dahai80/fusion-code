@@ -153,7 +153,7 @@ that path is a thin exec shim delegating to `web/start.sh`.
 | `FUSION_DESIGN_DATA_DIR` | `~/.fusion-design` | Base dir of the fusion-design sync-to-code contract |
 | `FUSION_CODE_WEB_DESIGN_REPO_ID` | latest repo | Pin the target repo for ingested design sessions |
 | `FUSION_CODE_WEB_DESIGN_SYNC_INTERVAL_MS` | `3000` | Design-sync poll interval (0 disables the watcher) |
-| `FUSION_CODE_WEB_ENV_FILE` | `~/.fusion-code/web.env` | Env file sourced by `start.sh` before launch |
+| `FUSION_CODE_WEB_ENV_FILE` | `~/.fusion-code/web.env` | Env file sourced by `start.sh` AND parsed at kernel spawn (#234: `FUSION_BASE_URL` / `FUSION_AUTH_TOKEN` here reach spawned CLI runs even when the server process starts bare; spawn fails fast with a structured `turn_error` if auth env is unresolvable) |
 | `FUSION_SHELL_GATEWAY_URL` | unset | Gateway URL — enables manifest registration |
 | `FUSION_ADMIN_KEY` | unset | Gateway admin key (Bearer) for registration + heartbeat |
 

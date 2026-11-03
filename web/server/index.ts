@@ -43,7 +43,9 @@ async function handleApi(req: Request, url: URL): Promise<Response | null> {
     const method = req.method;
 
     // ---- health ----
-    if (pathname === '/health') {
+    // #234 P2: both shapes — direct probes use /health; gateway-based probes
+    // hit /api/health (previously 404 there).
+    if (pathname === '/health' || pathname === '/api/health') {
         return json({ ok: true, module: 'fusion-code-web', version: '0.1.0' });
     }
 
@@ -151,7 +153,10 @@ async function handleApi(req: Request, url: URL): Promise<Response | null> {
         const body = await readBody(req);
         const repoId = String(body.repoId ?? '');
         const title = String(body.title ?? '').trim();
-        if (!store.getRepo(repoId)) return json({ error: 'repo not found' }, 404);
+        // #234 P2: absent/invalid input is a 400 with a field-located
+        // message, not a bare 404 'repo not found'.
+        if (!repoId) return json({ error: 'repoId required', field: 'repoId' }, 400);
+        if (!store.getRepo(repoId)) return json({ error: `repoId does not exist: ${repoId}`, field: 'repoId' }, 400);
         if (!title) return json({ error: 'title required' }, 400);
         const session = store.createSession({
             title,
