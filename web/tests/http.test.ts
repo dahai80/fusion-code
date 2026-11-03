@@ -239,5 +239,12 @@ describe('http + ws stack', () => {
         });
         // Session HAS a kernel id here, so the mock kernel runs and exits 0.
         expect(rbRes.status).toBe(200);
+
+        // #236: checkpoint list endpoint enumerates captured checkpoints.
+        const listRes = await fetch(`http://127.0.0.1:${PORT}/api/sessions/${sessionId}/checkpoints`);
+        expect(listRes.status).toBe(200);
+        const list = (await listRes.json()) as { checkpoints: { messageUuid: string }[] };
+        expect(list.checkpoints.length).toBe(1);
+        expect(list.checkpoints[0].messageUuid).toBe(cpUuid);
     }, 20_000);
 });

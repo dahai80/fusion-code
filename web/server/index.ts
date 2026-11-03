@@ -210,6 +210,10 @@ async function handleApi(req: Request, url: URL): Promise<Response | null> {
             if (!filePath) return json({ error: 'path query param required' }, 400);
             return json({ path: filePath, diff: await fileDiff(repo.path, filePath) });
         }
+        // #236: checkpoint list — enumerate captured checkpoints for the session.
+        if (sub === 'checkpoints' && method === 'GET') {
+            return json({ checkpoints: session.checkpoints ?? [] });
+        }
         // #229: checkpoint verify — run the repo's testCommand.
         const cpVerify = sub.match(/^checkpoints\/([^/]+)\/verify$/);
         if (cpVerify && method === 'POST') {

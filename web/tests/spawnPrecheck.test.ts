@@ -1,8 +1,8 @@
 import { afterAll, beforeEach, describe, expect, test } from 'bun:test';
-import { mkdirSync, mkdtempSync, rmSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { bufferedEvents, startRun } from '../server/runner';
+import { bufferedEvents, kernelSpawnEnv, startRun } from '../server/runner';
 import { __resetStoreForTest, addRepo, createSession, getSession } from '../server/store';
 
 // #234 P1: pre-spawn hygiene — deleted workdir / missing kernel binary /
@@ -82,5 +82,23 @@ describe('spawn precheck (#234 P1)', () => {
         expect(getSession(sessionId)?.status).toBe('error');
         // No kernel process started — no turn_started event either.
         expect(bufferedEvents(sessionId).some((e) => e.kind === 'turn_started')).toBe(false);
+    });
+
+    test('env file wins over inherited process env (#236)', () => {
+        const worktree = mkdtempSync(join(tmpdir(), 'fcweb-envfile-'));
+        tempDirs.push(worktree);
+        const envFile = join(worktree, 'kernel.env');
+        writeFileSync(
+            envFile,
+            ['# kernel auth contract', 'FUSION_BASE_URL=http://127.0.0.1:11432', 'FUSION_AUTH_TOKEN=envfile-key'].join('\n'),
+        );
+        process.env.FUSION_CODE_WEB_ENV_FILE = envFile;
+        // Ambient env (e.g. supervisor-injected) must NOT clobber the file.
+        process.env.FUSION_AUTH_TOKEN = 'ambient-wrong-key';
+
+        const env = kernelSpawnEnv();
+        expect(env.FUSION_AUTH_TOKEN).toBe('envfile-key');
+        expect(env.FUSION_BASE_URL).toBe('http://127.0.0.1:11432');
+        expect(env.FUSION_CODE_ENABLE_SDK_FILE_CHECKPOINTING).toBe('1');
     });
 });

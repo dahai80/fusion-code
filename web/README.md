@@ -96,6 +96,7 @@ Beyond #228 (`/health`, `/manifest.json`, `/api/repos`, `/api/sessions`,
 | `POST /api/repos/:id/setup` | run the repo's setup command in the worktree (v2 env templates); result recorded as `lastSetup` |
 | `GET/POST /api/permissions/default` | global default permissions applied to NEW sessions (settings page); existing sessions keep their own rules |
 | `GET /api/sessions/:id/diff?path=` | unified diff for one changed file |
+| `GET /api/sessions/:id/checkpoints` | list captured checkpoints (#236) |
 | `POST /api/sessions/:id/checkpoints/:uuid/verify` | run repo verify command |
 | `POST /api/sessions/:id/checkpoints/:uuid/rollback` | kernel `--rewind-files` restore |
 | `POST /api/sessions/:id/pr` | branch + commit + push + `gh pr create` |
@@ -153,7 +154,7 @@ that path is a thin exec shim delegating to `web/start.sh`.
 | `FUSION_DESIGN_DATA_DIR` | `~/.fusion-design` | Base dir of the fusion-design sync-to-code contract |
 | `FUSION_CODE_WEB_DESIGN_REPO_ID` | latest repo | Pin the target repo for ingested design sessions |
 | `FUSION_CODE_WEB_DESIGN_SYNC_INTERVAL_MS` | `3000` | Design-sync poll interval (0 disables the watcher) |
-| `FUSION_CODE_WEB_ENV_FILE` | `~/.fusion-code/web.env` | Env file sourced by `start.sh` AND parsed at kernel spawn (#234: `FUSION_BASE_URL` / `FUSION_AUTH_TOKEN` here reach spawned CLI runs even when the server process starts bare; spawn fails fast with a structured `turn_error` if auth env is unresolvable) |
+| `FUSION_CODE_WEB_ENV_FILE` | `~/.fusion-code/web.env` | Env file sourced by `start.sh` AND parsed at kernel spawn (#234: `FUSION_BASE_URL` / `FUSION_AUTH_TOKEN` here reach spawned CLI runs even when the server process starts bare; spawn fails fast with a structured `turn_error` if auth env is unresolvable). #236: env-file values WIN over the server process's inherited env — put the gateway LLM endpoint + a gateway `api_keys` credential + a model matching that key's `allowed_models` here (e.g. `FUSION_BASE_URL` / `FUSION_AUTH_TOKEN` / `FUSION_MODEL`), otherwise an ambient auth token (e.g. supervisor-injected admin key) reaches the spawned CLI and the turn dies with a gateway 403 |
 | `FUSION_SHELL_GATEWAY_URL` | unset | Gateway URL — enables manifest registration |
 | `FUSION_ADMIN_KEY` | unset | Gateway admin key (Bearer) for registration + heartbeat |
 

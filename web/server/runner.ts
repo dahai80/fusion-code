@@ -168,12 +168,15 @@ function parseEnvFile(path: string): Record<string, string> {
     return out;
 }
 
-// Merged env for spawned kernel processes: env file first, then the server
-// process env (explicit env wins), then the checkpointing opt-in.
+// Merged env for spawned kernel processes: server process env first, then the
+// env file ON TOP (deliberate web env config wins — #236: supervisor-style
+// ambient FUSION_AUTH_TOKEN/FUSION_BASE_URL in the server process env used to
+// clobber the env file values and the spawned CLI died at LLM auth with 403),
+// then the checkpointing opt-in.
 export function kernelSpawnEnv(): Record<string, string> {
     return {
-        ...parseEnvFile(webEnvFile()),
         ...process.env,
+        ...parseEnvFile(webEnvFile()),
         FUSION_CODE_ENABLE_SDK_FILE_CHECKPOINTING: '1',
     } as Record<string, string>;
 }
@@ -363,11 +366,12 @@ export async function startRun(input: StartRunInput): Promise<StartRunResult> {
         const durationMs = Date.now() - startedAt;
         log(`run end: session=${sessionId} exit=${exitCode} duration=${durationMs}ms turns=${numTurns}`);
 
-        const fresh = getSession(sessionId);
-        if (fresh) {
-            fresh.status = exitCode === 0 ? 'idle' : 'error';
-            fresh.updatedAt = Date.now();
-            upsertSession(fresh);
+        const sawResult = state.buffer.some((e) => e.kind === 'turn_completed' || e.kind === 'turn_error');
+        if (!sawResult) {
+            emit(sessionId, {
+                kind: 'turn_error',
+                text: exitCode === 0 ? 'kernel exited without a result' : `kernel exited with code ${exitCode}`,
+            });
         }
 
         // Post-turn file changes — the C2 right rail feed.
@@ -385,12 +389,13 @@ export async function startRun(input: StartRunInput): Promise<StartRunResult> {
             logWarn(`checkpoint sync after run failed: ${err}`);
         }
 
-        const sawResult = state.buffer.some((e) => e.kind === 'turn_completed' || e.kind === 'turn_error');
-        if (!sawResult) {
-            emit(sessionId, {
-                kind: 'turn_error',
-                text: exitCode === 0 ? 'kernel exited without a result' : `kernel exited with code ${exitCode}`,
-            });
+        // Idle LAST — after all post-turn events are buffered, so a client that
+        // observes status=idle always already sees the complete event set.
+        const fresh = getSession(sessionId);
+        if (fresh) {
+            fresh.status = exitCode === 0 ? 'idle' : 'error';
+            fresh.updatedAt = Date.now();
+            upsertSession(fresh);
         }
     })();
 
