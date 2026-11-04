@@ -65,6 +65,31 @@ JSONL after each turn (real kernels do not echo the prompt in stream-json).
   worktree is rejected before commit (locale-independent `git diff --cached
   --quiet` check).
 
+## Model policy (#240)
+
+The manifest declares `model_capable: true` + `suggested_model` (a
+coding-strong model from the gateway matrix). New sessions resolve their
+model at RUN time — editing `web/manifest.json` changes the default for new
+sessions without a rebuild — through a first-wins chain:
+
+1. explicit per-session pick (composer "Model" input) — validated against
+   the allowlist/privacy policy, rejected with a field-located 400 when it
+   violates one
+2. module override — `FUSION_CODE_WEB_MODEL_OVERRIDE`
+3. platform preference — best-effort `GET <FUSION_SHELL_GATEWAY_URL>/api/v1/model-policy`
+   (60s negative cache; absent/unreachable = fail-open to the next source)
+4. manifest `suggested_model`
+5. the kernel's own `FUSION_MODEL` env (env-file semantics from #234/#236
+   still apply when nothing above resolves)
+
+`privacy_mode=local_only` (platform policy or `FUSION_CODE_WEB_PRIVACY_MODE`)
+pins sessions to local models (`mlx-*`/`local-*`, extended by
+`FUSION_CODE_WEB_LOCAL_MODELS`); non-local candidates are skipped and
+non-local explicit picks are rejected. The resolved model rides the spawn
+env (`FUSION_MODEL` wins over the env file — it is the deliberate per-run
+choice) and `--model`. `GET /api/models` exposes the effective default,
+its source, the privacy mode, and the allowlist for the composer.
+
 ## Usage (#230)
 
 Each turn's result message carries `usage` + `total_cost_usd`; the server
@@ -98,6 +123,7 @@ Beyond #228 (`/health`, `/manifest.json`, `/api/repos`, `/api/sessions`,
 | `GET/POST /api/permissions/default` | global default permissions applied to NEW sessions (settings page); existing sessions keep their own rules |
 | `GET /api/sessions/:id/diff?path=` | unified diff for one changed file |
 | `GET /api/sessions/:id/checkpoints` | list captured checkpoints (#236) |
+| `GET /api/models` | model capability surface: effective default + override constraints (#240) |
 | `GET/POST /api/sessions/:id/comments` | inline diff comments, anchored to a diff line (#237) |
 | `POST /api/sessions/:id/checkpoints/:uuid/verify` | run repo verify command |
 | `POST /api/sessions/:id/checkpoints/:uuid/rollback` | kernel `--rewind-files` restore |
@@ -164,6 +190,10 @@ against the worktree; deleting the repo removes its sessions' worktrees.
 | `FUSION_CODE_WEB_KERNEL_BIN` | repo `./fusion-code` binary | Kernel binary (or command, space-split) |
 | `FUSION_CODE_WEB_CLONE_DIR` | `~/fusion-code-repos` | Clone target for git-URL repo connects |
 | `FUSION_CODE_WEB_GH_BIN` | `gh` | `gh` binary used by the PR flow (test shim override) |
+| `FUSION_CODE_WEB_MODEL_OVERRIDE` | unset | #240 module-level model override (wins over platform preference + manifest) |
+| `FUSION_CODE_WEB_PRIVACY_MODE` | unset | #240 set to `local_only` to pin sessions to local models |
+| `FUSION_CODE_WEB_MODEL_ALLOWLIST` | unset | #240 comma-separated gateway-style globs (e.g. `claude-3*,qwen*`) constraining per-session picks |
+| `FUSION_CODE_WEB_LOCAL_MODELS` | unset | #240 extra model names/patterns treated as local under `local_only` privacy mode |
 | `FUSION_DESIGN_DATA_DIR` | `~/.fusion-design` | Base dir of the fusion-design sync-to-code contract |
 | `FUSION_CODE_WEB_DESIGN_REPO_ID` | latest repo | Pin the target repo for ingested design sessions |
 | `FUSION_CODE_WEB_DESIGN_SYNC_INTERVAL_MS` | `3000` | Design-sync poll interval (0 disables the watcher) |

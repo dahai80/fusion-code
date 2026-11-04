@@ -303,4 +303,48 @@ describe('http + ws stack', () => {
         const { comments } = (await listRes.json()) as { comments: { id: string }[] };
         expect(comments.some((c) => c.id === comment.id)).toBe(true);
     }, 20_000);
+
+    test('#240: model capability surface + constrained per-session override over the wire', async () => {
+        // GET /api/models exposes the effective default + constraint envelope.
+        const modelsRes = await fetch(`http://127.0.0.1:${PORT}/api/models`);
+        expect(modelsRes.status).toBe(200);
+        const models = (await modelsRes.json()) as {
+            modelCapable: boolean;
+            suggestedModel?: string;
+            defaultModel?: string;
+        };
+        expect(models.modelCapable).toBe(true);
+        expect(models.defaultModel).toBe('claude-3-5-haiku');
+
+        const reposRes = await fetch(`http://127.0.0.1:${PORT}/api/repos`);
+        const { repos } = (await reposRes.json()) as { repos: { id: string }[] };
+
+        // A session without an explicit model has no override stored — it
+        // follows the policy chain at run time.
+        const plainRes = await fetch(`http://127.0.0.1:${PORT}/api/sessions`, {
+            method: 'POST',
+            headers: { 'content-type': 'application/json' },
+            body: JSON.stringify({ title: 'model-default', repoId: repos[0].id, branch: 'main' }),
+        });
+        expect(plainRes.status).toBe(200);
+        const { session: plainSession } = (await plainRes.json()) as {
+            session: { id: string; modelOverride?: string };
+        };
+        expect(plainSession.modelOverride).toBeUndefined();
+
+        // An explicit pick within the manifest default is accepted and stored.
+        const pickRes = await fetch(`http://127.0.0.1:${PORT}/api/sessions`, {
+            method: 'POST',
+            headers: { 'content-type': 'application/json' },
+            body: JSON.stringify({
+                title: 'model-pick',
+                repoId: repos[0].id,
+                branch: 'main',
+                model: 'claude-3-5-haiku',
+            }),
+        });
+        expect(pickRes.status).toBe(200);
+        const { session: pickSession } = (await pickRes.json()) as { session: { id: string; modelOverride?: string } };
+        expect(pickSession.modelOverride).toBe('claude-3-5-haiku');
+    }, 20_000);
 });

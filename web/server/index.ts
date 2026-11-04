@@ -14,6 +14,7 @@ import {
     repoOriginUrl,
     runVerifyCommand,
 } from './gitRepo';
+import { modelInfo, resolveSessionModel } from './modelPolicy';
 import {
     bufferedEvents,
     cleanupSessionWorktree,
@@ -163,6 +164,11 @@ async function handleApi(req: Request, url: URL): Promise<Response | null> {
     if (pathname === '/api/sessions' && method === 'GET') {
         return json({ sessions: store.listSessions() });
     }
+    // #240: model capability surface — effective default, privacy mode, and
+    // the allowlist a per-session override must stay within.
+    if (pathname === '/api/models' && method === 'GET') {
+        return json(await modelInfo());
+    }
     if (pathname === '/api/sessions' && method === 'POST') {
         const body = await readBody(req);
         const repoId = String(body.repoId ?? '');
@@ -179,12 +185,21 @@ async function handleApi(req: Request, url: URL): Promise<Response | null> {
             return json({ error: `repoId does not exist: ${repoId} — valid repos: ${valid}`, field: 'repoId' }, 400);
         }
         if (!title) return json({ error: 'title required' }, 400);
+        // #240: an explicit per-session model pick is validated against the
+        // allowlist/privacy policy NOW (fast 400) and re-validated at run
+        // time (policy may have changed since).
+        const pickedModel = body.model ? String(body.model).trim() : '';
+        if (pickedModel) {
+            const check = await resolveSessionModel(pickedModel);
+            if (check.error) return json({ error: check.error, field: 'model' }, 400);
+        }
         const session = store.createSession({
             title,
             repoId,
             branch: String(body.branch ?? 'main'),
             environment: String(body.environment ?? 'default'),
             isolateWorktree: body.isolateWorktree === true,
+            model: pickedModel || undefined,
         });
         return json({ session });
     }

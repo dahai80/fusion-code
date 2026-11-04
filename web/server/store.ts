@@ -141,6 +141,7 @@ export function createSession(input: {
     branch: string;
     environment: string;
     isolateWorktree?: boolean;
+    model?: string;
 }): WebSession {
     const session: WebSession = {
         id: randomUUID(),
@@ -152,11 +153,15 @@ export function createSession(input: {
         createdAt: Date.now(),
         updatedAt: Date.now(),
         isolateWorktree: input.isolateWorktree ?? false,
+        // #240: explicit per-session model pick (undefined = follow the
+        // policy chain at run time). Validated by the caller against the
+        // allowlist/privacy policy before reaching here.
+        modelOverride: input.model,
     };
     s().sessions.push(session);
     saveStore(s());
     log(
-        `session created: ${session.id} repo=${input.repoId} branch=${input.branch} isolate=${session.isolateWorktree}`
+        `session created: ${session.id} repo=${input.repoId} branch=${input.branch} isolate=${session.isolateWorktree} model=${session.modelOverride ?? '-'}`
     );
     return session;
 }

@@ -3,6 +3,7 @@ import type {
     DiffComment,
     FileChange,
     HistoryMessage,
+    ModelInfo,
     PermissionMode,
     RepoRecord,
     SessionEvent,
@@ -103,7 +104,11 @@ export const api = {
         branch: string;
         environment?: string;
         isolateWorktree?: boolean;
+        model?: string;
     }) => post<{ session: WebSession }>('/api/sessions', input),
+
+    // #240: model capability surface — effective default + override constraints.
+    modelInfo: () => get<ModelInfo>('/api/models'),
     getSession: (id: string) => get<SessionDetail>(`/api/sessions/${id}`),
     setPermissions: (id: string, mode: PermissionMode, allowedTools: string[]) =>
         post<{ permissions: SessionPermissions }>(`/api/sessions/${id}/permissions`, { mode, allowedTools }),

@@ -10,6 +10,7 @@ import type {
 } from '../shared/types';
 import { log, logWarn } from './config';
 import { fileChanges } from './gitRepo';
+import { resolveSessionModel } from './modelPolicy';
 import {
     addCheckpoint,
     addTurnUsage,
@@ -180,12 +181,16 @@ function parseEnvFile(path: string): Record<string, string> {
 // ambient FUSION_AUTH_TOKEN/FUSION_BASE_URL in the server process env used to
 // clobber the env file values and the spawned CLI died at LLM auth with 403),
 // then the checkpointing opt-in.
-export function kernelSpawnEnv(): Record<string, string> {
-    return {
+export function kernelSpawnEnv(model?: string): Record<string, string> {
+    const env = {
         ...process.env,
         ...parseEnvFile(webEnvFile()),
         FUSION_CODE_ENABLE_SDK_FILE_CHECKPOINTING: '1',
     } as Record<string, string>;
+    // #240: a policy-resolved session model wins over both the inherited
+    // process env and the env file — it is the deliberate per-run choice.
+    if (model) env.FUSION_MODEL = model;
+    return env;
 }
 
 // Names the auth pieces missing from the resolved env — empty = spawn-safe.
@@ -340,12 +345,27 @@ export async function startRun(input: StartRunInput): Promise<StartRunResult> {
         log(`design context delivered: session=${sessionId} component=${session.designContext.component}`);
     }
 
+    // #240: resolve the effective model through the policy chain
+    // (explicit pick > module override > platform preference > manifest
+    // suggested_model). An explicit pick violating allowlist/privacy
+    // rejects the run; the resolution otherwise falls through to the
+    // kernel's own FUSION_MODEL default.
+    const explicitModel = input.model ?? session.modelOverride;
+    const modelResolution = await resolveSessionModel(explicitModel);
+    if (modelResolution.error) {
+        return { ok: false, error: modelResolution.error };
+    }
+    const model = modelResolution.model;
+    if (model) {
+        log(`run model: session=${sessionId} model=${model} source=${modelResolution.source}`);
+    }
+
     const args = ['-p', prompt, '--output-format', 'stream-json', '--verbose'];
     if (kernelSessionId) {
         args.push('--resume', kernelSessionId);
     }
-    if (input.model) {
-        args.push('--model', input.model);
+    if (model) {
+        args.push('--model', model);
     }
     if (perms.mode === 'allowlist' && perms.allowedTools.length > 0) {
         args.push('--allowedTools', perms.allowedTools.join(','));
@@ -372,7 +392,7 @@ export async function startRun(input: StartRunInput): Promise<StartRunResult> {
                     stdout: 'pipe',
                     stderr: 'pipe',
                     cwd,
-                    env: kernelSpawnEnv(),
+                    env: kernelSpawnEnv(model),
                 }),
             } as const;
         } catch (err) {

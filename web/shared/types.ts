@@ -91,6 +91,10 @@ export type WebSession = {
     // (dataDir/worktrees/<sessionId>), resolved lazily on the first run.
     isolateWorktree?: boolean;
     worktreePath?: string;
+    // #240: explicit per-session model pick; undefined = the session follows
+    // the model policy chain (module override > platform preference >
+    // manifest suggested_model > kernel FUSION_MODEL env) at run time.
+    modelOverride?: string;
 };
 
 // #237 GUI parity: inline diff comment anchored to a line of the per-file
@@ -101,6 +105,18 @@ export type DiffComment = {
     line: number;
     text: string;
     at: number;
+};
+
+// #240: model capability surface (GET /api/models) — what the session
+// composer shows as the effective default and the constraint envelope for
+// per-session overrides.
+export type ModelInfo = {
+    modelCapable: boolean;
+    suggestedModel?: string;
+    defaultModel?: string;
+    defaultSource?: 'session' | 'module' | 'platform' | 'manifest' | 'env';
+    privacyMode?: 'standard' | 'local_only';
+    allowlist?: string[];
 };
 
 // Stream events relayed over the session WS. `kind` mirrors the kernel

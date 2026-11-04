@@ -12,6 +12,8 @@
     "backend": "http://127.0.0.1:11432/shell/fusion-code/",
     "upstream": "http://127.0.0.1:11482",
     "api_key_env": "FUSION_CODE_WEB_API_KEY",
+    "model_capable": true,
+    "suggested_model": "claude-3-5-haiku",
     "devices": ["desktop", "mobile-readonly"],
     "category": "dev",
     "pages": [

@@ -1,6 +1,6 @@
 import { AlertCircle, ChevronDown, CircleDot, FolderGit2, MessageSquarePlus, Send } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import type { RepoRecord, WebSession } from '../../shared/types';
+import type { ModelInfo, RepoRecord, WebSession } from '../../shared/types';
 import { navigate } from '../App';
 import { type Branch, api } from '../api';
 import { useT } from '../i18n';
@@ -16,14 +16,21 @@ export function SessionsPage() {
     const [branches, setBranches] = useState<Branch[]>([]);
     const [title, setTitle] = useState('');
     const [isolate, setIsolate] = useState(false);
+    const [model, setModel] = useState('');
+    const [models, setModels] = useState<ModelInfo | null>(null);
     const [error, setError] = useState('');
     const [busy, setBusy] = useState(false);
 
     const refresh = useCallback(async () => {
         try {
-            const [repoRes, sessionRes] = await Promise.all([api.listRepos(), api.listSessions()]);
+            const [repoRes, sessionRes, modelRes] = await Promise.all([
+                api.listRepos(),
+                api.listSessions(),
+                api.modelInfo(),
+            ]);
             setRepos(repoRes.repos);
             setSessions(sessionRes.sessions);
+            setModels(modelRes);
             setError('');
         } catch (err) {
             setError(String(err));
@@ -76,6 +83,7 @@ export function SessionsPage() {
                 repoId,
                 branch,
                 isolateWorktree: isolate,
+                model: model.trim() || undefined,
             });
             navigate(`/session/${encodeURIComponent(session.id)}`);
         } catch (err) {
@@ -158,6 +166,38 @@ export function SessionsPage() {
                         />
                         {t('隔离 worktree', 'Isolated worktree')}
                     </label>
+                    <input
+                        value={model}
+                        onChange={(e) => setModel(e.target.value)}
+                        list="session-model-options"
+                        placeholder={
+                            models?.defaultModel
+                                ? t(`默认模型 ${models.defaultModel}`, `Default model ${models.defaultModel}`)
+                                : t('模型（留空用默认）', 'Model (blank = default)')
+                        }
+                        title={
+                            models?.privacyMode === 'local_only'
+                                ? t('隐私模式 local_only：仅限本地模型', 'Privacy mode local_only: local models only')
+                                : models?.allowlist?.length
+                                  ? t(
+                                        `可选模型需匹配 ${models.allowlist.join(', ')}`,
+                                        `Must match ${models.allowlist.join(', ')}`
+                                    )
+                                  : undefined
+                        }
+                        className="w-44 rounded-xl border border-border bg-bg px-3 py-1.5 text-sm outline-none focus:border-brand"
+                    />
+                    <datalist id="session-model-options">
+                        {models?.defaultModel && <option value={models.defaultModel} />}
+                        {models?.suggestedModel && models.suggestedModel !== models.defaultModel && (
+                            <option value={models.suggestedModel} />
+                        )}
+                        {(models?.allowlist ?? [])
+                            .filter((p) => p.includes('*'))
+                            .map((pattern) => (
+                                <option key={pattern} value={pattern.replace(/\*+$/, '')} />
+                            ))}
+                    </datalist>
                     <button
                         type="button"
                         onClick={() => void createSession()}
