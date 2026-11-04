@@ -123,7 +123,7 @@ WORKFLOW_SCRIPTS
 
 ## runtime env-gate: 88 Flags
 
-`isEnvTruthy(process.env.FUSION_CODE_*)` 读取的运行时 flag, 进程启动决定, 不需重编译。默认 unset = off, 路径 byte-identical 与关时一致。命名空间统一 `FUSION_CODE_` 前缀 (审计 3.2.4 指出 env 混用 `FUSION_CODE_*`/`FUSION_*`/`CLAUDE_CODE_*` 三前缀, 见 `src/entrypoints/cli.tsx` 映射表 — `FUSION_*` 映射到 `ANTHROPIC_*` 供 SDK 兼容, `CLAUDE_CODE_*` 为上游兼容遗留)。
+`isEnvTruthy(process.env.FUSION_CODE_*)` 读取的运行时 flag, 进程启动决定, 不需重编译。默认 unset = off, 路径 byte-identical 与关时一致。命名空间统一 `FUSION_CODE_` 前缀 (审计 3.2.4 指出 env 曾混用 `FUSION_CODE_*`/`FUSION_*`/`CLAUDE_CODE_*` 三前缀; 1104 清理已移除 `CLAUDE_CODE_*` 遗留, 见 `src/entrypoints/cli.tsx` 映射表 — `FUSION_*` 映射到 `ANTHROPIC_*` 供 SDK 兼容)。
 
 ```
 FUSION_CODE_ACTION
@@ -322,7 +322,7 @@ runtime flag 不会出现在 `strings` (非编译时), 验证靠日志或行为�
 
 审计 3.2.3 (默认关 byte-identical 靠人工维持无强制) **已部分缓解** — off-path 校验仍靠 reviewer 纪律, 但 build-time flag 列表与源码一致性已有自动化 gate: `bun run lint:flags` (`scripts/check-feature-flags.ts`, P1-4 R10), 集成进 `bun run check`。src↔build 漂移 (dead entry / 活动漏项) 会被 CI 拦截。
 
-审计 3.2.4 (命名无前缀约定) **部分成立** — runtime flag 统一 `FUSION_CODE_` 前缀; `FUSION_*` (非 `FUSION_CODE_`) 为 SDK 兼容映射, `CLAUDE_CODE_*` 为上游兼容遗留。build-time flag 无统一前缀 (历史命名)。
+审计 3.2.4 (命名无前缀约定) **部分成立** — runtime flag 统一 `FUSION_CODE_` 前缀; `FUSION_*` (非 `FUSION_CODE_`) 为 SDK 兼容映射; `CLAUDE_CODE_*` 上游兼容遗留已在 1104 清理中全部更名为 `FUSION_CODE_*`。build-time flag 无统一前缀 (历史命名)。
 
 ### 列表与源码一致性核对命令
 

@@ -68,11 +68,7 @@ import {
 import { isAgentSwarmsEnabled } from "./utils/agentSwarmsEnabled.js";
 import { uniq } from "./utils/array.js";
 import { installAsciicastRecorder } from "./utils/asciicast.js";
-import {
-	getSubscriptionType,
-	isClaudeAISubscriber,
-	validateForceLoginOrg,
-} from "./utils/auth.js";
+import { getSubscriptionType, validateForceLoginOrg } from "./utils/auth.js";
 import {
 	checkHasTrustDialogAccepted,
 	getGlobalConfig,
@@ -166,13 +162,6 @@ import {
 } from "./tools/AgentTool/loadAgentsDir.js";
 import type { LogOption } from "./types/logs.js";
 import type { Message as MessageType } from "./types/message.js";
-import {
-	CLAUDE_IN_CHROME_SKILL_HINT,
-	CLAUDE_IN_CHROME_SKILL_HINT_WITH_WEBBROWSER,
-	setupClaudeInChrome,
-	shouldAutoEnableClaudeInChrome,
-	shouldEnableClaudeInChrome,
-} from "./utils/claudeInChromeGate.js";
 import { getContextWindowForModel } from "./utils/context.js";
 import { loadConversationForResume } from "./utils/conversationRecovery.js";
 import {
@@ -263,10 +252,6 @@ import {
 } from "src/services/mcp/index.js";
 import { getRelevantTips } from "src/services/tips/tipRegistry.js";
 import { logContextMetrics } from "src/utils/api.js";
-import {
-	CLAUDE_IN_CHROME_MCP_SERVER_NAME,
-	isClaudeInChromeMCPServer,
-} from "src/utils/claudeInChromeGate.js";
 import { registerCleanup } from "src/utils/cleanupRegistry.js";
 import { eagerParseCliFlag } from "src/utils/cliArgs.js";
 import { createEmptyAttributionState } from "src/utils/commitAttribution.js";
@@ -468,7 +453,7 @@ function getCertEnvVarTelemetry(): Record<string, boolean> {
 	if (process.env.NODE_EXTRA_CA_CERTS) {
 		result.has_node_extra_ca_certs = true;
 	}
-	if (process.env.CLAUDE_CODE_CLIENT_CERT) {
+	if (process.env.FUSION_CODE_CLIENT_CERT) {
 		result.has_client_cert = true;
 	}
 	if (hasNodeOption("--use-system-ca")) {
@@ -570,7 +555,7 @@ export function startDeferredPrefetches(): void {
 	// loop time, which skews startup benchmarks (CPU profiles, time-to-first-render
 	// measurements). Skip all of it when we're only measuring startup performance.
 	if (
-		isEnvTruthy(process.env.CLAUDE_CODE_EXIT_AFTER_FIRST_RENDER) ||
+		isEnvTruthy(process.env.FUSION_CODE_EXIT_AFTER_FIRST_RENDER) ||
 		// --bare: skip ALL prefetches. These are cache-warms for the REPL's
 		// first-turn responsiveness (initUser, getUserContext, tips, countFiles,
 		// modelCapabilities, change detectors). Scripted -p calls don't have a
@@ -707,7 +692,7 @@ function eagerLoadSettings(): void {
 }
 function initializeEntrypoint(isNonInteractive: boolean): void {
 	// Skip if already set (e.g., by SDK or other entrypoints)
-	if (process.env.CLAUDE_CODE_ENTRYPOINT) {
+	if (process.env.FUSION_CODE_ENTRYPOINT) {
 		return;
 	}
 	const cliArgs = process.argv.slice(2);
@@ -715,19 +700,19 @@ function initializeEntrypoint(isNonInteractive: boolean): void {
 	// Check for MCP serve command (handle flags before mcp serve, e.g., --debug mcp serve)
 	const mcpIndex = cliArgs.indexOf("mcp");
 	if (mcpIndex !== -1 && cliArgs[mcpIndex + 1] === "serve") {
-		process.env.CLAUDE_CODE_ENTRYPOINT = "mcp";
+		process.env.FUSION_CODE_ENTRYPOINT = "mcp";
 		return;
 	}
-	if (isEnvTruthy(process.env.CLAUDE_CODE_ACTION)) {
-		process.env.CLAUDE_CODE_ENTRYPOINT = "claude-code-github-action";
+	if (isEnvTruthy(process.env.FUSION_CODE_ACTION)) {
+		process.env.FUSION_CODE_ENTRYPOINT = "claude-code-github-action";
 		return;
 	}
 
 	// Note: 'local-agent' entrypoint is set by the local agent mode launcher
-	// via CLAUDE_CODE_ENTRYPOINT env var (handled by early return above)
+	// via FUSION_CODE_ENTRYPOINT env var (handled by early return above)
 
 	// Set based on interactive status
-	process.env.CLAUDE_CODE_ENTRYPOINT = isNonInteractive ? "sdk-cli" : "cli";
+	process.env.FUSION_CODE_ENTRYPOINT = isNonInteractive ? "sdk-cli" : "cli";
 }
 
 export async function main() {
@@ -790,23 +775,23 @@ export async function main() {
 	// Determine client type
 	const clientType = (() => {
 		if (isEnvTruthy(process.env.GITHUB_ACTIONS)) return "github-action";
-		if (process.env.CLAUDE_CODE_ENTRYPOINT === "sdk-ts")
+		if (process.env.FUSION_CODE_ENTRYPOINT === "sdk-ts")
 			return "sdk-typescript";
-		if (process.env.CLAUDE_CODE_ENTRYPOINT === "sdk-py") return "sdk-python";
-		if (process.env.CLAUDE_CODE_ENTRYPOINT === "sdk-cli") return "sdk-cli";
-		if (process.env.CLAUDE_CODE_ENTRYPOINT === "claude-vscode")
+		if (process.env.FUSION_CODE_ENTRYPOINT === "sdk-py") return "sdk-python";
+		if (process.env.FUSION_CODE_ENTRYPOINT === "sdk-cli") return "sdk-cli";
+		if (process.env.FUSION_CODE_ENTRYPOINT === "claude-vscode")
 			return "claude-vscode";
-		if (process.env.CLAUDE_CODE_ENTRYPOINT === "local-agent")
+		if (process.env.FUSION_CODE_ENTRYPOINT === "local-agent")
 			return "local-agent";
-		if (process.env.CLAUDE_CODE_ENTRYPOINT === "claude-desktop")
+		if (process.env.FUSION_CODE_ENTRYPOINT === "claude-desktop")
 			return "claude-desktop";
 
 		// Check if session-ingress token is provided (indicates remote session)
 		const hasSessionIngressToken =
-			process.env.CLAUDE_CODE_SESSION_ACCESS_TOKEN ||
-			process.env.CLAUDE_CODE_WEBSOCKET_AUTH_FILE_DESCRIPTOR;
+			process.env.FUSION_CODE_SESSION_ACCESS_TOKEN ||
+			process.env.FUSION_CODE_WEBSOCKET_AUTH_FILE_DESCRIPTOR;
 		if (
-			process.env.CLAUDE_CODE_ENTRYPOINT === "remote" ||
+			process.env.FUSION_CODE_ENTRYPOINT === "remote" ||
 			hasSessionIngressToken
 		) {
 			return "remote";
@@ -814,7 +799,7 @@ export async function main() {
 		return "cli";
 	})();
 	setClientType(clientType);
-	const previewFormat = process.env.CLAUDE_CODE_QUESTION_PREVIEW_FORMAT;
+	const previewFormat = process.env.FUSION_CODE_QUESTION_PREVIEW_FORMAT;
 	if (previewFormat === "markdown" || previewFormat === "html") {
 		setQuestionPreviewFormat(previewFormat);
 	} else if (
@@ -829,7 +814,7 @@ export async function main() {
 	}
 
 	// Tag sessions created via `claude remote-control` so the backend can identify them
-	if (process.env.CLAUDE_CODE_ENVIRONMENT_KIND === "bridge") {
+	if (process.env.FUSION_CODE_ENVIRONMENT_KIND === "bridge") {
 		setSessionSource("remote-control");
 	}
 	profileCheckpoint("main_client_type_determined");
@@ -933,7 +918,7 @@ async function run(): Promise<CommanderCommand> {
 		// process.title on Windows sets the console title directly; on POSIX,
 		// terminal shell integration may mirror the process name to the tab.
 		// After init() so settings.json env can also gate this (gh-4765).
-		if (!isEnvTruthy(process.env.CLAUDE_CODE_DISABLE_TERMINAL_TITLE)) {
+		if (!isEnvTruthy(process.env.FUSION_CODE_DISABLE_TERMINAL_TITLE)) {
 			process.title = "fusion-code";
 		}
 
@@ -1357,18 +1342,8 @@ async function run(): Promise<CommanderCommand> {
 			[] as string[],
 		)
 		.option("--disable-slash-commands", "Disable all skills", () => true)
-		.option(
-			"--chrome",
-			feature("CHROME")
-				? "Enable Claude in Chrome integration"
-				: "Enable browser integration",
-		)
-		.option(
-			"--no-chrome",
-			feature("CHROME")
-				? "Disable Claude in Chrome integration"
-				: "Disable browser integration",
-		)
+		.option("--chrome", "Enable browser integration")
+		.option("--no-chrome", "Disable browser integration")
 		.option(
 			"--file <specs...>",
 			"File resources to download at startup. Format: file_id:relative_path (e.g., --file file_abc:doc.txt file_def:img.png)",
@@ -1386,7 +1361,7 @@ async function run(): Promise<CommanderCommand> {
 					}
 				).bare
 			) {
-				process.env.CLAUDE_CODE_SIMPLE = "1";
+				process.env.FUSION_CODE_SIMPLE = "1";
 			}
 
 			// --safe-mode = read-only + no shell + no network
@@ -1546,7 +1521,7 @@ async function run(): Promise<CommanderCommand> {
 			const agentsJson = options.agents;
 			const agentCli = options.agent;
 			if (feature("BG_SESSIONS") && agentCli) {
-				process.env.CLAUDE_CODE_AGENT = agentCli;
+				process.env.FUSION_CODE_AGENT = agentCli;
 			}
 
 			// NOTE: LSP manager initialization is intentionally deferred until after
@@ -1568,7 +1543,7 @@ async function run(): Promise<CommanderCommand> {
 			}
 			const effectiveIncludePartialMessages =
 				includePartialMessages ||
-				isEnvTruthy(process.env.CLAUDE_CODE_INCLUDE_PARTIAL_MESSAGES);
+				isEnvTruthy(process.env.FUSION_CODE_INCLUDE_PARTIAL_MESSAGES);
 
 			// --safe-mode: inject disallowed tools for read-only operation
 			if (process.env.FUSION_SAFE_MODE === "1") {
@@ -1603,7 +1578,7 @@ async function run(): Promise<CommanderCommand> {
 					: DEFAULT_TASKS_MODE_TASK_LIST_ID
 				: undefined;
 			if (isInternalBuild() && taskListId) {
-				process.env.CLAUDE_CODE_TASK_LIST_ID = taskListId;
+				process.env.FUSION_CODE_TASK_LIST_ID = taskListId;
 			}
 
 			// Extract worktree option
@@ -1667,7 +1642,7 @@ async function run(): Promise<CommanderCommand> {
 			let storedTeammateOpts: TeammateOptions | undefined;
 			if (isAgentSwarmsEnabled()) {
 				// Extract agent identity options (for tmux-spawned agents)
-				// These replace the CLAUDE_CODE_* environment variables
+				// These mirror the FUSION_CODE_* teammate environment variables
 				const teammateOpts = extractTeammateOptions(options);
 				storedTeammateOpts = teammateOpts;
 
@@ -1958,9 +1933,7 @@ async function run(): Promise<CommanderCommand> {
 						.filter(([, config]) => config.type !== "sdk")
 						.map(([name]) => name);
 					let reservedNameError: string | null = null;
-					if (nonSdkConfigNames.some(isClaudeInChromeMCPServer)) {
-						reservedNameError = `Invalid MCP configuration: "${CLAUDE_IN_CHROME_MCP_SERVER_NAME}" is a reserved MCP name.`;
-					} else if (feature("CHICAGO_MCP")) {
+					if (feature("CHICAGO_MCP")) {
 						const { isComputerUseMCPServer, COMPUTER_USE_MCP_SERVER_NAME } =
 							await import("src/utils/computerUse/common.js");
 						if (nonSdkConfigNames.some(isComputerUseMCPServer)) {
@@ -2005,70 +1978,12 @@ async function run(): Promise<CommanderCommand> {
 				}
 			}
 
-			// Extract Claude in Chrome option and enforce claude.ai subscriber check (unless user is ant)
+			// Extract the browser-integration flag (kept for script compat; the
+			// gated chrome subtree was removed — the flag is accepted and inert).
 			const chromeOpts = options as {
 				chrome?: boolean;
 			};
-			// Store the explicit CLI flag so teammates can inherit it
 			setChromeFlagOverride(chromeOpts.chrome);
-			const enableClaudeInChrome =
-				shouldEnableClaudeInChrome(chromeOpts.chrome) &&
-				(isInternalBuild() || isClaudeAISubscriber());
-			const autoEnableClaudeInChrome =
-				!enableClaudeInChrome && shouldAutoEnableClaudeInChrome();
-			if (feature("CHROME") && enableClaudeInChrome) {
-				const platform = getPlatform();
-				try {
-					logEvent("fusion_claude_in_chrome_setup", {
-						platform:
-							platform as AnalyticsMetadata_I_VERIFIED_THIS_IS_NOT_CODE_OR_FILEPATHS,
-					});
-					const {
-						mcpConfig: chromeMcpConfig,
-						allowedTools: chromeMcpTools,
-						systemPrompt: chromeSystemPrompt,
-					} = setupClaudeInChrome();
-					dynamicMcpConfig = {
-						...dynamicMcpConfig,
-						...chromeMcpConfig,
-					};
-					allowedTools.push(...chromeMcpTools);
-					if (chromeSystemPrompt) {
-						appendSystemPrompt = appendSystemPrompt
-							? `${chromeSystemPrompt}\n\n${appendSystemPrompt}`
-							: chromeSystemPrompt;
-					}
-				} catch (error) {
-					logEvent("fusion_claude_in_chrome_setup_failed", {
-						platform:
-							platform as AnalyticsMetadata_I_VERIFIED_THIS_IS_NOT_CODE_OR_FILEPATHS,
-					});
-					logForDebugging(`[Claude in Chrome] Error: ${error}`);
-					logError(error);
-					console.error(`Error: Failed to run with Claude in Chrome.`);
-					gracefulShutdownSync(1);
-				}
-			} else if (feature("CHROME") && autoEnableClaudeInChrome) {
-				try {
-					const { mcpConfig: chromeMcpConfig } = setupClaudeInChrome();
-					dynamicMcpConfig = {
-						...dynamicMcpConfig,
-						...chromeMcpConfig,
-					};
-					const hint =
-						feature("WEB_BROWSER_TOOL") &&
-						typeof Bun !== "undefined" &&
-						"WebView" in Bun
-							? CLAUDE_IN_CHROME_SKILL_HINT_WITH_WEBBROWSER
-							: CLAUDE_IN_CHROME_SKILL_HINT;
-					appendSystemPrompt = appendSystemPrompt
-						? `${appendSystemPrompt}\n\n${hint}`
-						: hint;
-				} catch (error) {
-					// Silently skip any errors for the auto-enable
-					logForDebugging(`[Claude in Chrome] Error (auto-enable): ${error}`);
-				}
-			}
 
 			// Extract strict MCP config flag
 			const strictMcpConfig = options.strictMcpConfig || false;
@@ -2420,7 +2335,7 @@ async function run(): Promise<CommanderCommand> {
 			// (mirrors useMergedTools.ts filtering for REPL/interactive path)
 			if (
 				feature("COORDINATOR_MODE") &&
-				isEnvTruthy(process.env.CLAUDE_CODE_COORDINATOR_MODE)
+				isEnvTruthy(process.env.FUSION_CODE_COORDINATOR_MODE)
 			) {
 				const { applyCoordinatorToolFilter } = await import(
 					"./utils/toolPool.js"
@@ -2483,7 +2398,7 @@ async function run(): Promise<CommanderCommand> {
 			// pure in-memory array pushes (<1ms, zero I/O) that getBundledSkills()
 			// reads synchronously. Previously ran inside setup() after ~20ms of
 			// await points, so the parallel getCommands() memoized an empty list.
-			if (process.env.CLAUDE_CODE_ENTRYPOINT !== "local-agent") {
+			if (process.env.FUSION_CODE_ENTRYPOINT !== "local-agent") {
 				initBuiltinPlugins();
 				initBundledSkills();
 			}
@@ -2878,7 +2793,7 @@ async function run(): Promise<CommanderCommand> {
 						proactive?: boolean;
 					}
 				).proactive ||
-					isEnvTruthy(process.env.CLAUDE_CODE_PROACTIVE)) &&
+					isEnvTruthy(process.env.FUSION_CODE_PROACTIVE)) &&
 				!coordinatorModeModule?.isCoordinatorMode()
 			) {
 				/* eslint-disable @typescript-eslint/no-require-imports */
@@ -2915,7 +2830,7 @@ async function run(): Promise<CommanderCommand> {
 				const ctx = getRenderContext(false);
 				getFpsMetrics = ctx.getFpsMetrics;
 				stats = ctx.stats;
-				// Install asciicast recorder before Ink mounts (ant-only, opt-in via CLAUDE_CODE_TERMINAL_RECORDING=1)
+				// Install asciicast recorder before Ink mounts (ant-only, opt-in via FUSION_CODE_TERMINAL_RECORDING=1)
 				if (isInternalBuild()) {
 					installAsciicastRecorder();
 				}
@@ -2937,7 +2852,6 @@ async function run(): Promise<CommanderCommand> {
 					permissionMode,
 					allowDangerouslySkipPermissions,
 					commands,
-					enableClaudeInChrome,
 					devChannels,
 				);
 				logForDebugging(
@@ -3915,7 +3829,7 @@ async function run(): Promise<CommanderCommand> {
 			// environments can be recreated at any user message index. Gating:
 			//   - Build-time: this import is stubbed in external builds.
 			//   - Runtime: uploader checks github.com/anthropics/* remote + gcloud auth.
-			//   - Safety: CLAUDE_CODE_DISABLE_SESSION_DATA_UPLOAD=1 bypasses (tests set this).
+			//   - Safety: FUSION_CODE_DISABLE_SESSION_DATA_UPLOAD=1 bypasses (tests set this).
 			// Import is dynamic + async to avoid adding startup latency.
 			const sessionUploaderPromise = isInternalBuild()
 				? import("./utils/sessionDataUploader.js")
@@ -4473,7 +4387,7 @@ async function run(): Promise<CommanderCommand> {
 	}
 
 	// Teammate identity options (set by leader when spawning tmux teammates)
-	// These replace the CLAUDE_CODE_* environment variables
+	// These mirror the FUSION_CODE_* teammate environment variables
 	program.addOption(
 		new Option("--agent-id <id>", "Teammate agent ID").hideHelp(),
 	);
@@ -4709,7 +4623,7 @@ function maybeActivateProactive(options: unknown): void {
 				proactive?: boolean;
 			}
 		).proactive ||
-			isEnvTruthy(process.env.CLAUDE_CODE_PROACTIVE))
+			isEnvTruthy(process.env.FUSION_CODE_PROACTIVE))
 	) {
 		// eslint-disable-next-line @typescript-eslint/no-require-imports
 		const proactiveModule = require("./proactive/index.js");
@@ -4725,12 +4639,12 @@ function maybeActivateBrief(options: unknown): void {
 			brief?: boolean;
 		}
 	).brief;
-	const briefEnv = isEnvTruthy(process.env.CLAUDE_CODE_BRIEF);
+	const briefEnv = isEnvTruthy(process.env.FUSION_CODE_BRIEF);
 	if (!briefFlag && !briefEnv) return;
-	// --brief / CLAUDE_CODE_BRIEF are explicit opt-ins: check entitlement,
+	// --brief / FUSION_CODE_BRIEF are explicit opt-ins: check entitlement,
 	// then set userMsgOptIn to activate the tool + prompt section. The env
 	// var also grants entitlement (isBriefEntitled() reads it), so setting
-	// CLAUDE_CODE_BRIEF=1 alone force-enables for dev/testing — no GB gate
+	// FUSION_CODE_BRIEF=1 alone force-enables for dev/testing — no GB gate
 	// needed. initialIsBriefOnly reads getUserMsgOptIn() directly.
 	// Conditional require: static import would leak the tool name string
 	// into external builds via BriefTool.ts → prompt.ts.

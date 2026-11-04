@@ -524,11 +524,9 @@ import { useRateLimitWarningNotification } from "src/hooks/notifs/useRateLimitWa
 import { useSettingsErrors } from "src/hooks/notifs/useSettingsErrors.js";
 import { useTeammateLifecycleNotification } from "src/hooks/notifs/useTeammateShutdownNotification.js";
 import { useAwaySummary } from "src/hooks/useAwaySummary.js";
-import { useChromeExtensionNotification } from "src/hooks/useChromeExtensionNotification.js";
 import { useClaudeCodeHintRecommendation } from "src/hooks/useClaudeCodeHintRecommendation.js";
 import { useFileHistorySnapshotInit } from "src/hooks/useFileHistorySnapshotInit.js";
 import { useLspPluginRecommendation } from "src/hooks/useLspPluginRecommendation.js";
-import { usePromptsFromClaudeInChrome } from "src/hooks/usePromptsFromClaudeInChrome.js";
 import {
 	checkAndDisableAutoModeIfNeeded,
 	checkAndDisableBypassPermissionsIfNeeded,
@@ -687,7 +685,7 @@ export function REPL({
 	// Env-var gates hoisted to mount-time — isEnvTruthy does toLowerCase+trim+
 	// includes, and these were on the render path (hot during PageUp spam).
 	const titleDisabled = useMemo(
-		() => isEnvTruthy(process.env.CLAUDE_CODE_DISABLE_TERMINAL_TITLE),
+		() => isEnvTruthy(process.env.FUSION_CODE_DISABLE_TERMINAL_TITLE),
 		[],
 	);
 	const moreRightEnabled = useMemo(
@@ -695,13 +693,13 @@ export function REPL({
 		[],
 	);
 	const disableVirtualScroll = useMemo(
-		() => isEnvTruthy(process.env.CLAUDE_CODE_DISABLE_VIRTUAL_SCROLL),
+		() => isEnvTruthy(process.env.FUSION_CODE_DISABLE_VIRTUAL_SCROLL),
 		[],
 	);
 	const disableMessageActions = feature("MESSAGE_ACTIONS")
 		? // biome-ignore lint/correctness/useHookAtTopLevel: feature() is a compile-time constant
 			useMemo(
-				() => isEnvTruthy(process.env.CLAUDE_CODE_DISABLE_MESSAGE_ACTIONS),
+				() => isEnvTruthy(process.env.FUSION_CODE_DISABLE_MESSAGE_ACTIONS),
 				[],
 			)
 		: false;
@@ -803,7 +801,7 @@ export function REPL({
 	const [screen, setScreen] = useState<Screen>("prompt");
 	const [showAllInTranscript, setShowAllInTranscript] = useState(false);
 	// [ forces the dump-to-scrollback path inside transcript mode. Separate
-	// from CLAUDE_CODE_NO_FLICKER=0 (which is process-lifetime) — this is
+	// from FUSION_CODE_NO_FLICKER=0 (which is process-lifetime) — this is
 	// ephemeral, reset on transcript exit. Diagnostic escape hatch so
 	// terminal/tmux native cmd-F can search the full flat render.
 	const [dumpMode, setDumpMode] = useState(false);
@@ -865,7 +863,6 @@ export function REPL({
 	useFastModeNotification();
 	useDeprecationWarningNotification(mainLoopModel);
 	useAntOrgWarningNotification();
-	useChromeExtensionNotification();
 	useLspInitializationNotification();
 	useTeammateLifecycleNotification();
 	const {
@@ -908,10 +905,6 @@ export function REPL({
 		});
 		return stop;
 	}, [store, setAppState]);
-
-	// Allow Claude in Chrome MCP to send prompts through MCP notifications
-	// and sync permission mode changes to the Chrome extension
-	usePromptsFromClaudeInChrome(mcpClients, toolPermissionContext.mode);
 
 	// Initialize swarm features: teammate hooks and context
 	// Handles both fresh spawns and resumed teammate sessions

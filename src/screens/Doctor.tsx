@@ -102,7 +102,7 @@ export function Doctor(t0) {
 				upperLimit: TASK_MAX_OUTPUT_UPPER_LIMIT,
 			},
 			{
-				name: "CLAUDE_CODE_MAX_OUTPUT_TOKENS",
+				name: "FUSION_CODE_MAX_OUTPUT_TOKENS",
 				...getModelMaxOutputTokens("claude-opus-4-6"),
 			},
 		];

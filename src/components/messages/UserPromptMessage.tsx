@@ -62,7 +62,7 @@ export function UserPromptMessage({
 	const briefEnvEnabled =
 		feature("KAIROS") || feature("KAIROS_BRIEF")
 			? // biome-ignore lint/correctness/useHookAtTopLevel: feature() is a compile-time constant
-				useMemo(() => isEnvTruthy(process.env.CLAUDE_CODE_BRIEF), [])
+				useMemo(() => isEnvTruthy(process.env.FUSION_CODE_BRIEF), [])
 			: false;
 	const useBriefLayout =
 		feature("KAIROS") || feature("KAIROS_BRIEF")

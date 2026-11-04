@@ -832,10 +832,10 @@ export async function wrapCommandWithSandboxLinux(params) {
                 // Add host proxy port environment variables for debugging/transparency
                 // These show which host ports the Unix socket bridges connect to
                 if (httpProxyPort !== undefined) {
-                    bwrapArgs.push('--setenv', 'CLAUDE_CODE_HOST_HTTP_PROXY_PORT', String(httpProxyPort));
+                    bwrapArgs.push('--setenv', 'FUSION_CODE_HOST_HTTP_PROXY_PORT', String(httpProxyPort));
                 }
                 if (socksProxyPort !== undefined) {
-                    bwrapArgs.push('--setenv', 'CLAUDE_CODE_HOST_SOCKS_PROXY_PORT', String(socksProxyPort));
+                    bwrapArgs.push('--setenv', 'FUSION_CODE_HOST_SOCKS_PROXY_PORT', String(socksProxyPort));
                 }
             }
             // If no sockets provided, network is completely blocked (--unshare-net without proxy)

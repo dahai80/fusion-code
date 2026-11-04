@@ -178,8 +178,8 @@ session override (/model)
 | `MACRO.PACKAGE_URL` | `@fusion-mlx/fusion-code` |
 | `MACRO.VERSION_CHANGELOG` | dev: git log -20; 正式: github URL |
 | `process.env.USER_TYPE` | `"external"` |
-| `process.env.CLAUDE_CODE_FORCE_FULL_LOGO` | `"true"` |
-| `process.env.CLAUDE_CODE_EXPERIMENTAL_BUILD` | dev 构建时 `"true"` |
+| `process.env.FUSION_CODE_FORCE_FULL_LOGO` | `"true"` |
+| `process.env.FUSION_CODE_EXPERIMENTAL_BUILD` | dev 构建时 `"true"` |
 
 ### 排除的原生模块
 

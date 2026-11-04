@@ -77,15 +77,15 @@ process.env.COREPACK_ENABLE_AUTO_PIN = "0";
 // module-level consts at import time — init() runs too late. feature() gate
 // DCEs this entire block from external builds.
 // eslint-disable-next-line custom-rules/no-top-level-side-effects, custom-rules/no-process-env-top-level
-if (feature("ABLATION_BASELINE") && process.env.CLAUDE_CODE_ABLATION_BASELINE) {
+if (feature("ABLATION_BASELINE") && process.env.FUSION_CODE_ABLATION_BASELINE) {
 	for (const k of [
-		"CLAUDE_CODE_SIMPLE",
-		"CLAUDE_CODE_DISABLE_THINKING",
+		"FUSION_CODE_SIMPLE",
+		"FUSION_CODE_DISABLE_THINKING",
 		"DISABLE_INTERLEAVED_THINKING",
 		"DISABLE_COMPACT",
 		"DISABLE_AUTO_COMPACT",
-		"CLAUDE_CODE_DISABLE_AUTO_MEMORY",
-		"CLAUDE_CODE_DISABLE_BACKGROUND_TASKS",
+		"FUSION_CODE_DISABLE_AUTO_MEMORY",
+		"FUSION_CODE_DISABLE_BACKGROUND_TASKS",
 	]) {
 		// eslint-disable-next-line custom-rules/no-top-level-side-effects, custom-rules/no-process-env-top-level
 		process.env[k] ??= "1";
@@ -171,24 +171,7 @@ async function main(): Promise<void> {
 		console.log(JSON.stringify(configDump, null, 2));
 		return;
 	}
-	if (feature("CHROME") && process.argv[2] === "--claude-in-chrome-mcp") {
-		profileCheckpoint("cli_claude_in_chrome_mcp_path");
-		const { runClaudeInChromeMcpServer } = await import(
-			"../utils/claudeInChrome/mcpServer.js"
-		);
-		await runClaudeInChromeMcpServer();
-		return;
-	} else if (feature("CHROME") && process.argv[2] === "--chrome-native-host") {
-		profileCheckpoint("cli_chrome_native_host_path");
-		const { runChromeNativeHost } = await import(
-			"../utils/claudeInChrome/chromeNativeHost.js"
-		);
-		await runChromeNativeHost();
-		return;
-	} else if (
-		feature("CHICAGO_MCP") &&
-		process.argv[2] === "--computer-use-mcp"
-	) {
+	if (feature("CHICAGO_MCP") && process.argv[2] === "--computer-use-mcp") {
 		profileCheckpoint("cli_computer_use_mcp_path");
 		const { runComputerUseMcpServer } = await import(
 			"../utils/computerUse/mcpServer.js"
@@ -414,7 +397,7 @@ async function main(): Promise<void> {
 	// --bare: set SIMPLE early so gates fire during module eval / commander
 	// option building (not just inside the action handler).
 	if (args.includes("--bare")) {
-		process.env.CLAUDE_CODE_SIMPLE = "1";
+		process.env.FUSION_CODE_SIMPLE = "1";
 	}
 
 	// ar-plan PR #9 (S3): --profile <name> CLI flag — 解析 → setSessionProfile

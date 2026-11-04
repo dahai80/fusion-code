@@ -70,7 +70,7 @@ export function BackgroundHint(t0) {
 		env.terminal === "tmux" && baseShortcut === "ctrl+b"
 			? "ctrl+b ctrl+b (twice)"
 			: baseShortcut;
-	if (isEnvTruthy(process.env.CLAUDE_CODE_DISABLE_BACKGROUND_TASKS)) {
+	if (isEnvTruthy(process.env.FUSION_CODE_DISABLE_BACKGROUND_TASKS)) {
 		return null;
 	}
 	let t4;

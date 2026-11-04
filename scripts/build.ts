@@ -43,11 +43,6 @@ const fullExperimentalFeatures = [
 	"CCR_AUTO_CONNECT",
 	"CCR_MIRROR",
 	"CHICAGO_MCP",
-	// CHROME: gates the claudeInChrome browser-automation subtree
-	// (src/utils/claudeInChrome/*). Default-off so the subtree (and its
-	// Anthropic/Chrome branding strings) is DCE'd from shipping builds; on
-	// here in dev-full only to compile-test the path.
-	"CHROME",
 	"COMMIT_ATTRIBUTION",
 	"COMPACTION_REMINDERS",
 	"CONNECTOR_TEXT",
@@ -206,21 +201,21 @@ const externals = [
 
 const defines = {
 	"process.env.USER_TYPE": JSON.stringify("external"),
-	"process.env.CLAUDE_CODE_FORCE_FULL_LOGO": JSON.stringify("true"),
+	"process.env.FUSION_CODE_FORCE_FULL_LOGO": JSON.stringify("true"),
 	...(dev ? { "process.env.NODE_ENV": JSON.stringify("development") } : {}),
 	...(dev
 		? {
-				"process.env.CLAUDE_CODE_EXPERIMENTAL_BUILD": JSON.stringify("true"),
+				"process.env.FUSION_CODE_EXPERIMENTAL_BUILD": JSON.stringify("true"),
 			}
 		: {}),
-	"process.env.CLAUDE_CODE_VERIFY_PLAN": JSON.stringify("false"),
+	"process.env.FUSION_CODE_VERIFY_PLAN": JSON.stringify("false"),
 	"MACRO.VERSION": JSON.stringify(version),
 	"MACRO.BUILD_TIME": JSON.stringify(buildTime),
 	"MACRO.PACKAGE_URL": JSON.stringify(pkg.name),
 	"MACRO.NATIVE_PACKAGE_URL": "undefined",
 	"MACRO.FEEDBACK_CHANNEL": JSON.stringify("github"),
 	"MACRO.ISSUES_EXPLAINER": JSON.stringify(
-		"This reconstructed source snapshot does not include Anthropic internal issue routing.",
+		"This reconstructed source snapshot excludes internal upstream issue-routing metadata.",
 	),
 	"MACRO.VERSION_CHANGELOG": JSON.stringify(
 		dev ? getVersionChangelog() : "https://github.com/fusion-mlxs/fusion-code",

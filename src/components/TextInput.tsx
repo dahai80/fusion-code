@@ -46,7 +46,7 @@ export default function TextInput(props: Props): React.ReactNode {
 	const isTerminalFocused = useTerminalFocus();
 	// Hoisted to mount-time — this component re-renders on every keystroke.
 	const accessibilityEnabled = useMemo(
-		() => isEnvTruthy(process.env.CLAUDE_CODE_ACCESSIBILITY),
+		() => isEnvTruthy(process.env.FUSION_CODE_ACCESSIBILITY),
 		[],
 	);
 	const settings = useSettings();

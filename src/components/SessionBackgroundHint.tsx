@@ -50,7 +50,7 @@ export function SessionBackgroundHint(t0) {
 		$[3] !== setAppState
 	) {
 		t1 = () => {
-			if (isEnvTruthy(process.env.CLAUDE_CODE_DISABLE_BACKGROUND_TASKS)) {
+			if (isEnvTruthy(process.env.FUSION_CODE_DISABLE_BACKGROUND_TASKS)) {
 				return;
 			}
 			const state = appStateStore.getState();

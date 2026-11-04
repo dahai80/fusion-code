@@ -273,7 +273,7 @@ describe("evaluateScript", () => {
 
 describe("item 25B: workflowStaggerMs env 解析", () => {
 	const origFusion = process.env.FUSION_WORKFLOW_PREFIX_STAGGER_MS;
-	const origClaude = process.env.CLAUDE_CODE_WORKFLOW_PREFIX_STAGGER_MS;
+	const origClaude = process.env.FUSION_CODE_WORKFLOW_PREFIX_STAGGER_MS;
 
 	afterEach(() => {
 		if (origFusion === undefined) {
@@ -282,69 +282,69 @@ describe("item 25B: workflowStaggerMs env 解析", () => {
 			process.env.FUSION_WORKFLOW_PREFIX_STAGGER_MS = origFusion;
 		}
 		if (origClaude === undefined) {
-			delete process.env.CLAUDE_CODE_WORKFLOW_PREFIX_STAGGER_MS;
+			delete process.env.FUSION_CODE_WORKFLOW_PREFIX_STAGGER_MS;
 		} else {
-			process.env.CLAUDE_CODE_WORKFLOW_PREFIX_STAGGER_MS = origClaude;
+			process.env.FUSION_CODE_WORKFLOW_PREFIX_STAGGER_MS = origClaude;
 		}
 	});
 
 	it("env 未设 → 0 (default off)", () => {
 		delete process.env.FUSION_WORKFLOW_PREFIX_STAGGER_MS;
-		delete process.env.CLAUDE_CODE_WORKFLOW_PREFIX_STAGGER_MS;
+		delete process.env.FUSION_CODE_WORKFLOW_PREFIX_STAGGER_MS;
 		expect(workflowStaggerMs()).toBe(0);
 	});
 
 	it("空串 → 0 (default off)", () => {
 		process.env.FUSION_WORKFLOW_PREFIX_STAGGER_MS = "";
-		delete process.env.CLAUDE_CODE_WORKFLOW_PREFIX_STAGGER_MS;
+		delete process.env.FUSION_CODE_WORKFLOW_PREFIX_STAGGER_MS;
 		expect(workflowStaggerMs()).toBe(0);
 	});
 
-	it("FUSION_ 优先于 CLAUDE_CODE_", () => {
+	it("FUSION_ 优先于 FUSION_CODE_", () => {
 		process.env.FUSION_WORKFLOW_PREFIX_STAGGER_MS = "100";
-		process.env.CLAUDE_CODE_WORKFLOW_PREFIX_STAGGER_MS = "200";
+		process.env.FUSION_CODE_WORKFLOW_PREFIX_STAGGER_MS = "200";
 		expect(workflowStaggerMs()).toBe(100);
 	});
 
-	it("回退 CLAUDE_CODE_ 当 FUSION_ 未设", () => {
+	it("回退 FUSION_CODE_ 当 FUSION_ 未设", () => {
 		delete process.env.FUSION_WORKFLOW_PREFIX_STAGGER_MS;
-		process.env.CLAUDE_CODE_WORKFLOW_PREFIX_STAGGER_MS = "50";
+		process.env.FUSION_CODE_WORKFLOW_PREFIX_STAGGER_MS = "50";
 		expect(workflowStaggerMs()).toBe(50);
 	});
 
 	it("非法值 → fail-off (0)", () => {
 		process.env.FUSION_WORKFLOW_PREFIX_STAGGER_MS = "abc";
-		delete process.env.CLAUDE_CODE_WORKFLOW_PREFIX_STAGGER_MS;
+		delete process.env.FUSION_CODE_WORKFLOW_PREFIX_STAGGER_MS;
 		expect(workflowStaggerMs()).toBe(0);
 	});
 
 	it("负数 → fail-off (0)", () => {
 		process.env.FUSION_WORKFLOW_PREFIX_STAGGER_MS = "-5";
-		delete process.env.CLAUDE_CODE_WORKFLOW_PREFIX_STAGGER_MS;
+		delete process.env.FUSION_CODE_WORKFLOW_PREFIX_STAGGER_MS;
 		expect(workflowStaggerMs()).toBe(0);
 	});
 
 	it("NaN 串 → fail-off (0)", () => {
 		process.env.FUSION_WORKFLOW_PREFIX_STAGGER_MS = "NaN";
-		delete process.env.CLAUDE_CODE_WORKFLOW_PREFIX_STAGGER_MS;
+		delete process.env.FUSION_CODE_WORKFLOW_PREFIX_STAGGER_MS;
 		expect(workflowStaggerMs()).toBe(0);
 	});
 
 	it("Infinity 串 → fail-off (0)", () => {
 		process.env.FUSION_WORKFLOW_PREFIX_STAGGER_MS = "Infinity";
-		delete process.env.CLAUDE_CODE_WORKFLOW_PREFIX_STAGGER_MS;
+		delete process.env.FUSION_CODE_WORKFLOW_PREFIX_STAGGER_MS;
 		expect(workflowStaggerMs()).toBe(0);
 	});
 
 	it("有效值 → 原样返回", () => {
 		process.env.FUSION_WORKFLOW_PREFIX_STAGGER_MS = "250";
-		delete process.env.CLAUDE_CODE_WORKFLOW_PREFIX_STAGGER_MS;
+		delete process.env.FUSION_CODE_WORKFLOW_PREFIX_STAGGER_MS;
 		expect(workflowStaggerMs()).toBe(250);
 	});
 
 	it("0 显式 → 0 (off, 但合法)", () => {
 		process.env.FUSION_WORKFLOW_PREFIX_STAGGER_MS = "0";
-		delete process.env.CLAUDE_CODE_WORKFLOW_PREFIX_STAGGER_MS;
+		delete process.env.FUSION_CODE_WORKFLOW_PREFIX_STAGGER_MS;
 		expect(workflowStaggerMs()).toBe(0);
 	});
 });

@@ -151,7 +151,6 @@ export async function showSetupScreens(
 	permissionMode: PermissionMode,
 	allowDangerouslySkipPermissions: boolean,
 	commands?: Command[],
-	claudeInChrome?: boolean,
 	devChannels?: ChannelEntry[],
 ): Promise<boolean> {
 	if (
@@ -373,21 +372,6 @@ export async function showSetupScreens(
 		}
 	}
 
-	// Show Chrome onboarding for first-time Claude in Chrome users
-	// Dead code elimination: feature("CHROME") guards the block so the
-	// ClaudeInChromeOnboarding component import is tree-shaken from default builds.
-	if (
-		feature("CHROME") &&
-		claudeInChrome &&
-		!getGlobalConfig().hasCompletedClaudeInChromeOnboarding
-	) {
-		const { ClaudeInChromeOnboarding } = await import(
-			"./components/ClaudeInChromeOnboarding.js"
-		);
-		await showSetupDialog(root, (done) => (
-			<ClaudeInChromeOnboarding onDone={done} />
-		));
-	}
 	return onboardingShown;
 }
 export function getRenderContext(exitOnCtrlC: boolean): {
@@ -410,7 +394,7 @@ export function getRenderContext(exitOnCtrlC: boolean): {
 	// offline analysis by bench/repl-scroll.ts. Captures the full TUI
 	// render pipeline (yoga → screen buffer → diff → optimize → stdout)
 	// so perf work on any phase can be validated against real user flows.
-	const frameTimingLogPath = process.env.CLAUDE_CODE_FRAME_TIMING_LOG;
+	const frameTimingLogPath = process.env.FUSION_CODE_FRAME_TIMING_LOG;
 	return {
 		getFpsMetrics: () => fpsTracker.getMetrics(),
 		stats,

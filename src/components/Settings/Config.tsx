@@ -297,7 +297,7 @@ export function Config({
 		context.options.mcpClients,
 	);
 	const isFileCheckpointingAvailable = !isEnvTruthy(
-		process.env.CLAUDE_CODE_DISABLE_FILE_CHECKPOINTING,
+		process.env.FUSION_CODE_DISABLE_FILE_CHECKPOINTING,
 	);
 	const memoryFiles = React.use(getMemoryFiles(true)) as MemoryFileInfo[];
 	const shouldShowExternalIncludesToggle =
@@ -1099,29 +1099,6 @@ export function Config({
 								enabled: autoInstallIdeExtension,
 								source:
 									"config_panel" as AnalyticsMetadata_I_VERIFIED_THIS_IS_NOT_CODE_OR_FILEPATHS,
-							});
-						},
-					},
-				]
-			: []),
-		...(feature("CHROME")
-			? [
-					{
-						id: "claudeInChromeDefaultEnabled",
-						label: "Claude in Chrome enabled by default",
-						value: globalConfig.claudeInChromeDefaultEnabled ?? true,
-						type: "boolean" as const,
-						onChange(enabled_5: boolean) {
-							saveGlobalConfig((current_18) => ({
-								...current_18,
-								claudeInChromeDefaultEnabled: enabled_5,
-							}));
-							setGlobalConfig({
-								...getGlobalConfig(),
-								claudeInChromeDefaultEnabled: enabled_5,
-							});
-							logEvent("fusion_claude_in_chrome_setting_changed", {
-								enabled: enabled_5,
 							});
 						},
 					},

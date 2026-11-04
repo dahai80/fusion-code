@@ -46,11 +46,11 @@ export function maybeScheduleIdleReturnHint(
 	if (willowMode !== "hint" && willowMode !== "hint_v2") return;
 	if (getGlobalConfig().idleReturnDismissed) return;
 	const tokenThreshold = Number(
-		process.env.CLAUDE_CODE_IDLE_TOKEN_THRESHOLD ?? 100_000,
+		process.env.FUSION_CODE_IDLE_TOKEN_THRESHOLD ?? 100_000,
 	);
 	if (getTotalInputTokens() < tokenThreshold) return;
 	const idleThresholdMs =
-		Number(process.env.CLAUDE_CODE_IDLE_THRESHOLD_MINUTES ?? 75) * 60_000;
+		Number(process.env.FUSION_CODE_IDLE_THRESHOLD_MINUTES ?? 75) * 60_000;
 	const elapsed = Date.now() - ctx.lastQueryCompletionTime;
 	const remaining = idleThresholdMs - elapsed;
 	const timer = setTimeout(

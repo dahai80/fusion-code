@@ -46,7 +46,7 @@ type Props = {
 // ramp the multiplier; idle gaps reset to `base` (default 1). Some emulators
 // pre-multiply at their layer (ghostty discrete=3 sends 3 SGR events/notch;
 // iTerm2 "faster scroll" similar) — base=1 is correct there. Others send 1
-// event/notch — users on those can set CLAUDE_CODE_SCROLL_SPEED=3 to match
+// event/notch — users on those can set FUSION_CODE_SCROLL_SPEED=3 to match
 // vim/nvim/opencode app-side defaults. We can't detect which, so knob it.
 const WHEEL_ACCEL_WINDOW_MS = 40;
 const WHEEL_ACCEL_STEP = 0.3;
@@ -313,14 +313,14 @@ export function computeWheelStep(
 	return rows;
 }
 
-/** Read CLAUDE_CODE_SCROLL_SPEED, default 1, clamp (0, 20].
+/** Read FUSION_CODE_SCROLL_SPEED, default 1, clamp (0, 20].
  *  Some terminals pre-multiply wheel events (ghostty discrete=3, iTerm2
  *  "faster scroll") — base=1 is correct there. Others send 1 event/notch —
- *  set CLAUDE_CODE_SCROLL_SPEED=3 to match vim/nvim/opencode. We can't
+ *  set FUSION_CODE_SCROLL_SPEED=3 to match vim/nvim/opencode. We can't
  *  detect which kind of terminal we're in, hence the knob. Called lazily
  *  from initAndLogWheelAccel so globalSettings.env has loaded. */
 export function readScrollSpeedBase(): number {
-	const raw = process.env.CLAUDE_CODE_SCROLL_SPEED;
+	const raw = process.env.FUSION_CODE_SCROLL_SPEED;
 	if (!raw) return 1;
 	const n = parseFloat(raw);
 	return Number.isNaN(n) || n <= 0 ? 1 : Math.min(n, 20);

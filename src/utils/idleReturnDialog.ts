@@ -40,10 +40,10 @@ export function maybeTriggerIdleReturnDialog(
 		"off",
 	);
 	const idleThresholdMin = Number(
-		process.env.CLAUDE_CODE_IDLE_THRESHOLD_MINUTES ?? 75,
+		process.env.FUSION_CODE_IDLE_THRESHOLD_MINUTES ?? 75,
 	);
 	const tokenThreshold = Number(
-		process.env.CLAUDE_CODE_IDLE_TOKEN_THRESHOLD ?? 100_000,
+		process.env.FUSION_CODE_IDLE_TOKEN_THRESHOLD ?? 100_000,
 	);
 	if (
 		willowMode !== "off" &&

@@ -361,15 +361,6 @@ async function backgroundMcpCall({
 	};
 }
 
-import { isClaudeInChromeMCPServer } from "../../utils/claudeInChromeGate.js";
-
-// Lazy: toolRendering.tsx pulls React/ink; only needed when Claude-in-Chrome MCP server is connected.
-// feature("CHROME") gate keeps the require() target DCE'd when the subtree is off.
-/* eslint-disable @typescript-eslint/no-require-imports */
-const claudeInChromeToolRendering = feature("CHROME")
-	? (): typeof import("../../utils/claudeInChrome/toolRendering.js") =>
-			require("../../utils/claudeInChrome/toolRendering.js")
-	: undefined;
 // Lazy: wrapper.tsx → hostAdapter.ts → executor.ts pulls both native modules
 // (@ant/computer-use-input + @ant/computer-use-swift). Runtime-gated by
 // GrowthBook fusion_malort_pedway (see gates.ts).
@@ -982,34 +973,6 @@ export const connectToServer = memoize(
 				logMCPDebug(name, `HTTP transport created successfully`);
 			} else if (serverRef.type === "sdk") {
 				throw new Error("SDK servers should be handled in print.ts");
-			} else if (
-				feature("CHROME") &&
-				((serverRef as ScopedMcpServerConfig).type === "stdio" ||
-					!(serverRef as ScopedMcpServerConfig).type) &&
-				isClaudeInChromeMCPServer(name)
-			) {
-				// Run the Chrome MCP server in-process to avoid spawning a ~325 MB subprocess
-				// Dead code elimination: feature("CHROME") guards the whole block so the
-				// claudeInChrome subtree imports are absent from default (CHROME-off) builds.
-				const { createChromeContext } = await import(
-					"../../utils/claudeInChrome/mcpServer.js"
-				);
-				const { importClaudeForChromePackage } = await import(
-					"../../utils/claudeInChrome/package.js"
-				);
-				const { createClaudeForChromeMcpServer } =
-					await importClaudeForChromePackage();
-				const { createLinkedTransportPair } = await import(
-					"./InProcessTransport.js"
-				);
-				const context = createChromeContext(
-					(serverRef as McpStdioServerConfig).env,
-				);
-				inProcessServer = createClaudeForChromeMcpServer(context);
-				const [clientTransport, serverTransport] = createLinkedTransportPair();
-				await inProcessServer.connect(serverTransport);
-				transport = clientTransport;
-				logMCPDebug(name, `In-process Chrome MCP server started`);
 			} else if (
 				feature("CHICAGO_MCP") &&
 				((serverRef as ScopedMcpServerConfig).type === "stdio" ||
@@ -2298,12 +2261,6 @@ export const fetchToolsForClient = memoizeWithLRU(
 							const displayName = tool.annotations?.title || tool.name;
 							return `${client.name} - ${displayName} (MCP)`;
 						},
-						...(isClaudeInChromeMCPServer(client.name) &&
-						(client.config.type === "stdio" || !client.config.type)
-							? claudeInChromeToolRendering?.().getClaudeInChromeMCPToolOverrides(
-									tool.name,
-								)
-							: {}),
 						...(feature("CHICAGO_MCP") &&
 						(client.config.type === "stdio" || !client.config.type) &&
 						isComputerUseMCPServer?.(client.name)

@@ -337,7 +337,7 @@ export function buildAPIProviderProperties(): Property[] {
 				value: foundryResource,
 			});
 		}
-		if (isEnvTruthy(process.env.CLAUDE_CODE_SKIP_FOUNDRY_AUTH)) {
+		if (isEnvTruthy(process.env.FUSION_CODE_SKIP_FOUNDRY_AUTH)) {
 			properties.push({
 				value: "Microsoft Foundry auth skipped",
 			});
@@ -358,16 +358,16 @@ export function buildAPIProviderProperties(): Property[] {
 		});
 	}
 	if (mtlsConfig) {
-		if (mtlsConfig.cert && process.env.CLAUDE_CODE_CLIENT_CERT) {
+		if (mtlsConfig.cert && process.env.FUSION_CODE_CLIENT_CERT) {
 			properties.push({
 				label: "mTLS client cert",
-				value: process.env.CLAUDE_CODE_CLIENT_CERT,
+				value: process.env.FUSION_CODE_CLIENT_CERT,
 			});
 		}
-		if (mtlsConfig.key && process.env.CLAUDE_CODE_CLIENT_KEY) {
+		if (mtlsConfig.key && process.env.FUSION_CODE_CLIENT_KEY) {
 			properties.push({
 				label: "mTLS client key",
-				value: process.env.CLAUDE_CODE_CLIENT_KEY,
+				value: process.env.FUSION_CODE_CLIENT_KEY,
 			});
 		}
 	}

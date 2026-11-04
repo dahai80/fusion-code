@@ -145,7 +145,7 @@ const PROGRESS_THRESHOLD_MS = 2000; // Show background hint after 2 seconds
 // Check if background tasks are disabled at module load time
 const isBackgroundTasksDisabled =
 	// eslint-disable-next-line custom-rules/no-process-env-top-level -- Intentional: schema must be defined at module load
-	isEnvTruthy(process.env.CLAUDE_CODE_DISABLE_BACKGROUND_TASKS);
+	isEnvTruthy(process.env.FUSION_CODE_DISABLE_BACKGROUND_TASKS);
 
 // Auto-background agent tasks after this many ms (0 = disabled)
 // Enabled by env var OR GrowthBook gate (checked lazily since GB may not be ready at module load)
@@ -374,7 +374,7 @@ export const AgentTool = buildTool({
 		// Use inline env check instead of coordinatorModule to avoid circular
 		// dependency issues during test module loading.
 		const isCoordinator = feature("COORDINATOR_MODE")
-			? isEnvTruthy(process.env.CLAUDE_CODE_COORDINATOR_MODE)
+			? isEnvTruthy(process.env.FUSION_CODE_COORDINATOR_MODE)
 			: false;
 		return await getPrompt(filteredAgents, isCoordinator, allowedAgentTypes);
 	},
@@ -808,7 +808,7 @@ export const AgentTool = buildTool({
 		// Use inline env check instead of coordinatorModule to avoid circular
 		// dependency issues during test module loading.
 		const isCoordinator = feature("COORDINATOR_MODE")
-			? isEnvTruthy(process.env.CLAUDE_CODE_COORDINATOR_MODE)
+			? isEnvTruthy(process.env.FUSION_CODE_COORDINATOR_MODE)
 			: false;
 
 		// Fork subagent experiment: force ALL spawns async for a unified

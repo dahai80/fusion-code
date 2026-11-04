@@ -1,17 +1,7 @@
 import { feature } from "bun:bundle";
-import { shouldAutoEnableClaudeInChrome } from "src/utils/claudeInChromeGate.js";
 import { registerBatchSkill } from "./batch.js";
 import { registerBrainstormSkill } from "./brainstorm.js";
 
-// Dead code elimination: conditional import — claudeInChrome.ts (and its subtree
-// imports) are tree-shaken from default (CHROME-off) builds.
-/* eslint-disable @typescript-eslint/no-require-imports */
-const registerClaudeInChromeSkill: typeof import("./claudeInChrome.js").registerClaudeInChromeSkill =
-	feature("CHROME")
-		? require("./claudeInChrome.js").registerClaudeInChromeSkill
-		: () => {};
-
-/* eslint-enable @typescript-eslint/no-require-imports */
 import { registerCodeReviewSkill } from "./codeReview.js";
 import { registerDatavizSkill } from "./dataviz.js";
 import { registerDebugSkill } from "./debug.js";
@@ -83,9 +73,6 @@ export function initBundledSkills(): void {
 	// (BUILDING_CLAUDE_APPS off → DCE) but the unresolved imports break
 	// dev-full. claudeApi.ts/claudeApiContent.ts deleted alongside. Restore the
 	// block + those files if/when the doc tree is actually committed.
-	if (shouldAutoEnableClaudeInChrome()) {
-		registerClaudeInChromeSkill();
-	}
 	if (feature("RUN_SKILL_GENERATOR")) {
 		/* eslint-disable @typescript-eslint/no-require-imports */
 		const {

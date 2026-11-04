@@ -518,7 +518,7 @@ export function ExitPlanModePermissionRequest({
 
 			// Set initial message - REPL will handle context clear and fresh query
 			// Add verification instruction if the feature is enabled
-			// Dead code elimination: CLAUDE_CODE_VERIFY_PLAN='false' in external builds, so === 'true' check allows Bun to eliminate the string
+			// Dead code elimination: FUSION_CODE_VERIFY_PLAN='false' in external builds, so === 'true' check allows Bun to eliminate the string
 			const verificationInstruction =
 				// biome-ignore lint/correctness/noConstantCondition: DCE 手法——env 宏构建期折叠为 undefined，恒假分支使 verify 指令字符串被打包器消除
 				undefined === "true"

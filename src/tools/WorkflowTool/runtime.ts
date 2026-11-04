@@ -49,7 +49,7 @@ export function workflowStaggerMs(): number {
 	// FUSION_ 优先 (fusion-code 约定), 回落 CC 原名。
 	const raw =
 		process.env.FUSION_WORKFLOW_PREFIX_STAGGER_MS ??
-		process.env.CLAUDE_CODE_WORKFLOW_PREFIX_STAGGER_MS;
+		process.env.FUSION_CODE_WORKFLOW_PREFIX_STAGGER_MS;
 	if (raw === undefined || raw === "") return 0;
 	const parsed = Number(raw);
 	// 非数/负数/NaN → fail-off = 0 (不阻塞, 25A 行为)。

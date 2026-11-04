@@ -132,7 +132,7 @@ export function LogoV2() {
 	let t4;
 	if ($[5] === Symbol.for("react.memo_cache_sentinel")) {
 		t4 =
-			!showOnboarding && !isEnvTruthy(process.env.CLAUDE_CODE_FORCE_FULL_LOGO);
+			!showOnboarding && !isEnvTruthy(process.env.FUSION_CODE_FORCE_FULL_LOGO);
 		$[5] = t4;
 	} else {
 		t4 = $[5];
@@ -160,7 +160,7 @@ export function LogoV2() {
 	const modelDisplayName = t10;
 	if (
 		!showOnboarding &&
-		!isEnvTruthy(process.env.CLAUDE_CODE_FORCE_FULL_LOGO)
+		!isEnvTruthy(process.env.FUSION_CODE_FORCE_FULL_LOGO)
 	) {
 		let t11;
 		let t12;
@@ -183,15 +183,15 @@ export function LogoV2() {
 				</Box>
 			);
 			t16 = <EmergencyTip />;
-			t17 = process.env.CLAUDE_CODE_TMUX_SESSION && (
+			t17 = process.env.FUSION_CODE_TMUX_SESSION && (
 				<Box paddingLeft={2} flexDirection="column">
 					<Text dimColor={true}>
-						tmux session: {process.env.CLAUDE_CODE_TMUX_SESSION}
+						tmux session: {process.env.FUSION_CODE_TMUX_SESSION}
 					</Text>
 					<Text dimColor={true}>
-						{process.env.CLAUDE_CODE_TMUX_PREFIX_CONFLICTS
-							? `Detach: ${process.env.CLAUDE_CODE_TMUX_PREFIX} ${process.env.CLAUDE_CODE_TMUX_PREFIX} d (press prefix twice - Claude uses ${process.env.CLAUDE_CODE_TMUX_PREFIX})`
-							: `Detach: ${process.env.CLAUDE_CODE_TMUX_PREFIX} d`}
+						{process.env.FUSION_CODE_TMUX_PREFIX_CONFLICTS
+							? `Detach: ${process.env.FUSION_CODE_TMUX_PREFIX} ${process.env.FUSION_CODE_TMUX_PREFIX} d (press prefix twice - this session uses ${process.env.FUSION_CODE_TMUX_PREFIX})`
+							: `Detach: ${process.env.FUSION_CODE_TMUX_PREFIX} d`}
 					</Text>
 				</Box>
 			);
@@ -638,15 +638,15 @@ export function LogoV2() {
 			</Box>
 		);
 		t33 = <EmergencyTip />;
-		t34 = process.env.CLAUDE_CODE_TMUX_SESSION && (
+		t34 = process.env.FUSION_CODE_TMUX_SESSION && (
 			<Box paddingLeft={2} flexDirection="column">
 				<Text dimColor={true}>
-					tmux session: {process.env.CLAUDE_CODE_TMUX_SESSION}
+					tmux session: {process.env.FUSION_CODE_TMUX_SESSION}
 				</Text>
 				<Text dimColor={true}>
-					{process.env.CLAUDE_CODE_TMUX_PREFIX_CONFLICTS
-						? `Detach: ${process.env.CLAUDE_CODE_TMUX_PREFIX} ${process.env.CLAUDE_CODE_TMUX_PREFIX} d (press prefix twice - Claude uses ${process.env.CLAUDE_CODE_TMUX_PREFIX})`
-						: `Detach: ${process.env.CLAUDE_CODE_TMUX_PREFIX} d`}
+					{process.env.FUSION_CODE_TMUX_PREFIX_CONFLICTS
+						? `Detach: ${process.env.FUSION_CODE_TMUX_PREFIX} ${process.env.FUSION_CODE_TMUX_PREFIX} d (press prefix twice - this session uses ${process.env.FUSION_CODE_TMUX_PREFIX})`
+						: `Detach: ${process.env.FUSION_CODE_TMUX_PREFIX} d`}
 				</Text>
 			</Box>
 		);
