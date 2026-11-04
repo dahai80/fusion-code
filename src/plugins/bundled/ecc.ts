@@ -36,7 +36,7 @@ export function registerEccPlugin(): void {
 	registerBuiltinPlugin({
 		name: "ecc",
 		description:
-			"Every Claude Code — 278 skills, 94 commands, hooks, and workflows for engineering teams. Auto-installs from GitHub on first use.",
+			"Engineering skills bundle — 278 skills, 94 commands, hooks, and workflows for engineering teams. Auto-installs from GitHub on first use.",
 		version: "2.0.0",
 		isAvailable: () => isEccInstalled(),
 		defaultEnabled: true,

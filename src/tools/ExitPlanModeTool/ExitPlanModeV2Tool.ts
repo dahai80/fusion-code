@@ -57,7 +57,7 @@ const permissionSetupModule = feature("TRANSCRIPT_CLASSIFIER")
 
 /**
  * Schema for prompt-based permission requests.
- * Used by Claude to request semantic permissions when exiting plan mode.
+ * Used by the assistant to request semantic permissions when exiting plan mode.
  */
 const allowedPromptSchema = lazySchema(() =>
 	z.object({

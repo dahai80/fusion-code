@@ -274,7 +274,7 @@ function getSimpleSandboxSection(): string {
 }
 
 export function getSimplePrompt(): string {
-	// Ant-native builds alias find/grep to embedded bfs/ugrep in Claude's shell,
+	// Ant-native builds alias find/grep to embedded bfs/ugrep in the assistant's shell,
 	// so we don't steer away from them (and Glob/Grep tools are removed).
 	const embedded = hasEmbeddedSearchTools();
 

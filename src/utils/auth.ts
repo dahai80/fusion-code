@@ -252,7 +252,7 @@ export function getAnthropicApiKeyWithSource(
 	}
 
 	// On homespace, don't use FUSION_CLIENT_KEY (use Console key instead)
-	// https://anthropic.slack.com/archives/C08428WSLKV/p1747331773214779
+	// an internal upstream discussion reference
 	const apiKeyEnv = isRunningOnHomespace()
 		? undefined
 		: process.env.FUSION_CLIENT_KEY;

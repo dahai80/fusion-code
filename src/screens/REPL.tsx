@@ -598,7 +598,7 @@ const HISTORY_STUB = {
 // Window after a user-initiated scroll during which type-into-empty does NOT
 // repin to bottom. Josh Rosen's workflow: Claude emits long output → scroll
 // up to read the start → start typing → before this fix, snapped to bottom.
-// https://anthropic.slack.com/archives/C07VBSHV7EV/p1773545449871739
+// an internal upstream discussion reference
 const RECENT_SCROLL_REPIN_WINDOW_MS = 3000;
 
 // item 16 (CC 2.1.228): compact stall 提示阈值。后端 emit compact_stall {elapsedMs}

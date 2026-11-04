@@ -1055,7 +1055,7 @@ async function* queryModel(
 		isNonCustomOpusModel(options.model) &&
 		(
 			await getDynamicConfig_BLOCKS_ON_INIT<{ activated: boolean }>(
-				"tengu-off-switch",
+				"fusion-off-switch",
 				{
 					activated: false,
 				},

@@ -4,7 +4,7 @@ import { Box, Text } from "src/ink.js";
 import { getDynamicConfig_CACHED_MAY_BE_STALE } from "src/services/analytics/index.js";
 import { getGlobalConfig, saveGlobalConfig } from "src/utils/config.js";
 
-const CONFIG_NAME = "tengu-top-of-feed-tip";
+const CONFIG_NAME = "fusion-top-of-feed-tip";
 export function EmergencyTip(): React.ReactNode {
 	const tip = useMemo(getTipOfFeed, []);
 	// Memoize to prevent re-reads after we save - we want the value at mount time

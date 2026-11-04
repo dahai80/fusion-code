@@ -123,7 +123,7 @@ export function notifySessionStateChanged(
 	// Opt-in until CCR web + mobile clients learn to ignore this subtype in
 	// their isWorking() last-message heuristics — the trailing idle event
 	// currently pins them at "Running...".
-	// https://anthropic.slack.com/archives/C093BJBD1CP/p1774152406752229
+	// an internal upstream discussion reference
 	if (isEnvTruthy(process.env.FUSION_CODE_EMIT_SESSION_STATE_EVENTS)) {
 		enqueueSdkEvent({
 			type: "system",

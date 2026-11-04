@@ -176,7 +176,7 @@ function AskUserQuestionResultMessage(t0) {
 		t1 = (
 			<Box flexDirection="row">
 				<Text color={getModeColor("default")}>{BLACK_CIRCLE} </Text>
-				<Text>User answered Claude's questions:</Text>
+				<Text>User answered the assistant's questions:</Text>
 			</Box>
 		);
 		$[0] = t1;

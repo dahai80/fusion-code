@@ -3243,7 +3243,7 @@ async function run(): Promise<CommanderCommand> {
 			registerCleanup(async () => {
 				logForDiagnosticsNoPII("info", "exited");
 			});
-			void logTenguInit({
+			void logFusionInit({
 				hasInitialPrompt: Boolean(prompt),
 				hasStdin: Boolean(inputPrompt),
 				verbose,
@@ -4585,7 +4585,7 @@ async function run(): Promise<CommanderCommand> {
 	profileReport();
 	return program;
 }
-async function logTenguInit({
+async function logFusionInit({
 	hasInitialPrompt,
 	hasStdin,
 	verbose,

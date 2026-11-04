@@ -302,7 +302,7 @@ enhance-0819.md P0.2 要新建 `src/services/session/events.ts`：`SessionEvent`
 
 **审计 — 已存在的非正式事件日志（磁盘侧）**：
 - 会话持久化 = append-only JSONL：`recordTranscript`(`sessionStorage.ts:1486`) → `insertMessageChain`(`:1071`, 逐 msg `appendEntry`) → `enqueueWrite`(`:635`) → 批量 `fsAppendFile`。每条 `TranscriptMessage`(`types/logs.ts:221`) 带 `parentUuid`/`logicalParentUuid`/`isSidechain`/`gitBranch`/`sessionId`/`version` 链式结构。`Entry` 判别联合（`:297`，含 `TranscriptMessage|SummaryMessage|CustomTitleMessage|TaskSummaryMessage|TagMessage|...`）= 非类型化事件日志。
-- 压缩边界标记 = `SystemCompactBoundaryMessage`（`messages.ts:4568` `createCompactBoundaryMessage`，`compactMetadata:{trigger,preTokens,userContext,messagesSummarized}`），压缩产物 `CompactResult.{boundaryMarker, messagesToKeep}`（`compact.ts:483`），顺序 `boundaryMarker, summaryMessages, messagesToKeep, ...`（`:511`）= 非正式 `surfaceOp:replace`。`tengu_compact*`/`tengu_partial_compact*` analytics 事件（`compact.ts:987` 等多处）= 分析事件，非会话日志事件。
+- 压缩边界标记 = `SystemCompactBoundaryMessage`（`messages.ts:4568` `createCompactBoundaryMessage`，`compactMetadata:{trigger,preTokens,userContext,messagesSummarized}`），压缩产物 `CompactResult.{boundaryMarker, messagesToKeep}`（`compact.ts:483`），顺序 `boundaryMarker, summaryMessages, messagesToKeep, ...`（`:511`）= 非正式 `surfaceOp:replace`。`fusion_compact*`/`fusion_partial_compact*` analytics 事件（`compact.ts:987` 等多处）= 分析事件，非会话日志事件。
 - 磁盘裁剪（PR #114）：`trimCurrentSessionTranscript` pre-compact 段永留盘 + compact_boundary 标记 + 崩溃安全 checkpoint — 压缩前完整历史**磁盘保留**，溯源不丢。
 
 **审计 — `mutableMessages` 变更面（spec 自标 "大改" surface）**：
