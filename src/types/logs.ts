@@ -197,7 +197,7 @@ export type FileHistorySnapshotMessage = {
  */
 export type FileAttributionState = {
 	contentHash: string; // SHA-256 hash of file content
-	claudeContribution: number; // Characters written by the assistant
+	assistantContribution: number; // Characters written by the assistant
 	mtime: number; // File modification time
 };
 

@@ -200,7 +200,7 @@ export function MCPServerDesktopImportDialog(t0) {
 	) {
 		t16 = (
 			<Dialog
-				title="Import MCP Servers from Claude Desktop"
+				title="Import MCP Servers from the desktop app"
 				subtitle={t10}
 				color="success"
 				onCancel={handleEscCancel}

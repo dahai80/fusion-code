@@ -108,7 +108,7 @@ export function initializeWarningHandler(): void {
 			});
 
 			// In debug mode, show all warnings with context
-			if (isEnvTruthy(process.env.CLAUDE_DEBUG)) {
+			if (isEnvTruthy(process.env.FUSION_DEBUG)) {
 				const prefix = isInternal ? "[Internal Warning]" : "[Warning]";
 				logForDebugging(`${prefix} ${warning.toString()}`, { level: "warn" });
 			}
@@ -117,7 +117,7 @@ export function initializeWarningHandler(): void {
 			// audit 2.2.6: warningHandler 自身抛错 (e.g. analytics logEvent throw) 会
 			// 进这里。原代码 empty catch = warning 永久丢失无兜底。stderr 写最后一道,
 			// 仅 dev/verbose 可见, 避免污染非 dev 静默。静默分支 (非 dev) 仍不输出。
-			if (isEnvTruthy(process.env.CLAUDE_DEBUG) || isDevelopment) {
+			if (isEnvTruthy(process.env.FUSION_DEBUG) || isDevelopment) {
 				try {
 					process.stderr.write(
 						`[warningHandler] swallowed warning: ${warning.toString()}; handler error: ${String(handlerError)}\n`,

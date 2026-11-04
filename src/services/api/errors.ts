@@ -559,7 +559,7 @@ export function getAssistantMessageFromError(
 		const innerMessage = stripped.match(/"message"\s*:\s*"([^"]*)"/)?.[1];
 		const detail = innerMessage || stripped;
 		return createAssistantAPIErrorMessage({
-			content: `${API_ERROR_MESSAGE_PREFIX}: Request rejected (429) · ${detail || "this may be a temporary capacity issue — check status.anthropic.com"}`,
+			content: `${API_ERROR_MESSAGE_PREFIX}: Request rejected (429) · ${detail || "this may be a temporary capacity issue — retry later or check your endpoint status page"}`,
 			error: "rate_limit" as unknown as SDKAssistantMessageError,
 		});
 	}

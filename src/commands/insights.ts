@@ -1,4 +1,3 @@
-import { execFileSync } from "node:child_process";
 import type { Dirent } from "node:fs";
 import { constants as fsConstants } from "node:fs";
 import {
@@ -51,182 +50,6 @@ function getInsightsModel(): string {
 // ============================================================================
 // Homespace Data Collection
 // ============================================================================
-
-type RemoteHostInfo = {
-	name: string;
-	sessionCount: number;
-};
-
-/* eslint-disable custom-rules/no-process-env-top-level */
-const getRunningRemoteHosts: () => Promise<string[]> =
-	process.env.USER_TYPE === "ant"
-		? async () => {
-				const { stdout, code } = await execFileNoThrow(
-					"coder",
-					["list", "-o", "json"],
-					{ timeout: 30000 },
-				);
-				if (code !== 0) return [];
-				try {
-					const workspaces = jsonParse(stdout) as Array<{
-						name: string;
-						latest_build?: { status?: string };
-					}>;
-					return workspaces
-						.filter((w) => w.latest_build?.status === "running")
-						.map((w) => w.name);
-				} catch {
-					return [];
-				}
-			}
-		: async () => [];
-
-const getRemoteHostSessionCount: (hs: string) => Promise<number> =
-	process.env.USER_TYPE === "ant"
-		? async (homespace: string) => {
-				const { stdout, code } = await execFileNoThrow(
-					"ssh",
-					[
-						`${homespace}.coder`,
-						'find /root/.claude/projects -name "*.jsonl" 2>/dev/null | wc -l',
-					],
-					{ timeout: 30000 },
-				);
-				if (code !== 0) return 0;
-				return parseInt(stdout.trim(), 10) || 0;
-			}
-		: async () => 0;
-
-const collectFromRemoteHost: (
-	hs: string,
-	destDir: string,
-) => Promise<{ copied: number; skipped: number }> =
-	process.env.USER_TYPE === "ant"
-		? async (homespace: string, destDir: string) => {
-				const result = { copied: 0, skipped: 0 };
-
-				// Create temp directory
-				const tempDir = await mkdtemp(join(tmpdir(), "claude-hs-"));
-
-				try {
-					// SCP the projects folder
-					const scpResult = await execFileNoThrow(
-						"scp",
-						["-rq", `${homespace}.coder:/root/.claude/projects/`, tempDir],
-						{ timeout: 300000 },
-					);
-					if (scpResult.code !== 0) {
-						// SCP failed
-						return result;
-					}
-
-					const projectsDir = join(tempDir, "projects");
-					let projectDirents: Dirent<string>[];
-					try {
-						projectDirents = await readdir(projectsDir, {
-							withFileTypes: true,
-						});
-					} catch {
-						return result;
-					}
-
-					// Merge into destination (parallel per project directory)
-					await Promise.all(
-						projectDirents.map(async (dirent) => {
-							const projectName = dirent.name;
-							const projectPath = join(projectsDir, projectName);
-
-							// Skip if not a directory
-							if (!dirent.isDirectory()) return;
-
-							const destProjectName = `${projectName}__${homespace}`;
-							const destProjectPath = join(destDir, destProjectName);
-
-							try {
-								await mkdir(destProjectPath, { recursive: true });
-							} catch {
-								// Directory may already exist
-							}
-
-							// Copy session files (skip existing)
-							let files: Dirent<string>[];
-							try {
-								files = await readdir(projectPath, { withFileTypes: true });
-							} catch {
-								return;
-							}
-							await Promise.all(
-								files.map(async (fileDirent) => {
-									const fileName = fileDirent.name;
-									if (!fileName.endsWith(".jsonl")) return;
-
-									const srcFile = join(projectPath, fileName);
-									const destFile = join(destProjectPath, fileName);
-
-									try {
-										await copyFile(
-											srcFile,
-											destFile,
-											fsConstants.COPYFILE_EXCL,
-										);
-										result.copied++;
-									} catch {
-										// EEXIST from COPYFILE_EXCL means dest already exists
-										result.skipped++;
-									}
-								}),
-							);
-						}),
-					);
-				} finally {
-					try {
-						await rm(tempDir, { recursive: true, force: true });
-					} catch {
-						// Ignore cleanup errors
-					}
-				}
-
-				return result;
-			}
-		: async () => ({ copied: 0, skipped: 0 });
-
-const collectAllRemoteHostData: (destDir: string) => Promise<{
-	hosts: RemoteHostInfo[];
-	totalCopied: number;
-	totalSkipped: number;
-}> =
-	process.env.USER_TYPE === "ant"
-		? async (destDir: string) => {
-				const rHosts = await getRunningRemoteHosts();
-				const result: RemoteHostInfo[] = [];
-				let totalCopied = 0;
-				let totalSkipped = 0;
-
-				// Collect from all hosts in parallel (SCP per host can take seconds)
-				const hostResults = await Promise.all(
-					rHosts.map(async (hs) => {
-						const sessionCount = await getRemoteHostSessionCount(hs);
-						if (sessionCount > 0) {
-							const { copied, skipped } = await collectFromRemoteHost(
-								hs,
-								destDir,
-							);
-							return { name: hs, sessionCount, copied, skipped };
-						}
-						return { name: hs, sessionCount, copied: 0, skipped: 0 };
-					}),
-				);
-
-				for (const hr of hostResults) {
-					result.push({ name: hr.name, sessionCount: hr.sessionCount });
-					totalCopied += hr.copied;
-					totalSkipped += hr.skipped;
-				}
-
-				return { hosts: result, totalCopied, totalSkipped };
-			}
-		: async () => ({ hosts: [], totalCopied: 0, totalSkipped: 0 });
-/* eslint-enable custom-rules/no-process-env-top-level */
 
 // ============================================================================
 // Types
@@ -2673,7 +2496,6 @@ export type InsightsExport = {
 		claude_code_version: string;
 		date_range: { start: string; end: string };
 		session_count: number;
-		remote_hosts_collected?: string[];
 	};
 	aggregated_data: AggregatedData;
 	insights: InsightResults;
@@ -2688,19 +2510,13 @@ export type InsightsExport = {
 
 /**
  * Build export data from already-computed values.
- * Used by background upload to S3.
  */
 export function buildExportData(
 	data: AggregatedData,
 	insights: InsightResults,
 	facets: Map<string, SessionFacets>,
-	remoteStats?: { hosts: RemoteHostInfo[]; totalCopied: number },
 ): InsightsExport {
 	const version = typeof MACRO !== "undefined" ? MACRO.VERSION : "unknown";
-
-	const remote_hosts_collected = remoteStats?.hosts
-		.filter((h) => h.sessionCount > 0)
-		.map((h) => h.name);
 
 	const facets_summary = {
 		total: facets.size,
@@ -2739,10 +2555,6 @@ export function buildExportData(
 			claude_code_version: version,
 			date_range: data.date_range,
 			session_count: data.total_sessions,
-			...(remote_hosts_collected &&
-				remote_hosts_collected.length > 0 && {
-					remote_hosts_collected,
-				}),
 		},
 		aggregated_data: data,
 		insights,
@@ -2809,24 +2621,12 @@ async function scanAllSessions(): Promise<LiteSessionInfo[]> {
 // Main Function
 // ============================================================================
 
-export async function generateUsageReport(options?: {
-	collectRemote?: boolean;
-}): Promise<{
+export async function generateUsageReport(): Promise<{
 	insights: InsightResults;
 	htmlPath: string;
 	data: AggregatedData;
-	remoteStats?: { hosts: RemoteHostInfo[]; totalCopied: number };
 	facets: Map<string, SessionFacets>;
 }> {
-	let remoteStats: { hosts: RemoteHostInfo[]; totalCopied: number } | undefined;
-
-	// Optionally collect data from remote hosts first (ant-only)
-	if (process.env.USER_TYPE === "ant" && options?.collectRemote) {
-		const destDir = join(getClaudeConfigHomeDir(), "projects");
-		const { hosts, totalCopied } = await collectAllRemoteHostData(destDir);
-		remoteStats = { hosts, totalCopied };
-	}
-
 	// Phase 1: Lite scan — filesystem metadata only (no JSONL parsing)
 	const allScannedSessions = await scanAllSessions();
 	const totalSessionsScanned = allScannedSessions.length;
@@ -3033,7 +2833,6 @@ export async function generateUsageReport(options?: {
 		insights,
 		htmlPath,
 		data: aggregated,
-		remoteStats,
 		facets: substantiveFacets,
 	};
 }
@@ -3060,59 +2859,9 @@ const usageReport: Command = {
 	progressMessage: "analyzing your sessions",
 	source: "builtin",
 	async getPromptForCommand(args) {
-		let collectRemote = false;
-		let remoteHosts: string[] = [];
-		let hasRemoteHosts = false;
+		const { insights, htmlPath, data } = await generateUsageReport();
 
-		if (process.env.USER_TYPE === "ant") {
-			// Parse --homespaces flag
-			collectRemote = args?.includes("--homespaces") ?? false;
-
-			// Check for available remote hosts
-			remoteHosts = await getRunningRemoteHosts();
-			hasRemoteHosts = remoteHosts.length > 0;
-
-			// Show collection message if collecting
-			if (collectRemote && hasRemoteHosts) {
-				console.error(
-					`Collecting sessions from ${remoteHosts.length} homespace(s): ${remoteHosts.join(", ")}...`,
-				);
-			}
-		}
-
-		const { insights, htmlPath, data, remoteStats } = await generateUsageReport(
-			{ collectRemote },
-		);
-
-		let reportUrl = `file://${htmlPath}`;
-		let uploadHint = "";
-
-		if (process.env.USER_TYPE === "ant") {
-			// Try to upload to S3
-			const timestamp = new Date()
-				.toISOString()
-				.replace(/[-:]/g, "")
-				.replace("T", "_")
-				.slice(0, 15);
-			const username = process.env.SAFEUSER || process.env.USER || "unknown";
-			const filename = `${username}_insights_${timestamp}.html`;
-			const s3Path = `s3://anthropic-serve/atamkin/cc-user-reports/${filename}`;
-			const s3Url = `https://s3-frontend.infra.ant.dev/anthropic-serve/atamkin/cc-user-reports/${filename}`;
-
-			reportUrl = s3Url;
-			try {
-				execFileSync("ff", ["cp", htmlPath, s3Path], {
-					timeout: 60000,
-					stdio: "pipe", // Suppress output
-				});
-			} catch {
-				// Upload failed - fall back to local file and show upload command
-				reportUrl = `file://${htmlPath}`;
-				uploadHint = `\nAutomatic upload failed. Are you on the boron namespace? Try \`use-bo\` and ensure you've run \`sso\`.
-To share, run: ff cp ${htmlPath} ${s3Path}
-Then access at: ${s3Url}`;
-			}
-		}
+		const reportUrl = `file://${htmlPath}`;
 
 		// Build header with stats
 		const sessionLabel =
@@ -3126,21 +2875,6 @@ Then access at: ${s3Url}`;
 			`${Math.round(data.total_duration_hours)}h`,
 			`${data.git_commits} commits`,
 		].join(" · ");
-
-		// Build remote host info (ant-only)
-		let remoteInfo = "";
-		if (process.env.USER_TYPE === "ant") {
-			if (remoteStats && remoteStats.totalCopied > 0) {
-				const hsNames = remoteStats.hosts
-					.filter((h) => h.sessionCount > 0)
-					.map((h) => h.name)
-					.join(", ");
-				remoteInfo = `\n_Collected ${remoteStats.totalCopied} new sessions from: ${hsNames}_\n`;
-			} else if (!collectRemote && hasRemoteHosts) {
-				// Suggest using --homespaces if they have remote hosts but didn't use the flag
-				remoteInfo = `\n_Tip: Run \`/insights --homespaces\` to include sessions from your ${remoteHosts.length} running homespace(s)_\n`;
-			}
-		}
 
 		// Build markdown summary from insights
 		const atAGlance = insights.at_a_glance;
@@ -3160,12 +2894,11 @@ ${atAGlance.ambitious_workflows ? `**Ambitious workflows:** ${atAGlance.ambitiou
 
 ${stats}
 ${data.date_range.start} to ${data.date_range.end}
-${remoteInfo}
 `;
 
 		const userSummary = `${header}${summaryText}
 
-Your full shareable insights report is ready: ${reportUrl}${uploadHint}`;
+Your full shareable insights report is ready: ${reportUrl}`;
 
 		// Return prompt for the assistant to respond to
 		return [
@@ -3187,7 +2920,7 @@ Now output the following message exactly:
 
 <message>
 Your shareable insights report is ready:
-${reportUrl}${uploadHint}
+${reportUrl}
 
 Want to dig into any section or try one of the suggestions?
 </message>`,

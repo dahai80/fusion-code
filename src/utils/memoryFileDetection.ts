@@ -173,7 +173,7 @@ export function isMemoryDirectory(dirPath: string): boolean {
 	) {
 		return true;
 	}
-	// Check the auto-memory path override (CLAUDE_COWORK_MEMORY_PATH_OVERRIDE)
+	// Check the auto-memory path override (FUSION_COWORK_MEMORY_PATH_OVERRIDE)
 	if (isAutoMemoryEnabled()) {
 		const autoMemPath = getAutoMemPath();
 		const autoMemDirCmp = toComparable(autoMemPath.replace(/[/\\]+$/, ""));

@@ -144,7 +144,7 @@ export function DescriptionStep() {
 	if ($[15] !== t6 || $[16] !== t7) {
 		t8 = (
 			<WizardDialogLayout
-				subtitle="Description (tell Claude when to use this agent)"
+				subtitle="Description (tell the assistant when to use this agent)"
 				footerText={t4}
 			>
 				<Box flexDirection="column">

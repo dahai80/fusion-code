@@ -90,7 +90,7 @@ export function WebFetchPermissionRequest(t0) {
 			t5 = {
 				label: (
 					<Text>
-						No, and tell Claude what to do differently{" "}
+						No, and tell the assistant what to do differently{" "}
 						<Text bold={true}>(esc)</Text>
 					</Text>
 				),

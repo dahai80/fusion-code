@@ -439,7 +439,7 @@ export async function loadMemoryPrompt(): Promise<string | null> {
 
 	// Cowork injects memory-policy text via env var; thread into all builders.
 	const coworkExtraGuidelines =
-		process.env.CLAUDE_COWORK_MEMORY_EXTRA_GUIDELINES;
+		process.env.FUSION_COWORK_MEMORY_EXTRA_GUIDELINES;
 	const extraGuidelines =
 		coworkExtraGuidelines && coworkExtraGuidelines.trim().length > 0
 			? [coworkExtraGuidelines]

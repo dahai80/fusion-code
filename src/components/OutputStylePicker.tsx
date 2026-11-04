@@ -14,7 +14,7 @@ import { Dialog } from "./design-system/Dialog.js";
 
 const DEFAULT_OUTPUT_STYLE_LABEL = "Default";
 const DEFAULT_OUTPUT_STYLE_DESCRIPTION =
-	"Claude completes coding tasks efficiently and provides concise responses";
+	"The assistant completes coding tasks efficiently and provides concise responses";
 function mapConfigsToOptions(styles: {
 	[styleName: string]: OutputStyleConfig | null;
 }): OptionWithDescription[] {

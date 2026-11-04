@@ -251,7 +251,7 @@ export const ConfigTool = buildTool({
 					data: {
 						success: false,
 						error: !isAnthropicAuthEnabled()
-							? "Voice mode requires a Claude.ai account. Please run /login to sign in."
+							? "Voice mode requires a signed-in account. Please run /login to sign in."
 							: isFusionMlxProvider()
 								? "Voice mode is not available in fusion-mlx mode."
 								: "Voice mode is not available.",
@@ -287,7 +287,7 @@ export const ConfigTool = buildTool({
 						success: false,
 						error: isFusionMlxProvider()
 							? "Voice mode is not available in fusion-mlx mode."
-							: "Voice mode requires a Claude.ai account. Please run /login to sign in.",
+							: "Voice mode requires a signed-in account. Please run /login to sign in.",
 					},
 				};
 			}

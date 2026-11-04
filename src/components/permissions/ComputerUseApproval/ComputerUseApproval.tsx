@@ -298,7 +298,7 @@ function ComputerUseAppListPanel(t0) {
 		t8 = {
 			label: (
 				<Text>
-					Deny, and tell Claude what to do differently{" "}
+					Deny, and tell the assistant what to do differently{" "}
 					<Text bold={true}>(esc)</Text>
 				</Text>
 			),

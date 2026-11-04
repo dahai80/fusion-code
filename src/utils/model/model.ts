@@ -464,21 +464,18 @@ export function renderModelName(model: ModelName): string {
 
 /**
  * Returns a safe author name for public display (e.g., in git commit trailers).
- * Returns "Claude {ModelName}" for publicly known models, or "Claude ({model})"
+ * Returns the public display name for publicly known models, or the raw model id
  * for unknown/internal models so the exact model name is preserved.
  *
  * @param model The full model name
- * @returns "Claude {ModelName}" for public models, or "Claude ({model})" for non-public models
+ * @returns the public display name for public models, or the raw model id for non-public models
  */
 export function getPublicModelName(model: ModelName): string {
 	const publicName = getPublicModelDisplayName(model);
 	if (publicName) {
-		if (model.includes("gpt-") || model.includes("codex")) {
-			return publicName;
-		}
-		return `Claude ${publicName}`;
+		return publicName;
 	}
-	return `Claude (${model})`;
+	return model;
 }
 
 /**

@@ -159,11 +159,11 @@ export function onGrowthBookRefresh(
 
 /**
  * Parse env var overrides for GrowthBook features.
- * Set CLAUDE_INTERNAL_FC_OVERRIDES to a JSON object mapping feature keys to values
+ * Set FUSION_INTERNAL_FC_OVERRIDES to a JSON object mapping feature keys to values
  * to bypass remote eval and disk cache. Useful for eval harnesses that need to
  * test specific feature flag configurations. Only active when USER_TYPE is 'ant'.
  *
- * Example: CLAUDE_INTERNAL_FC_OVERRIDES='{"my_feature": true, "my_config": {"key": "val"}}'
+ * Example: FUSION_INTERNAL_FC_OVERRIDES='{"my_feature": true, "my_config": {"key": "val"}}'
  */
 let envOverrides: Record<string, unknown> | null = null;
 let envOverridesParsed = false;
@@ -172,7 +172,7 @@ function getEnvOverrides(): Record<string, unknown> | null {
 	if (!envOverridesParsed) {
 		envOverridesParsed = true;
 		if (process.env.USER_TYPE === "ant") {
-			const raw = process.env.CLAUDE_INTERNAL_FC_OVERRIDES;
+			const raw = process.env.FUSION_INTERNAL_FC_OVERRIDES;
 			if (raw) {
 				try {
 					envOverrides = JSON.parse(raw) as Record<string, unknown>;
@@ -183,7 +183,7 @@ function getEnvOverrides(): Record<string, unknown> | null {
 				} catch {
 					logError(
 						new Error(
-							`GrowthBook: Failed to parse CLAUDE_INTERNAL_FC_OVERRIDES: ${raw}`,
+							`GrowthBook: Failed to parse FUSION_INTERNAL_FC_OVERRIDES: ${raw}`,
 						),
 					);
 				}
@@ -194,7 +194,7 @@ function getEnvOverrides(): Record<string, unknown> | null {
 }
 
 /**
- * Check if a feature has an env-var override (CLAUDE_INTERNAL_FC_OVERRIDES).
+ * Check if a feature has an env-var override (FUSION_INTERNAL_FC_OVERRIDES).
  * When true, _CACHED_MAY_BE_STALE will return the override without touching
  * disk or network — callers can skip awaiting init for that feature.
  */

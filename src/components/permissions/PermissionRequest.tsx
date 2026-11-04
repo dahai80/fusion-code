@@ -150,7 +150,7 @@ function getNotificationMessage(toolUseConfirm: ToolUseConfirm): string {
 		feature("REVIEW_ARTIFACT") &&
 		toolUseConfirm.tool === ReviewArtifactTool
 	) {
-		return "Claude needs your approval for a review artifact";
+		return "The assistant needs your approval for a review artifact";
 	}
 	if (!toolName || toolName.trim() === "") {
 		return "Fusion-Code needs your attention";

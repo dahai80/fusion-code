@@ -103,7 +103,7 @@ export function registerMcpCommands(program: CommanderCommand): void {
 		);
 	mcp
 		.command("add-from-claude-desktop")
-		.description("Import MCP servers from Claude Desktop (Mac and WSL only)")
+		.description("Import MCP servers from the desktop app (Mac and WSL only)")
 		.option(
 			"-s, --scope <scope>",
 			"Configuration scope (local, user, or project)",

@@ -65,10 +65,10 @@ describe("isFirstPartyAnthropicBaseUrl (audit-0902 P1-1)", () => {
 		expect(isFirstPartyAnthropicBaseUrl()).toBe(false);
 	});
 
-	test("ant staging host allowed only when USER_TYPE=ant", () => {
+	test("internal staging host always rejected (1104-2 cleanup)", () => {
 		setEnv("ANTHROPIC_BASE_URL", "https://api-staging.anthropic.com");
 		setEnv("USER_TYPE", "ant");
-		expect(isFirstPartyAnthropicBaseUrl()).toBe(true);
+		expect(isFirstPartyAnthropicBaseUrl()).toBe(false);
 		delete process.env.USER_TYPE;
 		setEnv("USER_TYPE", "external");
 		expect(isFirstPartyAnthropicBaseUrl()).toBe(false);

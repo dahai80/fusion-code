@@ -12,7 +12,7 @@
  * relay content. Servers opt in by declaring
  * capabilities.experimental['claude/channel/permission'].
  *
- * Kenneth's "would this let Claude self-approve?": the approving party is
+ * Kenneth's "would this let the assistant self-approve?": the approving party is
  * the human via the channel, not Claude. But the trust boundary isn't the
  * terminal — it's the allowlist (fusion_harbor_ledger). A compromised
  * channel server CAN fabricate "yes <id>" without the human seeing the

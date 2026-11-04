@@ -47,7 +47,7 @@ export function maybeSendIdleNotification(ctx: IdleNotificationCtx): void {
 	) {
 		void sendNotification(
 			{
-				message: "Claude is waiting for your input",
+				message: "The assistant is waiting for your input",
 				notificationType: "idle_prompt",
 			},
 			ctx.terminal,

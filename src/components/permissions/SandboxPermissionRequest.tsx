@@ -95,7 +95,7 @@ export function SandboxPermissionRequest(t0) {
 		t6 = {
 			label: (
 				<Text>
-					No, and tell Claude what to do differently{" "}
+					No, and tell the assistant what to do differently{" "}
 					<Text bold={true}>(esc)</Text>
 				</Text>
 			),

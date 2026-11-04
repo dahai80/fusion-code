@@ -73,7 +73,7 @@ export const ThinkingAdaptiveSchema = lazySchema(() =>
 		.object({
 			type: z.literal("adaptive"),
 		})
-		.describe("Claude decides when and how much to think (Opus 4.6+)."),
+		.describe("The model decides when and how much to think (Opus 4.6+)."),
 );
 
 export const ThinkingEnabledSchema = lazySchema(() =>
@@ -101,7 +101,7 @@ export const ThinkingConfigSchema = lazySchema(() =>
 			ThinkingDisabledSchema(),
 		])
 		.describe(
-			"Controls Claude's thinking/reasoning behavior. When set, takes precedence over the deprecated maxThinkingTokens.",
+			"Controls the model thinking/reasoning behavior. When set, takes precedence over the deprecated maxThinkingTokens.",
 		),
 );
 
@@ -1074,7 +1074,7 @@ export const ModelInfoSchema = lazySchema(() =>
 				.boolean()
 				.optional()
 				.describe(
-					"Whether this model supports adaptive thinking (Claude decides when and how much to think)",
+					"Whether this model supports adaptive thinking (model decides when and how much to think)",
 				),
 			supportsFastMode: z
 				.boolean()

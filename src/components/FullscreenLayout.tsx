@@ -213,7 +213,7 @@ export function useUnseenDivider(messageCount: number): {
 
 /**
  * Counts assistant turns in messages[dividerIndex..end). A "turn" is what
- * users think of as "a new message from Claude" — not raw assistant entries
+ * users think of as "a new message from the assistant" — not raw assistant entries
  * (one turn yields multiple entries: tool_use blocks + text blocks). We count
  * non-assistant→assistant transitions, but only for entries that actually
  * carry text — tool-use-only entries are skipped (like progress messages)

@@ -689,7 +689,7 @@ export function REPL({
 		[],
 	);
 	const moreRightEnabled = useMemo(
-		() => isInternalBuild() && isEnvTruthy(process.env.CLAUDE_MORERIGHT),
+		() => isInternalBuild() && isEnvTruthy(process.env.FUSION_MORERIGHT),
 		[],
 	);
 	const disableVirtualScroll = useMemo(
@@ -4693,7 +4693,7 @@ export function REPL({
 													inputValue={inputValue}
 													setInputValue={setInputValue}
 													onRequestFeedback={handleSurveyRequestFeedback}
-													message="How well did Claude use its memory? (optional)"
+													message="How well did the assistant use its memory? (optional)"
 												/>
 											) : (
 												<FeedbackSurvey

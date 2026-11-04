@@ -1260,7 +1260,7 @@ export function checkWritePermissionForTool<Input extends AnyObject>(
 	// also has a broader Edit(.claude) rule in userSettings (e.g. from sandbox
 	// write-allow conversion), that rule would be found first and its source check
 	// below would fail. Scope the search to session-only rules so the dialog's
-	// "allow Claude to edit its own settings for this session" option actually works.
+	// "allow the assistant to edit its own settings for this session" option actually works.
 	const claudeFolderAllowRule = matchingRuleForInput(
 		path,
 		{
@@ -1571,7 +1571,7 @@ export function checkEditableInternalPath(
 
 	// Memdir directory (persistent memory for cross-session learning)
 	// This pre-safety-check carve-out exists because the default path is under
-	// ~/.claude/, which is in DANGEROUS_DIRECTORIES. The CLAUDE_COWORK_MEMORY_PATH_OVERRIDE
+	// ~/.claude/, which is in DANGEROUS_DIRECTORIES. The FUSION_COWORK_MEMORY_PATH_OVERRIDE
 	// override is an arbitrary caller-designated directory with no such conflict,
 	// so it gets NO special permission treatment here — writes go through normal
 	// permission flow (step 5 → ask). SDK callers who want silent memory should

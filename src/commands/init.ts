@@ -94,7 +94,7 @@ If the user chose personal CLAUDE.local.md or both: ask about them, not the code
 
 ## Phase 4: Write CLAUDE.md (if user chose project or both)
 
-Write a minimal CLAUDE.md at the project root. Every line must pass this test: "Would removing this cause Claude to make mistakes?" If no, cut it.
+Write a minimal CLAUDE.md at the project root. Every line must pass this test: "Would removing this cause the assistant to make mistakes?" If no, cut it.
 
 **Consume \`note\` entries from the Phase 3 preference queue whose target is CLAUDE.md** (team-level notes) — add each as a concise line in the most relevant section. These are the behaviors the user wants Claude to follow but didn't need guaranteed (e.g., "propose a plan before implementing", "explain the tradeoffs when refactoring"). Leave personal-targeted notes for Phase 5.
 

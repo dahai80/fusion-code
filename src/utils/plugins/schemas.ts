@@ -239,8 +239,7 @@ const MarketplaceNameSchema = lazySchema(() =>
 			},
 		)
 		.refine((name) => !isBlockedOfficialName(name), {
-			message:
-				"Marketplace name impersonates an official Anthropic/Claude marketplace",
+			message: "Marketplace name impersonates an official marketplace",
 		})
 		.refine((name) => name.toLowerCase() !== "inline", {
 			message:
@@ -657,7 +656,7 @@ const PluginManifestUserConfigSchema = lazySchema(() =>
 					.string()
 					.regex(
 						/^[A-Za-z_]\w*$/,
-						"Option keys must be valid identifiers (letters, digits, underscore; no leading digit) — they become CLAUDE_PLUGIN_OPTION_<KEY> env vars in hooks",
+						"Option keys must be valid identifiers (letters, digits, underscore; no leading digit) — they become FUSION_PLUGIN_OPTION_<KEY> env vars in hooks (legacy CLAUDE_PLUGIN_OPTION_<KEY> also set)",
 					),
 				PluginUserConfigOptionSchema(),
 			)

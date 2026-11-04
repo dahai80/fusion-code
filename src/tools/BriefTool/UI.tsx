@@ -41,7 +41,7 @@ export function renderToolResultMessage(
 		);
 	}
 
-	// Brief-only (chat) view: "Claude" label + 2-col indent, matching the "You"
+	// Brief-only (chat) view: assistant label + 2-col indent, matching the "You"
 	// label UserPromptMessage applies to user input (#20889). The "N in background"
 	// spinner status lives in BriefSpinner (Spinner.tsx) — stateless label here.
 	if (options?.isBriefOnly) {

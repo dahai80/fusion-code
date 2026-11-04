@@ -932,10 +932,14 @@ async function execCommandHook(
 			// at schemas.ts:611 now constrains keys to /^[A-Za-z_]\w*$/ so this is
 			// belt-and-suspenders, but cheap insurance if someone bypasses the schema.
 			const envKey = key.replace(/[^A-Za-z0-9_]/g, "_").toUpperCase();
+			envVars[`FUSION_PLUGIN_OPTION_${envKey}`] = String(value);
+			// Legacy alias kept for upstream-format plugin compat.
 			envVars[`CLAUDE_PLUGIN_OPTION_${envKey}`] = String(value);
 		}
 	}
 	if (skillRoot) {
+		envVars.FUSION_PLUGIN_ROOT = toHookPath(skillRoot);
+		// Legacy alias kept for upstream-format plugin compat.
 		envVars.CLAUDE_PLUGIN_ROOT = toHookPath(skillRoot);
 	}
 
@@ -953,7 +957,7 @@ async function execCommandHook(
 			hookEvent === "FileChanged") &&
 		hookIndex !== undefined
 	) {
-		envVars.CLAUDE_ENV_FILE = await getHookEnvFilePath(hookEvent, hookIndex);
+		envVars.FUSION_ENV_FILE = await getHookEnvFilePath(hookEvent, hookIndex);
 	}
 
 	// When agent worktrees are removed, getCwd() may return a deleted path via

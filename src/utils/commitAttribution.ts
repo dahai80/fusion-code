@@ -132,7 +132,7 @@ export type AttributionState = {
  */
 export type AttributionSummary = {
 	claudePercent: number;
-	claudeChars: number;
+	assistantChars: number;
 	humanChars: number;
 	surfaces: string[];
 };
@@ -141,7 +141,7 @@ export type AttributionSummary = {
  * Per-file attribution details for git notes.
  */
 export type FileAttribution = {
-	claudeChars: number;
+	assistantChars: number;
 	humanChars: number;
 	percent: number;
 	surface: string;
@@ -154,7 +154,7 @@ export type AttributionData = {
 	version: 1;
 	summary: AttributionSummary;
 	files: Record<string, FileAttribution>;
-	surfaceBreakdown: Record<string, { claudeChars: number; percent: number }>;
+	surfaceBreakdown: Record<string, { assistantChars: number; percent: number }>;
 	excludedGenerated: string[];
 	sessions: string[];
 };
@@ -269,11 +269,11 @@ function computeFileModificationState(
 
 	try {
 		// Calculate the assistant's character contribution
-		let claudeContribution: number;
+		let assistantContribution: number;
 
 		if (oldContent === "" || newContent === "") {
 			// New file or full deletion - contribution is the content length
-			claudeContribution =
+			assistantContribution =
 				oldContent === "" ? newContent.length : oldContent.length;
 		} else {
 			// Find actual changed region via common prefix/suffix matching.
@@ -297,16 +297,16 @@ function computeFileModificationState(
 			}
 			const oldChangedLen = oldContent.length - prefixEnd - suffixLen;
 			const newChangedLen = newContent.length - prefixEnd - suffixLen;
-			claudeContribution = Math.max(oldChangedLen, newChangedLen);
+			assistantContribution = Math.max(oldChangedLen, newChangedLen);
 		}
 
 		// Get current file state if it exists
 		const existingState = existingFileStates.get(normalizedPath);
-		const existingContribution = existingState?.claudeContribution ?? 0;
+		const existingContribution = existingState?.assistantContribution ?? 0;
 
 		return {
 			contentHash: computeContentHash(newContent),
-			claudeContribution: existingContribution + claudeContribution,
+			assistantContribution: existingContribution + assistantContribution,
 			mtime,
 		};
 	} catch (error) {
@@ -359,7 +359,7 @@ export function trackFileModification(
 	newFileStates.set(normalizedPath, newFileState);
 
 	logForDebugging(
-		`Attribution: Tracked ${newFileState.claudeContribution} chars for ${normalizedPath}`,
+		`Attribution: Tracked ${newFileState.assistantContribution} chars for ${normalizedPath}`,
 	);
 
 	return {
@@ -393,12 +393,12 @@ export function trackFileDeletion(
 ): AttributionState {
 	const normalizedPath = normalizeFilePath(filePath);
 	const existingState = state.fileStates.get(normalizedPath);
-	const existingContribution = existingState?.claudeContribution ?? 0;
+	const existingContribution = existingState?.assistantContribution ?? 0;
 	const deletedChars = oldContent.length;
 
 	const newFileState: FileAttributionState = {
 		contentHash: "", // Empty hash for deleted files
-		claudeContribution: existingContribution + deletedChars,
+		assistantContribution: existingContribution + deletedChars,
 		mtime: Date.now(),
 	};
 
@@ -406,7 +406,7 @@ export function trackFileDeletion(
 	newFileStates.set(normalizedPath, newFileState);
 
 	logForDebugging(
-		`Attribution: Tracked deletion of ${normalizedPath} (${deletedChars} chars removed, total contribution: ${newFileState.claudeContribution})`,
+		`Attribution: Tracked deletion of ${normalizedPath} (${deletedChars} chars removed, total contribution: ${newFileState.assistantContribution})`,
 	);
 
 	return {
@@ -440,12 +440,12 @@ export function trackBulkFileChanges(
 		if (change.type === "deleted") {
 			const normalizedPath = normalizeFilePath(change.path);
 			const existingState = newFileStates.get(normalizedPath);
-			const existingContribution = existingState?.claudeContribution ?? 0;
+			const existingContribution = existingState?.assistantContribution ?? 0;
 			const deletedChars = change.oldContent.length;
 
 			newFileStates.set(normalizedPath, {
 				contentHash: "",
-				claudeContribution: existingContribution + deletedChars,
+				assistantContribution: existingContribution + deletedChars,
 				mtime,
 			});
 
@@ -465,7 +465,7 @@ export function trackBulkFileChanges(
 				newFileStates.set(normalizedPath, newFileState);
 
 				logForDebugging(
-					`Attribution: Tracked ${newFileState.claudeContribution} chars for ${normalizedPath}`,
+					`Attribution: Tracked ${newFileState.assistantContribution} chars for ${normalizedPath}`,
 				);
 			}
 		}
@@ -540,8 +540,8 @@ export async function calculateCommitAttribution(
 			if (existing) {
 				mergedFileStates.set(path, {
 					...fileState,
-					claudeContribution:
-						existing.claudeContribution + fileState.claudeContribution,
+					assistantContribution:
+						existing.assistantContribution + fileState.assistantContribution,
 				});
 			} else {
 				mergedFileStates.set(path, fileState);
@@ -564,7 +564,7 @@ export async function calculateCommitAttribution(
 			// Get the surface for this file
 			const fileSurface = states[0]?.surface;
 
-			let claudeChars = 0;
+			let assistantChars = 0;
 			let humanChars = 0;
 
 			// Check if file was deleted
@@ -574,7 +574,7 @@ export async function calculateCommitAttribution(
 				// File was deleted
 				if (fileState) {
 					// the assistant deleted this file (tracked deletion)
-					claudeChars = fileState.claudeContribution;
+					assistantChars = fileState.assistantContribution;
 					humanChars = 0;
 				} else {
 					// Human deleted this file (untracked deletion)
@@ -591,7 +591,7 @@ export async function calculateCommitAttribution(
 
 					if (fileState) {
 						// We have tracked modifications for this file
-						claudeChars = fileState.claudeContribution;
+						assistantChars = fileState.assistantContribution;
 						humanChars = 0;
 					} else if (baseline) {
 						// File was modified but not tracked - human modification
@@ -608,16 +608,17 @@ export async function calculateCommitAttribution(
 			}
 
 			// Ensure non-negative values
-			claudeChars = Math.max(0, claudeChars);
+			assistantChars = Math.max(0, assistantChars);
 			humanChars = Math.max(0, humanChars);
 
-			const total = claudeChars + humanChars;
-			const percent = total > 0 ? Math.round((claudeChars / total) * 100) : 0;
+			const total = assistantChars + humanChars;
+			const percent =
+				total > 0 ? Math.round((assistantChars / total) * 100) : 0;
 
 			return {
 				type: "file" as const,
 				file,
-				claudeChars,
+				assistantChars,
 				humanChars,
 				percent,
 				surface: fileSurface,
@@ -635,17 +636,17 @@ export async function calculateCommitAttribution(
 		}
 
 		files[result.file] = {
-			claudeChars: result.claudeChars,
+			assistantChars: result.assistantChars,
 			humanChars: result.humanChars,
 			percent: result.percent,
 			surface: result.surface,
 		};
 
-		totalClaudeChars += result.claudeChars;
+		totalClaudeChars += result.assistantChars;
 		totalHumanChars += result.humanChars;
 
 		surfaceCounts[result.surface] =
-			(surfaceCounts[result.surface] ?? 0) + result.claudeChars;
+			(surfaceCounts[result.surface] ?? 0) + result.assistantChars;
 	}
 
 	const totalChars = totalClaudeChars + totalHumanChars;
@@ -655,19 +656,19 @@ export async function calculateCommitAttribution(
 	// Calculate surface breakdown (percentage of total content per surface)
 	const surfaceBreakdown: Record<
 		string,
-		{ claudeChars: number; percent: number }
+		{ assistantChars: number; percent: number }
 	> = {};
 	for (const [surface, chars] of Object.entries(surfaceCounts)) {
 		// Calculate what percentage of TOTAL content this surface contributed
 		const percent = totalChars > 0 ? Math.round((chars / totalChars) * 100) : 0;
-		surfaceBreakdown[surface] = { claudeChars: chars, percent };
+		surfaceBreakdown[surface] = { assistantChars: chars, percent };
 	}
 
 	return {
 		version: 1,
 		summary: {
 			claudePercent,
-			claudeChars: totalClaudeChars,
+			assistantChars: totalClaudeChars,
 			humanChars: totalHumanChars,
 			surfaces: Array.from(surfaces),
 		},

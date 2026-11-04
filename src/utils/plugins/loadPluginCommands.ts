@@ -370,7 +370,11 @@ function createPluginCommand(
 					);
 				}
 
-				// Replace ${CLAUDE_SESSION_ID} with the current session ID
+				// Replace ${FUSION_SESSION_ID} (legacy ${CLAUDE_SESSION_ID} alias too)
+				finalContent = finalContent.replace(
+					/\$\{FUSION_SESSION_ID\}/g,
+					getSessionId(),
+				);
 				finalContent = finalContent.replace(
 					/\$\{CLAUDE_SESSION_ID\}/g,
 					getSessionId(),

@@ -24,7 +24,9 @@ const DPAPI_FILE_PREFIX = ".credentials.dpapi";
 
 function getDpapiFileName(): string {
 	const configDir = getClaudeConfigHomeDir();
-	const isDefaultDir = !process.env.CLAUDE_CONFIG_DIR;
+	// Default when neither the fusion env nor the legacy upstream env is set.
+	const isDefaultDir =
+		!process.env.FUSION_CODE_CONFIG_DIR && !process.env.CLAUDE_CONFIG_DIR;
 	const dirHash = isDefaultDir
 		? ""
 		: `-${createHash("sha256").update(configDir).digest("hex").substring(0, 8)}`;

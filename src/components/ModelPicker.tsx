@@ -330,7 +330,7 @@ export function ModelPicker(t0) {
 	}
 	const t16 =
 		headerText ??
-		"Switch between Claude models. Applies to this session and future Fusion-Code sessions. For other/previous model names, specify with --model.";
+		"Switch between models. Applies to this session and future Fusion-Code sessions. For other/previous model names, specify with --model.";
 	let t17;
 	if ($[42] !== t16) {
 		t17 = <Text dimColor={true}>{t16}</Text>;

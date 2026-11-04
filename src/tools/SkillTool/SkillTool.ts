@@ -1087,14 +1087,22 @@ async function executeRemoteSkill(
 	// content unchanged if no frontmatter is present.
 	const { content: bodyContent } = parseFrontmatter(content, skillPath);
 
-	// Inject base directory header + ${CLAUDE_SKILL_DIR}/${CLAUDE_SESSION_ID}
+	// Inject base directory header + ${FUSION_SKILL_DIR}/${FUSION_SESSION_ID}
+	// (legacy ${CLAUDE_SKILL_DIR}/${CLAUDE_SESSION_ID} aliases also substituted)
 	// substitution (matches loadSkillsDir.ts) so the model can resolve relative
 	// refs like ./schemas/foo.json against the cache dir.
 	const skillDir = dirname(skillPath);
 	const normalizedDir =
 		process.platform === "win32" ? skillDir.replace(/\\/g, "/") : skillDir;
 	let finalContent = `Base directory for this skill: ${normalizedDir}\n\n${bodyContent}`;
+	finalContent = finalContent.replace(/\$\{FUSION_SKILL_DIR\}/g, normalizedDir);
+	// Legacy upstream token alias.
 	finalContent = finalContent.replace(/\$\{CLAUDE_SKILL_DIR\}/g, normalizedDir);
+	finalContent = finalContent.replace(
+		/\$\{FUSION_SESSION_ID\}/g,
+		getSessionId(),
+	);
+	// Legacy upstream token alias.
 	finalContent = finalContent.replace(
 		/\$\{CLAUDE_SESSION_ID\}/g,
 		getSessionId(),
@@ -1103,7 +1111,7 @@ async function executeRemoteSkill(
 	// Register with compaction-preservation state. Use the cached file path so
 	// post-compact restoration knows where the content came from. Must use
 	// finalContent (not raw content) so the base directory header and
-	// ${CLAUDE_SKILL_DIR} substitutions survive compaction — matches how local
+	// ${FUSION_SKILL_DIR} substitutions survive compaction — matches how local
 	// skills store their already-transformed content via processSlashCommand.
 	addInvokedSkill(
 		commandName,

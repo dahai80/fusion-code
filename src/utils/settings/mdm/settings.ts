@@ -2,10 +2,10 @@
  * MDM (Mobile Device Management) profile enforcement for Fusion-Code managed settings.
  *
  * Reads enterprise settings from OS-level MDM configuration:
- * - macOS: `com.anthropic.claudecode` preference domain
+ * - macOS: `com.fusion.code` preference domain
  *   (MDM profiles at /Library/Managed Preferences/ only — not user-writable ~/Library/Preferences/)
- * - Windows: `HKLM\SOFTWARE\Policies\ClaudeCode` (admin-only)
- *   and `HKCU\SOFTWARE\Policies\ClaudeCode` (user-writable, lowest priority)
+ * - Windows: `HKLM\SOFTWARE\Policies\FusionCode` (admin-only)
+ *   and `HKCU\SOFTWARE\Policies\FusionCode` (user-writable, lowest priority)
  * - Linux: No MDM equivalent (uses /etc/claude-code/managed-settings.json instead)
  *
  * Policy settings use "first source wins" — the highest-priority source that exists

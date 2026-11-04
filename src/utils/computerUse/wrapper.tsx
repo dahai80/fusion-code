@@ -271,8 +271,8 @@ export function buildSessionContext(): ComputerUseSessionContext {
 				});
 				tuc().sendOSNotification?.({
 					message: escRegistered
-						? "Claude is using your computer · press Esc to stop"
-						: "Claude is using your computer · press Ctrl+C to stop",
+						? "The assistant is using your computer · press Esc to stop"
+						: "The assistant is using your computer · press Ctrl+C to stop",
 					notificationType: "computer_use_enter",
 				});
 			}

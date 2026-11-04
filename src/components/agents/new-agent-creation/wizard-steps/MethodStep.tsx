@@ -13,7 +13,7 @@ export function MethodStep() {
 	if ($[0] === Symbol.for("react.memo_cache_sentinel")) {
 		t0 = [
 			{
-				label: "Generate with Claude (recommended)",
+				label: "Generate with the assistant (recommended)",
 				value: "generate",
 			},
 			{

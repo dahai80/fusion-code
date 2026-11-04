@@ -159,7 +159,7 @@ function getAutoBackgroundMs(): number {
 		return fusionMs;
 	}
 	if (
-		isEnvTruthy(process.env.CLAUDE_AUTO_BACKGROUND_TASKS) ||
+		isEnvTruthy(process.env.FUSION_AUTO_BACKGROUND_TASKS) ||
 		getFeatureValue_CACHED_MAY_BE_STALE("fusion_auto_background_agents", false)
 	) {
 		return 120_000;

@@ -101,7 +101,7 @@ export function pluginDataDirPath(pluginId: string): string {
 
 /**
  * Persistent per-plugin data directory, exposed to plugins as
- * ${CLAUDE_PLUGIN_DATA}. Unlike the version-scoped install cache
+ * ${FUSION_PLUGIN_DATA}. Unlike the version-scoped install cache
  * (${CLAUDE_PLUGIN_ROOT}, which is orphaned and GC'd on every update),
  * this survives plugin updates — only removed on last-scope uninstall.
  *

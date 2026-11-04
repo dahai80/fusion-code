@@ -169,8 +169,8 @@ Session override (`/model`) > `--model` CLI flag > `FUSION_MODEL` / `FUSION_MLX_
 
 | Variable | Default | Description |
 |---|---|---|
-| `CLAUDE_DISABLE_STREAM_WATCHDOG` | unset | Set to `1` to disable the stream idle watchdog (auto-aborts hung connections) |
-| `CLAUDE_STREAM_IDLE_TIMEOUT_MS` | `300000` (5 min) | Milliseconds before the watchdog aborts an idle stream |
+| `FUSION_DISABLE_STREAM_WATCHDOG` | unset | Set to `1` to disable the stream idle watchdog (auto-aborts hung connections) |
+| `FUSION_STREAM_IDLE_TIMEOUT_MS` | `300000` (5 min) | Milliseconds before the watchdog aborts an idle stream |
 | `FUSION_CODE_FOCUS_VIEW` | unset | Set to `1` to collapse verbose tool output (focus mode) |
 | `FUSION_CODE_MAX_CONSECUTIVE_TOOL_ERRORS` | `5` (non-interactive), `0` (interactive) | Circuit breaker (#227): abort the agent loop after N consecutive tool calls fail with an identical error signature; the one-shot task exits with a structured `error_tool_error_loop` result. `0` disables |
 

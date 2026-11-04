@@ -417,7 +417,7 @@ const externalTips: Tip[] = [
 	{
 		id: "desktop-app",
 		content: async () =>
-			"Run Fusion-Code locally or remotely using the Claude desktop app: clau.de/desktop",
+			"Run Fusion-Code locally or remotely using the companion desktop app",
 		cooldownSessions: 15,
 		isRelevant: async () => getPlatform() !== "linux",
 	},
@@ -446,7 +446,7 @@ const externalTips: Tip[] = [
 	{
 		id: "mobile-app",
 		content: async () =>
-			"/mobile to use Fusion-Code from the Claude app on your phone",
+			"/mobile to use Fusion-Code from the companion app on your phone",
 		cooldownSessions: 15,
 		isRelevant: async () => true,
 	},

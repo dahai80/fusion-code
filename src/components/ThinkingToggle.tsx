@@ -25,12 +25,12 @@ export function ThinkingToggle(t0) {
 			{
 				value: "true",
 				label: "Enabled",
-				description: "Claude will think before responding",
+				description: "The assistant will think before responding",
 			},
 			{
 				value: "false",
 				label: "Disabled",
-				description: "Claude will respond without extended thinking",
+				description: "The assistant will respond without extended thinking",
 			},
 		];
 		$[0] = t1;

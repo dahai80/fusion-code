@@ -384,7 +384,7 @@ export async function mcpAddFromDesktopHandler(options: {
 		const servers = await readClaudeDesktopMcpServers();
 		if (Object.keys(servers).length === 0) {
 			cliOk(
-				"No MCP servers found in Claude Desktop configuration or configuration file does not exist.",
+				"No MCP servers found in the desktop app configuration or configuration file does not exist.",
 			);
 		}
 		const { unmount } = await render(

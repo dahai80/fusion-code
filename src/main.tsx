@@ -4335,7 +4335,7 @@ async function run(): Promise<CommanderCommand> {
 		);
 		program.option(
 			"--agent-teams",
-			"[ANT-ONLY] Force Claude to use multi-agent mode for solving problems",
+			"[ANT-ONLY] Force multi-agent mode for solving problems",
 			() => true,
 		);
 	}

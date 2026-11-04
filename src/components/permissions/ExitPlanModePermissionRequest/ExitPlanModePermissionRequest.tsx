@@ -1015,7 +1015,7 @@ export function buildPlanApprovalOptions({
 		type: "input",
 		label: "No, keep planning",
 		value: "no",
-		placeholder: "Tell Claude what to change",
+		placeholder: "Tell the assistant what to change",
 		description: "shift+tab to approve with this feedback",
 		onChange: onFeedbackChange,
 	});
