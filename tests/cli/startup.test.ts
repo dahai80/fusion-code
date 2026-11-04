@@ -530,8 +530,8 @@ describe("二进制构建验证", () => {
 		const buildScript = await Bun.file("scripts/build.ts").text();
 		// 验证不包含 FORCE_COLOR 编译时定义（运行时设置）
 		expect(buildScript).not.toContain("'process.env.FORCE_COLOR'");
-		// 验证包含 CLAUDE_CODE_FORCE_FULL_LOGO
-		expect(buildScript).toContain("CLAUDE_CODE_FORCE_FULL_LOGO");
+		// 验证包含 FUSION_CODE_FORCE_FULL_LOGO
+		expect(buildScript).toContain("FUSION_CODE_FORCE_FULL_LOGO");
 		// 验证包含 USER_TYPE
 		expect(buildScript).toContain("USER_TYPE");
 	});
