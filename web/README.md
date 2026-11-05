@@ -12,7 +12,9 @@ subprocesses and renders sessions, steps, and file changes in the browser.
 - `/session/:id` — conversation with inline per-step commands, live
   right-rail file changes + per-file diff viewer with inline comments
   (click a +/- diff line to anchor one, #237), checkpoints (verify/rollback),
-  PR flow, permission panel with tier hints, follow-up composer (frame C2)
+  PR flow, permission panel with tier hints, follow-up composer (frame C2),
+  command palette (workflow prompt templates, #241) + transcript export
+  (markdown download, #241)
 - `/repos` — repo connect (local git path or clone URL) + branch overview +
   per-repo verify command
 - `/usage` — token/cost totals aggregated per repo and session (#230)
@@ -64,6 +66,21 @@ JSONL after each turn (real kernels do not echo the prompt in stream-json).
   commit + push + `gh pr create`; the PR URL lands on the session. The clean
   worktree is rejected before commit (locale-independent `git diff --cached
   --quiet` check).
+
+## Command palette + transcript export (#241)
+
+- **Command palette** — the `Commands` button next to the composer opens a
+  searchable palette over `GET /api/commands` (16 curated entries: plan,
+  todo, review, review-pr, simplify, security-review, secrets-scan,
+  commit-push-pr, update-branch, release-notes, docs-update, verify,
+  types-fix, test-write, refactor, debug). Entries are natural-language
+  prompt templates, NOT kernel slash names — print mode (`-p`, the web
+  execution path) deliberately skips slash handling. Selecting an entry
+  fills the composer for editing before send.
+- **Transcript export** — the download icon in the Checkpoints rail header
+  fetches `GET /api/sessions/:id/export` and saves the kernel transcript
+  rendered as markdown (user/assistant turns + tool names). Returns 404
+  until the session has a kernel transcript.
 
 ## Model policy (#240)
 
@@ -129,6 +146,8 @@ Beyond #228 (`/health`, `/manifest.json`, `/api/repos`, `/api/sessions`,
 | `POST /api/sessions/:id/checkpoints/:uuid/rollback` | kernel `--rewind-files` restore |
 | `POST /api/sessions/:id/pr` | branch + commit + push + `gh pr create` |
 | `GET /api/usage` | token/cost aggregation (#230) |
+| `GET /api/commands` | curated workflow-command registry for the session command palette (#241); entries are natural-language prompt templates (print mode executes prompts, not slash commands) |
+| `GET /api/sessions/:id/export` | download the session's kernel transcript as a markdown attachment (#241) |
 
 ## Commands
 
