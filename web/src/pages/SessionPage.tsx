@@ -2,6 +2,7 @@ import {
     ArrowLeft,
     CheckCircle2,
     FileDiff,
+    FileDown,
     GitPullRequest,
     History,
     Loader2,
@@ -13,9 +14,17 @@ import {
     XCircle,
 } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import type { DiffComment, FileChange, SessionEvent, SessionPermissions, WebSession } from '../../shared/types';
+import type {
+    DiffComment,
+    FileChange,
+    SessionEvent,
+    SessionPermissions,
+    WebSession,
+    WorkflowCommand,
+} from '../../shared/types';
 import { navigate } from '../App';
 import { API_BASE, api, connectSessionWs } from '../api';
+import { CommandPalette } from '../components/CommandPalette';
 import { useT } from '../i18n';
 
 // /session/:id — frame C2: conversation with inline per-step commands, live
@@ -41,7 +50,17 @@ export function SessionPage({ sessionId }: { sessionId: string }) {
     const [prTitle, setPrTitle] = useState('');
     const [prBody, setPrBody] = useState('');
     const [prBusy, setPrBusy] = useState(false);
+    // Issue #241: command palette + transcript export.
+    const [paletteOpen, setPaletteOpen] = useState(false);
+    const [commands, setCommands] = useState<WorkflowCommand[]>([]);
+    const [exporting, setExporting] = useState(false);
     const bottomRef = useRef<HTMLDivElement>(null);
+
+    useEffect(() => {
+        api.listCommands()
+            .then((res) => setCommands(res.commands))
+            .catch(() => {});
+    }, []);
 
     const load = useCallback(async () => {
         try {
@@ -81,9 +100,10 @@ export function SessionPage({ sessionId }: { sessionId: string }) {
         return disconnect;
     }, [sessionId]);
 
+    // biome notes: runs each render on purpose — autoscroll as the stream grows
     useEffect(() => {
         bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
-    }, [events.length]);
+    });
 
     // #229: checkpoints are recorded server-side at each prompt; refresh the
     // session record when a turn ends so the Checkpoints rail picks them up.
@@ -106,6 +126,20 @@ export function SessionPage({ sessionId }: { sessionId: string }) {
             await api.startRun(sessionId, message);
         } catch (err) {
             setError(String(err));
+        }
+    };
+
+    // Issue #241: download the kernel transcript as markdown.
+    const exportTranscript = async () => {
+        if (exporting) return;
+        setExporting(true);
+        setError('');
+        try {
+            await api.exportTranscript(sessionId);
+        } catch (err) {
+            setError(String(err));
+        } finally {
+            setExporting(false);
         }
     };
 
@@ -397,7 +431,14 @@ export function SessionPage({ sessionId }: { sessionId: string }) {
                             disabled={running}
                             className="w-full resize-none rounded-xl border border-border bg-bg px-3 py-2 text-sm outline-none focus:border-brand disabled:opacity-50"
                         />
-                        <div className="mt-2 flex justify-end">
+                        <div className="mt-2 flex items-center justify-end gap-2">
+                            <button
+                                type="button"
+                                onClick={() => setPaletteOpen(true)}
+                                className="rounded-xl border border-border px-3 py-1.5 text-sm transition-colors hover:bg-bg-muted"
+                            >
+                                {t('命令', 'Commands')}
+                            </button>
                             <button
                                 type="button"
                                 onClick={() => void send()}
@@ -408,6 +449,16 @@ export function SessionPage({ sessionId }: { sessionId: string }) {
                             </button>
                         </div>
                     </div>
+                    {paletteOpen && (
+                        <CommandPalette
+                            commands={commands}
+                            onClose={() => setPaletteOpen(false)}
+                            onSelect={(cmd) => {
+                                setInput(cmd.prompt);
+                                setPaletteOpen(false);
+                            }}
+                        />
+                    )}
                 </div>
 
                 {/* Right rail: live file changes + permissions (C2) */}
@@ -485,6 +536,15 @@ export function SessionPage({ sessionId }: { sessionId: string }) {
                             <span className="rounded-lg bg-bg-muted px-2 py-0.5 text-xs text-text-muted">
                                 {session?.checkpoints?.length ?? 0}
                             </span>
+                            <button
+                                type="button"
+                                onClick={() => void exportTranscript()}
+                                disabled={exporting || !session?.kernelSessionId}
+                                title={t('导出会话记录 (Markdown)', 'Export session transcript (Markdown)')}
+                                className="ml-auto rounded-lg p-1 opacity-60 transition-opacity hover:opacity-100 disabled:opacity-30"
+                            >
+                                <FileDown size={15} />
+                            </button>
                         </h2>
                         <div className="mt-3 space-y-2">
                             {(session?.checkpoints ?? []).length === 0 && (

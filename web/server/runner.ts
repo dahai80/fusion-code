@@ -660,6 +660,29 @@ export function readHistory(sessionId: string, repoPath: string, limit = 200): H
     return out;
 }
 
+// Issue #241: render the full session transcript as a markdown export
+// (downloaded from the session page). Read-only walk of the kernel JSONL —
+// no kernel spawn.
+export function readTranscriptMarkdown(sessionId: string, repoPath: string): string | undefined {
+    const file = findSessionFile(sessionId, repoPath);
+    if (!file) return undefined;
+    const history = readHistory(sessionId, repoPath, 100000);
+    if (history.length === 0) return undefined;
+    const lines: string[] = [`# Session transcript — ${sessionId}`, ''];
+    for (const msg of history) {
+        if (msg.role === 'user') {
+            lines.push('## User', '', msg.text, '');
+        } else {
+            lines.push('## Assistant', '');
+            if (msg.toolNames.length > 0) {
+                lines.push(`_tools: ${msg.toolNames.join(', ')}_`, '');
+            }
+            if (msg.text) lines.push(msg.text, '');
+        }
+    }
+    return lines.join('\n');
+}
+
 // #229: real kernels do not echo the prompt text as a user message in
 // stream-json — the authoritative prompt uuids live in the session JSONL.
 // Sync checkpoints from the transcript at run end (stream-json capture stays
