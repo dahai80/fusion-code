@@ -173,3 +173,12 @@ export type UsageSummary = {
 // Distributive omit — Omit<Union, K> collapses to common keys otherwise.
 type DistributiveOmit<T, K extends keyof T> = T extends unknown ? Omit<T, K> : never;
 export type SessionEventBody = DistributiveOmit<SessionEvent, 'seq'>;
+
+// Issue #241: curated workflow-command registry entry (web command palette).
+export type WorkflowCommand = {
+    name: string;
+    descriptionEn: string;
+    descriptionZh: string;
+    category: 'plan' | 'review' | 'security' | 'git' | 'quality' | 'docs';
+    prompt: string;
+};

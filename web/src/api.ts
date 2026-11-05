@@ -10,6 +10,7 @@ import type {
     SessionPermissions,
     UsageSummary,
     WebSession,
+    WorkflowCommand,
 } from '../shared/types';
 
 // Same-origin REST client. Behind the gateway the module is served at
@@ -125,6 +126,20 @@ export const api = {
         post<{ ok: boolean }>(`/api/sessions/${id}/checkpoints/${encodeURIComponent(messageUuid)}/rollback`),
     createPr: (id: string, input: { title: string; body?: string }) =>
         post<{ ok: boolean; url: string; branch: string }>(`/api/sessions/${id}/pr`, input),
+
+    // Issue #241: command palette + transcript export.
+    listCommands: () => get<{ commands: WorkflowCommand[] }>('/api/commands'),
+    exportTranscript: async (id: string): Promise<void> => {
+        const res = await fetch(`${API_BASE}/api/sessions/${id}/export`);
+        if (!res.ok) throw new Error(`export failed: ${res.status}`);
+        const blob = await res.blob();
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `session-${id.slice(0, 8)}.md`;
+        a.click();
+        URL.revokeObjectURL(url);
+    },
 
     // #237: inline diff comments.
     listDiffComments: (id: string) => get<{ comments: DiffComment[] }>(`/api/sessions/${id}/comments`),

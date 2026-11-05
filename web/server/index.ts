@@ -1,6 +1,7 @@
 import { existsSync } from 'node:fs';
 import { join } from 'node:path';
 import type { FileChange, UsageRepoRow, UsageSessionRow, UsageSummary } from '../shared/types';
+import { listCommands } from './commandRegistry';
 import { bindHost, log, logWarn, webPort } from './config';
 import { startDesignSync, stopDesignSync } from './designSync';
 import { startGatewayRegistration, stopGatewayRegistration } from './gateway';
@@ -20,6 +21,7 @@ import {
     cleanupSessionWorktree,
     isRunning,
     readHistory,
+    readTranscriptMarkdown,
     rollbackToCheckpoint,
     sessionCwd,
     startRun,
@@ -169,6 +171,12 @@ async function handleApi(req: Request, url: URL): Promise<Response | null> {
     if (pathname === '/api/models' && method === 'GET') {
         return json(await modelInfo());
     }
+    // Issue #241: curated workflow-command registry for the session-page
+    // command palette (natural-language prompt templates, not slash names —
+    // print mode skips slash handling).
+    if (pathname === '/api/commands' && method === 'GET') {
+        return json({ commands: listCommands() });
+    }
     if (pathname === '/api/sessions' && method === 'POST') {
         const body = await readBody(req);
         const repoId = String(body.repoId ?? '');
@@ -311,6 +319,18 @@ async function handleApi(req: Request, url: URL): Promise<Response | null> {
             if (!result.ok) return json({ error: result.error }, 400);
             store.setSessionPr(session.id, result.url ?? '', result.branch);
             return json({ ok: true, url: result.url, branch: result.branch });
+        }
+        // Issue #241: transcript export — markdown render of the kernel JSONL.
+        if (sub === 'export' && method === 'GET') {
+            if (!session.kernelSessionId || !repo) return json({ error: 'session has no kernel transcript yet' }, 404);
+            const md = readTranscriptMarkdown(session.kernelSessionId, cwd);
+            if (!md) return json({ error: 'transcript not found' }, 404);
+            return new Response(md, {
+                headers: {
+                    'Content-Type': 'text/markdown; charset=utf-8',
+                    'Content-Disposition': `attachment; filename="session-${session.id.slice(0, 8)}.md"`,
+                },
+            });
         }
     }
 
