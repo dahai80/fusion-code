@@ -1,3 +1,19 @@
+---
+doc_id: fusion-code/guide
+product: fusion-code
+class: app
+entry: guided-ui
+doc_type: guide
+title: { zh: "工作流运行时", en: "Workflow runtime" }
+audience: engineer
+status: draft
+version: 0.5.22
+updated: 2026-11-07
+owner: @dahai
+source_of_truth:
+  - docs/workflow-runtime.md
+---
+
 # Workflow Runtime (item 25A)
 
 最小 workflow 执行 runtime。落地于 PR #105 (closes #104, CC 2.1.229)。

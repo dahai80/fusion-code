@@ -1,3 +1,19 @@
+---
+doc_id: fusion-code/guide
+product: fusion-code
+class: app
+entry: guided-ui
+doc_type: guide
+title: { zh: "fusion-code 开发流程", en: "fusion-code development workflow" }
+audience: engineer
+status: draft
+version: 0.5.22
+updated: 2026-11-07
+owner: @dahai
+source_of_truth:
+  - docs/development.md
+---
+
 # fusion-code 开发指南
 
 本文覆盖环境准备、构建命令、feature flag 机制、本地 MLX 调试与代码风格约定。

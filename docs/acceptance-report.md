@@ -1,3 +1,19 @@
+---
+doc_id: fusion-code/guide
+product: fusion-code
+class: app
+entry: guided-ui
+doc_type: guide
+title: { zh: "生产验收报告", en: "Production acceptance report" }
+audience: engineer
+status: draft
+version: 0.5.22
+updated: 2026-11-07
+owner: @dahai
+source_of_truth:
+  - docs/acceptance-report.md
+---
+
 # fusion-code 核心特性生产验收报告
 
 - 验收日期: 2026-08-07

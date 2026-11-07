@@ -1,7 +1,23 @@
-<h1 align="center">fusion-code</h1>
+---
+doc_id: fusion-code/readme
+product: fusion-code
+class: app
+entry: guided-ui
+doc_type: readme
+title: { zh: "fusion-code 终端 AI 编码代理", en: "fusion-code terminal AI coding agent" }
+audience: engineer
+status: draft
+version: 0.5.22
+updated: 2026-11-07
+owner: @dahai
+source_of_truth:
+  - README.md
+---
+
+# fusion-code
 
 <p align="center">
-  <strong>A terminal-native AI coding agent — local-first, zero telemetry, one binary.</strong><br>
+  <b>A terminal-native AI coding agent — local-first, zero telemetry, one binary.</b><br>
   Deep local MLX integration. Cloud backends optional. No callbacks home.
 </p>
 
@@ -9,7 +25,7 @@
   <a href="#quick-start"><img src="https://img.shields.io/badge/quick-start-blue?style=flat-square" alt="Quick Start" /></a>
   <a href="https://github.com/dahai80/fusion-code/stargazers"><img src="https://img.shields.io/github/stars/dahai80/fusion-code?style=flat-square" alt="Stars" /></a>
   <a href="https://github.com/dahai80/fusion-code/issues"><img src="https://img.shields.io/github/issues/dahai80/fusion-code?style=flat-square" alt="Issues" /></a>
-  <a href="./FEATURES.md"><img src="https://img.shields.io/badge/features-88%20flags-green?style=flat-square" alt="Feature Flags" /></a>
+  <a href="docs/feature-flags.md"><img src="https://img.shields.io/badge/features-88%20flags-green?style=flat-square" alt="Feature Flags" /></a>
   <a href="./README_CN.md"><img src="https://img.shields.io/badge/lang-中文-blue?style=flat-square" alt="中文" /></a>
 </p>
 
@@ -587,7 +603,7 @@ The `bun run build:dev:full` build enables all working feature flags. The defaul
 | `WORKFLOW_SCRIPTS` | Local workflow task scripting |
 | `WEB_BROWSER_TOOL` | Headless browser tool |
 
-All 34 historically-broken flags were fixed on 2026-07-23. See [FEATURES.md](FEATURES.md) for the full audit of all 88 flags.
+All 34 historically-broken flags were fixed on 2026-07-23. See [docs/feature-flags.md](docs/feature-flags.md) for the full audit of all 88 flags.
 
 ---
 

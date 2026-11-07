@@ -1,3 +1,19 @@
+---
+doc_id: fusion-code/guide
+product: fusion-code
+class: app
+entry: guided-ui
+doc_type: guide
+title: { zh: "fusion-code 开发者指南", en: "fusion-code developer guide" }
+audience: engineer
+status: draft
+version: 0.5.22
+updated: 2026-11-07
+owner: @dahai
+source_of_truth:
+  - docs/developer-guide.md
+---
+
 # fusion-code 开发者使用指南 — 场景化快速上手与配置排障
 
 面向**使用** fusion-code 的开发者（非构建 fusion-code 本身）。覆盖两类高频需求：

@@ -1,3 +1,19 @@
+---
+doc_id: fusion-code/guide
+product: fusion-code
+class: app
+entry: guided-ui
+doc_type: guide
+title: { zh: "Feature Flags 审计", en: "Feature flags audit" }
+audience: engineer
+status: draft
+version: 0.5.22
+updated: 2026-11-07
+owner: @dahai
+source_of_truth:
+  - docs/feature-flags.md
+---
+
 # fusion-code Feature Flags
 
 本文说明 fusion-code 两类 feature flag 的总览、DCE 机制、dev-full 列表与验证方法。

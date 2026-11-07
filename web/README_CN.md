@@ -1,3 +1,19 @@
+---
+doc_id: fusion-code/readme
+product: fusion-code
+class: app
+entry: guided-ui
+doc_type: readme
+title: { zh: "fusion-code Web 工作台（中文）", en: "fusion-code web workbench (Chinese)" }
+audience: engineer
+status: draft
+version: 0.5.22
+updated: 2026-11-07
+owner: @dahai
+source_of_truth:
+  - web/README_CN.md
+---
+
 # Fusion Code Web GUI
 
 fusion-code 内核之上的会话中心 Web 工作台（issue #228 决策 DC-1、#229 检查点/验证/回滚/diff/PR、#230 用量视图）。内核保持跨平台 CLI 不变 —— 本薄壳编排内核子进程，在浏览器中呈现会话、步骤与文件改动。

@@ -1,3 +1,19 @@
+---
+doc_id: fusion-code/guide
+product: fusion-code
+class: app
+entry: guided-ui
+doc_type: guide
+title: { zh: "div-anthropic 审查记录", en: "div-anthropic review record" }
+audience: engineer
+status: draft
+version: 0.5.22
+updated: 2026-11-07
+owner: @dahai
+source_of_truth:
+  - docs/reviews/div-anthropic-review-2026-08-15.md
+---
+
 # Pre-Landing Review: feat/div-anthropic (PR #66)
 
 - Branch: feat/div-anthropic → main
