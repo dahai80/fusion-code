@@ -1,3 +1,19 @@
+---
+doc_id: fusion-code/architecture
+product: fusion-code
+class: app
+entry: guided-ui
+doc_type: architecture
+title: { zh: "fusion-code 架构", en: "fusion-code architecture" }
+audience: engineer
+status: draft
+version: 0.5.22
+updated: 2026-11-07
+owner: @dahai
+source_of_truth:
+  - docs/architecture.md
+---
+
 # fusion-code 高层架构
 
 fusion-code 是基于 Anthropic Claude Code 的 fork（`@fusion-mlx/fusion-code`，0.2.0 即将发布），深度集成 fusion-mlx 本地 MLX 推理。仓库地址 github.com/dahai80/fusion-code。

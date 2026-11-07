@@ -1,3 +1,19 @@
+---
+doc_id: fusion-code/guide
+product: fusion-code
+class: app
+entry: guided-ui
+doc_type: guide
+title: { zh: "企业级加固方案", en: "Enterprise hardening plan" }
+audience: engineer
+status: draft
+version: 0.5.22
+updated: 2026-11-07
+owner: @dahai
+source_of_truth:
+  - docs/enterprise-hardening.md
+---
+
 # Enterprise Hardening Guide
 
 > 企业级硬化配置基线 — 沙箱姿态、三层纵深防御、流断续传、合规配置模板。

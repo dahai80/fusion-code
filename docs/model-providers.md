@@ -1,3 +1,19 @@
+---
+doc_id: fusion-code/guide
+product: fusion-code
+class: app
+entry: guided-ui
+doc_type: guide
+title: { zh: "模型供应商配置", en: "Model provider configuration" }
+audience: engineer
+status: draft
+version: 0.5.22
+updated: 2026-11-07
+owner: @dahai
+source_of_truth:
+  - docs/model-providers.md
+---
+
 # fusion-code 模型 Provider
 
 本文说明 6 个 provider、选择逻辑、自动检测、模型解析优先级与各 provider 的 env 配置示例。
@@ -441,7 +457,7 @@ fusion-code MLX 路径不发 `/v1/messages`，`createFusionMlxFetch` 拦截改�
 
 **cursor 捕获 — teeCursor 侧信道（option B）。** `teeCursor(rawResponseBody)` 在 transform 前包原始 body，拆 SSE 帧，提取 `id: <sid>:<seq>` 到 mutable `CursorRef`，帧原样透传（transform 字节不变）。`sid` 从 `X-Fusion-Stream-ID` 头读。surgical：一个 helper + 一个 hook + catch 读 ref，不动 transform 上游签名。
 
-**合并 — STATE-CONTINUATION（关键）。** 在 resumed 帧上跑 FRESH transform 会重合成 `message_start` + FRESH `content_block` 索引（0,1,...），与 `claude.ts` 掉线前 `contentBlocks` 索引错位（→ `RangeError`）且丢 mid-tool args（`id`/`name` 游标后不再到达）。修复：用掉线前 `StreamState` 的**深克隆**种子续传 `transformMLXStreamToAnthropic`（`contentIndex`/`textBuffer`/`emittedTextLen`/`textBlockOpen`/`thinkingBlockOpen`/`currentToolCall`）。transform 无缝续传——正确索引、只发新文本（`slice` from `emittedTextLen`）、mid-tool args 追加同块、抑制 spurious `content_block_start`（open-block flag 已 true）。merge generator 唯一过滤：丢弃 resumed 流启动无条件 `message_start`。
+**合并 — STATE-CONTINUATION（关键）。** 在 resumed 帧上跑 FRESH transform 会重合成 `message_start` + FRESH `content_block` 索引（0,1,...），与 `claude.ts` 掉线前 `contentBlocks` 索引错位（→ `RangeError`）且丢 mid-tool args（`id`/`name` 游标后不再到达）。修复：用掉线前 `StreamState` 的**深克隆**种子续传 `transformMLXStreamToAnthropic`（`contentIndex`/`textBuffer`/`emittedTextLen`/`textBlockOpen`/`thinkingBlockOpen`/`currentToolCall`）。transform 直接续传——正确索引、只发新文本（`slice` from `emittedTextLen`）、mid-tool args 追加同块、抑制 spurious `content_block_start`（open-block flag 已 true）。merge generator 唯一过滤：丢弃 resumed 流启动无条件 `message_start`。
 
 **drop 判定（claude.ts catch）。** resume-eligible = 仅 timeout 类（`isTimeoutErrorLike` / `streamIdleAborted`）——管道已排空 lag=0、cursor+state 一致安全。硬传输 reset 排除（管 lag → cursor 超前消费 → replay 丢帧 → 腐败）。`APIError` 4xx 与用户中断照旧 re-throw。
 

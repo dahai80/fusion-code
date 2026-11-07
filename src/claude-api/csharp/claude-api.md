@@ -1,3 +1,19 @@
+---
+doc_id: fusion-code/guide
+product: fusion-code
+class: app
+entry: guided-ui
+doc_type: guide
+title: { zh: "C# Claude 集成参考", en: "C# Claude integration reference" }
+audience: engineer
+status: draft
+version: 0.5.22
+updated: 2026-11-07
+owner: @dahai
+source_of_truth:
+  - src/claude-api/csharp/claude-api.md
+---
+
 # Building Claude Apps with C#
 
 This document provides guidance on building Claude-integrated applications using C# and the .NET ecosystem.

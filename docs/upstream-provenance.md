@@ -1,3 +1,19 @@
+---
+doc_id: fusion-code/guide
+product: fusion-code
+class: app
+entry: guided-ui
+doc_type: guide
+title: { zh: "上游溯源说明", en: "Upstream provenance" }
+audience: engineer
+status: draft
+version: 0.5.22
+updated: 2026-11-07
+owner: @dahai
+source_of_truth:
+  - docs/upstream-provenance.md
+---
+
 # Upstream Provenance & Residue Inventory
 
 Issue #220 compliance record. fusion-code is derived from Claude Code

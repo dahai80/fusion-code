@@ -1,3 +1,19 @@
+---
+doc_id: fusion-code/guide
+product: fusion-code
+class: app
+entry: guided-ui
+doc_type: guide
+title: { zh: "插件开发指南", en: "Plugin authoring guide" }
+audience: engineer
+status: draft
+version: 0.5.22
+updated: 2026-11-07
+owner: @dahai
+source_of_truth:
+  - docs/plugin-authoring.md
+---
+
 # Plugin Authoring Guide
 
 > ar-plan PR #6 (E2) — `.fusion-plugin` format + sha256 integrity pinning.

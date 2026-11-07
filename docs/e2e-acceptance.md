@@ -1,3 +1,19 @@
+---
+doc_id: fusion-code/guide
+product: fusion-code
+class: app
+entry: guided-ui
+doc_type: guide
+title: { zh: "端到端验收记录", en: "End-to-end acceptance record" }
+audience: engineer
+status: draft
+version: 0.5.22
+updated: 2026-11-07
+owner: @dahai
+source_of_truth:
+  - docs/e2e-acceptance.md
+---
+
 # projectApiServer Playwright E2E Acceptance
 
 端到端验收套件: 真实浏览器 (Chromium) 驱动真实 projectApiServer (11441), WS chat 起真实 fusion-code CLI 子进程连真实 MLX 模型。无 mock,全链路。

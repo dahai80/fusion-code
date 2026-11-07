@@ -1,3 +1,19 @@
+---
+doc_id: fusion-code/readme
+product: fusion-code
+class: app
+entry: guided-ui
+doc_type: readme
+title: { zh: "fusion-code Web 工作台", en: "fusion-code web workbench" }
+audience: engineer
+status: draft
+version: 0.5.22
+updated: 2026-11-07
+owner: @dahai
+source_of_truth:
+  - web/README.md
+---
+
 # Fusion Code Web GUI
 
 Session-centric web workbench over the fusion-code kernel (issue #228 DC-1,

@@ -1,7 +1,23 @@
-<h1 align="center">fusion-code</h1>
+---
+doc_id: fusion-code/readme
+product: fusion-code
+class: app
+entry: guided-ui
+doc_type: readme
+title: { zh: "fusion-code 终端 AI 编码代理（中文）", en: "fusion-code terminal AI coding agent (Chinese)" }
+audience: engineer
+status: draft
+version: 0.5.22
+updated: 2026-11-07
+owner: @dahai
+source_of_truth:
+  - README_CN.md
+---
+
+# fusion-code
 
 <p align="center">
-  <strong>终端原生 AI 编程代理 — 本地优先、零遥测、单一二进制。</strong><br>
+  <b>终端原生 AI 编程代理 — 本地优先、零遥测、单一二进制。</b><br>
   深度本地 MLX 集成。云端后端可选。无回传数据。
 </p>
 
@@ -9,7 +25,7 @@
   <a href="#快速开始"><img src="https://img.shields.io/badge/快速-开始-blue?style=flat-square" alt="Quick Start" /></a>
   <a href="https://github.com/dahai80/fusion-code/stargazers"><img src="https://img.shields.io/github/stars/dahai80/fusion-code?style=flat-square" alt="Stars" /></a>
   <a href="https://github.com/dahai80/fusion-code/issues"><img src="https://img.shields.io/github/issues/dahai80/fusion-code?style=flat-square" alt="Issues" /></a>
-  <a href="./FEATURES.md"><img src="https://img.shields.io/badge/features-88%20flags-green?style=flat-square" alt="Feature Flags" /></a>
+  <a href="./docs/feature-flags.md"><img src="https://img.shields.io/badge/features-88%20flags-green?style=flat-square" alt="Feature Flags" /></a>
   <a href="./README.md"><img src="https://img.shields.io/badge/lang-English-blue?style=flat-square" alt="English" /></a>
 </p>
 
@@ -591,7 +607,7 @@ default_template: bug-fix
 | `WORKFLOW_SCRIPTS` | 本地工作流任务脚本 |
 | `WEB_BROWSER_TOOL` | 无头浏览器工具 |
 
-全部 34 个历史上损坏的标志已于 2026-07-23 修复。参见 [FEATURES.md](FEATURES.md) 了解 88 个标志的完整审计。
+全部 34 个历史上损坏的标志已于 2026-07-23 修复。参见 [docs/feature-flags.md](docs/feature-flags.md) 了解 88 个标志的完整审计。
 
 ---
 

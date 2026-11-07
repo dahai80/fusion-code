@@ -1,3 +1,19 @@
+---
+doc_id: fusion-code/guide
+product: fusion-code
+class: app
+entry: guided-ui
+doc_type: guide
+title: { zh: "div-anthropic 验收记录", en: "div-anthropic acceptance record" }
+audience: engineer
+status: draft
+version: 0.5.22
+updated: 2026-11-07
+owner: @dahai
+source_of_truth:
+  - docs/div-anthropic-acceptance.md
+---
+
 # 去 Anthropic SDK 验收报告 (div-anthropic)
 
 - 验收日期: 2026-08-16

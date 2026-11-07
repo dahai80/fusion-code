@@ -1,3 +1,19 @@
+---
+doc_id: fusion-code/guide
+product: fusion-code
+class: app
+entry: guided-ui
+doc_type: guide
+title: { zh: "轨迹数据管道", en: "Trajectory pipeline" }
+audience: engineer
+status: draft
+version: 0.5.22
+updated: 2026-11-07
+owner: @dahai
+source_of_truth:
+  - docs/trajectory-pipeline.md
+---
+
 # D1 轨迹飞轮 (Trajectory Flywheel)
 
 > Issues: #50 (统一汇聚目录 + is_error 标注) · #51 (三格式导出 CLI: SFT/DPO/GRPO)
