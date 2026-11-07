@@ -651,7 +651,7 @@ def main(argv: Optional[List[str]] = None) -> int:
     )
     ap.add_argument(
         "--skip-dirs",
-        default=".git,node_modules,.venv,dist,build,templates,guidelines",
+        default=".git,node_modules,.venv,dist,build,templates,guidelines,logs,.ruff_cache,.fusion,.remember,.claude,web,benchmarks",
         help="directory names to skip, comma separated",
     )
     args = ap.parse_args(argv)
