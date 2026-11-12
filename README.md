@@ -430,6 +430,24 @@ Collect session trajectories and export training datasets (SFT/DPO/GRPO) for fus
 
 See [docs/trajectory-pipeline.md](docs/trajectory-pipeline.md) for details.
 
+### Background Tasks, Reviewer Routines & Spec Gate (P2.1–P2.4)
+
+Async work and spec-driven development, all local-first:
+
+```bash
+./fusion-code task start "refactor auth module"  # detached task: own worktree + branch, PR on completion
+./fusion-code task list|logs|attach|cancel <id>  # manage background tasks
+./fusion-code routine add --cron "0 3 * * *" --preset review --repo .   # scheduled reviewer run
+./fusion-code routine due                        # fire due routines (wire from system crontab)
+./fusion-code spec new|plan|tasks <capability>   # scaffold specs/<capability>/ (delta-first)
+./fusion-code spec import <dir|file>             # read-only Spec Kit / OpenSpec import
+./fusion-code spec implement <capability> --task <id>  # gated implement turn
+```
+
+The spec implement gate is code-enforced in the turn boundary: a kernel
+turn that touches code only starts for a task item approved (checked off)
+in `tasks.md` — ungated attempts are refused before any model call.
+
 ### Production Acceptance
 
 v0.4.18 核心特性生产验收 (13 项: 多供应商路由 / Feature Flags / MLX Tiering / 权限模式 / Slash Commands / Plugins / Context Management / Workflows / FUSION.rules / Context Hub / Agent Tools / Safe Mode / Telemetry):
