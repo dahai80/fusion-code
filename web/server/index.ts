@@ -29,6 +29,12 @@ import {
 } from './runner';
 import { serveStatic } from './static';
 import * as store from './store';
+import {
+    exportReviewToPr,
+    getFindingDiff,
+    listReviewRuns,
+    setFindingState,
+} from './reviews';
 
 function json(data: unknown, status = 200): Response {
     return new Response(JSON.stringify(data), {
@@ -176,6 +182,45 @@ async function handleApi(req: Request, url: URL): Promise<Response | null> {
     // print mode skips slash handling).
     if (pathname === '/api/commands' && method === 'GET') {
         return json({ commands: listCommands() });
+    }
+
+    // ---- review workbench (P2.3) ----
+    // Consumes P2.2 findings files; no new kernel surface.
+    if (pathname === '/api/reviews' && method === 'GET') {
+        return json({ runs: listReviewRuns() });
+    }
+    const reviewStateMatch = pathname.match(/^\/api\/reviews\/([^/]+)\/findings\/state$/);
+    if (reviewStateMatch && method === 'POST') {
+        const body = await readBody(req);
+        const index = Number(body.index);
+        const state = String(body.state ?? '');
+        if (!Number.isInteger(index) || index < 0) {
+            return json({ error: 'index required' }, 400);
+        }
+        if (state !== 'open' && state !== 'resolved' && state !== 'dismissed') {
+            return json({ error: 'state must be open|resolved|dismissed' }, 400);
+        }
+        const res = setFindingState(reviewStateMatch[1]!, index, state);
+        return res.ok ? json({ ok: true }) : json({ error: res.error }, 404);
+    }
+    const reviewDiffMatch = pathname.match(/^\/api\/reviews\/([^/]+)\/diff$/);
+    if (reviewDiffMatch && method === 'GET') {
+        const index = Number(new URL(req.url ?? 'http://x', 'http://x').searchParams.get('index'));
+        if (!Number.isInteger(index) || index < 0) {
+            return json({ error: 'index required' }, 400);
+        }
+        const res = getFindingDiff(reviewDiffMatch[1]!, index);
+        return res.ok ? json({ diff: res.diff }) : json({ error: res.error }, 404);
+    }
+    const reviewExportMatch = pathname.match(/^\/api\/reviews\/([^/]+)\/export$/);
+    if (reviewExportMatch && method === 'POST') {
+        const body = await readBody(req);
+        const prNumber = body.prNumber === undefined ? undefined : Number(body.prNumber);
+        const res = exportReviewToPr(
+            reviewExportMatch[1]!,
+            prNumber !== undefined && Number.isInteger(prNumber) ? prNumber : undefined,
+        );
+        return res.ok ? json({ ok: true, url: res.url }) : json({ error: res.error }, 400);
     }
     if (pathname === '/api/sessions' && method === 'POST') {
         const body = await readBody(req);

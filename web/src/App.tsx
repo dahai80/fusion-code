@@ -1,7 +1,8 @@
-import { BarChart3, Code2, FolderGit2, MessageSquare, Settings } from 'lucide-react';
+import { BarChart3, Code2, FolderGit2, MessageSquare, Settings, ShieldCheck } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { useT } from './i18n';
 import { ReposPage } from './pages/ReposPage';
+import { ReviewsPage } from './pages/ReviewsPage';
 import { SessionPage } from './pages/SessionPage';
 import { SessionsPage } from './pages/SessionsPage';
 import { SettingsPage } from './pages/SettingsPage';
@@ -9,15 +10,16 @@ import { UsagePage } from './pages/UsagePage';
 import { isEmbedded } from './theme';
 
 // Hash router (no router dep): #/sessions (default), #/session/:id,
-// #/repos, #/usage, #/settings. Standalone shows its own top nav; embedded
-// (?embedded=1 or iframe) the shell owns the chrome so own nav hides.
-type Route = { name: 'sessions' | 'repos' | 'settings' | 'usage' } | { name: 'session'; id: string };
+// #/repos, #/reviews, #/usage, #/settings. Standalone shows its own top nav;
+// embedded (?embedded=1 or iframe) the shell owns the chrome so own nav hides.
+type Route = { name: 'sessions' | 'repos' | 'settings' | 'usage' | 'reviews' } | { name: 'session'; id: string };
 
 function parseHash(): Route {
     const hash = location.hash.replace(/^#\/?/, '');
     const parts = hash.split('/').filter(Boolean);
     if (parts[0] === 'session' && parts[1]) return { name: 'session', id: decodeURIComponent(parts[1]) };
     if (parts[0] === 'repos') return { name: 'repos' };
+    if (parts[0] === 'reviews') return { name: 'reviews' };
     if (parts[0] === 'usage') return { name: 'usage' };
     if (parts[0] === 'settings') return { name: 'settings' };
     return { name: 'sessions' };
@@ -46,6 +48,7 @@ export function App() {
             active: route.name === 'sessions' || route.name === 'session',
         },
         { path: '#/repos', label: t('仓库', 'Repos'), icon: FolderGit2, active: route.name === 'repos' },
+        { path: '#/reviews', label: t('评审', 'Reviews'), icon: ShieldCheck, active: route.name === 'reviews' },
         { path: '#/usage', label: t('用量', 'Usage'), icon: BarChart3, active: route.name === 'usage' },
         {
             path: '#/settings',
@@ -88,6 +91,7 @@ export function App() {
             <main className="mx-auto max-w-6xl px-4 py-6">
                 {route.name === 'sessions' && <SessionsPage />}
                 {route.name === 'repos' && <ReposPage />}
+                {route.name === 'reviews' && <ReviewsPage />}
                 {route.name === 'usage' && <UsagePage />}
                 {route.name === 'settings' && <SettingsPage />}
                 {route.name === 'session' && <SessionPage sessionId={route.id} />}
