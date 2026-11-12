@@ -448,6 +448,15 @@ The spec implement gate is code-enforced in the turn boundary: a kernel
 turn that touches code only starts for a task item approved (checked off)
 in `tasks.md` — ungated attempts are refused before any model call.
 
+### ACP Server (Agent Client Protocol)
+
+`./fusion-code acp` exposes the agent over ACP v1 (JSON-RPC 2.0,
+newline-delimited over stdio) so ACP editors connect without a bespoke
+extension. Translation layer over the headless kernel: text deltas stream
+as `agent_message_chunk`, tool activity as `tool_call` /
+`tool_call_update`, kernel result as the `session/prompt` stopReason.
+See [docs/acp.md](docs/acp.md) for the surface and Zed setup.
+
 ### Production Acceptance
 
 v0.4.18 核心特性生产验收 (13 项: 多供应商路由 / Feature Flags / MLX Tiering / 权限模式 / Slash Commands / Plugins / Context Management / Workflows / FUSION.rules / Context Hub / Agent Tools / Safe Mode / Telemetry):

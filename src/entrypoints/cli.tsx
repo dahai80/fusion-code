@@ -326,6 +326,20 @@ async function main(): Promise<void> {
 		return;
 	}
 
+	// Fast-path for `fusion-code acp`: evolution plan P3.1 — Agent Client
+	// Protocol server (v1, JSON-RPC 2.0 newline-delimited over stdio) so ACP
+	// editors connect without a bespoke extension. Translation layer over the
+	// headless kernel, not a rewrite.
+	if (args[0] === "acp") {
+		profileCheckpoint("cli_acp_path");
+		const { acpMain } = await import("../cli/handlers/acp.js");
+		await acpMain();
+		// process.exit, not gracefulShutdownSync: the ACP spec forbids any
+		// non-JSON-RPC byte on stdout, and shutdown writes terminal-mode
+		// escape sequences there. No TUI ran in this mode — nothing to clean.
+		process.exit(0);
+	}
+
 	// Fast-path for `fusion-code --visual-feedback <path>`: issue #217 re-fix
 	// trigger 入口。osagent code_debug.CodeDebugLoop.trigger_refix 调用此 flag
 	// (而非子命令) 启动修复子循环。等价于 `visual-feedback ingest <path>
