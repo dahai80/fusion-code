@@ -7,7 +7,7 @@ doc_type: changelog
 title: { zh: "变更日志", en: "Changelog" }
 audience: engineer
 status: draft
-version: 0.7.0
+version: 0.8.0
 updated: 2026-11-12
 owner: "@dahai"
 source_of_truth:
@@ -19,6 +19,14 @@ source_of_truth:
 All notable changes to fusion-code are documented here.
 
 ## Unreleased
+
+## 0.8.0 - 2026-11-12
+
+Phase 3 of the evolution plan (docs/evolution-plan-2026-11.md) — ecosystem depth.
+
+- **P3.1 ACP server (#253)**: `fusion-code acp` — Agent Client Protocol v1 over stdio (JSON-RPC 2.0, newline-delimited) so ACP editors connect without a bespoke extension. Translation layer over the headless kernel: text deltas → `agent_message_chunk`, tool activity → `tool_call`/`tool_call_update`, kernel result → `stopReason`. stdout carries only ACP messages.
+- **P3.2 Tier-spec open standard (#254)**: the local-model tool-tier semantics published as tier-spec v1.0.0 (`docs/tier-spec/`) — normative spec, JSON Schema for tier tables, fusion-code's conformant instance, and a conformance suite pinning the runtime to the published table.
+- **P3.3 Video/screen input evaluation (#255)**: real-model evaluation (recording → frames → agent context on Qwen2.5-VL-7B) — recommendation: no kernel surface; the recipe composes today via ffmpeg + Read + local VL models. Report in `docs/research/video-input-evaluation.md`.
 
 ## 0.7.0 - 2026-11-12
 
