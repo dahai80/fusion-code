@@ -1,0 +1,76 @@
+{
+    "$schema": "./tiers.schema.json",
+    "specVersion": "1.0.0",
+    "product": "fusion-code",
+    "tiers": [
+        {
+            "name": "core",
+            "maxParamsB": 2,
+            "tools": [
+                "Bash",
+                "Edit",
+                "Glob",
+                "Grep",
+                "MultiEdit",
+                "Read",
+                "Write"
+            ]
+        },
+        {
+            "name": "medium",
+            "maxParamsB": 9,
+            "tools": [
+                "AskUserQuestion",
+                "Bash",
+                "Edit",
+                "Glob",
+                "Grep",
+                "MultiEdit",
+                "Read",
+                "TodoWrite",
+                "WebFetch",
+                "WebSearch",
+                "Write"
+            ]
+        },
+        {
+            "name": "full",
+            "maxParamsB": null,
+            "tools": [
+                "Agent",
+                "AskUserQuestion",
+                "Bash",
+                "CreateArtifact",
+                "CreateGoal",
+                "CtxInspect",
+                "Edit",
+                "EnterPlanMode",
+                "ExitPlanMode",
+                "GetGoal",
+                "Glob",
+                "Grep",
+                "LoadArtifact",
+                "MultiEdit",
+                "NotebookEdit",
+                "PatchArtifact",
+                "Read",
+                "SendDMail",
+                "SetGoalBudget",
+                "Skill",
+                "Sleep",
+                "TaskCreate",
+                "TaskGet",
+                "TaskList",
+                "TaskUpdate",
+                "TeamCreate",
+                "TeamDelete",
+                "TodoWrite",
+                "UpdateArtifact",
+                "UpdateGoal",
+                "WebFetch",
+                "WebSearch",
+                "Write"
+            ]
+        }
+    ]
+}

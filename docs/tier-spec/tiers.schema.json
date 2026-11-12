@@ -1,0 +1,49 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "https://github.com/dahai80/fusion-code/docs/tier-spec/tiers.schema.json",
+    "title": "Local-Model Tool Tier Table (tier-spec v1.0.0)",
+    "description": "A conformant implementation's published tool tier table. Semantics: docs/tier-spec/SPEC.md.",
+    "type": "object",
+    "required": ["specVersion", "tiers"],
+    "additionalProperties": true,
+    "properties": {
+        "specVersion": {
+            "type": "string",
+            "pattern": "^\\d+\\.\\d+\\.\\d+$"
+        },
+        "product": {
+            "type": "string"
+        },
+        "$schema": {
+            "type": "string"
+        },
+        "tiers": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+                "type": "object",
+                "required": ["name", "maxParamsB", "tools"],
+                "additionalProperties": false,
+                "properties": {
+                    "name": {
+                        "type": "string",
+                        "minLength": 1
+                    },
+                    "maxParamsB": {
+                        "type": ["number", "null"],
+                        "exclusiveMinimum": 0
+                    },
+                    "tools": {
+                        "type": "array",
+                        "minItems": 1,
+                        "uniqueItems": true,
+                        "items": {
+                            "type": "string",
+                            "minLength": 1
+                        }
+                    }
+                }
+            }
+        }
+    }
+}

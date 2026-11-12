@@ -457,6 +457,15 @@ as `agent_message_chunk`, tool activity as `tool_call` /
 `tool_call_update`, kernel result as the `session/prompt` stopReason.
 See [docs/acp.md](docs/acp.md) for the surface and Zed setup.
 
+### Local-Model Tool Tier Spec (open standard)
+
+The model-size-tier tool filtering semantics (numeric `<n>b` parsing, tier
+bounds, superset chain, unknown-size fail-open) are published as a versioned
+open standard: [docs/tier-spec/SPEC.md](docs/tier-spec/SPEC.md) v1.0.0 with a
+JSON schema (`tiers.schema.json`), fusion-code's own conformant instance
+(`tiers.json`), and a conformance test suite pinning the runtime to the
+published table — other local-model agents can implement and conform.
+
 ### Production Acceptance
 
 v0.4.18 核心特性生产验收 (13 项: 多供应商路由 / Feature Flags / MLX Tiering / 权限模式 / Slash Commands / Plugins / Context Management / Workflows / FUSION.rules / Context Hub / Agent Tools / Safe Mode / Telemetry):
