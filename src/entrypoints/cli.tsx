@@ -295,6 +295,15 @@ async function main(): Promise<void> {
 		gracefulShutdownSync(0);
 	}
 
+	// Fast-path for `fusion-code routine ...`: evolution plan P2.2 —
+	// cron-scheduled reviewer runs (local-only scheduling via `routine due`).
+	if (args[0] === "routine") {
+		profileCheckpoint("cli_routine_path");
+		const { routineMain } = await import("../cli/handlers/routine.js");
+		await routineMain(args.slice(1));
+		gracefulShutdownSync(0);
+	}
+
 	// Fast-path for `fusion-code --visual-feedback <path>`: issue #217 re-fix
 	// trigger 入口。osagent code_debug.CodeDebugLoop.trigger_refix 调用此 flag
 	// (而非子命令) 启动修复子循环。等价于 `visual-feedback ingest <path>
