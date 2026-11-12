@@ -7,7 +7,7 @@ doc_type: changelog
 title: { zh: "变更日志", en: "Changelog" }
 audience: engineer
 status: draft
-version: 0.6.0
+version: 0.7.0
 updated: 2026-11-12
 owner: "@dahai"
 source_of_truth:
@@ -19,6 +19,15 @@ source_of_truth:
 All notable changes to fusion-code are documented here.
 
 ## Unreleased
+
+## 0.7.0 - 2026-11-12
+
+Phase 2 of the evolution plan (docs/evolution-plan-2026-11.md) — autonomy loop.
+
+- **P2.1 Async task sessions with PR hand-back (#248)**: `fusion-code task start|list|logs|attach|cancel` — detached worker sessions in their own worktree + branch, stream-json result capture, PR created on completion.
+- **P2.2 Reviewer-agent layer + cron routines (#249)**: `fusion-code routine add|list|due|fire` with review / security-review / deps-audit presets; findings JSON under `<configDir>/reviews/`; fusion-security SAST context hook (localhost, fail-open); scheduling via system crontab + `routine due` (no daemon).
+- **P2.3 Web review workbench (#250)**: Reviews page in the web GUI — findings triage (resolve/dismiss/reopen), jump-to-diff hunk, export findings back into the PR as a markdown comment.
+- **P2.4 Spec-driven development gate (#251)**: `fusion-code spec new|plan|tasks|import|list|implement` — flat delta-first specs under `specs/<capability>/`, read-only Spec Kit / OpenSpec import, and a code-enforced turn-boundary gate (implement refuses unapproved task items before any model call). Also fixes a latent fast-path fall-through into the commander parser for all fast-path subcommands.
 
 ## 0.6.0 - 2026-11-12
 
