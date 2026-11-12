@@ -8,6 +8,15 @@
 
 import type { SdkFetch } from "../../types/anthropic-protocol.js";
 import { getAnthropicApiKey } from "../../utils/auth.js";
+import { getSessionId } from "../../bootstrap/state.js";
+import {
+	captureOtelStreamUsage,
+	endOtelSpan,
+	isOtelTracingEnabled,
+	type OtelStreamUsage,
+	otelUsageAttrs,
+	startOtelSpan,
+} from "../../utils/telemetry/otelTracing.js";
 import {
 	getAPIProvider,
 	isFirstPartyAnthropicBaseUrl,
@@ -97,8 +106,34 @@ export async function streamViaSeam(
 		}
 	})();
 
+	const sdkParts = chunkStreamToSdkParts(chunks);
+
+	// P1.3: OTel LLM span at the single seam chokepoint — every streaming
+	// caller (claude.ts main loop, LlmClient.streamMessages) gets exactly one
+	// span per HTTP POST, with GenAI token usage from the stream events.
+	// Default-off (FUSION_CODE_OTEL_ENDPOINT); off = passthrough, byte-identical.
+	if (!isOtelTracingEnabled()) {
+		return { stream: sdkParts, requestId, response };
+	}
+	const otelLlmSpan = startOtelSpan("gen_ai.llm", {
+		"gen_ai.operation.name": "stream",
+		"gen_ai.request.model": model,
+		"session.id": getSessionId(),
+	});
+	const usage: OtelStreamUsage = {};
+	const wrappedStream = (async function* () {
+		try {
+			for await (const part of sdkParts) {
+				captureOtelStreamUsage(part, usage);
+				yield part;
+			}
+		} finally {
+			endOtelSpan(otelLlmSpan, otelUsageAttrs(usage));
+		}
+	})();
+
 	return {
-		stream: chunkStreamToSdkParts(chunks),
+		stream: wrappedStream,
 		requestId,
 		response,
 	};

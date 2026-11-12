@@ -26,6 +26,11 @@ import {
 } from "src/services/goal/index.js";
 import type { ContentBlockParam } from "src/types/anthropic-protocol.js";
 import stripAnsi from "strip-ansi";
+// P1.3: OTel GenAI trace chain (default-off, FUSION_CODE_OTEL_ENDPOINT)
+import {
+	endOtelSpan,
+	startOtelSpan,
+} from "./utils/telemetry/otelTracing.js";
 import type { Command } from "./commands.js";
 import { getSlashCommandToolSkills } from "./commands.js";
 import {
@@ -236,7 +241,24 @@ export class QueryEngine {
 			: NOOP_RECORDER;
 	}
 
+	// P1.3: OTel turn span wraps the whole turn (renamed generator below).
+	// try/finally covers every exit path — completion, abort, consumer break.
 	async *submitMessage(
+		prompt: string | ContentBlockParam[],
+		options?: { uuid?: string; isMeta?: boolean },
+	): AsyncGenerator<SDKMessage, void, unknown> {
+		const otelTurnSpan = startOtelSpan("fusion.turn", {
+			"fusion.turn.id": randomUUID(),
+			"session.id": getSessionId(),
+		});
+		try {
+			yield* this.submitMessageInner(prompt, options);
+		} finally {
+			endOtelSpan(otelTurnSpan);
+		}
+	}
+
+	async *submitMessageInner(
 		prompt: string | ContentBlockParam[],
 		options?: { uuid?: string; isMeta?: boolean },
 	): AsyncGenerator<SDKMessage, void, unknown> {
