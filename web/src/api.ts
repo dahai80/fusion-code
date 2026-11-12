@@ -34,6 +34,26 @@ export type SessionDetail = {
 
 export type Branch = { name: string; current: boolean };
 
+// P2.3: reviewer workbench types (server/web/server/reviews.ts shapes).
+export type FindingState = 'open' | 'resolved' | 'dismissed';
+
+export type WorkbenchFinding = {
+    file: string;
+    line: number | null;
+    severity: string;
+    title: string;
+    fix: string;
+    state: FindingState;
+};
+
+export type ReviewRun = {
+    id: string;
+    preset: string;
+    cwd: string;
+    at: string;
+    findings: WorkbenchFinding[];
+};
+
 async function get<T>(path: string): Promise<T> {
     const res = await fetch(`${API_BASE}${path}`, { headers: { accept: 'application/json' } });
     if (!res.ok) {
@@ -148,6 +168,15 @@ export const api = {
 
     // #230: usage view.
     usage: () => get<UsageSummary>('/api/usage'),
+
+    // P2.3: review workbench.
+    listReviews: () => get<{ runs: ReviewRun[] }>('/api/reviews'),
+    setFindingState: (id: string, index: number, state: FindingState) =>
+        post<{ ok: boolean }>(`/api/reviews/${id}/findings/state`, { index, state }),
+    getFindingDiff: (id: string, index: number) =>
+        get<{ diff: string }>(`/api/reviews/${id}/diff?index=${index}`),
+    exportReview: (id: string, prNumber?: number) =>
+        post<{ ok: boolean; url?: string }>(`/api/reviews/${id}/export`, { prNumber }),
 };
 
 // Session WS: live event stream with automatic reconnect + backlog replay.
