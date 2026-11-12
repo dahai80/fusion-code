@@ -912,26 +912,40 @@ export const getMemoryFiles = memoize(
 					)),
 				);
 
-				const projectPath = join(dir, "CLAUDE.md");
-				result.push(
-					...(await processMemoryFile(
-						projectPath,
-						"Project",
-						processedPaths,
-						includeExternal,
-					)),
-				);
+				// AGENTS.md (industry-standard context file) loads in place of
+				// CLAUDE.md per directory — first existing wins, never both.
+				const agentsPath = join(dir, "AGENTS.md");
+				if (getFsImplementation().existsSync(agentsPath)) {
+					result.push(
+						...(await processMemoryFile(
+							agentsPath,
+							"Project",
+							processedPaths,
+							includeExternal,
+						)),
+					);
+				} else {
+					const projectPath = join(dir, "CLAUDE.md");
+					result.push(
+						...(await processMemoryFile(
+							projectPath,
+							"Project",
+							processedPaths,
+							includeExternal,
+						)),
+					);
 
-				// Try reading .claude/CLAUDE.md (Project)
-				const dotClaudePath = join(dir, ".fusion-code", "CLAUDE.md");
-				result.push(
-					...(await processMemoryFile(
-						dotClaudePath,
-						"Project",
-						processedPaths,
-						includeExternal,
-					)),
-				);
+					// Try reading .claude/CLAUDE.md (Project)
+					const dotClaudePath = join(dir, ".fusion-code", "CLAUDE.md");
+					result.push(
+						...(await processMemoryFile(
+							dotClaudePath,
+							"Project",
+							processedPaths,
+							includeExternal,
+						)),
+					);
+				}
 
 				// Try reading .claude/rules/*.md files (Project)
 				const rulesDir = join(dir, ".fusion-code", "rules");
@@ -978,27 +992,40 @@ export const getMemoryFiles = memoize(
 					)),
 				);
 
-				// Try reading CLAUDE.md from the additional directory
-				const projectPath = join(dir, "CLAUDE.md");
-				result.push(
-					...(await processMemoryFile(
-						projectPath,
-						"Project",
-						processedPaths,
-						includeExternal,
-					)),
-				);
+				// AGENTS.md wins per directory, same as the primary walk
+				const agentsPath = join(dir, "AGENTS.md");
+				if (getFsImplementation().existsSync(agentsPath)) {
+					result.push(
+						...(await processMemoryFile(
+							agentsPath,
+							"Project",
+							processedPaths,
+							includeExternal,
+						)),
+					);
+				} else {
+					// Try reading CLAUDE.md from the additional directory
+					const projectPath = join(dir, "CLAUDE.md");
+					result.push(
+						...(await processMemoryFile(
+							projectPath,
+							"Project",
+							processedPaths,
+							includeExternal,
+						)),
+					);
 
-				// Try reading .claude/CLAUDE.md from the additional directory
-				const dotClaudePath = join(dir, ".fusion-code", "CLAUDE.md");
-				result.push(
-					...(await processMemoryFile(
-						dotClaudePath,
-						"Project",
-						processedPaths,
-						includeExternal,
-					)),
-				);
+					// Try reading .claude/CLAUDE.md from the additional directory
+					const dotClaudePath = join(dir, ".fusion-code", "CLAUDE.md");
+					result.push(
+						...(await processMemoryFile(
+							dotClaudePath,
+							"Project",
+							processedPaths,
+							includeExternal,
+						)),
+					);
+				}
 
 				// Try reading .claude/rules/*.md files from the additional directory
 				const rulesDir = join(dir, ".fusion-code", "rules");
@@ -1312,26 +1339,38 @@ export async function getMemoryFilesForNestedDirectory(
 ): Promise<MemoryFileInfo[]> {
 	const result: MemoryFileInfo[] = [];
 
-	// Process project memory files (CLAUDE.md and .claude/CLAUDE.md)
+	// Process project memory files (AGENTS.md in place of CLAUDE.md, plus .fusion-code/CLAUDE.md)
 	if (isSettingSourceEnabled("projectSettings")) {
-		const projectPath = join(dir, "CLAUDE.md");
-		result.push(
-			...(await processMemoryFile(
-				projectPath,
-				"Project",
-				processedPaths,
-				false,
-			)),
-		);
-		const dotClaudePath = join(dir, ".fusion-code", "CLAUDE.md");
-		result.push(
-			...(await processMemoryFile(
-				dotClaudePath,
-				"Project",
-				processedPaths,
-				false,
-			)),
-		);
+		const agentsPath = join(dir, "AGENTS.md");
+		if (getFsImplementation().existsSync(agentsPath)) {
+			result.push(
+				...(await processMemoryFile(
+					agentsPath,
+					"Project",
+					processedPaths,
+					false,
+				)),
+			);
+		} else {
+			const projectPath = join(dir, "CLAUDE.md");
+			result.push(
+				...(await processMemoryFile(
+					projectPath,
+					"Project",
+					processedPaths,
+					false,
+				)),
+			);
+			const dotClaudePath = join(dir, ".fusion-code", "CLAUDE.md");
+			result.push(
+				...(await processMemoryFile(
+					dotClaudePath,
+					"Project",
+					processedPaths,
+					false,
+				)),
+			);
+		}
 	}
 
 	// Process local memory file (CLAUDE.local.md)

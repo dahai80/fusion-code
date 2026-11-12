@@ -1,4 +1,6 @@
 import { feature } from "bun:bundle";
+import { existsSync } from "node:fs";
+import { join } from "node:path";
 import type { Command } from "../commands.js";
 import { maybeMarkProjectOnboardingComplete } from "../projectOnboardingState.js";
 import { isEnvTruthy } from "../utils/envUtils.js";
@@ -222,6 +224,21 @@ When building the list, work through these checks and include only what applies:
 - To help you create skills and optimize existing skills using evals, Fusion-Code has an official skill-creator plugin you can install. Install it with \`/plugin install skill-creator@fusion-plugins-official\`, then run \`/skill-creator <skill-name>\` to create new skills or refine any existing skill. (Always include this one.)
 - Browse official plugins with \`/plugin\` — these bundle skills, agents, hooks, and MCP servers that you may find helpful. You can also create your own custom plugins to share them with others. (Always include this one.)`;
 
+// AGENTS.md support (evolution plan P1.1): the context-file standard the
+// industry converged on. /init targets AGENTS.md for fresh projects and
+// offers migration away from CLAUDE.md — decided by code, not the model.
+function agentsMdDirective(cwd: string): string {
+	const hasAgents = existsSync(join(cwd, "AGENTS.md"));
+	const hasClaude = existsSync(join(cwd, "CLAUDE.md"));
+	if (hasAgents) {
+		return "This project uses AGENTS.md as its context file (Fusion-Code loads it in place of CLAUDE.md). Wherever the instructions below say CLAUDE.md, target AGENTS.md instead.";
+	}
+	if (hasClaude) {
+		return "This project has CLAUDE.md but no AGENTS.md. Before following the instructions below, ask the user (via AskUserQuestion) how to proceed: (a) keep CLAUDE.md as-is, or (b) migrate to the AGENTS.md standard — rename CLAUDE.md to AGENTS.md (git mv when tracked) and leave a one-line CLAUDE.md stub containing only `@AGENTS.md` so other tools still resolve the content. Apply their choice, then continue targeting the chosen file.";
+	}
+	return "This project has no context file yet. Fusion-Code loads AGENTS.md in place of CLAUDE.md — create AGENTS.md (not CLAUDE.md): wherever the instructions below say CLAUDE.md, use AGENTS.md, and prefix it with `# AGENTS.md`.";
+}
+
 const command = {
 	type: "prompt",
 	name: "init",
@@ -238,15 +255,17 @@ const command = {
 	async getPromptForCommand() {
 		maybeMarkProjectOnboardingComplete();
 
+		const basePrompt =
+			feature("NEW_INIT") &&
+			(process.env.USER_TYPE === "ant" ||
+				isEnvTruthy(process.env.FUSION_CODE_NEW_INIT))
+				? NEW_INIT_PROMPT
+				: OLD_INIT_PROMPT;
+
 		return [
 			{
 				type: "text",
-				text:
-					feature("NEW_INIT") &&
-					(process.env.USER_TYPE === "ant" ||
-						isEnvTruthy(process.env.FUSION_CODE_NEW_INIT))
-						? NEW_INIT_PROMPT
-						: OLD_INIT_PROMPT,
+				text: `${agentsMdDirective(process.cwd())}\n\n${basePrompt}`,
 			},
 		];
 	},
