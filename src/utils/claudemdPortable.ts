@@ -157,16 +157,23 @@ export async function getMemoryFilesPortable(
 		);
 		if (fusionRulesInfo) result.push(fusionRulesInfo);
 
-		// CLAUDE.md (Project)
-		const projectInfo = await readMemoryFile(join(dir, "CLAUDE.md"), "Project");
-		if (projectInfo) result.push(projectInfo);
+		// AGENTS.md (industry-standard context file) loads in place of
+		// CLAUDE.md per directory — first existing wins, never both.
+		const agentsInfo = await readMemoryFile(join(dir, "AGENTS.md"), "Project");
+		if (agentsInfo) {
+			result.push(agentsInfo);
+		} else {
+			// CLAUDE.md (Project)
+			const projectInfo = await readMemoryFile(join(dir, "CLAUDE.md"), "Project");
+			if (projectInfo) result.push(projectInfo);
 
-		// .fusion-code/CLAUDE.md (Project)
-		const dotClaudeInfo = await readMemoryFile(
-			join(dir, ".fusion-code", "CLAUDE.md"),
-			"Project",
-		);
-		if (dotClaudeInfo) result.push(dotClaudeInfo);
+			// .fusion-code/CLAUDE.md (Project)
+			const dotClaudeInfo = await readMemoryFile(
+				join(dir, ".fusion-code", "CLAUDE.md"),
+				"Project",
+			);
+			if (dotClaudeInfo) result.push(dotClaudeInfo);
+		}
 
 		// .fusion-code/rules/*.md (Project)
 		result.push(
