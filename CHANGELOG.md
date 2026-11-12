@@ -7,8 +7,8 @@ doc_type: changelog
 title: { zh: "变更日志", en: "Changelog" }
 audience: engineer
 status: draft
-version: 0.5.22
-updated: 2026-11-07
+version: 0.6.0
+updated: 2026-11-12
 owner: "@dahai"
 source_of_truth:
   - CHANGELOG.md
@@ -19,6 +19,16 @@ source_of_truth:
 All notable changes to fusion-code are documented here.
 
 ## Unreleased
+
+## 0.6.0 - 2026-11-12
+
+Phase 1 of the evolution plan (docs/evolution-plan-2026-11.md) — capability catch-up.
+
+### Added
+
+- AGENTS.md first-class context file support (P1.1, #245): loads in place of CLAUDE.md per directory (first existing wins, never both); `/init` now directs fresh projects to AGENTS.md and offers migration for CLAUDE.md projects.
+- macOS Seatbelt end-to-end verification (P1.2, #246): real `sandbox-exec` probes proving workspace-outside writes are denied and `customConfig.filesystem.allowWrite` scopes work on darwin.
+- OTel GenAI trace chain (P1.3, #247): minimal OTLP/JSON exporter with zero new dependencies — `fusion.turn` / `gen_ai.tool` / `gen_ai.llm` / `fusion.budget.check` spans sharing one `fusion.turn.id`, with token-usage attributes. Default-off via `FUSION_CODE_OTEL_ENDPOINT` (localhost-only); off = byte-identical.
 
 ## 0.5.23 - 2026-11-07
 
