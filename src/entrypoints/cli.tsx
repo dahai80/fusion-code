@@ -285,6 +285,16 @@ async function main(): Promise<void> {
 		gracefulShutdownSync(0);
 	}
 
+	// Fast-path for `fusion-code task ...`: evolution plan P2.1 — detach-from-
+	// terminal background sessions. start/list/logs/attach/cancel + hidden
+	// --worker mode; own worktree + log, PR hand-back on completion.
+	if (args[0] === "task") {
+		profileCheckpoint("cli_task_path");
+		const { taskMain } = await import("../cli/handlers/task.js");
+		await taskMain(args.slice(1));
+		gracefulShutdownSync(0);
+	}
+
 	// Fast-path for `fusion-code --visual-feedback <path>`: issue #217 re-fix
 	// trigger 入口。osagent code_debug.CodeDebugLoop.trigger_refix 调用此 flag
 	// (而非子命令) 启动修复子循环。等价于 `visual-feedback ingest <path>
