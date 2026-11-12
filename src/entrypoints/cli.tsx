@@ -269,6 +269,9 @@ async function main(): Promise<void> {
 		const { trajectoryMain } = await import("../cli/handlers/trajectory.js");
 		await trajectoryMain(args.slice(1));
 		gracefulShutdownSync(0);
+		// gracefulShutdownSync exits asynchronously (natural loop drain) — return
+		// so control does not fall through into the commander arg parser below.
+		return;
 	}
 
 	// Fast-path for `fusion-code visual-feedback ...`: issue #216/#217 视觉反馈协议。
@@ -283,6 +286,8 @@ async function main(): Promise<void> {
 		);
 		await visualFeedbackMain(args.slice(1));
 		gracefulShutdownSync(0);
+		// See trajectory fast-path: return so the commander parser never runs.
+		return;
 	}
 
 	// Fast-path for `fusion-code task ...`: evolution plan P2.1 — detach-from-
@@ -293,6 +298,8 @@ async function main(): Promise<void> {
 		const { taskMain } = await import("../cli/handlers/task.js");
 		await taskMain(args.slice(1));
 		gracefulShutdownSync(0);
+		// See trajectory fast-path: return so the commander parser never runs.
+		return;
 	}
 
 	// Fast-path for `fusion-code routine ...`: evolution plan P2.2 —
@@ -302,6 +309,21 @@ async function main(): Promise<void> {
 		const { routineMain } = await import("../cli/handlers/routine.js");
 		await routineMain(args.slice(1));
 		gracefulShutdownSync(0);
+		// See trajectory fast-path: return so the commander parser never runs.
+		return;
+	}
+
+	// Fast-path for `fusion-code spec ...`: evolution plan P2.4 — spec-driven
+	// development gate. new/plan/tasks/import/list/implement under
+	// specs/<capability>/; implement refuses unapproved task items in the
+	// turn boundary (code-enforced, not prompt discipline).
+	if (args[0] === "spec") {
+		profileCheckpoint("cli_spec_path");
+		const { specMain } = await import("../cli/handlers/spec.js");
+		const code = await specMain(args.slice(1));
+		gracefulShutdownSync(code === 0 ? 0 : 1);
+		// See trajectory fast-path: return so the commander parser never runs.
+		return;
 	}
 
 	// Fast-path for `fusion-code --visual-feedback <path>`: issue #217 re-fix
@@ -326,6 +348,8 @@ async function main(): Promise<void> {
 			"--auto-fix-loop",
 		]);
 		gracefulShutdownSync(0);
+		// See trajectory fast-path: return so the commander parser never runs.
+		return;
 	}
 
 	// P5.5 能力清单 (Typert 类型图): 从工具/技能/插件定义生成类型图 (JSON 导出)。
@@ -337,6 +361,8 @@ async function main(): Promise<void> {
 		const { capabilityMain } = await import("../cli/handlers/capability.js");
 		await capabilityMain(args.slice(1));
 		gracefulShutdownSync(0);
+		// See trajectory fast-path: return so the commander parser never runs.
+		return;
 	}
 
 	// Fast-path for template job commands.
@@ -351,6 +377,8 @@ async function main(): Promise<void> {
 		// loop handles that prevent natural exit. gracefulShutdownSync runs cleanup
 		// registry (LSP, tmux, terminal mode) before exiting.
 		gracefulShutdownSync(0);
+		// See trajectory fast-path: return so the commander parser never runs.
+		return;
 	}
 
 	// Fast-path for `claude environment-runner`: headless BYOC runner.
