@@ -17,6 +17,13 @@ import { getAnthropicApiKey } from "../../utils/auth.js";
 import { logForDebugging } from "../../utils/debug.js";
 import { getUserAgent } from "../../utils/http.js";
 import { getProxyFetchOptions } from "../../utils/proxy.js";
+// P1.3: OTel GenAI trace chain (default-off, FUSION_CODE_OTEL_ENDPOINT)
+import {
+	endOtelSpan,
+	otelUsageAttrs,
+	startOtelSpan,
+} from "../../utils/telemetry/otelTracing.js";
+import { getSessionId } from "../../bootstrap/state.js";
 import { CLIENT_REQUEST_ID_HEADER } from "../api/client.js";
 import type { SdkPart } from "./chunkToPart.js";
 import { classifyError, LlmRequestError } from "./errors.js";
@@ -121,6 +128,7 @@ export function createSeamClient(
 			// 委托给既有接缝流 (claude.ts 主流式路径)。
 			// streamViaSeam 返回 { stream, requestId, response }; 这里只转发 stream 部分,
 			// requestId/response 由 claude.ts 直接调 streamViaSeam 时自行取用。
+			// P1.3: streaming LLM span 在 streamViaSeam 统一打点 (单一咽喉点)。
 			const seam = await streamViaSeam(
 				params,
 				opts.signal,
@@ -131,38 +139,59 @@ export function createSeamClient(
 		},
 
 		async createMessage(params, opts) {
-			const ep = resolveSeamEndpoint(model);
-			const body = JSON.stringify({ ...params, stream: false });
-			logForDebugging(
-				`[llm:client] createMessage model=${model} baseUrl=${ep.baseUrl}`,
-			);
-			const { response, requestId } = await postMessages({
-				baseUrl: ep.baseUrl,
-				body,
-				apiKey: ep.apiKey,
-				firstParty: ep.firstParty,
-				signal: opts.signal,
-				timeoutMs: opts.timeoutMs,
-				fetchFn: fetchOverride ?? ep.fetchFn,
-				extraHeaders: mergeHeaders(opts.headers),
+			const otelLlmSpan = startOtelSpan("gen_ai.llm", {
+				"gen_ai.operation.name": "create",
+				"gen_ai.request.model": model,
+				"session.id": getSessionId(),
 			});
-			let json: unknown;
+			let extra: Record<string, string | number | boolean> = {};
 			try {
-				json = await response.json();
-			} catch (error) {
-				console.error(
-					`[llm:client] createMessage body parse failed: ${
-						error instanceof Error ? error.message : String(error)
-					}`,
+				const ep = resolveSeamEndpoint(model);
+				const body = JSON.stringify({ ...params, stream: false });
+				logForDebugging(
+					`[llm:client] createMessage model=${model} baseUrl=${ep.baseUrl}`,
 				);
-				throw new Error("createMessage: response body is not valid JSON");
+				const { response, requestId } = await postMessages({
+					baseUrl: ep.baseUrl,
+					body,
+					apiKey: ep.apiKey,
+					firstParty: ep.firstParty,
+					signal: opts.signal,
+					timeoutMs: opts.timeoutMs,
+					fetchFn: fetchOverride ?? ep.fetchFn,
+					extraHeaders: mergeHeaders(opts.headers),
+				});
+				let json: unknown;
+				try {
+					json = await response.json();
+				} catch (error) {
+					console.error(
+						`[llm:client] createMessage body parse failed: ${
+							error instanceof Error ? error.message : String(error)
+						}`,
+					);
+					throw new Error("createMessage: response body is not valid JSON");
+				}
+				// 注入 _request_id, 复刻 SDK response._request_id 约定 (sideQuery 等读取)。
+				const msg = json as BetaMessageLike;
+				if (requestId) {
+					(msg as Record<string, unknown>)._request_id = requestId;
+				}
+				if (msg.usage) {
+					extra = otelUsageAttrs({
+						input: msg.usage.input_tokens,
+						output: msg.usage.output_tokens,
+					});
+				}
+				return msg;
+			} catch (error) {
+				extra = {
+					"error.type": error instanceof Error ? error.name : "unknown",
+				};
+				throw error;
+			} finally {
+				endOtelSpan(otelLlmSpan, extra);
 			}
-			// 注入 _request_id, 复刻 SDK response._request_id 约定 (sideQuery 等读取)。
-			const msg = json as BetaMessageLike;
-			if (requestId) {
-				(msg as Record<string, unknown>)._request_id = requestId;
-			}
-			return msg;
 		},
 
 		async createMessageRaw(params, opts) {
@@ -398,3 +427,4 @@ function joinUrl(base: string, path: string): string {
 	}
 	return base + path;
 }
+

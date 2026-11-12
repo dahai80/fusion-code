@@ -153,7 +153,17 @@ bun run ./scripts/build.ts --dev --feature-set=dev-full
 
 用途: 验证企业 managed-settings 下 provider/model 解析正确、tool/command 注册完整 (如自定义 plugin 未被 deny)。**不输出** API key、token、路径内用户名。
 
-## 8. /doctor MLX 401 fail-open (P2-6 / R22)
+## 8. OTel GenAI trace chain (P1.3, evolution plan)
+
+One env turns on a minimal OTel trace chain: `FUSION_CODE_OTEL_ENDPOINT` (e.g. `http://127.0.0.1:4318`). Unset = fully off (no spans, no network, byte-identical).
+
+- **Span set**: `fusion.turn` (QueryEngine turn boundary), `gen_ai.tool` (tool execution), `gen_ai.llm` (LLM call via the streaming seam / `createMessage`), `fusion.budget.check` (budget funnel). GenAI semconv attributes: `gen_ai.request.model`, `gen_ai.usage.input_tokens`, `gen_ai.usage.output_tokens`, `gen_ai.tool.name`.
+- **End-to-end linkage**: child spans inherit `fusion.turn.id` from the active turn (module-state propagation; concurrent engines attribute to the most recent turn — session.id stays the hard linkage).
+- **Exporter**: minimal OTLP/JSON over fetch — no exporter dependency, single-binary intact. POST `${endpoint}/v1/traces`, flush per span end (headless runs `process.exit` before timers).
+- **Defense line**: no default remote endpoint; localhost-only by convention (fusion-memory / fusion-supervisor ecosystem). Export failures swallowed with a debug log — tracing never breaks a run.
+- **Implementation**: `src/utils/telemetry/otelTracing.ts`; tests `src/__tests__/utils/otelTracing.test.ts`.
+
+## 9. /doctor MLX 401 fail-open (P2-6 / R22)
 
 `/doctor` 健康检查在 MLX provider 下, **MLX 健康 401/timeout 时静默 fail-open** (返空诊断, 无 warning), 操作员可能不知 MLX 处于健康盲区。
 
@@ -188,4 +198,4 @@ curl -s 127.0.0.1:11432/v1/health
 
 ---
 
-**维护**: 改 `src/entrypoints/sandboxTypes.ts` `SandboxSettingsSchema` 或 `src/utils/sandbox/sandbox-adapter.ts` 平台支持时, 须同步本文档 (§4 语义、§5 限制)。改 `src/services/llm/streamResume.ts` env 门控或默认值时, 须同步本文档 (§6.2 env、默认值)。改 `src/entrypoints/cli.tsx` `/dump-config` 输出字段或 `feature('DUMP_CONFIG')` gate 时, 须同步本文档 (§7)。改 `src/utils/doctorDiagnostic.ts` 或 `src/services/api/fusion-mlx-adapter.ts` `fetchMlxHealth` 失败分支时, 须同步本文档 (§8)。
+**维护**: 改 `src/entrypoints/sandboxTypes.ts` `SandboxSettingsSchema` 或 `src/utils/sandbox/sandbox-adapter.ts` 平台支持时, 须同步本文档 (§4 语义、§5 限制)。改 `src/services/llm/streamResume.ts` env 门控或默认值时, 须同步本文档 (§6.2 env、默认值)。改 `src/entrypoints/cli.tsx` `/dump-config` 输出字段或 `feature('DUMP_CONFIG')` gate 时, 须同步本文档 (§7)。改 `src/utils/doctorDiagnostic.ts` 或 `src/services/api/fusion-mlx-adapter.ts` `fetchMlxHealth` 失败分支时, 须同步本文档 (§9)。

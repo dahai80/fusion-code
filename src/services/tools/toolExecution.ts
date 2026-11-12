@@ -58,6 +58,11 @@ import type {
 	StopHookInfo,
 } from "../../types/message.js";
 import { count } from "../../utils/array.js";
+// P1.3: OTel GenAI trace chain (default-off, FUSION_CODE_OTEL_ENDPOINT)
+import {
+	endOtelSpan,
+	startOtelSpan,
+} from "../../utils/telemetry/otelTracing.js";
 import { createAttachmentMessage } from "../../utils/attachments.js";
 import {
 	redactCredentials,
@@ -358,7 +363,32 @@ function getToolOperationCategory(
 	return "mcp_call";
 }
 
+// P1.3: OTel tool span wraps the whole tool execution. try/finally covers
+// success, tool error, and consumer abort (async-generator return()).
 export async function* runToolUse(
+	toolUse: ToolUseBlock,
+	assistantMessage: AssistantMessage,
+	canUseTool: CanUseToolFn,
+	toolUseContext: ToolUseContext,
+): AsyncGenerator<MessageUpdateLazy, void> {
+	const otelToolSpan = startOtelSpan("gen_ai.tool", {
+		"gen_ai.tool.name": toolUse.name,
+		"gen_ai.tool.call.id": toolUse.id,
+		"session.id": getSessionId(),
+	});
+	try {
+		yield* runToolUseInner(
+			toolUse,
+			assistantMessage,
+			canUseTool,
+			toolUseContext,
+		);
+	} finally {
+		endOtelSpan(otelToolSpan);
+	}
+}
+
+async function* runToolUseInner(
 	toolUse: ToolUseBlock,
 	assistantMessage: AssistantMessage,
 	canUseTool: CanUseToolFn,
