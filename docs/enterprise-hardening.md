@@ -86,6 +86,7 @@ source_of_truth:
 沙箱平台支持 (引自 `src/utils/sandbox/sandbox-adapter.ts:489-575`):
 
 - **支持**: macOS、Linux、WSL2+。
+- **macOS Seatbelt 实测锚** (evolution plan P1.2): `src/__tests__/utils/seatbeltSandbox.test.ts` 在 darwin 上端到端验证 vendored runtime 生成的 `sandbox-exec` profile — 沙箱内命令可运行、workspace 外写被拒 (`Operation not permitted`)、`customConfig.filesystem.allowWrite` 范围内写成功。非 darwin 自动跳过。
 - **不支持**: WSL1 (`sandbox.enabled` 为 `true` 时报 "WSL1 is not supported (requires WSL2)")。
 - **Linux/WSL glob**: bubblewrap 后端不完全支持 glob, glob 模式可能无法完全生效 (adapter.ts:596-601)。
 
