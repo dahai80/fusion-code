@@ -119,7 +119,10 @@ function handle(
 			if (!reg.inboxes[to]) {
 				reg.inboxes[to] = [];
 			}
-			(reg.inboxes[to] as unknown[]).push({ from: params.from, body: params.body });
+			(reg.inboxes[to] as unknown[]).push({
+				from: params.from,
+				body: params.body,
+			});
 			return { status: "ok", delivered: true };
 		}
 		case "teams.disband": {
@@ -338,7 +341,7 @@ describe("team CLI", () => {
 	});
 
 	test("send --from does not leak the flag into the message body", async () => {
-		const { out, code } = await capture(() =>
+		const { code } = await capture(() =>
 			runMain([
 				"send",
 				"pair",
