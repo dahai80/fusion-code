@@ -60,6 +60,20 @@ export function isRunning(sessionId: string): boolean {
     return (runs.get(sessionId)?.proc ?? null) !== null;
 }
 
+// FCS-1 (issue #228): the composer's running-state send button becomes a
+// stop control — kill the kernel proc and surface the interruption as a
+// turn_error so the drain loop does not emit a second "exited without a
+// result" event. No-op when nothing is running.
+export function cancelRun(sessionId: string): { ok: boolean; error?: string } {
+    const key = resolveSessionId(sessionId);
+    const state = runs.get(key);
+    if (!state?.proc) return { ok: false, error: 'no active run for this session' };
+    log(`run cancelled: session=${key}`);
+    emit(key, { kind: 'turn_error', text: 'run cancelled by user' });
+    state.proc.kill();
+    return { ok: true };
+}
+
 function emit(sessionId: string, event: SessionEventBody): void {
     const state = runState(sessionId);
     const full = { ...event, seq: ++state.seq } as SessionEvent;

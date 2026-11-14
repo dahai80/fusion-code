@@ -18,6 +18,7 @@ import {
 import { modelInfo, resolveSessionModel } from './modelPolicy';
 import {
     bufferedEvents,
+    cancelRun,
     cleanupSessionWorktree,
     isRunning,
     readHistory,
@@ -294,6 +295,11 @@ async function handleApi(req: Request, url: URL): Promise<Response | null> {
                 model: body.model ? String(body.model) : undefined,
             });
             return result.ok ? json({ ok: true }) : json({ error: result.error }, result.alreadyRunning ? 409 : 400);
+        }
+        // FCS-1 (issue #228): composer stop control — interrupt the active run.
+        if (sub === 'cancel' && method === 'POST') {
+            const result = cancelRun(session.id);
+            return result.ok ? json({ ok: true }) : json({ error: result.error }, 409);
         }
         // #229: unified diff for one changed file in the session's repo.
         if (sub === 'diff' && method === 'GET') {
