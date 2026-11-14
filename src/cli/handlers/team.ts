@@ -6,7 +6,7 @@
 //   team register <manifest.json>   register team + initial tasks
 //   team status [team]              board state (or list all teams)
 //   team task add <team> <title>    add a task (--detail, --assignee)
-//   team send <team> <member> <msg> mailbox send (--from, default "lead")
+//   team send <team> <member> <msg> mailbox send (--from SENDER required)
 //   team disband <team>             disband (--keep-inboxes to skip cleanup)
 import { cwd } from "node:process";
 import {
@@ -23,7 +23,7 @@ subcommands:
   register <manifest.json>          register team + initial tasks from manifest
   status [team]                     show one team's board (or list all teams)
   task add <team> <title>           add a task (--detail TEXT, --assignee MEMBER)
-  send <team> <member> <message>    send a mailbox message (--from SENDER, default "lead")
+  send <team> <member> <message>    send a mailbox message (--from SENDER, required; sender must be a declared member)
   disband <team>                    disband the team (--keep-inboxes)`;
 
 // ok()/fail() terminate via an ExitSignal instead of calling process.exit
@@ -167,16 +167,25 @@ async function cmdSend(
 	args: string[],
 ): Promise<never> {
 	const [team, member] = [args[0], args[1]];
-	const message = args.slice(2).join(" ").trim();
-	if (!team || !member || !message) {
+	if (!team || !member) {
 		fail(USAGE);
 	}
-	let from = "lead";
-	for (let i = 0; i < args.length; i += 1) {
+	// Kernel contract (fusion-harness team_runtime.send): BOTH sender and
+	// recipient must be declared team members — "lead" is not an entity.
+	// --from is therefore required and must name a manifest member.
+	let from = "";
+	const bodyTokens: string[] = [];
+	for (let i = 2; i < args.length; i += 1) {
 		if (args[i] === "--from" && args[i + 1]) {
-			from = args[i + 1] ?? "lead";
+			from = args[i + 1] ?? "";
 			i += 1;
+		} else {
+			bodyTokens.push(args[i] ?? "");
 		}
+	}
+	const message = bodyTokens.join(" ").trim();
+	if (!from || !message) {
+		fail(USAGE);
 	}
 	ok(
 		await client.call("teams.send", { team, from, to: member, body: message }),
