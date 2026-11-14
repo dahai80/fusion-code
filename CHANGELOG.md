@@ -7,7 +7,7 @@ doc_type: changelog
 title: { zh: "变更日志", en: "Changelog" }
 audience: engineer
 status: draft
-version: 0.8.1
+version: 0.8.2
 updated: 2026-11-14
 owner: "@dahai"
 source_of_truth:
@@ -19,6 +19,12 @@ source_of_truth:
 All notable changes to fusion-code are documented here.
 
 ## Unreleased
+
+## 0.8.2 - 2026-11-14
+
+- **Multi-platform binary releases (#261, #263, #265, #266, closes #262)**: `scripts/package-release.sh` builds and packages all five targets (macOS arm64/x64, Linux x64/arm64, Windows x64) from a single runner — each archive ships the compiled binary plus the secret-scanned `FUSION.rules.example` reference config, with OS+arch-gated `--version` smoke tests and SHA256SUMS. `.github/workflows/release-binaries.yml` uploads the archives to the release on every `v*` tag push (or workflow_dispatch with `upload_tag`); `build.ts` gained `--target=<bun-target>` cross-compilation.
+- **Docs (#264)**: README prebuilt-binary install section covering all five release archives.
+- **Tests (#259, #260)**: fixed 8 full-suite failures caused by cross-suite env/cwd pollution; `startup.test.ts` migrated to the shared `providerEnv` isolation helper.
 
 ## 0.8.1 - 2026-11-14
 
