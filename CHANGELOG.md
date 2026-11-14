@@ -7,7 +7,7 @@ doc_type: changelog
 title: { zh: "变更日志", en: "Changelog" }
 audience: engineer
 status: draft
-version: 0.8.2
+version: 0.8.3
 updated: 2026-11-14
 owner: "@dahai"
 source_of_truth:
@@ -19,6 +19,10 @@ source_of_truth:
 All notable changes to fusion-code are documented here.
 
 ## Unreleased
+
+## 0.8.3 - 2026-11-14
+
+- **T4a `fusion team` CLI (#269, refs #268)**: manifest-based team registration over the agent-studio `teams.*` dispatcher (upstream T3, v0.16.0) — one JSON manifest per project (members with role/skills/tool allowlist/budget, initial tasks, per-repo `namespace_key` isolation); `team register|status|task add|send|disband` fast-path subcommands with JSON output; UDS JSON-RPC client mirroring the daemon's socket resolution and apikey→JWT auth chain with one-time loopback bootstrap. Live-daemon e2e pending upstream dahai80/fusion-agent-studio#710.
 
 ## 0.8.2 - 2026-11-14
 
