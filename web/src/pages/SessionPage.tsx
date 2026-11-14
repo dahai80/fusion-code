@@ -3,6 +3,8 @@ import {
     CheckCircle2,
     FileDiff,
     FileDown,
+    Folder,
+    GitBranch,
     GitPullRequest,
     History,
     Loader2,
@@ -17,6 +19,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type {
     DiffComment,
     FileChange,
+    RepoRecord,
     SessionEvent,
     SessionPermissions,
     WebSession,
@@ -25,6 +28,7 @@ import type {
 import { navigate } from '../App';
 import { API_BASE, api, connectSessionWs } from '../api';
 import { CommandPalette } from '../components/CommandPalette';
+import { Composer } from '../components/Composer';
 import { useT } from '../i18n';
 
 // /session/:id — frame C2: conversation with inline per-step commands, live
@@ -54,12 +58,31 @@ export function SessionPage({ sessionId }: { sessionId: string }) {
     const [paletteOpen, setPaletteOpen] = useState(false);
     const [commands, setCommands] = useState<WorkflowCommand[]>([]);
     const [exporting, setExporting] = useState(false);
+    // FCS-1 (issue #228): composer context chips + ⚙ params (model pick,
+    // environment template display).
+    const [repo, setRepo] = useState<RepoRecord | null>(null);
+    const [modelPick, setModelPick] = useState('');
+    const [modelDefault, setModelDefault] = useState<string | undefined>(undefined);
+    const [setupBusy, setSetupBusy] = useState(false);
     const bottomRef = useRef<HTMLDivElement>(null);
 
     useEffect(() => {
         api.listCommands()
             .then((res) => setCommands(res.commands))
             .catch(() => {});
+    }, []);
+
+    // FCS-1 §3: ⌘K opens the command palette globally, not just when the
+    // composer textarea is focused.
+    useEffect(() => {
+        const onKey = (e: KeyboardEvent) => {
+            if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
+                e.preventDefault();
+                setPaletteOpen(true);
+            }
+        };
+        document.addEventListener('keydown', onKey);
+        return () => document.removeEventListener('keydown', onKey);
     }, []);
 
     const load = useCallback(async () => {
@@ -73,6 +96,10 @@ export function SessionPage({ sessionId }: { sessionId: string }) {
             if (permRes.ok) {
                 setPermissions(((await permRes.json()) as { permissions: SessionPermissions }).permissions);
             }
+            // FCS-1: composer context chips + ⚙ params need the repo record
+            // (name/environment/setup) and the model capability surface.
+            api.getRepo(detail.session.repoId).then((r) => setRepo(r.repo)).catch(() => {});
+            api.modelInfo().then((m) => setModelDefault(m.defaultModel)).catch(() => {});
             setError('');
         } catch (err) {
             setError(String(err));
@@ -123,7 +150,16 @@ export function SessionPage({ sessionId }: { sessionId: string }) {
         setInput('');
         setError('');
         try {
-            await api.startRun(sessionId, message);
+            await api.startRun(sessionId, message, modelPick.trim() || undefined);
+        } catch (err) {
+            setError(String(err));
+        }
+    };
+
+    // FCS-1: running-state send button becomes the stop control.
+    const stop = async () => {
+        try {
+            await api.cancelRun(sessionId);
         } catch (err) {
             setError(String(err));
         }
@@ -412,43 +448,73 @@ export function SessionPage({ sessionId }: { sessionId: string }) {
                     })}
                     <div ref={bottomRef} />
 
-                    {/* Follow-up composer (mid-run instruction = next turn input) */}
-                    <div className="rounded-2xl border border-border bg-bg-elevated p-3 shadow-sm shadow-zinc-900/5">
-                        <textarea
-                            value={input}
-                            onChange={(e) => setInput(e.target.value)}
-                            onKeyDown={(e) => {
-                                if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
-                                    e.preventDefault();
-                                    void send();
-                                }
-                            }}
-                            placeholder={t(
-                                '追加指令或纠正… (⌘+Enter 发送)',
-                                'Follow-up instruction or correction… (⌘+Enter to send)'
-                            )}
-                            rows={2}
-                            disabled={running}
-                            className="w-full resize-none rounded-xl border border-border bg-bg px-3 py-2 text-sm outline-none focus:border-brand disabled:opacity-50"
-                        />
-                        <div className="mt-2 flex items-center justify-end gap-2">
-                            <button
-                                type="button"
-                                onClick={() => setPaletteOpen(true)}
-                                className="rounded-xl border border-border px-3 py-1.5 text-sm transition-colors hover:bg-bg-muted"
-                            >
-                                {t('命令', 'Commands')}
-                            </button>
-                            <button
-                                type="button"
-                                onClick={() => void send()}
-                                disabled={running || !input.trim()}
-                                className="rounded-xl bg-brand px-4 py-1.5 text-sm font-medium text-white transition-opacity hover:opacity-90 disabled:opacity-40"
-                            >
-                                {t('发送', 'Send')}
-                            </button>
-                        </div>
-                    </div>
+                    {/* Follow-up composer (mid-run instruction = next turn input).
+                        FCS-1 five-zone anatomy: context chips / auto-grow input /
+                        tool row (📎→＠ left, ⚙+⬆ right) / persistent hint row. */}
+                    <Composer
+                        value={input}
+                        onChange={setInput}
+                        onSend={() => void send()}
+                        onStop={() => void stop()}
+                        running={running}
+                        onOpenPalette={() => setPaletteOpen(true)}
+                        placeholder={t('输入消息，@ 引用，/ 命令', 'Type a message, @ to reference, / for commands')}
+                        chips={
+                            repo ? (
+                                <div className="flex items-center gap-2 px-4 pt-3">
+                                    <span className="flex items-center gap-1.5 rounded-lg bg-bg-muted px-2 py-0.5 text-xs text-text-secondary">
+                                        <Folder size={12} />
+                                        {repo.name}
+                                    </span>
+                                    <span className="flex items-center gap-1.5 rounded-lg bg-bg-muted px-2 py-0.5 text-xs text-text-secondary">
+                                        <GitBranch size={12} />
+                                        {session?.branch ?? ''}
+                                    </span>
+                                </div>
+                            ) : undefined
+                        }
+                        params={
+                            <div className="space-y-3">
+                                <div>
+                                    <div className="text-xs font-medium text-text-secondary">{t('模型', 'Model')}</div>
+                                    <input
+                                        value={modelPick}
+                                        onChange={(e) => setModelPick(e.target.value)}
+                                        placeholder={modelDefault ?? t('默认（策略链）', 'default (policy chain)')}
+                                        className="mt-1 w-full rounded-xl border border-border bg-bg px-3 py-1.5 text-sm outline-none focus:border-brand"
+                                    />
+                                </div>
+                                <div>
+                                    <div className="text-xs font-medium text-text-secondary">
+                                        {t('环境模板', 'Environment template')}
+                                    </div>
+                                    <div className="mt-1 rounded-xl bg-bg-muted px-3 py-2 text-xs text-text-secondary">
+                                        <div>{repo?.environment || t('未配置', 'not configured')}</div>
+                                        {repo?.setupCommand && (
+                                            <div className="mt-1 font-mono text-[11px] text-text-muted">
+                                                {repo.setupCommand}
+                                            </div>
+                                        )}
+                                    </div>
+                                    {repo?.setupCommand && (
+                                        <button
+                                            type="button"
+                                            disabled={setupBusy}
+                                            onClick={() => {
+                                                setSetupBusy(true);
+                                                api.runSetup(repo.id)
+                                                    .catch(() => {})
+                                                    .finally(() => setSetupBusy(false));
+                                            }}
+                                            className="mt-2 rounded-xl border border-border px-3 py-1 text-xs transition-colors hover:bg-bg-muted disabled:opacity-40"
+                                        >
+                                            {setupBusy ? t('运行中…', 'Running…') : t('运行 setup', 'Run setup')}
+                                        </button>
+                                    )}
+                                </div>
+                            </div>
+                        }
+                    />
                     {paletteOpen && (
                         <CommandPalette
                             commands={commands}

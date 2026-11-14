@@ -133,7 +133,10 @@ export const api = {
     getSession: (id: string) => get<SessionDetail>(`/api/sessions/${id}`),
     setPermissions: (id: string, mode: PermissionMode, allowedTools: string[]) =>
         post<{ permissions: SessionPermissions }>(`/api/sessions/${id}/permissions`, { mode, allowedTools }),
-    startRun: (id: string, message: string) => post<{ ok: boolean }>(`/api/sessions/${id}/run`, { message }),
+    startRun: (id: string, message: string, model?: string) =>
+        post<{ ok: boolean }>(`/api/sessions/${id}/run`, model ? { message, model } : { message }),
+    // FCS-1 (issue #228): composer stop control.
+    cancelRun: (id: string) => post<{ ok: boolean }>(`/api/sessions/${id}/cancel`),
 
     // #229: diff viewer + checkpoint verify/rollback + PR flow.
     fileDiff: (id: string, filePath: string) =>

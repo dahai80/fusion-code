@@ -15,6 +15,13 @@ if (process.env.MOCK_ARGS_FILE) {
     appendFileSync(process.env.MOCK_ARGS_FILE, `${JSON.stringify(process.argv.slice(2))}\n`);
 }
 
+// Cancel-test knob: stay alive (emit nothing) for MOCK_DELAY_MS before the
+// transcript, so the web backend can kill the proc mid-run.
+const delayMs = Number(process.env.MOCK_DELAY_MS ?? 0);
+if (delayMs > 0) {
+    await Bun.sleep(delayMs);
+}
+
 const lines = [
     {
         type: 'system',
