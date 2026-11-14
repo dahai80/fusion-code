@@ -9,9 +9,35 @@
  * 5. 启动序列（hooks、plugins、MCP）
  * 6. REPL 挂载条件
  */
-import { afterEach, beforeEach, describe, expect, it } from "bun:test";
+import { afterAll, afterEach, beforeEach, describe, expect, it } from "bun:test";
 import { homedir } from "node:os";
 import { join } from "node:path";
+
+// This file sets FUSION_MLX_ENABLED=1 and related provider-routing env vars
+// in many describes without per-describe restore. Snapshot at load and
+// restore after all: leaked FUSION_MLX_ENABLED flips provider resolution
+// (isFusionMlxProvider) for every later suite in the run.
+const providerEnvKeys = [
+	"FUSION_MLX_ENABLED",
+	"FUSION_MLX_DISABLED",
+	"FUSION_MLX_BASE_URL",
+	"FUSION_MLX_AUTO",
+	"FUSION_GATEWAY_ENABLED",
+	"FUSION_GATEWAY_URL",
+	"FUSION_CLIENT_KEY",
+	"ANTHROPIC_API_KEY",
+	"FUSION_BASE_URL",
+	"ANTHROPIC_BASE_URL",
+];
+const providerEnvSnap: Record<string, string | undefined> = {};
+for (const k of providerEnvKeys) providerEnvSnap[k] = process.env[k];
+
+afterAll(() => {
+	for (const [k, v] of Object.entries(providerEnvSnap)) {
+		if (v === undefined) delete process.env[k];
+		else process.env[k] = v;
+	}
+});
 
 // 清理继承自 shell 的 NO_COLOR，避免测试设置 FORCE_COLOR=1 时触发 Bun 颜色冲突警告
 delete process.env.NO_COLOR;
