@@ -1,0 +1,112 @@
+name: Release binaries
+
+# Cross-platform release automation: builds the compiled fusion-code binary
+# for macOS (arm64 + x64), Linux (x64 + arm64) and Windows (x64) and uploads
+# the archives to the GitHub release for the pushed tag. Bun cross-compiles
+# every target from a single Linux runner (targets verified locally: Mach-O,
+# PE32+ and ELF outputs); the linux-x64 binary gets a --version smoke test.
+#
+# Triggers:
+# - pushing a v* tag builds and uploads to that tag's release
+# - workflow_dispatch with upload_tag set builds and uploads to an existing
+#   release (assets only, no release creation); empty = artifacts only
+
+on:
+    push:
+        tags:
+            - "v*"
+    workflow_dispatch:
+        inputs:
+            upload_tag:
+                description: "Existing release tag to upload assets to (empty = artifacts only)"
+                required: false
+                default: ""
+
+permissions:
+    contents: write
+
+concurrency:
+    group: release-binaries-${{ github.ref }}
+    cancel-in-progress: false
+
+jobs:
+    build:
+        runs-on: ubuntu-latest
+        steps:
+            - uses: actions/checkout@v4
+
+            - uses: oven-sh/setup-bun@v2
+              with:
+                  bun-version: "1.3.14"
+
+            - name: Install dependencies
+              run: bun install --frozen-lockfile
+
+            - name: Read version from package.json
+              id: ver
+              run: echo "version=$(bun -p 'require(\"./package.json\").version')" >> "$GITHUB_OUTPUT"
+
+            - name: Build all targets
+              run: |
+                  set -euo pipefail
+                  for t in bun-darwin-arm64 bun-darwin-x64 bun-linux-x64 bun-linux-arm64 bun-windows-x64; do
+                      echo "::group::build $t"
+                      bun run ./scripts/build.ts --compile --target=$t
+                      echo "::endgroup::"
+                  done
+
+            - name: Smoke test linux-x64 binary
+              run: ./dist/fusion-code-linux-x64 --version
+
+            - name: Package archives
+              env:
+                  VERSION: ${{ steps.ver.outputs.version }}
+              run: |
+                  set -euo pipefail
+                  cd dist
+                  tar -czf "fusion-code-${VERSION}-darwin-arm64.tar.gz" fusion-code-darwin-arm64
+                  tar -czf "fusion-code-${VERSION}-darwin-x64.tar.gz" fusion-code-darwin-x64
+                  tar -czf "fusion-code-${VERSION}-linux-x64.tar.gz" fusion-code-linux-x64
+                  tar -czf "fusion-code-${VERSION}-linux-arm64.tar.gz" fusion-code-linux-arm64
+                  zip -q "fusion-code-${VERSION}-windows-x64.zip" fusion-code-windows-x64.exe
+                  sha256sum fusion-code-*.tar.gz fusion-code-*.zip > SHA256SUMS.txt
+                  ls -la
+
+            - name: Upload build artifacts
+              uses: actions/upload-artifact@v4
+              with:
+                  name: release-assets
+                  path: |
+                      dist/*.tar.gz
+                      dist/*.zip
+                      dist/SHA256SUMS.txt
+                  retention-days: 7
+                  if-no-files-found: error
+
+    release:
+        needs: build
+        if: startsWith(github.ref, 'refs/tags/v') || inputs.upload_tag != ''
+        runs-on: ubuntu-latest
+        steps:
+            - uses: actions/checkout@v4
+
+            - uses: actions/download-artifact@v4
+              with:
+                  name: release-assets
+                  path: dist
+
+            - name: Resolve release tag
+              id: tag
+              run: echo "tag=${{ inputs.upload_tag || github.ref_name }}" >> "$GITHUB_OUTPUT"
+
+            - name: Upload assets to release
+              env:
+                  GH_TOKEN: ${{ github.token }}
+                  TAG: ${{ steps.tag.outputs.tag }}
+              run: |
+                  set -euo pipefail
+                  if ! gh release view "$TAG" --repo "$GITHUB_REPOSITORY" > /dev/null 2>&1; then
+                      gh release create "$TAG" --repo "$GITHUB_REPOSITORY" --title "$TAG" --generate-notes
+                  fi
+                  gh release upload "$TAG" dist/fusion-code-* dist/SHA256SUMS.txt --repo "$GITHUB_REPOSITORY" --clobber
+                  gh release view "$TAG" --repo "$GITHUB_REPOSITORY" --json assets -q '.assets[].name'

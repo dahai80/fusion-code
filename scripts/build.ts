@@ -139,6 +139,10 @@ function getVersionChangelog(): string {
 
 const defaultFeatures = ["VOICE_MODE"];
 const featureSet = new Set(defaultFeatures);
+// Release automation: --target=<bun-target> cross-compiles for another
+// platform (e.g. bun-darwin-x64 from an arm64 runner). Default "bun" = host
+// target, byte-identical to the previous behavior.
+let compileTarget = "bun";
 for (let i = 0; i < args.length; i += 1) {
 	const arg = args[i];
 	if (arg === "--feature-set" && args[i + 1]) {
@@ -165,13 +169,18 @@ for (let i = 0; i < args.length; i += 1) {
 	if (arg.startsWith("--feature=")) {
 		featureSet.add(arg.slice("--feature=".length));
 	}
+	if (arg.startsWith("--target=")) {
+		compileTarget = arg.slice("--target=".length);
+	}
 }
 const features = [...featureSet];
 
+const targetSuffix =
+	compileTarget !== "bun" ? `-${compileTarget.replace(/^bun-/, "")}` : "";
 const outfile = compile
 	? dev
-		? "./dist/fusion-code-dev"
-		: "./dist/fusion-code"
+		? `./dist/fusion-code-dev${targetSuffix}`
+		: `./dist/fusion-code${targetSuffix}`
 	: dev
 		? "./fusion-code-dev"
 		: "./fusion-code";
@@ -237,7 +246,7 @@ const cmd = [
 	"./src/entrypoints/cli.tsx",
 	"--compile",
 	"--target",
-	"bun",
+	compileTarget,
 	"--format",
 	"esm",
 	"--outfile",
