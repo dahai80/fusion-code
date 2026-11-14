@@ -274,6 +274,18 @@ async function main(): Promise<void> {
 		return;
 	}
 
+	// Fast-path for `fusion-code team ...`: issue #268 (T4a) — manifest-based
+	// team registration over agent-studio teams.* RPC. Pure RPC consumer;
+	// stateless CLI handler, no in-process REPL agent.
+	if (args[0] === "team") {
+		profileCheckpoint("cli_team_path");
+		const { teamMain } = await import("../cli/handlers/team.js");
+		await teamMain(args.slice(1));
+		gracefulShutdownSync(0);
+		// See trajectory fast-path: return so the commander parser never runs.
+		return;
+	}
+
 	// Fast-path for `fusion-code visual-feedback ...`: issue #216/#217 视觉反馈协议。
 	// osagent code-debug loop (F5.2) 生成结构化报告 → 本端校验 schema (1.1
 	// osagent-native / 1.0 legacy) + 可选 --auto-fix / --auto-fix-loop 落盘 agent
