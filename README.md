@@ -53,7 +53,30 @@ source_of_truth:
 - **Bun** >= 1.3.11 — install with `curl -fsSL https://bun.sh/install | bash`
 - **macOS with Apple Silicon** (M1/M2/M3/M4) for local MLX inference; Linux/Windows can use cloud providers or remote MLX
 
-### Install & Run
+### Install from Prebuilt Binaries (no Bun needed)
+
+Download the archive for your platform from the [latest release](https://github.com/dahai80/fusion-code/releases):
+
+| Platform | Archive |
+|---|---|
+| macOS Apple Silicon | `fusion-code-<version>-darwin-arm64.tar.gz` |
+| macOS Intel | `fusion-code-<version>-darwin-x64.tar.gz` |
+| Linux x64 | `fusion-code-<version>-linux-x64.tar.gz` |
+| Linux arm64 | `fusion-code-<version>-linux-arm64.tar.gz` |
+| Windows x64 | `fusion-code-<version>-windows-x64.zip` |
+
+```bash
+# macOS / Linux
+tar -xzf fusion-code-<version>-<target>.tar.gz
+./fusion-code-<target> --version        # verify it runs
+mv fusion-code-<target> /usr/local/bin/fusion-code
+
+# Reference rule-file template (optional): copy to ~/.fusion-code/FUSION.rules
+```
+
+Archives are listed with SHA256 checksums (`SHA256SUMS.txt`). They contain the compiled binary plus `FUSION.rules.example` — a reference template with no secrets; copy it to `~/.fusion-code/FUSION.rules` if you want custom rules. Windows: unzip and run `fusion-code-windows-x64.exe --version` to verify.
+
+### Install from Source
 
 ```bash
 git clone https://github.com/dahai80/fusion-code.git
