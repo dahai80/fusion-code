@@ -57,7 +57,6 @@ for target in $TARGETS; do
     bun run ./scripts/build.ts --compile --target="$target"
 done
 
-HOST_UNAME="$(uname -s)"
 for target in $TARGETS; do
     # Windows target is packaged separately below: bun names its binary
     # fusion-code-windows-x64.exe (and it ships as a zip, not a tarball).
@@ -67,11 +66,14 @@ for target in $TARGETS; do
     binary="dist/fusion-code-${target#bun-}"
     [ -f "$binary" ] || { echo "error: binary missing: $binary" >&2; exit 1; }
 
-    # Smoke test on the native host: darwin targets run on macOS, linux
-    # targets on Linux. The bare binary must print a version string.
+    # Smoke test on the native host: arch must match (a single runner
+    # cross-builds everything, so most targets can't execute here). The bare
+    # binary must print a version string.
+    host_arch="$(uname -m)"
+    case "$host_arch" in aarch64) host_arch=arm64 ;; esac
     case "$target" in
-        bun-darwin-*) [ "$HOST_UNAME" = "Darwin" ] && "$binary" --version >/dev/null ;;
-        bun-linux-*) [ "$HOST_UNAME" = "Linux" ] && "$binary" --version >/dev/null ;;
+        *-arm64) if [ "$host_arch" = "arm64" ]; then "$binary" --version >/dev/null; fi ;;
+        *-x64) if [ "$host_arch" = "x86_64" ]; then "$binary" --version >/dev/null; fi ;;
     esac
 
     # User-facing names drop the "bun-" prefix, matching the dist/ binary:
