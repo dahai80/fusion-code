@@ -18,6 +18,7 @@ import { specMain } from "../../src/cli/handlers/spec";
 // ungated (unchecked) task before any kernel turn starts. Stub fusion bin
 // proves the turn only fires for approved items.
 
+const origCwd = process.cwd();
 const tempDirs: string[] = [];
 let repoDir = "";
 let stubFusion = "";
@@ -53,7 +54,9 @@ beforeAll(() => {
 
 afterAll(() => {
 	delete process.env.FUSION_CODE_TASK_FUSION_BIN;
-	process.chdir(import.meta.dir);
+	// Restore original cwd before deleting temp dirs: leaked chdir(repoDir)
+	// breaks later suites whose config discovery depends on process.cwd().
+	process.chdir(origCwd);
 	for (const dir of tempDirs) rmSync(dir, { recursive: true, force: true });
 });
 

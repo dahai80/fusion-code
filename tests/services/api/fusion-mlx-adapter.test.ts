@@ -158,6 +158,10 @@ describe("checkFusionMlxHealth", () => {
 			expect(calledUrl).toContain("/v1/models");
 		} finally {
 			mockFetch.mockRestore();
+			// Restore env: leaked FUSION_GATEWAY_URL changes MLX gateway URL
+			// resolution in later suites (doctor diagnostics, config discovery).
+			delete process.env.FUSION_GATEWAY_URL;
+			delete process.env.FUSION_MLX_BASE_URL;
 		}
 	});
 });

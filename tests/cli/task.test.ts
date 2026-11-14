@@ -17,6 +17,7 @@ import { join } from "node:path";
 // Uses a stub fusion binary (records the headless result, makes a file
 // change) and a stub gh; origin is a local bare repo so push succeeds.
 
+const origCwd = process.cwd();
 const tempDirs: string[] = [];
 let repoDir = "";
 let originDir = "";
@@ -94,6 +95,9 @@ afterAll(() => {
 	delete process.env.FUSION_CODE_CONFIG_DIR;
 	delete process.env.FUSION_CODE_TASK_FUSION_BIN;
 	delete process.env.FUSION_CODE_TASK_GH_BIN;
+	// Restore cwd before deleting temp dirs: leaked chdir(repoDir) breaks
+	// later suites whose config discovery depends on process.cwd().
+	process.chdir(origCwd);
 	for (const dir of tempDirs) rmSync(dir, { recursive: true, force: true });
 });
 
