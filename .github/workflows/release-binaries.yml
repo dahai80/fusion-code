@@ -2,9 +2,19 @@ name: Release binaries
 
 # Cross-platform release automation: builds the compiled fusion-code binary
 # for macOS (arm64 + x64), Linux (x64 + arm64) and Windows (x64) and uploads
-# the archives to the GitHub release for the pushed tag. Bun cross-compiles
-# every target from a single Linux runner (targets verified locally: Mach-O,
-# PE32+ and ELF outputs); the linux-x64 binary gets a --version smoke test.
+# the archives to the GitHub release for the pushed tag. The whole
+# build/package pipeline lives in scripts/package-release.sh (runnable
+# locally with the same behavior); this workflow is a thin wrapper.
+#
+# Each archive carries the binary plus FUSION.rules.example — the reference
+# rule-file template users copy to ~/.fusion-code/FUSION.rules. The template
+# is secret-scanned by the script before packaging (no keys/tokens).
+#
+# Bun cross-compiles every target from a single Linux runner; the darwin and
+# linux binaries are smoke-tested (fusion-code-<target> --version) inside the
+# script. Windows binaries are SHA-verified only — run
+# `fusion-code-windows-x64.exe --version` once on a Windows box after
+# download.
 #
 # Triggers:
 # - pushing a v* tag builds and uploads to that tag's release
@@ -42,44 +52,17 @@ jobs:
             - name: Install dependencies
               run: bun install --frozen-lockfile
 
-            - name: Read version from package.json
-              id: ver
-              run: echo "version=$(bun -p 'require(\"./package.json\").version')" >> "$GITHUB_OUTPUT"
-
-            - name: Build all targets
-              run: |
-                  set -euo pipefail
-                  for t in bun-darwin-arm64 bun-darwin-x64 bun-linux-x64 bun-linux-arm64 bun-windows-x64; do
-                      echo "::group::build $t"
-                      bun run ./scripts/build.ts --compile --target=$t
-                      echo "::endgroup::"
-                  done
-
-            - name: Smoke test linux-x64 binary
-              run: ./dist/fusion-code-linux-x64 --version
-
-            - name: Package archives
-              env:
-                  VERSION: ${{ steps.ver.outputs.version }}
-              run: |
-                  set -euo pipefail
-                  cd dist
-                  tar -czf "fusion-code-${VERSION}-darwin-arm64.tar.gz" fusion-code-darwin-arm64
-                  tar -czf "fusion-code-${VERSION}-darwin-x64.tar.gz" fusion-code-darwin-x64
-                  tar -czf "fusion-code-${VERSION}-linux-x64.tar.gz" fusion-code-linux-x64
-                  tar -czf "fusion-code-${VERSION}-linux-arm64.tar.gz" fusion-code-linux-arm64
-                  zip -q "fusion-code-${VERSION}-windows-x64.zip" fusion-code-windows-x64.exe
-                  sha256sum fusion-code-*.tar.gz fusion-code-*.zip > SHA256SUMS.txt
-                  ls -la
+            - name: Build and package all targets
+              run: scripts/package-release.sh dist/release
 
             - name: Upload build artifacts
               uses: actions/upload-artifact@v4
               with:
                   name: release-assets
                   path: |
-                      dist/*.tar.gz
-                      dist/*.zip
-                      dist/SHA256SUMS.txt
+                      dist/release/*.tar.gz
+                      dist/release/*.zip
+                      dist/release/SHA256SUMS.txt
                   retention-days: 7
                   if-no-files-found: error
 
@@ -109,4 +92,5 @@ jobs:
                       gh release create "$TAG" --repo "$GITHUB_REPOSITORY" --title "$TAG" --generate-notes
                   fi
                   gh release upload "$TAG" dist/fusion-code-* dist/SHA256SUMS.txt --repo "$GITHUB_REPOSITORY" --clobber
+                  echo "Assets on release $TAG:"
                   gh release view "$TAG" --repo "$GITHUB_REPOSITORY" --json assets -q '.assets[].name'
