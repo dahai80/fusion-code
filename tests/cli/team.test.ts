@@ -103,7 +103,19 @@ function handle(
 			if (!reg) {
 				return { status: "error", message: `team not registered: ${teamName}` };
 			}
+			// Mirror kernel contract (fusion-harness team_runtime.send):
+			// sender AND recipient must be declared members.
+			const members = (
+				(reg.definition.members as Array<{ name: string }> | undefined) ?? []
+			).map((m) => m.name);
+			const from = String(params.from ?? "");
 			const to = String(params.to ?? "");
+			if (!members.includes(from)) {
+				return { status: "error", message: `unknown member: ${from}` };
+			}
+			if (!members.includes(to)) {
+				return { status: "error", message: `unknown member: ${to}` };
+			}
 			if (!reg.inboxes[to]) {
 				reg.inboxes[to] = [];
 			}
@@ -300,7 +312,14 @@ describe("team CLI", () => {
 
 	test("send delivers to member mailbox", async () => {
 		const { out, code } = await capture(() =>
-			runMain(["send", "pair", "worker-a", "please start with task-1"]),
+			runMain([
+				"send",
+				"pair",
+				"worker-a",
+				"please start with task-1",
+				"--from",
+				"worker-b",
+			]),
 		);
 		expect(code).toBe(0);
 		expect(JSON.parse(out).delivered).toBeTrue();
@@ -308,6 +327,32 @@ describe("team CLI", () => {
 			body: string;
 		}>;
 		expect(inbox.at(-1)?.body).toBe("please start with task-1");
+	});
+
+	test("send without --from fails (kernel rejects undeclared senders)", async () => {
+		const { out, code } = await capture(() =>
+			runMain(["send", "pair", "worker-a", "no sender given"]),
+		);
+		expect(code).toBe(1);
+		expect(out).toContain("--from");
+	});
+
+	test("send --from does not leak the flag into the message body", async () => {
+		const { out, code } = await capture(() =>
+			runMain([
+				"send",
+				"pair",
+				"worker-a",
+				"trailing flag",
+				"--from",
+				"worker-b",
+			]),
+		);
+		expect(code).toBe(0);
+		const inbox = registry.get("pair")?.inboxes["worker-a"] as Array<{
+			body: string;
+		}>;
+		expect(inbox.at(-1)?.body).toBe("trailing flag");
 	});
 
 	test("status of unknown team fails with server message", async () => {
