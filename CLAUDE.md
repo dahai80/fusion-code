@@ -212,4 +212,4 @@ fusion-code trajectory list [--source DIR]
 
 ## Docs
 
-`docs/` holds in-repo deep-dives - consult these before changing related subsystems: `architecture.md`, `development.md`, `developer-guide.md`, `feature-flags.md`, `model-providers.md`, `trajectory-pipeline.md`, `workflow-runtime.md`, `enterprise-hardening.md`, `plugin-authoring.md`. `FUSION.rules.example` documents the enhanced rule file format.
+`docs/` holds in-repo deep-dives - consult these before changing related subsystems: `architecture.md`, `development.md`, `developer-guide.md`, `feature-flags.md`, `model-providers.md`, `trajectory-pipeline.md`, `workflow-runtime.md`, `enterprise-hardening.md`, `plugin-authoring.md`, `team-cli.md`. `FUSION.rules.example` documents the enhanced rule file format.
