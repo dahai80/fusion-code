@@ -66,15 +66,23 @@ for target in $TARGETS; do
     binary="dist/fusion-code-${target#bun-}"
     [ -f "$binary" ] || { echo "error: binary missing: $binary" >&2; exit 1; }
 
-    # Smoke test on the native host: arch must match (a single runner
-    # cross-builds everything, so most targets can't execute here). The bare
-    # binary must print a version string.
+    # Smoke test on the native host: BOTH OS and arch must match (a single
+    # runner cross-builds everything — a darwin-x64 Mach-O cannot execute on
+    # Linux even on an x86_64 host). The binary must print a version string.
+    host_os="$(uname -s)"
     host_arch="$(uname -m)"
     case "$host_arch" in aarch64) host_arch=arm64 ;; esac
     case "$target" in
-        *-arm64) if [ "$host_arch" = "arm64" ]; then "$binary" --version >/dev/null; fi ;;
-        *-x64) if [ "$host_arch" = "x86_64" ]; then "$binary" --version >/dev/null; fi ;;
+        *-arm64) want_arch=arm64 ;;
+        *-x64) want_arch=x86_64 ;;
     esac
+    case "$target" in
+        bun-darwin-*) want_os=Darwin ;;
+        bun-linux-*) want_os=Linux ;;
+    esac
+    if [ "$host_os" = "$want_os" ] && [ "$host_arch" = "$want_arch" ]; then
+        "$binary" --version >/dev/null
+    fi
 
     # User-facing names drop the "bun-" prefix, matching the dist/ binary:
     # bun-darwin-arm64 -> fusion-code-darwin-arm64
