@@ -7,8 +7,8 @@ doc_type: changelog
 title: { zh: "变更日志", en: "Changelog" }
 audience: engineer
 status: draft
-version: 0.8.0
-updated: 2026-11-12
+version: 0.8.1
+updated: 2026-11-14
 owner: "@dahai"
 source_of_truth:
   - CHANGELOG.md
@@ -19,6 +19,10 @@ source_of_truth:
 All notable changes to fusion-code are documented here.
 
 ## Unreleased
+
+## 0.8.1 - 2026-11-14
+
+- **FCS-1 session composer (#257, closes #228)**: the session-view composer now implements the Fusion Composer Standard (five-zone anatomy — context chips, auto-grow input, tool row with 📎→＠ and ⚙ params, persistent hint row); send is an icon-only ⬆ with three states (disabled / enabled / stop-while-running); shortcuts per spec (Enter send, Shift+Enter newline, Esc stop, ⌘K palette, `/` commands); new `POST /api/sessions/:id/cancel` interrupts the active run.
 
 ## 0.8.0 - 2026-11-12
 
