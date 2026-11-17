@@ -1,179 +1,133 @@
-#!/usr/bin/env bash
-set -euo pipefail
+#!/bin/sh
+# fusion-code installer — downloads the latest (or a pinned) release binary
+# from GitHub Releases and installs it into a user-writable bin directory.
+#
+# Usage:
+#   curl -fsSL https://raw.githubusercontent.com/dahai80/fusion-code/main/install.sh | sh
+#   ./install.sh [version]        # e.g. ./install.sh v0.8.5
+#
+# Environment:
+#   FUSION_CODE_INSTALL_DIR   target bin dir (default: ~/.local/bin)
+#   FUSION_CODE_RELEASE_BASE  override base URL for testing / mirrors
+#                             (default: github.com/<repo>/releases/download/<tag>)
+#
+# The script verifies the sha256 checksum against the release SHA256SUMS.txt
+# before installing. Windows assets (.zip) are not handled here.
+set -eu
 
-# free-code installer
-# Usage: curl -fsSL https://raw.githubusercontent.com/paoloanzn/free-code/main/install.sh | bash
+REPO="dahai80/fusion-code"
+INSTALL_DIR="${FUSION_CODE_INSTALL_DIR:-$HOME/.local/bin}"
 
-RED='\033[0;31m'
-GREEN='\033[0;32m'
-YELLOW='\033[1;33m'
-CYAN='\033[0;36m'
-BOLD='\033[1m'
-DIM='\033[2m'
-RESET='\033[0m'
-
-REPO="https://github.com/paoloanzn/free-code.git"
-INSTALL_DIR="$HOME/free-code"
-BUN_MIN_VERSION="1.3.11"
-
-info()  { printf "${CYAN}[*]${RESET} %s\n" "$*"; }
-ok()    { printf "${GREEN}[+]${RESET} %s\n" "$*"; }
-warn()  { printf "${YELLOW}[!]${RESET} %s\n" "$*"; }
-fail()  { printf "${RED}[x]${RESET} %s\n" "$*"; exit 1; }
-
-header() {
-  echo ""
-  printf "${BOLD}${CYAN}"
-  cat << 'ART'
-   ___                            _
-  / _|_ __ ___  ___        ___ __| | ___
- | |_| '__/ _ \/ _ \_____ / __/ _` |/ _ \
- |  _| | |  __/  __/_____| (_| (_| |  __/
- |_| |_|  \___|\___|      \___\__,_|\___|
-
-ART
-  printf "${RESET}"
-  printf "${DIM}  The free build of Fusion-Code${RESET}\n"
-  echo ""
+log() {
+    printf '%s\n' "fusion-code-install: $*"
 }
 
-# -------------------------------------------------------------------
-# System checks
-# -------------------------------------------------------------------
-
-check_os() {
-  case "$(uname -s)" in
-    Darwin) OS="macos" ;;
-    Linux)  OS="linux" ;;
-    *)      fail "Unsupported OS: $(uname -s). macOS or Linux required." ;;
-  esac
-  ok "OS: $(uname -s) $(uname -m)"
+die() {
+    printf '%s\n' "fusion-code-install: error: $*" >&2
+    exit 1
 }
 
-check_git() {
-  if ! command -v git &>/dev/null; then
-    fail "git is not installed. Install it first:
-    macOS:  xcode-select --install
-    Linux:  sudo apt install git  (or your distro's equivalent)"
-  fi
-  ok "git: $(git --version | head -1)"
+need() {
+    command -v "$1" >/dev/null 2>&1 || die "$2"
 }
 
-# Compare semver: returns 0 if $1 >= $2
-version_gte() {
-  [ "$(printf '%s\n' "$1" "$2" | sort -V | head -1)" = "$2" ]
-}
+need curl "curl is required to download the release"
+need tar "tar is required to extract the release"
+need uname "uname is required to detect the platform"
 
-check_bun() {
-  if command -v bun &>/dev/null; then
-    local ver
-    ver="$(bun --version 2>/dev/null || echo "0.0.0")"
-    if version_gte "$ver" "$BUN_MIN_VERSION"; then
-      ok "bun: v${ver}"
-      return
+# ---------- platform ----------
+os=$(uname -s)
+arch=$(uname -m)
+case "$os" in
+    Darwin) os_asset="darwin" ;;
+    Linux) os_asset="linux" ;;
+    *)
+        die "unsupported OS: $os (Windows users: download the *-windows-x64.zip asset manually)"
+        ;;
+esac
+case "$arch" in
+    arm64 | aarch64) arch_asset="arm64" ;;
+    x86_64 | amd64) arch_asset="x64" ;;
+    *)
+        die "unsupported architecture: $arch"
+        ;;
+esac
+
+# ---------- version ----------
+if [ "$#" -ge 1 ]; then
+    version="$1"
+    case "$version" in
+        v*) ;;
+        *) version="v$version" ;;
+    esac
+else
+    # Resolve the latest release tag via the /releases/latest redirect —
+    # no token, no jq dependency. Fallback to the REST API (unauthenticated,
+    # 60 req/h per IP) when the redirect target is unreachable.
+    version=$(
+        curl -fsSLI -o /dev/null -w '%{url_effective}' --max-time 20 \
+            "https://github.com/$REPO/releases/latest" 2>/dev/null |
+            sed 's|.*/tag/||'
+    )
+    if [ -z "$version" ]; then
+        version=$(
+            curl -fsSL --max-time 20 \
+                "https://api.github.com/repos/$REPO/releases/latest" 2>/dev/null |
+                grep -o '"tag_name": *"[^"]*"' | head -1 | sed 's/.*"tag_name": *"//;s/"//'
+        )
     fi
-    warn "bun v${ver} found but v${BUN_MIN_VERSION}+ required. Upgrading..."
-  else
-    info "bun not found. Installing..."
-  fi
-  install_bun
-}
+    [ -n "$version" ] || die "could not resolve the latest release tag (github.com unreachable? pin a version: install.sh v0.8.5)"
+    # Guard against a non-redirected url_effective (proxy interference):
+    # the value must look like a release tag, e.g. v0.8.5.
+    case "$version" in
+        v[0-9]*) ;;
+        *) version="" ;;
+    esac
+    [ -n "$version" ] || die "could not resolve the latest release tag (github.com unreachable? pin a version: install.sh v0.8.5)"
+fi
 
-install_bun() {
-  curl -fsSL https://bun.sh/install | bash
-  # Source the updated profile so bun is on PATH for this session
-  export BUN_INSTALL="${BUN_INSTALL:-$HOME/.bun}"
-  export PATH="$BUN_INSTALL/bin:$PATH"
-  if ! command -v bun &>/dev/null; then
-    fail "bun installation succeeded but binary not found on PATH.
-    Add this to your shell profile and restart:
-      export PATH=\"\$HOME/.bun/bin:\$PATH\""
-  fi
-  ok "bun: v$(bun --version) (just installed)"
-}
+version_num=${version#v}
+asset="fusion-code-${version_num}-${os_asset}-${arch_asset}.tar.gz"
+base_url="${FUSION_CODE_RELEASE_BASE:-https://github.com/$REPO/releases/download/${version}}"
 
-# -------------------------------------------------------------------
-# Clone & build
-# -------------------------------------------------------------------
+tmp_dir=$(mktemp -d)
+trap 'rm -rf "$tmp_dir"' EXIT
 
-clone_repo() {
-  if [ -d "$INSTALL_DIR" ]; then
-    warn "$INSTALL_DIR already exists"
-    if [ -d "$INSTALL_DIR/.git" ]; then
-      info "Pulling latest changes..."
-      git -C "$INSTALL_DIR" pull --ff-only origin main 2>/dev/null || {
-        warn "Pull failed, continuing with existing copy"
-      }
-    fi
-  else
-    info "Cloning repository..."
-    git clone --depth 1 "$REPO" "$INSTALL_DIR"
-  fi
-  ok "Source: $INSTALL_DIR"
-}
+# ---------- download ----------
+log "downloading $asset"
+curl -fsSL --retry 3 --connect-timeout 15 -o "$tmp_dir/$asset" "$base_url/$asset" ||
+    die "download failed: $base_url/$asset (does the release exist? network reachable?)"
+curl -fsSL --retry 3 --connect-timeout 15 -o "$tmp_dir/SHA256SUMS.txt" "$base_url/SHA256SUMS.txt" ||
+    die "download failed: $base_url/SHA256SUMS.txt"
 
-install_deps() {
-  info "Installing dependencies..."
-  cd "$INSTALL_DIR"
-  bun install --frozen-lockfile 2>/dev/null || bun install
-  ok "Dependencies installed"
-}
+# ---------- verify ----------
+expected=$(grep " $asset\$" "$tmp_dir/SHA256SUMS.txt" | awk '{print $1}')
+[ -n "$expected" ] || die "no checksum found for $asset in SHA256SUMS.txt"
+if command -v sha256sum >/dev/null 2>&1; then
+    actual=$(sha256sum "$tmp_dir/$asset" | awk '{print $1}')
+else
+    actual=$(shasum -a 256 "$tmp_dir/$asset" | awk '{print $1}')
+fi
+[ "$actual" = "$expected" ] ||
+    die "checksum mismatch for $asset (expected $expected, got $actual)"
+log "checksum ok"
 
-build_binary() {
-  info "Building free-code (all experimental features enabled)..."
-  cd "$INSTALL_DIR"
-  bun run build:dev:full
-  ok "Binary built: $INSTALL_DIR/cli-dev"
-}
+# ---------- extract + install ----------
+tar -xzf "$tmp_dir/$asset" -C "$tmp_dir"
+[ -f "$tmp_dir/fusion-code" ] ||
+    die "unexpected tarball layout: no fusion-code binary at archive root"
+mkdir -p "$INSTALL_DIR"
+mv "$tmp_dir/fusion-code" "$INSTALL_DIR/fusion-code"
+chmod +x "$INSTALL_DIR/fusion-code"
 
-link_binary() {
-  local link_dir="$HOME/.local/bin"
-  mkdir -p "$link_dir"
+# ---------- post-install ----------
+case ":$PATH:" in
+    *":$INSTALL_DIR:"*) ;;
+    *)
+        log "note: $INSTALL_DIR is not on your PATH"
+        log "add it, e.g.:  echo 'export PATH=\"$INSTALL_DIR:\$PATH\"' >> ~/.zshrc"
+        ;;
+esac
 
-  ln -sf "$INSTALL_DIR/cli-dev" "$link_dir/free-code"
-  ok "Symlinked: $link_dir/free-code"
-
-  if ! echo "$PATH" | tr ':' '\n' | grep -qx "$link_dir"; then
-    warn "$link_dir is not on your PATH"
-    echo ""
-    printf "${YELLOW}  Add this to your shell profile (~/.bashrc, ~/.zshrc, etc.):${RESET}\n"
-    printf "${BOLD}    export PATH=\"\$HOME/.local/bin:\$PATH\"${RESET}\n"
-    echo ""
-  fi
-}
-
-# -------------------------------------------------------------------
-# Main
-# -------------------------------------------------------------------
-
-header
-info "Starting installation..."
-echo ""
-
-check_os
-check_git
-check_bun
-echo ""
-
-clone_repo
-install_deps
-build_binary
-link_binary
-
-echo ""
-printf "${GREEN}${BOLD}  Installation complete!${RESET}\n"
-echo ""
-printf "  ${BOLD}Run it:${RESET}\n"
-printf "    ${CYAN}free-code${RESET}                          # interactive REPL\n"
-printf "    ${CYAN}free-code -p \"your prompt\"${RESET}          # one-shot mode\n"
-echo ""
-printf "  ${BOLD}Set your API key:${RESET}\n"
-printf "    ${CYAN}export ANTHROPIC_API_KEY=\"sk-ant-...\"${RESET}\n"
-echo ""
-printf "  ${BOLD}Or set FUSION_BASE_URL for a custom endpoint:${RESET}\n"
-printf "    ${CYAN}export FUSION_BASE_URL=https://your-endpoint${RESET}\n"
-echo ""
-printf "  ${DIM}Source: $INSTALL_DIR${RESET}\n"
-printf "  ${DIM}Binary: $INSTALL_DIR/cli-dev${RESET}\n"
-printf "  ${DIM}Link:   ~/.local/bin/free-code${RESET}\n"
-echo ""
+"$INSTALL_DIR/fusion-code" --version &&
+    log "installed $version to $INSTALL_DIR/fusion-code"

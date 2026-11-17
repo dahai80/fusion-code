@@ -55,7 +55,15 @@ source_of_truth:
 
 ### Install from Prebuilt Binaries (no Bun needed)
 
-Download the archive for your platform from the [latest release](https://github.com/dahai80/fusion-code/releases):
+One-line install (macOS / Linux — auto-detects platform, verifies sha256, installs to `~/.local/bin`):
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/dahai80/fusion-code/main/install.sh | sh
+# pin a version: curl -fsSL .../install.sh | sh -s v0.8.5
+# custom dir:    FUSION_CODE_INSTALL_DIR=/usr/local/bin sh install.sh
+```
+
+Or download the archive for your platform manually from the [latest release](https://github.com/dahai80/fusion-code/releases):
 
 | Platform | Archive |
 |---|---|
