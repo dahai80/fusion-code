@@ -123,11 +123,14 @@ fi
 log "checksum ok"
 
 # ---------- extract + install ----------
+# package-release.sh ships the binary as fusion-code-<os>-<arch> at the
+# archive root (plus FUSION.rules.example); install it as plain fusion-code.
 tar -xzf "$tmp_dir/$asset" -C "$tmp_dir"
-[ -f "$tmp_dir/fusion-code" ] ||
-    die "unexpected tarball layout: no fusion-code binary at archive root"
+inner="fusion-code-${os_asset}-${arch_asset}"
+[ -f "$tmp_dir/$inner" ] ||
+    die "unexpected tarball layout: no $inner binary at archive root"
 mkdir -p "$INSTALL_DIR"
-mv "$tmp_dir/fusion-code" "$INSTALL_DIR/fusion-code"
+mv "$tmp_dir/$inner" "$INSTALL_DIR/fusion-code"
 chmod +x "$INSTALL_DIR/fusion-code"
 
 # ---------- post-install ----------

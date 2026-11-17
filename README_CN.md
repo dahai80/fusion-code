@@ -55,6 +55,16 @@ source_of_truth:
 
 ### 安装与运行
 
+一键安装（macOS / Linux — 自动探测平台、sha256 校验、断点续传，默认装到 `~/.local/bin`）：
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/dahai80/fusion-code/main/install.sh | sh
+# 固定版本：curl -fsSL .../install.sh | sh -s v0.8.5
+# 自定义目录：FUSION_CODE_INSTALL_DIR=/usr/local/bin sh install.sh
+```
+
+或从源码构建：
+
 ```bash
 git clone https://github.com/dahai80/fusion-code.git
 cd fusion-code
