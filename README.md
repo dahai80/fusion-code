@@ -55,7 +55,13 @@ source_of_truth:
 
 ### Install from Prebuilt Binaries (no Bun needed)
 
-One-line install (macOS / Linux — auto-detects platform, verifies sha256, installs to `~/.local/bin`):
+Homebrew (macOS / Linux, sha256-pinned release binaries):
+
+```bash
+brew install dahai80/fusion-mlx/fusion-code
+```
+
+One-line install script (macOS / Linux — auto-detects platform, verifies sha256, resumes interrupted downloads, installs to `~/.local/bin`):
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/dahai80/fusion-code/main/install.sh | sh

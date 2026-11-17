@@ -55,6 +55,12 @@ source_of_truth:
 
 ### 安装与运行
 
+Homebrew（macOS / Linux，sha256 固定的发布二进制）：
+
+```bash
+brew install dahai80/fusion-mlx/fusion-code
+```
+
 一键安装（macOS / Linux — 自动探测平台、sha256 校验、断点续传，默认装到 `~/.local/bin`）：
 
 ```bash
