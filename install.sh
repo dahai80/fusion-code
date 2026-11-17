@@ -95,8 +95,18 @@ trap 'rm -rf "$tmp_dir"' EXIT
 
 # ---------- download ----------
 log "downloading $asset"
-curl -fsSL --retry 3 --connect-timeout 15 -o "$tmp_dir/$asset" "$base_url/$asset" ||
-    die "download failed: $base_url/$asset (does the release exist? network reachable?)"
+# Resume loop: flaky networks/proxies truncate large transfers mid-stream;
+# curl -C - resumes from the byte offset and the sha256 check below still
+# guarantees integrity of the final assembled file.
+part="$tmp_dir/$asset"
+ok=""
+for _ in 1 2 3 4 5 6 7 8; do
+    if curl -fsSL -C - --connect-timeout 15 -o "$part" "$base_url/$asset"; then
+        ok=1
+        break
+    fi
+done
+[ -n "$ok" ] || die "download failed after 8 attempts: $base_url/$asset (does the release exist? network reachable?)"
 curl -fsSL --retry 3 --connect-timeout 15 -o "$tmp_dir/SHA256SUMS.txt" "$base_url/SHA256SUMS.txt" ||
     die "download failed: $base_url/SHA256SUMS.txt"
 
