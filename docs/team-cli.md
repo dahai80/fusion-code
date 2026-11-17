@@ -1,3 +1,20 @@
+---
+doc_id: fusion-code/team-cli
+product: fusion-code
+class: app
+entry: developer
+doc_type: guide
+title: { zh: "Team CLI 契约", en: "Team CLI contract" }
+audience: engineer
+status: stable
+version: 0.8.5
+updated: 2026-11-17
+owner: "@dahai"
+source_of_truth:
+  - src/cli/handlers/team.ts
+  - src/services/teams/manifest.ts
+---
+
 # Team CLI (`fusion-code team`)
 
 Manifest-based team registration over the agent-studio daemon (`teams.*` RPC). fusion-code is a pure RPC consumer — the team kernel lives in `fusion-harness`, the dispatcher in `fusion-agent-studio`.
