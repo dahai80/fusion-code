@@ -7,7 +7,7 @@ doc_type: changelog
 title: { zh: "变更日志", en: "Changelog" }
 audience: engineer
 status: draft
-version: 0.8.11
+version: 0.8.12
 updated: 2026-11-20
 owner: "@dahai"
 source_of_truth:
@@ -19,6 +19,11 @@ source_of_truth:
 All notable changes to fusion-code are documented here.
 
 ## Unreleased
+
+## 0.8.12 - 2026-11-20
+
+- **Bench fix (#297)**: harness-gain `verify()` command branches (`command-exit` / `command-stdout` / `pytest`) crashed with `TypeError: cmd must be an array` — Bun `spawnSync` signature, not Node `child_process`. Command-verified tasks now complete a real run and emit a verdict.
+- **i18n (#298)**: all 27 Chinese comments in `src/services/api/fusion-mlx-stream.ts` translated to English (comments only, no behavior change); closes #296. Broader English-only debt tracked in #299 (274 files).
 
 ## 0.8.11 - 2026-11-20
 
