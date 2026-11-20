@@ -33,5 +33,7 @@ Each entry: finding, evidence, concrete ask.
 
 ## Entries
 
-- _(none yet — first entries expected from the local-model harness-gain
-  evaluation, report #2)_
+### 2026-11-20 — engine prompt-cache accounting is live and consumed; keep the field stable
+- Finding: fusion-mlx 0.10.67 prefix caching works on `/v1/chat/completions` — identical request repeated returns `prompt_tokens_details.cached_tokens = 64` of 82 prompt tokens (Qwen3-8B, 3-call curl test). The engine's Anthropic-style `/v1/messages` endpoint also emits `cache_read_input_tokens` / `cache_creation_input_tokens`. fusion-code historically dropped this data in its OpenAI-endpoint translation layer, so 2,365 real sessions recorded zero cache accounting (125M input tokens billed as uncached). Fixed on the fusion-code side (PR fusion-code#288): client now maps `prompt_tokens_details.cached_tokens` into `cache_read_input_tokens` for usage accounting, telemetry, and session jsonl.
+- Evidence: live curl transcript (see PR fusion-code#288 description); baseline numbers in `docs/research/bench-reports/2026-11-20-r1.md` §3.
+- Ask: (1) treat `prompt_tokens_details.cached_tokens` as a stable API contract on `/v1/chat/completions` — fusion-code now depends on it; document it in the engine API docs. (2) Consider exposing an engine-level cache hit-rate metric (Prometheus `/metrics` via fusion-supervisor) so harness-vs-engine cache regressions are distinguishable. (3) The Anthropic-style endpoint reported `cache_read_input_tokens: 0` on a first cold request while the OpenAI one reported no details block — worth aligning field presence semantics across the two endpoints.
