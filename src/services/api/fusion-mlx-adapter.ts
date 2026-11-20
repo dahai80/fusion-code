@@ -300,6 +300,7 @@ function isAllowedMlxHostname(hostname: string): boolean {
 // + isAllowedMlxHostname 正则每请求重复 2-3 次。首次解析后缓存(与 _cachedMlxApiKey
 // 同模式);安全告警仅首调发出一次。
 let _cachedMlxBaseUrl: string | null = null;
+let _cachedMlxBaseUrlSource = "default";
 function getMlxBaseUrl(): string {
 	if (_cachedMlxBaseUrl !== null) return _cachedMlxBaseUrl;
 	const url =
@@ -307,6 +308,13 @@ function getMlxBaseUrl(): string {
 		process.env.FUSION_MLX_BASE_URL ||
 		process.env.MLX_BASE_URL ||
 		DEFAULT_MLX_BASE_URL;
+	_cachedMlxBaseUrlSource = process.env.FUSION_GATEWAY_URL
+		? "FUSION_GATEWAY_URL"
+		: process.env.FUSION_MLX_BASE_URL
+			? "FUSION_MLX_BASE_URL"
+			: process.env.MLX_BASE_URL
+				? "MLX_BASE_URL"
+				: "default";
 	try {
 		const parsed = new URL(url);
 		if (!isAllowedMlxHostname(parsed.hostname)) {
@@ -334,6 +342,14 @@ function getMlxBaseUrl(): string {
 function getMlxApiUrl(path: string): string {
 	const base = getMlxBaseUrl().replace(/\/+$/, "");
 	return `${base}${path}`;
+}
+
+// #290 diagnostics: surface the ACTUAL endpoint in use (URL + winning env var)
+// so health-failure errors stop claiming the hardcoded default. FUSION_GATEWAY_URL
+// silently shadows FUSION_MLX_BASE_URL (documented precedence) — users setting
+// only FUSION_MLX_BASE_URL must be able to see which var won.
+export function getMlxEndpointDebug(): { url: string; source: string } {
+	return { url: getMlxBaseUrl(), source: _cachedMlxBaseUrlSource };
 }
 
 // MLX server uses "--" as model name separator (HuggingFace org/model → org--model)
@@ -1513,6 +1529,7 @@ export function _resetMlxCircuitBreaker(): void {
 // after a prior test already warmed the cache with a different URL.
 export function _resetMlxBaseUrl(): void {
 	_cachedMlxBaseUrl = null;
+	_cachedMlxBaseUrlSource = "default";
 }
 
 export function createFusionMlxFetch(model: string): typeof globalThis.fetch {
