@@ -7,8 +7,8 @@ doc_type: guide
 title: { zh: "fusion-code 开发者指南", en: "fusion-code developer guide" }
 audience: engineer
 status: draft
-version: 0.5.22
-updated: 2026-11-07
+version: 0.8.5
+updated: 2026-11-20
 owner: "@dahai"
 source_of_truth:
   - CLAUDE.md
@@ -210,6 +210,23 @@ fusion-code trajectory list [--source DIR]
 
 `web/` is the session-centric web workbench over the kernel (issue #228): own package (Bun + Vite + React + TS + Tailwind, vendored `@fusion/web-sdk`/`@fusion/web-ui`), backend on port 11482 (port-registry `fusion-code-web`). Backend (`web/server/`) serves the built SPA + `/api` + `/ws` + `/manifest.json`; orchestrates kernel subprocesses per run (`fusion-code -p --output-format stream-json --verbose [--resume <kernelSessionId>] [--allowedTools ...]`, cwd = repo path); runs are server-owned (browser disconnect does not kill them; events ring-buffer per session and replay on WS reconnect); first run links web session id → kernel session id. Gateway self-registration env-gated (`FUSION_SHELL_GATEWAY_URL` + `FUSION_ADMIN_KEY`, Bearer auth, 15s heartbeat → sidebar `⌨ Code`, proxy `/shell/fusion-code/`). Store at `~/.fusion-code/web` (repos/sessions/permissions; permissions = per-session allowlist, read-only default). Commands: `cd web && bun install && bun run build|dev|start|test`. Tests (`web/tests/`) use a mock kernel fixture + real temp git repos. See `web/README.md`.
 
+## Evolution plan (2026-11, v0.6.0–v0.8.5)
+
+Capability catch-up & surpass plan: `docs/evolution-plan-2026-11.md` (derived from the industry-scan report `docs/research/fusion-code-evolution-2026-11.md`). Phases all shipped; each work item = branch + PR, phase ends in a release.
+
+- **AGENTS.md first-class context (P1.1)** — `src/utils/claudemd.ts`: AGENTS.md loads in place of CLAUDE.md where present; AGENTS.md wins per directory in the walk.
+- **macOS Seatbelt sandbox e2e (P1.2)** — end-to-end verification of the sandbox layer (`src/entrypoints/sandboxTypes.ts`, `docs/enterprise-hardening.md`).
+- **OTel GenAI trace chain (P1.3)** — OpenTelemetry GenAI semantic-convention spans over the existing `cost-tracker` (span attributes).
+- **Async task sessions + PR hand-back (P2.1)** — `src/cli/handlers/task.ts`; long-running task sessions hand back a PR.
+- **Reviewer-agent layer + cron routines (P2.2)** — `src/services/review/reviewer.ts` + `src/cli/handlers/routine.ts`.
+- **Web review workbench (P2.3)** — review UI in `web/`.
+- **Spec-driven development gate (P2.4)** — `src/cli/handlers/spec.ts`.
+- **ACP server (P3.1)** — Agent Client Protocol v1 over stdio: `src/cli/handlers/acp.ts` (+ `docs/acp.md`); SDK/agent protocol types in `src/entrypoints/sdk/`.
+- **Local-model tool tier spec (P3.2)** — published as a versioned open standard: `docs/tier-spec/SPEC.md` (+ `tiers.json`, JSON Schema).
+- **Video/screen input evaluation (P3.3)** — evaluated, no kernel surface; findings in `docs/research/video-input-evaluation.md`.
+- **`fusion team` (v0.8.3)** — manifest-based multi-agent teams over agent-studio RPC: `src/cli/handlers/team.ts` + `src/services/teams/` (`manifest.ts`, `studioRpc.ts`); lead is not an implicit identity — `fusion team send` requires `--from <member>` per kernel contract (`docs/team-cli.md`).
+- **Distribution (v0.8.4–0.8.5)** — CI multi-platform binary releases (macOS/Ubuntu/Windows), `install.sh` one-liner (curl | sh), Homebrew tap `dahai80/fusion-mlx`; `scripts/package-release.sh` produces runnable archives.
+
 ## Docs
 
-`docs/` holds in-repo deep-dives - consult these before changing related subsystems: `architecture.md`, `development.md`, `developer-guide.md`, `feature-flags.md`, `model-providers.md`, `trajectory-pipeline.md`, `workflow-runtime.md`, `enterprise-hardening.md`, `plugin-authoring.md`, `team-cli.md`. `FUSION.rules.example` documents the enhanced rule file format.
+`docs/` holds in-repo deep-dives - consult these before changing related subsystems: `architecture.md`, `development.md`, `developer-guide.md`, `feature-flags.md`, `model-providers.md`, `trajectory-pipeline.md`, `workflow-runtime.md`, `enterprise-hardening.md`, `plugin-authoring.md`, `team-cli.md`, `acp.md`, `troubleshooting.md`, `evolution-plan-2026-11.md` (+ `research/`, `tier-spec/`). `FUSION.rules.example` documents the enhanced rule file format.
