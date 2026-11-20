@@ -542,6 +542,7 @@ export async function* transformMLXStreamToAnthropic(
 
 	// Emit message_delta
 	const stopReason = mapFinishReason(state.finishReason);
+	const cachedTokens = state.usage.prompt_tokens_details?.cached_tokens ?? 0;
 	yield {
 		type: "message_delta",
 		delta: {
@@ -551,6 +552,9 @@ export async function* transformMLXStreamToAnthropic(
 		usage: {
 			input_tokens: state.usage.prompt_tokens,
 			output_tokens: state.usage.completion_tokens,
+			// Field omitted entirely when the engine reports no cache reads so
+			// uncached runs stay byte-identical to the previous output.
+			...(cachedTokens > 0 && { cache_read_input_tokens: cachedTokens }),
 		},
 	};
 
@@ -885,6 +889,12 @@ export function transformMLXResponseToAnthropic(mlxResponse: {
 		usage: {
 			input_tokens: mlxResponse.usage.prompt_tokens,
 			output_tokens: mlxResponse.usage.completion_tokens,
+			// Field omitted entirely when the engine reports no cache reads so
+			// uncached runs stay byte-identical to the previous output.
+			...((mlxResponse.usage.prompt_tokens_details?.cached_tokens ?? 0) > 0 && {
+				cache_read_input_tokens: mlxResponse.usage.prompt_tokens_details
+					?.cached_tokens as number,
+			}),
 		},
 	};
 }

@@ -45,6 +45,50 @@ describe('transformMLXResponseToAnthropic', () => {
     expect(result.usage.output_tokens).toBe(5)
   })
 
+  it('should map engine cached_tokens to cache_read_input_tokens', () => {
+    const mlxRes = {
+      id: 'chatcmpl-cache',
+      model: 'qwen2.5-coder',
+      choices: [
+        {
+          message: { role: 'assistant', content: 'ok' },
+          finish_reason: 'stop',
+        },
+      ],
+      usage: {
+        prompt_tokens: 82,
+        completion_tokens: 3,
+        total_tokens: 85,
+        prompt_tokens_details: { cached_tokens: 64, audio_tokens: null },
+      },
+    }
+
+    const result = transformMLXResponseToAnthropic(mlxRes)
+    expect(result.usage.cache_read_input_tokens).toBe(64)
+  })
+
+  it('should omit cache_read_input_tokens when engine reports no cache reads', () => {
+    const mlxRes = {
+      id: 'chatcmpl-nocache',
+      model: 'qwen2.5-coder',
+      choices: [
+        {
+          message: { role: 'assistant', content: 'ok' },
+          finish_reason: 'stop',
+        },
+      ],
+      usage: {
+        prompt_tokens: 24,
+        completion_tokens: 2,
+        total_tokens: 26,
+        prompt_tokens_details: { cached_tokens: 0, audio_tokens: null },
+      },
+    }
+
+    const result = transformMLXResponseToAnthropic(mlxRes)
+    expect('cache_read_input_tokens' in result.usage).toBe(false)
+  })
+
   it('should convert tool-call response', () => {
     const mlxRes = {
       id: 'chatcmpl-456',
@@ -264,6 +308,34 @@ describe('transformMLXStreamToAnthropic', () => {
     // Should have text block stop then tool_use block start
     const blockStops = events.filter(e => e.type === 'content_block_stop')
     expect(blockStops.length).toBeGreaterThanOrEqual(1)
+  })
+
+  it('should surface cache_read_input_tokens in message_delta when engine caches prefix', async () => {
+    const response = createStreamResponse([
+      'data: {"id":"x","object":"chat.completion.chunk","created":1,"model":"test","choices":[{"index":0,"delta":{"content":"ok"},"finish_reason":null}]}',
+      'data: {"id":"x","object":"chat.completion.chunk","created":1,"model":"test","choices":[{"index":0,"delta":{},"finish_reason":"stop"}],"usage":{"prompt_tokens":82,"completion_tokens":3,"total_tokens":85,"prompt_tokens_details":{"cached_tokens":64,"audio_tokens":null}}}',
+      'data: [DONE]',
+    ])
+    const events = await collectEvents(response)
+    const delta = events.find(e => e.type === 'message_delta') as
+      | { type: 'message_delta'; usage: Record<string, number> }
+      | undefined
+    expect(delta).toBeDefined()
+    expect(delta?.usage.cache_read_input_tokens).toBe(64)
+  })
+
+  it('should omit cache_read_input_tokens in message_delta when nothing is cached', async () => {
+    const response = createStreamResponse([
+      'data: {"id":"x","object":"chat.completion.chunk","created":1,"model":"test","choices":[{"index":0,"delta":{"content":"ok"},"finish_reason":null}]}',
+      'data: {"id":"x","object":"chat.completion.chunk","created":1,"model":"test","choices":[{"index":0,"delta":{},"finish_reason":"stop"}],"usage":{"prompt_tokens":24,"completion_tokens":2,"total_tokens":26,"prompt_tokens_details":{"cached_tokens":0,"audio_tokens":null}}}',
+      'data: [DONE]',
+    ])
+    const events = await collectEvents(response)
+    const delta = events.find(e => e.type === 'message_delta') as
+      | { type: 'message_delta'; usage: Record<string, unknown> }
+      | undefined
+    expect(delta).toBeDefined()
+    expect('cache_read_input_tokens' in (delta?.usage ?? {})).toBe(false)
   })
 
   it('should handle empty response body', async () => {
