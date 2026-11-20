@@ -50,3 +50,4 @@ test-results/
 playwright-report/
 .audit-223-evidence/
 benchmarks/token-efficiency-sessions.json
+benchmarks/harness-gain/results/
