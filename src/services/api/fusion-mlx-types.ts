@@ -125,6 +125,13 @@ export interface MLXUsage {
 	prompt_tokens: number;
 	completion_tokens: number;
 	total_tokens: number;
+	// Engine-side prompt cache accounting (OpenAI-style details block).
+	// Present on /v1/chat/completions responses; cached_tokens counts the
+	// prefix tokens served from the engine prompt cache.
+	prompt_tokens_details?: {
+		cached_tokens?: number;
+		audio_tokens?: number | null;
+	};
 }
 
 // ─── SSE Stream Events ────────────────────────────────────────
