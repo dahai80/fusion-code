@@ -1,9 +1,9 @@
 /**
- * Fusion-MLX 流式响应适配器
+ * Fusion-MLX streaming response adapter
  *
- * 将 fusion-mlx 的 SSE 流（OpenAI-compatible /v1/chat/completions）
- * 转换为 Anthropic Messages API 格式的流式事件，
- * 以便复用 fusion-code 现有的流式处理逻辑。
+ * Translates the fusion-mlx SSE stream (OpenAI-compatible /v1/chat/completions)
+ * into Anthropic Messages API streaming events,
+ * reusing fusion-code's existing stream-processing logic.
  */
 
 import { logForDebugging } from "../../utils/debug.js";
@@ -249,7 +249,7 @@ async function readMLXChunkWithIdleTimeout(
 				`[Fusion-MLX Stream] Idle timeout: no data for ${timeoutMs / 1000}s, stream cancelled`,
 			);
 		}
-		// AbortError(用户 ESC)或流错误:cancel reader 防泄漏,再原样抛出(与 #1 abort 协调)
+		// AbortError (user ESC) or stream error: cancel reader to prevent leaks, then rethrow as-is (coordinates with #1 abort)
 		logForDebugging(
 			`[Fusion-MLX Stream] read failed (${err.name}: ${err.message}), cancelling reader`,
 			{ level: "warn" },
@@ -262,8 +262,8 @@ async function readMLXChunkWithIdleTimeout(
 }
 
 /**
- * 将 fusion-mlx SSE 流转换为 Anthropic 格式的流式事件。
- * 返回一个 AsyncGenerator，产出 AnthropicStreamEvent。
+ * Transforms the fusion-mlx SSE stream into Anthropic-format streaming events.
+ * Returns an AsyncGenerator yielding AnthropicStreamEvent.
  */
 export async function* transformMLXStreamToAnthropic(
 	response: Response,
@@ -272,25 +272,25 @@ export async function* transformMLXStreamToAnthropic(
 	seedState?: StreamState,
 	stateRef?: { current: StreamState | undefined },
 ): AsyncGenerator<AnthropicStreamEvent> {
-	// seedState = resume 续传: 深克隆 pre-drop state (调用方克隆, 隔离双流腐败)。
-	// 续传 contentIndex/textBuffer/emittedTextLen/textBlockOpen/currentToolCall →
-	// 正确索引/只发新文本/续 mid-tool/抑制 spurious content_block_start。
-	// undefined → createInitialState (byte-identical 原行为)。
+	// seedState = resume continuation: deep-clone the pre-drop state (caller clones, isolating against double-stream corruption).
+	// Restores contentIndex/textBuffer/emittedTextLen/textBlockOpen/currentToolCall so
+	// indices stay correct / only new text is emitted / mid-tool calls continue / spurious content_block_start is suppressed.
+	// undefined -> createInitialState (byte-identical original behavior).
 	const state = seedState
 		? (structuredClone(seedState) as StreamState)
 		: createInitialState(model);
 
-	// stateRef 侧信道: state 为 const ref, processChunk 原地改其字段, 对象身份不变。
-	// 一次性挂载后, claude.ts 掉线时读 stateRef.current 拿 live state (已含所有累计变更)。
-	// undefined → 不挂 (byte-identical 原行为)。
+	// stateRef side-channel: state is a const ref; processChunk mutates its fields in place, keeping object identity stable.
+	// After one-time attach, claude.ts reads stateRef.current on drop to get the live state (including all accumulated changes).
+	// undefined -> not attached (byte-identical original behavior).
 	if (stateRef) stateRef.current = state;
 
 	if (!response.body) {
 		throw new Error("MLX stream response has no body");
 	}
 
-	// Emit message_start — seed 续传时跳过 (claude.ts 已持有本轮 message_start;
-	// resumed 的会带新 message_id+零 usage 覆盖 partialMessage, mergeResumedStream 也再丢一次)。
+	// Emit message_start — skipped when resuming from seed (claude.ts already holds this turn's message_start;
+	// a resumed one would carry a new message_id + zero usage, overwriting partialMessage, and mergeResumedStream would drop it again).
 	if (!seedState) {
 		yield {
 			type: "message_start",
@@ -318,9 +318,9 @@ export async function* transformMLXStreamToAnthropic(
 	const MLX_STREAM_IDLE_TIMEOUT_MS =
 		parseInt(process.env.FUSION_MLX_STREAM_IDLE_TIMEOUT_MS || "", 10) || 90_000;
 
-	// P3-5 (audit 0901): reader 锁释放 — 消费方 cancel (generator return) 或中途 throw
-	// (mid-stream error chunk) 时 reader 仍持锁 → response.body 锁泄漏。try/finally 保证释放。
-	// reader 在外层声明 (finally 需引用); decoder/buffer 也在外层 (循环后 buffer 处理需引用)。
+	// P3-5 (audit 0901): reader lock release — when the consumer cancels (generator return)
+	// or throws mid-stream (error chunk), the reader still holds the lock -> response.body lock leak. try/finally guarantees release.
+	// reader is declared in the outer scope (finally needs to reference it); decoder/buffer too (buffer handling after the loop needs them).
 	try {
 		while (true) {
 			const { done, value } = await readMLXChunkWithIdleTimeout(
@@ -348,7 +348,7 @@ export async function* transformMLXStreamToAnthropic(
 						// Skip unparseable chunks
 						continue;
 					}
-					// 检测 MLX 流式 error chunk(fusion-mlx 生成中错误时可能发 {error:...}),fail visibly 而非静默跳过
+					// Detect MLX streaming error chunks (fusion-mlx may emit {error:...} mid-generation); fail visibly instead of skipping silently
 					const errField = (parsed as unknown as Record<string, unknown>).error; // log: intermediate unknown cast
 					if (errField) {
 						const errObj = errField as { message?: string };
@@ -369,12 +369,12 @@ export async function* transformMLXStreamToAnthropic(
 			}
 		}
 	} finally {
-		// P3-5: 消费方 cancel (generator .return) 或中途 throw 时 reader 仍持锁 →
-		// response.body 锁泄漏。releaseLock 释放锁; 已 done/已释放则忽略 (try/catch 静默)。
+		// P3-5: when the consumer cancels (generator .return) or throws mid-stream, the reader still
+		// holds the lock -> response.body lock leak. releaseLock frees it; already-done/already-released is ignored (silent try/catch).
 		try {
 			reader.releaseLock();
 		} catch {
-			// reader 已释放或流已关闭 — 无需处理
+			// reader already released or stream closed — nothing to do
 		}
 	}
 
@@ -408,8 +408,8 @@ export async function* transformMLXStreamToAnthropic(
 		logForDebugging(
 			`[Fusion-MLX Stream] Closing pending tool_call: ${state.currentToolCall.name}, args_len=${state.currentToolCall.arguments.length}`,
 		);
-		// 流式 max_tokens 截断(finish_reason=length)导致 tool_call arguments 不完整:fail visibly 记录
-		// 完整修复需 QueryEngine 下一轮 max_tokens 升级联动,流式层只能记录
+		// Streaming max_tokens truncation (finish_reason=length) leaves tool_call arguments incomplete: log visibly
+		// A full fix needs QueryEngine max_tokens bump coordination on the next turn; the streaming layer can only record it
 		if (state.finishReason === "length") {
 			logForDebugging(
 				`[Fusion-MLX Stream] tool_call truncated by max_tokens (finish_reason=length): ${state.currentToolCall.name}, arguments may be incomplete`,
@@ -698,7 +698,7 @@ function processChunk(
 						},
 					});
 
-					// 如果第一个 chunk 就带有 arguments，立即发出 input_json_delta
+					// If the first chunk already carries arguments, emit input_json_delta immediately
 					if (tc.function?.arguments) {
 						events.push({
 							type: "content_block_delta",
@@ -776,7 +776,7 @@ export interface AnthropicNonStreamingResponse {
 }
 
 /**
- * 将 fusion-mlx 非流式响应转换为 Anthropic Messages API 格式。
+ * Transforms a fusion-mlx non-streaming response into Anthropic Messages API format.
  */
 export function transformMLXResponseToAnthropic(mlxResponse: {
 	id: string;
