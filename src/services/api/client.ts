@@ -108,11 +108,17 @@ export async function getAnthropicClient({
 			checkFusionMlxHealth,
 			getRecommendedCodeModel,
 			getMlxModelCapabilities,
+			getMlxEndpointDebug,
 		} = await import("./fusion-mlx-adapter.js");
 		const status = await checkFusionMlxHealth();
 		if (!status.available) {
+			// #290: report the ACTUAL resolved endpoint, not a hardcoded default —
+			// FUSION_GATEWAY_URL silently shadows FUSION_MLX_BASE_URL, and the old
+			// message always claimed 11432 regardless of configuration.
+			const ep = getMlxEndpointDebug();
 			throw new Error(
-				"Local inference service unavailable (default: http://127.0.0.1:11432)\n" +
+				`Local inference service unavailable (endpoint: ${ep.url}, source: ${ep.source})\n` +
+					"Precedence: FUSION_GATEWAY_URL > FUSION_MLX_BASE_URL > MLX_BASE_URL > default http://127.0.0.1:11432.\n" +
 					"Set FUSION_MLX_BASE_URL / FUSION_GATEWAY_URL to override, or unset\n" +
 					"FUSION_MLX_ENABLED and use FUSION_BASE_URL + FUSION_CLIENT_KEY to connect\n" +
 					"to a cloud endpoint instead.",

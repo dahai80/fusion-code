@@ -21,6 +21,7 @@ import {
 	getDefaultMlxModel,
 	getFusionMlxEmbeddings,
 	getFusionMlxModels,
+	getMlxEndpointDebug,
 	getRecommendedCodeModel,
 	queryFusionMlx,
 	shouldUseFusionMlx,
@@ -163,6 +164,46 @@ describe("checkFusionMlxHealth", () => {
 			delete process.env.FUSION_GATEWAY_URL;
 			delete process.env.FUSION_MLX_BASE_URL;
 		}
+	});
+});
+
+// ─── getMlxEndpointDebug (#290) ───────────────────────────────
+
+describe("getMlxEndpointDebug", () => {
+	it("reports FUSION_GATEWAY_URL as source when it shadows FUSION_MLX_BASE_URL", () => {
+		process.env.FUSION_GATEWAY_URL = "http://127.0.0.1:19999";
+		process.env.FUSION_MLX_BASE_URL = "http://127.0.0.1:11434";
+		try {
+			const ep = getMlxEndpointDebug();
+			expect(ep.url).toBe("http://127.0.0.1:19999");
+			expect(ep.source).toBe("FUSION_GATEWAY_URL");
+		} finally {
+			delete process.env.FUSION_GATEWAY_URL;
+			delete process.env.FUSION_MLX_BASE_URL;
+			_resetMlxBaseUrl();
+		}
+	});
+
+	it("reports FUSION_MLX_BASE_URL when gateway URL is absent", () => {
+		delete process.env.FUSION_GATEWAY_URL;
+		process.env.FUSION_MLX_BASE_URL = "http://127.0.0.1:11434";
+		try {
+			const ep = getMlxEndpointDebug();
+			expect(ep.url).toBe("http://127.0.0.1:11434");
+			expect(ep.source).toBe("FUSION_MLX_BASE_URL");
+		} finally {
+			delete process.env.FUSION_MLX_BASE_URL;
+			_resetMlxBaseUrl();
+		}
+	});
+
+	it("reports default when no env override is set", () => {
+		delete process.env.FUSION_GATEWAY_URL;
+		delete process.env.FUSION_MLX_BASE_URL;
+		delete process.env.MLX_BASE_URL;
+		const ep = getMlxEndpointDebug();
+		expect(ep.url).toBe("http://127.0.0.1:11432");
+		expect(ep.source).toBe("default");
 	});
 });
 
