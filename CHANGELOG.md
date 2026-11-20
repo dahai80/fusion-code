@@ -7,7 +7,7 @@ doc_type: changelog
 title: { zh: "变更日志", en: "Changelog" }
 audience: engineer
 status: draft
-version: 0.8.10
+version: 0.8.11
 updated: 2026-11-20
 owner: "@dahai"
 source_of_truth:
@@ -19,6 +19,10 @@ source_of_truth:
 All notable changes to fusion-code are documented here.
 
 ## Unreleased
+
+## 0.8.11 - 2026-11-20
+
+- **Bench (#291, #294)**: harness-gain task suite v1 — 20 deterministic tasks (4 easy / 8 medium / 8 hard) with file-based verification (file-contains / pytest / command-exit / json-field / grep-absent), no LLM judging; plus the runner (fixture generation, per-harness drivers, deterministic verify, usage recording). Targets fusion-code vs opencode 1.19.6 vs goose 3.30.1. Bench tooling only — no binary behavior change.
 
 ## 0.8.10 - 2026-11-20
 
