@@ -7,7 +7,7 @@ doc_type: changelog
 title: { zh: "变更日志", en: "Changelog" }
 audience: engineer
 status: draft
-version: 0.8.9
+version: 0.8.10
 updated: 2026-11-20
 owner: "@dahai"
 source_of_truth:
@@ -19,6 +19,10 @@ source_of_truth:
 All notable changes to fusion-code are documented here.
 
 ## Unreleased
+
+## 0.8.10 - 2026-11-20
+
+- **Diagnostics (#292)**: the `Local inference service unavailable` error now reports the actual resolved endpoint (URL + winning env var + full precedence chain) instead of a hardcoded `default: 11432`. `FUSION_GATEWAY_URL` silently shadows `FUSION_MLX_BASE_URL` — the new message makes that visible immediately (#290).
 
 ## 0.8.9 - 2026-11-20
 
