@@ -7,7 +7,7 @@ doc_type: changelog
 title: { zh: "变更日志", en: "Changelog" }
 audience: engineer
 status: draft
-version: 0.8.7
+version: 0.8.9
 updated: 2026-11-20
 owner: "@dahai"
 source_of_truth:
@@ -20,7 +20,11 @@ All notable changes to fusion-code are documented here.
 
 ## Unreleased
 
-## 0.8.7 - 2026-11-20
+## 0.8.9 - 2026-11-20
+
+- **Fix (#288)**: engine prompt-cache reads now surface in usage accounting. The OpenAI-endpoint translation layer dropped `prompt_tokens_details.cached_tokens`, so every MLX session recorded `cache_read_input_tokens = 0` (125M baseline input tokens looked fully uncached). Streaming `message_delta` and the non-stream transform now map `cached_tokens` -> `cache_read_input_tokens`; field omitted when 0/absent, so uncached runs stay byte-identical.
+
+## 0.8.8 - 2026-11-20
 
 - **Bench (#283)**: token-efficiency baseline slimmed from 1.4MB per-session JSON to a 1.6KB summary; per-session detail becomes a gitignored `--sessions-out` artifact (regenerable via `bun run benchmarks/token-efficiency-baseline.ts`).
 - **Docs (#286)**: CHANGELOG backfilled for 0.8.4-0.8.6; cross-team research handoff docs frontmatter fixed to pass the docs contract.
