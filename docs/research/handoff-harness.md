@@ -1,11 +1,12 @@
 ---
 doc_id: fusion-code/handoff-harness
 product: fusion-code
-class: research
-doc_type: research
+class: app
+doc_type: guide
 title: { zh: "给 harness 组（fusion-harness/cowork/agent-studio）的研究交接", en: "Research handoff for the harness group (fusion-harness / cowork / agent-studio)" }
 audience: engineer
-status: active
+entry: developer
+status: draft
 version: 0.1.0
 updated: 2026-11-20
 owner: "@dahai"

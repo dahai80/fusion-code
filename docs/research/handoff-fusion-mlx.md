@@ -1,11 +1,12 @@
 ---
 doc_id: fusion-code/handoff-fusion-mlx
 product: fusion-code
-class: research
-doc_type: research
+class: app
+doc_type: guide
 title: { zh: "给 fusion-mlx/fusion-trainer 组的研究交接", en: "Research handoff for the fusion-mlx / fusion-trainer team" }
 audience: engineer
-status: active
+entry: developer
+status: draft
 version: 0.1.0
 updated: 2026-11-20
 owner: "@dahai"
