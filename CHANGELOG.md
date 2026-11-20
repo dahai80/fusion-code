@@ -7,8 +7,8 @@ doc_type: changelog
 title: { zh: "变更日志", en: "Changelog" }
 audience: engineer
 status: draft
-version: 0.8.3
-updated: 2026-11-14
+version: 0.8.6
+updated: 2026-11-20
 owner: "@dahai"
 source_of_truth:
   - CHANGELOG.md
@@ -19,6 +19,21 @@ source_of_truth:
 All notable changes to fusion-code are documented here.
 
 ## Unreleased
+
+## 0.8.6 - 2026-11-20
+
+- **Install one-liner (#276)**: `curl | sh` install script (`install.sh`) with download resume on truncated transfers (#277) and correct `fusion-code-<os>-<arch>` inner-tarball name handling (#278).
+- **Docs (#279)**: CLAUDE.md synced with the shipped v0.6.0-v0.8.5 evolution phases (AGENTS.md context, Seatbelt e2e, OTel GenAI traces, async task sessions, reviewer-agent + routines, web review workbench, spec gate, ACP server, tool tier spec, `fusion team`, release distribution) — stale frontmatter refreshed, docs index extended.
+- **Research baseline (#280)**: frozen competitive baseline (`docs/research/benchmark-landscape-2026-11.md`) — three-tier benchmark set, metric definitions, twice-weekly research cadence.
+- **Research report #1 (#281)**: competitor snapshot pinned with evidence (8 products: Claude Code, Codex CLI, Gemini CLI, Amp, opencode, Aider, Goose, Crush); C1-C9 gap x metric matrix; token/tool efficiency baseline script (`benchmarks/token-efficiency-baseline.ts`) over 2,365 real sessions (49,642 turns, 22,431 tool calls, 10.57% tool-error rate; `cache_read_input_tokens = 0` anomaly flagged for investigation).
+
+## 0.8.5 - 2026-11-16
+
+- **CI (#274, refs #273)**: bun dependency cache in workflows; docs-only changes skip the build/test smoke jobs.
+
+## 0.8.4 - 2026-11-14
+
+- **fix(cli) (#268 contract)**: `fusion team send` requires `--from <member>` per the kernel contract — the lead is not an implicit identity; team e2e style cleanup and team-CLI contract docs (`docs/team-cli.md`).
 
 ## 0.8.3 - 2026-11-14
 
