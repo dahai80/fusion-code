@@ -1,11 +1,12 @@
 ---
 doc_id: fusion-code/benchmark-landscape
 product: fusion-code
-class: research
-doc_type: research
+class: app
+doc_type: guide
 title: { zh: "对标格局与固化基线（2026-11）", en: "Benchmark Landscape & Frozen Baseline (2026-11)" }
 audience: engineer
-status: active
+entry: developer
+status: draft
 version: 1.0.0
 updated: 2026-11-20
 owner: "@dahai"
