@@ -25,6 +25,7 @@ function argValue(flag: string): string | undefined {
 
 const sourceDir = argValue("--source") ?? join(homedir(), ".fusion-code", "projects");
 const outFile = argValue("--out") ?? join(import.meta.dir, "token-efficiency-baseline.json");
+const sessionsOutFile = argValue("--sessions-out");
 
 interface SessionStats {
     sessionFile: string;
@@ -171,7 +172,13 @@ function main(): void {
         toolHistogram,
         sessions,
     };
-    writeFileSync(outFile, JSON.stringify(baseline, null, 4) + "\n");
+    if (sessionsOutFile) {
+        writeFileSync(sessionsOutFile, JSON.stringify({ generatedAt: baseline.generatedAt, sessions }, null, 4) + "\n");
+        logger.info(`per-session detail written: ${sessionsOutFile}`);
+    }
+    const { sessions: _sessions, ...summaryOnly } = baseline;
+    void _sessions;
+    writeFileSync(outFile, JSON.stringify(summaryOnly, null, 4) + "\n");
     logger.info(`baseline written: ${outFile}`);
     console.log(JSON.stringify({ sessionCount: baseline.sessionCount, totals, derived: baseline.derived }, null, 4));
 }
