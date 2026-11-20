@@ -97,7 +97,16 @@ const FIXTURES: Record<string, () => Fixture> = {
 		},
 	}),
 	T10: () => ({
-		files: { "build.sh": "#!/bin/bash\r\necho 'building...'\r\nexit 0\r\n" },
+		files: {
+			"src/main.py": "print('ok')\n",
+			// CRLF-sensitive: the LAST line has no trailing exit, so the script's
+			// exit code is that command's status. With \r endings bash runs
+			// `test -f src/main.py\r` (nonexistent filename -> exit 1); after a
+			// real line-ending fix it becomes `test -f src/main.py` -> exit 0.
+			// (A plain `exit 0\r` line still exits 0 under CRLF, and `set -e\r`
+			// errors out without enabling errexit - both would false-positive.)
+			"build.sh": "#!/bin/bash\r\necho 'building...'\r\ntest -f src/main.py\r\n",
+		},
 	}),
 	T11: () => ({
 		files: {
