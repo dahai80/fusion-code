@@ -143,6 +143,16 @@ in-context).
 5. **Trainer ask (handoff-fusion-mlx/fusion-trainer)**: flywheel fine-tune
    with Hammer-style MFC masking on fusion-code trajectories; measure
    text-emission rate (option 1's metric) before/after.
+6. **Edit-format escalation in the recovery loop** (new, 2026-11-21 E2E
+   finding): recovery verified live — Read-shaped text recovers to a real
+   tool_use after one correction, but Edit-shaped text does not: Qwen3-8B
+   re-emits the identical `Edit({old_string, new_string})` text through all
+   2 correction attempts. This matches the editing-format literature:
+   weak models fail at precise search/replace but can rewrite whole files
+   (Aider: GPT-3.5-Turbo ~68% whole vs ~50% diff). Concrete follow-up: on
+   the second failed recovery of an Edit-shaped emission, make the
+   correction message suggest the whole-file `Write` tool instead of
+   re-issuing `Edit`. Cheap, testable with the harness-gain suite.
 
 ## 7. Sources
 
@@ -156,6 +166,9 @@ in-context).
 - Tool Decathlon (xLAM/ToolGen): https://arxiv.org/abs/2412.10341
 - APISen: https://arxiv.org/abs/2506.03207
 - TinyAgent: https://arxiv.org/abs/2409.06903
+- Aider edit formats: https://aider.chat/docs/usage/edit-formats.html ;
+  leaderboards (whole vs diff for weak models):
+  https://aider.chat/docs/leaderboards/
 - Local evidence: `docs/research/bench-reports/2026-11-20-r2.md` §3;
   bench results dirs `fusion-code-2026-11-20T*` / `2026-11-21T01-33-54*`;
   echo-capture replay script `/tmp/bench-watch/capture-server.py`
