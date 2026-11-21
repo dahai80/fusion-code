@@ -153,6 +153,17 @@ in-context).
    the second failed recovery of an Edit-shaped emission, make the
    correction message suggest the whole-file `Write` tool instead of
    re-issuing `Edit`. Cheap, testable with the harness-gain suite.
+   Result (2026-11-21, 3 E2E reps): the escalation redirect works — the
+   model switches from Edit-shaped to Write-shaped output on the second
+   correction every time — but it still emits it as plain text, never as
+   a real tool_use block, so the task stays unsolved. Once this model
+   enters text-emission mode mid-session, meta-message corrections do
+   not restore tool_use. This upgrades option 4 (engine-side grammar
+   forcing for tool-bearing requests) from "nice to have" to the only
+   reliable fix for the text-emission mode, and adds prompt-size diet
+   for local models as a parallel lever (goose resolves 10/20 of the
+   same tasks with a fraction of fusion-code's 47k-char system prompt on
+   the same engine — see bench report #2).
 7. **Successful-repeat loop detection** (new, 2026-11-21, from opencode
    cross-harness run): opencode+Qwen3-8B burned the full 600s on 10/13
    tasks repeating the same *successful but useless* tool call (20+
