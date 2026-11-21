@@ -153,6 +153,18 @@ in-context).
    the second failed recovery of an Edit-shaped emission, make the
    correction message suggest the whole-file `Write` tool instead of
    re-issuing `Edit`. Cheap, testable with the harness-gain suite.
+7. **Successful-repeat loop detection** (new, 2026-11-21, from opencode
+   cross-harness run): opencode+Qwen3-8B burned the full 600s on 10/13
+   tasks repeating the same *successful but useless* tool call (20+
+   identical Grep 0-match calls on one task). fusion-code's existing
+   guard aborts after 5 consecutive identical tool *errors* only —
+   successful calls that make no progress are invisible to it. Follow-up:
+   hash (tool, input) pairs of consecutive successful calls; after N
+   identical repeats, inject a corrective meta message ("same query
+   returned no matches N times — change strategy"), abort only if the
+   loop persists. (Synthesized from general agent-reliability practice —
+   iteration caps, tool-call n-gram hashing, state-similarity checks;
+   not from a single pinned paper.)
 
 ## 7. Sources
 
