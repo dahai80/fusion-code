@@ -211,6 +211,18 @@ interface HarnessRun {
 	exitCode: number;
 	timedOut: boolean;
 	seconds: number;
+	// count of tool-call-shaped plain-text emissions in stdout (the model
+	// printing a tool call instead of producing a tool_calls block)
+	textEmissions: number;
+}
+
+// matches `Name({file_path: ...})` python-call style, `call_<id>{json}`,
+// and the `<tools>{...}</tools>` wrapper format
+const TOOL_TEXT_RE = /(^|\n)\s*[A-Z][A-Za-z_]*\(\{[^{]*\}\)|call_[0-9a-f]{6,}\{|<tools>\{/g;
+
+function countToolShapedText(stdout: string): number {
+	const hits = stdout.match(TOOL_TEXT_RE);
+	return hits ? hits.length : 0;
 }
 
 function loadEngineKey(): string {
@@ -236,6 +248,7 @@ async function runHarness(
 	logPath: string,
 ): Promise<HarnessRun> {
 	const started = Date.now();
+	let outText = "";
 	let cmd: string[];
 	let env: Record<string, string> = { ...process.env } as Record<
 		string,
@@ -272,6 +285,7 @@ async function runHarness(
 			try {
 				const out = await new Response(child.stdout).text();
 				const err = await new Response(child.stderr).text();
+				outText = out;
 				writeFileSync(
 					logPath,
 					`CMD: ${cmd.join(" ")}\n\n--- STDOUT ---\n${out}\n\n--- STDERR ---\n${err}\n`,
@@ -280,7 +294,12 @@ async function runHarness(
 			resolveTimeout(false);
 		});
 	});
-	return { exitCode: 0, timedOut, seconds: (Date.now() - started) / 1000 };
+	return {
+		exitCode: 0,
+		timedOut,
+		seconds: (Date.now() - started) / 1000,
+		textEmissions: countToolShapedText(outText),
+	};
 }
 
 // ── verification ──────────────────────────────────────────────
@@ -436,9 +455,12 @@ async function main(): Promise<void> {
 				verifyDetail: v.detail,
 				timedOut: run.timedOut,
 				wallSeconds: Math.round(run.seconds * 10) / 10,
+				textEmissions: run.textEmissions,
 			};
 			rows.push(row);
-			logger.info(`${task.id} resolved=${v.resolved} wall=${row.wallSeconds}s`);
+			logger.info(
+				`${task.id} resolved=${v.resolved} wall=${row.wallSeconds}s textEmit=${row.textEmissions}`,
+			);
 		} catch (e) {
 			logger.error(`${task.id} failed: ${e}`);
 			rows.push({ id: task.id, resolved: false, error: String(e) });
@@ -447,6 +469,7 @@ async function main(): Promise<void> {
 		}
 	}
 	const resolvedCount = rows.filter((r) => r.resolved).length;
+	const emissionTotal = rows.reduce((s, r) => s + (r.textEmissions ?? 0), 0);
 	const summary = {
 		harness,
 		model: process.env.BENCH_MODEL ?? "unset",
@@ -457,6 +480,7 @@ async function main(): Promise<void> {
 		resolveRate: rows.length
 			? Math.round((resolvedCount / rows.length) * 1000) / 1000
 			: 0,
+		textEmissions: emissionTotal,
 		rows,
 	};
 	writeFileSync(
