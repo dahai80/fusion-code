@@ -286,7 +286,9 @@ async function runHarness(
 		cmd = ["goose", "run", "--text", prompt];
 		env = {
 			...env,
-			GOOSE_MODE: "approve",
+			// approve/smart-approve require an interactive terminal; auto is
+			// the only valid headless mode
+			GOOSE_MODE: "auto",
 			GOOSE_PROVIDER: "openai",
 			GOOSE_MODEL: process.env.BENCH_MODEL ?? "",
 			OPENAI_API_KEY: engineKey,
@@ -405,6 +407,22 @@ function verify(
 			return {
 				resolved: proc.stdout.toString().trim() === verifySpec.stdout,
 				detail: `stdout=${proc.stdout.toString().trim()}`,
+			};
+		}
+		case "count-max": {
+			// Refactor tasks: behavior tests pass on untouched code, so the
+			// verifier must instead bound how many times a duplicated marker
+			// still appears in the file (untouched fixture fails high counts).
+			const path = join(dir, verifySpec.path);
+			if (!existsSync(path))
+				return { resolved: false, detail: `missing ${verifySpec.path}` };
+			const content = readFileSync(path, "utf8");
+			const n = (
+				content.match(new RegExp(verifySpec.pattern, "g")) ?? []
+			).length;
+			return {
+				resolved: n <= verifySpec.max,
+				detail: `count=${n} max=${verifySpec.max} ${verifySpec.path}`,
 			};
 		}
 		case "pytest": {
