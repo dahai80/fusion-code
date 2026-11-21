@@ -1,7 +1,7 @@
-// D1 轨迹飞轮 — 汇聚器 (issue #50)
+// D1 trajectory flywheel — collector (issue #50)
 //
-// 扫描 ~/.fusion-code/projects/**/*.jsonl + subagents/, 解析配对 tool_use/tool_result,
-// 按 is_error 标注 Positive / SelfCorrection, 写入统一汇聚目录 ~/.fusion/trajectories/。
+// Scans ~/.fusion-code/projects/**/*.jsonl + subagents/, parses paired tool_use/tool_result,
+// labels Positive / SelfCorrection by is_error, and writes into the unified collection dir ~/.fusion/trajectories/.
 
 import { promises as fs } from "node:fs";
 import path from "node:path";
@@ -17,7 +17,7 @@ import type {
 
 const log = (...args: unknown[]) => console.error("[trajectory]", ...args);
 
-// jsonl 原始事件的最小子集
+// Minimal subset of the raw jsonl event
 interface RawEvent {
 	type?: string;
 	message?: {
@@ -39,14 +39,14 @@ interface ContentBlock {
 	content?: unknown;
 }
 
-// 默认源目录: fusion-code session jsonl
+// Default source dir: fusion-code session jsonl
 export const DEFAULT_SOURCE_DIR = path.join(
 	process.env.HOME ?? "~",
 	".fusion-code",
 	"projects",
 );
 
-// 默认汇聚目录
+// Default collection dir
 export const DEFAULT_DEST_DIR = path.join(
 	process.env.HOME ?? "~",
 	".fusion",
@@ -55,7 +55,7 @@ export const DEFAULT_DEST_DIR = path.join(
 
 export const MANIFEST_VERSION = 1;
 
-// 读取并解析单个 jsonl 文件为 RawEvent 列表 (跳过无法解析的行)
+// Read and parse a single jsonl file into a RawEvent list (skipping unparseable lines)
 async function readJsonl(filePath: string): Promise<RawEvent[]> {
 	const content = await fs.readFile(filePath, "utf8");
 	const events: RawEvent[] = [];
@@ -71,7 +71,7 @@ async function readJsonl(filePath: string): Promise<RawEvent[]> {
 	return events;
 }
 
-// 把 content (string | block[]) 归一为 block[]
+// Normalize content (string | block[]) into block[]
 function toBlocks(content: unknown): ContentBlock[] {
 	if (typeof content === "string") {
 		return content ? [{ type: "text", text: content }] : [];
@@ -82,7 +82,7 @@ function toBlocks(content: unknown): ContentBlock[] {
 	return [];
 }
 
-// block 内容转字符串 (tool_result.content 可能是 string 或 block[])
+// Convert block content to string (tool_result.content may be a string or block[])
 function blockContentToString(content: unknown): string {
 	if (typeof content === "string") return content;
 	if (Array.isArray(content)) {
@@ -97,7 +97,7 @@ function blockContentToString(content: unknown): string {
 	return content == null ? "" : JSON.stringify(content);
 }
 
-// 解析单 session 事件序列为清洗后的 steps + 统计
+// Parse a single session's event sequence into cleaned steps + stats
 function parseSession(
 	events: RawEvent[],
 	_source: string,
@@ -140,7 +140,7 @@ function parseSession(
 			}
 		}
 
-		// 跳过空步骤 (无文本、无工具调用、无工具结果)
+		// Skip empty steps (no text, no tool calls, no tool results)
 		if (
 			!text &&
 			!thinking &&
@@ -160,14 +160,14 @@ function parseSession(
 	return { steps, toolUseCount, toolErrorCount };
 }
 
-// 标注: 全程无 tool_result.is_error → positive; 有任一 error → self_correction
+// Label: no tool_result.is_error anywhere → positive; any error → self_correction
 function labelTrajectory(
 	toolErrorCount: number,
 ): "positive" | "self_correction" {
 	return toolErrorCount === 0 ? "positive" : "self_correction";
 }
 
-// 枚举所有 session jsonl (含 subagents)
+// Enumerate all session jsonl files (including subagents)
 async function listSessionFiles(
 	sourceDir: string,
 ): Promise<
@@ -249,7 +249,7 @@ async function listSessionFiles(
 	return out;
 }
 
-// 写单个汇聚轨迹到 dest/raw/<product>-<safe-session>.jsonl
+// Write a single collected trajectory to dest/raw/<product>-<safe-session>.jsonl
 async function writeTrajectory(
 	destDir: string,
 	traj: CollectedTrajectory,
@@ -262,7 +262,7 @@ async function writeTrajectory(
 	await fs.writeFile(outFile, lines + (lines ? "\n" : ""), "utf8");
 }
 
-// 主入口: 收集并汇聚
+// Main entry: collect and aggregate
 export async function collectTrajectories(
 	options: CollectOptions,
 ): Promise<TrajectoryManifest> {
@@ -353,7 +353,7 @@ export async function collectTrajectories(
 	return manifest;
 }
 
-// 读取已有 manifest (exporter 复用)
+// Read the existing manifest (reused by the exporter)
 export async function readManifest(
 	destDir: string,
 ): Promise<TrajectoryManifest | null> {
@@ -366,7 +366,7 @@ export async function readManifest(
 	}
 }
 
-// 从 raw/ 目录读回单条汇聚轨迹 (exporter 消费)
+// Read a single collected trajectory back from raw/ (exporter consumption)
 export async function loadCollectedTrajectory(
 	rawFile: string,
 	entry: ManifestEntry,

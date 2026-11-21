@@ -1,13 +1,19 @@
-// LLM 接缝 — provider 中立类型 (参考 deepseek-harness LlmAdapter)
+// LLM adapter seam — provider-neutral types (modeled on deepseek-harness
+// LlmAdapter)
 //
-// 这是 fusion-code 去 Anthropic SDK 的核心抽象层。所有 provider (fusion-mlx / firstParty /
-// openai / foundry / bedrock / vertex) 经各自的 LlmAdapter 把线上消息翻译成下面的中立 chunk。
-// 主调用循环 (src/services/api/claude.ts) 消费 AsyncIterable<StreamChunk>, 不再 instanceof SDK 类型。
+// This is the core abstraction layer of fusion-code's de-SDK'd Anthropic
+// stack. All providers (fusion-mlx / firstParty / openai / foundry / bedrock
+// / vertex) translate wire messages into the neutral chunks below through
+// their own LlmAdapter.
+// The main call loop (src/services/api/claude.ts) consumes
+// AsyncIterable<StreamChunk>, no longer instanceof-ing SDK types.
 //
-// 设计依据: claude.ts 现有 switch(part.type) 消费 Anthropic SSE 事件, 本类型与之逐一映射。
+// Design basis: claude.ts's existing switch(part.type) consumes Anthropic
+// SSE events; these types map to it one-for-one.
 
-// ─── 内容块类型 ─────────────────────────────────────────────
-// 中立内容块标签, 与 Anthropic content_block.type 对齐, 便于适配器零损耗映射。
+// ─── Content block types ─────────────────────────────────────────────
+// Neutral content block tags, aligned with Anthropic content_block.type so
+// adapters can map with zero loss.
 export type ContentBlockType =
 	| "text"
 	| "thinking"
@@ -16,8 +22,9 @@ export type ContentBlockType =
 	| "tool_result"
 	| "connector_text";
 
-// ─── token 计费 ─────────────────────────────────────────────
-// cache 字段可选: 仅 provider 上报非零时出现 (参考 dsh TokenUsage)。
+// ─── Token usage ─────────────────────────────────────────────
+// cache fields are optional: present only when the provider reports non-zero
+// (modeled on dsh TokenUsage).
 export interface TokenUsage {
 	inputTokens: number;
 	outputTokens: number;
@@ -26,10 +33,12 @@ export interface TokenUsage {
 	reasoningTokens?: number;
 }
 
-// ─── 流式 chunk ─────────────────────────────────────────────
-// 适配器把一次模型调用流式吐成下列 chunk。block index 关联同一块的交错 delta。
-// 与 claude.ts 现有 Anthropic SSE 事件 switch 分支逐一对应:
-//   message-start      ← message_start (携带初始 usage / ttft)
+// ─── Streaming chunks ─────────────────────────────────────────────
+// Adapters stream a single model call out as the chunks below. The block
+// index ties interleaved deltas to the same block.
+// Maps one-for-one onto claude.ts's existing Anthropic SSE event switch
+// branches:
+//   message-start      ← message_start (carries initial usage / ttft)
 //   block-start        ← content_block_start
 //   text-delta         ← content_block_delta (text_delta)
 //   thinking-delta     ← content_block_delta (thinking_delta / signature_delta)
@@ -49,28 +58,31 @@ export type StreamChunk =
 	| { type: "usage"; usage: TokenUsage; stopReason?: string }
 	| { type: "finish"; reason: FinishReason };
 
-// block-start 携带的原始内容块 (展开字段, 非 SDK 类型)。
-// 适配器从 provider wire 原样搬运, 主循环按 type 分派累积。
+// Raw content block carried by block-start (expanded fields, not SDK types).
+// Adapters copy it verbatim from the provider wire; the main loop dispatches
+// accumulation by type.
 export interface RawContentBlock {
 	type: ContentBlockType;
-	// text/thinking 块
+	// text/thinking blocks
 	text?: string;
 	thinking?: string;
 	signature?: string;
-	// tool_use / server_tool_use 块
+	// tool_use / server_tool_use blocks
 	id?: string;
 	name?: string;
 	input?: string | Record<string, unknown>;
-	// tool_result 块
+	// tool_result blocks
 	toolUseId?: string;
 	content?: unknown;
 	isError?: boolean;
-	// 透传未识别字段 (advisor_tool_result 等 server 扩展)
+	// Pass through unrecognized fields (server extensions like
+	// advisor_tool_result)
 	[extra: string]: unknown;
 }
 
-// ─── 结束原因 ───────────────────────────────────────────────
-// 参考 dsh FinishReasonMap: 稳定中立码, 非 SDK 的 stop_reason 字符串。
+// ─── Finish reasons ───────────────────────────────────────────────
+// Modeled on dsh FinishReasonMap: stable neutral codes, not the SDK's
+// stop_reason strings.
 export type FinishReason =
 	| "end_turn"
 	| "tool_use"
@@ -79,9 +91,11 @@ export type FinishReason =
 	| "aborted"
 	| "error";
 
-// ─── 失败 ───────────────────────────────────────────────────
-// provider 中立失败事实 (参考 dsh LlmFailure)。替代 instanceof APIError 判定。
-// code 是稳定机器路由码; withRetry/errors 据此判重试/分类。
+// ─── Failures ───────────────────────────────────────────────────
+// Provider-neutral failure facts (modeled on dsh LlmFailure). Replaces
+// instanceof APIError detection.
+// code is a stable machine-routing code; withRetry/errors use it for retry
+// decisions/classification.
 export type LlmErrorCode =
 	| "AUTH"
 	| "RATE_LIMIT"
@@ -90,14 +104,19 @@ export type LlmErrorCode =
 	| "TIMEOUT"
 	| "TRANSPORT"
 	| "ABORTED"
-	// audit 2.2.1 (CRITICAL): 确定性错误 (MLX OOM / model_not_found / 未识别兜底)
-	// 归 UNKNOWN — 不可重试。旧 classifyByMessage 兜底 return "SERVER" 把未匹配信息
-	// 全当 SERVER 重试 10×, 对共享 MLX 服务自伤 DoS (memory limit exceeded / Reduce
-	// context size / model not found 均确定性, 重试必复现)。
+	// audit 2.2.1 (CRITICAL): deterministic errors (MLX OOM / model_not_found
+	// / unrecognized fallback) classify as
+	// UNKNOWN — not retryable. The old classifyByMessage fallback returned
+	// "SERVER", treating every unmatched message as retryable 10× — a
+	// self-inflicted DoS against a shared MLX service (memory limit exceeded /
+	// Reduce context size / model not found are all deterministic; retrying
+	// always reproduces them).
 	| "UNKNOWN";
 
-// Headers 形态兼容 SDK APIError.headers (支持 .get(name)) 与裸对象 (支持 ["retry-after"])。
-// httpClient 把 fetch Response.headers (原生 Headers, 自带 .get) 直接挂上即可。
+// Headers shape compatible with the SDK's APIError.headers (supports
+// .get(name)) and bare objects (supports ["retry-after"]).
+// httpClient can attach the fetch Response.headers (native Headers, which
+// already has .get) directly.
 export type LlmFailureHeaders = {
 	get?(name: string): string | null;
 } & {
@@ -110,22 +129,25 @@ export interface LlmFailure {
 	status?: number;
 	providerRetryAfterMs?: number;
 	requestId?: string;
-	// 非 2xx 响应头 (限流/重试头来源)。fetch 异常路径无 response, 留 undefined。
+	// Non-2xx response headers (source of rate-limit/retry headers). The fetch
+	// exception path has no response, left undefined.
 	headers?: LlmFailureHeaders;
 }
 
-// ─── 工具 schema ────────────────────────────────────────────
-// 送往模型的工具描述 (JSON Schema 参数)。与 dsh ToolSchema 对齐。
+// ─── Tool schema ────────────────────────────────────────────
+// Tool description sent to the model (JSON Schema parameters). Aligned with
+// dsh ToolSchema.
 export interface ToolSchema {
 	name: string;
 	description: string;
 	parameters: Record<string, unknown>;
 }
 
-// ─── 请求选项 ───────────────────────────────────────────────
-// 一次完整组装的模型请求 (参考 dsh GenerateOptions)。
-// messages 是中立结构 (与 Anthropic MessageParam 形状一致: role + content)。
-// 适配器负责映射到 provider wire 格式。
+// ─── Request options ───────────────────────────────────────────────
+// A fully assembled model request (modeled on dsh GenerateOptions).
+// messages is the neutral structure (same shape as Anthropic MessageParam:
+// role + content).
+// The adapter maps it to the provider wire format.
 export interface GenerateOptions {
 	model: string;
 	messages: NeutralMessage[];
@@ -136,7 +158,8 @@ export interface GenerateOptions {
 	stop?: string[];
 	thinking?: { type: "enabled"; budgetTokens: number } | { type: "disabled" };
 	signal?: AbortSignal;
-	// 请求来源标记, 透传到适配器做路由/日志 (如 compaction / session-title 辅助调用)。
+	// Request-origin marker, passed through to the adapter for routing/logging
+	// (e.g. compaction / session-title auxiliary calls).
 	purpose?: "compaction" | "session-title" | "main";
 }
 
@@ -167,17 +190,21 @@ export type NeutralSystemBlock = {
 	cache_control?: unknown;
 };
 
-// ─── 适配器接口 ─────────────────────────────────────────────
-// 参考 dsh abstract class LlmAdapter: 唯一必需方法 stream()。
-// fusion-code 用直接构造 (client.ts→seam.ts 按 APIProvider 构造请求), 不引入 Cordis 运行时注册。
+// ─── Adapter interface ─────────────────────────────────────────────
+// Modeled on dsh's abstract class LlmAdapter: the only required method is
+// stream().
+// fusion-code uses direct construction (client.ts→seam.ts builds requests by
+// APIProvider), no Cordis runtime registry introduced。
 export interface LlmAdapter {
-	// 唯一必需方法: 把一次模型调用流式吐成中立 chunk。实现须遵守 options.signal。
+	// The only required method: stream a single model call as neutral chunks.
+	// Implementations must honor options.signal.
 	stream(options: GenerateOptions): AsyncIterable<StreamChunk>;
-	// 可选: provider 显示名
+	// Optional: provider display name
 	providerInfo?(): { id: string; name: string };
-	// 可选: 列出可宣传的模型 (advisory, 不做请求校验)
+	// Optional: list promotable models (advisory, no request validation)
 	listModels?(): Promise<readonly { id: string; name: string }[]>;
-	// 可选: 解析单个模型元数据 (context window / 默认 max_tokens / reasoning)
+	// Optional: resolve a single model's metadata (context window / default
+	// max_tokens / reasoning)
 	resolveModel?(
 		model: string,
 		signal?: AbortSignal,

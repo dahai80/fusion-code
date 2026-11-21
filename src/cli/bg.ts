@@ -1,8 +1,8 @@
 /**
- * BG Sessions — 后台会话管理
+ * BG Sessions — background session management
  *
- * 管理后台运行的 Fusion-Code 会话。
- * 支持 `claude ps|logs|attach|kill` 和 `--bg`/`--background` 标志。
+ * Manages Fusion-Code sessions running in the background.
+ * Supports `claude ps|logs|attach|kill` and the `--bg`/`--background` flags.
  *
  * gated by feature('BG_SESSIONS')
  */

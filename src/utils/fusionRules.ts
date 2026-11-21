@@ -46,19 +46,19 @@ export function getFusionRulesConfig(): FusionRulesConfig {
 	return mergedConfig;
 }
 
-// P1-28: denied_tools 是按名拒绝 (name-deny), 非按能力拒绝 (capability-deny)。
-// 配 ["Bash"] 阻内置 Bash, 但不阻 MCP 工具 (mcp__foo__run_bash)、插件工具、或
-// shell 出的插件 slash 命令 (hooks.ts shell:true spawn 不经此门)。用户须明白此为
-// 名单拒绝 — 想阻"执行任意 shell"能力须额外配 MCP/插件 server 级 deny 或沙箱。
-// 不扩成能力 tag 拒绝 (注册时打 tag) 以保持 surgical: 名单语义清晰, 文档明确即可。
+// P1-28: denied_tools is name-deny, not capability-deny.
+// ["Bash"] blocks the builtin Bash, but not MCP tools (mcp__foo__run_bash), plugin tools, or
+// plugin slash commands shelled out (hooks.ts shell:true spawn does not pass through this gate). Users must understand this is
+// a name-list deny — blocking the "run arbitrary shell" capability requires additionally configuring MCP/plugin server-level deny or sandbox.
+// Not expanded to capability-tag deny (tags assigned at registration) to stay surgical: list semantics are clear, docs make it explicit.
 export function isToolDenied(toolName: string): boolean {
 	const lower = toolName.toLowerCase();
 	return mergedConfig.deniedTools.some((t) => t.toLowerCase() === lower);
 }
 
-// P2-12: isToolDenied 只查主名, 不查别名。用户在 denied_tools 列旧名/别名 (如
-// KillShell 旧名 TaskStop) → 模型调主名 TaskStop → isToolDenied("TaskStop") false
-// → deny 静默失效。此 helper 查主名 + 全别名, 调用点传 Tool 对象匹配。
+// P2-12: isToolDenied only checks the primary name, not aliases. If a user lists an old name/alias in denied_tools (e.g.
+// TaskStop, the old name of KillShell) -> the model calls the primary name TaskStop -> isToolDenied("TaskStop") false
+// -> deny silently fails. This helper checks primary name + all aliases; call sites pass the Tool object to match.
 export function isToolDeniedByNameOrAlias(tool: {
 	name: string;
 	aliases?: string[];
@@ -86,14 +86,14 @@ export function mergeFusionRulesConfigs(
 		defaultTemplate: null,
 	};
 	for (const config of configs) {
-		// deniedTools 取并集 (无害, 多层叠加更严)。
+		// deniedTools takes the union (harmless, more layers = stricter).
 		merged.deniedTools = [
 			...new Set([...merged.deniedTools, ...config.deniedTools]),
 		];
-		// P2-13: defaultTemplate 改 first-wins (最早出现的优先)。
-		// configs 顺序 = [global, project, ...] (claudemd 组装按优先级降序)。
-		// 原 last-wins 让 project 覆盖 global, 与 CLAUDE.md 文档优先级
-		// (global 最高) 相反。first-wins 使 global 优先, 对齐文档。
+		// P2-13: defaultTemplate switched to first-wins (earliest occurrence wins).
+		// configs order = [global, project, ...] (claudemd assembles in descending priority order).
+		// The original last-wins let project override global, opposite to the CLAUDE.md doc priority
+		// (global highest). first-wins makes global win, aligning with the docs.
 		if (config.defaultTemplate && !merged.defaultTemplate) {
 			merged.defaultTemplate = config.defaultTemplate;
 		}

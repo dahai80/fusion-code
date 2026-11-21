@@ -1,10 +1,10 @@
-// audit 1.1.1 slice #47: $5 cost-threshold dialog useEffect body 外移 (PURE-ROUTING-SUB-BLOCK, like #27/#28/#35/#41-#45)。
-// REPL() 在 totalCost ≥ $5 且未弹过时 fire-once: logEvent fusion_cost_threshold_reached + setHaveShownCostDialog(true) (防 rest-of-session 每消息重发, GH 200k+ spurious) + 若 hasConsoleBillingAccess 则 setShowCostDialog(true)。
-// 原 useEffect body。showCostDialog/haveShownCostDialog (derived deps) + setShowCostDialog/setHaveShownCostDialog (useState setters) 经 ctx 传入 (闭包捕获), 行为字节等价。
-// useEffect() hook 留 REPL 薄壳 (hook 规则, 不能移 plain helper), 仅 effect body 移出。
-// getTotalCost (cost-tracker.js) + hasConsoleBillingAccess (utils/billing.js) + logEvent (services/analytics/index.js) 直接 import (非 REPL state, per imported-helpers-directly rule; 全部 REPL 多用, 不移除 REPL import)。
-// 无 JSX → .ts。返 void (REPL 薄壳 useEffect 透传, 无 cleanup)。
-// deps [messages, showCostDialog, haveShownCostDialog] 不变 (messages 仅作触发器, body 不读, 但移除改变触发时机 — 保留; setters 稳定引用省略, 与原一致)。
+// audit 1.1.1 slice #47: $5 cost-threshold dialog useEffect body extracted (PURE-ROUTING-SUB-BLOCK, like #27/#28/#35/#41-#45).
+// REPL() fires once when totalCost ≥ $5 and not yet shown: logEvent fusion_cost_threshold_reached + setHaveShownCostDialog(true) (prevents re-firing on every message for the rest of the session, GH 200k+ spurious) + setShowCostDialog(true) if hasConsoleBillingAccess.
+// Original useEffect body. showCostDialog/haveShownCostDialog (derived deps) + setShowCostDialog/setHaveShownCostDialog (useState setters) passed via ctx (closure capture), byte-equivalent behavior.
+// The useEffect() hook stays as a REPL thin shell (hook rules, cannot move to a plain helper); only the effect body moves out.
+// getTotalCost (cost-tracker.js) + hasConsoleBillingAccess (utils/billing.js) + logEvent (services/analytics/index.js) imported directly (not REPL state, per imported-helpers-directly rule; all used multiple times in REPL, REPL imports kept).
+// No JSX → .ts. Returns void (REPL thin-shell useEffect pass-through, no cleanup).
+// deps [messages, showCostDialog, haveShownCostDialog] unchanged (messages is trigger-only, the body never reads it, but removing it changes trigger timing — kept; setters are stable refs and omitted, matching the original).
 
 import { logEvent } from "src/services/analytics/index.js";
 import { getTotalCost } from "../cost-tracker.js";
@@ -17,7 +17,7 @@ type CostThresholdCheckCtx = {
 	setHaveShownCostDialog: (value: boolean) => void;
 };
 
-// REPL 保留 useEffect 薄壳:
+// REPL keeps the useEffect thin shell:
 //   useEffect(() => maybeShowCostThreshold({ showCostDialog, haveShownCostDialog, setShowCostDialog, setHaveShownCostDialog }), [messages, showCostDialog, haveShownCostDialog]);
 export function maybeShowCostThreshold(ctx: CostThresholdCheckCtx): void {
 	const totalCost = getTotalCost();

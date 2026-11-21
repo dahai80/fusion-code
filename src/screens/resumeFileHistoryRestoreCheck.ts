@@ -1,15 +1,15 @@
-// audit 1.1.1 slice #70: resume file-history restore sub-block 外移 (PURE-ROUTING-SUB-BLOCK, resume-chunked-extraction #10)。
-// resume() useCallback body 子块 (REPL L1906-1910, 5-LOC): restoreSessionStateFromLog(log, setAppState)
-// [从 resumed conversation 恢复 file history + attribution state] +
-// if (log.fileHistorySnapshots) void copyFileHistoryForResume(log) [有快照则复制 file history 到新会话]。
-// slice #61-#69 兄弟模式: resume useCallback 子块切出, resume-local 变量 (log) + REPL state (setAppState) 经 ctx 传入, 行为字节等价。
-// restoreSessionStateFromLog (sessionRestore import) + copyFileHistoryForResume (fileHistory import) 直接 import
-// (非 REPL state, per imported-helpers-directly rule; copyFileHistoryForResume REPL sole-user → 此 slice 后 REPL import 移除,
-//  FileHistorySnapshot/FileHistoryState 仍 REPL 多用, 保留)。
-// restoreSessionStateFromLog 形参类型 ResumeResult (sessionRestore 内部非导出类型) — REPL 调用点传 log: LogOption 字节等价
-// (LogOption 结构满足 ResumeResult, 现有编译通过); 此 helper 透传 log: LogOption, 不导出内部类型 (ReturnType 规则同源)。
-// 辅助返 void (restoreSessionStateFromLog void + void fire-and-forget copyFileHistoryForResume)。无 JSX → .ts。
-// 注: 此为 resume 切块提取的第 10 块 (file-history restore)。
+// audit 1.1.1 slice #70: resume file-history restore sub-block extracted (PURE-ROUTING-SUB-BLOCK, resume-chunked-extraction #10).
+// resume() useCallback body sub-block (REPL L1906-1910, 5 LOC): restoreSessionStateFromLog(log, setAppState)
+// [restores file history + attribution state from the resumed conversation] +
+// if (log.fileHistorySnapshots) void copyFileHistoryForResume(log) [copies file history into the new session when snapshots exist].
+// slice #61-#69 sibling pattern: a resume useCallback sub-block cut out; resume-local variables (log) + REPL state (setAppState) passed via ctx, byte-equivalent behavior.
+// restoreSessionStateFromLog (sessionRestore import) + copyFileHistoryForResume (fileHistory import) imported directly
+// (not REPL state, per imported-helpers-directly rule; copyFileHistoryForResume has a sole REPL user → the REPL import is removed after this slice,
+//  FileHistorySnapshot/FileHistoryState still have multiple REPL uses, kept).
+// restoreSessionStateFromLog's parameter type ResumeResult is a non-exported internal sessionRestore type — the REPL call site passing log: LogOption is byte-equivalent
+// (LogOption structurally satisfies ResumeResult, current compilation passes); this helper passes log: LogOption through and does not export the internal type (same rule as ReturnType).
+// Helper returns void (restoreSessionStateFromLog is void + void fire-and-forget copyFileHistoryForResume). No JSX → .ts.
+// Note: this is chunk #10 of the resume chunked extraction (file-history restore).
 
 import type { LogOption } from "../types/logs.js";
 import { copyFileHistoryForResume } from "../utils/fileHistory.js";

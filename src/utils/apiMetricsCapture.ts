@@ -1,12 +1,12 @@
-// audit 1.1.1: 从 REPL.tsx onQueryImpl apiMetrics capture 子块抽出 (PURE-ROUTING SUB-BLOCK class, 像 slice #19 onCompactProgress)。
-// 行为等价 REPL.tsx:3300-3337。无 React hooks, 无 JSX, 无 await。
-// 仅 isInternalBuild() 且 apiMetricsRef 有 entries 时:
-//   (1) 计算 per-request OTPS (streaming-only content / active streaming time);
-//   (2) multi-request 用 median (P50), single 用 [0];
-//   (3) 采集 hook/tool/classifier duration+count + turnMs + configWriteCount;
-//   (4) setMessages 追加 createApiMetricsMessage。
-// ctx 携带 REPL 闭包依赖 (apiMetricsRef + loadingStartTimeRef + setMessages),
-//   helper 不持有 React state。timing fn / median / isInternalBuild / createApiMetricsMessage / getGlobalConfigWriteCount 为独立 module import。
+// audit 1.1.1: apiMetrics capture sub-block extracted from REPL.tsx onQueryImpl (PURE-ROUTING SUB-BLOCK class, like slice #19 onCompactProgress).
+// Behavior-equivalent to REPL.tsx:3300-3337. No React hooks, no JSX, no await.
+// Only when isInternalBuild() and apiMetricsRef has entries:
+//   (1) compute per-request OTPS (streaming-only content / active streaming time);
+//   (2) multi-request uses median (P50), single uses [0];
+//   (3) collect hook/tool/classifier duration+count + turnMs + configWriteCount;
+//   (4) setMessages appends createApiMetricsMessage.
+// ctx carries REPL closure deps (apiMetricsRef + loadingStartTimeRef + setMessages);
+//   the helper holds no React state. timing fn / median / isInternalBuild / createApiMetricsMessage / getGlobalConfigWriteCount are standalone module imports.
 import {
 	getTurnClassifierCount,
 	getTurnClassifierDurationMs,
@@ -35,8 +35,8 @@ type ApiMetricsCaptureCtx = {
 	setMessages: (action: React.SetStateAction<MessageType[]>) => void;
 };
 
-// REPL 保留薄调用: captureApiMetrics({ apiMetricsRef, loadingStartTimeRef, setMessages });
-// 包在原 `if (isInternalBuild() && apiMetricsRef.current.length > 0)` 外层判断里 (helper 内部再判一次, 双保险)。
+// REPL keeps a thin call: captureApiMetrics({ apiMetricsRef, loadingStartTimeRef, setMessages });
+// wrapped in the original `if (isInternalBuild() && apiMetricsRef.current.length > 0)` outer check (the helper re-checks internally, double insurance).
 export function captureApiMetrics(ctx: ApiMetricsCaptureCtx): void {
 	if (!isInternalBuild() || ctx.apiMetricsRef.current.length === 0) return;
 	const entries = ctx.apiMetricsRef.current;

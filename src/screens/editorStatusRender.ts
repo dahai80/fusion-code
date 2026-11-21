@@ -1,9 +1,9 @@
-// audit 1.1.1 slice #37: editorStatus render sub-block 外移 (PURE-ASYNC-HELPER, 3rd — 像 slice #23 applyOnInit / #31 applyInitialMessage / #36 applyAgentTranscriptBootstrap)。
-// REPL() transcript `v` 键 (less-style): 渲染全 transcript→tmpfile→open in $VISUAL/$EDITOR。
-// 原 async IIFE inside useInput v-branch。三 ref (gen/timer/rendering) + setEditorStatus + deferredMessages + tools 经 ctx 传入 (闭包捕获), 行为字节等价。
-// 导入型 helper (renderMessagesToPlainText/openFileInExternalEditor/writeFile/join/tmpdir) 直接 import, 不经 ctx。
-// double-tap-drop guard + gen-capture + staleness-aware setStatus 留 helper 内 (ref-mutate 不入 useInput deps)。
-// 无 JSX/无 hook → .ts。void 返回 (REPL 薄壳 void 调用)。
+// audit 1.1.1 slice #37: editorStatus render sub-block extracted (PURE-ASYNC-HELPER, 3rd — like slice #23 applyOnInit / #31 applyInitialMessage / #36 applyAgentTranscriptBootstrap).
+// REPL() transcript `v` key (less-style): render full transcript→tmpfile→open in $VISUAL/$EDITOR.
+// Original async IIFE inside the useInput v-branch. Three refs (gen/timer/rendering) + setEditorStatus + deferredMessages + tools passed via ctx (closure capture), byte-equivalent behavior.
+// Imported helpers (renderMessagesToPlainText/openFileInExternalEditor/writeFile/join/tmpdir) imported directly, not via ctx.
+// double-tap-drop guard + gen-capture + staleness-aware setStatus stay inside the helper (ref mutation does not enter useInput deps).
+// No JSX / no hook → .ts. Returns void (REPL thin shell calls it with void).
 
 import { writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
@@ -23,14 +23,14 @@ type EditorStatusRenderCtx = {
 	tools: Parameters<typeof renderMessagesToPlainText>[1];
 };
 
-// REPL 保留 useInput v-branch 薄壳:
+// REPL keeps the useInput v-branch thin shell:
 //   } else if (input === "v") {
 //     // less-style: v opens the file in $VISUAL/$EDITOR. ...
 //     event.stopImmediatePropagation();
 //     applyEditorOpenInExternalEditor({ editorGenRef, editorTimerRef, editorRenderingRef, setEditorStatus, deferredMessages, tools });
 //   }
-// stopImmediatePropagation 留 REPL 薄壳 (input-event concern, 非 render concern)。
-// helper 内 setStatus 闭包: gen 不匹配则静默 (transcript-exit bumps gen → late writes go silent)。
+// stopImmediatePropagation stays in the REPL thin shell (input-event concern, not a render concern).
+// setStatus closure inside the helper: silently drops when gen doesn't match (transcript-exit bumps gen → late writes go silent).
 export function applyEditorOpenInExternalEditor(
 	ctx: EditorStatusRenderCtx,
 ): void {

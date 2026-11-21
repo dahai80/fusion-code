@@ -1,12 +1,12 @@
-// audit 1.1.1 slice #69: resume fork plan-copy if/else sub-block 外移 (PURE-ROUTING-SUB-BLOCK, resume-chunked-extraction #9)。
-// resume() useCallback body 子块 (REPL L1903-1910, 8-LOC): entrypoint === "fork" 分支 —
-// void copyPlanForFork(log, asSessionId(sessionId)) [fork: 生成新 plan slug + 复制 plan 内容, 原/fork 不互覆];
-// else — void copyPlanForResume(log, asSessionId(sessionId)) [普通 resume: 复用原会话 plan slug]。
-// slice #61-#68 兄弟模式: resume useCallback 子块切出, resume-local 变量 (entrypoint, log, sessionId) 经 ctx 传入, 行为字节等价。
-// copyPlanForFork/copyPlanForResume (plans.ts import 块) + asSessionId (types/ids) 直接 import
-// (非 REPL state, per imported-helpers-directly rule; REPL 不再用 — 但 import-cleanup 后续 slice 处理, 此 slice 先保留 REPL import 视多处共用)。
-// 辅助返 void (两分支均 fire-and-forget void)。无 JSX → .ts。
-// 注: 此为 resume 切块提取的第 9 块 (fork plan copy if/else)。
+// audit 1.1.1 slice #69: resume fork plan-copy if/else sub-block extracted (PURE-ROUTING-SUB-BLOCK, resume-chunked-extraction #9).
+// resume() useCallback body sub-block (REPL L1903-1910, 8 LOC): entrypoint === "fork" branch —
+// void copyPlanForFork(log, asSessionId(sessionId)) [fork: generates a new plan slug + copies plan content, original/fork don't overwrite each other];
+// else — void copyPlanForResume(log, asSessionId(sessionId)) [plain resume: reuses the original session's plan slug].
+// slice #61-#68 sibling pattern: a resume useCallback sub-block cut out; resume-local variables (entrypoint, log, sessionId) passed via ctx, byte-equivalent behavior.
+// copyPlanForFork/copyPlanForResume (plans.ts import block) + asSessionId (types/ids) imported directly
+// (not REPL state, per imported-helpers-directly rule; REPL no longer uses them — but import cleanup is handled by a later slice, so this slice keeps the REPL import as multi-use for now).
+// Helper returns void (both branches are fire-and-forget void). No JSX → .ts.
+// Note: this is chunk #9 of the resume chunked extraction (fork plan copy if/else).
 
 import type { UUID } from "node:crypto";
 import type { ResumeEntrypoint } from "../commands.js";

@@ -1,8 +1,8 @@
 /**
- * CtxInspectTool — 上下文检查工具
+ * CtxInspectTool — context inspection tool
  *
- * 允许 AI 模型检查当前对话上下文的统计信息，
- * 包括消息数量、token 使用量、上下文窗口利用率等。
+ * Allows the AI model to inspect statistics of the current conversation context,
+ * including message count, token usage, context window utilization, etc.
  *
  * gated by feature('CONTEXT_COLLAPSE')
  */

@@ -88,8 +88,8 @@ export const COST_HAIKU_45 = {
 	webSearchRequests: 0.01,
 } as const satisfies ModelCosts;
 
-// ─── Fusion-MLX 本地模型成本（零成本） ─────────────────────
-// 本地推理无 API 费用，成本显示为 0。
+// ─── Fusion-MLX local model costs (zero cost) ─────────────────────
+// Local inference has no API fees; cost displays as 0.
 export const COST_LOCAL_MLX = {
 	inputTokens: 0,
 	outputTokens: 0,
@@ -135,7 +135,7 @@ export const MODEL_COSTS: Record<ModelShortName, ModelCosts> = {
 		COST_TIER_5_25,
 	[firstPartyNameToCanonical(CLAUDE_OPUS_4_6_CONFIG.firstParty)]:
 		COST_TIER_5_25,
-	// Fusion-MLX 本地模型（零成本）
+	// Fusion-MLX local model (zero cost)
 	"fusion-mlx-local": COST_LOCAL_MLX,
 	"fusion-mlx-code": COST_LOCAL_MLX,
 };
@@ -157,7 +157,7 @@ function tokensToUSDCost(modelCosts: ModelCosts, usage: Usage): number {
 }
 
 export function getModelCosts(model: string, _usage: Usage): ModelCosts {
-	// Fusion-MLX 本地模型：零成本
+	// Fusion-MLX local model: zero cost
 	if (
 		isFusionMlxProvider() ||
 		model.startsWith("fusion-mlx") ||
@@ -232,7 +232,7 @@ function formatPrice(price: number): string {
  */
 export function formatModelPricing(costs: ModelCosts): string {
 	if (costs.inputTokens === 0 && costs.outputTokens === 0) {
-		return "Local (免费)";
+		return "Local (free)";
 	}
 	return `${formatPrice(costs.inputTokens)}/${formatPrice(costs.outputTokens)} per Mtok`;
 }

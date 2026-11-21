@@ -1,15 +1,15 @@
 /**
- * Proactive Mode — 主动模式
+ * Proactive Mode — proactive mode
  *
- * 在主动模式下，AI 模型无需等待用户指令即可主动采取行动。
- * 系统会定期发送 <tick> 提示，AI 可以自主决定做什么。
- * 使用 SleepTool 在无事可做时休眠。
+ * In proactive mode, the AI model takes action on its own without waiting for user instructions.
+ * The system periodically sends <tick> prompts and the AI can autonomously decide what to do.
+ * SleepTool is used to sleep when there is nothing to do.
  *
- * 主要功能：
- * - 主动模式激活/停用
- * - Tick 调度
- * - 暂停/恢复
- * - 系统提示词扩展
+ * Main features:
+ * - Proactive mode activation/deactivation
+ * - Tick scheduling
+ * - Pause/resume
+ * - System prompt extension
  *
  * gated by feature('PROACTIVE') or feature('KAIROS')
  */

@@ -1,9 +1,9 @@
 /**
- * Template Jobs — 模板任务处理器
+ * Template Jobs — template job handler
  *
- * 处理模板任务的生命周期：创建、列出、回复。
- * 模板任务是一种可复用的对话模板，允许用户基于预设模板
- * 快速启动新的对话会话。
+ * Handles the template job lifecycle: create, list, reply.
+ * A template job is a reusable conversation template that lets users
+ * quickly start a new conversation session from a preset template.
  *
  * gated by feature('TEMPLATES')
  */
@@ -124,7 +124,7 @@ async function handleReply(args: string[]): Promise<void> {
 		return;
 	}
 
-	// 防止路径遍历攻击：只允许字母、数字、连字符和下划线
+	// Prevent path traversal attacks: only letters, digits, hyphens, and underscores allowed
 	if (!/^[a-zA-Z0-9_-]+$/.test(jobId)) {
 		console.error(`Error: Invalid job ID format: ${jobId}`);
 		return;

@@ -97,7 +97,7 @@ export function GenerateStep(): ReactNode {
 				agentType: generated.identifier,
 				whenToUse: generated.whenToUse,
 				systemPrompt: generated.systemPrompt,
-				// biome-ignore lint/suspicious/noExplicitAny: GeneratedAgent 与 FinalAgentData 形状真实不匹配（缺 agentType/source），且 generatedAgent 当前无读取方；构造假字段反而误导类型系统
+				// biome-ignore lint/suspicious/noExplicitAny: GeneratedAgent and FinalAgentData genuinely mismatch in shape (missing agentType/source), and generatedAgent currently has no readers; fabricating dummy fields would only mislead the type system
 				generatedAgent: generated as any,
 				isGenerating: false,
 				wasGenerated: true,

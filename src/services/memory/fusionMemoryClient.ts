@@ -1,20 +1,20 @@
 /**
- * Fusion-Memory 长期记忆客户端
+ * Fusion-Memory long-term memory client
  *
- * 将 fusion-code 与 fusion-memory 长期记忆中枢集成,
- * 提供跨 session 记忆提交 / 检索 (语义召回 + 认知图谱)。
+ * Integrates fusion-code with the fusion-memory long-term memory hub,
+ * providing cross-session memory commit / retrieval (semantic recall + cognitive graph).
  *
- * 风格参照 fusion-kb-client.ts: native fetch + AbortSignal.timeout,
- * 失败 logForDebugging + 返回空, 不抛异常中断主流程。
+ * Style follows fusion-kb-client.ts: native fetch + AbortSignal.timeout,
+ * failures logForDebugging + return empty, never throw to interrupt the main flow.
  *
- * 协议: fm-server HTTP JSON-RPC 2.0 (127.0.0.1, Bearer 鉴权)。
- * 端口默认 11435 (fm-server 注册端口, port-registry.yaml; #219 修复 —
- * 旧默认 11440 是 fusion-projects 的端口, 注入管道静默断链)。
+ * Protocol: fm-server HTTP JSON-RPC 2.0 (127.0.0.1, Bearer auth).
+ * Port defaults to 11435 (fm-server registered port, port-registry.yaml; #219 fix —
+ * the old default 11440 belonged to fusion-projects, silently breaking the injection pipeline).
  *
  * env (operator):
- *   FUSION_MEMORY_BASE_URL  (默认 http://127.0.0.1:11435)
- *   FUSION_MEMORY_API_KEY   (必配, 对齐 fm-server Bearer B5)
- *   FUSION_MEMORY_DISABLED  (=1 显式关闭, 不探活不告警)
+ *   FUSION_MEMORY_BASE_URL  (default http://127.0.0.1:11435)
+ *   FUSION_MEMORY_API_KEY   (required, aligns with fm-server Bearer B5)
+ *   FUSION_MEMORY_DISABLED  (=1 explicitly disables, no probing no warning)
  */
 
 import { logForDebugging } from "../../utils/debug.js";
@@ -22,10 +22,10 @@ import { logForDebugging } from "../../utils/debug.js";
 export const DEFAULT_MEMORY_BASE_URL = "http://127.0.0.1:11435";
 
 // ─── Circuit Breaker (audit 0905 E3) ──────────────────────────
-// fusion-memory 故障时每次 rpc 仍等 AbortSignal.timeout (10s) → 主流程被拖死。
-// 独立熔断器: 连续失败 ≥ threshold → open, 快速 fail (null, 不等 timeout)。
-// cooldown 后 half-open 探测一次。env 覆盖: FUSION_MEMORY_CB_THRESHOLD /
-// FUSION_MEMORY_CB_COOLDOWN_MS。默认 threshold=5, cooldown=30s。
+// When fusion-memory is down, every rpc still waits for AbortSignal.timeout (10s) → main flow dragged down.
+// Standalone circuit breaker: consecutive failures ≥ threshold → open, fast fail (null, no timeout wait).
+// After cooldown, half-open probes once. env overrides: FUSION_MEMORY_CB_THRESHOLD /
+// FUSION_MEMORY_CB_COOLDOWN_MS. Defaults threshold=5, cooldown=30s.
 function memCbThreshold(): number {
 	const raw = process.env.FUSION_MEMORY_CB_THRESHOLD;
 	const n = Number(raw);
@@ -42,7 +42,7 @@ let _cbOpenSince: number | null = null;
 
 function memCircuitAllow(): boolean {
 	if (_cbOpenSince === null) return true;
-	// open → cooldown 到了转 half-open (放一个探测请求)
+	// open → cooldown elapsed, switch to half-open (admit one probe request)
 	if (Date.now() - _cbOpenSince >= memCbCooldownMs()) {
 		logForDebugging("[Fusion-Memory] circuit half-open (probing)");
 		_cbOpenSince = null;
@@ -76,11 +76,11 @@ export function getMemoryBaseUrl(): string {
 function getMemoryApiKey(): string | null {
 	const key = process.env.FUSION_MEMORY_API_KEY;
 	if (!key) {
-		// #219: 每会话只提示一次 (旧实现每次 rpc 都打一条)
+		// #219: warn once per session (the old implementation logged one line per rpc)
 		if (!_unconfiguredLoggedOnce) {
 			_unconfiguredLoggedOnce = true;
 			logForDebugging(
-				"[Fusion-Memory] FUSION_MEMORY_API_KEY 未配置, 记忆接入关闭 (每会话仅提示一次)",
+				"[Fusion-Memory] FUSION_MEMORY_API_KEY not configured, memory integration disabled (warns once per session)",
 			);
 		}
 		return null;
@@ -89,8 +89,8 @@ function getMemoryApiKey(): string | null {
 }
 
 // ─── Pipeline status (#219 fail-visible) ─────────────────────
-// fail-empty 只对"结果"成立 (agent 永不被记忆故障打断), 状态必须可见:
-// 启动告警条 (StatusNotices) + 结构化日志 + audit JSONL 三处落地。
+// fail-empty holds only for "results" (the agent is never interrupted by memory failures), the status must stay visible:
+// it lands in three places — startup warning bar (StatusNotices) + structured logs + audit JSONL.
 
 export type MemoryPipelineStatus =
 	| "unknown"
@@ -114,7 +114,7 @@ export function isMemoryExplicitlyDisabled(): boolean {
 	return process.env.FUSION_MEMORY_DISABLED === "1";
 }
 
-// 测试专用: 复位模块级探活状态
+// Test-only: reset the module-level probe status
 export function resetMemoryPipelineStatusForTest(): void {
 	_pipelineStatus = "unknown";
 	_lastProbeAt = 0;
@@ -129,7 +129,7 @@ export async function probeMemoryPipeline(sessionId: string): Promise<void> {
 			_pipelineStatus = "disabled";
 			return;
 		}
-		// 已连通不重探; unreachable 5min 内不重复探 (每轮 turn 触发一次, 便宜)
+		// No re-probe while connected; unreachable not re-probed within 5min (triggered once per turn, cheap)
 		const now = Date.now();
 		if (_pipelineStatus === "connected") return;
 		if (
@@ -152,7 +152,7 @@ export async function probeMemoryPipeline(sessionId: string): Promise<void> {
 		}
 		const latencyMs = Date.now() - started;
 		_pipelineStatus = ok ? "connected" : "unreachable";
-		// 每次探活一条结构化日志 (不是每请求一条)
+		// One structured log per probe (not one per request)
 		logForDebugging(
 			`memory_pipeline status=${_pipelineStatus} url=${getMemoryBaseUrl()} latency_ms=${latencyMs}`,
 		);
@@ -245,7 +245,7 @@ async function rpc<T>(
 ): Promise<T | null> {
 	const apiKey = getMemoryApiKey();
 	if (!apiKey) return null;
-	// audit 0905 E3: 熔断 open 时快速 fail, 不等 timeout, 避免拖死主流程。
+	// audit 0905 E3: fast fail while the circuit is open, no timeout wait, avoiding dragging down the main flow.
 	if (!memCircuitAllow()) {
 		logForDebugging(`[Fusion-Memory] ${method} skipped (circuit OPEN)`, {
 			level: "warn",
@@ -305,7 +305,7 @@ export async function checkMemoryHealth(): Promise<boolean> {
 // ─── Commit ───────────────────────────────────────────────────
 
 /**
- * 写入 Interaction, 返回 turn 级 memory_id 列表 (失败 → null, 不抛)。
+ * Writes an Interaction and returns turn-level memory_id list (failure → null, never throws).
  */
 export async function commitEpisodicMemory(
 	sessionId: string,
@@ -321,7 +321,7 @@ export async function commitEpisodicMemory(
 // ─── Retrieve ─────────────────────────────────────────────────
 
 /**
- * 检索记忆上下文, 返回 {blocks, total_tokens} (失败 → null, 不抛)。
+ * Retrieves memory context, returns {blocks, total_tokens} (failure → null, never throws).
  */
 export async function retrieveContext(
 	text: string,
@@ -344,7 +344,7 @@ export async function retrieveContext(
 // ─── Consolidate ──────────────────────────────────────────────
 
 /**
- * 触发遗忘 / 合并 saga (远程等价 auto-forget), 返回报告 (失败 → null)。
+ * Triggers the forget / consolidation saga (remote equivalent of auto-forget), returns a report (failure → null).
  */
 export async function consolidateMemories(): Promise<ConsolidationReport | null> {
 	return rpc<ConsolidationReport>("consolidate", {}, 30_000);
@@ -353,14 +353,14 @@ export async function consolidateMemories(): Promise<ConsolidationReport | null>
 // ─── Context → prompt string ──────────────────────────────────
 
 /**
- * 把 retrieveContext 结果格式化为可注入 systemPrompt 的字符串。
- * 空结果 → "" (调用方按 falsy 跳过注入)。
+ * Formats the retrieveContext result into a string injectable into the systemPrompt.
+ * Empty result → "" (callers skip injection on falsy).
  */
 export function formatContextToPrompt(ctx: FormattedContext | null): string {
 	if (!ctx?.blocks || ctx.blocks.length === 0) return "";
 	const parts = ctx.blocks.map(
 		(b, i) =>
-			`[记忆 ${i + 1}] (相关度: ${(b.score * 100).toFixed(0)}%, ${b.memory_type})\n${b.turns_text}`,
+			`[Memory ${i + 1}] (relevance: ${(b.score * 100).toFixed(0)}%, ${b.memory_type})\n${b.turns_text}`,
 	);
 	return `\n\n<fusion_memory_context>\n${parts.join("\n\n---\n\n")}\n</fusion_memory_context>`;
 }

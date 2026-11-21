@@ -85,7 +85,7 @@ import type { HooksSettings } from "../settings/types.js";
 import { SettingsSchema } from "../settings/types.js";
 import { jsonParse, jsonStringify } from "../slowOperations.js";
 import { getAddDirEnabledPlugins } from "./addDirPluginSettings.js";
-// item 23: archive 源 (HTTPS zip + SHA-256 锁定)
+// item 23: archive source (HTTPS zip + SHA-256 pinning)
 import { installFromArchive } from "./archiveSource.js";
 import { verifyAndDemote } from "./dependencyResolver.js";
 import { classifyFetchError, logPluginFetch } from "./fetchTelemetry.js";
@@ -477,9 +477,9 @@ export async function copyPluginToVersionedCache(
  * Validate a git URL using Node.js URL parsing
  */
 function validateGitUrl(url: string): string {
-	// P3-10: 去 file: 协议 — 插件 git source 指 file:///etc/something 让 git clone
-	// 读用户可读的任意本地路径 (本地文件外泄原语)。本地路径插件用 directory source,
-	// 无正当理由经 git source 克隆本地路径。
+	// P3-10: drop the file: protocol — a plugin git source pointing at file:///etc/something lets git clone
+	// read arbitrary local paths readable by the user (a local-file exfiltration primitive). Local-path plugins
+	// use a directory source; there is no legitimate reason to clone a local path via a git source.
 	try {
 		const parsed = new URL(url);
 		if (parsed.protocol !== "https:") {
@@ -947,8 +947,8 @@ export function generateTemporaryCacheNameForPlugin(
 	return `temp_${prefix}_${timestamp}_${random}`;
 }
 
-// P0-3 (audit R2): requireGitShaPin git-family commit-pin gate 抽出到 ./gitShaPin.js
-// (独立纯模块, 无 settings 加载链, 单测可直接 import 不触发 TDZ)。
+// P0-3 (audit R2): the requireGitShaPin git-family commit-pin gate extracted to ./gitShaPin.js
+// (standalone pure module, no settings loading chain, unit tests can import it directly without triggering TDZ).
 
 /**
  * Cache a plugin from an external source

@@ -35,8 +35,9 @@ import {
 	logEvent,
 } from "../analytics/index.js";
 import type { LlmClient } from "../llm/client.js";
-// LLM 接缝 (Phase 5): 用形态判定替代 instanceof APIError/APIConnectionError/APIUserAbortError,
-// 同时接纳 SDK 抛出的 APIError (flag 关) 与 seam 抛出的 LlmRequestError (flag 开)。
+// LLM adapter seam (Phase 5): shape-based detection replaces
+// instanceof APIError/APIConnectionError/APIUserAbortError; accepts both the
+// SDK-thrown APIError (flag off) and the seam-thrown LlmRequestError (flag on).
 import {
 	isApiErrorLike,
 	isConnectionErrorLike,
@@ -45,16 +46,19 @@ import {
 import { REPEATED_529_ERROR_MESSAGE } from "./errors.js";
 import { extractConnectionErrorDetails } from "./errorUtils.js";
 
-// 中断错误工厂: 返回 name="AbortError" 的 Error, isAbortErrorLike 可识别。
-// 替代 SDK 的 new APIUserAbortError(); sleep 的 abortError 选项要求 () => Error。
+// Abort error factory: returns an Error with name="AbortError", recognizable
+// by isAbortErrorLike. Replaces the SDK's new APIUserAbortError(); sleep's
+// abortError option requires () => Error.
 const abortError = (): Error => {
 	const err = new Error("Request was aborted.");
 	err.name = "AbortError";
 	return err;
 };
 
-// 形态化 API 错误类型 (替代 SDK APIError 形参): 同时描述 SDK APIError 与 seam LlmRequestError。
-// isApiErrorLike 是其类型守卫; .status/.message/.headers/.requestID 字段与 SDK 一致。
+// Shape-based API error type (replaces the SDK APIError parameter): describes
+// both the SDK APIError and the seam LlmRequestError.
+// isApiErrorLike is its type guard; .status/.message/.headers/.requestID
+// fields match the SDK.
 type ApiErrorLike = {
 	status?: number;
 	message: string;
@@ -783,10 +787,13 @@ function shouldRetry(error: ApiErrorLike): boolean {
 		return true;
 	}
 
-	// audit 2.2.1 (CRITICAL): MLX 确定性错误不重试。5xx 本应可重试, 但 MLX 把
-	// OOM / 上下文超限 / model_not_found / 磁盘满 当 500 返回 (body 含确定性信号),
-	// 重试必复现 → 对共享 MLX 服务自伤 DoS。此检查优先于 5xx 兜底, 读 message 匹配
-	// 确定性信号串 → 不重试。无 status 的路径 (fetch throw) 走 isConnectionErrorLike。
+	// audit 2.2.1 (CRITICAL): MLX deterministic errors are not retried. 5xx
+	// should be retryable, but MLX returns OOM / context overflow /
+	// model_not_found / disk-full as 500 (body carries deterministic signals);
+	// retrying always reproduces them -> self-inflicted DoS against a shared
+	// MLX service. This check takes priority over the 5xx fallback: match the
+	// message against deterministic signal strings -> no retry. Paths without
+	// a status (fetch throw) go through isConnectionErrorLike.
 	if (error.message && isDeterministicError(error.message)) {
 		logForDebugging(
 			`[withRetry] non-retryable deterministic error (status=${error.status}): ${error.message.slice(0, 120)}`,

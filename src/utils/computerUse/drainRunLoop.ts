@@ -18,7 +18,7 @@ let pump: ReturnType<typeof setInterval> | undefined;
 let pending = 0;
 
 function drainTick(cu: ReturnType<typeof requireComputerUseSwift>): void {
-	// biome-ignore lint/suspicious/noExplicitAny: 原生模块运行时注入的私有方法, 类型不可表达
+	// biome-ignore lint/suspicious/noExplicitAny: private method injected at runtime by the native module, not expressible in types
 	(cu as any)._drainMainRunLoop();
 }
 

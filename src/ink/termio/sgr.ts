@@ -99,7 +99,7 @@ function parseExtendedColor(
 
 	const next = params[idx + 1];
 	if (!next) return null;
-	// 提取局部变量: TS 无法跨两个可选链窄化, 避免 ?.value! 断言链
+	// Extract a local variable: TS cannot narrow across two optional chains, avoiding a ?.value! assertion chain
 	const nextValue = params[idx + 2]?.value;
 	if (next.value === 5 && nextValue !== null && nextValue !== undefined) {
 		return { index: nextValue };

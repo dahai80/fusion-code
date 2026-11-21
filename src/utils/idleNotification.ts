@@ -1,9 +1,9 @@
-// audit 1.1.1: 从 REPL.tsx idle-notification useEffect 的 setTimeout 回调体抽出 (PURE-ROUTING SUB-BLOCK class, 像 slice #25/#26/#27/#28)。
-// 行为等价 REPL.tsx:4489-4512 (setTimeout 回调体)。无 React hooks, 无 JSX, 无 await (void sendNotification fire-and-forget)。
-// 响应结束后若用户 idle (未交互 + idleTime >= messageIdleNotifThresholdMs + 非加载/非工具/无聚焦对话框) → 发 idle_prompt 通知。
-// 回调的 5 个 setTimeout-arg 参数作 ctx 传入 (React 反模式: setTimeout 传参绕过 stale closure, 保留原语义)。
-//   ctx = {lastQueryCompletionTime, isLoading, toolJSX, focusedInputDialogRef, terminal}。
-//   getLastInteractionTime/sendNotification/getGlobalConfig 为独立 module import。
+// audit 1.1.1: extracted from the setTimeout callback body of the REPL.tsx idle-notification useEffect (PURE-ROUTING SUB-BLOCK class, like slice #25/#26/#27/#28).
+// Behavior equivalent to REPL.tsx:4489-4512 (setTimeout callback body). No React hooks, no JSX, no await (void sendNotification fire-and-forget).
+// After a response ends, if the user is idle (no interaction + idleTime >= messageIdleNotifThresholdMs + not loading/not a tool/no focused dialog) → send the idle_prompt notification.
+// The callback's 5 setTimeout-arg parameters are passed in as ctx (React anti-pattern workaround: passing args to setTimeout bypasses stale closures, preserving the original semantics).
+//   ctx = {lastQueryCompletionTime, isLoading, toolJSX, focusedInputDialogRef, terminal}.
+//   getLastInteractionTime/sendNotification/getGlobalConfig are separate module imports.
 import { getLastInteractionTime } from "../bootstrap/state.js";
 import type { TerminalNotification } from "../ink/useTerminalNotification.js";
 import { sendNotification } from "../services/notifier.js";
@@ -29,7 +29,7 @@ type IdleNotificationCtx = {
 	terminal: TerminalNotification;
 };
 
-// REPL 保留 useEffect 薄壳 (guards + setTimeout setup + clearTimeout cleanup), 回调体改为:
+// REPL keeps the useEffect thin shell (guards + setTimeout setup + clearTimeout cleanup), callback body changed to:
 //   (_lastQueryCompletionTime, _isLoading, _toolJSX, _focusedInputDialogRef, _terminal) => maybeSendIdleNotification({lastQueryCompletionTime, isLoading, toolJSX, focusedInputDialogRef, terminal});
 export function maybeSendIdleNotification(ctx: IdleNotificationCtx): void {
 	const lastUserInteraction = getLastInteractionTime();

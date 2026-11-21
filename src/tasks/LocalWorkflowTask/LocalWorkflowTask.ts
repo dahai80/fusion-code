@@ -1,8 +1,8 @@
-// audit 1.4.2 (CRITICAL): workflow kill 之前是 no-op STUB (只 console.log)。
-// stopTask / killAllActive / reaper 调 taskImpl.kill → 本 kill → abortWorkflowRun
-// 触发 runtime.ts 已有的 abort 检查 (328/390 行抛 "Workflow aborted"), 并把 task
-// 推到 killed 终态。runId 存在 task state 里 (WorkflowTool 注册时写入), 用它反查
-// abortRegistry 里的 controller。
+// audit 1.4.2 (CRITICAL): workflow kill was previously a no-op STUB (console.log only).
+// stopTask / killAllActive / reaper call taskImpl.kill → this kill → abortWorkflowRun
+// triggers the existing abort check in runtime.ts (throws "Workflow aborted" at lines 328/390)
+// and pushes the task to the killed terminal state. runId is stored in task state (written at
+// WorkflowTool registration) and used to look up the controller in abortRegistry.
 
 import type { SetAppState, Task, TaskStateBase } from "../../Task.js";
 import { abortWorkflowRun } from "../../tools/WorkflowTool/abortRegistry.js";
@@ -15,11 +15,11 @@ export type LocalWorkflowTaskState = TaskStateBase & {
 	agents: string[];
 	currentAgentIndex: number;
 	abortController?: AbortController;
-	runId?: string; // audit 1.4.2: 反查 abortRegistry 的 key
+	runId?: string; // audit 1.4.2: key for looking up abortRegistry
 	summary?: string; // log: fix TS2339
 };
 
-// audit 1.4.2: 真实 kill。触发 abort + 推终态。幂等: 已终态不动。
+// audit 1.4.2: real kill. Triggers abort + pushes terminal state. Idempotent: terminal states untouched.
 export function killWorkflowTask(
 	taskId: string,
 	setAppState: SetAppState,
@@ -31,7 +31,7 @@ export function killWorkflowTask(
 			return task;
 		}
 		runId = task.runId;
-		// 先 abort controller (可能存于 state, 也可能仅存于 registry)。
+		// Abort the controller first (may live in state, or only in the registry).
 		task.abortController?.abort();
 		aborted = true;
 		return {
@@ -41,9 +41,10 @@ export function killWorkflowTask(
 			abortController: undefined,
 		};
 	});
-	// registry 里的 controller (WorkflowTool 注册的) 也要 abort —— task state 里的
-	// abortController 与 registry 里是同一引用, 但 registry 是 kill 路径的权威来源
-	// (state 可能因序列化/恢复丢 controller)。用 runId 反查, 双保险。
+	// The registry controller (registered by WorkflowTool) must also be aborted — the
+	// abortController in task state is the same reference as the registry's, but the
+	// registry is the authoritative source for the kill path (state may lose the
+	// controller through serialization/restore). Look it up via runId as a double safeguard.
 	if (runId) {
 		abortWorkflowRun(runId);
 	}
@@ -54,10 +55,10 @@ export function killWorkflowTask(
 	}
 }
 
-// audit 1.4.4 (HIGH): ESC / kill-agents 现在也杀后台 workflow。与
-// killAllRunningAgentTasks 对称: 遍历 AppState.tasks, 杀所有 running 的
-// local_workflow。WorkflowTool 注册 task 时写了 runId, killWorkflowTask
-// 据此反查 abortRegistry 触发 abort。
+// audit 1.4.4 (HIGH): ESC / kill-agents now also kills background workflows. Symmetric with
+// killAllRunningAgentTasks: iterate AppState.tasks and kill all running local_workflow tasks.
+// WorkflowTool wrote runId into the task at registration; killWorkflowTask uses it to look up
+// abortRegistry and trigger the abort.
 export function killAllRunningWorkflowTasks(
 	tasks: Record<string, TaskState>,
 	setAppState: SetAppState,

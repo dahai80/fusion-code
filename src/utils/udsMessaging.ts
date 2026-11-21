@@ -1,9 +1,9 @@
 /**
- * UDS Messaging — Unix Domain Socket 消息
+ * UDS Messaging — Unix Domain Socket messaging
  *
- * 通过 Unix Domain Socket 实现进程间消息传递。
- * 支持本地 peer 发现、消息发送和接收。
- * 用于 `--messaging-socket-path` 命令行选项。
+ * Implements inter-process message passing over a Unix Domain Socket.
+ * Supports local peer discovery, message sending and receiving.
+ * Used by the `--messaging-socket-path` command-line option.
  *
  * gated by feature('UDS_INBOX')
  */

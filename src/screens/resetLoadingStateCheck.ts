@@ -1,17 +1,17 @@
-// audit 1.1.1 slice #55: resetLoadingState useCallback body 外移 (INLINE-CALLBACK curried-factory, like #46/#49/#50/#53)。
-// REPL() turn 结束重置 loading/streaming/spinner 状态: external loading off + user-processing clear +
-// response/metrics ref 清零 + streaming text/toolUses 清空 + spinner 清空 + 新 tip + 结束 interaction span + 清 speculative checks。
-// 原 useCallback body。setIsExternalLoading (useCallback 包装) + setUserInputOnProcessing (useCallback 包装) +
-// responseLengthRef/apiMetricsRef (useRef 对象, 稳定引用) + setStreamingText/setStreamingToolUses/setSpinnerMessage/
-// setSpinnerColor/setSpinnerShimmerColor (useState setters) + pickNewSpinnerTip (REPL-local useCallback) 经 ctx 传入 (闭包捕获), 行为字节等价。
-// useCallback() hook 留 REPL 薄壳 (hook 规则, 不能移 plain helper), 仅 callback body 移出 (curried factory 返 fn, REPL useCallback 再包一层透传)。
-// endInteractionSpan (utils/telemetry/sessionTracing) + clearSpeculativeChecks (tools/BashTool/bashPermissions) 直接 import
-// (非 REPL state, per imported-helpers-directly rule; REPL 单用, 提取后 REPL import 移除)。
-// ctx 类型: setIsExternalLoading/setUserInputOnProcessing 为 useCallback 包装 (非 useState 原始 setter), 用其精确签名
-// (value: boolean)/(input: string|undefined), 非 Dispatch<SetStateAction> (#53 lesson: 从 useCallback decl 窄化, 非 loose string)。
-// responseLengthRef: MutableRefObject<number>; apiMetricsRef: MutableRefObject<Array<{...}>> (元素 shape 复制, ref 对象稳定引用)。
-// 无 JSX → .ts。返 () => void (REPL 薄壳 useCallback 透传)。
-// deps [pickNewSpinnerTip] 不变 (其余 setter/ref 稳定引用, pickNewSpinnerTip 为 REPL-local useCallback dep)。
+// audit 1.1.1 slice #55: resetLoadingState useCallback body extracted (INLINE-CALLBACK curried-factory, like #46/#49/#50/#53).
+// REPL() resets loading/streaming/spinner state at turn end: external loading off + user-processing clear +
+// response/metrics refs zeroed + streaming text/toolUses cleared + spinner cleared + new tip + end interaction span + clear speculative checks.
+// Original useCallback body. setIsExternalLoading (useCallback-wrapped) + setUserInputOnProcessing (useCallback-wrapped) +
+// responseLengthRef/apiMetricsRef (useRef objects, stable refs) + setStreamingText/setStreamingToolUses/setSpinnerMessage/
+// setSpinnerColor/setSpinnerShimmerColor (useState setters) + pickNewSpinnerTip (REPL-local useCallback) passed via ctx (closure capture), byte-equivalent behavior.
+// The useCallback() hook stays as a REPL thin shell (hook rules, cannot move to a plain helper); only the callback body moves out (curried factory returns the fn, REPL useCallback wraps it once more and passes it through).
+// endInteractionSpan (utils/telemetry/sessionTracing) + clearSpeculativeChecks (tools/BashTool/bashPermissions) imported directly
+// (not REPL state, per imported-helpers-directly rule; single use in REPL, REPL import removed after extraction).
+// ctx types: setIsExternalLoading/setUserInputOnProcessing are useCallback-wrapped (not raw useState setters), use their precise signatures
+// (value: boolean)/(input: string|undefined), not Dispatch<SetStateAction> (#53 lesson: narrow from the useCallback decl, not a loose string).
+// responseLengthRef: MutableRefObject<number>; apiMetricsRef: MutableRefObject<Array<{...}>> (element shape copied, ref object stable).
+// No JSX → .ts. Returns () => void (REPL thin-shell useCallback pass-through).
+// deps [pickNewSpinnerTip] unchanged (remaining setters/refs are stable, pickNewSpinnerTip is a REPL-local useCallback dep).
 
 import type { MutableRefObject } from "react";
 import type { Theme } from "src/utils/theme.js";
@@ -58,7 +58,7 @@ type ResetLoadingStateCtx = {
 	pickNewSpinnerTip: () => void;
 };
 
-// REPL 保留 useCallback 薄壳:
+// REPL keeps the useCallback thin shell:
 //   const resetLoadingState = useCallback(
 //     () => createResetLoadingState({ setIsExternalLoading, setUserInputOnProcessing, responseLengthRef, apiMetricsRef, setStreamingText, setStreamingToolUses, setSpinnerMessage, setSpinnerColor, setSpinnerShimmerColor, pickNewSpinnerTip })(),
 //     [pickNewSpinnerTip],

@@ -1,12 +1,12 @@
-// audit 1.1.1 slice #57: initialMessages restore useEffect body 外移 (PURE-ROUTING-SUB-BLOCK effect-body variant, like #51/#54)。
-// REPL() mount-once useEffect: --resume-session / ResumeConversation 传 initialMessages props → restoreReadFileState 提取已读文件状态 + restoreRemoteAgentTasks 还原远程 agent 任务。
-// 原 useEffect body: guard (initialMessages && length > 0) → restoreReadFileState(initialMessages, getOriginalCwd()) + void restoreRemoteAgentTasks({abortController, getAppState, setAppState})。
-// initialMessages (prop, deps 触发器但 mount-once 故省略 — 与原 eslint-disable 一致) + restoreReadFileState (REPL-local useCallback L2125 wrapper, 闭包捕获 readFileState/bashTools) +
-// restoreRemoteAgentTasks (REPL-local no-op stub L418, 非 import) + store (useAppStateStore L787) + setAppState (useSetAppState L770) 经 ctx 传入 (闭包捕获), 行为字节等价。
-// useEffect() hook 留 REPL 薄壳 (hook 规则, 不能移 plain helper), 仅 effect body 移出; helper 返 void (无 cleanup, mount-once 不需)。
-// getOriginalCwd (bootstrap/state) 直接 import (非 REPL state, per imported-helpers-directly rule; REPL 多用, 保留 REPL import, helper 亦直接 import)。
-// restoreRemoteAgentTasks 当前 no-op stub (RemoteAgentTask 已移除, cloud-only), 但对象仍构造 (字节等价, 不因 no-op 删 dead 构造)。
-// 无 JSX → .ts。返 void。deps [] 不变 (mount-once, eslint-disable-next-line react-hooks/exhaustive-deps 保留)。
+// audit 1.1.1 slice #57: initialMessages restore useEffect body extracted (PURE-ROUTING-SUB-BLOCK effect-body variant, like #51/#54).
+// REPL() mount-once useEffect: --resume-session / ResumeConversation passes the initialMessages props → restoreReadFileState restores read-file state + restoreRemoteAgentTasks restores remote agent tasks.
+// Original useEffect body: guard (initialMessages && length > 0) → restoreReadFileState(initialMessages, getOriginalCwd()) + void restoreRemoteAgentTasks({abortController, getAppState, setAppState}).
+// initialMessages (prop, deps trigger but omitted because mount-once — consistent with the original eslint-disable) + restoreReadFileState (REPL-local useCallback L2125 wrapper, closure-captures readFileState/bashTools) +
+// restoreRemoteAgentTasks (REPL-local no-op stub L418, not imported) + store (useAppStateStore L787) + setAppState (useSetAppState L770) passed via ctx (closure capture), byte-equivalent behavior.
+// The useEffect() hook stays as a REPL thin shell (hook rules, cannot move to a plain helper); only the effect body moves out; helper returns void (no cleanup, not needed for mount-once).
+// getOriginalCwd (bootstrap/state) imported directly (not REPL state, per imported-helpers-directly rule; used multiple times in REPL, REPL import kept, helper imports directly too).
+// restoreRemoteAgentTasks is currently a no-op stub (RemoteAgentTask removed, cloud-only), but the object is still constructed (byte-equivalent, dead construction not removed just because it's a no-op).
+// No JSX → .ts. Returns void. deps [] unchanged (mount-once, eslint-disable-next-line react-hooks/exhaustive-deps kept).
 
 import { getOriginalCwd } from "../bootstrap/state.js";
 import type { AppStateStore } from "../state/AppStateStore.js";
@@ -25,7 +25,7 @@ type InitialMessagesRestoreCtx = {
 	setAppState: SetAppState;
 };
 
-// REPL 保留 useEffect 薄壳:
+// REPL keeps the useEffect thin shell:
 //   useEffect(() => {
 //     restoreInitialMessages({ initialMessages, restoreReadFileState, restoreRemoteAgentTasks, store, setAppState });
 //     // eslint-disable-next-line react-hooks/exhaustive-deps

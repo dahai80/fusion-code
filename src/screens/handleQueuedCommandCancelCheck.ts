@@ -1,10 +1,10 @@
-// audit 1.1.1 slice #53: handleQueuedCommandOnCancel useCallback body 外移 (INLINE-CALLBACK curried-factory, like #46/#49/#50)。
-// REPL() cancel permission request 时恢复 queued command: popAllEditable(inputValue, 0) → set input text + 回 prompt mode + 恢复 images 进 pastedContents。
-// 原 useCallback body。inputValue (deps 触发器, state) + setInputValue (useCallback 包装 setter) + setInputMode + setPastedContents (useState setters) 经 ctx 传入 (闭包捕获), 行为字节等价。
-// useCallback() hook 留 REPL 薄壳 (hook 规则, 不能移 plain helper), 仅 callback body 移出 (curried factory 返 fn, REPL useCallback 再包一层透传)。
-// popAllEditable (utils/messageQueueManager) 直接 import (非 REPL state, per imported-helpers-directly rule; REPL 单用, 提取后 REPL import 移除)。
-// 无 JSX → .ts。返 () => void (REPL 薄壳 useCallback 透传)。
-// deps [setInputValue, setInputMode, inputValue, setPastedContents] 不变 (setters 稳定引用, inputValue 为 state dep)。
+// audit 1.1.1 slice #53: handleQueuedCommandOnCancel useCallback body extracted (INLINE-CALLBACK curried-factory, like #46/#49/#50).
+// REPL() restores the queued command when a permission request is canceled: popAllEditable(inputValue, 0) → set input text + back to prompt mode + restore images into pastedContents.
+// Original useCallback body. inputValue (deps trigger, state) + setInputValue (useCallback-wrapped setter) + setInputMode + setPastedContents (useState setters) passed via ctx (closure capture), byte-equivalent behavior.
+// The useCallback() hook stays as a REPL thin shell (hook rules, cannot move to a plain helper); only the callback body moves out (curried factory returns the fn, REPL useCallback wraps it once more and passes it through).
+// popAllEditable (utils/messageQueueManager) imported directly (not REPL state, per imported-helpers-directly rule; single use in REPL, REPL import removed after extraction).
+// No JSX → .ts. Returns () => void (REPL thin-shell useCallback pass-through).
+// deps [setInputValue, setInputMode, inputValue, setPastedContents] unchanged (setters are stable refs, inputValue is a state dep).
 
 import type { Dispatch, SetStateAction } from "react";
 import type { PromptInputMode } from "../types/textInputTypes.js";
@@ -21,7 +21,7 @@ type HandleQueuedCommandCancelCheckCtx = {
 	setPastedContents: Dispatch<SetStateAction<Record<number, PastedContent>>>;
 };
 
-// REPL 保留 useCallback 薄壳:
+// REPL keeps the useCallback thin shell:
 //   const handleQueuedCommandOnCancel = useCallback(
 //     () => createHandleQueuedCommandOnCancel({ inputValue, setInputValue, setInputMode, setPastedContents })(),
 //     [setInputValue, setInputMode, inputValue, setPastedContents],

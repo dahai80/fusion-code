@@ -84,35 +84,37 @@ export function migrateEnableAllProjectMcpServersToSettings(): void {
 			fieldsToRemove.push("disabledMcpjsonServers");
 		}
 
-		// P2-14: 先写 settings 确认成功, 再删 project 字段 — 防部分失败丢数据。
-		// 原: updateSettingsForSource 成功 + saveCurrentProjectConfig throw → settings
-		// 有迁移值但 project config 仍带旧字段; 反向 (settings 写失败 + 删 project
-		// 字段成功) → 数据丢。原 try/catch 吞异常 → 重跑不感知部分态。改为:
-		// (1) 写 settings 必须无 error 才继续删 project; (2) 只删成功迁移的字段
-		// (migratedFields), 留未迁移字段待下次重跑; (3) 任一失败大声日志不静默。
+		// P2-14: write settings and confirm success first, then remove the project fields — prevents data loss on partial failure.
+		// Before: updateSettingsForSource succeeded + saveCurrentProjectConfig threw → settings
+		// carried the migrated values but project config still had the old fields; the reverse
+		// (settings write failed + project field removal succeeded) → data lost. The old try/catch
+		// swallowed exceptions → reruns could not detect the partial state. Now:
+		// (1) the settings write must be error-free before removing project fields; (2) only remove
+		// successfully migrated fields (migratedFields), leaving unmigrated ones for the next rerun;
+		// (3) any failure logs loudly instead of staying silent.
 		const migratedFields: typeof fieldsToRemove = [];
 
 		// Update settings if there are any updates
 		if (Object.keys(updates).length > 0) {
 			const result = updateSettingsForSource("localSettings", updates);
 			if (result?.error) {
-				// settings 写失败 — 不删 project 字段, 保留源数据待重跑, 大声日志
+				// settings write failed — do not remove project fields; keep source data for a rerun, log loudly
 				logError(result.error);
 				logEvent("fusion_migrate_mcp_approval_fields_error", {});
 				return;
 			}
-			// settings 写成功 — 记录所有本轮推送的字段为已迁移
+			// settings write succeeded — mark all fields pushed this round as migrated
 			migratedFields.push(...fieldsToRemove);
 		} else if (fieldsToRemove.length > 0) {
-			// 无 updates 但有 fieldsToRemove = 字段已迁移过 (else 分支), 仅待删
+			// No updates but fieldsToRemove non-empty = fields already migrated (else branch), only pending removal
 			migratedFields.push(...fieldsToRemove);
 		}
 
-		// 仅在 settings 已持数据的前提下, 从 project config 删已迁移字段
+		// Only after settings holds the data, remove the migrated fields from project config
 		if (migratedFields.length > 0) {
 			const _removeSet = new Set(migratedFields);
 			saveCurrentProjectConfig((current) => {
-				// 保持 ProjectConfig 类型: 按字段名选择性 destructure 剔除
+				// Preserve the ProjectConfig type: selectively destructure fields out by name
 				const {
 					enableAllProjectMcpServers: _e,
 					enabledMcpjsonServers: _en,

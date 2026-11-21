@@ -3,7 +3,7 @@
 // interface so future consumers inject ctx.fs instead of importing concrete
 // tools/adapters. LocalFsCapability wraps node:fs primitives directly (NOT the
 // FileReadTool object — that pulls ToolUseContext/permissions/UI graph; the
-// seam keeps the capability primitive-light per "包现实现 = wrap the capability,
+// seam keeps the capability primitive-light per "wrap the existing implementation = wrap the capability,
 // not the Tool orchestration layer"). Byte-identical when no consumer migrated.
 
 import { exec } from "node:child_process";

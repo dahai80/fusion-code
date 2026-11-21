@@ -149,7 +149,7 @@ export function tool<Schema extends AnyZodRawShape>(
 type CreateSdkMcpServerOptions = {
 	name: string;
 	version?: string;
-	// biome-ignore lint/suspicious/noExplicitAny: SDK 公共 API 泛型默认参数，调用方 schema 类型在此层不可知（AnyZodRawShape 为 zod 外部契约）
+	// biome-ignore lint/suspicious/noExplicitAny: SDK public API generic default parameter; caller schema types are unknowable at this layer (AnyZodRawShape is zod's external contract)
 	tools?: Array<SdkMcpToolDefinition<any>>;
 };
 

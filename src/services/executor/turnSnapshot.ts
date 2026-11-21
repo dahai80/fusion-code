@@ -57,10 +57,13 @@ type TurnSnapshot = {
 	hintInjected: boolean;
 };
 
-// P1-6: ring 是跨 turn 历史快照 (last-5 GC, /rollback 按 turnId 取, 共享安全);
-// 但 currentTurn + pendingHint 此前是模块单例 → 并发 in-process QueryEngine
-// (subagent 共享进程) 交叉: Turn A takeTurnSnapshot 清了 Turn B 的 currentTurn,
-// Turn B 的失败计入 Turn A, /rollback 回滚错 turn。改为按 turnId 键控 per-turn 状态。
+// P1-6: the ring is a cross-turn history snapshot (last-5 GC, /rollback
+// fetches by turnId, safe to share);
+// but currentTurn + pendingHint were previously module singletons -> with
+// concurrent in-process QueryEngines (subagents share the process) they
+// crossed: Turn A's takeTurnSnapshot cleared Turn B's currentTurn, Turn B's
+// failure counted toward Turn A, and /rollback rolled back the wrong turn.
+// Switched to per-turn state keyed by turnId.
 const ring: TurnSnapshot[] = [];
 const turnStateByTurnId = new Map<string, TurnSnapshot>();
 const pendingHintByTurnId = new Map<string, string>();
@@ -80,7 +83,8 @@ function resolveCwd(): string {
 // (caller binds it to the turn), or null when disabled / unavailable / non-repo.
 // Never throws — a snapshot failure is fail-soft (turn proceeds without rollback).
 export async function takeTurnSnapshot(turnId: string): Promise<string | null> {
-	// P1-6: 按 turnId 清本 turn 的 per-turn 状态 (而非模块单例), 隔离并发 QueryEngine。
+	// P1-6: clear this turn's per-turn state by turnId (not module singleton),
+	// isolating concurrent QueryEngines.
 	turnStateByTurnId.delete(turnId);
 	pendingHintByTurnId.delete(turnId);
 	if (!isTurnSnapshotEnabled()) return null;
@@ -127,7 +131,7 @@ export async function takeTurnSnapshot(turnId: string): Promise<string | null> {
 // Record a tool failure (is_error) against a turn. At the threshold,
 // stage a rollback hint for the model via lastHint(turnId). Idempotent per turn —
 // the hint is injected once even if failures keep climbing.
-// P1-6: turnId 键控 → 并发 QueryEngine 各自的失败互不污染。
+// P1-6: turnId-keyed -> concurrent QueryEngines' failures never cross-pollute.
 export function recordTurnFailure(turnId: string): void {
 	const turn = turnStateByTurnId.get(turnId);
 	if (!turn) return;
@@ -181,7 +185,7 @@ export async function rollbackToTurn(turnId?: string): Promise<boolean> {
 			// Drop rolled-back turns + newer ones from the ring — they're stale.
 			const idx = ring.indexOf(snap);
 			if (idx !== -1) ring.splice(idx);
-			// P1-6: 清本 turn 的 per-turn 状态 (turnId 键控)。
+			// P1-6: clear this turn's per-turn state (turnId-keyed).
 			turnStateByTurnId.delete(snap.turnId);
 			pendingHintByTurnId.delete(snap.turnId);
 		}

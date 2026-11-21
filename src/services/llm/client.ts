@@ -1,17 +1,23 @@
-// LLM 接缝 — provider-neutral 客户端
+// LLM adapter seam — provider-neutral client
 //
-// 替代 anthropic.beta.messages.create / countTokens / models.list 的调用形态:
+// Replaces the call shapes of anthropic.beta.messages.create / countTokens /
+// models.list:
 //   - streaming: anthropic.beta.messages.create({stream:true}) -> Stream<BetaRawMessageStreamEvent>
 //   - non-streaming: anthropic.beta.messages.create(...) -> BetaMessage
 //   - count_tokens: anthropic.beta.messages.countTokens(...) -> { input_tokens }
-//   - models.list: anthropic.models.list({betas}) -> 迭代模型条目
-//   - raw response: anthropic.beta.messages.create(...).asResponse() -> 原始 Response (读限流头)
-// 本客户端用接缝层 (postMessages + 直接 fetch) 复刻全部, 不经 @anthropic-ai/sdk。
+//   - models.list: anthropic.models.list({betas}) -> iterate model entries
+//   - raw response: anthropic.beta.messages.create(...).asResponse() -> raw Response (read rate-limit headers)
+// This client replicates all of it via the seam layer (postMessages + direct
+// fetch), bypassing @anthropic-ai/sdk.
 //
-// claude.ts / client.ts (api) 改为持有 LlmClient, 调 streamMessages()/createMessage() 等。
-// firstParty+fusionMlx 由 createSeamClient 构造; bedrock/vertex/foundry/openai 在 client.ts
-// 抛错, 引导配置 FUSION_BASE_URL + FUSION_CLIENT_KEY 直连 Anthropic 兼容 endpoint。
+// claude.ts / client.ts (api) now hold an LlmClient and call
+// streamMessages()/createMessage() etc.
+// firstParty+fusionMlx are constructed by createSeamClient;
+// bedrock/vertex/foundry/openai throw in client.ts, directing users to
+// configure FUSION_BASE_URL + FUSION_CLIENT_KEY for direct connect to an
+// Anthropic-compatible endpoint.
 
+import { getSessionId } from "../../bootstrap/state.js";
 import type { SdkFetch } from "../../types/anthropic-protocol.js";
 import { getAnthropicApiKey } from "../../utils/auth.js";
 import { logForDebugging } from "../../utils/debug.js";
@@ -23,14 +29,14 @@ import {
 	otelUsageAttrs,
 	startOtelSpan,
 } from "../../utils/telemetry/otelTracing.js";
-import { getSessionId } from "../../bootstrap/state.js";
 import { CLIENT_REQUEST_ID_HEADER } from "../api/client.js";
 import type { SdkPart } from "./chunkToPart.js";
 import { classifyError, LlmRequestError } from "./errors.js";
 import { postMessages } from "./httpClient.js";
 import { resolveSeamEndpoint, streamViaSeam } from "./seam.js";
 
-// 非流式响应的最小子集 (claude.ts 实际读取的字段)。不依赖 SDK 类型, 结构兼容 BetaMessage。
+// Minimal subset of the non-streaming response (fields claude.ts actually
+// reads). No SDK type dependency, structurally compatible with BetaMessage.
 export type BetaMessageLike = {
 	id: string;
 	type: "message";
@@ -48,25 +54,27 @@ export type BetaMessageLike = {
 	[k: string]: unknown;
 };
 
-// count_tokens 响应: { input_tokens: number; [k]: unknown }
+// count_tokens response: { input_tokens: number; [k]: unknown }
 export type CountTokensResult = {
 	input_tokens: number;
 	[k: string]: unknown;
 };
 
-// models.list 单条条目: { id: string; [k]: unknown }
+// Single models.list entry: { id: string; [k]: unknown }
 export type ModelListEntry = {
 	id: string;
 	[k: string]: unknown;
 };
 
-// createMessageRaw 返回: 原始 Response + request_id (读限流头/_request_id 用)。
+// createMessageRaw returns: raw Response + request_id (for reading
+// rate-limit headers / _request_id).
 export type RawMessageResult = {
 	response: Response;
 	requestId?: string;
 };
 
-// 流式/非流式公共请求选项。signal 可选 (verify_api_key 等无中断上下文)。
+// Common request options for streaming/non-streaming. signal is optional
+// (verify_api_key etc. have no interruption context).
 export interface MessageRequestOpts {
 	signal?: AbortSignal;
 	timeoutMs?: number;
@@ -74,7 +82,8 @@ export interface MessageRequestOpts {
 }
 
 export interface LlmClient {
-	// 流式: 返回与 BetaRawMessageStreamEvent 结构兼容的 SdkPart 异步流。
+	// Streaming: returns an async stream of SdkParts structurally compatible
+	// with BetaRawMessageStreamEvent.
 	streamMessages(
 		params: Record<string, unknown>,
 		opts: {
@@ -83,39 +92,44 @@ export interface LlmClient {
 			requestId?: string;
 		},
 	): AsyncIterable<SdkPart>;
-	// 非流式: POST /v1/messages (stream:false), 返回 BetaMessage 形状对象。
+	// Non-streaming: POST /v1/messages (stream:false), returns a
+	// BetaMessage-shaped object.
 	createMessage(
 		params: Record<string, unknown>,
 		opts: MessageRequestOpts,
 	): Promise<BetaMessageLike>;
-	// 非流式原始响应: POST /v1/messages (stream:false), 返回 Response + request_id。
-	// 用于读取限流头 (claudeAiLimits 的 asResponse() 路径)。
+	// Non-streaming raw response: POST /v1/messages (stream:false), returns
+	// Response + request_id.
+	// For reading rate-limit headers (claudeAiLimits' asResponse() path).
 	createMessageRaw(
 		params: Record<string, unknown>,
 		opts: MessageRequestOpts,
 	): Promise<RawMessageResult>;
-	// 计数: POST /v1/messages/count_tokens, 返回 { input_tokens }。
+	// Count: POST /v1/messages/count_tokens, returns { input_tokens }.
 	countTokens(
 		params: Record<string, unknown>,
 		opts?: MessageRequestOpts,
 	): Promise<CountTokensResult>;
-	// 模型列表: GET /v1/models, 异步迭代模型条目。
+	// Model list: GET /v1/models, async-iterates model entries.
 	listModels(opts?: {
 		betas?: string[];
 		signal?: AbortSignal;
 	}): AsyncIterable<ModelListEntry>;
 }
 
-// firstParty + fusionMlx 的接缝客户端。streamMessages 复用 streamViaSeam;
-// createMessage/createMessageRaw/countTokens/listModels 直接 fetch 并解析。
-// defaultHeaders (session-id/x-app/custom 等) 经 extraHeaders 注入每个请求, 保持与
-// 旧 SDK 客户端的追踪头一致。
+// Seam client for firstParty + fusionMlx. streamMessages reuses
+// streamViaSeam; createMessage/createMessageRaw/countTokens/listModels fetch
+// and parse directly.
+// defaultHeaders (session-id/x-app/custom etc.) are injected into every
+// request via extraHeaders, keeping tracking headers consistent with the old
+// SDK client.
 export function createSeamClient(
 	model: string,
 	fetchOverride?: SdkFetch,
 	defaultHeaders?: Record<string, string>,
 ): LlmClient {
-	// 合并每个方法的特定 headers 与全局 defaultHeaders (方法 headers 优先)。
+	// Merge per-method specific headers with the global defaultHeaders
+	// (method headers win).
 	const mergeHeaders = (
 		methodHeaders?: Record<string, string>,
 	): Record<string, string> | undefined => {
@@ -125,10 +139,13 @@ export function createSeamClient(
 	};
 	return {
 		async *streamMessages(params, opts) {
-			// 委托给既有接缝流 (claude.ts 主流式路径)。
-			// streamViaSeam 返回 { stream, requestId, response }; 这里只转发 stream 部分,
-			// requestId/response 由 claude.ts 直接调 streamViaSeam 时自行取用。
-			// P1.3: streaming LLM span 在 streamViaSeam 统一打点 (单一咽喉点)。
+			// Delegate to the existing seam stream (claude.ts main streaming
+			// path).
+			// streamViaSeam returns { stream, requestId, response }; only the
+			// stream part is forwarded here, requestId/response are consumed by
+			// claude.ts when it calls streamViaSeam directly.
+			// P1.3: streaming LLM span is instrumented centrally in
+			// streamViaSeam (single choke point).
 			const seam = await streamViaSeam(
 				params,
 				opts.signal,
@@ -172,7 +189,8 @@ export function createSeamClient(
 					);
 					throw new Error("createMessage: response body is not valid JSON");
 				}
-				// 注入 _request_id, 复刻 SDK response._request_id 约定 (sideQuery 等读取)。
+				// Inject _request_id, replicating the SDK's response._request_id
+				// convention (read by sideQuery etc.).
 				const msg = json as BetaMessageLike;
 				if (requestId) {
 					(msg as Record<string, unknown>)._request_id = requestId;
@@ -210,7 +228,8 @@ export function createSeamClient(
 				fetchFn: fetchOverride ?? ep.fetchFn,
 				extraHeaders: mergeHeaders(opts.headers),
 			});
-			// asResponse() 语义: 调用方负责读取 body/headers, 此处不消费 body。
+			// asResponse() semantics: the caller reads body/headers; the body is not
+			// consumed here.
 			return { response, requestId };
 		},
 
@@ -241,10 +260,14 @@ export function createSeamClient(
 			logForDebugging(
 				`[llm:client] listModels model=${model} baseUrl=${ep.baseUrl}`,
 			);
-			// P1-6 (audit 0901): 旧实现单页 limit=1000 不分页 — 上游返 has_more=true
-			// 时静默截断 → /model 列表缺模型, 用户选不到真实存在的模型。改游标分页:
-			// Anthropic /v1/models 用 after=<last_id> + has_more 翻页。设最大页数上限
-			// (MAX_PAGES) 防恶意/失控上游无限翻页; 达上限显眼日志 (非静默截断)。
+			// P1-6 (audit 0901): the old implementation fetched a single page with
+			// limit=1000 without paginating — when upstream returned
+			// has_more=true it silently truncated -> the /model list was missing
+			// models and users couldn't select models that actually exist.
+			// Switched to cursor pagination: Anthropic /v1/models pages with
+			// after=<last_id> + has_more. A max page cap (MAX_PAGES) guards
+			// against a malicious/runaway upstream paging forever; hitting the
+			// cap logs prominently (not silent truncation).
 			const MAX_PAGES = Number.isFinite(
 				parseInt(process.env.FUSION_CODE_LISTMODELS_MAX_PAGES ?? "", 10),
 			)
@@ -270,7 +293,7 @@ export function createSeamClient(
 					extraHeaders: mergeHeaders(),
 					fetchFn: fetchOverride ?? ep.fetchFn,
 				});
-				// /v1/models 返回 { data: ModelEntry[], has_more, last_id, ... }
+				// /v1/models returns { data: ModelEntry[], has_more, last_id, ... }
 				const parsed = json as {
 					data?: unknown;
 					has_more?: boolean;
@@ -289,20 +312,23 @@ export function createSeamClient(
 					}
 				}
 				totalYielded += pageYielded;
-				// 服务端 has_more + last_id 明示有更多 → 续翻; 否则终止。
+				// Server's has_more + last_id explicitly signal more -> keep
+				// paging; otherwise stop.
 				if (!parsed.has_more || !parsed.last_id) {
 					afterId = undefined;
 					break;
 				}
-				// 优先用服务端 last_id; 若缺则用本页末条 id 作 fallback 游标。
+				// Prefer the server's last_id; if missing, fall back to this page's
+				// last entry id as the cursor.
 				afterId = parsed.last_id ?? lastSeenId;
-				if (!afterId || pageYielded === 0) break; // 无游标/空页 → 终止防死循环
+				if (!afterId || pageYielded === 0) break; // no cursor/empty page -> stop, prevents infinite loop
 				if (page >= MAX_PAGES) {
 					truncatedAt = totalYielded;
 				}
 			}
 			if (truncatedAt !== undefined) {
-				// 非静默截断: 达页数上限仍有 has_more → 显眼日志, 用户可知列表不全。
+				// Non-silent truncation: page cap hit while has_more -> prominent
+				// log so the user knows the list is incomplete.
 				logForDebugging(
 					`[llm:client] listModels TRUNCATED at ${truncatedAt} models (hit MAX_PAGES=${MAX_PAGES}; upstream has_more=true). Raise FUSION_CODE_LISTMODELS_MAX_PAGES to fetch all.`,
 					{ level: "warn" },
@@ -312,7 +338,7 @@ export function createSeamClient(
 	};
 }
 
-// ── 内部辅助 ──────────────────────────────────────────────
+// ── Internal helpers ──────────────────────────────────────────────
 
 function extractBetas(params: Record<string, unknown>): string[] | undefined {
 	const b = params.betas;
@@ -386,7 +412,7 @@ async function rawFetchJson(opts: RawFetchOpts): Promise<unknown> {
 		try {
 			statusText = await response.text();
 		} catch {
-			// 读 body 失败忽略
+			// Ignore body-read failures
 		}
 		const wrapped: Error & { _retryAfterSec?: number } = new Error(
 			`${response.status} ${response.statusText}: ${statusText}`,
@@ -427,4 +453,3 @@ function joinUrl(base: string, path: string): string {
 	}
 	return base + path;
 }
-

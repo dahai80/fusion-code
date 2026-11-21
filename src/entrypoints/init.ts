@@ -1,8 +1,8 @@
 import { profileCheckpoint } from "../utils/startupProfiler.js";
 import "../bootstrap/state.js";
 import "../utils/config.js";
-// P3-17: 相对路径 (同 L2 '../bootstrap/state.js'), 非 'src/bootstrap/state.js' 绝对路径 —
-// 后者在 bun build --compile 下脆弱, 且与同文件 L2 不一致。
+// P3-17: relative path (same as L2 '../bootstrap/state.js'), not the absolute 'src/bootstrap/state.js' —
+// the latter is fragile under bun build --compile and inconsistent with L2 in this file.
 import { getIsNonInteractiveSession } from "../bootstrap/state.js";
 import { shutdownLspServerManager } from "../services/lsp/index.js";
 import {
@@ -68,7 +68,7 @@ export const init = asyncMemoize(async (): Promise<void> => {
 		profileCheckpoint("init_after_graceful_shutdown");
 
 		// Initialize JetBrains IDE detection asynchronously (populates cache for later sync access)
-		// P3-18: .catch 同上。
+		// P3-18: .catch same as above.
 		void initJetBrainsDetection().catch((e) =>
 			logForDebugging(
 				`[init] initJetBrainsDetection failed: ${(e as Error).message}`,
@@ -77,7 +77,7 @@ export const init = asyncMemoize(async (): Promise<void> => {
 		profileCheckpoint("init_after_jetbrains_detection");
 
 		// Detect GitHub repository asynchronously (populates cache for gitDiff PR linking)
-		// P3-18: .catch 同上。
+		// P3-18: .catch same as above.
 		void detectCurrentRepository().catch((e) =>
 			logForDebugging(
 				`[init] detectCurrentRepository failed: ${(e as Error).message}`,

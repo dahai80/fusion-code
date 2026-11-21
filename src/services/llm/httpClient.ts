@@ -1,9 +1,9 @@
-// LLM 接缝 — 极简 HTTP 客户端 (POST /v1/messages -> SSE 流)
+// LLM seam — minimal HTTP client (POST /v1/messages -> SSE stream)
 //
-// 替代 Anthropic SDK 客户端: 直接 fetch + 复用现有 auth/proxy/cch 工具, 不经 SDK。
-// 适配器 (adapter.ts) 调此函数拿到 SSE 流后, 用 sseStream.parseSseStream 消费。
+// Replaces the Anthropic SDK client: direct fetch + reuse of the existing auth/proxy/cch utilities, bypassing the SDK.
+// The adapter (adapter.ts) calls this to get the SSE stream, then consumes it via sseStream.parseSseStream.
 //
-// 复用 (不重写) 既有逻辑:
+// Reuses (does not rewrite) existing logic:
 //   src/utils/http.ts      getUserAgent
 //   src/utils/proxy.ts     getProxyFetchOptions
 //   src/utils/auth.ts      getAnthropicApiKey
@@ -32,8 +32,8 @@ export interface PostMessagesOptions {
 	firstParty?: boolean;
 	signal?: AbortSignal;
 	timeoutMs?: number;
-	// 可选 fetch 注入 (fusion-mlx 路径用 createFusionMlxFetch 拦截并转译)。
-	// 缺省走 globalThis.fetch。类型用 SdkFetch (无 preconnect), 兼容 SDK fetch 与注入测试。
+	// Optional fetch injection (the fusion-mlx path uses createFusionMlxFetch to intercept and translate).
+	// Defaults to globalThis.fetch. Typed as SdkFetch (no preconnect), compatible with both SDK fetch and injected tests.
 	fetchFn?: SdkFetch;
 }
 
@@ -42,8 +42,8 @@ export interface PostMessagesResult {
 	requestId?: string;
 }
 
-// POST 一个 /v1/messages 流式请求, 返回 SSE Response 与 request_id。
-// 非 2xx 或 fetch 异常 -> 抛 LlmRequestError (携带 LlmFailure, withRetry 据此判重试)。
+// POST a streaming /v1/messages request; returns the SSE Response and request_id.
+// Non-2xx or fetch exception -> throws LlmRequestError (carrying LlmFailure, which withRetry uses for retry classification).
 export async function postMessages(
 	opts: PostMessagesOptions,
 ): Promise<PostMessagesResult> {
@@ -51,14 +51,14 @@ export async function postMessages(
 	const headers = buildHeaders(opts);
 	let body = opts.body;
 
-	// cch 签名: 仅 firstParty 直连时
+	// cch signing: only for firstParty direct connection
 	if (opts.firstParty && hasCchPlaceholder(body)) {
 		try {
 			const cch = await computeCch(body);
 			body = replaceCchPlaceholder(body, cch);
 			logForDebugging(`[llm:http] signed request cch=${cch}`);
 		} catch {
-			// cch 失败不阻断请求 (与现有 buildFetch 行为一致)
+			// cch failure does not block the request (consistent with the existing buildFetch behavior)
 		}
 	}
 
@@ -70,7 +70,7 @@ export async function postMessages(
 		...getProxyFetchOptions({ forAnthropicAPI: true }),
 	};
 	if (opts.timeoutMs) {
-		// @ts-expect-error Bun/Node fetch 接受 timeout
+		// @ts-expect-error Bun/Node fetch accepts timeout
 		fetchOptions.timeout = opts.timeoutMs;
 	}
 
@@ -95,7 +95,7 @@ export async function postMessages(
 			const ra = response.headers.get("retry-after");
 			if (ra) retryAfterSec = Number.parseInt(ra, 10);
 		} catch {
-			// 读 body 失败忽略
+			// Ignore body read failure
 		}
 		const wrapped: Error & { _retryAfterSec?: number } = new Error(
 			`${response.status} ${response.statusText}: ${statusText}`,
@@ -103,7 +103,7 @@ export async function postMessages(
 		if (Number.isFinite(retryAfterSec)) {
 			wrapped._retryAfterSec = retryAfterSec;
 		}
-		// 保留响应头 (限流/重试头来源), 使 withRetry/errors 的 error.headers?.get(...) 生效。
+		// Keep the response headers (source of rate-limit/retry headers) so withRetry/errors' error.headers?.get(...) works.
 		const failure = classifyError(
 			wrapped,
 			response.status,

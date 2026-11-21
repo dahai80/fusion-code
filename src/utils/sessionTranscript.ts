@@ -1,29 +1,30 @@
-// item 6: transcript 磁盘裁剪 + 崩溃安全 checkpoint (CC 2.1.208, §188/§628)
+// item 6: transcript on-disk trim + crash-safe checkpoint (CC 2.1.208, §188/§628)
 //
-// 问题: compact 发生时 QueryEngine 内存裁前缀 (mutableMessages.splice), 但磁盘
-// .jsonl 纯追加 (appendEntryToFile), pre-compact 段永留盘。编辑密集会话同文件
-// 反复 Read/Edit → tool_result 巨大 → 多 GB (inc-3930)。
+// Problem: when compact happens, QueryEngine trims the prefix in memory (mutableMessages.splice), but the
+// on-disk .jsonl is append-only (appendEntryToFile), so the pre-compact segment stays on disk forever.
+// Edit-heavy sessions Read/Edit the same file repeatedly → huge tool_results → multi-GB files (inc-3930).
 //
-// 本模块: 纯函数裁剪逻辑 (可测), 不动 sessionStorage 类内部。磁盘重写串行由
-// Project.trimTranscriptOnDisk 类方法走 trackWrite (同 removeMessageByUuid 模式)。
+// This module: pure-function trim logic (testable), does not touch sessionStorage class internals.
+// Disk rewrites are serialized by the Project.trimTranscriptOnDisk class method via trackWrite
+// (same pattern as removeMessageByUuid).
 //
-// 三重数据安全: (1) default off — FUSION_TRANSCRIPT_TRIM_THRESHOLD 未设则永不裁;
-// (2) atomicWriteFile tmp+rename — 崩溃不留半写; (3) preservedSegment boundary 不裁。
+// Triple data safety: (1) default off — never trims unless FUSION_TRANSCRIPT_TRIM_THRESHOLD is set;
+// (2) atomicWriteFile tmp+rename — no half-written file after a crash; (3) preservedSegment boundaries are not trimmed.
 
 import { readFile, rename, stat, unlink, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 
-// --- 常量 --------------------------------------------------------------------
+// --- Constants ---------------------------------------------------------------
 
-// 50MB — 同 MAX_TOMBSTONE_REWRITE_BYTES / MAX_TRANSCRIPT_READ_BYTES 量级。裁剪走
-// 全文件重写 (非 tail-splice), 复用同 bail-out 上限防 OOM。
+// 50MB — same magnitude as MAX_TOMBSTONE_REWRITE_BYTES / MAX_TRANSCRIPT_READ_BYTES. Trimming
+// rewrites the whole file (not a tail-splice), reusing the same bail-out cap to prevent OOM.
 export const DEFAULT_TRIM_THRESHOLD_BYTES = 50 * 1024 * 1024;
 
-// 裁剪 checkpoint 文件后缀。与主 .jsonl 同目录, 崩溃时存续用于恢复判定。
+// Trim checkpoint file suffix. Lives in the same directory as the main .jsonl, survives crashes for recovery decisions.
 const TRIM_CHECKPOINT_SUFFIX = ".trim-checkpoint";
 
-// compact_boundary 字节标记 (与 sessionStoragePortable.compactBoundaryMarker 同源)。
-// 懒分配 — 多数 session 不触发裁剪。
+// compact_boundary byte marker (same source as sessionStoragePortable.compactBoundaryMarker).
+// Lazily allocated — most sessions never trigger a trim.
 let _compactBoundaryMarker: Buffer | undefined;
 function compactBoundaryMarker(): Buffer {
 	if (_compactBoundaryMarker === undefined) {
@@ -32,8 +33,8 @@ function compactBoundaryMarker(): Buffer {
 	return _compactBoundaryMarker;
 }
 
-// metadata 行标记 (与 sessionStorage.METADATA_TYPE_MARKERS 同源) — 裁剪后须保留
-// pre-boundary metadata, 否则 resume 丢 session 元数据 (title/agent-name/mode)。
+// metadata line markers (same source as sessionStorage.METADATA_TYPE_MARKERS) — after a trim,
+// pre-boundary metadata must be kept, otherwise resume loses session metadata (title/agent-name/mode).
 const METADATA_TYPE_MARKERS = [
 	'"type":"summary"',
 	'"type":"custom-title"',
@@ -46,7 +47,7 @@ const METADATA_TYPE_MARKERS = [
 	'"type":"pr-link"',
 ];
 
-// --- 类型 --------------------------------------------------------------------
+// --- Types -------------------------------------------------------------------
 
 export interface TrimDecision {
 	trim: boolean;
@@ -69,21 +70,21 @@ interface CheckpointRecord {
 }
 
 interface BoundaryInfo {
-	// 最后一行非-preserved compact_boundary 的起始字节偏移 (行首)。无则 null。
+	// Byte offset (line start) of the last non-preserved compact_boundary line. null if none.
 	lastBoundaryLineStart: number | null;
-	// 最后一行 boundary 的完整内容 (含换行), 用于拼新文件首行。
+	// Full content of the last boundary line (including newline), used to build the new file's first line.
 	lastBoundaryLine: Buffer | null;
-	// 最后一个 boundary 是否 preservedSegment (true → 不裁)。
+	// Whether the last boundary is a preservedSegment (true → do not trim).
 	lastBoundaryPreserved: boolean;
-	// pre-boundary 区间的 metadata 行 (完整行, 含换行)。
+	// Metadata lines from the pre-boundary range (full lines, including newline).
 	metadataLines: Buffer[];
 }
 
-// --- 触发判定 ----------------------------------------------------------------
+// --- Trigger decision --------------------------------------------------------
 
 /**
- * 判定 transcript 是否应裁剪。default off — env 未设返 {trim:false} (byte-identical 旧行为)。
- * 用户显式设 FUSION_TRANSCRIPT_TRIM_THRESHOLD=<正整数> 才启用。
+ * Decide whether the transcript should be trimmed. Default off — returns {trim:false} when the env is unset (byte-identical old behavior).
+ * Enabled only when the user explicitly sets FUSION_TRANSCRIPT_TRIM_THRESHOLD=<positive integer>.
  */
 export function shouldTrimTranscript(
 	filePath: string,
@@ -99,16 +100,16 @@ export function shouldTrimTranscript(
 
 function parseThreshold(raw: string): number {
 	const n = Number.parseInt(raw, 10);
-	// 非数/负/0 → Infinity (off)。0 亦 off (裁剪点=0 无意义, 且 "0=off" 与其他 item 一致)。
+	// NaN/negative/0 → Infinity (off). 0 is also off (a trim point of 0 is meaningless, and "0=off" is consistent with the other items).
 	if (!Number.isFinite(n) || n <= 0) return Infinity;
 	return n;
 }
 
 function fileSizeSync(filePath: string): number {
-	// 同步 stat — shouldTrim 在 compact 收尾同步判定, 体积小。
-	// 失败 (文件不存在) → 0 → 不裁。
+	// Sync stat — shouldTrim decides synchronously at compact completion, small footprint.
+	// Failure (file missing) → 0 → no trim.
 	try {
-		// require 避循环依赖 (node:fs/promises stat 是 async, 此处用 sync)。
+		// require avoids a circular dependency (node:fs/promises stat is async; using the sync one here).
 		const { statSync } = require("node:fs") as typeof import("node:fs");
 		return statSync(filePath).size;
 	} catch {
@@ -116,16 +117,17 @@ function fileSizeSync(filePath: string): number {
 	}
 }
 
-// --- 核心裁剪 ----------------------------------------------------------------
+// --- Core trim ---------------------------------------------------------------
 
 /**
- * 计算裁剪信息: 扫描全文件找最后非-preserved compact_boundary, 收 pre-boundary metadata。
- * 纯函数, 不写盘。返回 BoundaryInfo 或 null (无可用裁剪点)。
+ * Compute trim info: scan the whole file for the last non-preserved compact_boundary and collect pre-boundary metadata.
+ * Pure function, no disk writes. Returns BoundaryInfo or null (no usable trim point).
  */
 export async function computeTrimBoundary(
 	filePath: string,
-	// P3-3: 调用方 (performTrim) 可传预读 content 避双读 — 原两次 readFile
-	// 间无外部写者假设, 传同一 buffer 保证一致且省一次磁盘 IO。
+	// P3-3: the caller (performTrim) can pass pre-read content to avoid a double read — the original
+	// two readFile calls assumed no external writer in between; passing the same buffer guarantees
+	// consistency and saves one disk IO.
 	preReadContent?: Buffer,
 ): Promise<BoundaryInfo | null> {
 	const content = preReadContent ?? (await readFile(filePath));
@@ -134,28 +136,28 @@ export async function computeTrimBoundary(
 	const marker = compactBoundaryMarker();
 	const NEWLINE = 0x0a;
 
-	// 单遍正向扫: 记每个 boundary 行的 [start, end) + preserved, 同时收 pre-last-boundary metadata。
+	// Single forward pass: record [start, end) + preserved for each boundary line, also collecting pre-last-boundary metadata.
 	let lastBoundaryLineStart: number | null = null;
 	let lastBoundaryLine: Buffer | null = null;
 	let lastBoundaryPreserved = false;
 
-	// 边界前 (即 lastBoundaryLineStart 之前) 的 metadata 行。
+	// Metadata lines before the boundary (i.e. before lastBoundaryLineStart).
 	const metadataLines: Buffer[] = [];
 
 	let lineStart = 0;
 	let nl = content.indexOf(NEWLINE);
 	while (nl !== -1) {
-		const lineEnd = nl + 1; // 含换行
+		const lineEnd = nl + 1; // including newline
 		const lineBuf = content.subarray(lineStart, lineEnd);
 
-		// 检测 compact_boundary (marker 可能在用户内容里 → parseBoundaryLine 确认)
+		// Detect compact_boundary (the marker may appear in user content → parseBoundaryLine confirms)
 		if (lineBuf.includes(marker)) {
 			const info = parseBoundaryLine(lineBuf.toString("utf-8"));
 			if (info !== null) {
-				// 更新最后 boundary。之前的 "最后 boundary" 现在变成它的 pre-boundary —
-				// 但 metadata 扫描只对最终 lastBoundaryLineStart 之前的行, 所以下面统一收。
+				// Update the last boundary. The previous "last boundary" now becomes its pre-boundary —
+				// but the metadata scan only covers lines before the final lastBoundaryLineStart, so it is collected below.
 				lastBoundaryLineStart = lineStart;
-				lastBoundaryLine = Buffer.from(lineBuf); // 拷贝, 脱离原 buffer
+				lastBoundaryLine = Buffer.from(lineBuf); // copy, detached from the original buffer
 				lastBoundaryPreserved = info.hasPreservedSegment;
 			}
 		}
@@ -164,7 +166,7 @@ export async function computeTrimBoundary(
 		nl = content.indexOf(NEWLINE, lineStart);
 	}
 
-	// 处理末行无换行 (健壮)
+	// Handle a final line without newline (robustness)
 	if (lineStart < content.length) {
 		const lineBuf = content.subarray(lineStart);
 		if (lineBuf.includes(marker)) {
@@ -177,13 +179,13 @@ export async function computeTrimBoundary(
 		}
 	}
 
-	// 无 boundary → 不裁 (无可裁点)。
+	// No boundary → no trim (no usable trim point).
 	if (lastBoundaryLineStart === null) return null;
 
-	// 最后 boundary 是 preservedSegment → 不裁 (preserved 消息物理在 pre-boundary, 裁了丢)。
+	// Last boundary is a preservedSegment → no trim (preserved messages physically live in the pre-boundary range; trimming loses them).
 	if (lastBoundaryPreserved) return null;
 
-	// 收 lastBoundaryLineStart 之前的 metadata 行 (整个 [0, lastBoundaryLineStart))。
+	// Collect metadata lines before lastBoundaryLineStart (the whole [0, lastBoundaryLineStart) range).
 	const preBoundary = content.subarray(0, lastBoundaryLineStart);
 	collectMetadataLines(preBoundary, metadataLines);
 
@@ -196,8 +198,8 @@ export async function computeTrimBoundary(
 }
 
 /**
- * 确认 boundary 行: type===system && subtype===compact_boundary, 返回 preservedSegment 标志。
- * (与 sessionStoragePortable.parseBoundaryLine 同源 — marker 可出现在用户内容里, 须 JSON 确认。)
+ * Confirm a boundary line: type===system && subtype===compact_boundary, returns the preservedSegment flag.
+ * (Same source as sessionStoragePortable.parseBoundaryLine — the marker can appear in user content, so JSON confirmation is required.)
  */
 function parseBoundaryLine(
 	line: string,
@@ -220,7 +222,7 @@ function parseBoundaryLine(
 }
 
 /**
- * 从字节段收 metadata 行 (完整行含换行)。逐行检查 markers。
+ * Collect metadata lines from a byte range (full lines including newline). Checks markers line by line.
  */
 function collectMetadataLines(buf: Buffer, out: Buffer[]): void {
 	const NEWLINE = 0x0a;
@@ -242,11 +244,11 @@ function collectMetadataLines(buf: Buffer, out: Buffer[]): void {
 }
 
 /**
- * 执行磁盘裁剪。调用方 (Project.trimTranscriptOnDisk) 须在 trackWrite 内调。
- * 流程: computeTrimBoundary → 拼 metadata + boundary + post-compact 段 →
- * 先写 checkpoint → atomicWriteFile 换主文件 → 删 checkpoint。
+ * Perform the on-disk trim. The caller (Project.trimTranscriptOnDisk) must invoke this inside trackWrite.
+ * Flow: computeTrimBoundary → assemble metadata + boundary + post-compact segment →
+ * write checkpoint first → atomicWriteFile swaps the main file → delete the checkpoint.
  *
- * 返回 TrimResult。不裁 (无 boundary / preserved / 文件过小) 返回 {trimmed:false, reason}。
+ * Returns TrimResult. No trim (no boundary / preserved / file too small) returns {trimmed:false, reason}.
  */
 export async function performTrim(filePath: string): Promise<TrimResult> {
 	const { size: origSize } = await stat(filePath);
@@ -260,7 +262,7 @@ export async function performTrim(filePath: string): Promise<TrimResult> {
 		};
 	}
 
-	// P3-3: 单读一次, 传 computeTrimBoundary 避双读 (原 readFile 两次: boundary + postCompact)。
+	// P3-3: read once, pass to computeTrimBoundary to avoid a double read (the original did two readFile calls: boundary + postCompact).
 	const content = await readFile(filePath);
 	const boundary = await computeTrimBoundary(filePath, content);
 	if (boundary === null || boundary.lastBoundaryLineStart === null) {
@@ -273,18 +275,18 @@ export async function performTrim(filePath: string): Promise<TrimResult> {
 		};
 	}
 
-	// post-compact 段 = boundary 行 + 其后所有内容。
+	// Post-compact segment = boundary line + everything after it.
 	const boundaryStart = boundary.lastBoundaryLineStart;
 	const postCompact = content.subarray(boundaryStart);
 
-	// 拼新文件: metadata 行 + post-compact 段。metadata 已含换行, postCompact 以 boundary 行起。
+	// Assemble the new file: metadata lines + post-compact segment. Metadata already includes newlines; postCompact starts at the boundary line.
 	const parts: Buffer[] = [];
 	for (const m of boundary.metadataLines) parts.push(m);
 	parts.push(postCompact);
 	const newContent = Buffer.concat(parts);
 	const newSize = newContent.length;
 
-	// 1. checkpoint 先写 (崩溃时存续, 恢复协议据此判定)。
+	// 1. Write the checkpoint first (survives crashes; the recovery protocol decides based on it).
 	const checkpointPath = filePath + TRIM_CHECKPOINT_SUFFIX;
 	const checkpoint: CheckpointRecord = {
 		trimmedAt: new Date().toISOString(),
@@ -294,14 +296,14 @@ export async function performTrim(filePath: string): Promise<TrimResult> {
 	};
 	await atomicWriteFile(checkpointPath, JSON.stringify(checkpoint));
 
-	// 2. 原子换主文件 (tmp+rename, 崩溃安全 — 要么旧完整留, 要么新完整换)。
+	// 2. Atomically swap the main file (tmp+rename, crash-safe — either the old file stays intact or the new one fully replaces it).
 	await atomicWriteFile(filePath, newContent.toString("utf-8"));
 
-	// 3. 换成功后删 checkpoint。
+	// 3. After a successful swap, delete the checkpoint.
 	try {
 		await unlink(checkpointPath);
 	} catch {
-		// checkpoint 删失败不阻断 (下次 recoverTrimIfNeeded 见 checkpoint+主文件 OK 会幂等删)。
+		// A checkpoint deletion failure does not block (the next recoverTrimIfNeeded sees checkpoint + intact main file and deletes idempotently).
 	}
 
 	return {
@@ -313,14 +315,14 @@ export async function performTrim(filePath: string): Promise<TrimResult> {
 	};
 }
 
-// --- 崩溃恢复 ----------------------------------------------------------------
+// --- Crash recovery ----------------------------------------------------------
 
 /**
- * 恢复协议。resume/启动调。default off 时 checkpoint 永不存在 → no-op, 零开销。
- * - checkpoint 不存在 → 无中断裁剪, no-op。
- * - checkpoint 存在 + 主文件可解析 (首行 valid JSON) → 裁剪已完成 checkpoint 未删 → 删 checkpoint, no-op (幂等)。
- * - checkpoint 存在 + 主文件损坏/空 → 裁剪中断于 atomicWriteFile 中途 (理论极不可能, 防御) →
- *   记日志, 保留 checkpoint 作证, 不自动删主文件 (Rule 12 fail-visible — 让用户决定, 不静默丢数据)。
+ * Recovery protocol. Called on resume/startup. When default off the checkpoint never exists → no-op, zero cost.
+ * - Checkpoint absent → no interrupted trim, no-op.
+ * - Checkpoint present + main file parseable (first line valid JSON) → trim completed but checkpoint not deleted → delete the checkpoint, no-op (idempotent).
+ * - Checkpoint present + main file corrupt/empty → the trim was interrupted mid-atomicWriteFile (theoretically near-impossible, defensive) →
+ *   log it, keep the checkpoint as evidence, do not auto-delete the main file (Rule 12 fail-visible — let the user decide, never silently drop data).
  */
 export async function recoverTrimIfNeeded(filePath: string): Promise<void> {
 	const checkpointPath = filePath + TRIM_CHECKPOINT_SUFFIX;
@@ -330,46 +332,46 @@ export async function recoverTrimIfNeeded(filePath: string): Promise<void> {
 		await stat(checkpointPath);
 		checkpointExists = true;
 	} catch {
-		// checkpoint 不存在 → 无中断裁剪, no-op。
+		// Checkpoint absent → no interrupted trim, no-op.
 		return;
 	}
 	if (!checkpointExists) return;
 
-	// checkpoint 存在 — 判主文件完整性。
+	// Checkpoint present — judge main-file integrity.
 	let mainIntact = false;
 	try {
 		const content = await readFile(filePath, { encoding: "utf-8" });
 		if (content.length > 0) {
-			// 首行 valid JSON → 主文件完整 (裁剪已完成)。
+			// First line valid JSON → main file intact (trim already completed).
 			const firstNl = content.indexOf("\n");
 			const firstLine = firstNl === -1 ? content : content.slice(0, firstNl);
 			JSON.parse(firstLine);
 			mainIntact = true;
 		}
 	} catch {
-		// 主文件读失败 / 首行非 JSON → 损坏。
+		// Main file read failed / first line not JSON → corrupt.
 		mainIntact = false;
 	}
 
 	if (mainIntact) {
-		// 裁剪完成但 checkpoint 未删 → 幂等删 checkpoint, no-op。
+		// Trim completed but checkpoint not deleted → idempotent checkpoint deletion, no-op.
 		try {
 			await unlink(checkpointPath);
 		} catch {
-			// 删失败忽略, 下次再收尾。
+			// Ignore deletion failure; clean up next time.
 		}
 		return;
 	}
 
-	// 主文件损坏 — fail-visible (Rule 12)。保留 checkpoint 作证, 不静默删主文件。
-	// 记日志让用户感知 (logForDebugging / console 避循环依赖 — 用 process.stderr)。
+	// Main file corrupt — fail-visible (Rule 12). Keep the checkpoint as evidence, never silently delete the main file.
+	// Log so the user is aware (logForDebugging / console would create a circular dependency — using process.stderr).
 	process.stderr.write(
 		`[item6] transcript trim interrupted: checkpoint exists but main file corrupt. ` +
 			`main=${filePath} checkpoint=${checkpointPath} — manual recovery needed.\n`,
 	);
 }
 
-// --- 原子写 (与 sessionStorage.atomicWriteFile 同源, 独立避免导出私有) -----------
+// --- Atomic write (same source as sessionStorage.atomicWriteFile, kept separate to avoid exporting a private) ---
 
 async function atomicWriteFile(filePath: string, data: string): Promise<void> {
 	const dir = dirname(filePath);
@@ -384,7 +386,7 @@ async function atomicWriteFile(filePath: string, data: string): Promise<void> {
 		try {
 			await unlink(tmpName);
 		} catch {
-			// 忽略清理失败
+			// Ignore cleanup failure
 		}
 		throw error;
 	}

@@ -12,8 +12,8 @@ export function uniq<T>(xs: Iterable<T>): T[] {
 	return [...new Set(xs)];
 }
 
-// audit 1.1.1: 从 REPL.tsx 抽出的纯函数。ttft/otps 多请求时取中位数。
-// 输入仅原语数组, 无副作用。
+// audit 1.1.1: pure function extracted from REPL.tsx. Returns the median of ttft/otps across multiple requests.
+// Input is a plain array of primitives only, no side effects.
 export function median(values: number[]): number {
 	if (values.length === 0) return 0;
 	const sorted = [...values].sort((a, b) => a - b);

@@ -248,7 +248,7 @@ const jetbrainsPluginNotice: StatusNoticeDefinition = {
 	},
 };
 
-// #219: fusion-memory 不可达 — 长期记忆本会话关闭, 必须持续可见而非一闪而过
+// #219: fusion-memory unreachable — long-term memory is off for this session; the notice must stay persistently visible rather than flash once
 const fusionMemoryUnreachableNotice: StatusNoticeDefinition = {
 	id: "fusion-memory-unreachable",
 	type: "warning",

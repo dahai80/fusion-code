@@ -114,16 +114,16 @@ export function initializeWarningHandler(): void {
 			}
 			// Hide all warnings from users - they are only logged to Statsig for monitoring
 		} catch (handlerError) {
-			// audit 2.2.6: warningHandler 自身抛错 (e.g. analytics logEvent throw) 会
-			// 进这里。原代码 empty catch = warning 永久丢失无兜底。stderr 写最后一道,
-			// 仅 dev/verbose 可见, 避免污染非 dev 静默。静默分支 (非 dev) 仍不输出。
+			// audit 2.2.6: an error thrown by warningHandler itself (e.g. analytics logEvent throw) lands
+			// here. The original empty catch = the warning was permanently lost with no fallback. stderr is
+			// the last resort, visible only in dev/verbose to avoid polluting non-dev silence. The silent branch (non-dev) still outputs nothing.
 			if (isEnvTruthy(process.env.FUSION_DEBUG) || isDevelopment) {
 				try {
 					process.stderr.write(
 						`[warningHandler] swallowed warning: ${warning.toString()}; handler error: ${String(handlerError)}\n`,
 					);
 				} catch {
-					// stderr 本身失败 (e.g. 已关闭的 fd) — 最后兜底, 无法再降级。
+					// stderr itself failed (e.g. closed fd) — final fallback, cannot degrade further.
 				}
 			}
 		}

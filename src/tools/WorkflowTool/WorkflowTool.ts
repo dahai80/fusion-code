@@ -76,9 +76,9 @@ export function getActiveRuns(): Array<{
 	}));
 }
 
-// audit 1.4.1/2.1.3 + 0905 P0-C: 无全局 workflow 准入, 并发 workflow 相乘 OOM。
-// 默认有限 cap (旧=Infinity 无界 = N 个 workflow × 16 agent × MLX 请求 = OOM)。
-// FUSION_MAX_CONCURRENT_WORKFLOWS 显式设正整数覆盖; "0" 显式无界 (兼容旧行为)。
+// audit 1.4.1/2.1.3 + 0905 P0-C: no global workflow admission; concurrent workflows multiplied into OOM.
+// Default to a finite cap (old =Infinity unbounded = N workflows × 16 agents × MLX requests = OOM).
+// FUSION_MAX_CONCURRENT_WORKFLOWS explicitly set to a positive integer overrides; "0" explicitly unbounded (compat with old behavior).
 const DEFAULT_MAX_CONCURRENT_WORKFLOWS = 4;
 function maxConcurrentWorkflows(): number {
 	const raw = process.env.FUSION_MAX_CONCURRENT_WORKFLOWS;
@@ -92,7 +92,7 @@ function maxConcurrentWorkflows(): number {
 		);
 		return DEFAULT_MAX_CONCURRENT_WORKFLOWS;
 	}
-	if (parsed === 0) return Infinity; // 显式无界 (兼容旧无界行为)
+	if (parsed === 0) return Infinity; // explicitly unbounded (compat with old unbounded behavior)
 	return Math.floor(parsed);
 }
 
@@ -206,12 +206,12 @@ export const WorkflowTool = buildTool({
 			};
 		}
 
-		// 双门禁: feature("WORKFLOW_SCRIPTS") (编译期, build:dev:full) AND
-		// FUSION_WORKFLOW_RUNTIME_ENABLED=1 (运行期)。两层都满足才跑 runtime;
-		// 否则 byte-identical 验证桩 (旧行为)。
+		// Double gate: feature("WORKFLOW_SCRIPTS") (compile time, build:dev:full) AND
+		// FUSION_WORKFLOW_RUNTIME_ENABLED=1 (runtime). Runtime runs only when both are satisfied;
+		// otherwise byte-identical validation stub (old behavior).
 		if (feature("WORKFLOW_SCRIPTS") && isWorkflowRuntimeEnabled()) {
-			// audit 1.4.1/2.1.3: 全局准入 cap。超限拒绝, 不排队 (排队需全局调度器,
-			// 见 1.4.3 跨仓 defer)。默认 Infinity (env 未设) = byte-identical 无界。
+			// audit 1.4.1/2.1.3: global admission cap. Reject when over the cap, no queuing
+			// (queuing needs a global scheduler, see the 1.4.3 cross-repo defer). Default Infinity (env unset) = byte-identical unbounded.
 			const cap = maxConcurrentWorkflows();
 			const inFlight = countActiveWorkflowRuns();
 			if (inFlight >= cap) {
@@ -227,9 +227,9 @@ export const WorkflowTool = buildTool({
 				};
 			}
 
-			// audit 1.4.2: 创建并注册 abortController, 使 kill 路径可触发 .abort()。
-			// runtime.ts 已在 328/390 行检查 signal.aborted, 仅需触发。之前 controller
-			// 被孤儿化 (无处存), kill 永不生效。
+			// audit 1.4.2: create and register the abortController so the kill path can trigger .abort().
+			// runtime.ts already checks signal.aborted at lines 328/390; triggering is all that is needed. Previously the controller
+			// was orphaned (nowhere stored), so kill never took effect.
 			const abortController = context?.abortController ?? new AbortController();
 			registerWorkflowAbort(runId, abortController);
 
@@ -239,9 +239,9 @@ export const WorkflowTool = buildTool({
 				`[Workflow] runtime enabled: executing script for run ${runId}`,
 			);
 
-			// audit 1.4.2: 注册 local_workflow task 进 AppState.tasks, 使 stopTask /
-			// killAllActive / reaper 能按 type=local_workflow 找到并 kill。
-			// setAppStateForTasks 优先 (async agent 约定), 回退 setAppState。
+			// audit 1.4.2: register the local_workflow task into AppState.tasks so stopTask /
+			// killAllActive / the reaper can find and kill it by type=local_workflow.
+			// setAppStateForTasks preferred (async agent convention), falling back to setAppState.
 			const setAppState = context?.setAppStateForTasks ?? context?.setAppState;
 			const registeredTaskId = setAppState
 				? generateTaskId("local_workflow")
@@ -261,7 +261,7 @@ export const WorkflowTool = buildTool({
 							agents: [],
 							currentAgentIndex: 0,
 							abortController,
-							runId, // audit 1.4.2: killWorkflowTask 反查 abortRegistry
+							runId, // audit 1.4.2: killWorkflowTask looks up the abortRegistry in reverse
 							summary: undefined,
 						},
 						setAppState,
@@ -301,8 +301,8 @@ export const WorkflowTool = buildTool({
 					runId,
 					error: String((err as Error).message ?? err),
 				});
-				// 被 abort (kill) → killed 消息, 否则原失败消息。 LocalWorkflowTask.kill
-				// 已把 task 状态改 killed; 这里兜底未走 kill 路径的 abort (如父 abort)。
+				// Aborted (killed) → killed message; otherwise the original failure message. LocalWorkflowTask.kill
+				// already set the task status to killed; this covers aborts that did not go through the kill path (e.g. parent abort).
 				const aborted = abortController.signal.aborted;
 				finalizeWorkflowTask(
 					registeredTaskId,
@@ -372,8 +372,8 @@ function safeStringify(value: unknown): string {
 	}
 }
 
-// audit 1.4.2: 把已注册的 local_workflow task 推到终态 (completed/killed/failed)。
-// 未注册 (registeredTaskId 空) 或 setAppState 缺失 → no-op。幂等: 已终态不动。
+// audit 1.4.2: push the registered local_workflow task to a terminal state (completed/killed/failed).
+// Unregistered (registeredTaskId empty) or setAppState missing → no-op. Idempotent: already-terminal states are left alone.
 function finalizeWorkflowTask(
 	registeredTaskId: string | undefined,
 	finalStatus: "completed" | "killed" | "failed",

@@ -444,7 +444,7 @@ export async function mcpLoginHandler(name: string): Promise<void> {
 		const { performMCPOAuthFlow } = await import("../../services/mcp/index.js");
 		await performMCPOAuthFlow(
 			name,
-			// url 守卫已过滤 stdio; 定向窄化替代 as any (v5 验证修复)
+			// url guard already filtered out stdio; targeted narrowing instead of as any (v5 validation fix)
 			serverConfig as McpSSEServerConfig | McpHTTPServerConfig,
 			(url: string) => {
 				cliOk(`Authorization URL opened for "${name}": ${url}`);
@@ -462,7 +462,7 @@ export async function mcpLogoutHandler(name: string): Promise<void> {
 		const configs = await getAllMcpConfigs();
 		const serverConfig = configs.servers[name];
 		if (serverConfig) {
-			// 定向窄化替代 as any (v5 验证修复); stdio 配置无 tokens, 清理为 no-op
+			// targeted narrowing instead of as any (v5 validation fix); stdio configs have no tokens, cleanup is a no-op
 			const httpLike = serverConfig as McpSSEServerConfig | McpHTTPServerConfig;
 			clearMcpClientConfig(name, httpLike);
 			clearServerTokensFromLocalStorage(name, httpLike);

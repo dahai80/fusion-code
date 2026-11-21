@@ -1,7 +1,7 @@
 import { logForDebugging } from "../../utils/debug.js";
 
 // WebSearch per-session guardrail (CC 2.1.217 item 13 alignment, enhance-0819.md
-// §优先级矩阵). Caps cumulative WebSearchTool invocations per session so a
+// § priority matrix). Caps cumulative WebSearchTool invocations per session so a
 // runaway agent cannot burn unbounded web searches. Env defaults match CC A.2.1.
 //
 // Count semantics: one WebSearchTool.call() = one invocation counted. A single

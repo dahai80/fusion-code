@@ -80,7 +80,7 @@ export class TaskOutput {
 	 */
 	static startPolling(taskId: string): void {
 		const instance = TaskOutput.#registry.get(taskId);
-		// TS 不允许可选链含私有标识符 (TS18030), 拆为两段判空
+		// TS disallows optional chaining on private identifiers (TS18030), split into two null checks
 		if (instance === undefined || !instance.#onProgress) {
 			return;
 		}

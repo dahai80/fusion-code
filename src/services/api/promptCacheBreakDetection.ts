@@ -489,8 +489,8 @@ export async function checkResponseForCacheBreak(
 		// Detect a cache break: cache read dropped >5% from previous AND
 		// the absolute drop exceeds the minimum threshold.
 		const tokenDrop = prevCacheRead - cacheReadTokens;
-		// P2-8: 边界用 `>` 非 `>=`。`>=` 时正好 5% drop 不标记 (off-by-one)。
-		// 注释顶部已声明 "dropped >5%" 阈值, 故 `>` 与文档一致 (正好 5% = 仍标记)。
+		// P2-8: boundary uses `>` not `>=`. With `>=`, an exactly 5% drop would not be flagged (off-by-one).
+		// The comment at the top already declares a "dropped >5%" threshold, so `>` matches the doc (exactly 5% = still flagged).
 		if (
 			cacheReadTokens > prevCacheRead * 0.95 ||
 			tokenDrop < MIN_CACHE_MISS_TOKENS

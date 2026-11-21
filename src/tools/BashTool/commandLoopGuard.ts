@@ -1,11 +1,13 @@
 /**
- * Bash 命令死循环防护
+ * Bash command infinite-loop protection
  *
- * 拦截同一命令在三轮对话内被连续执行且输出完全一样的情况，
- * 抛出人工干预提示，防止本地小模型陷入命令执行死循环。
+ * Intercepts cases where the same command is executed repeatedly within three
+ * conversation rounds with completely identical output, raising a manual
+ * intervention prompt to prevent small local models from getting stuck in a
+ * command execution loop.
  */
 
-/** 历史命令记录（command → 最近输出） */
+/** History of recent commands (command → last output) */
 const recentCommands: Array<{
 	command: string;
 	output: string;
@@ -14,12 +16,12 @@ const recentCommands: Array<{
 const MAX_HISTORY = 3;
 const DUPLICATE_THRESHOLD = 3;
 
-/** 记录并检查命令是否陷入死循环 */
+/** Records a command and checks whether it is stuck in a loop */
 export function checkCommandLoop(
 	command: string,
 	output: string,
 ): { shouldBlock: boolean; reason?: string } {
-	// 清理超过 10 轮的旧记录
+	// Evict records older than 10 rounds
 	const now = Date.now();
 	while (
 		recentCommands.length > 0 &&
@@ -28,7 +30,7 @@ export function checkCommandLoop(
 		recentCommands.shift();
 	}
 
-	// 统计相同命令 + 相同输出的次数
+	// Count occurrences of same command + same output
 	const sameCommandSameOutput = recentCommands.filter(
 		(entry) => entry.command === command && entry.output === output,
 	);
@@ -36,11 +38,11 @@ export function checkCommandLoop(
 	if (sameCommandSameOutput.length >= DUPLICATE_THRESHOLD) {
 		return {
 			shouldBlock: true,
-			reason: `本地模型似乎陷入了命令执行死循环：命令 "${command}" 已连续 ${sameCommandSameOutput.length} 轮产生完全相同的输出。请手动介入检查。`,
+			reason: `The local model appears to be stuck in a command execution loop: command "${command}" has produced identical output for ${sameCommandSameOutput.length} consecutive rounds. Manual intervention required.`,
 		};
 	}
 
-	// 记录本次命令
+	// Record this command
 	recentCommands.push({ command, output, timestamp: now });
 	if (recentCommands.length > MAX_HISTORY * 2) {
 		recentCommands.shift();
@@ -49,7 +51,7 @@ export function checkCommandLoop(
 	return { shouldBlock: false };
 }
 
-/** 清空历史记录（新一轮对话或 /clear 时调用） */
+/** Clears the history (called on a new conversation round or /clear) */
 export function clearCommandLoopHistory(): void {
 	recentCommands.length = 0;
 }

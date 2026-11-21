@@ -2138,7 +2138,7 @@ function PromptInput({
 				});
 			}
 		});
-		// biome-ignore lint/correctness/useExhaustiveDependencies: onImagePaste 上游每次渲染重建（props 直传非 useCallback），effect 不依赖其标识稳定性
+		// biome-ignore lint/correctness/useExhaustiveDependencies: onImagePaste is rebuilt every render upstream (passed via props, not useCallback); the effect does not depend on its identity stability
 	}, [addNotification, onImagePaste]);
 
 	// Register chat:submit handler directly in the handler registry (not via

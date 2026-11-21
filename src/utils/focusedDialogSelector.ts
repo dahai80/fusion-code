@@ -1,22 +1,22 @@
-// audit 1.1.1: 从 REPL.tsx 抽出的 focusedInputDialog 优先级级联。纯函数, 无 React, 无副作用。
-// 20 个对话框类型的优先级判定: exit > message-selector > typing-suppress > sandbox-permission >
-// (toolJSX 不阻塞时) tool-permission > prompt > worker-sandbox > elicitation > cost > idle-return >
+// audit 1.1.1: focusedInputDialog priority cascade extracted from REPL.tsx. Pure function, no React, no side effects.
+// Priority cascade across the 20 dialog types: exit > message-selector > typing-suppress > sandbox-permission >
+// (when toolJSX is not blocking) tool-permission > prompt > worker-sandbox > elicitation > cost > idle-return >
 // ultraplan-choice > ultraplan-launch > ide-onboarding > model-switch(ant) > undercover(ant) >
 // effort > remote > lsp-rec > plugin-hint > desktop-upsell。
-// feature("ULTRAPLAN") + isInternalBuild() 都是 runtime 检查 (非 React), 可在纯函数内调用。
-// feature() 是 bun:bundle 编译期宏, 字符串字面量参数跨文件 DCE 安全 (precedent: src/utils/*.ts)。
+// feature("ULTRAPLAN") + isInternalBuild() are both runtime checks (non-React), callable inside a pure function.
+// feature() is a bun:bundle compile-time macro; string-literal arguments are DCE-safe across files (precedent: src/utils/*.ts).
 
 import { feature } from "bun:bundle";
 import { isInternalBuild } from "./buildConstants.js";
 
-// toolJSX 的动画相关字段 (REPL useState 形状的子集, 仅取此处用到的 1 个)。
-// 避免拉入完整 toolJSX 类型 (含 jsx/shouldHidePromptInput/showSpinner/isLocalJSXCommand 等)。
+// Animation-related fields of toolJSX (subset of the REPL useState shape, only the 1 field used here).
+// Avoids pulling in the full toolJSX type (which includes jsx/shouldHidePromptInput/showSpinner/isLocalJSXCommand etc.).
 export type ToolJsxFocusLike = {
 	shouldContinueAnimation?: true;
 } | null;
 
-// 输入: 23 个原始状态字段。队列类只取 `[0]` 真值检查, 用 readonly unknown[] 不拉具体元素类型。
-// recommendation/idleReturn/ultraplan 等只做真值检查, 用 unknown 不拉具体对象类型。
+// Input: 23 raw state fields. Queue-like fields are only truth-checked via `[0]`; use readonly unknown[] to avoid pulling element types.
+// recommendation/idleReturn/ultraplan etc. are only truth-checked; use unknown to avoid pulling concrete object types.
 export type FocusedDialogInput = {
 	isExiting: boolean;
 	exitFlow: unknown;
@@ -63,8 +63,8 @@ export type FocusedDialogKind =
 	| "ultraplan-choice"
 	| "ultraplan-launch";
 
-// 优先级级联: 返回当前应聚焦的对话框类型, 无则 undefined。
-// 行为等价 REPL.tsx:2449-2539 内联函数。REPL 调用一次, 绑定同名 const, 下游读取不变 (字节等价)。
+// Priority cascade: returns the dialog type that should currently be focused, undefined if none.
+// Behavior-equivalent to the inline function at REPL.tsx:2449-2539. REPL calls it once and binds to a same-named const; downstream reads unchanged (byte-equivalent).
 export function getFocusedInputDialog(
 	input: FocusedDialogInput,
 ): FocusedDialogKind | undefined {

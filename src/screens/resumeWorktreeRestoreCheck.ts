@@ -1,16 +1,16 @@
-// audit 1.1.1 slice #65: resume worktree-restore if/else sub-block 外移 (PURE-ROUTING-SUB-BLOCK, resume-chunked-extraction #5)。
-// resume() useCallback body 子块 (REPL L1990-2005, 16-LOC): entrypoint !== "fork" 分支 —
-// exitRestoredWorktree() [退出先前 /resume 进入的 worktree] + restoreWorktreeForResume(log.worktreeSession)
-// [cd 回此会话所在 worktree] + adoptResumedSessionFile() [采纳 resume 会话文件] +
-// void restoreRemoteAgentTasks({abortController, getAppState, setAppState}) [恢复 remote agent tasks]；
-// else fork 分支 — getCurrentWorktreeSession() → ws ? saveWorktreeState(ws) [fork: 同 /clear 再持久化 worktree 状态]。
-// slice #61-#64 兄弟模式: resume useCallback 子块切出, resume-local 变量 (entrypoint, log.worktreeSession) +
-// REPL-local fn (restoreRemoteAgentTasks no-op stub L426) 经 ctx 传入, 行为字节等价。
-// exitRestoredWorktree/restoreWorktreeForResume/adoptResumedSessionFile/saveWorktreeState (sessionStorage import 块) +
-// getCurrentWorktreeSession (utils/worktree) 直接 import (非 REPL state, per imported-helpers-directly rule; REPL 多用, 保留 REPL import)。
-// restoreRemoteAgentTasks 为 REPL-local no-op stub (非 import) → 经 ctx 传入, 类型窄化为调用点 object shape。
-// 辅助返 void (两分支均 void)。无 JSX → .ts。
-// 注: 此为 resume 切块提取的第 5 块 (worktree 恢复 if/else, 含 fork 分支)。
+// audit 1.1.1 slice #65: resume worktree-restore if/else sub-block extracted (PURE-ROUTING-SUB-BLOCK, resume-chunked-extraction #5).
+// resume() useCallback body sub-block (REPL L1990-2005, 16 LOC): entrypoint !== "fork" branch —
+// exitRestoredWorktree() [exits the worktree previously entered via /resume] + restoreWorktreeForResume(log.worktreeSession)
+// [cds back to the worktree this session lives in] + adoptResumedSessionFile() [adopts the resumed session file] +
+// void restoreRemoteAgentTasks({abortController, getAppState, setAppState}) [restores remote agent tasks];
+// else fork branch — getCurrentWorktreeSession() → ws ? saveWorktreeState(ws) [fork: like /clear, re-persists worktree state].
+// slice #61-#64 sibling pattern: a resume useCallback sub-block cut out; resume-local variables (entrypoint, log.worktreeSession) +
+// the REPL-local fn (restoreRemoteAgentTasks no-op stub L426) passed via ctx, byte-equivalent behavior.
+// exitRestoredWorktree/restoreWorktreeForResume/adoptResumedSessionFile/saveWorktreeState (sessionStorage import block) +
+// getCurrentWorktreeSession (utils/worktree) imported directly (not REPL state, per imported-helpers-directly rule; used multiple times in REPL, REPL import kept).
+// restoreRemoteAgentTasks is a REPL-local no-op stub (not an import) → passed via ctx, type narrowed to the call-site object shape.
+// Helper returns void (both branches void). No JSX → .ts.
+// Note: this is chunk #5 of the resume chunked extraction (worktree restore if/else, includes the fork branch).
 
 import type { AppStateStore } from "../state/AppStateStore.js";
 import type { PersistedWorktreeSession } from "../types/logs.js";

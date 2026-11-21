@@ -1,7 +1,7 @@
-// LLM 接缝 (Phase 5): 不再 import SDK 的 APIUserAbortError。
-// SDK 类名在 minified 构建里会被混淆 (constructor.name → 'nJT'), 且 SDK 不设 this.name,
-// 故用 .name / .message 兜底: "APIUserAbortError" (未混淆时) / "AbortError" (DOMException 与
-// 我们的 AbortError) / "Request was aborted." (SDK 抛出的标准文案) 三者覆盖所有形态。
+// LLM seam (Phase 5): no longer imports the SDK's APIUserAbortError.
+// SDK class names get mangled in minified builds (constructor.name → 'nJT'), and the SDK does not set this.name,
+// so fall back to .name / .message: "APIUserAbortError" (unmangled) / "AbortError" (DOMException and
+// our AbortError) / "Request was aborted." (the SDK's standard message) — the three cover all shapes.
 
 export class ClaudeError extends Error {
 	constructor(message: string) {

@@ -1,13 +1,18 @@
-// LLM 接缝 — Anthropic Wire Adapter
+// LLM adapter seam — Anthropic Wire Adapter
 //
-// 把 provider 中立的 GenerateOptions 翻译成 POST /v1/messages 的 JSON body,
-// 并把 SSE 事件流 (parseSseStream 产出) 翻译成 provider 中立的 StreamChunk。
-// 替代 @anthropic-ai/sdk 的 beta.messages.create({stream:true}) + BetaMessageStream。
+// Translates provider-neutral GenerateOptions into the POST /v1/messages
+// JSON body, and translates the SSE event stream (produced by parseSseStream)
+// into provider-neutral StreamChunks.
+// Replaces @anthropic-ai/sdk's beta.messages.create({stream:true}) +
+// BetaMessageStream.
 //
-// 本适配器只做协议翻译, 不做领域逻辑 (contentBlocks 累积/usage 合并/stop_reason
-// 处理仍在 claude.ts 主循环, Phase 4 把它的 switch 从 SDK part 改为消费 StreamChunk)。
+// This adapter only does protocol translation, no domain logic
+// (contentBlocks accumulation / usage merging / stop_reason handling stays
+// in the claude.ts main loop; Phase 4 switched its switch from SDK parts to
+// consuming StreamChunks).
 //
-// 请求体字段映射依据 src/services/api/claude.ts:1539 paramsFromContext 的实际形状。
+// Request-body field mapping is based on the actual shape of
+// src/services/api/claude.ts:1539 paramsFromContext.
 
 import { type PostMessagesOptions, postMessages } from "./httpClient.js";
 import { parseSseStream } from "./sseStream.js";
@@ -23,8 +28,9 @@ import type {
 	ToolSchema,
 } from "./types.js";
 
-// 把 NeutralMessage[] 翻译成 Anthropic messages 数组 (string content 直传,
-// 块数组按类型映射; tool_result 的 content 透传)。
+// Translate NeutralMessage[] into an Anthropic messages array (string content
+// passed through, block arrays mapped by type; tool_result content passed
+// through).
 function toAnthropicMessages(
 	messages: NeutralMessage[],
 ): Record<string, unknown>[] {
@@ -37,7 +43,7 @@ function toAnthropicMessages(
 	});
 }
 
-// 单个 NeutralContentBlock -> Anthropic content block。
+// Single NeutralContentBlock -> Anthropic content block.
 function toAnthropicBlock(b: NeutralContentBlock): Record<string, unknown> {
 	switch (b.type) {
 		case "text":
@@ -49,7 +55,8 @@ function toAnthropicBlock(b: NeutralContentBlock): Record<string, unknown> {
 				...(b.signature !== undefined && { signature: b.signature }),
 			};
 		case "tool_use":
-			// input 可能是 string (部分 JSON) 或对象; 透传给服务端
+			// input may be a string (partial JSON) or an object; passed through to
+			// the server
 			return {
 				type: "tool_use",
 				id: b.id,
@@ -74,9 +81,10 @@ function toAnthropicTool(t: ToolSchema): Record<string, unknown> {
 	};
 }
 
-// 把 GenerateOptions 翻译成 /v1/messages 请求体。
-// 仅映射中立类型能表达的字段; betas/metadata/tool_choice/output_config/speed/
-// context_management 等扩展字段由调用方通过 extraBody 透传 (Phase 4 接入时补)。
+// Translate GenerateOptions into a /v1/messages request body.
+// Only maps fields the neutral types can express; extension fields like
+// betas/metadata/tool_choice/output_config/speed/context_management are
+// passed through by the caller via extraBody (added at Phase 4 integration).
 export function buildRequestBody(
 	options: GenerateOptions,
 	extraBody?: Record<string, unknown>,
@@ -120,13 +128,14 @@ export function buildRequestBody(
 	return body;
 }
 
-// SSE 翻译的累加状态 (仅本模块内部用, 持有最近 usage 与 stop_reason)。
+// Accumulated state for SSE translation (module-internal only, holds the
+// latest usage and stop_reason).
 export interface SseState {
 	lastUsage?: { inputTokens: number; outputTokens: number };
 	stopReason?: string;
 }
 
-// content_block_start 的 content_block -> RawContentBlock (中立)。
+// content_block_start's content_block -> RawContentBlock (neutral).
 function toRawBlock(block: Record<string, unknown>): RawContentBlock {
 	const type = (block.type as string) ?? "text";
 	const out: RawContentBlock = {
@@ -137,7 +146,8 @@ function toRawBlock(block: Record<string, unknown>): RawContentBlock {
 	if (typeof block.signature === "string") out.signature = block.signature;
 	if (typeof block.id === "string") out.id = block.id;
 	if (typeof block.name === "string") out.name = block.name;
-	// tool_use 的 input 在 block-start 常为 {}, 累积由 input_json_delta 完成
+	// tool_use's input is often {} at block-start; accumulation is done by
+	// input_json_delta
 	if (block.input !== undefined) out.input = block.input as string;
 	return out;
 }
@@ -153,7 +163,7 @@ function usageFrom(u: unknown): { inputTokens: number; outputTokens: number } {
 	};
 }
 
-// 从 stop_reason 推断 FinishReason。
+// Infer FinishReason from stop_reason.
 function toFinishReason(stopReason: string | undefined): FinishReason {
 	switch (stopReason) {
 		case "end_turn":
@@ -168,9 +178,11 @@ function toFinishReason(stopReason: string | undefined): FinishReason {
 	}
 }
 
-// SSE 事件 data (JSON 字符串) -> StreamChunk。返回 null 表示忽略 (ping/citations 等)。
-// 事件类型与字段依据 claude.ts:1975 switch。
-// 导出供单测直接验证 SSE->chunk 映射 (不经过网络)。
+// SSE event data (JSON string) -> StreamChunk. Returns null to ignore
+// (ping/citations etc.).
+// Event types and fields follow the claude.ts:1975 switch.
+// Exported so unit tests can verify the SSE->chunk mapping directly (no
+// network involved).
 export function sseToChunk(
 	event: string,
 	data: string,
@@ -181,8 +193,9 @@ export function sseToChunk(
 		try {
 			p = JSON.parse(data) as Record<string, unknown>;
 		} catch {
-			// log: 非 JSON 的 error 事件仍须抛出 (SDK 用 safeJSON ?? raw 兜底),
-			// 其他事件 (message_start 等) 解析失败则忽略, 维持原行为。
+			// log: non-JSON error events must still throw (the SDK fell back to
+			// safeJSON ?? raw); other events (message_start etc.) are ignored on
+			// parse failure, preserving the original behavior.
 			if (event === "error") {
 				const thrown = new Error(data || "stream error");
 				thrown.name = "APIError";
@@ -227,7 +240,8 @@ export function sseToChunk(
 						text: (delta.thinking as string) ?? "",
 					};
 				case "signature_delta":
-					// signature 归到 thinking 块; 零宽 thinking-delta 携带 signature
+					// signature folds into the thinking block; zero-width
+					// thinking-delta carries the signature
 					return {
 						type: "thinking-delta",
 						index,
@@ -270,9 +284,12 @@ export function sseToChunk(
 		case "ping":
 			return null;
 		case "error": {
-			// log: 流中 error 事件 — SDK 在 core/streaming.js:62 对此抛 APIError, withRetry
-			// 据此重试/分类。这里同样抛出, 避免 mid-stream 错误被静默吞掉导致流无 finish 地截断。
-			// 错误体形如 {"type":"error","error":{"type":"overloaded_error","message":"..."}}。
+			// log: in-stream error event — the SDK threw APIError for this at
+			// core/streaming.js:62, and withRetry retries/classifies based on it.
+			// Throwing here too prevents mid-stream errors from being silently
+			// swallowed, which would truncate the stream without a finish.
+			// Error body looks like
+			// {"type":"error","error":{"type":"overloaded_error","message":"..."}}.
 			const errBody = p as {
 				error?: { type?: string; message?: string };
 				message?: string;
@@ -281,7 +298,8 @@ export function sseToChunk(
 				errBody?.error?.message ?? errBody?.message ?? data ?? "stream error";
 			const thrown = new Error(msg) as Error & { status?: number };
 			thrown.name = "APIError";
-			// 透传 status (若有) 供 withRetry isApiErrorLike + classifyByStatus 重试分类。
+			// Pass through status (if present) for withRetry's isApiErrorLike +
+			// classifyByStatus retry classification.
 			if (typeof p.status === "number") thrown.status = p.status;
 			throw thrown;
 		}
@@ -290,7 +308,7 @@ export function sseToChunk(
 	}
 }
 
-// Anthropic Wire Adapter — 通过 httpClient POST /v1/messages, SSE -> StreamChunk。
+// Anthropic Wire Adapter — POST /v1/messages via httpClient, SSE -> StreamChunk.
 export class AnthropicWireAdapter implements LlmAdapter {
 	private readonly postOpts: Omit<PostMessagesOptions, "body" | "signal">;
 
@@ -320,7 +338,10 @@ export class AnthropicWireAdapter implements LlmAdapter {
 	}
 }
 
-// 接缝开关: 仅在 LLM_ADAPTER_SEAM feature 开启时启用新适配器路径。
-// 关闭时 (默认) 走 SDK, 相关代码被 DCE 消除。
-// 注意: feature() 是 Bun bundle DCE 宏, 只能直接用在 if/三元里, 不能包在返回它的
-// 函数中 (否则运行时抛错)。调用方需直接写 feature("LLM_ADAPTER_SEAM") 判定。
+// Seam switch: the new adapter path is active only when the
+// LLM_ADAPTER_SEAM feature is on.
+// When off (default) the SDK path runs and the related code is DCE'd away.
+// Note: feature() is a Bun bundle DCE macro — it can only be used directly in
+// an if/ternary, not wrapped in a function that returns it (otherwise it
+// throws at runtime). Callers must write feature("LLM_ADAPTER_SEAM")
+// directly.

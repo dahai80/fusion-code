@@ -1,10 +1,10 @@
-// audit 1.1.1 slice #52: messageActionCaps object literal 外移 (PURE-ROUTING-SUB-BLOCK, like #27/#28/#35/#41-#51)。
-// REPL() messageActionCaps 对象字面量: copy (OSC-52 clipboard write + "copied" toast) + edit (rewind lossless→直接恢复 / 否则 confirm dialog)。
-// 原 const 对象字面量。findRawIndex (24-char prefix match) 为 .edit 唯一依赖 sibling, 一并移入 helper 作 private fn (用 ctx.messages)。
-// addNotification + messages + fileHistory + onCancel + handleRestoreMessage + setMessageSelectorPreselect + setIsMessageSelectorVisible (deps 触发器) 经 ctx 传入 (闭包捕获), 行为字节等价。
-// 非 hook (plain object), REPL 直接 const 赋值调用 factory (无 useCallback/useMemo 薄壳, 对象本就 not memoized — hook stores caps via ref, reads latest closure at dispatch)。
-// 3 模块 import 直接 import (非 REPL state, per imported-helpers-directly rule; setClipboard REPL 单用提取后 REPL import 移除; fileHistoryHasAnyChanges/multi-use + selectableUserMessagesFilter/multi-use + messagesAfterAreOnlySynthetic/multi-use REPL 多用保留 REPL import, helper 亦直接 import)。
-// 无 JSX → .ts。返 MessageActionCaps (REPL 透传给 useMessageActions)。
+// audit 1.1.1 slice #52: messageActionCaps object literal extracted (PURE-ROUTING-SUB-BLOCK, like #27/#28/#35/#41-#51).
+// REPL() messageActionCaps object literal: copy (OSC-52 clipboard write + "copied" toast) + edit (rewind lossless→direct restore / otherwise confirm dialog).
+// Original const object literal. findRawIndex (24-char prefix match) is the only sibling .edit depends on, moved into the helper as a private fn too (using ctx.messages).
+// addNotification + messages + fileHistory + onCancel + handleRestoreMessage + setMessageSelectorPreselect + setIsMessageSelectorVisible (deps triggers) passed via ctx (closure capture), byte-equivalent behavior.
+// Not a hook (plain object); REPL calls the factory in a plain const assignment (no useCallback/useMemo thin shell, the object was already not memoized — hook stores caps via ref, reads latest closure at dispatch).
+// 3 module imports imported directly (not REPL state, per imported-helpers-directly rule; setClipboard single use in REPL, REPL import removed after extraction; fileHistoryHasAnyChanges/multi-use + selectableUserMessagesFilter/multi-use + messagesAfterAreOnlySynthetic/multi-use keep the REPL import, helper imports directly too).
+// No JSX → .ts. Returns MessageActionCaps (REPL passes it through to useMessageActions).
 
 import type { Dispatch, SetStateAction } from "react";
 import {
@@ -34,7 +34,7 @@ function findRawIndex(messages: MessageType[], uuid: string): number {
 	return messages.findIndex((m) => m.uuid.slice(0, 24) === prefix);
 }
 
-// REPL 直接调用 (无 memoization — hook stores caps via ref, reads latest closure at dispatch):
+// REPL calls directly (no memoization — hook stores caps via ref, reads latest closure at dispatch):
 //   const messageActionCaps: MessageActionCaps = createMessageActionCaps({ addNotification, messages, fileHistory, onCancel, handleRestoreMessage, setMessageSelectorPreselect, setIsMessageSelectorVisible });
 export function createMessageActionCaps(
 	ctx: MessageActionCapsFactoryCtx,

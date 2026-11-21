@@ -1,21 +1,21 @@
-// audit 1.1.1: 从 REPL.tsx getToolUseContext 抽出的两个同构嵌套-state 更新包装。
-// updateFileHistoryState + updateAttributionState 原各 14 LOC, 结构一致:
+// audit 1.1.1: two isomorphic nested-state update wrappers extracted from getToolUseContext in REPL.tsx.
+// updateFileHistoryState + updateAttributionState were each 14 LOC with identical structure:
 //   setAppState((prev) => { const updated = updater(prev[key]); if (updated === prev[key]) return prev; return {...prev, [key]: updated} })
-// 同-ref 跳过 = perf 优化 (fileHistoryTrackEdit 对已追踪文件返回 state 不触发 setState,
-// 避免每次 no-op 通知所有 store listener)。两方法仅在 key + slice type 上不同 →
-// 一个泛型 helper (literal-key union) 覆盖, REPL 薄包装传 "fileHistory"|"attribution"。
-// 无 React hooks, 无 JSX, 无 await。唯一副作用 = 调 setAppState。
+// Same-ref skip = perf optimization (fileHistoryTrackEdit returns state unchanged for already-tracked files, avoiding setState,
+// so every no-op does not notify all store listeners). The two methods differ only in key + slice type →
+// one generic helper (literal-key union) covers both; the REPL thin wrapper passes "fileHistory"|"attribution".
+// No React hooks, no JSX, no await. Only side effect = calling setAppState.
 
 import type { AppState } from "../state/AppStateStore.js";
 
-// 仅这两个 key: 都是顶层 slice, 各有独立 type, updater 返回同-ref 跳过。
+// Only these two keys: both are top-level slices with their own types, and the updater skips on same-ref.
 export type NestedStateKey = "fileHistory" | "attribution";
 
 type SetAppStateFn = (updater: (prev: AppState) => AppState) => void;
 
-// 行为等价 REPL.tsx:2794-2820 updateFileHistoryState / updateAttributionState 方法体。
-// REPL 保留薄包装: updateFileHistoryState: (u) => applyNestedStateUpdater(setAppState, "fileHistory", u)
-// 字面量 key → TS 推断 K, updater 类型 = (prev: AppState[K]) => AppState[K], 与 ToolUseContext 签名一致。
+// Behavior equivalent to the REPL.tsx:2794-2820 updateFileHistoryState / updateAttributionState method bodies.
+// REPL keeps the thin wrappers: updateFileHistoryState: (u) => applyNestedStateUpdater(setAppState, "fileHistory", u)
+// Literal key → TS infers K, updater type = (prev: AppState[K]) => AppState[K], matching the ToolUseContext signature.
 export function applyNestedStateUpdater<K extends NestedStateKey>(
 	setAppState: SetAppStateFn,
 	key: K,

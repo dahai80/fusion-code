@@ -1,8 +1,8 @@
 /**
- * Job Classifier — 任务分类器
+ * Job Classifier — job classifier
  *
- * 分析用户输入，判断是否匹配某个模板任务，
- * 并在匹配时自动触发任务创建流程。
+ * Analyzes user input to decide whether it matches a template job,
+ * and automatically triggers the job creation flow on a match.
  *
  * gated by feature('TEMPLATES')
  */

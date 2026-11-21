@@ -1,13 +1,13 @@
-// audit 1.1.1: 从 REPL.tsx onQueryImpl haiku title 抽出 (PURE-ROUTING SUB-BLOCK class, 像 slice #25 apiMetricsCapture)。
-// 行为等价 REPL.tsx:3101-3138。无 React hooks, 无 JSX。fire-and-forget void generateSessionTitle。
-// 仅当 !titleDisabled && !sessionTitle && !agentTitle && !haikuTitleAttemptedRef.current 时:
+// audit 1.1.1: haiku title extraction pulled out of REPL.tsx onQueryImpl (PURE-ROUTING SUB-BLOCK class, like slice #25 apiMetricsCapture).
+// Behavior-equivalent to REPL.tsx:3101-3138. No React hooks, no JSX. Fire-and-forget void generateSessionTitle.
+// Only when !titleDisabled && !sessionTitle && !agentTitle && !haikuTitleAttemptedRef.current:
 //   (1) find first real user message (type==="user" && !isMeta);
-//   (2) getContentText 提取文本;
-//   (3) 跳过 synthetic breadcrumbs (local-command-stdout/command-message/command-name/bash-input tag 开头);
-//   (4) haikuTitleAttemptedRef.current = true (one-shot ref 防 SessionStart/attachment 消息撑长 messages);
-//   (5) void generateSessionTitle(text, signal).then: title?setHaikuTitle(title):setHaikuTitle(extractFallbackTitle); reject → setHaikuTitle(extractFallbackTitle)。
-// ctx 携带 REPL 闭包依赖 (titleDisabled + sessionTitle + agentTitle + haikuTitleAttemptedRef + setHaikuTitle),
-//   helper 不持有 React state。getContentText/generateSessionTitle/extractFallbackTitle/tags 为独立 module import。
+//   (2) getContentText extracts the text;
+//   (3) skip synthetic breadcrumbs (leading local-command-stdout/command-message/command-name/bash-input tags);
+//   (4) haikuTitleAttemptedRef.current = true (one-shot ref preventing SessionStart/attachment messages from stretching messages);
+//   (5) void generateSessionTitle(text, signal).then: title?setHaikuTitle(title):setHaikuTitle(extractFallbackTitle); reject → setHaikuTitle(extractFallbackTitle).
+// ctx carries REPL closure deps (titleDisabled + sessionTitle + agentTitle + haikuTitleAttemptedRef + setHaikuTitle);
+//   the helper holds no React state. getContentText/generateSessionTitle/extractFallbackTitle/tags are standalone module imports.
 import {
 	BASH_INPUT_TAG,
 	COMMAND_MESSAGE_TAG,
@@ -26,8 +26,8 @@ type HaikuTitleCtx = {
 	setHaikuTitle: (title: string | undefined) => void;
 };
 
-// REPL 保留薄调用: maybeExtractHaikuTitle(newMessages, { titleDisabled, sessionTitle, agentTitle, haikuTitleAttemptedRef, setHaikuTitle });
-// 包在原 if-chain 外层判断里 (helper 内部再判一次, 双保险)。
+// REPL keeps a thin call: maybeExtractHaikuTitle(newMessages, { titleDisabled, sessionTitle, agentTitle, haikuTitleAttemptedRef, setHaikuTitle });
+// wrapped in the original if-chain outer check (the helper re-checks internally, double insurance).
 export function maybeExtractHaikuTitle(
 	newMessages: MessageType[],
 	ctx: HaikuTitleCtx,

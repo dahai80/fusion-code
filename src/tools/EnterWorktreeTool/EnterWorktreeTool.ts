@@ -82,10 +82,11 @@ export const EnterWorktreeTool: Tool<InputSchema, Output> = buildTool({
 			throw new Error("Already in a worktree session");
 		}
 
-		// P2-20: 捕获调用前 CWD, createWorktreeForSession 抛 (git 锁/盘满/slug 冲突) 时
-		// 回滚到调用前 CWD 再 re-throw。原: chdir(mainRepoRoot) 在 create 前, create 抛
-		// 则会话留 CWD 移到主仓根 (可能与用户所在地不同) 无 worktree, ExitWorktree 不触发
-		// (getCurrentWorktreeSession() null) → 副作用持续。现在 chdir 也包进 try, 失败回滚。
+		// P2-20: capture the pre-call CWD; if createWorktreeForSession throws (git lock/disk full/slug conflict),
+		// roll back to the pre-call CWD before re-throwing. Previously: chdir(mainRepoRoot) ran before create, so if
+		// create threw, the session was left with its CWD moved to the main repo root (possibly different from where the
+		// user was) with no worktree, and ExitWorktree would not trigger
+		// (getCurrentWorktreeSession() null) → the side effect persisted. Now chdir is also inside the try, with rollback on failure.
 		const prevCwd = getCwd();
 
 		// Resolve to main repo root so worktree creation works from within a worktree
@@ -101,7 +102,7 @@ export const EnterWorktreeTool: Tool<InputSchema, Output> = buildTool({
 		try {
 			worktreeSession = await createWorktreeForSession(getSessionId(), slug);
 		} catch (createError) {
-			// 回滚到调用前 CWD — create 失败不应留 chdir 副作用
+			// Roll back to the pre-call CWD — a create failure must not leave the chdir side effect behind
 			try {
 				process.chdir(prevCwd);
 				setCwd(prevCwd);

@@ -3,7 +3,7 @@ import { isLocalAgentTask } from "../../tasks/LocalAgentTask/LocalAgentTask.js";
 import { logForDebugging } from "../../utils/debug.js";
 import { getRunningTasks } from "../../utils/task/framework.js";
 
-// P2.1 subagent guardrails (CC 2.1.217 对齐). Spawn-time caps enforced in
+// P2.1 subagent guardrails (aligned with CC 2.1.217). Spawn-time caps enforced in
 // AgentTool.call() before sync/async dispatch. Returns an error message when a
 // cap is exceeded, or null when spawn is allowed. Env defaults match CC A.2.1.
 //

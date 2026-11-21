@@ -1,8 +1,8 @@
-// audit 1.1.1 slice #38: undercover-callout useEffect body 外移 (INLINE-ASYNC-IIFE, 2nd — 像 slice #32 runImmediateCommand)。
-// REPL() mount-only: internal build 时检查 repo 分类 + undercover 自动提示, 满足则 setShowUndercoverCallout(true)。
-// 原 async IIFE inside useEffect。setShowUndercoverCallout 经 ctx 传入 (闭包捕获), 行为字节等价。
-// isInternalBuild (buildConstants) + 2 动态 import (commitAttribution/undercover) 留 helper 内 (纯 import 非 REPL state, per imported-helpers-directly rule)。
-// 无 JSX/无 hook → .ts。void 返回 (REPL 薄壳 void 调用)。
+// audit 1.1.1 slice #38: undercover-callout useEffect body extracted (INLINE-ASYNC-IIFE, 2nd — like slice #32 runImmediateCommand).
+// REPL() mount-only: on internal build, checks repo classification + the undercover auto notice, and calls setShowUndercoverCallout(true) when satisfied.
+// Original async IIFE inside useEffect. setShowUndercoverCallout passed via ctx (closure capture), byte-equivalent behavior.
+// isInternalBuild (buildConstants) + 2 dynamic imports (commitAttribution/undercover) stay inside the helper (pure imports are not REPL state, per imported-helpers-directly rule).
+// No JSX / no hook → .ts. Returns void (REPL thin shell calls it with void).
 
 import { isInternalBuild } from "../utils/buildConstants.js";
 
@@ -10,12 +10,12 @@ type UndercoverCalloutCheckCtx = {
 	setShowUndercoverCallout: (v: boolean) => void;
 };
 
-// REPL 保留 useEffect 薄壳:
+// REPL keeps the useEffect thin shell:
 //   useEffect(() => {
 //     applyUndercoverCalloutCheck({ setShowUndercoverCallout });
 //     // eslint-disable-next-line react-hooks/exhaustive-deps
 //   }, []);
-// isInternalBuild() guard 移入 helper (非 REPL state, pure import)。deps [] 不变, eslint-disable 保留。
+// isInternalBuild() guard moved into the helper (not REPL state, pure import). deps [] unchanged, eslint-disable kept.
 export function applyUndercoverCalloutCheck(
 	ctx: UndercoverCalloutCheckCtx,
 ): void {

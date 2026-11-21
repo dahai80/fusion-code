@@ -4,7 +4,7 @@
 // scripts/external-stubs/src/moreright/ before overlay, where ../types/
 // would resolve to scripts/external-stubs/src/types/ (doesn't exist).
 
-// biome-ignore lint/suspicious/noExplicitAny: 外部构建存根 — 自包含文件不能引用内部类型, M 即 Message 的泛化占位
+// biome-ignore lint/suspicious/noExplicitAny: external build stub — self-contained file cannot reference internal types; M is a generalized stand-in for Message
 type M = any;
 export function useMoreRight(_args: {
 	enabled: boolean;

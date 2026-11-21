@@ -1,11 +1,11 @@
-// audit 1.1.1 slice #48: pause/resume 时序累加 useEffect body 外移 (PURE-ROUTING-SUB-BLOCK, like #27/#28/#35/#41-#45/#47)。
-// REPL() 在 loading 期间 focusedInputDialog 切到 "tool-permission" 即视为 pause: 立即记 pauseStartTime;
-// 切回非 paused 且已有 pauseStartTime → 累加 totalPausedMs, 清 pauseStartTime。
-// 目的: 不依赖 100ms 轮询, focusedInputDialog 变化即捕获, 高负载下时序仍准确。
-// 原 useEffect body。focusedInputDialog + isLoading (derived deps) + pauseStartTimeRef + totalPausedMsRef (ref) 经 ctx 传入 (闭包捕获), 行为字节等价。
-// useEffect() hook 留 REPL 薄壳 (hook 规则, 不能移 plain helper), 仅 effect body 移出。
-// 无模块 import (纯 ref + derived, 最简 slice)。无 JSX → .ts。返 void (REPL 薄壳 useEffect 透传, 无 cleanup)。
-// deps [focusedInputDialog, isLoading] 不变 (两个 ref 稳定引用, 省略合法, 与原一致)。
+// audit 1.1.1 slice #48: pause/resume timing accumulation useEffect body extracted (PURE-ROUTING-SUB-BLOCK, like #27/#28/#35/#41-#45/#47).
+// REPL() treats a switch of focusedInputDialog to "tool-permission" during loading as pause: record pauseStartTime immediately;
+// switching back to non-paused with pauseStartTime set → accumulate totalPausedMs, clear pauseStartTime.
+// Purpose: no reliance on 100ms polling; captured on focusedInputDialog change, timing stays accurate under high load.
+// Original useEffect body. focusedInputDialog + isLoading (derived deps) + pauseStartTimeRef + totalPausedMsRef (refs) passed via ctx (closure capture), byte-equivalent behavior.
+// The useEffect() hook stays as a REPL thin shell (hook rules, cannot move to a plain helper); only the effect body moves out.
+// No module imports (pure refs + derived, simplest slice). No JSX → .ts. Returns void (REPL thin-shell useEffect pass-through, no cleanup).
+// deps [focusedInputDialog, isLoading] unchanged (both refs are stable, safe to omit, matching the original).
 
 import type { MutableRefObject } from "react";
 import type { FocusedDialogKind } from "../utils/focusedDialogSelector.js";
@@ -17,7 +17,7 @@ type PauseAccumulatorCheckCtx = {
 	totalPausedMsRef: MutableRefObject<number>;
 };
 
-// REPL 保留 useEffect 薄壳:
+// REPL keeps the useEffect thin shell:
 //   useEffect(() => maybeAccumulatePauseTiming({ focusedInputDialog, isLoading, pauseStartTimeRef, totalPausedMsRef }), [focusedInputDialog, isLoading]);
 export function maybeAccumulatePauseTiming(
 	ctx: PauseAccumulatorCheckCtx,

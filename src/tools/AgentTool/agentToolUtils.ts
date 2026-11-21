@@ -317,11 +317,12 @@ export function finalizeAgentTool(
 		}
 	}
 
-	// audit 1.4.5: totalTokens 全 loop 累加 (sumAssistantMessageTokens 求和所有
-	// 非合成 assistant usage), 非末轮估算。原 lastAssistantMessage-only 把跑 N 轮
-	// 工具的 agent 报成仅第 N 轮量, 预算闸系统性少算。totalTokens 进 telemetry +
-	// budget 累加 + 模型 usage + UI, 全要真值。仍导出末轮 usage 供 cache eviction
-	// hint (lastRequestId 读末轮, 不变)。
+	// audit 1.4.5: totalTokens accumulates across the whole loop (sumAssistantMessageTokens sums all
+	// non-synthetic assistant usage), not a last-round estimate. The previous lastAssistantMessage-only
+	// approach reported an agent that ran N rounds as only the Nth round's amount, systematically
+	// under-counting the budget gate. totalTokens feeds telemetry +
+	// budget accumulation + model usage + UI, all of which need the true value. Still exports last-round usage for the cache eviction
+	// hint (lastRequestId reads the last round, unchanged).
 	const totalTokens = sumAssistantMessageTokens(agentMessages);
 	const totalToolUseCount = countToolUses(agentMessages);
 

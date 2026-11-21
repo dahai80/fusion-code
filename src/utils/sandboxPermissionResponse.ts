@@ -1,14 +1,14 @@
-// audit 1.1.1: 从 REPL.tsx SandboxPermissionRequest.onUserResponse 抽出的纯路由。
-// 两个 helper (local + worker 分支), 各自无 React hooks, 无 JSX, 无 await。
-// handleLocalSandboxUserResponse: REPL.tsx local 分支 (行为等价 5675-5734)。
+// audit 1.1.1: pure routing extracted from REPL.tsx SandboxPermissionRequest.onUserResponse.
+// Two helpers (local + worker branches), each with no React hooks, no JSX, no await.
+// handleLocalSandboxUserResponse: REPL.tsx local branch (behavior-equivalent to 5675-5734).
 //   1) (persistToSettings) setAppState toolPermissionContext + persistPermissionUpdate + SandboxManager.refreshConfig
-//   2) setSandboxPermissionRequestQueue 解析同-host 全部 pending + 过滤
-//   3) sandboxBridgeCleanupRef 清理 bridge 订阅 + 删 key
-// handleWorkerSandboxUserResponse: REPL.tsx worker 分支 (mailbox 变体, 行为等价 5736-5784)。
-//   1) void sendSandboxPermissionResponseViaMailbox 回复 worker
-//   2) (persistToSettings && allow) setAppState toolPermissionContext + persist + refreshConfig (仅 allow 才持久化)
-//   3) setAppState workerSandboxPermissions.queue.slice(1) 移除队首
-// ctx 携带 REPL 闭包依赖, helper 不持有 React state。
+//   2) setSandboxPermissionRequestQueue resolves all same-host pending + filters
+//   3) sandboxBridgeCleanupRef cleans up bridge subscriptions + deletes the key
+// handleWorkerSandboxUserResponse: REPL.tsx worker branch (mailbox variant, behavior-equivalent to 5736-5784).
+//   1) void sendSandboxPermissionResponseViaMailbox replies to the worker
+//   2) (persistToSettings && allow) setAppState toolPermissionContext + persist + refreshConfig (only persisted on allow)
+//   3) setAppState workerSandboxPermissions.queue.slice(1) removes the queue head
+// ctx carries REPL closure dependencies; the helper holds no React state.
 
 import {
 	type NetworkHostPattern,
@@ -45,7 +45,7 @@ type SandboxPermissionResponseCtx = {
 	};
 };
 
-// REPL 保留薄包装: onUserResponse={(r) => handleLocalSandboxUserResponse(r, {sandboxPermissionRequestQueue, setSandboxPermissionRequestQueue, setAppState, sandboxBridgeCleanupRef})}
+// REPL keeps a thin wrapper: onUserResponse={(r) => handleLocalSandboxUserResponse(r, {sandboxPermissionRequestQueue, setSandboxPermissionRequestQueue, setAppState, sandboxBridgeCleanupRef})}
 export function handleLocalSandboxUserResponse(
 	response: SandboxUserResponse,
 	ctx: SandboxPermissionResponseCtx,
@@ -117,7 +117,7 @@ type WorkerSandboxResponseCtx = {
 	teamName?: string;
 };
 
-// REPL 保留薄包装: onUserResponse={(r) => handleWorkerSandboxUserResponse(r, {workerSandboxPermissions, setAppState, teamName: teamContext?.teamName})}
+// REPL keeps a thin wrapper: onUserResponse={(r) => handleWorkerSandboxUserResponse(r, {workerSandboxPermissions, setAppState, teamName: teamContext?.teamName})}
 export function handleWorkerSandboxUserResponse(
 	response: SandboxUserResponse,
 	ctx: WorkerSandboxResponseCtx,

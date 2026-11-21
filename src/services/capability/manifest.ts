@@ -1,13 +1,15 @@
-// P5.5 能力清单 (Typert 类型图) — 纯导出函数 (enhance-0819.md §D.7 P5.5)。
+// P5.5 capability manifest (Typert type graph) — pure exported functions (enhance-0819.md §D.7 P5.5).
 //
-// 从 fusion-code 工具/技能/插件定义生成类型图: 聚合 getAllBaseTools (tools.ts:169,
-// sync) + getCommands (commands.ts:410, async memoize) + getBundledSkills
-// (bundledSkills.ts:108, sync) + loadAllPlugins (pluginLoader.ts:3132, async)。
-// schema 序列化复用 zodToJsonSchema (utils/zodToJsonSchema.ts:15) + MCP 工具
-// inputJSONSchema 短路 (Tool.ts:411, 同 api.ts:158-160 模式)。
+// Builds a type graph from fusion-code tool/skill/plugin definitions: aggregates
+// getAllBaseTools (tools.ts:169, sync) + getCommands (commands.ts:410, async memoize)
+// + getBundledSkills (bundledSkills.ts:108, sync) + loadAllPlugins (pluginLoader.ts:3132,
+// async). Schema serialization reuses zodToJsonSchema (utils/zodToJsonSchema.ts:15) plus
+// the MCP tool inputJSONSchema short-circuit (Tool.ts:411, same pattern as api.ts:158-160).
 //
-// 纯函数: 只读聚合, 不写盘/不发起网络/不 mutate 源。返回 JSON 可序列化对象。
-// 默认 off (runtime.ts 门控); 此模块自身不做门控 — 调用方 (cli handler) 门控。
+// Pure function: read-only aggregation; no disk writes, no network calls, no source
+// mutation. Returns a JSON-serializable object.
+// Off by default (gated in runtime.ts); this module does not gate itself — the caller
+// (cli handler) gates.
 
 import { getCommands } from "../../commands.js";
 import { getBundledSkills } from "../../skills/bundledSkills.js";
@@ -18,7 +20,7 @@ import { loadAllPlugins } from "../../utils/plugins/pluginLoader.js";
 import { zodToJsonSchema } from "../../utils/zodToJsonSchema.js";
 import type { CapabilityManifestOptions } from "./runtime.js";
 
-// 清单条目类型 (JSON 可序列化)。
+// Manifest entry types (JSON-serializable).
 
 export interface ManifestToolEntry {
 	kind: "tool";
@@ -79,7 +81,7 @@ export interface CapabilityManifest {
 	plugins: ManifestPluginEntry[];
 }
 
-// 导出单个工具 → 清单条目。只读静态字段 + schema (按选项)。
+// Export a single tool → manifest entry. Read-only static fields + schema (per options).
 function toolToEntry(tool: Tool, includeSchemas: boolean): ManifestToolEntry {
 	const entry: ManifestToolEntry = {
 		kind: "tool",
@@ -92,8 +94,8 @@ function toolToEntry(tool: Tool, includeSchemas: boolean): ManifestToolEntry {
 	if (tool.shouldDefer) entry.shouldDefer = true;
 	if (tool.alwaysLoad) entry.alwaysLoad = true;
 	if (includeSchemas) {
-		// MCP 工具带原生 JSON Schema (inputJSONSchema), 直接用; 否则 zod 转 JSON Schema。
-		// 同 api.ts:158-160 短路模式。
+		// MCP tools carry native JSON Schema (inputJSONSchema) — use it directly; otherwise convert zod to JSON Schema.
+		// Same short-circuit pattern as api.ts:158-160.
 		if ("inputJSONSchema" in tool && tool.inputJSONSchema) {
 			entry.inputSchema = tool.inputJSONSchema as Record<string, unknown>;
 		} else {
@@ -109,7 +111,7 @@ function toolToEntry(tool: Tool, includeSchemas: boolean): ManifestToolEntry {
 	return entry;
 }
 
-// 导出单个 Command → 清单条目。区分技能 (prompt + source=bundled/skills) 与命令。
+// Export a single Command → manifest entry. Distinguish skills (prompt + source=bundled/skills) from commands.
 function commandToEntry(
 	cmd: Awaited<ReturnType<typeof getCommands>>[number],
 ): ManifestCommandEntry {
@@ -125,7 +127,7 @@ function commandToEntry(
 	if (cmd.isHidden) entry.isHidden = cmd.isHidden;
 	if (cmd.whenToUse) entry.whenToUse = cmd.whenToUse;
 	if (cmd.argumentHint) entry.argumentHint = cmd.argumentHint;
-	// contentLength 仅 PromptCommand 有 (command.ts:29)。
+	// contentLength only exists on PromptCommand (command.ts:29).
 	if ("contentLength" in cmd && typeof cmd.contentLength === "number") {
 		entry.contentLength = cmd.contentLength;
 	}
@@ -135,7 +137,7 @@ function commandToEntry(
 	return entry;
 }
 
-// 导出单个 LoadedPlugin → 清单条目。
+// Export a single LoadedPlugin → manifest entry.
 function pluginToEntry(
 	plugin: Awaited<ReturnType<typeof loadAllPlugins>>["enabled"][number],
 ): ManifestPluginEntry {
@@ -152,7 +154,7 @@ function pluginToEntry(
 	return entry;
 }
 
-// 主聚合: 纯函数 (async 仅因 getCommands/loadAllPlugins 异步)。
+// Main aggregation: pure function (async only because getCommands/loadAllPlugins are async).
 export async function exportCapabilityManifest(
 	options: CapabilityManifestOptions,
 ): Promise<CapabilityManifest> {
@@ -164,7 +166,7 @@ export async function exportCapabilityManifest(
 
 	const allCommands = includeSkills ? await getCommands(options.cwd) : [];
 	const bundledSkillNames = new Set(getBundledSkills().map((s) => s.name));
-	// 技能 = prompt 类型命令 (bundled/skills 源); 其余归 commands。
+	// Skills = prompt-type commands (bundled/skills source); the rest are counted as commands.
 	const skills: ManifestCommandEntry[] = [];
 	const commands: ManifestCommandEntry[] = [];
 	for (const cmd of allCommands) {

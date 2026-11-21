@@ -1,8 +1,8 @@
-// audit 1.1.1 slice #34: idle-return-hint useEffect body 外移 (PURE-ROUTING SUB-BLOCK class, 6th — 像 slice #29 maybeSendIdleNotification)。
-// REPL() idle-return-hint effect 的完整流程: 5 个早退 guard + setTimeout (stale-closure-bypass 5 positional args) + cleanup (clearTimeout + removeNotification + ref 复位)。
-// 回调体内生成 Ink <Text> JSX (hint_v2 变体) → .tsx + React + Text import。返回 timer handle, useEffect cleanup 用之。
-// ctx 携带 5 个 setTimeout-arg (lqct/addNotif/msgsRef/mode/hintRef) + 2 个 guard/setter (removeNotif),
-//   guard deps (lastQueryCompletionTime/isLoading) 作独立 ctx 字段。getFeatureValue_CACHED_MAY_BE_STALE/logEvent/getGlobalConfig/getTotalInputTokens/formatTokens 为独立 module import。
+// audit 1.1.1 slice #34: idle-return-hint useEffect body extracted (PURE-ROUTING SUB-BLOCK class, 6th — like slice #29 maybeSendIdleNotification).
+// REPL() idle-return-hint effect full flow: 5 early-return guards + setTimeout (stale-closure-bypass 5 positional args) + cleanup (clearTimeout + removeNotification + ref reset).
+// The callback body generates Ink <Text> JSX (hint_v2 variant) → .tsx + React + Text import. Returns the timer handle, used by the useEffect cleanup.
+// ctx carries 5 setTimeout-args (lqct/addNotif/msgsRef/mode/hintRef) + 2 guard/setter entries (removeNotif),
+//   guard deps (lastQueryCompletionTime/isLoading) as separate ctx fields. getFeatureValue_CACHED_MAY_BE_STALE/logEvent/getGlobalConfig/getTotalInputTokens/formatTokens are standalone module imports.
 import type { MutableRefObject } from "react";
 import { getTotalInputTokens } from "../bootstrap/state.js";
 import type { Notification } from "../context/notifications.js";
@@ -20,7 +20,7 @@ type IdleReturnHintCtx = {
 	// guard deps
 	lastQueryCompletionTime: number;
 	isLoading: boolean;
-	// setTimeout-arg (5 positional, stale-closure-bypass pattern 保留)
+	// setTimeout-arg (5 positional, stale-closure-bypass pattern kept)
 	addNotification: (content: Notification) => void;
 	messagesRef: MutableRefObject<MessageType[]>;
 	idleHintShownRef: MutableRefObject<string | false>;
@@ -28,12 +28,12 @@ type IdleReturnHintCtx = {
 	removeNotification: (key: string) => void;
 };
 
-// REPL 保留 useEffect 薄壳:
+// REPL keeps the useEffect thin shell:
 //   useEffect(() => {
 //     const timer = maybeScheduleIdleReturnHint({ lastQueryCompletionTime, isLoading, addNotification, messagesRef, idleHintShownRef, removeNotification });
 //     return () => { if (timer) clearTimeout(timer); removeNotification("idle-return-hint"); idleHintShownRef.current = false; };
 //   }, [lastQueryCompletionTime, isLoading, addNotification, removeNotification]);
-// 返回 NodeJS.Timeout | undefined: undefined = guard 早退 (无 timer 需 cleanup), 否则 setTimeout handle。
+// Returns NodeJS.Timeout | undefined: undefined = guard early-returned (no timer to clean up), otherwise the setTimeout handle.
 export function maybeScheduleIdleReturnHint(
 	ctx: IdleReturnHintCtx,
 ): ReturnType<typeof setTimeout> | undefined {

@@ -1,9 +1,9 @@
-// audit 1.1.1 slice #36: agent-transcript disk bootstrap useEffect body 外移 (PURE-ASYNC-HELPER, 2nd — 像 slice #23 applyOnInit / #31 processInitialMessage)。
-// REPL() retained local_agent 未加载 disk → 读 sidechain JSONL, UUID-merge 与 stream 已 append 的 messages。
-// Stream 进 retain 即 append (无 defer), bootstrap 补 prefix; disk-write-before-yield → live 恒为 disk 后缀。
-// guard (!viewingAgentTaskId || !needsBootstrap) 留 REPL 薄壳 (needsBootstrap 由外层 viewedLocalAgent 派生, 作 dep)。
-// ctx 携带 viewingAgentTaskId (guard 保证 truthy) + setAppState。getAgentTranscript/asAgentId/isLocalAgentTask 为独立 module import。
-// 无 JSX/无 hook/无 cleanup (useEffect body 返 undefined), void .then 单副作用, replay 风险低。
+// audit 1.1.1 slice #36: agent-transcript disk bootstrap useEffect body extracted (PURE-ASYNC-HELPER, 2nd — like slice #23 applyOnInit / #31 processInitialMessage).
+// REPL() retained local_agent not yet loaded from disk → read sidechain JSONL, UUID-merge with messages already appended by the stream.
+// Stream appends as soon as messages enter retain (no defer), bootstrap prepends the prefix; disk-write-before-yield → live is always a suffix of disk.
+// guard (!viewingAgentTaskId || !needsBootstrap) stays in the REPL thin shell (needsBootstrap derived from the outer viewedLocalAgent, kept as a dep).
+// ctx carries viewingAgentTaskId (guarded truthy) + setAppState. getAgentTranscript/asAgentId/isLocalAgentTask are standalone module imports.
+// No JSX / no hook / no cleanup (useEffect body returns undefined), void .then as a single side effect, low replay risk.
 
 import type { SetAppState } from "../Task.js";
 import { isLocalAgentTask } from "../tasks/LocalAgentTask/LocalAgentTask.js";
@@ -11,17 +11,17 @@ import { asAgentId } from "../types/ids.js";
 import { getAgentTranscript } from "../utils/sessionStorage.js";
 
 type AgentTranscriptBootstrapCtx = {
-	// guard 保证 truthy (REPL 薄壳 if (!viewingAgentTaskId || !needsBootstrap) return 早退)
+	// guarded truthy (REPL thin shell early-returns via if (!viewingAgentTaskId || !needsBootstrap) return)
 	viewingAgentTaskId: string;
 	setAppState: SetAppState;
 };
 
-// REPL 保留 useEffect 薄壳:
+// REPL keeps the useEffect thin shell:
 //   useEffect(() => {
 //     if (!viewingAgentTaskId || !needsBootstrap) return;
 //     applyAgentTranscriptBootstrap({ viewingAgentTaskId, setAppState });
 //   }, [viewingAgentTaskId, needsBootstrap, setAppState]);
-// taskId 别名在 helper 内捕获 (effect-run 时值, 供 async .then 闭包), 与原 const taskId = viewingAgentTaskId 等价。
+// taskId alias captured inside the helper (value at effect-run time, for the async .then closure), equivalent to the original const taskId = viewingAgentTaskId.
 export function applyAgentTranscriptBootstrap(
 	ctx: AgentTranscriptBootstrapCtx,
 ): void {

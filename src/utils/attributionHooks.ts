@@ -1,11 +1,12 @@
 /**
- * Attribution Hooks — 提交归因 hooks
+ * Attribution Hooks — commit attribution hooks
  *
- * 注册 git 提交归因追踪 hooks，用于在代码生成时记录
- * AI 助手的贡献信息，包括模型名称、prompt 数量等。
+ * Registers git commit attribution tracking hooks, used to record
+ * the AI assistant's contribution info during code generation,
+ * including model name, prompt count, etc.
  *
- * 这些 hooks 在 post-tool-use 阶段执行，收集 attribution 数据
- * 并在 git 提交时附加归因信息。
+ * These hooks run at the post-tool-use stage, collecting attribution data
+ * and attaching attribution info to git commits.
  *
  * gated by feature('COMMIT_ATTRIBUTION')
  */

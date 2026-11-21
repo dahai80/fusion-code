@@ -1,13 +1,13 @@
-// D1 轨迹飞轮 — CLI 处理器 (issue #50/#51)
+// D1 Trajectory Flywheel — CLI handler (issue #50/#51)
 //
-// 子命令:
+// Subcommands:
 //   fusion-code trajectory collect [--source DIR] [--dest DIR] [--product NAME]
 //   fusion-code trajectory export  --format sft|dpo|grpo [--source DIR] [--dest DIR] [--session ID]
 //   fusion-code trajectory train   --format sft|dpo|grpo [--dest DIR] [--model NAME] [--config FILE] [--output-dir DIR]
 //   fusion-code trajectory manifest [--dest DIR]
 //   fusion-code trajectory list    [--source DIR]
 //
-// 默认 source = ~/.fusion-code/projects, dest = ~/.fusion/trajectories
+// Default source = ~/.fusion-code/projects, dest = ~/.fusion/trajectories
 
 import {
 	collectTrajectories,
@@ -114,7 +114,7 @@ export async function trajectoryMain(args: string[]): Promise<void> {
 			process.exitCode = 1;
 			return;
 		}
-		// export 的输入是汇聚库 (collect 的 --dest), 输出 sft/dpo/grpo.jsonl 也写入该库
+		// export's input is the aggregation store (collect's --dest); the sft/dpo/grpo.jsonl output is written back into that store
 		const result = await exportTrajectories({
 			sourceDir: flags.dest,
 			destDir: flags.dest,
@@ -150,7 +150,7 @@ export async function trajectoryMain(args: string[]): Promise<void> {
 			process.exitCode = 1;
 			return;
 		}
-		// train 先按 export 同构产出 .jsonl, 再喂给 fusion-trainer CLI (issue #61)
+		// train first produces .jsonl the same way export does, then feeds it to the fusion-trainer CLI (issue #61)
 		const result = await exportTrajectories({
 			sourceDir: flags.dest,
 			destDir: flags.dest,

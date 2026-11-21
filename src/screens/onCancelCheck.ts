@@ -1,16 +1,16 @@
-// audit 1.1.1 slice #59: onCancel plain-fn body 外移 (INLINE-CALLBACK curried-factory, like #20/#22)。
-// REPL() Escape 取消处理: dialog 分流 (elicitation 直返 / tool-permission abort / prompt reject / remote 中断 / 本地 abort) +
-// proactive pause + queryGuard.forceEnd + 流式文本保留 + resetLoadingState + setAbortController(null) + mrOnTurnComplete(aborted=true)。
-// 原 `function onCancel()` (L2244-2306, 63-LOC, 非 hook 非 memo — 每 render 重建闭包读最新 state, messageActionCaps 注释 L3737 显式依赖此语义)。
-// 辅助返闭包 `() => void`, REPL 每 render 调 `createOnCancel(ctx)` 取新闭包 (与原 function decl 重建语义字节等价, 非 thunk 非 useCallback)。
-// onCancel 经 ref 透传 3 处消费: cancelRequestProps (slice #58 ctx) L2325 / createMessageActionCaps L3743 / <MessageSelector onPreRestore> L5119; 无 pre-decl 直调 (hoist 不依赖, const 安全)。
-// 18 ctx 字段 (闭包捕获): focusedInputDialog/streamMode/proactiveModule/queryGuard/skipIdleCheckRef/streamingText/setMessages/
+// audit 1.1.1 slice #59: onCancel plain-fn body extracted (INLINE-CALLBACK curried-factory, like #20/#22).
+// REPL() Escape cancel handling: dialog routing (elicitation returns directly / tool-permission abort / prompt reject / remote interrupt / local abort) +
+// proactive pause + queryGuard.forceEnd + streaming-text preservation + resetLoadingState + setAbortController(null) + mrOnTurnComplete(aborted=true).
+// Original `function onCancel()` (L2244-2306, 63 LOC, not a hook, not memoized — the closure is rebuilt each render reading latest state, the messageActionCaps comment at L3737 explicitly relies on this semantics).
+// The helper returns a `() => void` closure; REPL calls `createOnCancel(ctx)` each render to get a fresh closure (byte-equivalent to the original function-decl rebuild semantics, not a thunk, not useCallback).
+// onCancel is passed through by ref, consumed in 3 places: cancelRequestProps (slice #58 ctx) L2325 / createMessageActionCaps L3743 / <MessageSelector onPreRestore> L5119; no pre-decl direct call (hoisting not relied on, const is safe).
+// 18 ctx fields (closure capture): focusedInputDialog/streamMode/proactiveModule/queryGuard/skipIdleCheckRef/streamingText/setMessages/
 // resetLoadingState/snapshotOutputTokensForTurn/toolUseConfirmQueue/setToolUseConfirmQueue/promptQueue/setPromptQueue/
-// abortController/setAbortController/mrOnTurnComplete/messagesRef。
-// 导入直接 (非 ctx, per imported-helpers-directly rule; REPL 多用, 保留 REPL import): logForDebugging (utils/debug) +
-// feature (bun:bundle, build-time macro, sandboxAskCheck 已证可用) + createAssistantMessage (utils/messages) +
-// FocusedDialogKind/SpinnerMode/ToolUseConfirm/PromptRequest/PromptResponse/QueryGuard/MessageType (类型)。
-// 无 JSX → .ts。无 deps (plain fn 重建, 非 hook)。
+// abortController/setAbortController/mrOnTurnComplete/messagesRef.
+// Imports direct (not via ctx, per imported-helpers-directly rule; used multiple times in REPL, REPL import kept): logForDebugging (utils/debug) +
+// feature (bun:bundle, build-time macro, proven usable in sandboxAskCheck) + createAssistantMessage (utils/messages) +
+// FocusedDialogKind/SpinnerMode/ToolUseConfirm/PromptRequest/PromptResponse/QueryGuard/MessageType (types).
+// No JSX → .ts. No deps (plain fn rebuilt, not a hook).
 
 import { feature } from "bun:bundle";
 import type { ToolUseConfirm } from "../components/permissions/PermissionRequest.js";
@@ -54,7 +54,7 @@ export type OnCancelCtx = {
 	messagesRef: React.MutableRefObject<MessageType[]>;
 };
 
-// REPL 保留 plain fn 薄壳 (每 render 调用取新闭包, 与原 function decl 重建语义等价):
+// REPL keeps the plain fn thin shell (called each render for a fresh closure, equivalent to the original function-decl rebuild semantics):
 //   const onCancel = createOnCancel({
 //     focusedInputDialog, streamMode, proactiveModule, queryGuard, skipIdleCheckRef,
 //     streamingText, setMessages, resetLoadingState, snapshotOutputTokensForTurn,

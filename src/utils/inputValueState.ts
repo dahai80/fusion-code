@@ -1,16 +1,16 @@
-// audit 1.1.1: 从 REPL.tsx 抽出的 setInputValue 包装纯路由。无 React hooks, 无 JSX,
-// 无 await。唯一副作用 = mutate 2 个 ref.current + 调用 3 个 setter (与原
-// useCallback 体一致)。
-// 语义: 用户输入时三件事:
-//   (1) trySuggestBgPRIntercept(prev, value) 命中 → 提前 return (PR 建议拦截, 当前为
-//       noop, 预留 hook);
-//   (2) 空输入→非空输入 且 距上次滚动 ≥ RECENT_SCROLL_REPIN_WINDOW_MS (3s) → repinScroll
-//       (全屏模式打字回钉底部; 用户 3s 内滚过 = 正在读, 不抢回视图);
-//   (3) 同步 inputValueRef.current (调用方在 React commit 前读 ref 见新值, 如 auto-restore
-//       finally 块的 === "" 守卫) + setInputValueRaw(value) + setIsPromptInputActive(非空)。
-// 原 useCallback deps = [setIsPromptInputActive, repinScroll, trySuggestBgPRIntercept]
-//   (refs 不在 deps; setInputValueRaw 是 useState setter 稳定)。REPL 保留薄包装, deps 不变;
-//   下游读取同名 const (字节等价)。
+// audit 1.1.1: setInputValue wrapper extracted from REPL.tsx, pure routing. No React hooks, no JSX,
+// no await. Only side effects = mutate 2 ref.currents + call 3 setters (identical to the original
+// useCallback body).
+// Semantics: three things on user input:
+//   (1) trySuggestBgPRIntercept(prev, value) hit → early return (PR suggestion intercept, currently a
+//       noop, reserved hook);
+//   (2) empty→non-empty input AND last scroll ≥ RECENT_SCROLL_REPIN_WINDOW_MS (3s) ago → repinScroll
+//       (typing re-pins to bottom in fullscreen mode; if the user scrolled within 3s = reading, do not steal the view back);
+//   (3) sync inputValueRef.current (callers reading the ref before the React commit see the new value, e.g. the === ""
+//       guard in the auto-restore finally block) + setInputValueRaw(value) + setIsPromptInputActive(non-empty).
+// Original useCallback deps = [setIsPromptInputActive, repinScroll, trySuggestBgPRIntercept]
+//   (refs are not in deps; setInputValueRaw is a stable useState setter). REPL keeps the thin wrapper, deps unchanged;
+//   downstream reads the same const (byte-equivalent).
 
 export type InputValueStateSetters = {
 	trySuggestBgPRIntercept: (prev: string, next: string) => boolean;
@@ -22,8 +22,8 @@ export type InputValueStateSetters = {
 	recentScrollRepinWindowMs: number;
 };
 
-// 行为等价 REPL.tsx:1558-1585 useCallback 体。REPL 保留 useCallback 薄包装
-// (deps [setIsPromptInputActive, repinScroll, trySuggestBgPRIntercept] 不变)。
+// Behavior equivalent to the REPL.tsx:1558-1585 useCallback body. REPL keeps the useCallback thin wrapper
+// (deps [setIsPromptInputActive, repinScroll, trySuggestBgPRIntercept] unchanged).
 export function applySetInputValue(
 	value: string,
 	setters: InputValueStateSetters,

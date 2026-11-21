@@ -18,10 +18,10 @@
 
 // ─── shared defect (per-failure detail) ────────────────────────────
 
-/** 1.1 缺陷记录 (osagent defects[] 项)。defects[] is list[dict] on osagent
- *  side; we validate the documented subset and tolerate extra keys. */
+/** 1.1 defect record (osagent defects[] item). defects[] is list[dict] on
+ *  osagent side; we validate the documented subset and tolerate extra keys. */
 export interface VisualFeedbackDefectV11 {
-	/** 缺陷类型分类 (#217: type)。 */
+	/** Defect type classification (#217: type). */
 	type:
 		| "visual_mismatch"
 		| "element_not_found"
@@ -31,25 +31,25 @@ export interface VisualFeedbackDefectV11 {
 		| "console_error"
 		| "runtime_crash"
 		| "unknown";
-	/** 缺陷描述 (#217: description, 自然语言)。 */
+	/** Defect description (#217: description, natural language). */
 	description: string;
-	/** 失败区域 (#217: region?, 可选 — 文件路径/组件名/坐标框)。 */
+	/** Failed region (#217: region?, optional — file path / component name / coordinate box). */
 	region?: string;
-	/** 相关 DOM selector / XPath (可选, 供 fix 定位代码)。 */
+	/** Related DOM selector / XPath (optional, helps the fix locate code). */
 	selector?: string;
-	/** 该缺陷截图 base64 (PNG, 可选)。 */
+	/** Screenshot of this defect as base64 (PNG, optional). */
 	screenshot_b64?: string;
 }
 
-/** 1.0 缺陷记录 (legacy #216 failed_steps[] 项)。 */
+/** 1.0 defect record (legacy #216 failed_steps[] item). */
 export interface VisualFeedbackDefect {
-	/** 步骤标识 (osagent loop 中的 step id / selector description)。 */
+	/** Step identifier (step id / selector description within the osagent loop). */
 	step: string;
-	/** 期望行为描述 (自然语言, 供 auto-fix agent 理解意图)。 */
+	/** Expected behavior description (natural language, for the auto-fix agent to understand intent). */
 	expected: string;
-	/** 实际观测行为 (自然语言)。 */
+	/** Actually observed behavior (natural language). */
 	actual: string;
-	/** 缺陷类型分类, 便于 auto-fix 路由。 */
+	/** Defect type classification, easing auto-fix routing. */
 	kind:
 		| "visual_mismatch"
 		| "element_not_found"
@@ -59,122 +59,123 @@ export interface VisualFeedbackDefect {
 		| "console_error"
 		| "runtime_crash"
 		| "unknown";
-	/** 相关 DOM selector / XPath (可选, 供 fix 定位代码)。 */
+	/** Related DOM selector / XPath (optional, helps the fix locate code). */
 	selector?: string;
-	/** 该步骤截图 base64 (PNG, 可选)。 */
+	/** Screenshot of this step as base64 (PNG, optional). */
 	screenshot_b64?: string;
 }
 
 // ─── 1.1 canonical report (osagent-native) ─────────────────────────
 
-/** 1.1 osagent-native 视觉反馈报告。镜像 osagent
- *  loops/code_debug.py VisualFeedback.to_json() + write_report sidecar。 */
+/** 1.1 osagent-native visual feedback report. Mirrors osagent
+ *  loops/code_debug.py VisualFeedback.to_json() + write_report sidecar. */
 export interface VisualFeedbackReportV11 {
-	/** 协议版本, 当前 "1.1"。 */
+	/** Protocol version, currently "1.1". */
 	schema_version: string;
-	/** 整体验证结果 (osagent: ok)。 */
+	/** Overall verification result (osagent: ok). */
 	ok: boolean;
-	/** 被验证的 app / preview URL (osagent: app)。 */
+	/** The app / preview URL being verified (osagent: app). */
 	app: string;
-	/** 验证动作描述 (osagent: action_query, e.g. "click submit button")。 */
+	/** Verification action description (osagent: action_query, e.g. "click submit button"). */
 	action_query: string;
-	/** 失败原因 (osagent: reason, 空串表示 pass)。 */
+	/** Failure reason (osagent: reason, empty string means pass). */
 	reason: string;
-	/** 缺陷清单 (osagent: defects, pass 时为空数组)。 */
+	/** Defect list (osagent: defects, empty array on pass). */
 	defects: VisualFeedbackDefectV11[];
-	/** 是否有错误帧截图 (osagent: has_error_frame)。 */
+	/** Whether an error-frame screenshot exists (osagent: has_error_frame). */
 	has_error_frame: boolean;
-	/** 错误帧 sidecar 文件路径 (osagent write_report: *.error.png, 可选)。 */
+	/** Error-frame sidecar file path (osagent write_report: *.error.png, optional). */
 	error_frame?: string;
-	/** 任务唯一标识 (可选, osagent 无此字段但协议推荐)。 */
+	/** Unique task identifier (optional; osagent lacks this field but the protocol recommends it). */
 	task_id?: string;
-	/** 生成报告的时间戳 (ISO 8601, 可选)。 */
+	/** Timestamp the report was generated (ISO 8601, optional). */
 	timestamp?: string;
 }
 
 // ─── 1.0 legacy report (#216) ──────────────────────────────────────
 
-/** 1.0 legacy osagent 视觉验证报告根对象 (#216 协议, 保留向后兼容)。 */
+/** 1.0 legacy osagent visual-verification report root object (#216 protocol, kept for backward compat). */
 export interface VisualFeedbackReport {
-	/** 协议版本, 当前 "1.0"。 */
+	/** Protocol version, currently "1.0". */
 	schema_version: string;
-	/** 任务唯一标识, 关联 osagent loop 的一次 code-debug 运行。 */
+	/** Unique task identifier, tied to one code-debug run of the osagent loop. */
 	task_id: string;
-	/** 整体验证结果。 */
+	/** Overall verification result. */
 	status: "pass" | "fail";
-	/** 失败步骤明细 (status=pass 时为空数组)。 */
+	/** Failed-step details (empty array when status=pass). */
 	failed_steps: VisualFeedbackDefect[];
-	/** 全页截图 base64 (可选, status=fail 时通常附)。 */
+	/** Full-page screenshot as base64 (optional, usually attached when status=fail). */
 	screenshot_b64?: string;
-	/** osagent 建议的修复区域 (文件路径 / 组件名, 可选提示)。 */
+	/** osagent's suggested fix area (file path / component name, optional hint). */
 	suggested_fix_area?: string;
-	/** 被验证的 preview URL 或 app 路径 (可选, 上下文)。 */
+	/** The preview URL or app path being verified (optional, context). */
 	target?: string;
-	/** 生成报告的时间戳 (ISO 8601, 可选)。 */
+	/** Timestamp the report was generated (ISO 8601, optional). */
 	timestamp?: string;
 }
 
 // ─── normalized canonical form (internal) ──────────────────────────
 
-/** 校验后的规范形式 — 无论输入 1.0 还是 1.1, 统一为 1.1 语义。 */
+/** Validated canonical form — whether the input is 1.0 or 1.1, normalized to 1.1 semantics. */
 export interface NormalizedVisualFeedback {
-	/** 原始协议版本。 */
+	/** Original protocol version. */
 	schema_version: string;
-	/** 整体验证结果。 */
+	/** Overall verification result. */
 	ok: boolean;
-	/** 被验证的 app / preview URL。 */
+	/** The app / preview URL being verified. */
 	app: string;
-	/** 验证动作描述。 */
+	/** Verification action description. */
 	action_query: string;
-	/** 失败原因 (空串表示 pass)。 */
+	/** Failure reason (empty string means pass). */
 	reason: string;
-	/** 缺陷清单 (已归一为 1.1 defect 形状)。 */
+	/** Defect list (already normalized to the 1.1 defect shape). */
 	defects: VisualFeedbackDefectV11[];
-	/** 是否有错误帧截图。 */
+	/** Whether an error-frame screenshot exists. */
 	has_error_frame: boolean;
-	/** 错误帧 sidecar 文件路径 (可选)。 */
+	/** Error-frame sidecar file path (optional). */
 	error_frame?: string;
-	/** 任务唯一标识 (可选)。 */
+	/** Unique task identifier (optional). */
 	task_id?: string;
-	/** osagent 建议的修复区域 (可选)。 */
+	/** osagent's suggested fix area (optional). */
 	suggested_fix_area?: string;
-	/** 生成报告的时间戳 (可选)。 */
+	/** Timestamp the report was generated (optional). */
 	timestamp?: string;
 }
 
 // ─── re-fix workflow plan (#217 sub-loop) ──────────────────────────
 
-/** 单条 re-fix 工作流指令。fusion-code 保持无状态: 只生成 plan, 由
- *  编排器 (osagent code_debug.CodeDebugLoop) 执行 build/re-run/re-verify。 */
+/** A single re-fix workflow instruction. fusion-code stays stateless: it
+ *  only generates the plan; the orchestrator (osagent
+ *  code_debug.CodeDebugLoop) executes build/re-run/re-verify. */
 export interface VisualFeedbackFixPlan {
-	/** 关联报告的 task/app 标识。 */
+	/** The task/app identifier of the associated report. */
 	task_id: string;
-	/** 当前验证状态 (false = 需修复)。 */
+	/** Current verification status (false = needs fixing). */
 	ok: boolean;
-	/** 注入给修复 agent 的 prompt 段 (含缺陷清单 + 上下文)。 */
+	/** Prompt section injected into the fix agent (defect list + context). */
 	fix_prompt: string;
-	/** 重建命令 (探测项目类型: bun/npm/pnpm/cargo/go/make 等)。 */
+	/** Rebuild command (probes project type: bun/npm/pnpm/cargo/go/make etc.). */
 	rebuild_cmd: string;
-	/** 重新运行命令 (启动被验证 app/preview)。 */
+	/** Re-run command (launches the app/preview being verified). */
 	rerun_cmd: string;
-	/** 重新验证命令 (osagent 再次驱动 verify_and_report)。 */
+	/** Re-verify command (osagent drives verify_and_report again). */
 	reverify_cmd: string;
-	/** 报告落盘路径 (供编排器读取 agent prompt 段, 可选)。 */
+	/** Report file path on disk (for the orchestrator to read the agent prompt section, optional). */
 	report_path?: string;
 }
 
 // ─── ingest result ─────────────────────────────────────────────────
 
-/** Ingest 校验结果。 */
+/** Ingest validation result. */
 export interface VisualFeedbackIngestResult {
-	/** 是否通过 schema 校验。 */
+	/** Whether schema validation passed. */
 	valid: boolean;
-	/** 校验失败原因 (valid=false 时填)。 */
+	/** Validation failure reason (filled when valid=false). */
 	error?: string;
-	/** 归一化后的报告 (valid=true 时填)。 */
+	/** The normalized report (filled when valid=true). */
 	report?: NormalizedVisualFeedback;
-	/** auto-fix agent 是否已触发 (仅 ok=false 且 --auto-fix 时)。 */
+	/** Whether the auto-fix agent was triggered (only when ok=false and --auto-fix). */
 	autoFixTriggered?: boolean;
-	/** 生成的 re-fix 工作流计划 (--auto-fix-loop 时填)。 */
+	/** The generated re-fix workflow plan (filled with --auto-fix-loop). */
 	fixPlan?: VisualFeedbackFixPlan;
 }

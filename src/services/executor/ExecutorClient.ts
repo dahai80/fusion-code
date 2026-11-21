@@ -58,13 +58,13 @@ type PendingRequest = {
 	};
 };
 
-// P3-2: requestCounter 移入 createExecutorClient 闭包 (见下)。
-// 原模块级跨客户端共享 → 两客户端共存 ID 碰撞 → reject 错的 pending。
+// P3-2: requestCounter moved into the createExecutorClient closure (see below).
+// Previously module-level shared across clients → two coexisting clients collided on IDs → rejected the wrong pending entry.
 
-// P2-19: 随机 socket 路径置于 0700 私有目录, 非可预测的 tmpdir/fusion-executor-<pid>.sock。
-// 原路径可预测 → 任何同用户进程可 connect() socket 驱动 executor.execute 跑任意 bash,
-// 绕过 CLI 工具权限+审批。随机名 + 0700 目录让 socket 路径不猜得中, 仅本进程+子进程知。
-// auth 握手 token 需 fusion-executor 服务端校验 (跨仓), 此处仅客户端侧硬化路径。
+// P2-19: random socket path placed in a 0700 private directory, not the predictable tmpdir/fusion-executor-<pid>.sock.
+// The old path was predictable → any same-user process could connect() to the socket and drive executor.execute to run arbitrary bash,
+// bypassing CLI tool permissions+approval. Random name + 0700 directory make the socket path unguessable, known only to this process+children.
+// An auth handshake token requires server-side validation in fusion-executor (cross-repo); this hardens the client side only.
 function executorSocketDir(): string {
 	const base =
 		process.env.FUSION_CODE_CONFIG_DIR ||
@@ -75,10 +75,10 @@ function executorSocketDir(): string {
 function defaultSocketPath(): string {
 	const dir = executorSocketDir();
 	try {
-		// P2-5 (audit 0901): 拒符号链接 — 攻击者预创 dir 为指向其控制目录的 symlink
-		// → executor 在被劫持目录建 socket → 攻击者 connect() 跑任意 bash。lstat 不跟随
-		// 符号链接, 是符号链接则 throw 拒用此路径 (回退让 socket bind 失败 = fail-visible,
-		// 优于静默用被劫持目录)。仅当目录不存在时创建 0700 私有目录。
+		// P2-5 (audit 0901): reject symlinks — an attacker pre-creates dir as a symlink pointing to a directory they control
+		// → executor builds the socket in the hijacked directory → attacker connect()s and runs arbitrary bash. lstat does not
+		// follow symlinks; if it is a symlink, throw and refuse this path (falling through to a failed socket bind = fail-visible,
+		// better than silently using the hijacked directory). Only create the 0700 private directory when it does not exist.
 		if (existsSync(dir)) {
 			if (lstatSync(dir).isSymbolicLink()) {
 				throw new Error(
@@ -105,16 +105,16 @@ function resolveSocketPath(override?: string): string {
 	return defaultSocketPath();
 }
 
-// P2-4 (audit 0901): stop() 发 SIGTERM 后等待子进程退出的宽限时间, 超时则 SIGKILL
-// tree-kill 兜底。2s 给 fusion-executor server 优雅 flush, 不阻塞 CLI 关闭太久。
+// P2-4 (audit 0901): grace period for stop() to wait for child process exit after SIGTERM, SIGKILL
+// tree-kill as backstop on timeout. 2s lets the fusion-executor server flush gracefully without blocking CLI shutdown too long.
 const P2_4_STOP_GRACE_MS = Number.isFinite(
 	parseInt(process.env.FUSION_CODE_EXECUTOR_STOP_GRACE_MS ?? "", 10),
 )
 	? parseInt(process.env.FUSION_CODE_EXECUTOR_STOP_GRACE_MS ?? "", 10)
 	: 2000;
 
-// P2-4 (audit 0901): 等待子进程退出, 超时 resolve(false) (调用方据此发 SIGKILL)。
-// 不 reject — stop() 用此判需否升级 kill, reject 会污染 finally 流程。
+// P2-4 (audit 0901): wait for child process exit, resolve(false) on timeout (caller sends SIGKILL based on it).
+// Does not reject — stop() uses this to decide whether to escalate the kill; rejecting would pollute the finally flow.
 function waitForProcessExit(
 	child: ChildProcess,
 	timeoutMs: number,
@@ -147,10 +147,10 @@ export function createExecutorClient(
 	let startFailed = false;
 	let startError: Error | undefined;
 	// NDJSON line buffer — frames split on \n, partial frames held across data events.
-	// P3-2 (audit 0901): 偏移量游标替代每行 slice 重建串。旧 lineBuffer = lineBuffer.slice(idx+1)
-	// 每行 O(n) 拷贝剩余缓冲 → N 行 O(n²) (长 build log CPU 飙升)。改用 lineOffset 游标,
-	// 行提取用 slice(offset, idx) 不动原串, offset 前进; 仅当残留未消费 prefix 超阈值时
-	// 一次性 compact (摊销 O(n)), 避免游标无限增长。
+	// P3-2 (audit 0901): offset cursor replaces per-line slice string rebuilds. Old lineBuffer = lineBuffer.slice(idx+1)
+	// copied the remaining buffer O(n) per line → N lines O(n²) (CPU spikes on long build logs). Switched to a lineOffset cursor:
+	// line extraction uses slice(offset, idx) leaving the original string untouched while offset advances; only when the unconsumed
+	// leftover prefix exceeds the threshold is it compacted once (amortized O(n)), preventing unbounded cursor growth.
 	let lineBuffer = "";
 	let lineOffset = 0;
 	const LINE_BUFFER_COMPACT_THRESHOLD = 65536;
@@ -212,8 +212,8 @@ export function createExecutorClient(
 	}
 
 	function processBuffer(): void {
-		// P3-2: 用 lineOffset 游标扫描, 不每行 slice 重建 lineBuffer。idx 为绝对位置,
-		// 行内容 = slice(lineOffset, idx); 消费后 lineOffset = idx + 1。
+		// P3-2: scan with the lineOffset cursor instead of rebuilding lineBuffer via slice per line. idx is the absolute position;
+		// line content = slice(lineOffset, idx); after consumption lineOffset = idx + 1.
 		let idx = lineBuffer.indexOf("\n", lineOffset);
 		while (idx !== -1) {
 			const line = lineBuffer.slice(lineOffset, idx).trim();
@@ -235,7 +235,7 @@ export function createExecutorClient(
 			handleFrame(parsed);
 			idx = lineBuffer.indexOf("\n", lineOffset);
 		}
-		// Compact: 残留未消费 prefix 超 threshold 时一次性切掉, 摊销 O(n) 非每行。
+		// Compact: when the unconsumed leftover prefix exceeds the threshold, cut it off in one go — amortized O(n), not per line.
 		if (lineOffset > LINE_BUFFER_COMPACT_THRESHOLD) {
 			lineBuffer = lineBuffer.slice(lineOffset);
 			lineOffset = 0;
@@ -277,10 +277,10 @@ export function createExecutorClient(
 			socketPath = resolveSocketPath();
 			try {
 				// Spawn fusion-executor --serve --sock <path> (persistent UDS server).
-				// P2-4 (audit 0901): detached:true 让 executor 进入独立进程组 (pgid=proc.pid),
-				// 使 stop() 可用 process.kill(-proc.pid) tree-kill 其子进程树 (server 起的
-				// bash 子进程), 否则 proc.kill() 只杀顶层 server → bash 孤儿继续跑。detached
-				// 不 unref — 生命周期仍由 stop()/exit-handler 管理, 仅改变进程组归属。
+				// P2-4 (audit 0901): detached:true puts the executor in its own process group (pgid=proc.pid),
+				// letting stop() use process.kill(-proc.pid) to tree-kill its subprocess tree (the bash children
+				// the server spawned); otherwise proc.kill() only kills the top-level server → orphaned bash keeps running. detached
+				// does not unref — lifecycle is still managed by stop()/exit-handler; only the process group membership changes.
 				proc = spawn("fusion-executor", ["--serve", "--sock", socketPath], {
 					stdio: ["ignore", "pipe", "pipe"],
 					env: { ...subprocessEnv(), FUSION_EXECUTOR_SOCK: socketPath },
@@ -386,7 +386,7 @@ export function createExecutorClient(
 			);
 			if (signal) {
 				if (signal.aborted) {
-					// P1-7: 已中止 → 仅 reject 本请求, 不动共享 socket。
+					// P1-7: already aborted → reject only this request, do not touch the shared socket.
 					const pendingReq = pending.get(id);
 					if (pendingReq) {
 						pending.delete(id);
@@ -396,25 +396,25 @@ export function createExecutorClient(
 					}
 					throw new Error("executor executeStream aborted before start");
 				}
-				// P1-7: 此前 abort 调 failAllPending (毁全部在途) + socket.destroy
-				// (毁共享 UDS, reject 所有并发 bash 调用)。abort 单流不应毁全局。
-				// 改: 仅 reject 本 id + 发 executor.cancel RPC 让 server 杀 child;
-				// listener 在 promise settle 时移除 (不泄漏每次调用一个 listener)。
+				// P1-7: previously abort called failAllPending (destroying all in-flight) + socket.destroy
+				// (destroying the shared UDS, rejecting all concurrent bash calls). Aborting a single stream must not destroy the global state.
+				// Changed: reject only this id + send an executor.cancel RPC so the server kills the child;
+				// the listener is removed when the promise settles (no leak of one listener per call).
 				const onAbort = () => {
 					const pendingReq = pending.get(id);
 					if (pendingReq) {
 						pending.delete(id);
 						pendingReq.reject(new Error("executor executeStream aborted"));
 					}
-					// best-effort cancel RPC (server 杀 child); 不等回应, 失败已 fail-soft。
+					// best-effort cancel RPC (server kills the child); does not wait for a reply, failure is fail-soft.
 					try {
 						sendRequest("executor.cancel", { id });
 					} catch {
-						// socket 已断则 cancel 无法发, 本请求已 reject, 无副作用。
+						// If the socket is already broken the cancel cannot be sent; this request is already rejected, no side effects.
 					}
 				};
 				signal.addEventListener("abort", onAbort, { once: true });
-				// settle 后移除 listener (resolve/reject 都清理, 避免监听器泄漏)。
+				// Remove the listener after settle (both resolve/reject clean up, avoiding listener leaks).
 				promise.finally(() => signal.removeEventListener("abort", onAbort));
 			}
 			return promise as Promise<ExecutionResult>;
@@ -481,13 +481,13 @@ export function createExecutorClient(
 				if (proc) {
 					try {
 						proc.removeAllListeners();
-						// P2-4 (audit 0901): tree-kill 整个进程组 (executor server + 其 bash 子树)。
-						// detached spawn 让 proc.pid = pgid, process.kill(-pid) 杀全组。
-						// 先 SIGTERM (graceful), P2-4_STOP_GRACE_MS 后未退出则 SIGKILL 兜底。
+						// P2-4 (audit 0901): tree-kill the entire process group (executor server + its bash subtree).
+						// The detached spawn makes proc.pid = pgid, so process.kill(-pid) kills the whole group.
+						// SIGTERM first (graceful); if still not exited after P2_4_STOP_GRACE_MS, SIGKILL as backstop.
 						try {
 							process.kill(-proc.pid, "SIGTERM");
 						} catch {
-							// 进程组不存在/已退出 (ESRCH) 或权限不足 → 回退单进程 kill。
+							// Process group missing/already exited (ESRCH) or permission denied → fall back to single-process kill.
 							proc.kill();
 						}
 						await waitForProcessExit(proc, P2_4_STOP_GRACE_MS);

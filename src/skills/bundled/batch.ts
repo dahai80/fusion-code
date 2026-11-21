@@ -8,12 +8,13 @@ import { getIsGit } from "../../utils/git.js";
 import { registerBundledSkill } from "../bundledSkills.js";
 
 const MIN_AGENTS = 5;
-// audit 1.4.7: prompt 上限必须 ≤ AgentTool 硬并发上限, 否则 model 按提示 spawn
-// 30, 第 21 个起被 subagentGuardrails 拒绝, model 重试/error-spin。原取硬上限默认
-// 常量 (DEFAULT_MAX_CONCURRENT_SUBAGENTS=20) 作 prompt 上限, 但用户改
-// FUSION_MAX_CONCURRENT_SUBAGENTS env 时硬上限跟着变、prompt 上限不变 → 漂移复现。
-// 改读 env-aware getMaxConcurrentSubagents() (与 checkSubagentGuardrails 同源), 二者
-// 真同源。floor 到 MIN_AGENTS, 防 env 设过小导致 MIN>MAX, 模板 "5–3" 崩。
+// audit 1.4.7: the prompt cap must be ≤ the AgentTool hard concurrency cap, otherwise the model
+// spawns 30 per the prompt, the 21st onward get rejected by subagentGuardrails, and the model
+// retries/error-spins. Previously the hard-cap default constant (DEFAULT_MAX_CONCURRENT_SUBAGENTS=20)
+// was used as the prompt cap, but when a user changed the FUSION_MAX_CONCURRENT_SUBAGENTS env the hard
+// cap moved while the prompt cap did not → reproducible drift. Now reads the env-aware
+// getMaxConcurrentSubagents() (same source as checkSubagentGuardrails) so the two are truly in sync.
+// Floored at MIN_AGENTS so an env set too small cannot make MIN>MAX and break the "5–3" template.
 export const MIN_BATCH_AGENTS = MIN_AGENTS;
 export function resolveBatchMaxAgents(): number {
 	return Math.max(MIN_BATCH_AGENTS, getMaxConcurrentSubagents());

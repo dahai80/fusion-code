@@ -42,8 +42,9 @@ export const RegistryEntrySchema = z.object({
 export const RegistryIndexSchema = z.object({
 	schemaVersion: z.number().int().default(0),
 	updated: z.string().optional(),
-	// P3-11: plugins 数组上限 — 恶意 registry 返百万条目, axios 缓冲后 schema parse
-	// 全接, writeCache 写全数组填盘。加 .max(10000) 超限拒绝 parse 而非缓存。
+	// P3-11: plugins array cap — a malicious registry returning millions of entries would be
+	// fully buffered by axios, fully parsed by schema parse, then written to disk wholesale by writeCache.
+	// Add .max(10000) so oversized input rejects the parse instead of being cached.
 	plugins: z.array(RegistryEntrySchema).max(10000),
 });
 
@@ -137,8 +138,8 @@ async function cacheFresh(): Promise<boolean> {
 
 async function writeCache(index: RegistryIndex): Promise<void> {
 	try {
-		// P2-18: 目录 0700 + 文件 0600 非 0755/0644。cache 含插件元数据
-		// (名/源 URL/sha256) = 用户浏览哪些插件的侧信道, 不应世界可读。
+		// P2-18: dir 0700 + file 0600 instead of 0755/0644. The cache contains plugin metadata
+		// (name/source URL/sha256) = a side channel of which plugins the user browses; must not be world-readable.
 		await mkdir(cacheDir(), { recursive: true, mode: 0o700 });
 		await chmod(cacheDir(), 0o700).catch(() => {});
 		await writeFile(cacheFile(), JSON.stringify(index, null, 2), {
@@ -170,9 +171,10 @@ export async function fetchRegistryIndex(
 		}
 	}
 	try {
-		// P1-27: maxContentLength/maxBodyLength 50MB — 防 OOM。responseType:"json"
-		// 整 body 缓冲进内存再 parse, 恶意/被攻陷 registry (可 FUSION_CODE_PLUGIN_REGISTRY_URL
-		// 覆盖) 返多 GB JSON → axios 缓冲 → OOM。parse 在全 body 进内存后。
+		// P1-27: maxContentLength/maxBodyLength 50MB — OOM guard. With responseType:"json"
+		// the whole body is buffered into memory before parse; a malicious/compromised registry
+		// (overridable via FUSION_CODE_PLUGIN_REGISTRY_URL) returning multi-GB JSON → axios buffers → OOM.
+		// Parse happens only after the full body is in memory.
 		const res = await axios.get(url, {
 			timeout: 10_000,
 			responseType: "json",

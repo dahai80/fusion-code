@@ -1,16 +1,16 @@
 /**
- * BYOC Environment Runner — 自托管环境运行器
+ * BYOC Environment Runner — self-hosted environment runner
  *
- * 在 BYOC（Bring Your Own Cloud）环境中运行 Fusion-Code 工作负载。
- * 这是一个无头运行器，连接到 Environment Manager 服务，
- * 接收任务、执行工作负载、上报结果。
+ * Runs Fusion-Code workloads in a BYOC (Bring Your Own Cloud) environment.
+ * This is a headless runner that connects to the Environment Manager service,
+ * receives tasks, executes workloads, and reports results.
  *
- * 工作流程：
- * 1. 注册到 Environment Manager
- * 2. 轮询获取任务
- * 3. 执行任务（运行 Fusion-Code 工作负载）
- * 4. 上报结果
- * 5. 心跳保活
+ * Workflow:
+ * 1. Register with the Environment Manager
+ * 2. Poll for tasks
+ * 3. Execute tasks (run Fusion-Code workloads)
+ * 4. Report results
+ * 5. Heartbeat keep-alive
  *
  * gated by feature('BYOC_ENVIRONMENT_RUNNER')
  */
@@ -132,10 +132,11 @@ async function mainLoop(
 
 	// Keep alive until signal
 	await new Promise<void>(() => {
-		// audit 2.1.4/3.1.3: SIGTERM/SIGINT 走 gracefulShutdown 而非 process.exit(0)
-		// 旁路丢在飞会话持久化/analytics flush/已注册 cleanup。非交互无头进程:
-		// cleanupTerminalModes/printResumeHint 均 TTY+interactive gate → no-op, 仅跑
-		// runCleanupFunctions (analytics flush 等) + failsafe 兜底强制退出。
+		// audit 2.1.4/3.1.3: SIGTERM/SIGINT go through gracefulShutdown instead of process.exit(0),
+		// which bypasses in-flight session persistence / analytics flush / registered cleanups.
+		// Non-interactive headless process: cleanupTerminalModes/printResumeHint are both
+		// TTY+interactive gated → no-op; only runCleanupFunctions (analytics flush etc.) runs,
+		// plus a failsafe forced exit.
 		process.on("SIGTERM", () => {
 			logForDebugging("[BYOC] Received SIGTERM, shutting down");
 			clearInterval(heartbeatInterval);
@@ -206,7 +207,7 @@ async function pollAndExecute(
 }
 
 /**
- * 执行任务并支持自动重试
+ * Execute a task with automatic retry
  */
 async function executeTaskWithRetry(
 	task: EnvironmentTask,
@@ -216,7 +217,7 @@ async function executeTaskWithRetry(
 	for (let attempt = 1; attempt <= maxRetries; attempt++) {
 		try {
 			await executeTask(task, options);
-			return; // 成功则退出
+			return; // exit on success
 		} catch (error) {
 			if (attempt < maxRetries) {
 				logForDebugging(
@@ -224,7 +225,7 @@ async function executeTaskWithRetry(
 				);
 				await new Promise((resolve) => setTimeout(resolve, 1000 * attempt));
 			} else {
-				throw error; // 最后一次失败则向上抛出
+				throw error; // last attempt failed, rethrow
 			}
 		}
 	}

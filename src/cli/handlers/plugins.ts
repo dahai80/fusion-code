@@ -476,7 +476,7 @@ export async function marketplaceAddHandler(
 
 		console.log("Adding marketplace...");
 
-		// addMarketplaceSource 接受 MarketplaceSource | string, 无需宽化 (v5 验证修复)
+		// addMarketplaceSource accepts MarketplaceSource | string, no widening needed (v5 validation fix)
 		const { name, alreadyMaterialized } =
 			await addMarketplaceSource(marketplaceSource);
 
@@ -799,7 +799,7 @@ export async function pluginDisableHandler(
 		scope = "user";
 	}
 	if (!plugin) {
-		// 上方 !options.all && !plugin 已拦截; 此处兜底收窄 (v5 验证修复)
+		// already intercepted above by !options.all && !plugin; fallback narrowing here (v5 validation fix)
 		cliError("No plugin specified");
 	}
 
@@ -814,7 +814,7 @@ export async function pluginDisableHandler(
 			"auto") as AnalyticsMetadata_I_VERIFIED_THIS_IS_NOT_CODE_OR_FILEPATHS,
 	});
 
-	// plugin 已在上方 !plugin 分支 cliError 兜底收窄 (v5 验证修复)
+	// plugin already narrowed by the !plugin cliError branch above (v5 validation fix)
 	await disablePlugin(plugin, scope);
 }
 

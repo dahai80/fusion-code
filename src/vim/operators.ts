@@ -268,8 +268,8 @@ export function executeJoin(count: number, ctx: OperatorContext): void {
 	if (currentLine >= lines.length - 1) return;
 
 	const linesToJoin = Math.min(count, lines.length - currentLine - 1);
-	// currentLine < lines.length - 1 已由上方守卫, ?? "" 仅满足类型收窄;
-	// 保持 let — join 循环会向 joinedLine 追加内容 (审计修复时曾误改 const)
+	// currentLine < lines.length - 1 is already guarded above; ?? "" only satisfies type narrowing.
+	// Keep let — the join loop appends to joinedLine (an audit fix once wrongly changed it to const)
 	let joinedLine = lines[currentLine] ?? "";
 	const cursorPos = joinedLine.length;
 
@@ -380,7 +380,7 @@ export function executeIndent(
 			while (
 				idx < line.length &&
 				removed < indent.length &&
-				// idx < line.length 已保证元素存在, ?? "" 仅满足类型收窄 (空串不匹配 \s, 行为一致)
+				// idx < line.length already guarantees the element exists; ?? "" only satisfies type narrowing (empty string does not match \s, same behavior)
 				/\s/.test(line[idx] ?? "")
 			) {
 				removed++;

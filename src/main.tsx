@@ -408,7 +408,7 @@ function isBeingDebugged() {
 	// Check if inspector is available and active (indicates debugging)
 	try {
 		// Dynamic import would be better but is async - use global object instead
-		// biome-ignore lint/suspicious/noExplicitAny: Bun 运行时注入的 require, 类型不可表达
+		// biome-ignore lint/suspicious/noExplicitAny: require injected by the Bun runtime, not expressible in types
 		const inspector = (global as any).require("inspector");
 		const hasInspectorUrl = !!inspector.url();
 		return hasInspectorUrl || hasInspectArg || hasInspectEnv;
@@ -745,13 +745,14 @@ export async function main() {
 	const cliArgs = process.argv.slice(2);
 	const hasPrintFlag = cliArgs.includes("-p") || cliArgs.includes("--print");
 	const hasInitOnlyFlag = cliArgs.includes("--init-only");
-	// Fusion-MLX 本地模式下放过 TTY 误伤：
-	// 当用户用 timeout / 后台 & / pipe / IDE 内嵌非真终端 跑时，stdin.isTTY 变 false，
-	// 会被误判成 --print 非交互模式，导致入口跑到 print.ts 要 prompt 参数而崩。
-	// 本地 fusion-mlx 模式没有 OAuth/cloud 依赖，REPL 不需要真 TTY 也能起，
-	// 因此在这里放过该误伤，让非真终端也能进主界面。
-	// 注意：用户真显式传 -p/--print/--init-only 时仍走非交互，不放过。
-	// 判据与 providers.ts 的 isCloudFreeMode() 对齐：无 FUSION_CLIENT_KEY 且未显式禁用 MLX。
+	// Fusion-MLX local mode: forgive the TTY misdetection:
+	// when the user runs under timeout / background & / pipe / an IDE's embedded non-real
+	// terminal, stdin.isTTY becomes false, which gets misread as --print non-interactive mode,
+	// making the entry fall into print.ts which requires a prompt argument and crashes.
+	// Local fusion-mlx mode has no OAuth/cloud dependency and the REPL can start without a
+	// real TTY, so forgive the misdetection here and let non-real terminals enter the main UI.
+	// Note: when the user explicitly passes -p/--print/--init-only, still go non-interactive, no forgiveness.
+	// The criterion aligns with providers.ts isCloudFreeMode(): no FUSION_CLIENT_KEY and MLX not explicitly disabled.
 	const isFusionMlxLocalMode =
 		!isEnvTruthy(process.env.FUSION_MLX_DISABLED) &&
 		!process.env.FUSION_CLIENT_KEY;
@@ -3101,8 +3102,8 @@ async function run(): Promise<CommanderCommand> {
 			const hookMessages: Awaited<NonNullable<typeof hooksPromise>> = [];
 			// Suppress transient unhandledRejection — the prefetch warms the
 			// memoized connectToServer cache but nobody awaits it in interactive.
-			// audit 2.2.5: 旧 .catch(() => {}) 让 MCP prefetch 失败不可见 (业务关键,
-			// 连不上 MCP = 工具静默缺失)。仍 suppress 全局 rejection, 但留 warn 日志。
+			// audit 2.2.5: the old .catch(() => {}) made MCP prefetch failures invisible (business-critical:
+			// an unreachable MCP = silently missing tools). Still suppress the global rejection, but log a warn.
 			mcpPromise.catch((err: unknown) => {
 				logForDebugging(
 					`[main] MCP prefetch failed: ${(err as Error)?.message ?? err}`,
@@ -3289,8 +3290,8 @@ async function run(): Promise<CommanderCommand> {
 				// Suppress transient unhandledRejection if this rejects before
 				// loadInitialMessages awaits it. Downstream await still observes the
 				// rejection — this just prevents the spurious global handler fire.
-				// audit 2.2.5: 留 warn 日志让 session-start hook 失败可见 (业务关键,
-				// hook 跑环境注入/规则加载, 静默吞 = 启动故障无痕)。仍 suppress 全局 rejection。
+				// audit 2.2.5: keep a warn log so session-start hook failures stay visible (business-critical:
+				// the hook runs env injection / rule loading; swallowing silently = startup failure with no trace). Still suppress the global rejection.
 				sessionStartHooksPromise?.catch((err: unknown) => {
 					logForDebugging(
 						`[main] sessionStartHooks prefetch failed: ${(err as Error)?.message ?? err}`,
@@ -4018,7 +4019,7 @@ async function run(): Promise<CommanderCommand> {
 								const result = await loadConversationForResume(
 									logOption,
 									undefined,
-									true, // ccshare resume 本质是 fork (新建会话, 不接管原会话)
+									true, // ccshare resume is essentially a fork (new session, does not take over the original)
 								);
 								if (result) {
 									processedResume = await processResumedConversation(

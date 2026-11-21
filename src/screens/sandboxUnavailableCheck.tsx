@@ -1,10 +1,10 @@
-// audit 1.1.1 slice #43: sandbox-unavailable mount effect body 外移 (PURE-ROUTING-SUB-BLOCK, like #27/#28/#35/#41/#42)。
-// REPL() 挂载时检测 sandbox 不可用原因: isSandboxRequired → stderr+gracefulShutdownSync(1) 拒绝启动; 否则 logForDebugging + addNotification 提示 "sandbox disabled · /sandbox"。
-// 原 useEffect body。addNotification 经 ctx 传入 (闭包捕获), 行为字节等价。
-// useEffect() hook 留 REPL 薄壳 (hook 规则, 不能移 plain helper), 仅 effect body 移出。
-// SandboxManager (src/utils/sandbox) + gracefulShutdownSync + logForDebugging + Text(ink) 直接 import (非 REPL state, per imported-helpers-directly rule; 全部 REPL 多用, 不移除 REPL import)。
-// 生成 JSX (notification.jsx) → .tsx。返 void (REPL 薄壳 useEffect 透传, 无 cleanup)。
-// deps [addNotification] 不变 (addNotification 是 useCallback 稳定引用, fire-once, 与原一致)。
+// audit 1.1.1 slice #43: sandbox-unavailable mount effect body extracted (PURE-ROUTING-SUB-BLOCK, like #27/#28/#35/#41/#42).
+// REPL() detects the sandbox-unavailable reason on mount: isSandboxRequired → stderr + gracefulShutdownSync(1) refuses startup; otherwise logForDebugging + addNotification with the "sandbox disabled · /sandbox" hint.
+// Original useEffect body. addNotification passed via ctx (closure capture), byte-equivalent behavior.
+// The useEffect() hook stays as a REPL thin shell (hook rules, cannot move to a plain helper); only the effect body moves out.
+// SandboxManager (src/utils/sandbox) + gracefulShutdownSync + logForDebugging + Text(ink) imported directly (not REPL state, per imported-helpers-directly rule; all used multiple times in REPL, REPL imports not removed).
+// Generates JSX (notification.jsx) → .tsx. Returns void (REPL thin-shell useEffect pass-through, no cleanup).
+// deps [addNotification] unchanged (addNotification is a stable useCallback ref, fire-once, matching the original).
 
 import { SandboxManager } from "src/utils/sandbox/sandbox-adapter.js";
 import type { Notification } from "../context/notifications.js";
@@ -16,7 +16,7 @@ type SandboxUnavailableCheckCtx = {
 	addNotification: (content: Notification) => void;
 };
 
-// REPL 保留 useEffect 薄壳:
+// REPL keeps the useEffect thin shell:
 //   useEffect(() => maybeShowSandboxUnavailable({ addNotification }), [addNotification]);
 export function maybeShowSandboxUnavailable(
 	ctx: SandboxUnavailableCheckCtx,

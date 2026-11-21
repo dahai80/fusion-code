@@ -3,22 +3,22 @@ import type { APIProvider } from "./providers.js";
 
 export type ModelConfig = Partial<Record<APIProvider, ModelName>>;
 
-// ─── Fusion-MLX 本地模型配置 ─────────────────────────────────
-// 这些模型 ID 对应 fusion-mlx 上可用的本地模型。
-// 实际可用模型列表在运行时通过 /v1/models 动态获取。
+// ─── Fusion-MLX local model config ─────────────────────────────────
+// These model IDs map to local models available on fusion-mlx.
+// The actually available model list is fetched dynamically at runtime via /v1/models.
 
 export const FUSION_MLX_DEFAULT_CONFIG = {
 	firstParty: "fusion-mlx-local",
 	foundry: "fusion-mlx-local",
 	openai: "fusion-mlx-local",
-	fusionMlx: "default", // fusion-mlx 自动选择默认模型
+	fusionMlx: "default", // fusion-mlx auto-selects the default model
 } as const satisfies ModelConfig;
 
 export const FUSION_MLX_CODE_CONFIG = {
 	firstParty: "fusion-mlx-code",
 	foundry: "fusion-mlx-code",
 	openai: "fusion-mlx-code",
-	fusionMlx: "code", // fusion-mlx 代码专用模型
+	fusionMlx: "code", // fusion-mlx code-specific model
 } as const satisfies ModelConfig;
 
 // @[MODEL LAUNCH]: Add a new CLAUDE_*_CONFIG constant here. Double check the correct model strings
@@ -126,7 +126,7 @@ export const ALL_MODEL_CONFIGS = {
 	gpt54: GPT_5_4_CONFIG,
 	gpt53codex: GPT_5_3_CODEX_CONFIG,
 	gpt54mini: GPT_5_4_MINI_CONFIG,
-	// Fusion-MLX 本地模型
+	// Fusion-MLX local models
 	fusionMlxDefault: FUSION_MLX_DEFAULT_CONFIG,
 	fusionMlxCode: FUSION_MLX_CODE_CONFIG,
 } as const satisfies Record<string, ModelConfig>;

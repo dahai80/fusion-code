@@ -2255,7 +2255,7 @@ function validateZshDangerousCommands(
 // so an attacker can use them to slip metacharacters past our checks while
 // bash still executes them (e.g., "echo safe\x00; rm -rf /").
 // eslint-disable-next-line no-control-regex
-// biome-ignore lint/suspicious/noControlCharactersInRegex: 安全校验需检测 null 字节等不可见控制字符，防止其绕过其它校验器
+// biome-ignore lint/suspicious/noControlCharactersInRegex: security validation must detect null bytes and other invisible control characters to prevent bypassing other validators
 const CONTROL_CHAR_RE = /[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/;
 
 /**

@@ -1,14 +1,14 @@
-// audit 1.1.1 slice #49: sandbox network permission ask useCallback body 外移 (INLINE-CALLBACK curried-factory, like #46 applyRemoteInit)。
-// REPL() SandboxManager 回调: 收到 hostPattern 后决定是否允许网络连接。
-// swarm-worker 路径: generateSandboxRequestId → sendSandboxPermissionRequestViaMailbox 发 leader; sent=false fallback 本地队列; sent=true registerSandboxPermissionCallback + setAppState pending 指示器。
-// 非 worker 路径: 本地对话框队列 + (BRIDGE_MODE) REPL bridge race — bridge onResponse 先到则 resolve 所有同 host 请求 + 清 sibling subscriptions; 本地先到则 cleanup 取消 bridge。
-// 原 useCallback body。setAppState + store (deps) + setSandboxPermissionRequestQueue + sandboxBridgeCleanupRef (稳定引用, 省略 deps) 经 ctx 传入 (闭包捕获), 行为字节等价。
-// useCallback() hook 留 REPL 薄壳 (hook 规则, 不能移 plain helper), 仅 callback body 移出 (curried factory 返 async fn, REPL useCallback 再包一层透传)。
-// 8 模块 import 直接 import (非 REPL state, per imported-helpers-directly rule; 全部 REPL 多用, 不移除 REPL import):
+// audit 1.1.1 slice #49: sandbox network permission ask useCallback body extracted (INLINE-CALLBACK curried-factory, like #46 applyRemoteInit).
+// REPL() SandboxManager callback: after receiving hostPattern, decides whether to allow the network connection.
+// swarm-worker path: generateSandboxRequestId → sendSandboxPermissionRequestViaMailbox to the leader; sent=false falls back to the local queue; sent=true registerSandboxPermissionCallback + setAppState pending indicator.
+// non-worker path: local dialog queue + (BRIDGE_MODE) REPL bridge race — if the bridge onResponse arrives first, resolve all same-host requests + clear sibling subscriptions; if the local one arrives first, cleanup cancels the bridge.
+// Original useCallback body. setAppState + store (deps) + setSandboxPermissionRequestQueue + sandboxBridgeCleanupRef (stable refs, omitted from deps) passed via ctx (closure capture), byte-equivalent behavior.
+// The useCallback() hook stays as a REPL thin shell (hook rules, cannot move to a plain helper); only the callback body moves out (curried factory returns an async fn, REPL useCallback wraps it once more and passes it through).
+// 8 module imports imported directly (not REPL state, per imported-helpers-directly rule; all used multiple times in REPL, REPL imports not removed):
 //   isAgentSwarmsEnabled (utils/agentSwarmsEnabled) / generateSandboxRequestId + isSwarmWorker + sendSandboxPermissionRequestViaMailbox (utils/swarm/permissionSync) /
-//   registerSandboxPermissionCallback (hooks/useSwarmPermissionPoller)。
-// 无 JSX → .ts。返 Promise<boolean> (SandboxAskCallback 签名: (hostPattern) => Promise<boolean>)。
-// deps [setAppState, store] 不变 (setSandboxPermissionRequestQueue useState setter + sandboxBridgeCleanupRef ref 稳定引用, 省略合法, 与原一致)。
+//   registerSandboxPermissionCallback (hooks/useSwarmPermissionPoller).
+// No JSX → .ts. Returns Promise<boolean> (SandboxAskCallback signature: (hostPattern) => Promise<boolean>).
+// deps [setAppState, store] unchanged (setSandboxPermissionRequestQueue useState setter + sandboxBridgeCleanupRef ref are stable, safe to omit, matching the original).
 
 import type { Dispatch, MutableRefObject, SetStateAction } from "react";
 import { registerSandboxPermissionCallback } from "../hooks/useSwarmPermissionPoller.js";
@@ -38,7 +38,7 @@ type SandboxAskCheckCtx = {
 	sandboxBridgeCleanupRef: MutableRefObject<Map<string, Array<() => void>>>;
 };
 
-// REPL 保留 useCallback 薄壳:
+// REPL keeps the useCallback thin shell:
 //   const sandboxAskCallback: SandboxAskCallback = useCallback(
 //     (hostPattern: NetworkHostPattern) => createSandboxAskHandler({ setAppState, store, setSandboxPermissionRequestQueue, sandboxBridgeCleanupRef })(hostPattern),
 //     [setAppState, store],

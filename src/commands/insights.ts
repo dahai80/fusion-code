@@ -926,7 +926,7 @@ export function detectMultiClauding(
 	const sessionLastIndex = new Map<string, number>();
 
 	for (let i = 0; i < allSessionMessages.length; i++) {
-		// i < length 保证元素存在; 局部变量收窄以消除非空断言
+		// i < length guarantees the element exists; local variable narrowing avoids the non-null assertion
 		const msg = allSessionMessages[i];
 		if (!msg) continue;
 

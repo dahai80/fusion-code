@@ -16,7 +16,7 @@ import memoize from "lodash-es/memoize.js";
 import { getFeatureValue_CACHED_MAY_BE_STALE } from "src/services/analytics/index.js";
 import { MAX_OUTPUT_SIZE } from "src/utils/file.js";
 export const DEFAULT_MAX_OUTPUT_TOKENS = 25000;
-// fusion-mlx 本地模式下，read_file 单次输出上限降为 200 行，防爆 32K 上下文窗口
+// In fusion-mlx local mode, read_file's per-call output cap drops to 200 lines to avoid blowing the 32K context window
 export const FUSION_MLX_MAX_OUTPUT_LINES = 200;
 
 /**

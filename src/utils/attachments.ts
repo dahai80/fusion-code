@@ -2112,7 +2112,7 @@ export async function getChangedFiles(
 				const result = (await FileReadTool.call(
 					fileInput,
 					toolUseContext,
-					// biome-ignore lint/suspicious/noExplicitAny: overload 调用签名推断出 never, 用 any 承接后按结果定向
+					// biome-ignore lint/suspicious/noExplicitAny: overload call signature infers never, catch with any and branch on the result
 				)) as any;
 				// Extract only the changed section
 				if (result.data.type === "text") {
@@ -3186,7 +3186,7 @@ export async function generateFileAttachment(
 				const result = (await FileReadTool.call(
 					truncatedInput,
 					toolUseContext,
-					// biome-ignore lint/suspicious/noExplicitAny: overload 调用签名推断出 never, 用 any 承接后按结果定向
+					// biome-ignore lint/suspicious/noExplicitAny: overload call signature infers never, catch with any and branch on the result
 				)) as any;
 				logEvent(successEventName, {});
 
@@ -3213,7 +3213,7 @@ export async function generateFileAttachment(
 			const result = (await FileReadTool.call(
 				fileInput,
 				toolUseContext,
-				// biome-ignore lint/suspicious/noExplicitAny: overload 调用签名推断出 never, 用 any 承接后按结果定向
+				// biome-ignore lint/suspicious/noExplicitAny: overload call signature infers never, catch with any and branch on the result
 			)) as any;
 			logEvent(successEventName, {});
 			return {

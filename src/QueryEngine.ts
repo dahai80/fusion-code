@@ -26,11 +26,6 @@ import {
 } from "src/services/goal/index.js";
 import type { ContentBlockParam } from "src/types/anthropic-protocol.js";
 import stripAnsi from "strip-ansi";
-// P1.3: OTel GenAI trace chain (default-off, FUSION_CODE_OTEL_ENDPOINT)
-import {
-	endOtelSpan,
-	startOtelSpan,
-} from "./utils/telemetry/otelTracing.js";
 import type { Command } from "./commands.js";
 import { getSlashCommandToolSkills } from "./commands.js";
 import {
@@ -47,8 +42,8 @@ import { loadMemoryPrompt } from "./memdir/memdir.js";
 import { hasAutoMemPathOverride } from "./memdir/paths.js";
 import { query } from "./query.js";
 import { categorizeRetryableAPIError } from "./services/api/index.js";
-// ar-plan PR #8 (S2.2): 双写断言 (dev-only, prod byte-identical)
-// ar-plan PR #7 (S2.1): 事件溯源旁路写
+// ar-plan PR #8 (S2.2): dual-write assertion (dev-only, prod byte-identical)
+// ar-plan PR #7 (S2.1): event-sourcing shadow write
 import {
 	assertDualWrite,
 	isEventSourcingEnabled,
@@ -104,6 +99,8 @@ import {
 } from "./utils/sessionStorage.js";
 import { asSystemPrompt } from "./utils/systemPromptType.js";
 import { resolveThemeSetting } from "./utils/systemTheme.js";
+// P1.3: OTel GenAI trace chain (default-off, FUSION_CODE_OTEL_ENDPOINT)
+import { endOtelSpan, startOtelSpan } from "./utils/telemetry/otelTracing.js";
 import {
 	shouldEnableThinkingByDefault,
 	type ThinkingConfig,
@@ -224,8 +221,8 @@ export class QueryEngine {
 	// many turns in SDK mode.
 	private discoveredSkillNames = new Set<string>();
 	private loadedNestedMemoryPaths = new Set<string>();
-	// ar-plan PR #7 (S2.1): 事件溯源旁路写 — per-session recorder。
-	// default-off (FUSION_CODE_EVENT_SOURCING=1); off = NOOP_RECORDER, 零行为。
+	// ar-plan PR #7 (S2.1): event-sourcing shadow write — per-session recorder.
+	// default-off (FUSION_CODE_EVENT_SOURCING=1); off = NOOP_RECORDER, zero behavior.
 	private eventRecorder: SessionEventRecorder;
 
 	constructor(config: QueryEngineConfig) {
@@ -235,7 +232,7 @@ export class QueryEngine {
 		this.permissionDenials = [];
 		this.readFileState = config.readFileCache;
 		this.totalUsage = EMPTY_USAGE;
-		// ar-plan PR #7: 开则新建 recorder, 关则 no-op 单例 (byte-identical)。
+		// ar-plan PR #7: new recorder when on, no-op singleton when off (byte-identical).
 		this.eventRecorder = isEventSourcingEnabled()
 			? new SessionEventRecorder(getSessionId())
 			: NOOP_RECORDER;
@@ -289,15 +286,16 @@ export class QueryEngine {
 		} = this.config;
 
 		this.discoveredSkillNames.clear();
-		// ar-plan PR #7 (S2.1): 旁路写 turn_start (shadow, default-off)
+		// ar-plan PR #7 (S2.1): shadow write turn_start (shadow, default-off)
 		this.eventRecorder.record("turn_start", {
 			prompt: typeof prompt === "string" ? prompt : "[content blocks]",
 		});
-		// P2-4: turns 按 user turn 计非按 message_stop 计。tool-use 循环一发多个
-		// message_stop (每 LLM call 一), 原 message_stop 内 turns:1 按 assistant
-		// msg 计 turn → budgetUsed.turns 虚高。移 turn 增量到此 (turn 边界), 每 ask
-		// 一次。tokens 仍在 message_stop 累。只在有 active goal 时触发 (无 goal
-		// 省同步 IO, 见 message_stop 处的 hasGoal gate)。
+		// P2-4: count turns per user turn, not per message_stop. The tool-use loop emits
+		// multiple message_stop events (one per LLM call); counting turns:1 on assistant
+		// messages inside message_stop inflated budgetUsed.turns. Move the turn increment
+		// here (turn boundary), once per ask. Tokens still accumulate at message_stop.
+		// Only fires when an active goal exists (no goal saves the sync IO; see the
+		// hasGoal gate at the message_stop handler).
 		try {
 			const _sid = getSessionId();
 			if (getActiveGoalFromState(_sid)) {
@@ -311,9 +309,10 @@ export class QueryEngine {
 		// Phase 3b: take a caller-owned turn-boundary git snapshot so /rollback
 		// can revert the working tree to before this turn. Default-off env gate
 		// (FUSION_CODE_EXECUTOR_TURN_SNAPSHOT=1); no-op when disabled or non-repo.
-		// P2-3: await snapshot — fire-and-forget 与 recordTurnFailure (~L862) 竞态,
-		// snapshot 未完成时失败计错快照。await 仅在 enabled 时阻塞 (非 enabled
-		// 即时 resolve no-op), byte-identical off。snapshot 仍 fail-soft。
+		// P2-3: await snapshot — fire-and-forget races with recordTurnFailure (~L862):
+		// a failure landing before the snapshot completes is charged to the wrong
+		// snapshot. await blocks only when enabled (disabled resolves immediately as a
+		// no-op), byte-identical off. The snapshot itself stays fail-soft.
 		const turnSnapshotId = randomUUID();
 		try {
 			await takeTurnSnapshot(turnSnapshotId);
@@ -506,7 +505,7 @@ export class QueryEngine {
 
 		// Push new messages, including user input and any attachments
 		this.mutableMessages.push(...messagesFromUserInput);
-		// ar-plan PR #7 (S2.1): 旁路写 user_message (shadow, default-off)
+		// ar-plan PR #7 (S2.1): shadow write user_message (shadow, default-off)
 		this.eventRecorder.record("user_message", messagesFromUserInput);
 
 		// Update params to reflect updates from processing /slash commands
@@ -694,7 +693,7 @@ export class QueryEngine {
 				}
 			}
 
-			// 提取 AI 响应文本：优先级 resultText > 最后一条 assistant 消息 > 空字符串
+			// Extract the AI response text: priority resultText > last assistant message > empty string
 			let finalResult = resultText ?? "";
 			if (!finalResult) {
 				const lastAssistantMsg = [...messages]
@@ -868,13 +867,13 @@ export class QueryEngine {
 						lastStopReason = message.message.stop_reason;
 					}
 					this.mutableMessages.push(message);
-					// ar-plan PR #7 (S2.1): 旁路写 assistant_message (shadow)
+					// ar-plan PR #7 (S2.1): shadow write assistant_message (shadow)
 					this.eventRecorder.record("assistant_message", message);
 					yield* normalizeMessage(message);
 					break;
 				case "progress":
 					this.mutableMessages.push(message);
-					// ar-plan PR #7 (S2.1): 旁路写 assistant_message (progress, shadow)
+					// ar-plan PR #7 (S2.1): shadow write assistant_message (progress, shadow)
 					this.eventRecorder.record("assistant_message", message);
 					// Record inline so the dedup loop in the next ask() call sees it
 					// as already-recorded. Without this, deferred progress interleaves
@@ -889,7 +888,7 @@ export class QueryEngine {
 					break;
 				case "user": {
 					this.mutableMessages.push(message);
-					// ar-plan PR #7 (S2.1): 旁路写 tool_result (user role carries result blocks, shadow)
+					// ar-plan PR #7 (S2.1): shadow write tool_result (user role carries result blocks, shadow)
 					this.eventRecorder.record("tool_result", message);
 					// Phase 3b: count tool failures (is_error tool_result blocks)
 					// against the current turn so the rollback hint can stage.
@@ -920,10 +919,11 @@ export class QueryEngine {
 							timestamp: new Date().toISOString(),
 						};
 						this.mutableMessages.push(hintMessage);
-						// ar-plan PR #7 (S2.1): 旁路写 hint (shadow)。
-						// P2-6: hintMessage 是 type:user role:user 却原记为 assistant_message
-						// → deriveMessages 投影进 assistant 流, 分类错。改为 user_message
-						// (匹配实际 role)。断言偶然过因同对象引用, 投影分类仍错。
+						// ar-plan PR #7 (S2.1): shadow write hint (shadow).
+						// P2-6: hintMessage has type:user role:user but was recorded as assistant_message
+						// → deriveMessages projected it into the assistant stream, misclassifying it.
+						// Changed to user_message (matching the actual role). The assertion passed by
+						// accident via same-object reference; the projection classification was still wrong.
 						this.eventRecorder.record("user_message", hintMessage);
 						if (persistSession) {
 							messages.push(hintMessage);
@@ -970,9 +970,10 @@ export class QueryEngine {
 							updateBudgetUsed(_sessionId, { tokens: _tokenDelta });
 							const _budgetCheck = checkBudget(_sessionId);
 							if (_budgetCheck.exceeded) {
-								// P1-5: 预算超限此前仅建议性 — pauseGoal 后 turn 继续, console.error
-								// 到 stderr SDK 消费者看不到, message 被丢弃。镜像 maxBudgetUsd (L1090):
-								// yield result subtype error_max_budget + return, surfacing message。
+								// P1-5: budget exceeded was previously advisory only — after pauseGoal the
+								// turn continued, console.error went to stderr where SDK consumers can't
+								// see it, and the message was dropped. Mirror maxBudgetUsd (L1090):
+								// yield result subtype error_max_budget + return, surfacing the message.
 								logForDebugging(
 									`[goal] budget exceeded, goal ${_budgetCheck.goalId} paused: ${_budgetCheck.message}`,
 									{ level: "warn" },
@@ -1027,7 +1028,7 @@ export class QueryEngine {
 					break;
 				case "attachment":
 					this.mutableMessages.push(message);
-					// ar-plan PR #7 (S2.1): 旁路写 tool_result (attachment, shadow)
+					// ar-plan PR #7 (S2.1): shadow write tool_result (attachment, shadow)
 					this.eventRecorder.record("tool_result", message);
 					// Record inline (same reason as progress above).
 					if (persistSession) {
@@ -1190,19 +1191,19 @@ export class QueryEngine {
 						if (snipResult.executed) {
 							this.mutableMessages.length = 0;
 							this.mutableMessages.push(...snipResult.messages);
-							// P1-9: 同步本地快照 messages — 此前只更 mutableMessages,
-							// messages (L468 副本) 仍带 pre-snip 旧数据 →
-							// recordTranscript(messages) 写旧消息到磁盘, result findLast
-							// 走旧 messages。原地 length=0 + push 保持 const 引用。
+							// P1-9: sync the local messages snapshot — previously only mutableMessages
+							// was updated; messages (the L468 copy) still carried pre-snip stale data →
+							// recordTranscript(messages) wrote stale messages to disk and result findLast
+							// walked stale messages. In-place length=0 + push keeps the const reference.
 							messages.length = 0;
 							messages.push(...snipResult.messages);
-							// ar-plan PR #7 (S2.1): 旁路写 compact (snip replay, shadow)
+							// ar-plan PR #7 (S2.1): shadow write compact (snip replay, shadow)
 							this.eventRecorder.record("compact", snipResult);
 						}
 						break;
 					}
 					this.mutableMessages.push(message);
-					// ar-plan PR #7 (S2.1): 旁路写 compact (compact_boundary, shadow)
+					// ar-plan PR #7 (S2.1): shadow write compact (compact_boundary, shadow)
 					this.eventRecorder.record("compact", message);
 					// Yield compact boundary messages to SDK
 					if (
@@ -1424,13 +1425,13 @@ export class QueryEngine {
 
 		// ar-plan PR #7 (S2.1): capture turn result uuid for turn_end shadow
 		const turnResultUuid = randomUUID();
-		// ar-plan PR #8 (S2.2): 双写断言 — 每 turn 末一次 (非每 push, 省开销)。
-		// dev + env 开: derived === mutableMessages; prod 早 return (byte-identical)。
+		// ar-plan PR #8 (S2.2): dual-write assertion — once per turn end (not per push, saves overhead).
+		// dev + env on: derived === mutableMessages; prod returns early (byte-identical).
 		assertDualWrite(
 			this.eventRecorder.getLog(),
 			this.mutableMessages,
 			turnResultUuid,
-			// P3-1: noop recorder (off 会话) 短路, 不查 env 查实例。
+			// P3-1: noop recorder (off session) short-circuits — check the instance, not the env.
 			this.eventRecorder === NOOP_RECORDER,
 		);
 		yield {
@@ -1454,10 +1455,11 @@ export class QueryEngine {
 			),
 			uuid: turnResultUuid,
 		};
-		// ar-plan PR #7 (S2.1): 旁路写 turn_end (shadow, default-off)
+		// ar-plan PR #7 (S2.1): shadow write turn_end (shadow, default-off)
 		this.eventRecorder.record("turn_end", { uuid: turnResultUuid });
-		// P1-4: wallMs 预算此前从不驱动 (调用方只传 turns/tokens, budgetUsed.wallMs 恒 0,
-		// 用户 `/goal wallMs=...` 静默永不触发)。turn 末用 startTime 差值累加, 一次/turn。
+		// P1-4: the wallMs budget was previously never driven (callers only passed turns/tokens,
+		// budgetUsed.wallMs stayed 0, and `/goal wallMs=...` silently never fired). At turn end,
+		// accumulate the startTime delta, once per turn.
 		try {
 			const _sessionId = getSessionId();
 			const _wallDelta = Date.now() - startTime;

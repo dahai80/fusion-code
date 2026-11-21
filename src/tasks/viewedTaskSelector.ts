@@ -1,5 +1,6 @@
-// audit 1.1.1: 从 REPL.tsx 抽出的 viewedTask 选择器。纯函数, 无 React, 无副作用。
-// 三段推导只读入参, 输出 narrowed task union。REPL 的原内联块驱动下游布尔判断。
+// audit 1.1.1: viewedTask selector extracted from REPL.tsx. Pure function, no React, no side effects.
+// The three-stage derivation only reads its inputs and outputs a narrowed task union. REPL's original inline
+// block drove downstream boolean decisions.
 
 import type { InProcessTeammateTaskState } from "./InProcessTeammateTask/types.js";
 import { isInProcessTeammateTask } from "./InProcessTeammateTask/types.js";

@@ -990,7 +990,7 @@ async function executeRemoteSkill(
 ): Promise<ToolResult<Output>> {
 	const { getDiscoveredRemoteSkill, loadRemoteSkill, logRemoteSkillLoaded } =
 		remoteSkillModules;
-	// 内部不变量: 上层 feature 门控保证 call() 路径下 remoteSkillModules 非空
+	// Internal invariant: the feature gate above guarantees remoteSkillModules is non-empty on the call() path
 	if (remoteSkillModules === undefined) {
 		throw new Error("Remote skill modules are unavailable in this build");
 	}

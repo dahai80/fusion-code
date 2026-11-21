@@ -1,9 +1,9 @@
 /**
- * Run Skill Generator — 技能生成器运行器
+ * Run Skill Generator — skill generator runner
  *
- * 注册一个技能，允许 AI 模型生成新的 Fusion-Code 技能。
- * 技能生成器分析用户需求，生成技能描述和实现，
- * 并将其注册到技能系统中。
+ * Registers a skill that lets the AI model generate new Fusion-Code skills.
+ * The skill generator analyzes the user's needs, produces the skill description
+ * and implementation, and registers it into the skill system.
  *
  * gated by feature('RUN_SKILL_GENERATOR')
  */

@@ -1,9 +1,9 @@
-// audit 1.1.1: 从 REPL.tsx 抽出的 spinner tip 选取纯计算。无 React, 无 JSX。
-// 唯一副作用 = 调用传入的 setter/ref (与原 useCallback 体一致)。
-// resetLoadingState 每轮调用两次 (onQueryImpl tail + onQuery finally)。无 guard 则两次
-//   都 pick → 两次 recordShownTip → 两次 saveGlobalConfig 连写。submit 时在 onSubmit
-//   重置 tipPickedThisTurnRef。
-// 原码体逐字外移; REPL 保留 useCallback 薄包装 (deps 数组不变), 下游读取同名 const (字节等价)。
+// audit 1.1.1: spinner tip selection pure computation extracted from REPL.tsx. No React, no JSX.
+// The only side effects = calls to the passed-in setter/ref (identical to the original useCallback body).
+// resetLoadingState is called twice per turn (onQueryImpl tail + onQuery finally). Without a guard both
+//   calls pick -> two recordShownTip -> two back-to-back saveGlobalConfig writes. On submit, onSubmit
+//   resets tipPickedThisTurnRef.
+// Original code body moved out verbatim; REPL keeps a thin useCallback wrapper (deps array unchanged), downstream reads the same-name const (byte-equivalent).
 
 import {
 	getTipToShowOnSpinner,
@@ -15,8 +15,8 @@ import type { Message as MessageType } from "../types/message.js";
 import type { FileStateCache } from "./fileStateCache.js";
 import { extractBashToolsFromMessages } from "./queryHelpers.js";
 
-// REPL 实例绑定的 ref + setter。ref 来自 useRef, 每实例独立; 此处读/写 .current
-// (不 mutate ref 本身)。setAppState = Zustand StoreApi<AppState>.setState, 接受 updater。
+// Refs + setter bound to the REPL instance. Refs come from useRef, per-instance; this reads/writes .current
+// (does not mutate the ref itself). setAppState = Zustand StoreApi<AppState>.setState, accepts an updater.
 export type SpinnerTipPickerSetters = {
 	messagesRef: { current: MessageType[] };
 	tipPickedThisTurnRef: { current: boolean };
@@ -31,7 +31,7 @@ export type SpinnerTipPickerSetters = {
 // tipPickedThisTurnRef guard. Scans new bash tools since last pick, accumulates
 // into bashTools ref, then queries getTipToShowOnSpinner and writes the result
 // (or clears it) into appState.spinnerTip.
-// 行为等价 REPL.tsx:1875-1909 useCallback 体。REPL 保留 useCallback 薄包装 (deps 不变)。
+// Behavior-equivalent to the REPL.tsx:1875-1909 useCallback body. REPL keeps a thin useCallback wrapper (deps unchanged).
 export function pickNewSpinnerTip(setters: SpinnerTipPickerSetters): void {
 	if (setters.tipPickedThisTurnRef.current) return;
 	setters.tipPickedThisTurnRef.current = true;

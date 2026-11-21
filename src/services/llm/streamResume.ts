@@ -1,26 +1,28 @@
 // Stream-resume client slice (gw#123 server half; fusion-code client half).
 //
-// 当本地 MLX 流式生成中途因传输/超时类错误掉线 (非用户中断), 客户端携带
-// Last-Event-ID 重连 gateway 的 resume 端点 (GET /v1/messages/{sid}/events),
-// 合并 replay 帧 + live tail 续上 claude.ts 的 for-await, 而非整轮重发。
+// When a local MLX streaming generation drops mid-way due to a transport/timeout-class
+// error (not a user abort), the client reconnects to the gateway's resume endpoint
+// (GET /v1/messages/{sid}/events) carrying Last-Event-ID, merging replayed frames +
+// the live tail to continue claude.ts's for-await, instead of resending the whole turn.
 //
-// 服务端契约 (gw#123, 只读): config routing.stream.resume_enabled (默认 false)
-// AND route == LocalBackend; sid = 请求 X-Request-ID; 响应头 X-Fusion-Stream-ID;
-// 每 SSE 帧 id: <sid>:<seq> (单调); 有界 buffer (256 events / 1MiB / 10m TTL);
-// resume 端点 GET /v1/messages/{sid}/events, 游标 Last-Event-ID 头 (优先) 或
-// ?last_event_id=; 解析 strings.LastIndex(cursor,":")+Atoi; 两阶段 replay-after-cursor
-// + live drain; 404 = disabled/unknown/evicted。
+// Server contract (gw#123, read-only): config routing.stream.resume_enabled (default false)
+// AND route == LocalBackend; sid = request X-Request-ID; response header X-Fusion-Stream-ID;
+// every SSE frame id: <sid>:<seq> (monotonic); bounded buffer (256 events / 1MiB / 10m TTL);
+// resume endpoint GET /v1/messages/{sid}/events, cursor via the Last-Event-ID header (preferred) or
+// ?last_event_id=; parsed with strings.LastIndex(cursor,":")+Atoi; two-phase replay-after-cursor
+// + live drain; 404 = disabled/unknown/evicted.
 //
-// 关键: cursor 在 fusion-code MLX 翻译层丢失 3 处 —
-//   B1 transformMLXStreamToAnthropic 只解析 data: 行 → id: 被剥离
-//   B2 encodeStreamToAnthropicSSE:1284 spread 原响应头 → X-Fusion-Stream-ID 透传 (无需改)
-//   B3 streamViaSeam sseToChunk 丢弃 evt.id
-// 方案: teeCursor 在 transform 前侧信道提取 id: → mutable ref; sid 从 streamResponse
-// 头读取 (B2 透传); resume-eligible 错误 (timeout 类 = 管道已排空, lag=0) 在 claude.ts
-// catch 重连, STATE-CONTINUATION (深克隆 pre-drop StreamState 续种子) 合并无重放乱序。
+// Key problem: the cursor is lost in 3 places in the fusion-code MLX translation layer —
+//   B1 transformMLXStreamToAnthropic only parses data: lines → id: is stripped
+//   B2 encodeStreamToAnthropicSSE:1284 spreads the original response headers → X-Fusion-Stream-ID passes through (no change needed)
+//   B3 streamViaSeam sseToChunk discards evt.id
+// Solution: teeCursor extracts id: into a mutable ref via a side channel before transform; sid is read from the
+// streamResponse headers (passed through by B2); resume-eligible errors (timeout-class = pipe drained, lag=0)
+// reconnect in claude.ts's catch, STATE-CONTINUATION (deep-clone the pre-drop StreamState as the continuation seed)
+// merges with no replayed out-of-order frames.
 //
-// default-off (FUSION_CODE_STREAM_RESUME_ENABLED), off = byte-identical。env-gate 非
-// feature() 运行期 cast (PR#9 build bug: feature() 要字符串字面量做 DCE)。
+// default-off (FUSION_CODE_STREAM_RESUME_ENABLED), off = byte-identical. env-gate instead of
+// feature() runtime cast (PR#9 build bug: feature() requires string literals for DCE).
 
 import { logForDebugging } from "../../utils/debug.js";
 import { isEnvTruthy } from "../../utils/envUtils.js";
@@ -31,14 +33,14 @@ import {
 } from "../api/fusion-mlx-stream.js";
 import { isTimeoutErrorLike } from "./errors.js";
 
-// ─── 门控 ─────────────────────────────────────────────────────
+// ─── Gating ─────────────────────────────────────────────────────
 
-// resume 是否启用 (env 门控, default-off byte-identical)。
+// Whether resume is enabled (env-gated, default-off byte-identical).
 export function isStreamResumeEnabled(): boolean {
 	return isEnvTruthy(process.env.FUSION_CODE_STREAM_RESUME_ENABLED);
 }
 
-// 每轮 resume 重连上限 (默认 3)。
+// Max resume reconnect attempts per turn (default 3).
 export function maxAttempts(): number {
 	const raw = parseInt(
 		process.env.FUSION_CODE_STREAM_RESUME_MAX_ATTEMPTS ?? "",
@@ -47,18 +49,18 @@ export function maxAttempts(): number {
 	return Number.isFinite(raw) && raw > 0 ? raw : 3;
 }
 
-// ─── 游标侧信道 (teeCursor) ──────────────────────────────────
-// B1 修复: transform 前拆 SSE 帧, 提取 id: <sid>:<seq> 到 mutable ref,
-// 帧原样透传 transform 不变。claude.ts 掉线时读 ref.current 拿游标。
+// ─── Cursor side channel (teeCursor) ──────────────────────────────────
+// B1 fix: split SSE frames before transform, extract id: <sid>:<seq> into a mutable ref,
+// pass frames through to transform unchanged. When claude.ts drops, it reads ref.current for the cursor.
 
-// 游标 ref: mutable, transform/adapter 不写; claude.ts 掉线时读 last seen id。
+// Cursor ref: mutable, not written by transform/adapter; claude.ts reads the last seen id on drop.
 export type CursorRef = { current: string };
-// 状态 ref: transform 每 processChunk 写 live state; claude.ts 掉线时深克隆。
+// State ref: transform writes live state on every processChunk; claude.ts deep-clones it on drop.
 export type StateRef = { current: StreamState | undefined };
 
-// 拆 SSE 帧 (按 \n\n 分隔), 提取每帧 id: 行到 ref, 帧原样透传。
-// 透传 = 字节不变: transform 照旧只解析 data:, 行为 byte-identical。
-// ref.current 始终是最近见到的 id (gateway 每帧都带 id; 无 id 帧 → ref 不更新)。
+// Split SSE frames (separated by \n\n), extract each frame's id: line into the ref, pass frames through untouched.
+// Pass-through = byte-identical: transform keeps parsing only data:, behavior unchanged.
+// ref.current always holds the most recently seen id (the gateway puts an id on every frame; frames without id → ref not updated).
 export function teeCursor(rawResponseBody: ReadableStream<Uint8Array>): {
 	ref: CursorRef;
 	stream: ReadableStream<Uint8Array>;
@@ -74,11 +76,11 @@ export function teeCursor(rawResponseBody: ReadableStream<Uint8Array>): {
 				while (true) {
 					const { done, value } = await reader.read();
 					if (done) break;
-					// 先透传原字节 (transform 消费不变), 再旁路提 id。
+					// Pass the original bytes through first (transform consumes unchanged), then extract the id on the side.
 					controller.enqueue(value);
 					buffer += decoder.decode(value, { stream: true });
 
-					// 按行扫 id: (不依赖帧边界 — id: 行格式 gateway 固定 "<sid>:<seq>")。
+					// Scan for id: line by line (frame-boundary independent — the gateway's id: line format is fixed "<sid>:<seq>").
 					const lines = buffer.split("\n");
 					buffer = lines.pop() ?? "";
 					for (const line of lines) {
@@ -87,7 +89,7 @@ export function teeCursor(rawResponseBody: ReadableStream<Uint8Array>): {
 						}
 					}
 				}
-				// 处理尾部残余行
+				// Handle trailing residual line
 				if (buffer.startsWith("id:")) {
 					ref.current = buffer.slice(3).trim();
 				}
@@ -98,7 +100,7 @@ export function teeCursor(rawResponseBody: ReadableStream<Uint8Array>): {
 			controller.close();
 		},
 		cancel(reason) {
-			// 上游 (transform) 取消时, 透传到原始 body 释放资源。
+			// When upstream (transform) cancels, pass the cancel to the original body to release resources.
 			rawResponseBody.cancel(reason).catch(() => {});
 		},
 	});
@@ -106,14 +108,15 @@ export function teeCursor(rawResponseBody: ReadableStream<Uint8Array>): {
 	return { ref, stream };
 }
 
-// ─── resume GET (绕过 createFusionMlxFetch) ──────────────────
-// resume GET URL 含 /v1/messages/{sid}/events, 匹配 adapter url.includes
-// ("/v1/messages") 拦截器 → 会错误改写。故用真实 global fetch 直连 baseUrl。
+// ─── resume GET (bypassing createFusionMlxFetch) ──────────────────
+// The resume GET URL contains /v1/messages/{sid}/events, which matches the adapter's
+// url.includes("/v1/messages") interceptor → would be wrongly rewritten. So use the real
+// global fetch to connect directly to baseUrl.
 
-// resume GET: 真实 global fetch 直连 baseUrl (绕过 createFusionMlxFetch 拦截器)。
-// 游标 Last-Event-ID 头 = "<sid>:<seq>" (gateway 按 LastIndex(":")+Atoi 解析)。
-// 返回 resumed OpenAI-SSE Response (含 id: 行, 同原始流形状)。
-// 404 (disabled/evicted/TTL) / 非 2xx → 抛错 (claude.ts 落到既有 fallback)。
+// resume GET: real global fetch direct to baseUrl (bypasses the createFusionMlxFetch interceptor).
+// Cursor Last-Event-ID header = "<sid>:<seq>" (gateway parses via LastIndex(":")+Atoi).
+// Returns the resumed OpenAI-SSE Response (with id: lines, same shape as the original stream).
+// 404 (disabled/evicted/TTL) / non-2xx → throws (claude.ts falls to the existing fallback).
 export async function resumeStreamFetch(
 	sid: string,
 	cursor: string,
@@ -177,7 +180,7 @@ export async function resumeStreamFetch(
 		throw fetchErr;
 	}
 	if (!resp.ok) {
-		// 404 = 服务端 disabled/unknown/evicted → 不可 resume, 抛错落到 fallback。
+		// 404 = server-side disabled/unknown/evicted → not resumable; throw and fall to the fallback.
 		const bodyText = await resp.text().catch(() => "");
 		throw new Error(
 			`[Stream-Resume] Resume endpoint ${resp.status}: ${bodyText.slice(0, 200)}`,
@@ -189,19 +192,19 @@ export async function resumeStreamFetch(
 	return resp;
 }
 
-// ─── 合并 (STATE-CONTINUATION) ───────────────────────────────
-// 种子续传 transformMLXStreamToAnthropic(resumed, model, seedState), 丢弃首
-// message_start (claude.ts 已持有本轮 message_start); 种子续 contentIndex/
+// ─── Merge (STATE-CONTINUATION) ───────────────────────────────
+// Seed-continue via transformMLXStreamToAnthropic(resumed, model, seedState), dropping the first
+// message_start (claude.ts already holds this turn's message_start); the seed continues contentIndex/
 // textBuffer/emittedTextLen/textBlockOpen/thinkingBlockOpen/currentToolCall →
-// 正确索引/只发新文本/续 mid-tool args/抑制 spurious content_block_start。
+// correct indices / only new text emitted / mid-tool args continued / spurious content_block_start suppressed.
 
-// 合并: 种子续传 transform resumed OpenAI-SSE, 丢弃首 message_start。
-// 种子 = 深克隆 pre-drop StreamState (claude.ts 在掉线点克隆, 隔离双流腐败)。
-// 续传: contentIndex 续 N (resumed content_block_start 在 claude.ts 期望索引, 无 RangeError);
-//   textBuffer/emittedTextLen 续 → slice 只发新文本 (无重复); textBlockOpen true →
-//   抑制 spurious content_block_start; currentToolCall 续 mid-tool → args 追加同 id/name。
-// 唯一过滤: 丢弃 resumed transform 启动 message_start (它带新 message_id+零 usage 会覆盖
-//   claude.ts 本轮 partialMessage)。尾部 message_delta+message_stop 真完成才发 → 保留。
+// Merge: seed-continue the transform of the resumed OpenAI-SSE, dropping the first message_start.
+// Seed = deep clone of the pre-drop StreamState (claude.ts clones at the drop point, isolating the two streams from corruption).
+// Continuation: contentIndex continues at N (the resumed content_block_start lands at the index claude.ts expects, no RangeError);
+//   textBuffer/emittedTextLen continue → slice emits only new text (no duplicates); textBlockOpen true →
+//   suppresses spurious content_block_start; currentToolCall continues mid-tool → args append under the same id/name.
+// Sole filter: drop the message_start the resumed transform emits on startup (it carries a new message_id + zero usage
+//   that would overwrite claude.ts's partialMessage for this turn). The trailing message_delta+message_stop are only sent on real completion → keep them.
 export async function* mergeResumedStream(
 	resumedResponse: Response,
 	model: string,
@@ -223,7 +226,7 @@ export async function* mergeResumedStream(
 		stateRef,
 	);
 	for await (const part of resumed) {
-		// 丢弃首 message_start (resumed transform 启动无条件发, 与种子无关)。
+		// Drop the first message_start (the resumed transform emits it unconditionally on startup, regardless of the seed).
 		if (!droppedMessageStart && part.type === "message_start") {
 			droppedMessageStart = true;
 			continue;
@@ -232,46 +235,48 @@ export async function* mergeResumedStream(
 	}
 }
 
-// ─── drop 判定 (resume-eligible) ─────────────────────────────
-// 只接 timeout 类 (管道已排空 lag=0, cursor+state 一致安全)。排除硬传输 reset
-// (管 lag → cursor 超前消费 → 重放丢帧 → 腐败) + APIError 4xx + 用户中断。
+// ─── Drop classification (resume-eligible) ─────────────────────────────
+// Only timeout-class errors are accepted (pipe drained, lag=0, cursor+state consistent and safe). Excludes hard
+// transport resets (in-flight lag → cursor over-consumes → replay loses frames → corruption) + APIError 4xx + user aborts.
 
-// drop 判定: 只接 timeout 类 (管道已排空, transform/encode/seam 都 drained, lag=0
-// → cursor+state 一致, 重放安全)。排除硬传输 reset (管 lag → cursor 超前消费 → 重放
-// 丢帧 → 腐败/RangeError) + APIError 4xx (服务端拒绝, resume 修不了 auth) + 用户中断。
-// streamIdleAborted = claude.ts 300s watchdog 已触发 (无新块 = drained, 安全)。
+// Drop classification: only timeout-class (pipe drained — transform/encode/seam all drained, lag=0
+// → cursor+state consistent, replay safe). Excludes hard transport resets (in-flight lag → cursor
+// over-consumes → replay loses frames → corruption/RangeError) + APIError 4xx (server-side rejection; resume
+// cannot fix auth) + user aborts.
+// streamIdleAborted = claude.ts's 300s watchdog already fired (no new chunks = drained, safe).
 export function isResumeEligibleError(
 	error: unknown,
 	streamIdleAborted: boolean,
 	producedContent = false,
 ): boolean {
 	if (!(error instanceof Error)) return false;
-	// idle-watchdog abort = claude.ts 300s 无新块 = 管道已排空 (drained, lag=0)。
-	// 即便此前已有 content, cursor 记录了最后交付事件 → 重放从 cursor 起, 无重复。
-	// 故 idle-abort 恒安全 (与 producedContent 无关)。
+	// idle-watchdog abort = claude.ts saw no new chunks for 300s = pipe drained (lag=0).
+	// Even if content was already produced, the cursor records the last delivered event → replay starts from the cursor, no duplicates.
+	// So an idle-abort is always safe (independent of producedContent).
 	if (streamIdleAborted) return true;
-	// timeout 类: MLX idle (msg "Idle timeout" / "timeout") / seam StallTimeoutError
-	// (name 含 Timeout) / claude.ts watchdog idle。isTimeoutErrorLike 已覆盖 message 含
-	// "timeout" (大小写不敏感, 含 "Idle timeout") + name 含 "Timeout"。
-	// P1-4 (audit 0901): generic timeout 不保证管道已排空 — 一个请求级硬超时可在
-	// 流中段触发, 此时 cursor 可能落后服务端已持久化的事件 → 重放产生重复内容。
-	// 仅当尚未产出任何 content (first-token 阶段 = 确为 drained) 时, generic timeout
-	// 才视为可 resume。已产出 content 的 generic timeout 走原 fallback (byte-identical)。
+	// Timeout-class: MLX idle (msg "Idle timeout" / "timeout") / seam StallTimeoutError
+	// (name contains Timeout) / claude.ts watchdog idle. isTimeoutErrorLike already covers messages containing
+	// "timeout" (case-insensitive, incl. "Idle timeout") + names containing "Timeout".
+	// P1-4 (audit 0901): a generic timeout does not guarantee the pipe is drained — a request-level hard timeout
+	// can fire mid-stream, where the cursor may lag behind events the server already persisted → replay would
+	// duplicate content. Only when no content has been produced yet (first-token stage = definitely drained)
+	// is a generic timeout considered resumable. Generic timeouts after content was produced take the original
+	// fallback (byte-identical).
 	if (isTimeoutErrorLike(error)) return !producedContent;
 	return false;
 }
 
-// ─── Response 侧信道挂载 (WeakMap) ───────────────────────────
-// adapter 把 {cursorRef, stateRef} 挂到 mlxResponse; claude.ts 掉线时取回。
+// ─── Response side-channel attachment (WeakMap) ───────────────────────────
+// The adapter attaches {cursorRef, stateRef} to the mlxResponse; claude.ts retrieves them on drop.
 
-// Response 侧信道挂载: adapter 把 {cursorRef, stateRef} 挂 mlxResponse;
-// claude.ts 掉线时取回。WeakMap 键 = Response 对象 (Symbol prop 也可, WeakMap 更稳)。
+// Response side-channel attachment: the adapter attaches {cursorRef, stateRef} to mlxResponse;
+// claude.ts retrieves them on drop. WeakMap key = the Response object (a Symbol prop would also work; WeakMap is more robust).
 export interface ResumeRefs {
 	cursorRef: CursorRef;
 	stateRef: StateRef;
 	sid: string;
-	// resume GET 需 baseUrl + authHeaders: adapter 已构建, 附上避免 claude.ts
-	// 依赖 adapter 私有 helper (getMlxBaseUrl/getMlxAuthHeaders)。纯函数值, 快照即可。
+	// The resume GET needs baseUrl + authHeaders: the adapter already built them; attach to avoid
+	// claude.ts depending on adapter-private helpers (getMlxBaseUrl/getMlxAuthHeaders). Pure function values, a snapshot suffices.
 	baseUrl: string;
 	authHeaders: Record<string, string>;
 }
@@ -287,12 +292,12 @@ export function getResumeRefs(response: Response): ResumeRefs | undefined {
 }
 
 // ─── audit 2.2.2: idle-watchdog abort gate + refs survivor ────────────
-// 两处 claude.ts 纯判定外移成 tested contract (原 bug = 这段逻辑内联且无测覆盖)。
+// Two claude.ts pure decisions extracted into tested contracts (the original bug = this logic was inlined with no test coverage).
 
-// audit 2.2.2: abort 形错误 (无 user signal) 应否跳过 synthetic-timeout throw,
-// 落到 resume 检查? 仅当 idle-watchdog 触发 AND resume 开启 — 否则 byte-identical
-// 旧 throw 路径。idle body.cancel() 非 signal.abort() → signal.aborted=false →
-// 旧 else 无条件 throw, 短路 resume (:2532)。此处门控让 idle 落到 resume 检查。
+// audit 2.2.2: should an abort-shaped error (no user signal) skip the synthetic-timeout throw
+// and fall to the resume check? Only when the idle-watchdog fired AND resume is on — otherwise
+// byte-identical to the old throw path. The idle body.cancel() is not signal.abort() → signal.aborted=false →
+// the old else threw unconditionally, short-circuiting resume (:2532). This gate lets idle fall to the resume check.
 export function shouldDeferIdleAbortToResume(
 	streamIdleAborted: boolean,
 	resumeEnabled: boolean,
@@ -300,15 +305,16 @@ export function shouldDeferIdleAbortToResume(
 	return streamIdleAborted && resumeEnabled;
 }
 
-// audit 2.2.2: 从 live Response 解析 refs, fallback 到 survivor。watchdog 的
-// releaseStreamResources() 先于 catch 把 streamResponse=null, WeakMap 项键 Response
-// 一旦唯一强引用断即 GC → getResumeRefs 返回 undefined → refs?.sid=false →
-// resume try-block 跳过 (bug 未修)。survivor = watchdog 触发时在 release 前捕获的
-// refs 对象本身 (小独立分配, resume 本就需其 stateRef 做 seedState)。live Response
-// 在场时优先 (race 安全: 第二次 drop 时 streamResponse 已重赋 resumed Response)。
-// P1-2 (audit v2-0912): "live 优先" 不能写成 "live 独占" — live 在场但 WeakMap
-// 查不到 refs (未挂载/已 GC) 时必须回落 survivor, 否则 resume 静默失效 → 整轮
-// 重放, 正是 P0-3/P1-23 两条修复要消灭的失败模式。
+// audit 2.2.2: resolve refs from the live Response, falling back to the survivor. The watchdog's
+// releaseStreamResources() nulls streamResponse before the catch; the WeakMap entry keyed by the Response
+// is GC'd as soon as its sole strong reference breaks → getResumeRefs returns undefined → refs?.sid=false →
+// the resume try-block is skipped (bug unfixed). The survivor = the refs object captured before release
+// when the watchdog fired (a small independent allocation; resume needs its stateRef as seedState anyway).
+// When the live Response is present, prefer it (race-safe: on the second drop, streamResponse has been
+// reassigned to the resumed Response).
+// P1-2 (audit v2-0912): "live preferred" must not become "live exclusive" — if the live Response is present
+// but the WeakMap has no refs (not attached / already GC'd), fall back to the survivor, otherwise resume
+// silently fails → full-turn replay, exactly the failure mode the P0-3/P1-23 fixes were meant to eliminate.
 export function resolveResumeRefs(
 	response: Response | undefined,
 	survivor: ResumeRefs | undefined,

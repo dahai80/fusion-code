@@ -130,7 +130,7 @@ function slowLoggingAnt(
 	_strings: TemplateStringsArray,
 	..._values: unknown[]
 ): AntSlowLogger {
-	// biome-ignore lint/complexity/noArguments: 必须转发完整实参 (含 tag 之后的任意参数) 给 AntSlowLogger, 箭头函数拿不到 arguments
+	// biome-ignore lint/complexity/noArguments: must forward the full argument list (everything after the tag) to AntSlowLogger; arrow functions have no arguments object
 	return new AntSlowLogger(arguments);
 }
 

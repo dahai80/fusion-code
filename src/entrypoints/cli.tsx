@@ -3,22 +3,23 @@ import { homedir } from "node:os";
 import { join } from "node:path";
 import { gracefulShutdownSync } from "../utils/gracefulShutdown.js";
 
-// 设置 Fusion-Code 配置目录为 ~/.fusion-code，避免与 Claude Code 冲突
-// P3-16: 仅在未设置时赋默认值 — 顶层无条件赋值会覆盖用户/测试预设的 env, 且每次
-// import 变全局状态无 restore 破坏测试隔离。下游读取方均已 `?? join(homedir(),...)`
-// 兜底, 故此赋值本就冗余; 此处保留仅补默认, 不覆盖已设值。
+// Set the Fusion-Code config dir to ~/.fusion-code to avoid clashing with Claude Code
+// P3-16: only assign the default when unset — an unconditional top-level assignment would
+// overwrite env preset by users/tests, and turning an import into global state without
+// restore breaks test isolation. Downstream readers all fall back via `?? join(homedir(),...)`,
+// so this assignment is already redundant; kept to fill the default only, never overriding a set value.
 if (!process.env.FUSION_CODE_CONFIG_DIR) {
 	process.env.FUSION_CODE_CONFIG_DIR = join(homedir(), ".fusion-code");
 }
 
-// 仅在未设置 NO_COLOR 时强制 FORCE_COLOR=1（尊重 NO_COLOR 通用标准，避免与 FORCE_COLOR 冲突触发 Bun 警告）
+// Force FORCE_COLOR=1 only when NO_COLOR is unset (respect the NO_COLOR standard, avoid conflicting with FORCE_COLOR which triggers a Bun warning)
 if (!process.env.NO_COLOR) process.env.FORCE_COLOR = "1";
 
-// 确保 stdout 为 TTY 模式，使 Ink 库能正确渲染
-// 使用 Object.defineProperty 替代直接赋值，避免在 strict mode 下静默失败
-// 同时保留原始 isTTY 值，以便需要时恢复
+// Ensure stdout is in TTY mode so the Ink library renders correctly
+// Use Object.defineProperty instead of direct assignment to avoid silent failure in strict mode
+// Also keep the original isTTY value so it can be restored if needed
 try {
-	// 定向窄化：仅为 stdout 追加 `_originalIsTTY` 可选字段，避免 any
+	// Targeted narrowing: append an optional `_originalIsTTY` field to stdout only, avoiding any
 	type StdoutWithIsTTY = NodeJS.WriteStream & { _originalIsTTY?: boolean };
 	const stdout = process.stdout as StdoutWithIsTTY;
 	const originalIsTTY = stdout.isTTY;
@@ -30,16 +31,16 @@ try {
 	});
 	stdout._originalIsTTY = originalIsTTY;
 } catch (_e) {
-	// 非关键：某些环境下 stdout 不可修改（如 worker thread），Ink 会降级处理
+	// Non-critical: stdout is not writable in some environments (e.g. worker thread); Ink degrades gracefully
 }
 
-// 将 FUSION_* 环境变量映射到 ANTHROPIC_*（SDK 兼容性）
-// @anthropic-ai/sdk 内部读取 ANTHROPIC_API_KEY 等环境变量
+// Map FUSION_* env vars to ANTHROPIC_* (SDK compatibility)
+// @anthropic-ai/sdk internally reads ANTHROPIC_API_KEY and other env vars
 if (process.env.FUSION_CLIENT_KEY && !process.env.ANTHROPIC_API_KEY) {
 	process.env.ANTHROPIC_API_KEY = process.env.FUSION_CLIENT_KEY;
 }
-// FUSION_BASE_URL 仅在 ANTHROPIC_BASE_URL 未设置时映射（与其他变量一致）
-// 如需强制覆盖，请直接设置 ANTHROPIC_BASE_URL
+// FUSION_BASE_URL maps only when ANTHROPIC_BASE_URL is unset (consistent with other vars)
+// To force an override, set ANTHROPIC_BASE_URL directly
 if (process.env.FUSION_BASE_URL && !process.env.ANTHROPIC_BASE_URL) {
 	process.env.ANTHROPIC_BASE_URL = process.env.FUSION_BASE_URL;
 }
@@ -59,7 +60,7 @@ if (process.env.FUSION_MODEL && !process.env.ANTHROPIC_MODEL) {
 
 // Define MACRO global for development (normally injected by bun build --define)
 if (typeof MACRO === "undefined") {
-	// biome-ignore lint/suspicious/noExplicitAny: 开发兜底注入构建期宏 globalThis.MACRO，声明于根 env.d.ts，此处无法用类型窄化表达
+	// biome-ignore lint/suspicious/noExplicitAny: dev fallback injecting the build-time macro globalThis.MACRO, declared in root env.d.ts; not expressible via type narrowing here
 	(globalThis as any).MACRO = {
 		VERSION: "2.1.87-dev",
 		BUILD_TIME: new Date().toISOString(),
@@ -130,8 +131,8 @@ async function main(): Promise<void> {
 		return;
 	}
 
-	// ar-plan PR #9 (S3): --dump-config fast-path — 导出当前生效配置树 (诊断用)。
-	// 仿 --dump-system-prompt: 解析 provider/model/profile/tool list/commands → JSON。
+	// ar-plan PR #9 (S3): --dump-config fast-path — export the currently effective config tree (for diagnostics).
+	// Modeled on --dump-system-prompt: resolve provider/model/profile/tool list/commands → JSON.
 	if (feature("DUMP_CONFIG") && args[0] === "--dump-config") {
 		profileCheckpoint("cli_dump_config_path");
 		const { enableConfigs } = await import("../utils/config.js");
@@ -146,7 +147,7 @@ async function main(): Promise<void> {
 			validateProfileRequiresFlags,
 			enabledFlagsChecker,
 		} = await import("../services/profile/index.js");
-		// 解析 --model / --profile
+		// Parse --model / --profile
 		const modelIdx = args.indexOf("--model");
 		const model = (modelIdx !== -1 && args[modelIdx + 1]) || getMainLoopModel();
 		const profileIdx = args.indexOf("--profile");
@@ -154,8 +155,8 @@ async function main(): Promise<void> {
 		const profile = loadProfile(profileName);
 		if (profile) {
 			setSessionProfile(profile);
-			// feature() 编译期宏无法运行期查动态 flag 名 — 用 enabledFlagsChecker 查
-			// FUSION_CODE_ENABLED_FLAGS (未设 = 全满足 fail-open), 避开 feature() cast。
+			// The feature() compile-time macro cannot query a dynamic flag name at runtime — use enabledFlagsChecker
+			// to check FUSION_CODE_ENABLED_FLAGS (unset = all satisfied, fail-open), avoiding the feature() cast.
 			validateProfileRequiresFlags(profile, enabledFlagsChecker());
 		}
 		const provider = getAPIProvider(model);
@@ -262,8 +263,8 @@ async function main(): Promise<void> {
 		return;
 	}
 
-	// Fast-path for `fusion-code trajectory ...`: D1 轨迹飞轮 (issue #50/#51).
-	// 收集 session jsonl → 汇聚标注 → 导出 SFT/DPO/GRPO 训练集。
+	// Fast-path for `fusion-code trajectory ...`: D1 trajectory flywheel (issue #50/#51).
+	// Collect session jsonl → aggregate labels → export SFT/DPO/GRPO training sets.
 	if (args[0] === "trajectory") {
 		profileCheckpoint("cli_trajectory_path");
 		const { trajectoryMain } = await import("../cli/handlers/trajectory.js");
@@ -286,11 +287,11 @@ async function main(): Promise<void> {
 		return;
 	}
 
-	// Fast-path for `fusion-code visual-feedback ...`: issue #216/#217 视觉反馈协议。
-	// osagent code-debug loop (F5.2) 生成结构化报告 → 本端校验 schema (1.1
-	// osagent-native / 1.0 legacy) + 可选 --auto-fix / --auto-fix-loop 落盘 agent
-	// prompt 段 + re-fix plan 供编排器启动修复。与 trajectory 同构: 无状态 CLI
-	// handler, 不在进程内拉 REPL agent。
+	// Fast-path for `fusion-code visual-feedback ...`: issue #216/#217 visual-feedback protocol.
+	// The osagent code-debug loop (F5.2) produces a structured report → local schema validation (1.1
+	// osagent-native / 1.0 legacy) + optional --auto-fix / --auto-fix-loop to write the agent
+	// prompt section + re-fix plan for the orchestrator to start repairs. Isomorphic to trajectory: stateless CLI
+	// handler, no in-process REPL agent.
 	if (args[0] === "visual-feedback") {
 		profileCheckpoint("cli_visual_feedback_path");
 		const { visualFeedbackMain } = await import(
@@ -353,10 +354,10 @@ async function main(): Promise<void> {
 	}
 
 	// Fast-path for `fusion-code --visual-feedback <path>`: issue #217 re-fix
-	// trigger 入口。osagent code_debug.CodeDebugLoop.trigger_refix 调用此 flag
-	// (而非子命令) 启动修复子循环。等价于 `visual-feedback ingest <path>
-	// --auto-fix-loop` — 校验报告 + 落盘 agent prompt + 输出 re-fix plan JSON,
-	// 由 osagent 编排器执行 build/rerun/reverify。
+	// trigger entry. osagent code_debug.CodeDebugLoop.trigger_refix invokes this flag
+	// (rather than a subcommand) to start the fix sub-loop. Equivalent to `visual-feedback ingest <path>
+	// --auto-fix-loop` — validate report + write agent prompt + emit re-fix plan JSON,
+	// with build/rerun/reverify executed by the osagent orchestrator.
 	if (args[0] === "--visual-feedback") {
 		profileCheckpoint("cli_visual_feedback_flag_path");
 		const reportPath = args[1];
@@ -378,10 +379,10 @@ async function main(): Promise<void> {
 		return;
 	}
 
-	// P5.5 能力清单 (Typert 类型图): 从工具/技能/插件定义生成类型图 (JSON 导出)。
-	// 双门禁: feature("CAPABILITY_MANIFEST") 编译期 (此 if 内, feature 宏必须直接
-	// 用于 if 条件) + FUSION_CODE_CAPABILITY_MANIFEST_ENABLED=1 运行期 (handler 内)。
-	// 默认 off → feature off 时整块 dead-code 消除, byte-identical。RPC 控制面 defer。
+	// P5.5 capability manifest (Typert type graph): generate a type graph from tool/skill/plugin definitions (JSON export).
+	// Double gate: feature("CAPABILITY_MANIFEST") at compile time (inside this if, the feature macro must be used
+	// directly in the if condition) + FUSION_CODE_CAPABILITY_MANIFEST_ENABLED=1 at runtime (inside the handler).
+	// Default off → when the feature is off the whole block is dead-code eliminated, byte-identical. RPC control plane deferred.
 	if (feature("CAPABILITY_MANIFEST") && args[0] === "capability") {
 		profileCheckpoint("cli_capability_path");
 		const { capabilityMain } = await import("../cli/handlers/capability.js");
@@ -473,10 +474,10 @@ async function main(): Promise<void> {
 		process.env.FUSION_CODE_SIMPLE = "1";
 	}
 
-	// ar-plan PR #9 (S3): --profile <name> CLI flag — 解析 → setSessionProfile
-	// → getTools 后调 filterToolsByProfile (MLX 分层之后叠加)。
-	// byte-identical off: 无 --profile → loadProfile(undefined)=null →
-	// setSessionProfile(null) (即 globalThis 默认) → filterToolsByProfile 原样返回。
+	// ar-plan PR #9 (S3): --profile <name> CLI flag — parse → setSessionProfile
+	// → after getTools call filterToolsByProfile (layered on top of MLX tiering).
+	// byte-identical off: no --profile → loadProfile(undefined)=null →
+	// setSessionProfile(null) (i.e. the globalThis default) → filterToolsByProfile returns tools unchanged.
 	const profileFlagIdx = args.indexOf("--profile");
 	if (profileFlagIdx !== -1) {
 		profileCheckpoint("cli_profile_parse");
@@ -490,8 +491,8 @@ async function main(): Promise<void> {
 		const profile = loadProfile(profileName);
 		if (profile) {
 			setSessionProfile(profile);
-			// 同 --dump-config: 用 enabledFlagsChecker (env 查) 替 feature() cast,
-			// feature() 运行期无法查动态 flag 名 (bun 编译期宏限制)。
+			// Same as --dump-config: use enabledFlagsChecker (env check) instead of the feature() cast;
+			// feature() cannot query a dynamic flag name at runtime (bun compile-time macro limitation).
 			validateProfileRequiresFlags(profile, enabledFlagsChecker());
 		}
 	}
@@ -500,12 +501,12 @@ async function main(): Promise<void> {
 	const { startCapturingEarlyInput } = await import("../utils/earlyInput.js");
 	startCapturingEarlyInput();
 
-	// 仅在未设置 NO_COLOR 时强制 FORCE_COLOR=1（尊重 NO_COLOR，避免 Bun 冲突警告）
+	// Force FORCE_COLOR=1 only when NO_COLOR is unset (respect NO_COLOR, avoid Bun conflict warning)
 	if (!process.env.NO_COLOR) process.env.FORCE_COLOR = "1";
-	// 本地 MLX/gateway 自动检测已移除 (audit 0913): 不再探测 127.0.0.1:11432、
-	// 不再自动写入 FUSION_GATEWAY_ENABLED/FUSION_MLX_ENABLED 劫持 provider 选择。
-	// 访问 LLM 只需 FUSION_BASE_URL + FUSION_CLIENT_KEY (直连)，或显式设置
-	// FUSION_MLX_ENABLED=1 选择性启用本地推理。
+	// Local MLX/gateway auto-detection removed (audit 0913): no more probing 127.0.0.1:11432,
+	// no more auto-writing FUSION_GATEWAY_ENABLED/FUSION_MLX_ENABLED to hijack provider selection.
+	// LLM access needs only FUSION_BASE_URL + FUSION_CLIENT_KEY (direct connect), or set
+	// FUSION_MLX_ENABLED=1 explicitly to opt into local inference.
 
 	profileCheckpoint("cli_before_main_import");
 	const { main: cliMain } = await import("../main.js");

@@ -1,9 +1,9 @@
 /**
- * Fusion-MLX API 类型定义
+ * Fusion-MLX API type definitions
  *
- * 定义 fusion-mlx 本地推理引擎的 HTTP API 类型。
- * fusion-mlx 兼容 OpenAI /v1/chat/completions 格式，
- * 同时扩展了 Anthropic Messages API 格式支持。
+ * HTTP API types for the fusion-mlx local inference engine.
+ * fusion-mlx is compatible with the OpenAI /v1/chat/completions format,
+ * and also extends Anthropic Messages API format support.
  */
 
 // ─── OpenAI-compatible Chat Completions ───────────────────────
@@ -72,13 +72,13 @@ export interface MLXChatCompletionRequest {
 		| "none"
 		| { type: "function"; function: { name: string } };
 	stop?: string | string[];
-	/** 启用推理/思考过程（Qwen3 等模型支持），27B+ 模型自动启用 */
+	/** Enable reasoning/thinking (supported by Qwen3 etc.), auto-enabled for 27B+ models */
 	enable_thinking?: boolean;
 	/**
-	 * 结构化输出约束（JSON Schema）
-	 * 用于强制模型输出符合指定 Schema 的 JSON，
-	 * 替代脆弱的 prompt 约束 + 正则解析。
-	 * 对应 OpenAI response_format 参数。
+	 * Structured output constraint (JSON Schema)
+	 * Forces the model to emit JSON conforming to the given schema,
+	 * replacing the fragile prompt-constraint + regex parsing.
+	 * Corresponds to the OpenAI response_format parameter.
 	 */
 	response_format?: {
 		type: "json_object" | "json_schema";
@@ -193,9 +193,10 @@ export interface MLXModelInfo {
 
 // ─── Health Check ─────────────────────────────────────────────
 
-// fusion-mlx#564 (PR #581): GET /v1/health 只读内存/OOM 端点。
-// status 扩 degraded|oom; memory + oom_risk 为 #564 新增, 旧 MLX 无该端点时
-// fetchMlxHealth 返 null (fail-open) 故此处全 optional 以兼容。
+// fusion-mlx#564 (PR #581): GET /v1/health read-only memory/OOM endpoint.
+// status extended with degraded|oom; memory + oom_risk are new in #564 — when
+// an older MLX lacks the endpoint fetchMlxHealth returns null (fail-open), so
+// everything here is optional for compatibility.
 export interface MLXMemoryStat {
 	name: string;
 	bytes: number;

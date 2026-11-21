@@ -1,12 +1,12 @@
-// LLM 接缝 — provider 中立错误分类 (参考 dsh classifyPiAiError)
+// LLM seam — provider-neutral error classification (reference: dsh classifyPiAiError)
 //
-// 替代 src/services/api/errors.ts / withRetry.ts 中的 instanceof APIError 判定。
-// 把 fetch 异常与 HTTP 非 2xx 归为稳定 LlmFailure.code, withRetry 据此判重试。
+// Replaces the instanceof APIError checks in src/services/api/errors.ts / withRetry.ts.
+// Classifies fetch exceptions and HTTP non-2xx into stable LlmFailure.code; withRetry uses it to decide retries.
 
 import { logForDebugging } from "../../utils/debug.js";
 import type { LlmErrorCode, LlmFailure } from "./types.js";
 
-// 从 HTTP 状态码 + 错误信息推断稳定错误码。
+// Infers a stable error code from the HTTP status code + error message.
 export function classifyByStatus(status: number): LlmErrorCode {
 	if (status === 401 || status === 403) return "AUTH";
 	if (status === 429 || status === 529) return "RATE_LIMIT";
@@ -15,15 +15,15 @@ export function classifyByStatus(status: number): LlmErrorCode {
 	return "INVALID_REQUEST";
 }
 
-// audit 2.2.1 (CRITICAL): MLX 确定性错误检测。这些错误重试必复现 (模型/显存/上下文
-// 不足属配置/资源硬限), 旧分类把它们当 SERVER 重试 10×, 对共享 MLX 服务自伤 DoS。
-// 命中 → UNKNOWN (不可重试), 优先于 status 5xx 的 SERVER 判定。
-// 信号串取自 fusion-mlx/MLX 实际 OOM/kv-cache/模型错误日志:
+// audit 2.2.1 (CRITICAL): MLX deterministic error detection. Retrying these errors always reproduces them (missing
+// model/VRAM/context are hard config/resource limits); the old classification treated them as SERVER and retried 10×, a self-inflicted DoS on the shared MLX service.
+// On hit → UNKNOWN (not retryable), taking priority over the status 5xx SERVER verdict.
+// Signal strings taken from actual fusion-mlx/MLX OOM/kv-cache/model error logs:
 //   "memory limit exceeded" (MLX OOM)
-//   "Reduce context size" / "reduce the context" (上下文超限)
-//   "model not found" / "model_not_found" (模型缺失/拼错)
-//   "not enough memory" / "out of memory" (系统级 OOM)
-//   "No space left on device" (磁盘满, 确定性)
+//   "Reduce context size" / "reduce the context" (context limit exceeded)
+//   "model not found" / "model_not_found" (model missing/mistyped)
+//   "not enough memory" / "out of memory" (system-level OOM)
+//   "No space left on device" (disk full, deterministic)
 export function isDeterministicError(message: string): boolean {
 	return (
 		/memory limit exceeded/i.test(message) ||
@@ -35,10 +35,10 @@ export function isDeterministicError(message: string): boolean {
 	);
 }
 
-// 从 Error 实例名/信息推断传输层错误码 (无 HTTP 状态时)。
+// Infers a transport-layer error code from the Error instance name/message (when there is no HTTP status).
 export function classifyByMessage(message: string): LlmErrorCode {
-	// audit 2.2.1: 确定性错误优先 — 即使信息含 "500" 之类, OOM/model_not_found
-	// 也不可重试, 必须在 SERVER/兜底前拦截。
+	// audit 2.2.1: deterministic errors take priority — even if the message contains "500" or the like, OOM/model_not_found
+	// are not retryable and must be intercepted before the SERVER/fallback verdicts.
 	if (isDeterministicError(message)) return "UNKNOWN";
 	if (/\b401\b|\b403\b|unauthor|forbidden|invalid.*api.*key/i.test(message))
 		return "AUTH";
@@ -54,10 +54,10 @@ export function classifyByMessage(message: string): LlmErrorCode {
 		)
 	)
 		return "TRANSPORT";
-	// P3-14: 仅匹配精确中止信息, 不用 /abort/i — 后者误命中 "aborted by operator"、
-	// "abortion policy" 等含 "abort" 子串的非中止场景 → 错判 ABORTED 不重试。
-	// 中止的可靠信号是 .name === "AbortError" (classifyError 已查), 此处兜底只接
-	// fetch/AbortController 已知的精确 message 串。
+	// P3-14: only match exact abort messages, not /abort/i — the latter falsely matches non-abort scenarios containing the
+	// "abort" substring such as "aborted by operator" or "abortion policy" → misclassified as ABORTED and not retried.
+	// The reliable abort signal is .name === "AbortError" (already checked in classifyError); this fallback only accepts
+	// exact message strings known to come from fetch/AbortController.
 	if (
 		message === "Request was aborted." ||
 		message === "The user aborted a request." ||
@@ -66,13 +66,13 @@ export function classifyByMessage(message: string): LlmErrorCode {
 		message === "operation was aborted"
 	)
 		return "ABORTED";
-	// audit 2.2.1 (CRITICAL): 兜底不再当 SERVER。未匹配的信息无法证明是可重试的
-	// 瞬态错误, 旧 `return "SERVER"` 让任意未识别错误 (含确定性的) 被重试 10×。
-	// 归 UNKNOWN 不重试 — fail-visible, 让上层显式分类而非默认重试。
+	// audit 2.2.1 (CRITICAL): the fallback no longer reports SERVER. An unmatched message cannot prove the error is a retryable
+	// transient one; the old `return "SERVER"` let any unrecognized error (deterministic ones included) be retried 10×.
+	// Classify as UNKNOWN, no retry — fail-visible, letting upper layers classify explicitly instead of retrying by default.
 	return "UNKNOWN";
 }
 
-// 统一入口: 把任意异常 + 可选 HTTP 状态归为 LlmFailure。
+// Unified entry point: classifies any exception + optional HTTP status into an LlmFailure.
 export function classifyError(
 	error: unknown,
 	status?: number,
@@ -82,10 +82,10 @@ export function classifyError(
 	const message =
 		error instanceof Error ? error.message : String(error ?? "unknown error");
 
-	// 中断优先 (AbortError 不可重试, 且 status 无意义)。
-	// 兼容 DOMException 与任意把 .name 设为 "AbortError" 的 Error (fetch/AbortController 约定)。
-	// P3-14: message 判定走精确已知中止串 (见 classifyByMessage 同改), 不用 /abort/i
-	// 宽匹配 — 防含 "abort" 子串的非中止错误 (如 "aborted by operator") 被误判不重试。
+	// Abort takes priority (AbortError is not retryable, and status is meaningless).
+	// Compatible with DOMException and any Error with .name set to "AbortError" (fetch/AbortController convention).
+	// P3-14: message checks go through exact known abort strings (same change as in classifyByMessage), not the broad
+	// /abort/i match — prevents non-abort errors containing the "abort" substring (e.g. "aborted by operator") from being misjudged as non-retryable.
 	if (
 		(error instanceof DOMException && error.name === "AbortError") ||
 		(error as { name?: string })?.name === "AbortError" ||
@@ -99,9 +99,9 @@ export function classifyError(
 	}
 
 	let code: LlmErrorCode;
-	// audit 2.2.1 (CRITICAL): 确定性错误优先于状态码。MLX 把 OOM / 上下文超限 /
-	// model_not_found / 磁盘满 当 500 返回, status>=400 会走 classifyByStatus(500)→SERVER
-	// 把确定性错误判可重试。先查 message: 命中确定性信号 → UNKNOWN 不重试, 绕过状态判定。
+	// audit 2.2.1 (CRITICAL): deterministic errors take priority over status codes. MLX returns OOM / context limit /
+	// model_not_found / disk-full as 500; status>=400 would hit classifyByStatus(500)→SERVER and judge deterministic
+	// errors retryable. Check message first: on a deterministic signal hit → UNKNOWN, no retry, bypassing the status verdict.
 	if (isDeterministicError(message)) {
 		code = "UNKNOWN";
 	} else if (typeof status === "number" && status >= 400) {
@@ -109,9 +109,9 @@ export function classifyError(
 	} else {
 		code = classifyByMessage(message);
 	}
-	// P1-7 (audit 0901): 错误分类判定依据显式日志 — 尤其兜底 UNKNOWN (无 status 的
-	// generic Error 落保守分类不可重试) 与 message 类分 (无 status 时靠 shape 猜分),
-	// 让重试 vs 抛的决策点可追溯, 不再静默误判。
+	// P1-7 (audit 0901): explicit logging of the error classification basis — especially the fallback UNKNOWN (a generic
+	// Error without status lands in the conservative non-retryable class) and message-based classification (no status, guessing by shape),
+	// making the retry-vs-throw decision point traceable instead of silently misjudged.
 	if (
 		code === "UNKNOWN" ||
 		(typeof status !== "number" && code !== "ABORTED")
@@ -124,7 +124,7 @@ export function classifyError(
 		);
 	}
 
-	// provider Retry-After 头 (秒) 转 ms, 仅对 RATE_LIMIT 有意义
+	// Provider Retry-After header (seconds) converted to ms; only meaningful for RATE_LIMIT
 	let providerRetryAfterMs: number | undefined;
 	if (code === "RATE_LIMIT") {
 		providerRetryAfterMs = extractRetryAfterMs(error);
@@ -133,7 +133,7 @@ export function classifyError(
 	return { code, message, status, providerRetryAfterMs, requestId, headers };
 }
 
-// 可重试码: 限流 / 服务端错误 / 传输层 / 超时。AUTH/INVALID_REQUEST/ABORTED 不重试。
+// Retryable codes: rate limit / server error / transport / timeout. AUTH/INVALID_REQUEST/ABORTED are not retried.
 export function isRetryable(failure: LlmFailure): boolean {
 	return (
 		failure.code === "RATE_LIMIT" ||
@@ -143,9 +143,9 @@ export function isRetryable(failure: LlmFailure): boolean {
 	);
 }
 
-// 把 LlmFailure 抛出为一个带 code 的 Error, 供 try/catch 处再 classifyError 还原。
-// 暴露 SDK 兼容形态 (.status/.headers/.requestID), 使 withRetry/errors 既有的
-// error.status / error.headers?.get(...) 读取对 seam 路径同样生效 (无需改那些读取点)。
+// Throws an LlmFailure as an Error carrying a code, so try/catch sites can recover it via classifyError.
+// Exposes the SDK-compatible shape (.status/.headers/.requestID) so the existing
+// error.status / error.headers?.get(...) reads in withRetry/errors also work on the seam path (no need to change those read sites).
 export class LlmRequestError extends Error {
 	readonly failure: LlmFailure;
 	readonly status?: number;
@@ -161,14 +161,14 @@ export class LlmRequestError extends Error {
 	}
 }
 
-// ── duck-typing 桥 (替代 instanceof APIError / APIConnectionError / APIUserAbortError) ──
-// 同时接纳 SDK 抛出的 APIError (flag 关时客户端路径) 与 seam 抛出的 LlmRequestError
-// (flag 开时 HTTP 路径)。判定靠形态而非原型链, 因两类错误无共同基类。
+// ── duck-typing bridge (replaces instanceof APIError / APIConnectionError / APIUserAbortError) ──
+// Accepts both the SDK-thrown APIError (client path when the flag is off) and the seam-thrown LlmRequestError
+// (HTTP path when the flag is on). Judged by shape rather than prototype chain, as the two error classes share no base class.
 
-// 任意带 .status (number) 的错误 — 覆盖 SDK APIError 与 LlmRequestError。
-// P2-7: 不再对"任意带 headers 对象"判 true — axios/got/自定义错误都有 headers,
-// 会误分类非 API 错误为 API 错误 → 错误重试/恢复。要求 API 特定信号:
-// status (HTTP 错误必有) 或 requestID (SDK/seam 注入)。headers 单独不足。
+// Any error carrying .status (number) — covers SDK APIError and LlmRequestError.
+// P2-7: no longer returns true for "any object with headers" — axios/got/custom errors all have headers,
+// which misclassifies non-API errors as API errors → wrong retry/recovery. Requires an API-specific signal:
+// status (always present on HTTP errors) or requestID (injected by SDK/seam). headers alone is insufficient.
 export function isApiErrorLike(error: unknown): error is {
 	status?: number;
 	message: string;
@@ -182,7 +182,7 @@ export function isApiErrorLike(error: unknown): error is {
 	);
 }
 
-// 传输层错误: SDK APIConnectionError (name 含 "Connection") 或 LlmRequestError(code=TRANSPORT/TIMEOUT)。
+// Transport error: SDK APIConnectionError (name contains "Connection") or LlmRequestError(code=TRANSPORT/TIMEOUT).
 export function isConnectionErrorLike(error: unknown): error is Error {
 	if (!(error instanceof Error)) return false;
 	if (error instanceof LlmRequestError) {
@@ -194,7 +194,7 @@ export function isConnectionErrorLike(error: unknown): error is Error {
 	return /Connection/.test(name);
 }
 
-// 传输层 + 超时: SDK APIConnectionTimeoutError (name 含 "Timeout") 或 message 含 timeout。
+// Transport + timeout: SDK APIConnectionTimeoutError (name contains "Timeout") or message contains timeout.
 export function isTimeoutErrorLike(error: unknown): error is Error {
 	if (!(error instanceof Error)) return false;
 	if (error instanceof LlmRequestError) {
@@ -207,15 +207,15 @@ export function isTimeoutErrorLike(error: unknown): error is Error {
 	return /Timeout/.test(name) || /timeout|timed?\s*out/i.test(error.message);
 }
 
-// 中断: SDK APIUserAbortError (name "APIUserAbortError") 或任意 .name === "AbortError",
-// 或 LlmRequestError(code=ABORTED), 或 fetch AbortSignal 抛出的 DOMException。
+// Abort: SDK APIUserAbortError (name "APIUserAbortError") or any .name === "AbortError",
+// or LlmRequestError(code=ABORTED), or a DOMException thrown by a fetch AbortSignal.
 export function isAbortErrorLike(error: unknown): boolean {
 	if (!(error instanceof Error)) return false;
 	if (error instanceof LlmRequestError) {
 		return error.failure.code === "ABORTED";
 	}
 	const name = (error as { name?: string }).name ?? "";
-	// P3-14: 精确中止 message 集 (与 classifyError/classifyByMessage 同源), 不用 /abort/i。
+	// P3-14: exact abort message set (same source as classifyError/classifyByMessage), not /abort/i.
 	return (
 		name === "APIUserAbortError" ||
 		name === "AbortError" ||
@@ -227,7 +227,7 @@ export function isAbortErrorLike(error: unknown): boolean {
 	);
 }
 
-// 从 Error 上探测 Retry-After (秒)。适配器/httpClient 可在 error 上挂 _retryAfterSec。
+// Detects Retry-After (seconds) on an Error. Adapters/httpClient may attach _retryAfterSec to the error.
 function extractRetryAfterMs(error: unknown): number | undefined {
 	const sec = (error as { _retryAfterSec?: number })?._retryAfterSec;
 	if (typeof sec === "number" && sec >= 0) {

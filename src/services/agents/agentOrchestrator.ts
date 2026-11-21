@@ -72,10 +72,13 @@ export interface AgentInstance {
 	completedAt?: number;
 }
 
-// audit 0905 P1-R5: 无并发 cap, activeAgents Map 无界增长 (N 个 spawn 累积, 即
-// 使完成也不清), 间接放大下游负载。有限 cap (默认 16), env 覆盖, 0=无界 (兼容)。
-// 与 subagentGuardrails 的 FUSION_MAX_CONCURRENT_SUBAGENTS 区分: 此 cap 限本
-// orchestrator 注册表内 (含 idle/completed 残留), subagentGuardrails 限真实子进程。
+// audit 0905 P1-R5: without a concurrency cap the activeAgents Map grows
+// unboundedly (N spawns accumulate, never cleared even after completion),
+// indirectly amplifying downstream load. Finite cap (default 16), env
+// override, 0=unbounded (compat).
+// Distinct from subagentGuardrails' FUSION_MAX_CONCURRENT_SUBAGENTS: this cap
+// bounds the orchestrator registry itself (including idle/completed residue),
+// subagentGuardrails bounds real subprocesses.
 const DEFAULT_MAX_ORCHESTRATOR_AGENTS = 16;
 function maxOrchestratorAgents(): number {
 	const raw = process.env.FUSION_MAX_ORCHESTRATOR_AGENTS;

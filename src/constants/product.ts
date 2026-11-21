@@ -1,9 +1,9 @@
-// #220: 上游 claude.com 产品 URL 已去除 — 指向本仓库 (AGPL 来源即在此)。
+// #220: upstream claude.com product URL removed — points to this repo (the AGPL source is right here).
 export const PRODUCT_URL = "https://github.com/dahai80/fusion-code";
 
 // Fusion-Code Remote session URLs
-// #220: 上游 claude.ai / 内部 staging 域名已删除 — remote session 只存在于
-// 上游内部部署, fusion 构建永不触达; base URL 指向本仓库。
+// #220: upstream claude.ai / internal staging domains deleted — remote sessions only exist in
+// the upstream internal deployment and fusion builds never reach it; base URL points to this repo.
 export const CLAUDE_AI_BASE_URL = PRODUCT_URL;
 export const CLAUDE_AI_LOCAL_BASE_URL = "http://localhost:4000";
 

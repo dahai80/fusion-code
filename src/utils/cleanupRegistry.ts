@@ -8,9 +8,10 @@ import { logForDebugging } from "./debug.js";
 // Global registry for cleanup functions
 const cleanupFunctions = new Set<() => Promise<void>>();
 
-// audit 0905 E4: run-once guard。SIGINT + gracefulShutdown 竞态会触发 runCleanupFunctions
-// 两次 → cleanup 回调重复执行 (重复 kill 已 kill task、重复 flush)。Set 已保证单回调
-// 不重复注册, 但 run 本身需幂等。ran=true 后再次 run 直接返回 (已清理)。
+// audit 0905 E4: run-once guard. A SIGINT + gracefulShutdown race can trigger runCleanupFunctions
+// twice -> cleanup callbacks run repeatedly (re-killing already-killed tasks, duplicate flushes). The Set
+// already prevents duplicate registration of a single callback, but the run itself must be idempotent.
+// Once ran=true, a subsequent run returns immediately (already cleaned up).
 let cleanupRan = false;
 
 /**

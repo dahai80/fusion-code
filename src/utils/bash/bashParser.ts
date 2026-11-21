@@ -160,7 +160,7 @@ function advance(L: Lexer): void {
 }
 
 function peek(L: Lexer, off = 0): string {
-	// off 偏移在边界内由调用方保证; 防御性兜底空串
+	// Caller guarantees the off offset stays in bounds; defensive fallback to empty string
 	const ch = L.i + off < L.len ? L.src[L.i + off] : "";
 	return ch === undefined ? "" : ch;
 }
@@ -192,7 +192,7 @@ function byteAt(L: Lexer, charIdx: number): number {
 	}
 	t[L.len] = b;
 	L.byteTable = t;
-	// charIdx 必在 byteTable 构建范围内; 防御性兜底 0
+	// charIdx is guaranteed to be within the byteTable build range; defensive fallback to 0
 	return t[charIdx] ?? 0;
 }
 

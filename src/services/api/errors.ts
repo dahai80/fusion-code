@@ -1,5 +1,6 @@
-// LLM 接缝 (Phase 5): 用形态判定替代 instanceof APIError/APIConnectionError,
-// 同时接纳 SDK 抛出的 APIError (flag 关) 与 seam 抛出的 LlmRequestError (flag 开)。
+// LLM adapter seam (Phase 5): shape-based detection replaces
+// instanceof APIError/APIConnectionError; accepts both the SDK-thrown
+// APIError (flag off) and the seam-thrown LlmRequestError (flag on).
 
 import { AFK_MODE_BETA_HEADER } from "src/constants/betas.js";
 import type { SDKAssistantMessageError } from "src/entrypoints/sdk/types.js";
@@ -566,8 +567,10 @@ export function getAssistantMessageFromError(
 
 	// Handle prompt too long errors (Vertex returns 413, direct API returns 400)
 	// Use case-insensitive check since Vertex returns "Prompt is too long" (capitalized)
-	// MLX(fusion-mlx)上下文/prefill 内存超限经 adapter 包装为 "Fusion-MLX error: ... - {body}",
-	// body 含 "Prefill would require" / "Reduce context length" 等,同样需触发 reactiveCompact。
+	// MLX (fusion-mlx) context/prefill memory overflows get wrapped by the
+	// adapter as "Fusion-MLX error: ... - {body}"; the body contains signals
+	// like "Prefill would require" / "Reduce context length", which must also
+	// trigger reactiveCompact.
 	if (
 		error instanceof Error &&
 		(error.message.toLowerCase().includes("prompt is too long") ||
@@ -835,9 +838,11 @@ export function getAssistantMessageFromError(
 		}
 
 		// Check if the API key is from an external source
-		// NOTE: 直接检查 env var，与 auth.ts isAnthropicAuthEnabled() 保持一致
-		// 原因：getAnthropicApiKeyWithSource() 对未 approved 的 key 返回 source='none'
-		// 导致 FUSION_CLIENT_KEY 设置时仍显示 "Not logged in" 而非 "Invalid API key"
+		// NOTE: check the env var directly, consistent with auth.ts
+		// isAnthropicAuthEnabled()
+		// Reason: getAnthropicApiKeyWithSource() returns source='none' for a
+		// non-approved key, which makes FUSION_CLIENT_KEY still show "Not
+		// logged in" instead of "Invalid API key"
 		const { source } = getAnthropicApiKeyWithSource();
 		const isExternalSource =
 			!!process.env.FUSION_CLIENT_KEY || source === "apiKeyHelper";
@@ -905,7 +910,7 @@ export function getAssistantMessageFromError(
 	// Bedrock errors like "403 You don't have access to the model with the specified model ID."
 	// don't contain the actual model ID
 	if (
-		// biome-ignore lint/correctness/noConstantCondition: 临时禁用的分支 (false && DCE 惯用法), 待后端错误格式补全后启用
+		// biome-ignore lint/correctness/noConstantCondition: temporarily disabled branch (false && DCE idiom), enable once the backend error format is complete
 		false &&
 		error instanceof Error &&
 		(error as Error).message.toLowerCase().includes("model id")

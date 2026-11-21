@@ -45,12 +45,12 @@ import { createSeamClient, type LlmClient } from "../llm/client.js";
  */
 
 /**
- * getAnthropicClient 返回 provider-neutral LlmClient (接缝层), 取代 @anthropic-ai/sdk 客户端。
+ * getAnthropicClient returns a provider-neutral LlmClient (seam layer), replacing the @anthropic-ai/sdk client.
  *
  * - firstParty + fusionMlx: createSeamClient(model, fetchOverride, defaultHeaders)
- *   直接 POST /v1/messages 并 SSE 翻译, 不经 SDK。
- * - bedrock / vertex / foundry / openai: 抛错, 引导配置 FUSION_BASE_URL +
- *   FUSION_CLIENT_KEY 直连 Anthropic 兼容 endpoint (云端签名由该 endpoint 完成)。
+ *   directly POSTs /v1/messages and translates SSE, bypassing the SDK.
+ * - bedrock / vertex / foundry / openai: throws, guiding configuration of FUSION_BASE_URL +
+ *   FUSION_CLIENT_KEY to connect directly to an Anthropic-compatible endpoint (cloud signing is done by that endpoint).
  */
 export async function getAnthropicClient({
 	apiKey,
@@ -98,11 +98,13 @@ export async function getAnthropicClient({
 		defaultHeaders["x-anthropic-additional-protection"] = "true";
 	}
 
-	// ── Fusion-MLX (local) provider — 显式 opt-in 的本地 endpoint ──
-	// 收敛语义 (endpoint 统一): 本地推理服务只是一种 Anthropic 兼容 endpoint,
-	// 到达此分支的唯一途径是用户显式 opt-in (FUSION_MLX_ENABLED /
-	// FUSION_GATEWAY_ENABLED / FUSION_MLX_BASE_URL / FUSION_GATEWAY_URL),
-	// 不再存在启动自动探测 (已删) 或模型名嗅探 (已删) 的隐式进入路径。
+	// ── Fusion-MLX (local) provider — explicitly opted-in local endpoint ──
+	// Converged semantics (endpoint-unified): the local inference service is just
+	// another Anthropic-compatible endpoint. The only way to reach this branch is
+	// explicit user opt-in (FUSION_MLX_ENABLED /
+	// FUSION_GATEWAY_ENABLED / FUSION_MLX_BASE_URL / FUSION_GATEWAY_URL);
+	// there is no implicit entry path via startup auto-detection (removed) or
+	// model-name sniffing (removed).
 	if (isFusionMlxProvider(model)) {
 		const {
 			checkFusionMlxHealth,
@@ -139,49 +141,50 @@ export async function getAnthropicClient({
 		logForDebugging(
 			`[API:fusion-mlx] seam client model=${fusionMlxModel} maxRetries=${maxRetries} source=${source ?? "unknown"}`,
 		);
-		// createSeamClient 内部 resolveSeamEndpoint 会构造 createFusionMlxFetch。
-		// fetchOverride 在 MLX 路径下无意义 (MLX 自带 fetch 拦截), 仅传 defaultHeaders。
+		// Inside createSeamClient, resolveSeamEndpoint constructs createFusionMlxFetch.
+		// fetchOverride is meaningless on the MLX path (MLX has its own fetch interception); only defaultHeaders is passed.
 		return createSeamClient(fusionMlxModel, undefined, defaultHeaders);
 	}
 
-	// ── 云端提供商：SDK 签名已剥离，统一引导用户直连自建/第三方 endpoint ──
-	// 语义与 firstParty 相同: FUSION_BASE_URL 指向任意 Anthropic 兼容 /v1/messages
-	// endpoint, FUSION_CLIENT_KEY 为鉴权 key。不再强制要求 fusion-gateway。
+	// ── Cloud providers: SDK signing stripped; uniformly guide users to connect directly to a self-hosted/third-party endpoint ──
+	// Semantics identical to firstParty: FUSION_BASE_URL points at any Anthropic-compatible
+	// /v1/messages endpoint, FUSION_CLIENT_KEY is the auth key. fusion-gateway is no longer required.
 	if (isEnvTruthy(process.env.FUSION_CODE_USE_FOUNDRY)) {
 		throw new Error(
-			"Foundry (Azure) 直连已随 @anthropic-ai/sdk 一并移除。\n" +
-				"请设置 FUSION_BASE_URL 指向 Anthropic 兼容 endpoint 并配置 FUSION_CLIENT_KEY,\n" +
-				"由该 endpoint 负责 Azure AD 签名 (或去掉 FUSION_CODE_USE_FOUNDRY 走 firstParty)。",
+			"Foundry (Azure) direct connect was removed along with @anthropic-ai/sdk.\n" +
+				"Set FUSION_BASE_URL to an Anthropic-compatible endpoint and configure FUSION_CLIENT_KEY;\n" +
+				"that endpoint handles Azure AD signing (or unset FUSION_CODE_USE_FOUNDRY to use firstParty).",
 		);
 	}
-	// P0-4 (audit R6): openai 专属分支。此前 FUSION_CODE_USE_OPENAI=1 无 dedicated
-	// 分支 → 沉默落入下方 firstParty → 用 OpenAI key/model 名打 api.anthropic.com
-	// (语义错配, 401/404 静默失败)。显式 throw 指引用户配置直连 endpoint,
-	// 与 bedrock/vertex/foundry 同构。本仓不做进程内 OpenAI 直连 (codex-fetch-adapter
-	// 死代码已删); OpenAI OAuth 凭据 (codex-client/codex-oauth) 仍保留用于 endpoint 鉴权透传。
+	// P0-4 (audit R6): dedicated openai branch. Previously FUSION_CODE_USE_OPENAI=1 had no dedicated
+	// branch → silently fell through to firstParty below → OpenAI key/model name hit api.anthropic.com
+	// (semantic mismatch, silent 401/404 failure). Explicit throw directs the user to configure a
+	// direct-connect endpoint, isomorphic with bedrock/vertex/foundry. This repo does no in-process
+	// OpenAI direct connect (codex-fetch-adapter dead code removed); OpenAI OAuth credentials
+	// (codex-client/codex-oauth) remain for endpoint auth pass-through.
 	if (isEnvTruthy(process.env.FUSION_CODE_USE_OPENAI)) {
 		throw new Error(
-			"OpenAI 直连已随 @anthropic-ai/sdk 一并移除。\n" +
-				"请设置 FUSION_BASE_URL 指向 Anthropic 兼容 endpoint 并配置 FUSION_CLIENT_KEY,\n" +
-				"由该 endpoint 负责 OpenAI (Azure/Bearer) 签名 (或去掉 FUSION_CODE_USE_OPENAI 走 firstParty)。",
+			"OpenAI direct connect was removed along with @anthropic-ai/sdk.\n" +
+				"Set FUSION_BASE_URL to an Anthropic-compatible endpoint and configure FUSION_CLIENT_KEY;\n" +
+				"that endpoint handles OpenAI (Azure/Bearer) signing (or unset FUSION_CODE_USE_OPENAI to use firstParty).",
 		);
 	}
 	if (isBedrockProvider()) {
 		throw new Error(
-			"Bedrock 直连已随 @anthropic-ai/bedrock-sdk 一并移除。\n" +
-				"请设置 FUSION_BASE_URL 指向 Anthropic 兼容 endpoint 并配置 FUSION_CLIENT_KEY,\n" +
-				"由该 endpoint 负责 AWS SigV4 签名 (或去掉 FUSION_CODE_USE_BEDROCK 走 firstParty)。",
+			"Bedrock direct connect was removed along with @anthropic-ai/bedrock-sdk.\n" +
+				"Set FUSION_BASE_URL to an Anthropic-compatible endpoint and configure FUSION_CLIENT_KEY;\n" +
+				"that endpoint handles AWS SigV4 signing (or unset FUSION_CODE_USE_BEDROCK to use firstParty).",
 		);
 	}
 	if (isVertexProvider()) {
 		throw new Error(
-			"Vertex AI 直连已随 @anthropic-ai/vertex-sdk 一并移除。\n" +
-				"请设置 FUSION_BASE_URL 指向 Anthropic 兼容 endpoint 并配置 FUSION_CLIENT_KEY,\n" +
-				"由该 endpoint 负责 GCP 凭据 (或去掉 FUSION_CODE_USE_VERTEX 走 firstParty)。",
+			"Vertex AI direct connect was removed along with @anthropic-ai/vertex-sdk.\n" +
+				"Set FUSION_BASE_URL to an Anthropic-compatible endpoint and configure FUSION_CLIENT_KEY;\n" +
+				"that endpoint handles GCP credentials (or unset FUSION_CODE_USE_VERTEX to use firstParty).",
 		);
 	}
 
-	// ── firstParty (Anthropic API 直连) ──
+	// ── firstParty (direct Anthropic API connection) ──
 	logForDebugging("[API:auth] OAuth token check starting");
 	logForDebugging("[API:auth] OAuth token check complete");
 
@@ -189,16 +192,16 @@ export async function getAnthropicClient({
 		await configureApiKeyHeaders(defaultHeaders, getIsNonInteractiveSession());
 	}
 
-	// firstParty: createSeamClient 用 resolveSeamEndpoint 解析 baseUrl/apiKey,
-	// OAuth/API key 鉴权头由 seam 的 httpClient.buildHeaders 注入 (apiKey/authToken)。
-	// OAuth 订阅用户的 accessToken 单独透传给 seam (buildHeaders 仅认 x-api-key/authorization)。
+	// firstParty: createSeamClient uses resolveSeamEndpoint to resolve baseUrl/apiKey;
+	// OAuth/API key auth headers are injected by the seam's httpClient.buildHeaders (apiKey/authToken).
+	// OAuth subscribers' accessToken is passed through to the seam separately (buildHeaders only recognizes x-api-key/authorization).
 	const oauthTokens = isClaudeAISubscriber()
 		? getClaudeAIOAuthTokens()
 		: undefined;
 	if (oauthTokens?.accessToken) {
 		defaultHeaders.Authorization = `Bearer ${oauthTokens.accessToken}`;
 	}
-	// 显式 apiKey (非订阅) 传给 seam 作为 x-api-key 兜底。
+	// Explicit apiKey (non-subscriber) is passed to the seam as an x-api-key fallback.
 	const seamApiKey = isClaudeAISubscriber()
 		? undefined
 		: apiKey || getAnthropicApiKey();
@@ -206,7 +209,7 @@ export async function getAnthropicClient({
 		defaultHeaders["x-api-key"] = seamApiKey;
 	}
 
-	// staging OAuth baseURL 透传: seam 经 resolveSeamEndpoint 读 FUSION_BASE_URL/ANTHROPIC_BASE_URL。
+	// staging OAuth baseURL pass-through: the seam reads FUSION_BASE_URL/ANTHROPIC_BASE_URL via resolveSeamEndpoint.
 	if (
 		process.env.USER_TYPE === "ant" &&
 		isEnvTruthy(process.env.USE_STAGING_OAUTH)
@@ -219,9 +222,9 @@ export async function getAnthropicClient({
 	logForDebugging(
 		`[API:firstParty] seam client model=${model ?? "(default)"} maxRetries=${maxRetries} source=${source ?? "unknown"}`,
 	);
-	// resolvedFetch 作为 fetchOverride 注入 seam (cch 签名 + request-id 日志)。
-	// 注: seam 的 httpClient 已自带 cch 签名与 CLIENT_REQUEST_ID 注入, resolvedFetch
-	// 在此主要用于透传 fetchOverride (测试注入), 重复的 cch/request-id 由 httpClient 主导。
+	// resolvedFetch is injected into the seam as fetchOverride (cch signing + request-id logging).
+	// Note: the seam's httpClient already has cch signing and CLIENT_REQUEST_ID injection; resolvedFetch
+	// here mainly serves to pass through fetchOverride (test injection); duplicate cch/request-id is dominated by httpClient.
 	return createSeamClient(
 		model ?? "",
 		resolvedFetch as SdkFetch | undefined,
@@ -269,9 +272,9 @@ function getCustomHeaders(): Record<string, string> {
 
 export const CLIENT_REQUEST_ID_HEADER = "x-client-request-id";
 
-// buildFetch: 透传 fetchOverride 并注入 CLIENT_REQUEST_ID/cch 签名日志。
-// SDK 移除后, seam 的 httpClient 自带 cch/CLIENT_REQUEST_ID, 本函数主要用于
-// fetchOverride (测试) 注入与请求路径日志, 保留以兼容既有调用。
+// buildFetch: passes through fetchOverride and injects CLIENT_REQUEST_ID/cch signing logs.
+// After SDK removal, the seam's httpClient has built-in cch/CLIENT_REQUEST_ID; this function mainly
+// serves fetchOverride (test) injection and request-path logging, kept for existing-call compatibility.
 function buildFetch(
 	fetchOverride: ClientOptions["fetch"] | undefined,
 	source: string | undefined,
@@ -312,5 +315,5 @@ function buildFetch(
 	};
 }
 
-// 保留 ClientOptions 类型导出兼容 (部分旧调用仍以类型引用)。SDK 移除后该类型为本地定义。
+// Keep the ClientOptions type export for compatibility (some legacy callers still type-reference it). After SDK removal this type is locally defined.
 export type { ClientOptions };

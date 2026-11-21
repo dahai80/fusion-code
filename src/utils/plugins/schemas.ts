@@ -281,14 +281,14 @@ const PluginManifestMetadataSchema = lazySchema(() =>
 		// ar-plan PR #6 (E2): manifest format version. Missing/undefined = 0
 		// (pre-E2 manifest), accepted during the compat window. Consumers warn-log
 		// on undefined/0 so authors are nudged to pin it. Odd = experimental,
-		// even = stable (附录 B 双兼容规则). Kept .optional() (not .default()) so the
+		// even = stable (Appendix B dual-compat rule). Kept .optional() (not .default()) so the
 		// inferred PluginManifest type lets internal manifest literals omit it.
 		schemaVersion: z
 			.number()
 			.int()
 			.optional()
 			.describe(
-				"Manifest format version (附录 B: odd = experimental, even = stable). " +
+				"Manifest format version (Appendix B: odd = experimental, even = stable). " +
 					"Missing defaults to 0 (pre-E2). Pin to the latest stable even number.",
 			),
 		name: z
@@ -1206,8 +1206,8 @@ export const PluginSourceSchema = lazySchema(() =>
 				"Plugin located in a subdirectory of a larger repository (monorepo). " +
 					"Only the specified subdirectory is materialized; the rest of the repo is not downloaded.",
 			),
-		// item 23: archive 源 — HTTPS zip 下载 + 可选 SHA-256 锁定 (CC 2.1.224, §138/§215)
-		// 与 url (git-clone) 不同: archive 下 raw .zip 文件, 非 git 仓库。
+		// item 23: archive source — HTTPS zip download + optional SHA-256 pinning (CC 2.1.224, §138/§215)
+		// Unlike url (git-clone): archive downloads a raw .zip file, not a git repo.
 		z
 			.object({
 				source: z.literal("archive"),

@@ -8,13 +8,13 @@ export type ParsedSlashCommand = {
 	isMcp: boolean;
 };
 
-// 最大前导堆叠 slash 命令数 (对齐 CC 2.1.199 "最多 5 前导技能")
+// Maximum number of leading stacked slash commands (aligned with CC 2.1.199 "max 5 leading skills")
 export const MAX_STACKED_LEADING_COMMANDS = 5;
 
 export type StackedSlashParse = {
-	// 前导 slash 命令 (含 terminal /cmd, 若存在); 单命令时长度 1
+	// Leading slash commands (including the terminal /cmd, if present); length 1 for a single command
 	commands: ParsedSlashCommand[];
-	// 前导命令之后的终末 free-text (作最后一条命令的 args), 无则为空串
+	// Trailing free-text after the leading commands (used as the last command's args), empty string if none
 	freeText: string;
 };
 
@@ -69,10 +69,10 @@ export function parseSlashCommand(input: string): ParsedSlashCommand | null {
 	};
 }
 
-// 命令名合法字符 (与 processSlashCommand.tsx looksLikeCommand 一致)
+// Valid command-name characters (consistent with processSlashCommand.tsx looksLikeCommand)
 const COMMAND_NAME_RE = /^[a-zA-Z0-9:\-_]+$/;
 
-// 判断 token 是否为可堆叠的 slash 命令 (以 / 开头, 名字仅含合法字符)
+// Determines whether a token is a stackable slash command (starts with /, name contains only valid chars)
 function isStackableCommandToken(token: string): boolean {
 	if (!token.startsWith("/")) return false;
 	const name = token.slice(1);
@@ -80,10 +80,10 @@ function isStackableCommandToken(token: string): boolean {
 	return COMMAND_NAME_RE.test(name);
 }
 
-// 解析堆叠 slash 命令输入: 从开头连续提取 leading /cmd, 最多 MAX_STACKED_LEADING_COMMANDS,
-// 遇到首个非 / 起始 token 停止 (之后全部作 freeText)。
-// 向后兼容: 单 /cmd args 行为不变 (commands 长度 1, freeText 为空)。
-// 超过 MAX_STACKED_LEADING_COMMANDS 个前导命令时, 第 6 个起并入 freeText (拒绝堆叠)。
+// Parses stacked slash command input: consecutively extracts leading /cmd from the start, up to MAX_STACKED_LEADING_COMMANDS,
+// stopping at the first token not starting with / (everything after becomes freeText).
+// Backward compatible: single /cmd args behavior unchanged (commands length 1, freeText empty).
+// When there are more than MAX_STACKED_LEADING_COMMANDS leading commands, the 6th onward merges into freeText (stacking rejected).
 //
 // @example
 // parseStackedSlashCommands('/skill-a /skill-b do XYZ')
@@ -105,7 +105,7 @@ export function parseStackedSlashCommands(
 	let freeTextWords: string[] = [];
 	let i = 0;
 
-	// 连续提取前导 /cmd (无 args, 仅命令名)
+	// Consecutively extract leading /cmd (no args, command name only)
 	while (i < words.length) {
 		const word = words[i];
 		if (word === undefined || !isStackableCommandToken(word)) {
@@ -123,7 +123,7 @@ export function parseStackedSlashCommands(
 		return null;
 	}
 
-	// 剩余全部作 freeText (首个非 / token 或超限的第 6+ 命令)
+	// All remaining tokens become freeText (first non-/ token, or the overflowing 6th+ command)
 	freeTextWords = words.slice(i);
 	const freeText = freeTextWords.join(" ").trim();
 

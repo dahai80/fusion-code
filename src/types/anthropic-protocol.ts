@@ -1,24 +1,24 @@
-// Anthropic Messages API 协议类型（本地定义，脱离 @anthropic-ai/sdk）
+// Anthropic Messages API protocol types (locally defined, decoupled from @anthropic-ai/sdk)
 //
-// 全部类型在本地重新声明，运行时与类型层均不再依赖 SDK。
-// Anthropic 命名空间拥有具体定义，顶层再以别名 re-export 供直接导入。
-// 形态忠实于 SDK 原定义（字段名 / 可选性 / 字面量联合 / 数组），
-// 未单独定义的成员以携带公共可选字段的开放接口收尾，保留 type 判别。
+// All types are redeclared locally; neither runtime nor type layer depends on the SDK anymore.
+// The Anthropic namespace owns the concrete definitions; top-level aliases re-export them for direct import.
+// Shapes are faithful to the original SDK definitions (field names / optionality / literal unions / arrays);
+// members not defined individually are closed out by open interfaces carrying common optional fields, preserving type discrimination.
 
-// ─── 公共辅助类型 ──────────────────────────────────────────
+// ─── Shared helper types ──────────────────────────────────────────
 
-// 缓存控制断点（ephemeral）。
+// Cache control breakpoint (ephemeral).
 export interface CacheControlEphemeral {
 	type: "ephemeral";
 	ttl?: "5m" | "1h";
 }
 
-// 直接调用方标记。
+// Direct caller marker.
 export interface DirectCaller {
 	type: "direct";
 }
 
-// 服务端工具调用方标记（形态兼容，字段宽松）。
+// Server tool caller marker (shape-compatible, lenient fields).
 export interface ServerToolCaller {
 	type: string;
 	[k: string]: unknown;
@@ -28,20 +28,20 @@ export interface ServerToolCaller20260120 {
 	[k: string]: unknown;
 }
 
-// 引用来源：base64 图像。
+// Source reference: base64 image.
 export interface Base64ImageSource {
 	data: string;
 	media_type: "image/jpeg" | "image/png" | "image/gif" | "image/webp";
 	type: "base64";
 }
 
-// URL 图像来源。
+// URL image source.
 export interface URLImageSource {
 	type: "url";
 	url: string;
 }
 
-// 工具输入 JSON schema（Tool 命名空间成员）。
+// Tool input JSON schema (Tool namespace member).
 export interface ToolInputSchema {
 	type: "object";
 	properties?: unknown | null;
@@ -49,14 +49,14 @@ export interface ToolInputSchema {
 	[k: string]: unknown;
 }
 
-// ─── Anthropic 命名空间（拥有具体定义） ────────────────────
-// SDK 中 Anthropic 既是客户端类也是命名空间（嵌套 Beta.Messages / Tool.InputSchema）。
-// 此处用 namespace 拥有所有具体定义，顶层再以别名 re-export 供 100+ 文件直接导入。
-// 客户端实例类型已由 LlmClient（src/services/llm/client.ts）取代；本命名空间仅满足
-// import type { Anthropic } 后的 Anthropic.X 点式访问 + 顶层别名导入。
+// ─── Anthropic namespace (owns concrete definitions) ────────────────────
+// In the SDK, Anthropic is both a client class and a namespace (nested Beta.Messages / Tool.InputSchema).
+// Here a namespace owns all concrete definitions; top-level aliases re-export them for direct import by 100+ files.
+// The client instance type has been replaced by LlmClient (src/services/llm/client.ts); this namespace only serves
+// Anthropic.X dotted access after `import type { Anthropic }` plus top-level alias imports.
 
 export namespace Anthropic {
-	// ── 1. Message Block 类型（请求参数） ──────────────────
+	// ── 1. Message Block types (request params) ──────────────────
 
 	export interface TextBlockParam {
 		text: string;
@@ -99,14 +99,14 @@ export namespace Anthropic {
 		is_error?: boolean;
 	}
 
-	// 开放请求块：未单独定义的成员（document/search/server tool 等）的收尾形态。
-	// type 用品牌字符串 `string & {}`：既接受任意字面量，又不破坏联合判别。
+	// Open request block: closing shape for members not defined individually (document/search/server tool etc.).
+	// type uses the branded string `string & {}`: accepts any literal without breaking union discrimination.
 	export interface RawBlockParam {
 		type: string & {};
 		[k: string]: unknown;
 	}
 
-	// 请求侧 document 块（PDF 等文件附件）。
+	// Request-side document block (PDF and other file attachments).
 	export interface DocumentBlockParam {
 		type: "document";
 		source:
@@ -121,7 +121,7 @@ export namespace Anthropic {
 		cache_control?: CacheControlEphemeral | null;
 	}
 
-	// tool_result.content 中可嵌套的额外请求块 (SDK: TextBlockParam | ImageBlockParam | SearchResultBlockParam | DocumentBlockParam | ToolReferenceBlockParam)。
+	// Extra request blocks nestable in tool_result.content (SDK: TextBlockParam | ImageBlockParam | SearchResultBlockParam | DocumentBlockParam | ToolReferenceBlockParam).
 	export interface SearchResultBlockParam {
 		content: Array<TextBlockParam>;
 		source: string;
@@ -142,9 +142,9 @@ export namespace Anthropic {
 		| DocumentBlockParam
 		| ToolReferenceBlockParam;
 
-	// ContentBlockParam: 完整请求块联合（可判别）。
-	// 不含 catch-all：每个成员 type 为字面量，保证 `find(_.type===...)?.x` 收窄。
-	// RawBlockParam 保留为独立类型供显式引用，但不进入判别联合。
+	// ContentBlockParam: full request block union (discriminable).
+	// No catch-all: each member's type is a literal, guaranteeing narrowing via `find(_.type===...)?.x`.
+	// RawBlockParam stays a standalone type for explicit reference but does not enter the discriminated union.
 	export type ContentBlockParam =
 		| TextBlockParam
 		| ImageBlockParam
@@ -167,12 +167,12 @@ export namespace Anthropic {
 		| CompactionBlock
 		| ToolResultBlock;
 
-	// ── 2. Message Block 类型（响应） ──────────────────────
+	// ── 2. Message Block types (response) ──────────────────────
 	//
-	// 关键：每个成员的 type 必须是字面量，联合才构成可判别联合
-	// (discriminated union)，使 `arr.find(_ => _.type === "text")?.text`
-	// 能正确收窄（与 SDK 行为一致）。catch-all 用 `type: string & {}`
-	// 品牌字符串保留判别能力，同时接受任意未知 type。
+	// Key point: each member's type must be a literal for the union to form a
+	// discriminated union, so that `arr.find(_ => _.type === "text")?.text`
+	// narrows correctly (matching SDK behavior). The catch-all uses the
+	// `type: string & {}` branded string to keep discrimination while accepting any unknown type.
 
 	export interface TextBlock {
 		citations: Array<Record<string, unknown>> | null;
@@ -199,13 +199,13 @@ export namespace Anthropic {
 		type: "tool_use";
 	}
 
-	// image 响应块（出现在 assistant 回放 / 历史消息中）。
+	// image response block (appears in assistant replay / historical messages).
 	export interface ImageBlock {
 		source: Base64ImageSource | URLImageSource;
 		type: "image";
 	}
 
-	// 服务端工具调用块（web_search 等）。
+	// Server tool use block (web_search etc.).
 	export interface ServerToolUseBlock {
 		id: string;
 		input: unknown;
@@ -213,7 +213,7 @@ export namespace Anthropic {
 		type: "server_tool_use";
 	}
 
-	// web_search 工具结果块：content 为错误对象或结果数组。
+	// web_search tool result block: content is an error object or a result array.
 	export interface WebSearchToolResultBlock {
 		tool_use_id: string;
 		type: "web_search_tool_result";
@@ -222,8 +222,8 @@ export namespace Anthropic {
 			| Array<{ title?: string; url?: string; [k: string]: unknown }>;
 	}
 
-	// tool_result 响应块（assistant 历史中偶现）。content 与 ToolResultBlockParam 同构,
-	// 使响应块可回填为请求 content (与 SDK 行为一致), 收窄后 .text 访问仍正确。
+	// tool_result response block (occasionally appears in assistant history). content is shape-identical to ToolResultBlockParam,
+	// so response blocks can be fed back as request content (matching SDK behavior) while .text access stays correct after narrowing.
 	export interface ToolResultBlock {
 		tool_use_id: string;
 		type: "tool_result";
@@ -231,8 +231,8 @@ export namespace Anthropic {
 		is_error?: boolean;
 	}
 
-	// 其余服务端/内置工具结果与特殊块：代码库以 switch case 枚举判别，
-	// 多为 pass-through。给出字面量 type 即可构成判别联合成员；按需字段可选。
+	// Remaining server/builtin tool results and special blocks: the codebase discriminates them via switch cases,
+	// mostly pass-through. A literal type suffices to make them discriminated-union members; fields optional as needed.
 	export interface DocumentBlock {
 		type: "document";
 		source:
@@ -294,14 +294,14 @@ export namespace Anthropic {
 		[k: string]: unknown;
 	}
 
-	// 开放响应块：未单独定义的服务端/内置工具结果块等的收尾形态。
-	// type 用品牌字符串 `string & {}`：既接受任意字面量，又不破坏联合判别。
+	// Open response block: closing shape for server/builtin tool result blocks not defined individually.
+	// type uses the branded string `string & {}`: accepts any literal without breaking union discrimination.
 	export interface RawBlock {
 		type: string & {};
 		[k: string]: unknown;
 	}
 
-	// ContentBlock: 响应内容块联合（可判别，不含 catch-all）。
+	// ContentBlock: response content block union (discriminable, no catch-all).
 	export type ContentBlock =
 		| TextBlock
 		| ThinkingBlock
@@ -323,9 +323,9 @@ export namespace Anthropic {
 		| ToolSearchToolResultBlock
 		| CompactionBlock;
 
-	// ── 3. 工具相关类型 ────────────────────────────────────
+	// ── 3. Tool-related types ────────────────────────────────────
 
-	// Tool 既是接口（实例字段）也是命名空间（InputSchema），用声明合并表达。
+	// Tool is both an interface (instance fields) and a namespace (InputSchema), expressed via declaration merging.
 	export interface Tool {
 		input_schema: ToolInputSchema;
 		name: string;
@@ -344,7 +344,7 @@ export namespace Anthropic {
 		export type InputSchema = ToolInputSchema;
 	}
 
-	// 工具联合：custom tool + 各类服务端/内置工具，以 RawTool 收尾兼容。
+	// Tool union: custom tool + various server/builtin tools, closed compatibly by RawTool.
 	export interface RawTool {
 		type: string;
 		name?: string;
@@ -376,7 +376,7 @@ export namespace Anthropic {
 		| ToolChoiceTool
 		| ToolChoiceNone;
 
-	// ── 4. 通用类型 ────────────────────────────────────────
+	// ── 4. General types ────────────────────────────────────────
 
 	export interface MessageParam {
 		content: string | Array<ContentBlockParam>;
@@ -404,7 +404,7 @@ export namespace Anthropic {
 		user_id?: string | null;
 	}
 
-	// 顶层请求体（BetaMessageStreamParams = MessageCreateParamsBase）。
+	// Top-level request body (BetaMessageStreamParams = MessageCreateParamsBase).
 	export interface MessageCreateParamsBase {
 		max_tokens: number;
 		messages: Array<MessageParam | BetaMessageParam>;
@@ -430,7 +430,7 @@ export namespace Anthropic {
 		[k: string]: unknown;
 	}
 
-	// ── 5. Beta Message 类型 ───────────────────────────────
+	// ── 5. Beta Message types ───────────────────────────────
 
 	export interface BetaThinkingConfigEnabled {
 		budget_tokens: number;
@@ -607,7 +607,7 @@ export namespace Anthropic {
 		service_tier?: "standard" | "priority" | "batch" | null;
 	}
 
-	// BetaContentBlockParam: Beta 请求块联合。
+	// BetaContentBlockParam: Beta request block union.
 	export type BetaContentBlockParam =
 		| TextBlockParam
 		| BetaImageBlockParam
@@ -641,7 +641,7 @@ export namespace Anthropic {
 		role: "user" | "assistant";
 	}
 
-	// BetaContentBlock: Beta 响应块联合（可判别，不含 catch-all）。
+	// BetaContentBlock: Beta response block union (discriminable, no catch-all).
 	export type BetaContentBlock =
 		| BetaThinkingBlock
 		| BetaRedactedThinkingBlock
@@ -688,7 +688,7 @@ export namespace Anthropic {
 
 	export type BetaMessageStreamParams = MessageCreateParamsBase;
 
-	// ── 6. 流式类型 ────────────────────────────────────────
+	// ── 6. Streaming types ────────────────────────────────────────
 
 	export interface BetaRawMessageStartEvent {
 		message: BetaMessage;
@@ -712,7 +712,7 @@ export namespace Anthropic {
 		index: number;
 		type: "content_block_start";
 	}
-	// content_block_delta 的 delta 联合 (claude.ts switch 按 delta.type 收窄并读字段)。
+	// delta union of content_block_delta (claude.ts switch narrows by delta.type and reads fields).
 	export interface BetaTextDelta {
 		text: string;
 		type: "text_delta";
@@ -759,7 +759,7 @@ export namespace Anthropic {
 		| BetaRawContentBlockDeltaEvent
 		| BetaRawContentBlockStopEvent;
 
-	// Stream<T>: SDK 流的最小形态 — 异步可迭代 + controller（claude.ts 用 stream.controller.abort()）。
+	// Stream<T>: minimal shape of the SDK stream — async iterable + controller (claude.ts uses stream.controller.abort()).
 	export interface Stream<T> extends AsyncIterable<T> {
 		controller: AbortController;
 		[Symbol.asyncIterator](): AsyncIterator<T>;
@@ -767,7 +767,7 @@ export namespace Anthropic {
 		toReadableStream?(): ReadableStream<unknown>;
 	}
 
-	// ── 7. 客户端类型 ──────────────────────────────────────
+	// ── 7. Client types ──────────────────────────────────────
 
 	export type SdkFetch = (
 		input: string | URL | Request,
@@ -797,8 +797,8 @@ export namespace Anthropic {
 		logger?: SdkLogger;
 	}
 
-	// ── 8. Error 类型 ──────────────────────────────────────
-	// APIError 形态化（供 duck-typing 桥 isApiErrorLike / errors.ts 使用）。
+	// ── 8. Error types ──────────────────────────────────────
+	// APIError shape (used by the duck-typing bridge isApiErrorLike / errors.ts).
 	export interface APIError extends Error {
 		status?: number;
 		headers?:
@@ -809,7 +809,7 @@ export namespace Anthropic {
 		requestID?: string | null;
 	}
 
-	// ── 嵌套命名空间 ───────────────────────────────────────
+	// ── Nested namespaces ───────────────────────────────────────
 	export namespace Beta {
 		export namespace Messages {
 			export type BetaMessageParam = Anthropic.BetaMessageParam;
@@ -823,8 +823,8 @@ export namespace Anthropic {
 	}
 }
 
-// ─── 顶层别名 re-export（供直接 import type { X } 使用） ─────
-// 指向 Anthropic 命名空间成员，单向引用，无循环。
+// ─── Top-level alias re-exports (for direct `import type { X }`) ─────
+// Point to Anthropic namespace members; one-way references, no cycles.
 
 export type TextBlockParam = Anthropic.TextBlockParam;
 export type ImageBlockParam = Anthropic.ImageBlockParam;
@@ -874,8 +874,8 @@ export type SdkFetch = Anthropic.SdkFetch;
 export type ClientOptions = Anthropic.ClientOptions;
 export type ToolInputSchemaLocal = ToolInputSchema;
 
-// AnthropicDefault：默认导出别名，复用 Anthropic 命名空间（值+类型）。
-// 旧代码以 import { default as AnthropicDefault } 引入客户端实例类型并做点式访问；
-// SDK 移除后客户端实例类型由 LlmClient 取代，命名空间成员访问仍走 Anthropic。
-// 用 export = 表达"既是值又是类型"，让 import { AnthropicDefault } 可同时作命名空间与类型。
+// AnthropicDefault: default-export alias reusing the Anthropic namespace (value + types).
+// Legacy code used `import { default as AnthropicDefault }` to get the client instance type and access it dot-style;
+// after SDK removal the client instance type is replaced by LlmClient, while namespace member access still goes through Anthropic.
+// `export =`-style semantics are expressed so that `import { AnthropicDefault }` works as both namespace and type.
 export { Anthropic as default, Anthropic as AnthropicDefault };

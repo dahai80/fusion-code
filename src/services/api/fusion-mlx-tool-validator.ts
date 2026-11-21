@@ -1,13 +1,13 @@
 /**
- * fusion-mlx 工具调用校验器
+ * fusion-mlx tool-call validator
  *
- * 在客户端侧消灭工具调用 JSON 解析失败：
- * 1. cleanSchema：清洗工具 Schema，移除本地模型易出错的复杂嵌套
- * 2. validateToolCall：强校验模型返回的工具调用结果
- * 3. repairToolCall：尝试修复常见的格式错误
+ * Eliminates tool-call JSON parse failures on the client side:
+ * 1. cleanSchema: sanitizes tool schemas, removing complex nesting that trips up local models
+ * 2. validateToolCall: strictly validates tool-call results returned by the model
+ * 3. repairToolCall: attempts to repair common format errors
  */
 
-/** 清洗单个工具的 inputSchema，移除不规范的字段 */
+/** Sanitize a single tool's inputSchema, removing malformed fields */
 export function cleanSchema(schema: unknown): Record<string, unknown> {
 	if (typeof schema !== "object" || schema === null) {
 		return { type: "object", properties: {} };
@@ -36,7 +36,7 @@ export function cleanSchema(schema: unknown): Record<string, unknown> {
 	return cleaned;
 }
 
-/** 递归清洗 properties 对象 */
+/** Recursively sanitize a properties object */
 function cleanProperties(
 	props: Record<string, unknown>,
 ): Record<string, unknown> {
@@ -64,7 +64,7 @@ function cleanProperties(
 				(r: unknown) => typeof r === "string",
 			);
 		}
-		// 移除 additionalProperties、$schema、default 等本地模型易混淆字段
+		// Remove additionalProperties, $schema, default and other fields that confuse local models
 		result[key] = cleaned;
 	}
 	return result;
@@ -74,7 +74,7 @@ function cleanProperties(
 const MLX_MAX_DESCRIPTION_LENGTH = 200;
 const MLX_MAX_PROPERTY_DESCRIPTION_LENGTH = 80;
 
-/** 批量清洗 Anthropic 工具列表为 MLX 安全格式 */
+/** Batch-sanitize an Anthropic tool list into MLX-safe format */
 export function cleanToolList(tools: unknown[]): unknown[] {
 	if (!Array.isArray(tools)) return [];
 	return tools
@@ -94,29 +94,29 @@ export function cleanToolList(tools: unknown[]): unknown[] {
 		.filter(Boolean);
 }
 
-/** 工具调用结果校验器 */
+/** Tool-call result validator */
 export interface ValidationResult {
 	valid: boolean;
 	error?: string;
 	repaired?: unknown;
 }
 
-/** 校验并尝试修复模型返回的工具调用 JSON */
+/** Validate and attempt to repair the tool-call JSON returned by the model */
 export function validateToolCall(
 	rawArgs: string,
 	expectedSchema?: unknown,
 ): ValidationResult {
 	if (!rawArgs || typeof rawArgs !== "string") {
-		return { valid: false, error: "工具参数为空" };
+		return { valid: false, error: "tool arguments are empty" };
 	}
 
-	// 尝试直接 JSON.parse
+	// Try direct JSON.parse
 	let parsed: unknown;
 	let wasRepaired = false;
 	try {
 		parsed = JSON.parse(rawArgs);
 	} catch (e) {
-		// JSON 解析失败，尝试修复常见错误
+		// JSON parse failed; try repairing common errors
 		const repaired = repairJson(rawArgs);
 		if (repaired !== null) {
 			try {
@@ -125,11 +125,14 @@ export function validateToolCall(
 			} catch {
 				return {
 					valid: false,
-					error: `JSON 解析失败: ${(e as Error).message}`,
+					error: `JSON parse failed: ${(e as Error).message}`,
 				};
 			}
 		} else {
-			return { valid: false, error: `JSON 解析失败: ${(e as Error).message}` };
+			return {
+				valid: false,
+				error: `JSON parse failed: ${(e as Error).message}`,
+			};
 		}
 	}
 
@@ -192,21 +195,21 @@ export function validateToolCall(
 	}
 
 	if (wasRepaired) {
-		return { valid: true, repaired: parsed, error: "已自动修复" };
+		return { valid: true, repaired: parsed, error: "auto-repaired" };
 	}
 	return { valid: true, repaired: parsed };
 }
 
-/** 修复模型常见的 JSON 格式错误 */
+/** Repair common JSON format errors from the model */
 function repairJson(raw: string): string | null {
 	let s = raw.trim();
 
-	// 1. 移除前后的 markdown 代码块标记
+	// 1. Strip leading/trailing markdown code fence markers
 	const fenceOpen = /^```(?:json)?\s*/i;
 	const fenceClose = /\s*```$/i;
 	s = s.replace(fenceOpen, "").replace(fenceClose, "");
 
-	// 2. 补全缺失的结尾括号
+	// 2. Complete missing closing brackets
 	const openBraces = (s.match(/\{/g) || []).length;
 	const closeBraces = (s.match(/\}/g) || []).length;
 	if (openBraces > closeBraces) {
@@ -218,20 +221,20 @@ function repairJson(raw: string): string | null {
 		s += "]";
 	}
 
-	// 3. 修复未引用的字符串值（关键字后跟逗号或右括号）
+	// 3. Repair unquoted string values (keyword followed by comma or closing bracket)
 	const unquotedValue = /:\s*([a-zA-Z_][a-zA-Z0-9_]*)\s([,}\]])/g;
 	s = s.replace(unquotedValue, ': "$1"$2');
 	const unquotedValueEnd = /:\s*([a-zA-Z_][a-zA-Z0-9_]*)$/g;
 	s = s.replace(unquotedValueEnd, ': "$1"');
 
-	// 4. 移除尾部多余的逗号
+	// 4. Remove trailing commas
 	const trailingComma = /,\s*([}\]])/g;
 	s = s.replace(trailingComma, "$1");
 
-	// 5. 修复单引号为双引号
+	// 5. Convert single quotes to double quotes
 	s = s.replace(/'/g, '"');
 
-	// 6. 处理被截断的 JSON（从最后一个完整的 key-value 对截断并补全）
+	// 6. Handle truncated JSON (truncate at the last complete key-value pair and close it)
 	if (s.includes("{") && !s.endsWith("}") && !s.endsWith("]")) {
 		const lastComma = s.lastIndexOf(",");
 		const lastColonStr = s.lastIndexOf(': "');

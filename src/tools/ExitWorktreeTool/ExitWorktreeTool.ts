@@ -97,10 +97,10 @@ async function countWorktreeChanges(
 		return null;
 	}
 
-	// P3-12: 校验 originalHeadCommit 为 40 字符 hex SHA 再插 git rev-list range。
-	// 畸形 (损坏 sessionStorage/手编 state) 时 git 失败返 null (fail-closed 安全偶然),
-	// 但未校验存储值插 git range 表达式脆弱 — execFileNoThrow 数组参无注入, 但
-	// rev-list 语义可能误计。校验后插, 畸形 → null (同 fail-closed 语义)。
+	// P3-12: validate originalHeadCommit as a 40-char hex SHA before interpolating into the git rev-list range.
+	// With a malformed value (corrupted sessionStorage/hand-edited state), git failing returns null (accidentally fail-closed),
+	// but interpolating an unvalidated stored value into a git range expression is fragile — execFileNoThrow's array args
+	// prevent injection, yet the rev-list semantics could miscount. Validate first, then interpolate; malformed → null (same fail-closed semantics).
 	if (!/^[0-9a-f]{40}$/.test(originalHeadCommit)) {
 		return null;
 	}

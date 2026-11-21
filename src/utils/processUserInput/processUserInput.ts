@@ -63,10 +63,10 @@ import {
 import { processTextPrompt } from "./processTextPrompt.js";
 
 /* eslint-disable @typescript-eslint/no-require-imports */
-// fusion-memory retrieve half: 召回跨会话长期记忆注入本轮。无条件 require (无
-// feature() 门控, 与 stopHooks.ts commit 半边 memoryCommitModule 同惯例)。
-// retrieveMemorySection 内部 fail-empty: API key 未配置 / subagent / 空输入
-// 立即返 "" (无 fetch), 热路径零开销。
+// fusion-memory retrieve half: recalls cross-session long-term memory and injects it into this turn. Unconditional require (no
+// feature() gating, same convention as the stopHooks.ts commit-half memoryCommitModule).
+// retrieveMemorySection is internally fail-empty: API key not configured / subagent / empty input
+// returns "" immediately (no fetch), zero overhead on the hot path.
 const memoryRetrieveModule =
 	require("../../services/memory/index.js") as typeof import("../../services/memory/index.js");
 /* eslint-enable @typescript-eslint/no-require-imports */
@@ -277,15 +277,15 @@ export async function processUserInput({
 	}
 	queryCheckpoint("query_hooks_end");
 
-	// fusion-memory: 召回跨会话长期记忆注入本轮 (主 agent only, 与 commit 半边
-	// 守卫一致)。AWAIT (非 fire-and-forget) — 调用方在 await processUserInput 后
-	// 同步读取 result.messages (handlePromptSubmit / QueryEngine push
-	// ...result.messages), fire-and-forget 的 .then 在 return 之后才触发 → 注入
-	// 丢失。故必须 await。fail-empty: API key 未配置 / subagent / 空输入 →
-	// retrieveMemorySection 立即返 "" (无 fetch)。
+	// fusion-memory: recalls cross-session long-term memory and injects it into this turn (main agent only, guards
+	// consistent with the commit half). AWAIT (not fire-and-forget) — the caller synchronously reads
+	// result.messages after awaiting processUserInput (handlePromptSubmit / QueryEngine push
+	// ...result.messages); a fire-and-forget .then would only fire after the return -> the injection
+	// would be lost. Hence the await is mandatory. fail-empty: API key not configured / subagent / empty input ->
+	// retrieveMemorySection returns "" immediately (no fetch).
 	if (!context.agentId && result.shouldQuery && inputMessage) {
-		// #219: 每 turn 触发一次探活 (内部守卫: 已连通/近期已探不重复, 2s 超时)。
-		// fire-and-forget — 探活不阻塞输入处理, 状态异步落 StatusNotices/日志/audit。
+		// #219: fires a liveness probe once per turn (internal guards: skip if already connected/probed recently, 2s timeout).
+		// fire-and-forget — the probe does not block input processing; state lands asynchronously in StatusNotices/logs/audit.
 		void memoryRetrieveModule
 			.probeMemoryPipeline(getSessionId())
 			.catch(() => {});

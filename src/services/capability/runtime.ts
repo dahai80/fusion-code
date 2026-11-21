@@ -1,23 +1,31 @@
-// P5.5 能力清单 (Typert 类型图) — 运行期门控 (enhance-0819.md §D.7 P5.5)。
+// P5.5 capability manifest (Typert type graph) — runtime gating
+// (enhance-0819.md §D.7 P5.5).
 //
-// 评估而非照搬: 仅落地「从工具/技能/插件定义生成类型图」的纯导出函数 +
-// fast-path 子命令。RPC 网关远程控制面 (安全面) 显式 defer。
-// 双门禁: feature("CAPABILITY_MANIFEST") 编译期 (cli.tsx 内 if) +
-// FUSION_CODE_CAPABILITY_MANIFEST_ENABLED=1 运行期 (此处 + cli handler)。
-// 默认 off → byte-identical, 零运行时影响。
+// Evaluated rather than copied: only ship the pure export function that
+// builds the type graph from tool/skill/plugin definitions + the fast-path
+// subcommand. The RPC-gateway remote control plane (security surface) is
+// explicitly deferred.
+// Double gate: feature("CAPABILITY_MANIFEST") at compile time (if inside
+// cli.tsx) + FUSION_CODE_CAPABILITY_MANIFEST_ENABLED=1 at runtime (here +
+// cli handler).
+// Default off -> byte-identical, zero runtime impact.
 
 export function isCapabilityManifestEnabled(): boolean {
 	return process.env.FUSION_CODE_CAPABILITY_MANIFEST_ENABLED === "1";
 }
 
-// 清单导出选项 (注入 cwd + 时间戳, 便于单测 + 避免在纯函数内取环境)。
+// Manifest export options (inject cwd + timestamp, easing unit tests and
+// avoiding environment access inside the pure function).
 export interface CapabilityManifestOptions {
 	cwd: string;
-	// 调用方传入时间戳 (ISO), 纯函数不自己取 Date — 便于测试确定性。
+	// Caller supplies the timestamp (ISO); the pure function never reads
+	// Date itself — keeps tests deterministic.
 	generatedAt?: string;
-	// 是否包含技能/插件 (默认 true; 关闭则只导出工具, 降体积)。
+	// Whether to include skills/plugins (default true; turning it off exports
+	// tools only, reducing size).
 	includeSkills?: boolean;
 	includePlugins?: boolean;
-	// 是否序列化 inputSchema (JSON Schema); 默认 true。关闭则只导出名称图, 极简。
+	// Whether to serialize inputSchema (JSON Schema); default true. When off,
+	// only the name graph is exported, minimal.
 	includeSchemas?: boolean;
 }

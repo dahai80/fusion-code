@@ -69,7 +69,7 @@ export async function performBackgroundPluginInstallations(
 		const materialized = (await loadKnownMarketplacesConfig().catch(
 			() => ({}),
 		)) as KnownMarketplacesFile; // log: cast to KnownMarketplacesFile for diffMarketplaces
-		// biome-ignore lint/suspicious/noExplicitAny: KnownMarketplacesFile 联合类型与 diffMarketplaces 参数签名不完全对齐, 定向透传
+		// biome-ignore lint/suspicious/noExplicitAny: KnownMarketplacesFile union type doesn't fully align with diffMarketplaces' parameter signature, targeted pass-through
 		const diff = diffMarketplaces(declared, materialized as any);
 
 		const pendingNames = [

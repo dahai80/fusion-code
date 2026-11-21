@@ -27,9 +27,10 @@ const MAX_RETRIES_FOR_TRANSIENT_ERRORS = 3;
  */
 const RETRY_BASE_DELAY_MS = 500;
 
-// P1-17: 默认超时安全网。config.startupTimeout/requestTimeout 未设 (undefined) 时
-// initialize 与每请求可永挂 — 行为不端的 LSP server spawn 成功但不响应 initialize,
-// 或后续请求无回包, 拖垮整个会话 LSP 子系统。显式配置仍优先 (用户调大)。
+// P1-17: default timeout safety net. When config.startupTimeout/requestTimeout is unset (undefined),
+// initialize and per-request calls can hang forever — a misbehaving LSP server can spawn successfully
+// but never respond to initialize, or never reply to later requests, dragging down the whole session's
+// LSP subsystem. Explicit configuration still wins (user-set larger values).
 const DEFAULT_STARTUP_TIMEOUT_MS = 30_000;
 const DEFAULT_REQUEST_TIMEOUT_MS = 10_000;
 /**
@@ -243,7 +244,7 @@ export function createLSPServerInstance(
 			};
 
 			initPromise = client.initialize(initParams);
-			// P1-17: 默认 startupTimeout (30s) 防止 initialize 永挂。
+			// P1-17: default startupTimeout (30s) prevents initialize from hanging forever.
 			const startupTimeoutMs =
 				config.startupTimeout ?? DEFAULT_STARTUP_TIMEOUT_MS;
 			await withTimeout(
@@ -376,8 +377,8 @@ export function createLSPServerInstance(
 			attempt++
 		) {
 			try {
-				// P1-17: 默认 requestTimeout (10s) 防止单请求永挂拖垮会话。
-				// 用户 config.requestTimeout 未设 → DEFAULT_REQUEST_TIMEOUT_MS。
+				// P1-17: default requestTimeout (10s) prevents a single hanging request from dragging down the session.
+				// User config.requestTimeout unset → DEFAULT_REQUEST_TIMEOUT_MS.
 				const requestTimeoutMs =
 					config.requestTimeout ?? DEFAULT_REQUEST_TIMEOUT_MS;
 				return await withTimeout(

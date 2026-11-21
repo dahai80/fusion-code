@@ -1,11 +1,11 @@
 /**
- * Fusion-MLX 适配器
+ * Fusion-MLX adapter
  *
- * 将 fusion-code 的 AI 调用从 Anthropic SDK 切换到 fusion-mlx 本地推理引擎。
- * 为上层代码提供兼容 Anthropic Messages API 的接口。
+ * Switches fusion-code's AI calls from the Anthropic SDK to the fusion-mlx local inference engine.
+ * Provides upper-layer code with an interface compatible with the Anthropic Messages API.
  *
- * fusion-mlx 通过 gateway 运行在 127.0.0.1:11432，兼容 OpenAI /v1/chat/completions 格式。
- * 本适配器在内部做格式转换，外部保持与现有代码兼容。
+ * fusion-mlx runs through the gateway at 127.0.0.1:11432, compatible with the OpenAI /v1/chat/completions format.
+ * This adapter does the format conversion internally while remaining externally compatible with existing code.
  */
 
 import { logForDebugging } from "../../utils/debug.js";
@@ -38,8 +38,8 @@ import type {
 // ─── Configuration ────────────────────────────────────────────
 
 const DEFAULT_MLX_BASE_URL = "http://127.0.0.1:11432";
-// fusion-mlx route_guard (#343/#349) Phase 2 默认 enforce: 缺失 X-Fusion-Route 头的请求被 403 拒绝。
-// gateway 会注入此头;fusion-code 直连或经 gateway 转发时也须自身携带。值可经 FUSION_ROUTE_HEADER 覆盖。
+// fusion-mlx route_guard (#343/#349) Phase 2 enforce by default: requests missing the X-Fusion-Route header are rejected with 403.
+// The gateway injects this header; fusion-code must also carry it itself when connecting directly or forwarding through the gateway. The value can be overridden via FUSION_ROUTE_HEADER.
 const DEFAULT_FUSION_ROUTE_HEADER = "local";
 const DEFAULT_WARMUP_TIMEOUT_MS = 60_000; // 60s for first inference (model loading)
 const DEFAULT_STREAM_TIMEOUT_MS = 300_000; // 5 min for streaming
@@ -49,10 +49,10 @@ const MAX_RETRIES = 1; // retry once on connection failure
 const MLX_MAX_TOKENS_ESCALATION_FACTOR = 2; // double max_tokens on escalation
 
 // ─── Concurrency Semaphore (audit 0905 P0-B) ─────────────────
-// audit 0905 P0-B: MLX 单推理槽, 但客户端无并发闸 → 20 subagent 并发 20 请求
-// 轰入 127.0.0.1:11432, 其余在 OS socket 排队或被拒, 连接失败触发 MAX_RETRIES=1
-// 重试 = 请求率翻倍 thundering herd。semaphore 限并发, 超限排队 (backpressure)。
-// 默认 2 (MLX 可服务 1-2 并发); FUSION_MLX_MAX_CONCURRENT=0 = 无上限 (byte-identical 旧行为)。
+// audit 0905 P0-B: MLX has a single inference slot, but the client had no concurrency gate → 20 subagents firing 20 concurrent
+// requests into 127.0.0.1:11432, the rest queuing in OS sockets or rejected, and connection failures trigger MAX_RETRIES=1
+// retries = doubled request rate, a thundering herd. The semaphore caps concurrency; excess requests queue (backpressure).
+// Default 2 (MLX can serve 1-2 concurrent); FUSION_MLX_MAX_CONCURRENT=0 = no limit (byte-identical old behavior).
 const DEFAULT_MLX_MAX_CONCURRENT = 2;
 
 function mlxMaxConcurrent(): number {
@@ -295,10 +295,10 @@ function isAllowedMlxHostname(hostname: string): boolean {
 	return false;
 }
 
-// PERF-4 (0903 P3): base URL 是 env 派生、进程内不可变,但 getMlxApiUrl /
-// isGatewayBaseUrl / getMlxAuthHeaders 每次请求各自调用,导致 new URL() 解析
-// + isAllowedMlxHostname 正则每请求重复 2-3 次。首次解析后缓存(与 _cachedMlxApiKey
-// 同模式);安全告警仅首调发出一次。
+// PERF-4 (0903 P3): the base URL is env-derived and immutable within the process, but getMlxApiUrl /
+// isGatewayBaseUrl / getMlxAuthHeaders are each called per request, causing new URL() parsing
+// + the isAllowedMlxHostname regex to repeat 2-3 times per request. Cache after the first parse (same pattern as _cachedMlxApiKey);
+// the security warning is emitted only once, on the first call.
 let _cachedMlxBaseUrl: string | null = null;
 let _cachedMlxBaseUrlSource = "default";
 function getMlxBaseUrl(): string {
@@ -318,9 +318,9 @@ function getMlxBaseUrl(): string {
 	try {
 		const parsed = new URL(url);
 		if (!isAllowedMlxHostname(parsed.hostname)) {
-			// 用户显式配置远程/公网 fusion-mlx(出差、远程连接、公网大模型回退)时,尊重该配置:
-			// 不再强制回退 localhost,仅记录醒目安全告警。云路径 ANTHROPIC_BASE_URL 本就无此
-			// 限制且已可指向公网,此处保持一致;MLX 优化特性仍按 provider 维度生效,不为公网单独优化。
+			// When the user explicitly configures a remote/public fusion-mlx (traveling, remote connection, public large-model fallback), respect that config:
+			// no longer force a localhost fallback, just log a prominent security warning. The cloud path ANTHROPIC_BASE_URL never had this
+			// restriction and can already point to the public internet, so stay consistent here; MLX optimization features still apply per provider, with no special tuning for public endpoints.
 			const msg =
 				`[Fusion-MLX] SECURITY: Base URL hostname "${parsed.hostname}" is not a local address. ` +
 				`All conversation data will be sent to this external server. ` +
@@ -357,26 +357,26 @@ function toMlxModelName(model: string): string {
 	return model.replace(/\//g, "--");
 }
 
-// fusion-mlx 支持可选 API key 鉴权(见 fusion_mlx/middleware/auth.py:
-// _verify_api_key_values 在配置了 api_key 后校验 Authorization: Bearer / x-api-key,
-// 未配置时 anonymous allowed)。配置后不带凭据的请求会被 401 拒绝。
+// fusion-mlx supports optional API key auth (see fusion_mlx/middleware/auth.py:
+// _verify_api_key_values validates Authorization: Bearer / x-api-key once api_key is configured,
+// anonymous allowed when unconfigured). Once configured, requests without credentials are rejected with 401.
 //
-// 鉴权收敛 (endpoint 统一语义, #226): FUSION_CLIENT_KEY 是唯一规范凭证 — 无论
-// endpoint 是云端还是本地推理服务, 同一套配置 (FUSION_AUTH_TOKEN 为等价
-// 别名)。历史 gateway 专用 key (FUSION_GATEWAY_API_KEY / GATEWAY_API_KEY)
-// 保留为兼容回退, 命中时打一次弃用告警 (#221)。引擎专用 env 别名
-// (legacy mlx key 名, #226 移除) 不再读取, 引擎层仅剩
-// ~/.fusion-mlx/settings.json 回退 — 别名兼容是 fusion-core 的职责, 本仓不保留链。
+// Auth consolidation (endpoint-unified semantics, #226): FUSION_CLIENT_KEY is the single canonical credential — regardless
+// of whether the endpoint is cloud or local inference, one shared config (FUSION_AUTH_TOKEN is the equivalent
+// alias). Historical gateway-specific keys (FUSION_GATEWAY_API_KEY / GATEWAY_API_KEY)
+// remain as compatibility fallbacks, emitting a one-time deprecation warning on hit (#221). Engine-specific env aliases
+// (legacy mlx key names, removed in #226) are no longer read; the engine layer keeps only
+// the ~/.fusion-mlx/settings.json fallback — alias compatibility is fusion-core's responsibility, this repo keeps no chain.
 //
-// #221 云凭证隔离: ANTHROPIC_API_KEY / ANTHROPIC_AUTH_TOKEN 是云端 proxy
-// 凭证, 不得参与本地鉴权链 — 残留在 shell env 的云 token 打本地 gateway
-// 直接 401 (live repro)。仅显式 FUSION_ALLOW_ANTHROPIC_TOKEN_LOCAL=1 时
-// 允许 (同 shell 云+本地双栈场景)。
+// #221 cloud credential isolation: ANTHROPIC_API_KEY / ANTHROPIC_AUTH_TOKEN are cloud proxy
+// credentials and must not join the local auth chain — a cloud token left in the shell env hitting the local gateway
+// gets a direct 401 (live repro). Allowed only with explicit FUSION_ALLOW_ANTHROPIC_TOKEN_LOCAL=1
+// (same-shell cloud+local dual-stack scenario).
 //
-// 另: fusion-mlx route_guard (#343/#349) Phase 2 默认 enforce,缺失 X-Fusion-Route 头
-// 的请求被 403 拒绝。此处统一注入,值可经 FUSION_ROUTE_HEADER 覆盖。
+// Also: fusion-mlx route_guard (#343/#349) Phase 2 enforce by default, requests missing the X-Fusion-Route header
+// are rejected with 403. Injected uniformly here; the value can be overridden via FUSION_ROUTE_HEADER.
 
-// #221: 凭证名弃用告警 — 每个别名每会话只打一次
+// #221: credential-name deprecation warning — logged once per alias per session
 const _warnedAliasKeys = new Set<string>();
 function warnDeprecatedKeyAlias(name: string): void {
 	if (_warnedAliasKeys.has(name)) return;
@@ -402,7 +402,7 @@ export interface MlxCredentialResolution {
 	name: string;
 }
 
-// 本地引擎侧凭证链 (#226: legacy env 别名已移除, 仅剩 settings.json 回退)
+// Local engine-side credential chain (#226: legacy env aliases removed, only the settings.json fallback remains)
 function resolveMlxEngineCredential(): MlxCredentialResolution {
 	const fromSettings = getMlxApiKey();
 	return {
@@ -411,7 +411,7 @@ function resolveMlxEngineCredential(): MlxCredentialResolution {
 	};
 }
 
-// 完整本地模式凭证解析 (gateway 层 → engine 层), 供鉴权头 + 调试日志共用。
+// Full local-mode credential resolution (gateway layer → engine layer), shared by auth headers + debug logging.
 export function resolveMlxCredential(): MlxCredentialResolution {
 	if (process.env.FUSION_CLIENT_KEY) {
 		return { value: process.env.FUSION_CLIENT_KEY, name: "FUSION_CLIENT_KEY" };
@@ -419,7 +419,7 @@ export function resolveMlxCredential(): MlxCredentialResolution {
 	if (process.env.FUSION_AUTH_TOKEN) {
 		return { value: process.env.FUSION_AUTH_TOKEN, name: "FUSION_AUTH_TOKEN" };
 	}
-	// #221: 云端凭证默认不参与本地链; 显式 opt-in 才放行
+	// #221: cloud credentials stay out of the local chain by default; admitted only on explicit opt-in
 	if (process.env.FUSION_ALLOW_ANTHROPIC_TOKEN_LOCAL === "1") {
 		if (process.env.ANTHROPIC_API_KEY) {
 			return {
@@ -449,12 +449,12 @@ export function resolveMlxCredential(): MlxCredentialResolution {
 			return { value: legacyGwKey, name: "GATEWAY_API_KEY (deprecated)" };
 		}
 	}
-	// gateway 未配 key → 复用 engine key (单机部署常共用)
+	// gateway has no key configured → reuse the engine key (single-machine deployments usually share it)
 	return resolveMlxEngineCredential();
 }
 
-// #221 req 4: 启动调试行 — provider / base URL / 凭证名 (永不打值)。
-// 首次实际发请求时打一条, 避免冷启动额外开销。
+// #221 req 4: startup debug line — provider / base URL / credential name (value never logged).
+// Logged once when the first real request is sent, avoiding cold-start overhead.
 let _authDebugLogged = false;
 function logAuthResolutionOnce(cred: MlxCredentialResolution): void {
 	if (_authDebugLogged) return;
@@ -477,13 +477,13 @@ function getMlxAuthHeaders(): Record<string, string> {
 	return headers;
 }
 
-// 判断当前 base URL 是否指向 gateway (默认 11432) 而非 MLX 直连 (11434)。
+// Decides whether the current base URL points at the gateway (default 11432) rather than MLX direct (11434).
 function isGatewayBaseUrl(): boolean {
 	try {
 		const parsed = new URL(getMlxBaseUrl());
 		return parsed.port === "11432";
 	} catch {
-		return true; // 默认 base URL 即 gateway
+		return true; // the default base URL is the gateway
 	}
 }
 
@@ -528,7 +528,7 @@ function getMlxTimeout(streaming: boolean): number {
 /**
  * Fetch with retry on connection failure.
  * Local MLX may be still warming up (loading model weights) on first call.
- * audit 0905 P0-B: 外层 acquire/release 信号量限并发; 内部递归重试不重入信号量。
+ * audit 0905 P0-B: the outer acquire/release semaphore caps concurrency; internal recursive retries do not re-enter the semaphore.
  */
 async function mlxFetchWithRetry(
 	url: string,
@@ -571,9 +571,9 @@ async function mlxFetchWithRetryInner(
 	);
 
 	try {
-		// P3-9: 残留 debug console.error 删 — 每 MLX 请求触发, 打全 URL (某些配置
-		// 带 auth 查询参数) + status 到 stderr, 污染 WS chat handler 管到客户端。
-		// 改 logForDebugging + FUSION_CODE_DEBUG_MLX_FETCH 门控, 默认静默。
+		// P3-9: removed the leftover debug console.error — fired on every MLX request, printing the full URL (some configs
+		// carry auth query params) + status to stderr, leaking through the WS chat handler to the client.
+		// Replaced with logForDebugging + the FUSION_CODE_DEBUG_MLX_FETCH gate, silent by default.
 		if (isEnvTruthy(process.env.FUSION_CODE_DEBUG_MLX_FETCH)) {
 			logForDebugging(
 				`mlx fetch: origFetch===globalThis.fetch? ${getOriginalFetch() === globalThis.fetch}`,
@@ -588,27 +588,32 @@ async function mlxFetchWithRetryInner(
 		} else if (response.status >= 500) {
 			mlxApiCircuit.recordFailure();
 		} else if (response.status === 401 || response.status === 403) {
-			// 鉴权/路由头失败不重试 (非连接错误),输出明确诊断 (issue #52 D2)。
-			// 401: key 层级错配或 key 错误;403: X-Fusion-Route 头缺失被 route_guard 拒绝。
+			// Auth/route header failures are not retried (not connection errors); emit a clear diagnosis (issue #52 D2).
+			// 401: key tier mismatch or wrong key; 403: missing X-Fusion-Route header rejected by route_guard.
 			const layer = isGatewayBaseUrl() ? "gateway" : "MLX";
 			const hint =
 				response.status === 401
-					? `鉴权失败 (${layer} 层)。请优先检查 FUSION_CLIENT_KEY / FUSION_AUTH_TOKEN 是否匹配该 endpoint 的鉴权配置；历史 gateway 专用 key (FUSION_GATEWAY_API_KEY 匹配 fusion-gateway config.yaml 的 auth.api_keys) 仍作为回退被读取, 引擎侧回退 ~/.fusion-mlx/settings.json auth.api_key`
-					: `route_guard 拒绝 (X-Fusion-Route 头缺失或值不被接受)。当前头: X-Fusion-Route=${process.env.FUSION_ROUTE_HEADER || DEFAULT_FUSION_ROUTE_HEADER}`;
+					? `Auth failed (${layer} layer). Check first whether FUSION_CLIENT_KEY / FUSION_AUTH_TOKEN matches the endpoint's auth config; historical gateway-specific keys (FUSION_GATEWAY_API_KEY matching fusion-gateway config.yaml auth.api_keys) are still read as fallback, engine-side fallback ~/.fusion-mlx/settings.json auth.api_key`
+					: `route_guard rejection (X-Fusion-Route header missing or value not accepted). Current header: X-Fusion-Route=${process.env.FUSION_ROUTE_HEADER || DEFAULT_FUSION_ROUTE_HEADER}`;
 			// ERR-3 (0903 P3): auth/route failure must be observable in production.
 			// logForDebugging is gated by debug-mode (shouldLogDebugMessage returns
 			// false for non-ant + debug off), so the 401/403 diagnostic was silent
 			// in prod — a fail-open gap. Mirror getMlxBaseUrl's security-warn shape:
 			// console.error (always visible) + logForDebugging (debug capture).
-			console.error(`[Fusion-MLX] 请求被 ${response.status} 拒绝 — ${hint}`);
-			logForDebugging(`[Fusion-MLX] 请求被 ${response.status} 拒绝 — ${hint}`, {
-				level: "warn",
-			});
+			console.error(
+				`[Fusion-MLX] request rejected with ${response.status} — ${hint}`,
+			);
+			logForDebugging(
+				`[Fusion-MLX] request rejected with ${response.status} — ${hint}`,
+				{
+					level: "warn",
+				},
+			);
 		}
 		return response;
 	} catch (error) {
 		const err = error as Error;
-		// 用户主动中断(ESC):不重试,立即抛出,让上层 withRetry 转为 APIUserAbortError
+		// User-initiated interrupt (ESC): no retry, throw immediately so the upper-layer withRetry converts it to APIUserAbortError
 		if (init.signal?.aborted) {
 			logForDebugging("[Fusion-MLX] Request aborted by user, not retrying");
 			throw error;
@@ -627,9 +632,9 @@ async function mlxFetchWithRetryInner(
 
 		if (retries <= 0 || !isConnectionError) throw error;
 
-		// audit 2.2.3: 3s 固定延迟加 jitter。N 个并发实例连接失败同步重试 = 惊群,
-		// 对共享 MLX 服务瞬时冲击叠加。与 withRetry.getRetryDelay 同形: baseDelay 的
-		// 25% 随机抖动, 3000±750ms。jitter 解耦并发重试时序。
+		// audit 2.2.3: 3s fixed delay plus jitter. N concurrent instances synchronously retrying on connection failure = a thundering herd,
+		// stacking transient impact on the shared MLX service. Same shape as withRetry.getRetryDelay: 25% random jitter of baseDelay,
+		// 3000±750ms. Jitter decouples the timing of concurrent retries.
 		const baseDelay = 3000;
 		const jitter = Math.random() * 0.25 * baseDelay;
 		const retryDelay = Math.round(baseDelay + jitter);
@@ -637,10 +642,10 @@ async function mlxFetchWithRetryInner(
 			`[Fusion-MLX] Connection failed, retrying in ${retryDelay}ms (retries left: ${retries}): ${err.message}`,
 		);
 
-		// 延迟期间监听用户中断,ESC 立即生效而非等满
-		// P3-1 (audit 0901): timer 正常 resolve 时 abort 监听器不自动移除 ({ once:true }
-		// 仅 abort 触发时自移除) → 复用/长寿命 signal 每 retry 累一监听器 + 闭包, O(n) 泄漏
-		// 至 signal GC。holder + finally removeEventListener 清理 (abort 已触发路径 no-op)。
+		// Listen for user interrupts during the delay so ESC takes effect immediately instead of waiting out the full delay.
+		// P3-1 (audit 0901): when the timer resolves normally the abort listener is not auto-removed ({ once:true }
+		// self-removes only when abort fires) → reused/long-lived signals accumulate one listener + closure per retry, O(n) leak
+		// until signal GC. holder + finally removeEventListener clean up (no-op on the already-aborted path).
 		const promiseHolder: { onAbort?: () => void } = {};
 		await new Promise<void>((resolve, reject) => {
 			const timer = setTimeout(resolve, retryDelay);
@@ -659,10 +664,10 @@ async function mlxFetchWithRetryInner(
 			}
 		});
 
-		// 重试前再次检查用户是否已中断
+		// Re-check whether the user has interrupted before retrying
 		if (init.signal?.aborted) throw error;
 
-		// 组合原 signal(保留用户 abort 能力)+ timeout(防卡死)
+		// Combine the original signal (preserving user abort capability) + timeout (prevents hangs)
 		const retryInit = {
 			...init,
 			signal: init.signal
@@ -696,8 +701,8 @@ export interface FusionMlxStatus {
 }
 
 /**
- * 检测 fusion-mlx 服务是否可用。
- * 通过调用 /v1/models 端点检测（兼容不支持 /v1/health 的 MLX 服务）。
+ * Detects whether the fusion-mlx service is available.
+ * Probes by calling the /v1/models endpoint (compatible with MLX services that lack /v1/health).
  */
 export async function checkFusionMlxHealth(): Promise<FusionMlxStatus> {
 	try {
@@ -708,14 +713,14 @@ export async function checkFusionMlxHealth(): Promise<FusionMlxStatus> {
 		});
 
 		if (!response.ok) {
-			// 401 = 服务在运行但鉴权失败 (key 层级错配或 key 错误,见 issue #52)。
-			// 403 = route_guard Phase 2 enforce 拒绝 (缺失 X-Fusion-Route 头)。
-			// 两者都意味着服务在运行,但 fusion-code 侧配置需修正,仍记为 available
-			// 但输出明确诊断引导,而非静默误判。
+			// 401 = service is running but auth failed (key tier mismatch or wrong key, see issue #52).
+			// 403 = route_guard Phase 2 enforce rejection (missing X-Fusion-Route header).
+			// Both mean the service is running but the fusion-code-side config needs fixing; still recorded as available
+			// but with explicit diagnostic guidance, rather than a silent misjudgment.
 			if (response.status === 401) {
 				const hint = isGatewayBaseUrl()
-					? "gateway 层鉴权失败。请优先检查 FUSION_CLIENT_KEY / FUSION_AUTH_TOKEN 是否匹配该 endpoint 的鉴权配置；历史专用 key FUSION_GATEWAY_API_KEY (匹配 fusion-gateway config.yaml 的 auth.api_keys) 仍作为回退被读取"
-					: "MLX 层鉴权失败。请优先检查 FUSION_CLIENT_KEY / FUSION_AUTH_TOKEN；引擎侧回退 ~/.fusion-mlx/settings.json 的 auth.api_key (#226: legacy env 别名已移除)";
+					? "gateway-layer auth failed. Check first whether FUSION_CLIENT_KEY / FUSION_AUTH_TOKEN matches the endpoint's auth config; the dedicated historical key FUSION_GATEWAY_API_KEY (matching fusion-gateway config.yaml auth.api_keys) is still read as fallback"
+					: "MLX-layer auth failed. Check first FUSION_CLIENT_KEY / FUSION_AUTH_TOKEN; engine-side fallback is ~/.fusion-mlx/settings.json auth.api_key (#226: legacy env aliases removed)";
 				logForDebugging(
 					`[Fusion-MLX] Health check got 401 — server running, auth failed. ${hint}`,
 					{ level: "warn" },
@@ -729,7 +734,7 @@ export async function checkFusionMlxHealth(): Promise<FusionMlxStatus> {
 			}
 			if (response.status === 403) {
 				logForDebugging(
-					`[Fusion-MLX] Health check got 403 — route_guard 拒绝 (X-Fusion-Route 头缺失或值不被接受)。当前头: X-Fusion-Route=${process.env.FUSION_ROUTE_HEADER || DEFAULT_FUSION_ROUTE_HEADER}。若 MLX 侧 FUSION_ROUTE_ENFORCE 改为 warn-only 可忽略此 403。`,
+					`[Fusion-MLX] Health check got 403 — route_guard rejection (X-Fusion-Route header missing or value not accepted). Current header: X-Fusion-Route=${process.env.FUSION_ROUTE_HEADER || DEFAULT_FUSION_ROUTE_HEADER}. If MLX-side FUSION_ROUTE_ENFORCE is set to warn-only, this 403 can be ignored.`,
 					{ level: "warn" },
 				);
 				return {
@@ -758,12 +763,12 @@ export async function checkFusionMlxHealth(): Promise<FusionMlxStatus> {
 	}
 }
 
-// fusion-mlx#564 (PR #581): GET /v1/health 只读内存/OOM 状态, management-gated
-// (verify_management_access — 需有效 api_key, loopback 不豁免 #350)。用于
-// /doctor P4.2 #4 主动 OOM 检测 + enhance-0819 item 15 OOM 恢复。
-// 401 = MLX 未配 key (anonymous 部署) 或 key 层级错配 → management 端点不可用,
-//   fail-open 返 null (不阻塞 /doctor, 不误报 OOM)。
-// 网络/超时/非 200 → null fail-open。仅在 MLX provider 时被 detectMlxHealth 调用。
+// fusion-mlx#564 (PR #581): GET /v1/health reads memory/OOM state, management-gated
+// (verify_management_access — requires a valid api_key, loopback not exempt per #350). Used for
+// /doctor P4.2 #4 proactive OOM detection + enhance-0819 item 15 OOM recovery.
+// 401 = MLX has no key configured (anonymous deployment) or key tier mismatch → management endpoint unavailable,
+//   fail-open returns null (does not block /doctor, no false OOM report).
+// Network/timeout/non-200 → null fail-open. Called by detectMlxHealth only on the MLX provider.
 export async function fetchMlxHealth(): Promise<MLXHealthResponse | null> {
 	try {
 		const response = await getOriginalFetch()(getMlxApiUrl("/v1/health"), {
@@ -773,7 +778,7 @@ export async function fetchMlxHealth(): Promise<MLXHealthResponse | null> {
 		});
 		if (!response.ok) {
 			logForDebugging(
-				`[Fusion-MLX] /v1/health returned ${response.status} (management-gated; ${response.status === 401 ? "MLX 未配 key 或 key 层级错配" : "服务端拒绝"}) — OOM 诊断跳过`,
+				`[Fusion-MLX] /v1/health returned ${response.status} (management-gated; ${response.status === 401 ? "MLX has no key configured or key tier mismatch" : "rejected by server"}) — OOM diagnostics skipped`,
 				{ level: "debug" },
 			);
 			return null;
@@ -790,7 +795,7 @@ export async function fetchMlxHealth(): Promise<MLXHealthResponse | null> {
 
 // Post-compact GC for MLX: request fusion-mlx backend to release KV cache
 // Importers: compact.ts (after compactConversation), hardCompact.ts (after hard compact)
-// User instruction: "深度研读 suggest1.md和suggest2.md 制定方案和计划，修复问题，提升fusion-code竞争力"
+// User instruction: "Study suggest1.md and suggest2.md in depth, draw up a plan, fix the issues, and improve fusion-code competitiveness"
 // suggest1.md: "mx.metal.clear_cache() after compact" to prevent memory spike
 // API: POST /api/v1/gc → { mem_before, mem_after, freed }
 export interface MlxGCResult {
@@ -843,7 +848,7 @@ export async function requestMlxGC(): Promise<MlxGCResult> {
 }
 
 /**
- * 获取 fusion-mlx 上可用的模型列表。
+ * Lists the models available on fusion-mlx.
  */
 export async function getFusionMlxModels(): Promise<MLXModelInfo[]> {
 	try {
@@ -868,14 +873,14 @@ export async function getFusionMlxModels(): Promise<MLXModelInfo[]> {
 }
 
 /**
- * 获取推荐用于代码任务的模型 ID。
- * 优先选择代码专用模型，回退到通用模型。
+ * Gets the recommended model ID for code tasks.
+ * Prefers code-specific models, falling back to general models.
  */
 export async function getRecommendedCodeModel(): Promise<string | null> {
 	const models = await getFusionMlxModels();
 	if (models.length === 0) return null;
 
-	// 排除非聊天模型：图片/视频生成、编码器/transformer/vae 等基础组件、base 预训练
+	// Exclude non-chat models: image/video generation, base components like encoders/transformer/vae, base pretrained models
 	const excludeKeywords = [
 		"flux",
 		"skyreels",
@@ -903,26 +908,26 @@ export async function getRecommendedCodeModel(): Promise<string | null> {
 	);
 	if (chatModels.length === 0) return models[0].id;
 
-	// 按 token 切分匹配，避免 'code' 子串误命中 'encoder'（e-n-code-r）
+	// Token-split matching, avoiding the 'code' substring falsely matching 'encoder' (e-n-code-r)
 	const tokensOf = (id: string): string[] =>
 		id
 			.toLowerCase()
 			.split(/[^a-z0-9]+/)
 			.filter(Boolean);
-	// 从 id 估算参数量（十亿），如 32b/1b/0.6b/27b；无法判断返回 0
+	// Estimate parameter count (billions) from the id, e.g. 32b/1b/0.6b/27b; returns 0 when undeterminable
 	const sizeOf = (id: string): number => {
 		const m = id.toLowerCase().match(/(\d+(?:\.\d+)?)\s*b\b/);
 		return m ? parseFloat(m[1]) : 0;
 	};
 
-	// 排除过小模型（≤3B）：无法可靠工具调用，/init 等会输出工具定义而非调用
+	// Exclude models that are too small (≤3B): they cannot do reliable tool calling; /init etc. would emit tool definitions instead of calls
 	const capable = chatModels.filter((m) => {
 		const size = sizeOf(m.id);
 		return size === 0 || size > 3;
 	});
 	const pool = capable.length > 0 ? capable : chatModels;
 
-	// 优先代码专用模型（coder/code/codestral），按参数量降序取最大
+	// Prefer code-specific models (coder/code/codestral), taking the largest by parameter count in descending order
 	const codeTokens = ["coder", "code", "codestral"];
 	const codeModels = pool.filter((m) =>
 		tokensOf(m.id).some((t) => codeTokens.includes(t)),
@@ -935,7 +940,7 @@ export async function getRecommendedCodeModel(): Promise<string | null> {
 		return codeModels[0].id;
 	}
 
-	// 回退：按参数量降序取最大指令/聊天模型
+	// Fallback: take the largest instruction/chat model by parameter count in descending order
 	pool.sort((a, b) => sizeOf(b.id) - sizeOf(a.id));
 	logForDebugging(
 		`[Fusion-MLX] Recommended code model (fallback by size): ${pool[0].id}`,
@@ -1048,13 +1053,13 @@ export function clearMlxCapabilitiesCache(): void {
 // ─── Message Format Conversion ────────────────────────────────
 
 /**
- * 将 Anthropic Messages API 格式转换为 OpenAI-compatible MLX 消息格式。
+ * Converts Anthropic Messages API format into the OpenAI-compatible MLX message format.
  *
- * System prompt 支持两种形式：
- *   - 字符串（来自 queryFusionMlx/streamFusionMlx 的 options.system）
- *   - Anthropic 数组格式（来自 createFusionMlxFetch 的 body.system）
+ * System prompts support two forms:
+ *   - string (options.system from queryFusionMlx/streamFusionMlx)
+ *   - Anthropic array format (body.system from createFusionMlxFetch)
  *
- * Tool calls 统一输出为 OpenAI tool_calls 格式（非 content 内嵌）。
+ * Tool calls are uniformly emitted as OpenAI tool_calls format (not embedded in content).
  */
 function anthropicToMlxMessages(
 	anthropicMessages: Array<{
@@ -1239,12 +1244,12 @@ function anthropicToMlxMessages(
 }
 
 /**
- * 将 Anthropic tool_choice 格式转换为 MLX/OpenAI 兼容格式。
+ * Converts the Anthropic tool_choice format into the MLX/OpenAI-compatible format.
  * Anthropic: {type: 'auto' | 'any' | 'tool', name?: string}
  * OpenAI:   'auto' | 'any' | 'none' | {type: 'function', function: {name: string}}
  */
 /**
- * 将 Anthropic 工具定义转换为 OpenAI-compatible 格式，同时清洗 Schema。
+ * Converts Anthropic tool definitions into OpenAI-compatible format while sanitizing the Schema.
  */
 function anthropicToMlxTools(
 	tools: Array<{
@@ -1286,16 +1291,16 @@ export interface FusionMlxCallOptions {
 		input_schema: Record<string, unknown>;
 	}>;
 	/**
-	 * 结构化输出 Schema（OpenAI response_format）。
-	 * 当设置后，模型输出将被强制约束为符合该 Schema 的 JSON。
-	 * 用于替代脆弱的 prompt 约束 + 正则解析工具调用。
+	 * Structured output Schema (OpenAI response_format).
+	 * When set, model output is forcibly constrained to JSON matching this Schema.
+	 * Replaces the brittle prompt constraint + regex parsing of tool calls.
 	 */
 	response_format?: MLXChatCompletionRequest["response_format"];
 }
 
 /**
- * 调用 fusion-mlx 进行非流式推理。
- * 返回兼容 Anthropic Messages API 格式的响应。
+ * Calls fusion-mlx for non-streaming inference.
+ * Returns a response compatible with the Anthropic Messages API format.
  */
 export async function queryFusionMlx(
 	options: FusionMlxCallOptions,
@@ -1359,8 +1364,8 @@ export async function queryFusionMlx(
 }
 
 /**
- * 调用 fusion-mlx 进行流式推理。
- * 返回 AsyncGenerator，产出兼容 Anthropic 格式的流式事件。
+ * Calls fusion-mlx for streaming inference.
+ * Returns an AsyncGenerator yielding Anthropic-compatible streaming events.
  */
 export async function* streamFusionMlx(
 	options: FusionMlxCallOptions,
@@ -1425,8 +1430,8 @@ export async function* streamFusionMlx(
 // ─── Embeddings (RAG / KB) ─────────────────────────────────────
 
 /**
- * 调用 fusion-mlx 的 embeddings API 进行文本向量化。
- * 用于知识库检索 (RAG)。
+ * Calls the fusion-mlx embeddings API to vectorize text.
+ * Used for knowledge base retrieval (RAG).
  */
 export async function getFusionMlxEmbeddings(
 	input: string | string[],
@@ -1467,34 +1472,34 @@ export async function getFusionMlxEmbeddings(
 // ─── Configuration Helpers ─────────────────────────────────────
 
 /**
- * 检查是否应该使用 fusion-mlx 作为 AI 后端。
- * 优先级：环境变量 > 自动检测
+ * Decides whether fusion-mlx should be used as the AI backend.
+ * Priority: env vars > auto-detection
  */
 export function shouldUseFusionMlx(): boolean {
-	// 环境变量强制启用
+	// env var forces enabled
 	if (isEnvTruthy(process.env.FUSION_MLX_ENABLED)) {
 		return true;
 	}
 
-	// 环境变量强制禁用
+	// env var forces disabled
 	if (isEnvTruthy(process.env.FUSION_MLX_DISABLED)) {
 		return false;
 	}
 
-	// 默认：如果 FUSION_CLIENT_KEY 未设置且 FUSION_MLX_AUTO 启用，则自动检测
+	// Default: auto-detect if FUSION_CLIENT_KEY is unset and FUSION_MLX_AUTO is enabled
 	if (
 		isEnvTruthy(process.env.FUSION_MLX_AUTO) &&
 		!process.env.FUSION_CLIENT_KEY
 	) {
-		return true; // 返回 true 表示优先尝试 MLX
+		return true; // returning true means prefer trying MLX first
 	}
 
 	return false;
 }
 
 /**
- * 获取默认的 fusion-mlx 模型。
- * 优先使用环境变量 FUSION_MLX_MODEL，否则返回 null（由运行时自动选择）。
+ * Gets the default fusion-mlx model.
+ * Prefers the FUSION_MLX_MODEL env var, otherwise returns null (auto-selected by the runtime).
  */
 export function getDefaultMlxModel(): string | null {
 	return process.env.FUSION_MLX_MODEL || null;
@@ -1503,11 +1508,11 @@ export function getDefaultMlxModel(): string | null {
 // ─── Anthropic SDK Fetch Adapter ───────────────────────────────
 
 /**
- * 创建兼容 Anthropic SDK 的 fetch 函数。
- * 将 Anthropic Messages API 请求代理到 fusion-mlx 的 /v1/chat/completions。
+ * Creates an Anthropic SDK-compatible fetch function.
+ * Proxies Anthropic Messages API requests to fusion-mlx's /v1/chat/completions.
  *
- * 这样上层代码可以继续使用 Anthropic SDK 的接口，
- * 而实际的 AI 推理由 fusion-mlx 本地完成。
+ * This lets upper-layer code keep using the Anthropic SDK interface,
+ * while the actual AI inference happens locally in fusion-mlx.
  */
 // Capture original global fetch before Anthropic SDK replaces it
 let _originalFetch: typeof globalThis.fetch | null = null;
@@ -1543,8 +1548,8 @@ export function createFusionMlxFetch(model: string): typeof globalThis.fetch {
 		const url = input instanceof Request ? input.url : String(input);
 		const baseUrl = getMlxBaseUrl();
 
-		// count_tokens 请求：转发到 fusion-mlx /v1/messages/count_tokens 精确计数（不生成）
-		// fusion-mlx 用 loaded engine tokenizer + 同 /v1/messages chat template 计数(F12),claude- 别名 pass through
+		// count_tokens request: forwarded to fusion-mlx /v1/messages/count_tokens for exact counting (no generation)
+		// fusion-mlx counts with the loaded engine tokenizer + the same /v1/messages chat template (F12); claude- aliases pass through
 		if (url.includes("/v1/messages/count_tokens")) {
 			let countBody: Record<string, unknown> = {};
 			if (init?.body) {
@@ -1561,7 +1566,7 @@ export function createFusionMlxFetch(model: string): typeof globalThis.fetch {
 				}
 			}
 			try {
-				// 透传 Anthropic body：fusion-mlx count_tokens 端点用 Anthropic 格式 + loaded model tokenizer
+				// Pass the Anthropic body through: the fusion-mlx count_tokens endpoint uses Anthropic format + the loaded model tokenizer
 				const resp = await mlxFetchWithRetry(
 					`${baseUrl}/v1/messages/count_tokens`,
 					{
@@ -1596,7 +1601,7 @@ export function createFusionMlxFetch(model: string): typeof globalThis.fetch {
 					`[Fusion-MLX] count_tokens endpoint error: ${(e as Error).message}`,
 				);
 			}
-			// fallback 1：/v1/chat/completions max_tokens=1 拿 usage.prompt_tokens(精确,有 prefill 开销)
+			// fallback 1: /v1/chat/completions with max_tokens=1 to get usage.prompt_tokens (exact, has prefill overhead)
 			try {
 				const mlxMessages = anthropicToMlxMessages(
 					(countBody.messages as Array<{
@@ -1660,7 +1665,7 @@ export function createFusionMlxFetch(model: string): typeof globalThis.fetch {
 					`[Fusion-MLX] count_tokens chat completions error: ${(e as Error).message}`,
 				);
 			}
-			// fallback 2：bytes/4 估算(最终兜底,保 token budget 跟踪可用)
+			// fallback 2: bytes/4 estimate (final backstop, keeps token budget tracking usable)
 			const estInput = Math.ceil(
 				JSON.stringify(countBody.messages ?? []).length / 4,
 			);
@@ -1673,7 +1678,7 @@ export function createFusionMlxFetch(model: string): typeof globalThis.fetch {
 			});
 		}
 
-		// 拦截 /v1/messages 请求（Anthropic Messages API）
+		// Intercept /v1/messages requests (Anthropic Messages API)
 		if (url.includes("/v1/messages")) {
 			let body: Record<string, unknown> = {};
 			if (init?.body) {
@@ -1694,7 +1699,7 @@ export function createFusionMlxFetch(model: string): typeof globalThis.fetch {
 				}
 			}
 
-			// 将 Anthropic 格式转换为 MLX 格式
+			// Convert Anthropic format into MLX format
 			const mlxMessages = anthropicToMlxMessages(
 				(body.messages as Array<{
 					role: string;
@@ -1703,9 +1708,9 @@ export function createFusionMlxFetch(model: string): typeof globalThis.fetch {
 				body.system as string | Array<Record<string, unknown>> | undefined,
 			);
 
-			// MLX 模式：始终用 adapter 模型覆盖，忽略 SDK 传的 model（可能是 claude-sonnet-* 等云端模型名）
+			// MLX mode: always override with the adapter model, ignoring the model the SDK passed (may be a cloud model name like claude-sonnet-*)
 			const resolvedModel = model;
-			// 自动检测图片/视频模型 → 切换到推荐代码模型
+			// Auto-detect image/video models → switch to the recommended code model
 			const imageModelKeywords = [
 				"flux",
 				"skyreels",
@@ -1762,7 +1767,7 @@ export function createFusionMlxFetch(model: string): typeof globalThis.fetch {
 				stream: body.stream === true,
 				...(toolsForMlx ? { tools: toolsForMlx } : {}),
 				...convertToolChoice(body.tool_choice),
-				// Qwen3 思考模式：优先尊重请求 thinking 参数（/think 开关），否则按模型启发式（27B+ 自动启用）
+				// Qwen3 thinking mode: prefer the request's thinking parameter (/think toggle), otherwise fall back to the model heuristic (27B+ auto-enabled)
 				...((body.thinking as { type?: string } | undefined)?.type
 					? {
 							enable_thinking:
@@ -1783,8 +1788,8 @@ export function createFusionMlxFetch(model: string): typeof globalThis.fetch {
 					: {}),
 			};
 
-			// 调用 fusion-mlx with retry support
-			// item 15(a): let — OOM gc-retry 成功时重赋值转 OK 路径, 避免重复转换逻辑
+			// Call fusion-mlx with retry support
+			// item 15(a): let — when the OOM gc-retry succeeds, reassign and turn into the OK path, avoiding duplicated conversion logic
 			let mlxResponse = await mlxFetchWithRetry(
 				`${baseUrl}/v1/chat/completions`,
 				{
@@ -1799,28 +1804,28 @@ export function createFusionMlxFetch(model: string): typeof globalThis.fetch {
 			);
 
 			if (!mlxResponse.ok) {
-				// 返回 Anthropic SDK 兼容的错误格式
+				// Return an Anthropic SDK-compatible error format
 				const errorBody = await mlxResponse.text();
-				// 转发 Retry-After 头,让上层 withRetry 精确退避(429 等限流场景)
+				// Forward the Retry-After header so upper-layer withRetry backs off precisely (429 and other rate-limit scenarios)
 				const errorHeaders: Record<string, string> = {
 					"content-type": "application/json",
 				};
 				const retryAfter = mlxResponse.headers.get("retry-after");
 				if (retryAfter) errorHeaders["retry-after"] = retryAfter;
-				// item 15(a) MLX OOM 自动恢复: memory_guard 撞顶原本是确定性失败
-				// (同上下文重试必再 OOM) → 标 x-should-retry:false 立即放弃。但若先
-				// gc 释放显存, 同上下文可能装下 → gc + 重发一次, 成功则转既有 OK 路径
-				// (流式/非流式分支原样复用), 失败 fallback 既有 x-should-retry:false 错误。
-				// 与既有 truncate-retry (非流式 max_tokens 升级 :1710) 同为 adapter 层
-				// 透传恢复, 仅在"同上下文 OOM 即今日直接失败"的 case 触发, 不碰更高层
-				// truncate/compact/熔断 路径 (无冲突)。requestMlxGC / mlxFetchWithRetry
-				// 同文件已有 (:604 / :372), mirror 既有重试模式。重试一次不循环。
+				// item 15(a) MLX OOM auto-recovery: memory_guard hitting the ceiling used to be a deterministic failure
+				// (retrying with the same context OOMs again) → flagged x-should-retry:false and gave up immediately. But if
+				// a gc first frees VRAM, the same context may fit → gc + resend once; on success turn into the existing OK path
+				// (streaming/non-streaming branches reused as-is), on failure fall back to the existing x-should-retry:false error.
+				// Like the existing truncate-retry (non-streaming max_tokens escalation :1710), this is adapter-layer
+				// pass-through recovery, triggered only in the "same-context OOM = direct failure today" case, not touching
+				// higher-level truncate/compact/circuit-breaker paths (no conflict). requestMlxGC / mlxFetchWithRetry
+				// already exist in this file (:604 / :372), mirroring the existing retry pattern. Retry once, no loop.
 				if (
 					errorBody.includes("memory limit exceeded") ||
 					errorBody.includes("Reduce context size")
 				) {
 					logForDebugging(
-						`[Fusion-MLX] memory_guard 撞顶(status ${mlxResponse.status}),尝试 gc + 重试`,
+						`[Fusion-MLX] memory_guard ceiling hit (status ${mlxResponse.status}), attempting gc + retry`,
 						{ level: "warn" },
 					);
 					const gcResult = await requestMlxGC();
@@ -1839,29 +1844,29 @@ export function createFusionMlxFetch(model: string): typeof globalThis.fetch {
 							);
 							if (retryResp.ok) {
 								logForDebugging(
-									`[Fusion-MLX] OOM gc-retry 成功 (gc freed ${gcResult.freed ?? "unknown"} bytes), 转正常响应路径`,
+									`[Fusion-MLX] OOM gc-retry succeeded (gc freed ${gcResult.freed ?? "unknown"} bytes), switching to the normal response path`,
 								);
 								mlxResponse = retryResp;
 							} else {
 								logForDebugging(
-									`[Fusion-MLX] OOM gc-retry 仍失败(status ${retryResp.status}), fallback x-should-retry:false`,
+									`[Fusion-MLX] OOM gc-retry still failing (status ${retryResp.status}), fallback x-should-retry:false`,
 									{ level: "warn" },
 								);
 							}
 						} catch (retryErr) {
 							logForDebugging(
-								`[Fusion-MLX] OOM gc-retry 异常: ${(retryErr as Error).message}, fallback x-should-retry:false`,
+								`[Fusion-MLX] OOM gc-retry exception: ${(retryErr as Error).message}, fallback x-should-retry:false`,
 								{ level: "warn" },
 							);
 						}
 					} else {
 						logForDebugging(
-							`[Fusion-MLX] gc 失败 (${gcResult.error ?? "unknown"}), fallback x-should-retry:false`,
+							`[Fusion-MLX] gc failed (${gcResult.error ?? "unknown"}), fallback x-should-retry:false`,
 							{ level: "warn" },
 						);
 					}
 				}
-				// gc-retry 未挽回 → 返既有 x-should-retry:false 错误 (防空转重试)
+				// gc-retry did not recover → return the existing x-should-retry:false error (prevents futile retry spinning)
 				if (!mlxResponse.ok) {
 					if (
 						errorBody.includes("memory limit exceeded") ||
@@ -1886,8 +1891,8 @@ export function createFusionMlxFetch(model: string): typeof globalThis.fetch {
 			}
 
 			if (body.stream) {
-				// 流式响应：将 MLX SSE 流转换为 Anthropic SSE 流
-				// MLX 流式首块无 usage,用 bytes/4 估算 input_tokens 填 message_start(B task 后改进为精确计数)
+				// Streaming response: convert the MLX SSE stream into an Anthropic SSE stream
+				// MLX streaming's first chunk carries no usage; estimate input_tokens as bytes/4 to fill message_start (B task will later improve this to exact counting)
 				const inputTokensEst = Math.ceil(
 					JSON.stringify(mlxBody.messages).length / 4,
 				);
@@ -1895,12 +1900,12 @@ export function createFusionMlxFetch(model: string): typeof globalThis.fetch {
 					`[Fusion-MLX] Stream message_start input_tokens estimate: ${inputTokensEst}`,
 				);
 
-				// resume 感知: env on + gateway 响应带 X-Fusion-Stream-ID →
-				//   ① teeCursor 在 transform 前侧信道提 id:<sid>:<seq> → cursorRef
-				//   ② stateRef 让 transform 挂 live StreamState (掉线时深克隆续种子)
-				//   ③ attachResumeRefs 挂到 OUTPUT Response (encodeStreamToAnthropicSSE 返回值),
-				//      因 claude.ts 持 streamResponse = 该 OUTPUT (WeakMap 键 = Response 对象)。
-				//   off → 无 wrap/refs, transform 3 参数, byte-identical 原行为。
+				// resume awareness: env on + gateway response carries X-Fusion-Stream-ID →
+				//   ① teeCursor side-channels id:<sid>:<seq> before the transform → cursorRef
+				//   ② stateRef lets the transform attach the live StreamState (deep-cloned to seed continuation on disconnect)
+				//   ③ attachResumeRefs attaches to the OUTPUT Response (the encodeStreamToAnthropicSSE return value),
+				//      because claude.ts holds streamResponse = that OUTPUT (WeakMap key = the Response object).
+				//   off → no wrap/refs, transform takes 3 args, byte-identical original behavior.
 				const resumeOn = isStreamResumeEnabled();
 				const sid = resumeOn
 					? mlxResponse.headers.get("x-fusion-stream-id") || ""
@@ -1913,7 +1918,7 @@ export function createFusionMlxFetch(model: string): typeof globalThis.fetch {
 					const tee = teeCursor(mlxResponse.body);
 					cursorRef = tee.ref;
 					stateRef = { current: undefined };
-					// transform 读 .body → 给 teed stream (旁路提 id, 帧原样透传)。
+					// transform reads .body → hand it the teed stream (side-channel lifts the id, frames pass through unchanged).
 					transformResponse = new Response(tee.stream, {
 						status: mlxResponse.status,
 						headers: mlxResponse.headers,
@@ -1946,7 +1951,7 @@ export function createFusionMlxFetch(model: string): typeof globalThis.fetch {
 				return output;
 			}
 
-			// 非流式响应 — max_tokens escalation on truncation
+			// Non-streaming response — max_tokens escalation on truncation
 			const data = (await mlxResponse.json()) as MLXChatCompletionResponse;
 			const finishReason = data.choices?.[0]?.finish_reason;
 			const currentMaxTokens = mlxBody.max_tokens;
@@ -1999,15 +2004,15 @@ export function createFusionMlxFetch(model: string): typeof globalThis.fetch {
 			});
 		}
 
-		// 非 /v1/messages 请求，透传（如模型列表、key 检测等）。
-		// P3-4 (audit 0901): 不打 raw url — query 可能含敏感参数 (key/token)，避免 stderr 泄漏。
+		// Non-/v1/messages requests pass through (e.g. model list, key detection).
+		// P3-4 (audit 0901): do not log the raw url — the query may contain sensitive params (key/token); avoid stderr leakage.
 		return getOriginalFetch()(input, init);
 	};
 	return fn as typeof globalThis.fetch;
 }
 
 /**
- * 将 Anthropic tool_choice 格式转换为 MLX/OpenAI 兼容格式。
+ * Converts the Anthropic tool_choice format into the MLX/OpenAI-compatible format.
  * Anthropic: {type: 'auto' | 'any' | 'tool', name?: string}
  * OpenAI:   'auto' | 'any' | 'none' | {type: 'function', function: {name: string}}
  */

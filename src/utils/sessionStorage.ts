@@ -500,9 +500,10 @@ function getProject(): Project {
 	return project;
 }
 
-// P1-16: 非创建型 singleton 访问器。appendEntryToFile (同步 hot path) 须在无
-// 实例时保持原同步写, 不能惰性创建 Project (会注册 cleanup + 触发无谓初始化)。
-// 仅当实例已存在且该文件正 drain 时才需路由队列。
+// P1-16: non-creating singleton accessor. appendEntryToFile (synchronous hot path) must keep
+// the original synchronous write when no instance exists — must not lazily create a Project
+// (it would register cleanup + trigger needless initialization).
+// Only route through the queue when an instance exists and the file is draining.
 function tryGetProject(): Project | undefined {
 	return project ?? undefined;
 }
@@ -598,10 +599,12 @@ class Project {
 	private activeDrain: Promise<void> | null = null;
 	private FLUSH_INTERVAL_MS = 100;
 	private readonly MAX_CHUNK_BYTES = 100 * 1024 * 1024;
-	// P1-16: per-file drain 标志。drainWriteQueue await appendToFile 期间置位,
-	// 标记该文件有未完成的异步批写。appendEntryToFile (同步 appendFileSync)
-	// 见此标志 = 该文件异步批写在途, 改走 enqueueWrite 同一队列避免字节交错
-	// (批写可能跨多次 write syscall, 同步写插中间 → JSONL 畸形行 → transcript 损坏)。
+	// P1-16: per-file drain flag. Set while drainWriteQueue is awaiting appendToFile,
+	// marking the file as having an in-flight async batch write. appendEntryToFile
+	// (synchronous appendFileSync) seeing this flag = the file has an async batch write
+	// in flight; it routes through the same enqueueWrite queue to avoid byte interleaving
+	// (a batch write may span multiple write syscalls; a synchronous write inserted mid-batch
+	// → malformed JSONL lines → corrupted transcript).
 	private drainingFiles = new Set<string>();
 
 	/** @internal Reset flush/queue state for testing. */
@@ -650,15 +653,16 @@ class Project {
 		});
 	}
 
-	// P1-16: 同步 metadata 写 (appendEntryToFile) 在文件异步批写在途时改走队列的
-	// 两 个公共访问点。暴露最小必要能力, 不暴露 enqueueWrite 本身。
-	// isDrainingFile = 该文件是否在 drainWriteQueue 的 appendToFile 期间。
+	// P1-16: the two public access points by which synchronous metadata writes
+	// (appendEntryToFile) switch to the queue while a file's async batch write is in flight.
+	// Expose the minimum necessary capability; do not expose enqueueWrite itself.
+	// isDrainingFile = whether the file is inside drainWriteQueue's appendToFile.
 	isDrainingFile(filePath: string): boolean {
 		return this.drainingFiles.has(filePath);
 	}
 
-	// enqueueMetadataWrite = 把同步 metadata 写排进同一 per-file 队列 (fire-and-forget)。
-	// drain 完成后追加, 无字节交错。调用方 void 掉返回 (无同步读回路径)。
+	// enqueueMetadataWrite = queue a synchronous metadata write into the same per-file queue (fire-and-forget).
+	// Appended after the drain completes, no byte interleaving. Callers void the return (no synchronous read-back path).
 	enqueueMetadataWrite(filePath: string, entry: Entry): Promise<void> {
 		return this.enqueueWrite(filePath, entry);
 	}
@@ -688,17 +692,18 @@ class Project {
 			await mkdir(dirname(filePath), { recursive: true, mode: 0o700 });
 			await fsAppendFile(filePath, data, { mode: 0o600 });
 		}
-		// P1-16: fdatasync 落盘 — 无 fsync 断电截断末尾部分行, JSONL reader
-		// 命中畸形行 → transcript 从此损坏。fdatasync (非 fsync) 不刷文件元数据
-		// (mtime 等), 仅数据块, 性能优且足够 (同文件追加, 大小由后续写更新)。
-		// 用同步 fdatasyncSync(fd) — fs/promises 不导出 fdatasync (仅 fs 同步版)。
-		// fail-open: 某些 FS 不支持 fdatasync, 失败不阻断 — 数据已在 page cache。
+		// P1-16: fdatasync to disk — without it a power failure truncates trailing partial lines, and a JSONL
+		// reader hits a malformed line → transcript corrupted from there on. fdatasync (not fsync) does not
+		// flush file metadata (mtime etc.), only data blocks — faster and sufficient (same-file append,
+		// size updated by later writes).
+		// Uses synchronous fdatasyncSync(fd) — fs/promises does not export fdatasync (fs sync version only).
+		// fail-open: some filesystems do not support fdatasync; failure is non-blocking — data is already in page cache.
 		let fh: import("fs/promises").FileHandle | undefined;
 		try {
 			fh = await fsOpen(filePath, "r");
 			fdatasyncSync(fh.fd);
 		} catch {
-			// 非正确性问题, 仅丢失断电耐久性。
+			// Not a correctness issue, only loses power-failure durability.
 		} finally {
 			await fh?.close().catch(() => {});
 		}
@@ -719,8 +724,9 @@ class Project {
 
 				if (content.length + line.length >= this.MAX_CHUNK_BYTES) {
 					// Flush chunk and resolve its entries before starting a new one
-					// P1-16: 标记该文件异步写中, 让 appendEntryToFile (同步) 改走
-					// 队列避免字节交错 (批写跨多次 write syscall, 同步写插中间)。
+					// P1-16: mark the file as asynchronously writing so appendEntryToFile (sync)
+					// routes through the queue to avoid byte interleaving (a batch write spans
+					// multiple write syscalls; a sync write inserted mid-batch).
 					this.drainingFiles.add(filePath);
 					try {
 						await this.appendToFile(filePath, content);
@@ -739,7 +745,7 @@ class Project {
 			}
 
 			if (content.length > 0) {
-				// P1-16: 同上 — 标记异步写在途。
+				// P1-16: same as above — mark the async write as in flight.
 				this.drainingFiles.add(filePath);
 				try {
 					await this.appendToFile(filePath, content);
@@ -1026,10 +1032,10 @@ class Project {
 	}
 
 	/**
-	 * item 6: 磁盘裁剪 transcript (CC 2.1.208)。compact 后阈值触发, 走 trackWrite
-	 * 串行 (同 removeMessageByUuid 模式), 调 sessionTranscript.performTrim 纯函数。
-	 * default off — FUSION_TRANSCRIPT_TRIM_THRESHOLD 未设则 shouldTrim 返 false, no-op。
-	 * 三重数据安全: default off + atomicWriteFile tmp+rename + preservedSegment 不裁。
+	 * item 6: trim transcript on disk (CC 2.1.208). Threshold-triggered after compact, serialized via
+	 * trackWrite (same pattern as removeMessageByUuid), calls the sessionTranscript.performTrim pure function.
+	 * default off — when FUSION_TRANSCRIPT_TRIM_THRESHOLD is unset, shouldTrim returns false, no-op.
+	 * Triple data safety: default off + atomicWriteFile tmp+rename + preservedSegment never trimmed.
 	 */
 	async trimTranscriptOnDisk(): Promise<void> {
 		if (this.sessionFile === null) return;
@@ -1047,9 +1053,9 @@ class Project {
 					});
 				}
 			} catch (error) {
-				// 失败不阻断 compact (compact 已成功, 裁剪是 best-effort 优化)。
-				// 错误细节进本地 debug 日志 (logForDebugging 接受 string),
-				// 遥测只记 boolean 失败计数 (LogEventMetadata 不允许 string)。
+				// Failure does not block compact (compact already succeeded; trimming is a best-effort optimization).
+				// Error details go to the local debug log (logForDebugging accepts strings);
+				// telemetry only records a boolean failure count (LogEventMetadata disallows strings).
 				logEvent("fusion_transcript_trim_failed", { failed: 1 });
 				logForDebugging(`transcript trim failed: ${String(error)}`, {
 					level: "warn",
@@ -1059,8 +1065,8 @@ class Project {
 	}
 
 	/**
-	 * item 6: resume/启动崩溃恢复。default off 时 checkpoint 永不存在 → no-op, 零开销。
-	 * checkpoint 存在 + 主文件 OK → 幂等删 checkpoint; 主文件坏 → fail-visible (不静默删)。
+	 * item 6: resume/startup crash recovery. When default off, a checkpoint never exists → no-op, zero cost.
+	 * checkpoint present + main file OK → idempotently delete the checkpoint; main file broken → fail-visible (no silent delete).
 	 */
 	async recoverTrimIfNeeded(): Promise<void> {
 		if (this.sessionFile === null) return;
@@ -2646,11 +2652,11 @@ export async function fetchLogs(limit?: number): Promise<LogOption[]> {
  * Append an entry to a session file. Creates the parent dir if missing.
  */
 /* eslint-disable custom-rules/no-sync-fs -- sync callers (exit cleanup, materialize) */
-// audit 0905 E1: session jsonl 无磁盘增长管控。trajectory collector 全量扫描
-// 源 jsonl, 截断/rotate 会破坏 collect 语义 (丢早 turn / sessionId 拆分)。
-// 故采非破坏性软告警: 每文件超阈值仅 log 一次 (operator 收到信号手动处理),
-// 不截断不 rotate, 零数据丢失。FUSION_CODE_SESSION_JSONL_WARN_BYTES 默认 50MB,
-// "0" 禁用。采样: 每 _SIZE_CHECK_INTERVAL 次写 fstat 一次 (避免每写 stat 开销)。
+// audit 0905 E1: session jsonl has no disk-growth control. The trajectory collector scans the full
+// source jsonl; truncating/rotating would break collect semantics (losing early turns / splitting sessionIds).
+// So use a non-destructive soft warning: per file, log once when over threshold (the operator gets the
+// signal and handles it manually), no truncate no rotate, zero data loss. FUSION_CODE_SESSION_JSONL_WARN_BYTES
+// defaults to 50MB, "0" disables. Sampling: fstat once every _SIZE_CHECK_INTERVAL writes (avoids per-write stat cost).
 const DEFAULT_SESSION_JSONL_WARN_BYTES = 50 * 1024 * 1024;
 const _SIZE_CHECK_INTERVAL = 256;
 let _writeCounter = 0;
@@ -2684,7 +2690,7 @@ function maybeWarnSessionJsonlSize(fullPath: string): void {
 			);
 		}
 	} catch {
-		// stat 失败 (文件刚建/竞态) → 静默, 下次采样重试。
+		// stat failure (file just created / race) → silent, retry on next sample.
 	}
 }
 
@@ -2692,13 +2698,16 @@ function appendEntryToFile(
 	fullPath: string,
 	entry: Record<string, unknown>,
 ): void {
-	// P1-16: 若该文件正被 drainWriteQueue 异步批写 (drainingFiles 置位), 同步
-	// appendFileSync 会插进批写中间 (批写跨多次 write syscall, O_APPEND 仅保证
-	// 单次 write 原子, 不保证整批) → 字节交错 → JSONL 畸形行 → transcript 损坏。
-	// 改走同一 enqueueWrite 队列 (fire-and-forget): 写入串行进队列, drain 完成后
-	// 追加, 无交错。代价: 写延迟至下次 drain (≤100ms), 但元数据写无同步读回路径
-	// (cleanup 先 await flush() 再 reAppend; materializeSessionFile 顺序 await
-	// appendEntry 亦 drain 队列), 语义不破坏。无 drain 在途时保持原同步写 (即时落盘)。
+	// P1-16: if this file is being async batch-written by drainWriteQueue (drainingFiles set), a
+	// synchronous appendFileSync would land mid-batch (a batch write spans multiple write syscalls;
+	// O_APPEND only guarantees atomicity of a single write, not the whole batch) → byte interleaving
+	// → malformed JSONL lines → corrupted transcript.
+	// Route through the same enqueueWrite queue (fire-and-forget): writes serialize into the queue and
+	// append after the drain completes, no interleaving. Cost: the write is delayed until the next drain
+	// (≤100ms), but metadata writes have no synchronous read-back path
+	// (cleanup awaits flush() before reAppend; materializeSessionFile sequentially awaits appendEntry,
+	// which also drains the queue), so semantics are preserved. With no drain in flight, keep the original
+	// synchronous write (immediate on-disk persistence).
 	const project = tryGetProject();
 	if (project?.isDrainingFile(fullPath)) {
 		void project.enqueueMetadataWrite(fullPath, entry as Entry);
@@ -2712,7 +2721,7 @@ function appendEntryToFile(
 		fs.mkdirSync(dirname(fullPath), { mode: 0o700 });
 		fs.appendFileSync(fullPath, line, { mode: 0o600 });
 	}
-	// audit 0905 E1: 非破坏性软告警 (采样, 每文件一次)。不截断。
+	// audit 0905 E1: non-destructive soft warning (sampled, once per file). No truncation.
 	maybeWarnSessionJsonlSize(fullPath);
 }
 
@@ -3650,13 +3659,14 @@ export async function loadTranscriptFile(
 	contextCollapseSnapshot: ContextCollapseSnapshotEntry | undefined;
 	leafUuids: Set<UUID>;
 }> {
-	// item 6: resume 崩溃恢复。default off 时 checkpoint 永不存在 → no-op, 零开销。
-	// checkpoint 残留 + 主文件完整 → 幂等删 checkpoint; 主文件坏 → fail-visible。
+	// item 6: resume crash recovery. When default off, a checkpoint never exists → no-op, zero cost.
+	// checkpoint leftover + intact main file → idempotently delete the checkpoint; broken main file → fail-visible.
 	try {
 		await trimTranscriptRecover(filePath);
 	} catch {
-		// 恢复失败不阻断加载 (加载照常走, 磁盘可能有 pre-compact 残留但
-		// readTranscriptForLoad 照常 boundary-truncate)。
+		// Recovery failure does not block loading (loading proceeds as usual; the disk may hold
+		// pre-compact leftovers but
+		// readTranscriptForLoad still boundary-truncates as usual).
 	}
 	const messages = new Map<UUID, TranscriptMessage>();
 	const summaries = new Map<UUID, string>();
@@ -4034,9 +4044,9 @@ export function clearSessionMessagesCache(): void {
 }
 
 /**
- * item 6: 触发当前 session transcript 磁盘裁剪 (CC 2.1.208)。compact 收尾调。
- * default off — FUSION_TRANSCRIPT_TRIM_THRESHOLD 未设则 no-op, byte-identical 旧行为。
- * 走 trackWrite 串行, 崩溃安全 (atomicWriteFile tmp+rename + checkpoint)。
+ * item 6: trigger on-disk trimming of the current session transcript (CC 2.1.208). Called at compact finalization.
+ * default off — when FUSION_TRANSCRIPT_TRIM_THRESHOLD is unset, no-op, byte-identical to old behavior.
+ * Serialized via trackWrite, crash-safe (atomicWriteFile tmp+rename + checkpoint).
  */
 export async function trimCurrentSessionTranscript(): Promise<void> {
 	try {
@@ -4050,8 +4060,8 @@ export async function trimCurrentSessionTranscript(): Promise<void> {
 }
 
 /**
- * item 6: resume/启动崩溃恢复。loadTranscriptFile 前调。
- * default off 时 checkpoint 永不存在 → no-op, 零开销。
+ * item 6: resume/startup crash recovery. Call before loadTranscriptFile.
+ * When default off, a checkpoint never exists → no-op, zero cost.
  */
 export async function recoverCurrentSessionTrimIfNeeded(): Promise<void> {
 	try {

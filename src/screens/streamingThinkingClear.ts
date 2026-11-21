@@ -1,8 +1,8 @@
-// audit 1.1.1 slice #39: streamingThinking auto-hide useEffect body 外移 (full-useEffect-body-returns-timer-handle variant, 3rd — 像 slice #34 maybeScheduleIdleReturnHint / #35 maybeScheduleSafeYoloMessage)。
-// REPL() streaming thinking 完成后 30s 自动隐藏: 完成(isStreaming=false + streamingEndedAt 存在) → 按 elapsed 算 remaining → remaining>0 起 setTimeout(setStreamingThinking, remaining, null) 返 cleanup, 否则立即清。
-// 原 useEffect body。streamingThinking + setStreamingThinking 经 ctx 传入 (闭包捕获), 行为字节等价。
-// StreamingThinking (messages.js) 直接 import (非 REPL state, per imported-helpers-directly rule)。
-// 无 JSX/无 hook → .ts。返 (() => void) | undefined (REPL 薄壳 useEffect 透传 cleanup)。
+// audit 1.1.1 slice #39: streamingThinking auto-hide useEffect body extracted (full-useEffect-body-returns-timer-handle variant, 3rd — like slice #34 maybeScheduleIdleReturnHint / #35 maybeScheduleSafeYoloMessage).
+// REPL() auto-hides streaming thinking 30s after completion: finished (isStreaming=false + streamingEndedAt present) → compute remaining from elapsed → remaining>0 sets setTimeout(setStreamingThinking, remaining, null) and returns cleanup, otherwise clears immediately.
+// Original useEffect body. streamingThinking + setStreamingThinking passed via ctx (closure capture), byte-equivalent behavior.
+// StreamingThinking (messages.js) imported directly (not REPL state, per imported-helpers-directly rule).
+// No JSX / no hook → .ts. Returns (() => void) | undefined (REPL thin-shell useEffect pass-through cleanup).
 
 import type { StreamingThinking } from "../utils/messages.js";
 
@@ -11,9 +11,9 @@ type StreamingThinkingClearCtx = {
 	setStreamingThinking: (v: StreamingThinking | null) => void;
 };
 
-// REPL 保留 useEffect 薄壳:
+// REPL keeps the useEffect thin shell:
 //   useEffect(() => maybeClearStreamingThinking({ streamingThinking, setStreamingThinking }), [streamingThinking]);
-// deps [streamingThinking] 不变 (setStreamingThinking 是 useState setter, 稳定引用, 省略合法, 与原一致)。
+// deps [streamingThinking] unchanged (setStreamingThinking is a useState setter, stable ref, safe to omit, matching the original).
 export function maybeClearStreamingThinking(
 	ctx: StreamingThinkingClearCtx,
 ): (() => void) | undefined {

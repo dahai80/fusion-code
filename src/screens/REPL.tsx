@@ -60,7 +60,7 @@ import {
 	SpinnerWithVerb,
 } from "../components/Spinner.js";
 import type { JumpHandle } from "../components/VirtualMessageList.js";
-// audit 1.1.1: 3 leaf components + median 从 REPL.tsx 抽出 (god module 拆分起步)。
+// audit 1.1.1: 3 leaf components + median extracted from REPL.tsx (start of the god-module split).
 import { AnimatedTerminalTitle } from "../components/AnimatedTerminalTitle.js";
 import { TranscriptModeFooter } from "../components/TranscriptModeFooter.js";
 import { TranscriptSearchBar } from "../components/TranscriptSearchBar.js";
@@ -599,9 +599,10 @@ const HISTORY_STUB = {
 // an internal upstream discussion reference
 const RECENT_SCROLL_REPIN_WINDOW_MS = 3000;
 
-// item 16 (CC 2.1.228): compact stall 提示阈值。后端 emit compact_stall {elapsedMs}
-// (每 10s), 前端超过此阈值才显耗时文本 (避免短 compact 闪现 stall 提示)。
-// env FUSION_COMPACT_STALL_HINT_MS 覆盖; default 30s fail-open (NaN/负值回退 default)。
+// item 16 (CC 2.1.228): compact stall hint threshold. The backend emits compact_stall {elapsedMs}
+// (every 10s); the frontend only shows the elapsed-time text past this threshold (avoids the stall
+// hint flashing for short compacts).
+// env FUSION_COMPACT_STALL_HINT_MS overrides; default 30s fail-open (NaN/negative falls back to default).
 const COMPACT_STALL_HINT_MS = (() => {
 	const raw = Number(process.env.FUSION_COMPACT_STALL_HINT_MS);
 	return Number.isFinite(raw) && raw > 0 ? raw : 30_000;
@@ -612,8 +613,8 @@ const COMPACT_STALL_HINT_MS = (() => {
 // memory issues when working across many files in large projects
 
 // audit 1.1.1: median / TranscriptModeFooter / TranscriptSearchBar / AnimatedTerminalTitle
-// 已抽出到 src/components/ + src/utils/array.ts (god module 拆分起步)。
-// 详见 import 块 (AnimatedTerminalTitle / TranscriptModeFooter / TranscriptSearchBar / median)。
+// extracted to src/components/ + src/utils/array.ts (start of the god-module split).
+// See the import block (AnimatedTerminalTitle / TranscriptModeFooter / TranscriptSearchBar / median).
 
 export type Props = {
 	commands: Command[];
@@ -895,9 +896,9 @@ export function REPL({
 		void performStartupChecks(setAppState);
 	}, [setAppState]);
 
-	// audit 1.4.3 / 2.1.2 (HIGH): 周期 reaper 回收超 TTL 的后台 task。
-	// 默认 OFF (FUSION_CODE_TASK_REAPER_ENABLED), byte-identical 旧无 reaper 行为。
-	// mount 时注入 store 访问器, unmount 时 stop。
+	// audit 1.4.3 / 2.1.2 (HIGH): periodic reaper reclaims background tasks past their TTL.
+	// Default OFF (FUSION_CODE_TASK_REAPER_ENABLED), byte-identical to the old no-reaper behavior.
+	// Injects the store accessor on mount, stops on unmount.
 	useEffect(() => {
 		const stop = startTaskReaper({
 			getAppState: () => store.getState(),
@@ -1205,9 +1206,9 @@ export function REPL({
 	const agentTitle = mainThreadAgentDefinition?.agentType;
 	const terminalTitle =
 		sessionTitle ?? agentTitle ?? haikuTitle ?? "Fusion Code";
-	// audit 1.1.1: terminal/approval 状态推导外移到 terminalApprovalState.ts (纯函数)。
-	// 5 个 derive 链式相依, REPL 保留 hook (useState/useRef/useEffect) 与 setHaikuTitle。
-	// 下游读取同名 const, 行为字节等价。
+	// audit 1.1.1: terminal/approval state derivation moved out to terminalApprovalState.ts (pure functions).
+	// The 5 derives are chain-dependent; REPL keeps the hooks (useState/useRef/useEffect) and setHaikuTitle.
+	// Downstream reads same-named consts, byte-equivalent behavior.
 	const {
 		isWaitingForApproval,
 		isShowingLocalJSXCommand,
@@ -1640,8 +1641,8 @@ export function REPL({
 
 	// If worktree creation was slow and sparse-checkout isn't configured,
 	// nudge the user toward settings.worktree.sparsePaths.
-	// audit 1.1.1 slice #42: effect body 外移到 worktreeTipCheck.ts (PURE-ROUTING-SUB-BLOCK)。
-	// worktreeTipShownRef (ref) + setMessages 经 ctx 传入 (闭包捕获), 行为字节等价。deps [setMessages] 不变。
+	// audit 1.1.1 slice #42: effect body moved out to worktreeTipCheck.ts (PURE-ROUTING-SUB-BLOCK).
+	// worktreeTipShownRef (ref) + setMessages passed via ctx (closure capture), byte-equivalent behavior. deps [setMessages] unchanged.
 	const worktreeTipShownRef = useRef(false);
 	useEffect(
 		() => maybeShowWorktreeTip({ worktreeTipShownRef, setMessages }),
@@ -1649,7 +1650,7 @@ export function REPL({
 	);
 
 	// Hide spinner when the only in-progress tool is Sleep
-	// audit 1.1.1: 纯推导移至 utils/spinnerState.ts, useMemo 仅缓存
+	// audit 1.1.1: pure derivation moved to utils/spinnerState.ts, useMemo only caches
 	const onlySleepToolActive = useMemo(
 		() => onlySleepToolActiveFn(messages, inProgressToolUseIDs),
 		[messages, inProgressToolUseIDs],
@@ -1769,7 +1770,7 @@ export function REPL({
 				const messages = deserializeMessages(log.messages);
 
 				// Match coordinator/normal mode to the resumed session
-				// audit 1.1.1 slice #63: COORDINATOR_MODE match+agent-defs refresh 外移到 resumeCoordinatorModeCheck.ts (resume chunked-extraction #3)。
+				// audit 1.1.1 slice #63: COORDINATOR_MODE match+agent-defs refresh moved out to resumeCoordinatorModeCheck.ts (resume chunked-extraction #3).
 				await matchResumeCoordinatorMode({
 					mode: log.mode,
 					messages,
@@ -1777,11 +1778,11 @@ export function REPL({
 				});
 
 				// Fire SessionEnd hooks for the current session before starting the
-				// resumed one, then process session start hooks for resume (Fork 会话
-				// 报告 source "fork" per CC 2.1.214 issue #79, 让 hook 区分 fork 与
-				// 普通 resume), appending hook messages to the conversation.
-				// audit 1.1.1 slice #68: sessionEnd+sessionStart hooks 外移到 resumeSessionHooksCheck.ts (resume chunked-extraction #8)。
-				// hookMessages → messages.push 经 ctx 直接 push (return-value-threading)。
+				// resumed one, then process session start hooks for resume (fork sessions
+				// report source "fork" per CC 2.1.214 issue #79, letting the hook distinguish
+				// fork from plain resume), appending hook messages to the conversation.
+				// audit 1.1.1 slice #68: sessionEnd+sessionStart hooks moved out to resumeSessionHooksCheck.ts (resume chunked-extraction #8).
+				// hookMessages → messages.push directly via ctx (return-value-threading).
 				await runResumeSessionHooks({
 					entrypoint,
 					sessionId,
@@ -1794,17 +1795,17 @@ export function REPL({
 				// For forks, generate a new plan slug and copy the plan content so the
 				// original and forked sessions don't clobber each other's plan files.
 				// For regular resumes, reuse the original session's plan slug.
-				// audit 1.1.1 slice #69: fork plan-copy if/else 外移到 resumePlanCopyCheck.ts (resume chunked-extraction #9)。
+				// audit 1.1.1 slice #69: fork plan-copy if/else moved out to resumePlanCopyCheck.ts (resume chunked-extraction #9).
 				copyResumePlan({ entrypoint, log, sessionId });
 
 				// Restore file history and attribution state from the resumed conversation
-				// audit 1.1.1 slice #70: file-history restore 外移到 resumeFileHistoryRestoreCheck.ts (resume chunked-extraction #10)。
+				// audit 1.1.1 slice #70: file-history restore moved out to resumeFileHistoryRestoreCheck.ts (resume chunked-extraction #10).
 				restoreResumeFileHistory({ log, setAppState });
 
 				// Restore agent setting from the resumed conversation
 				// Always reset to the new session's values (or clear if none),
 				// matching the standaloneAgentContext pattern below
-				// audit 1.1.1 slice #62: restore body 外移到 resumeAgentSettingRestoreCheck.ts (resume chunked-extraction #2)。
+				// audit 1.1.1 slice #62: restore body moved out to resumeAgentSettingRestoreCheck.ts (resume chunked-extraction #2).
 				restoreResumeAgentSetting({
 					agentSetting: log.agentSetting,
 					initialMainThreadAgentDefinition,
@@ -1815,7 +1816,7 @@ export function REPL({
 
 				// Restore standalone agent context from the resumed conversation
 				// Always reset to the new session's values (or clear if none)
-				// audit 1.1.1 slice #71: standalone agent context 外移到 resumeStandaloneAgentCheck.ts (resume chunked-extraction #11)。
+				// audit 1.1.1 slice #71: standalone agent context moved out to resumeStandaloneAgentCheck.ts (resume chunked-extraction #11).
 				restoreResumeStandaloneAgent({ log, setAppState });
 
 				// Restore read file state from the message history
@@ -1828,8 +1829,8 @@ export function REPL({
 
 				// Get target session's costs BEFORE saving current session, then save
 				// current + reset + switch session + rename asciicast + reset file ptr.
-				// audit 1.1.1 slice #64: cost-save+session-switch 外移到 resumeCostSessionSwitchCheck.ts (resume chunked-extraction #4 final)。
-				// targetSessionCosts returned for later setCostStateForRestore (return-value-threading)。
+				// audit 1.1.1 slice #64: cost-save+session-switch moved out to resumeCostSessionSwitchCheck.ts (resume chunked-extraction #4 final).
+				// targetSessionCosts returned for later setCostStateForRestore (return-value-threading).
 				const targetSessionCosts = await saveAndSwitchResumeSession({
 					sessionId,
 					fullPath: log.fullPath,
@@ -1840,7 +1841,7 @@ export function REPL({
 				// restoreSessionMetadata only sets-if-truthy, so without the clear,
 				// a session without an agent name would inherit the previous session's
 				// cached name and write it to the wrong transcript on first message.
-				// audit 1.1.1 slice #66: metadata-clear + haiku-reset 外移到 resumeMetadataResetCheck.ts (resume chunked-extraction #6)。
+				// audit 1.1.1 slice #66: metadata-clear + haiku-reset moved out to resumeMetadataResetCheck.ts (resume chunked-extraction #6).
 				resetResumeMetadata({
 					log,
 					haikuTitleAttemptedRef,
@@ -1857,7 +1858,7 @@ export function REPL({
 				// this would kick the user out of a worktree they're still working
 				// in. Same fork skip as processResumedConversation for the adopt —
 				// fork materializes its own file via recordTranscript on REPL mount.
-				// audit 1.1.1 slice #65: worktree-restore if/else 外移到 resumeWorktreeRestoreCheck.ts (resume chunked-extraction #5)。
+				// audit 1.1.1 slice #65: worktree-restore if/else moved out to resumeWorktreeRestoreCheck.ts (resume chunked-extraction #5).
 				restoreResumeWorktree({
 					entrypoint,
 					worktreeSession: log.worktreeSession,
@@ -1867,7 +1868,7 @@ export function REPL({
 				});
 
 				// Persist the current mode so future resumes know what mode this session was in
-				// audit 1.1.1 slice #67: COORDINATOR_MODE saveMode 外移到 resumeSaveModeCheck.ts (resume chunked-extraction #7)。
+				// audit 1.1.1 slice #67: COORDINATOR_MODE saveMode moved out to resumeSaveModeCheck.ts (resume chunked-extraction #7).
 				persistResumeMode();
 
 				// Restore target session's costs from the data we read earlier
@@ -1887,7 +1888,7 @@ export function REPL({
 				// createFork() does write content-replacement entries to the forked
 				// JSONL with the fork's sessionId, so `claude -r {forkId}` also works.
 				if (contentReplacementStateRef.current && entrypoint !== "fork") {
-					// audit 1.1.1 slice #61: reconstruct body 外移到 resumeContentReplacementCheck.ts (resume chunked-extraction #1)。
+					// audit 1.1.1 slice #61: reconstruct body moved out to resumeContentReplacementCheck.ts (resume chunked-extraction #1).
 					reconstructResumeContentReplacement({
 						contentReplacementStateRef,
 						entrypoint,
@@ -1896,10 +1897,10 @@ export function REPL({
 					});
 				}
 
-				// Reset messages + clear tool JSX/input + success telemetry。
-				// audit 1.1.1 slice #72: finalize UI-state + success-telemetry 外移到 resumeFinalizeCheck.ts (resume chunked-extraction #12)。
-				// messages (resume-local), entrypoint (resume param), resumeStart (try 外 body-local) + setMessages/setToolJSX/setInputValue (REPL state) 经 ctx 传入, 行为字节等价。
-				// catch 分支 logEvent(success:false) 留此 (与 try 结构耦合)。
+				// Reset messages + clear tool JSX/input + success telemetry.
+				// audit 1.1.1 slice #72: finalize UI-state + success-telemetry moved out to resumeFinalizeCheck.ts (resume chunked-extraction #12).
+				// messages (resume-local), entrypoint (resume param), resumeStart (body-local outside the try) + setMessages/setToolJSX/setInputValue (REPL state) passed via ctx, byte-equivalent behavior.
+				// The catch-branch logEvent(success:false) stays here (coupled to the try structure).
 				finalizeResume({
 					messages,
 					entrypoint,
@@ -1980,9 +1981,9 @@ export function REPL({
 	// Permission and interactive dialogs can show even when toolJSX is set,
 	// as long as shouldContinueAnimation is true. This prevents deadlocks when
 	// agents set background hints while waiting for user interaction.
-	// focusedInputDialog 优先级级联 (20 类型, exit/typing 门控 + toolJSX 动画门控 + ultraplan/ant 分支)
-	// 已外移到 utils/focusedDialogSelector.ts。保留所有 useState/useRef 绑定在此, 仅纯计算外移,
-	// 下游读取同名 const (字节等价)。feature("ULTRAPLAN") + isInternalBuild() 跨文件 DCE 安全。
+	// focusedInputDialog priority cascade (20 kinds, exit/typing gating + toolJSX animation gating + ultraplan/ant branches)
+	// moved out to utils/focusedDialogSelector.ts. All useState/useRef bindings stay here; only the pure computation moved out,
+	// downstream reads same-named consts (byte-equivalent). feature("ULTRAPLAN") + isInternalBuild() are DCE-safe across files.
 	const focusedInputDialog = getFocusedInputDialog({
 		isExiting,
 		exitFlow,
@@ -2051,9 +2052,9 @@ export function REPL({
 		if (was !== now) repinScroll();
 		prevDialogRef.current = focusedInputDialog;
 	}, [focusedInputDialog, repinScroll]);
-	// audit 1.1.1 slice #59: onCancel body 外移到 onCancelCheck.ts (INLINE-CALLBACK curried-factory)。
-	// 每 render 调 createOnCancel(ctx) 取新闭包 (与原 function decl 重建语义字节等价, 非 memo);
-	// onCancel 经 ref 透传 cancelRequestProps / createMessageActionCaps / <MessageSelector onPreRestore>。
+	// audit 1.1.1 slice #59: onCancel body moved out to onCancelCheck.ts (INLINE-CALLBACK curried-factory).
+	// createOnCancel(ctx) is called each render for a fresh closure (byte-equivalent to the original function-decl rebuild semantics, not memoized);
+	// onCancel is passed by ref to cancelRequestProps / createMessageActionCaps / <MessageSelector onPreRestore>.
 	const onCancel = createOnCancel({
 		focusedInputDialog,
 		streamMode,
@@ -2131,14 +2132,14 @@ export function REPL({
 	// mount so users know their security config isn't being enforced. Full
 	// reason goes to debug log; notification points to /sandbox for details.
 	// addNotification is stable (useCallback) so the effect fires once.
-	// audit 1.1.1 slice #43: effect body 外移到 sandboxUnavailableCheck.tsx (PURE-ROUTING-SUB-BLOCK)。
-	// addNotification 经 ctx 传入 (闭包捕获), 行为字节等价。deps [addNotification] 不变。
+	// audit 1.1.1 slice #43: effect body moved out to sandboxUnavailableCheck.tsx (PURE-ROUTING-SUB-BLOCK).
+	// addNotification passed via ctx (closure capture), byte-equivalent behavior. deps [addNotification] unchanged.
 	useEffect(
 		() => maybeShowSandboxUnavailable({ addNotification }),
 		[addNotification],
 	);
 	if (SandboxManager.isSandboxingEnabled()) {
-		// audit 1.1.1 slice #60: init+catch body 外移到 sandboxInitCheck.ts (PURE-ROUTING-SUB-BLOCK render-body)。
+		// audit 1.1.1 slice #60: init+catch body moved out to sandboxInitCheck.ts (PURE-ROUTING-SUB-BLOCK render-body).
 		maybeInitSandbox({ sandboxAskCallback });
 	}
 	const setToolPermissionContext = useCallback(
@@ -2163,8 +2164,8 @@ export function REPL({
 		setToolPermissionContext,
 	);
 	const requestPrompt = useCallback(
-		// audit 1.1.1 slice #41: curried Promise-queue factory body 外移到 requestPromptFactory.ts (PURE-ROUTING-CALLBACK)。
-		// setPromptQueue 经 ctx 传入 (闭包捕获), 行为字节等价。useCallback 直接返 factory (与原 inline 签名一致), deps [] 不变。
+		// audit 1.1.1 slice #41: curried Promise-queue factory body moved out to requestPromptFactory.ts (PURE-ROUTING-CALLBACK).
+		// setPromptQueue passed via ctx (closure capture), byte-equivalent behavior. useCallback returns the factory directly (matching the original inline signature), deps [] unchanged.
 		(title: string, toolInputSummary?: string | null) =>
 			createRequestPrompt({ setPromptQueue })(title, toolInputSummary),
 		[],
@@ -2493,8 +2494,8 @@ export function REPL({
 			// Mark onboarding as complete when any user message is sent to Claude
 			void maybeMarkProjectOnboardingComplete();
 
-			// audit 1.1.1: haiku title 抽取外移到 haikuTitleExtraction.ts (PURE-ROUTING SUB-BLOCK)。
-			// one-shot ref 防 SessionStart/attachment 消息撑长 messages; 5 个闭包依赖经 ctx 传入, 行为字节等价。
+			// audit 1.1.1: haiku title extraction moved out to haikuTitleExtraction.ts (PURE-ROUTING SUB-BLOCK).
+			// one-shot ref prevents SessionStart/attachment messages from inflating messages; 5 closure deps passed via ctx, byte-equivalent behavior.
 			maybeExtractHaikuTitle(newMessages, {
 				titleDisabled,
 				sessionTitle,
@@ -2656,7 +2657,7 @@ export function REPL({
 
 			// Capture ant-only API metrics before resetLoadingState clears the ref.
 			// For multi-request turns (tool use loops), compute P50 across all requests.
-			// audit 1.1.1: 子块抽到 utils/apiMetricsCapture.ts (PURE-ROUTING SUB-BLOCK)。
+			// audit 1.1.1: sub-block extracted to utils/apiMetricsCapture.ts (PURE-ROUTING SUB-BLOCK).
 			captureApiMetrics({ apiMetricsRef, loadingStartTimeRef, setMessages });
 			resetLoadingState();
 
@@ -3075,8 +3076,8 @@ export function REPL({
 				}
 			}
 
-			// audit 1.1.1: idle-return gate 外移到 idleReturnDialog.ts (PURE-ROUTING SUB-BLOCK)。
-			// fusion_willow_mode 控制: "dialog"(阻塞)/"hint"/"off"。6 个闭包依赖经 ctx 传入, 行为字节等价。
+			// audit 1.1.1: idle-return gate moved out to idleReturnDialog.ts (PURE-ROUTING SUB-BLOCK).
+			// Controlled by fusion_willow_mode: "dialog" (blocking) / "hint" / "off". 6 closure deps passed via ctx, byte-equivalent behavior.
 			if (
 				maybeTriggerIdleReturnDialog(input, {
 					skipIdleCheckRef,
@@ -3383,8 +3384,8 @@ export function REPL({
 	const handleOpenRateLimitOptions = useCallback(() => {
 		// /rate-limit-options command removed - cloud-only
 	}, []);
-	// audit 1.1.1 slice #33: handleExit 3 分支 (bg-detach/worktree-exit/exit.tsx modal) 外移到 exitFlow.tsx。
-	// 2 个 setter 经 ctx 传入 (稳定), 导入型 helper/ExitFlow/exit 命令直接 import, 行为字节等价。
+	// audit 1.1.1 slice #33: handleExit 3 branches (bg-detach/worktree-exit/exit.tsx modal) moved out to exitFlow.tsx.
+	// 2 setters passed via ctx (stable), imported helpers/ExitFlow/exit command imported directly, byte-equivalent behavior.
 	const handleExit = useCallback(async () => {
 		await runExitFlow({ setExitFlow, setIsExiting });
 	}, []);
@@ -3397,7 +3398,7 @@ export function REPL({
 	// Does NOT touch the prompt input. Index is computed from messagesRef (always
 	// fresh via the setMessages wrapper) so callers don't need to worry about
 	// stale closures.
-	// 体已外移到 utils/rewindMessageState.ts。REPL 保留 useCallback 薄包装, deps 不变。
+	// Body moved out to utils/rewindMessageState.ts. REPL keeps a thin useCallback wrapper, deps unchanged.
 	const rewindConversationTo = useCallback(
 		(message: UserMessage) =>
 			rewindConversationToImpl(message, {
@@ -3412,7 +3413,7 @@ export function REPL({
 	// Synchronous rewind + input population. Used directly by auto-restore on
 	// interrupt (so React batches with the abort's setMessages → single render,
 	// no flicker). MessageSelector wraps this in setImmediate via handleRestoreMessage.
-	// 体已外移到 utils/rewindMessageState.ts。REPL 保留 useCallback 薄包装, deps 不变。
+	// Body moved out to utils/rewindMessageState.ts. REPL keeps a thin useCallback wrapper, deps unchanged.
 	const restoreMessageSync = useCallback(
 		(message: UserMessage) =>
 			restoreMessageSyncImpl(message, {
@@ -3487,8 +3488,8 @@ export function REPL({
 	// That write storm is the primary trigger for ~/.claude.json corruption
 	// (GH #3117).
 	const hasCountedQueueUseRef = useRef(false);
-	// audit 1.1.1 slice #44: effect body 外移到 queueUseCountCheck.ts (PURE-ROUTING-SUB-BLOCK)。
-	// hasCountedQueueUseRef (ref) + queueLen (queuedCommands.length, derived dep) 经 ctx 传入, 行为字节等价。deps [queuedCommands.length] 不变。
+	// audit 1.1.1 slice #44: effect body moved out to queueUseCountCheck.ts (PURE-ROUTING-SUB-BLOCK).
+	// hasCountedQueueUseRef (ref) + queueLen (queuedCommands.length, derived dep) passed via ctx, byte-equivalent behavior. deps [queuedCommands.length] unchanged.
 	useEffect(
 		() =>
 			maybeCountQueueUse({
@@ -3567,8 +3568,8 @@ export function REPL({
 	}, [submitCount]);
 
 	// Show notification when Claude is done responding and user is idle
-	// audit 1.1.1 slice #54: effect body 外移到 idleNotificationEffect.ts (PURE-ROUTING SUB-BLOCK)。
-	// 6 个 dep (isLoading/toolJSX/submitCount/lastQueryCompletionTime/terminal + focusedInputDialogRef ref) 经 ctx 传入, helper 返 cleanup fn 或 undefined, 行为字节等价。
+	// audit 1.1.1 slice #54: effect body moved out to idleNotificationEffect.ts (PURE-ROUTING SUB-BLOCK).
+	// 6 deps (isLoading/toolJSX/submitCount/lastQueryCompletionTime/terminal + focusedInputDialogRef ref) passed via ctx, helper returns the cleanup fn or undefined, byte-equivalent behavior.
 	useEffect(
 		() =>
 			maybeScheduleIdleNotification({
@@ -3585,8 +3586,8 @@ export function REPL({
 	// Idle-return hint: show notification when idle threshold is exceeded.
 	// Timer fires after the configured idle period; notification persists until
 	// dismissed or the user submits.
-	// audit 1.1.1 slice #34: effect body 外移到 idleReturnHint.tsx (PURE-ROUTING SUB-BLOCK, 6th — 像 #29)。
-	// 5 setTimeout-arg + 2 guard dep + cleanup 经 ctx 传入, helper 直接 import, 行为字节等价。返回 timer handle 供 cleanup clearTimeout。
+	// audit 1.1.1 slice #34: effect body moved out to idleReturnHint.tsx (PURE-ROUTING SUB-BLOCK, 6th — like #29).
+	// 5 setTimeout-args + 2 guard deps + cleanup passed via ctx, imported helpers imported directly, byte-equivalent behavior. Returns the timer handle for the cleanup clearTimeout.
 	useEffect(() => {
 		const timer = maybeScheduleIdleReturnHint({
 			lastQueryCompletionTime,
@@ -3730,7 +3731,7 @@ export function REPL({
 	);
 
 	// Derive stop hook spinner suffix from messages state
-	// audit 1.1.1: 纯推导移至 utils/spinnerState.ts, useMemo 仅缓存
+	// audit 1.1.1: pure derivation moved to utils/spinnerState.ts, useMemo only caches
 	const stopHookSpinnerSuffix = useMemo(
 		() => stopHookSpinnerSuffixFn(messages, isLoading),
 		[messages, isLoading],
@@ -4132,14 +4133,14 @@ export function REPL({
 	// viewedAgentTask: teammate OR local_agent — drives the boolean checks
 	// below. viewedTeammateTask: teammate-only narrowed, for teammate-specific
 	// field access (inProgressToolUseIDs).
-	// audit 1.1.1: 三段推导移至 tasks/viewedTaskSelector.ts
+	// audit 1.1.1: three-part derivation moved to tasks/viewedTaskSelector.ts
 	const viewedTask = getViewedTask(tasks, viewingAgentTaskId);
 	const viewedTeammateTask = getViewedTeammateTask(viewedTask);
 	const viewedAgentTask = getViewedAgentTask(viewedTask, viewedTeammateTask);
 
-	// 消息显示状态推导 (usesSyncMessages / displayedMessages / placeholderText)
-	// 已外移到 utils/messageDisplayState.ts。保留 useDeferredValue(messages) 与
-	// ref 声明在此, 仅纯计算外移, 下游读取同名 const (字节等价)。
+	// Message display state derivation (usesSyncMessages / displayedMessages / placeholderText)
+	// moved out to utils/messageDisplayState.ts. useDeferredValue(messages) and the
+	// ref declarations stay here; only the pure computation moved out, downstream reads same-named consts (byte-equivalent).
 	const { usesSyncMessages, displayedMessages, placeholderText } =
 		deriveMessageDisplayState({
 			showStreamingText,
@@ -4171,9 +4172,9 @@ export function REPL({
 			/>
 		) : null;
 
-	// companion 布局状态推导 (companionNarrow / companionVisible / toolJsxCentered / centeredModal)
-	// 已外移到 utils/companionLayoutState.ts。保留所有 useState/useRef 绑定在此,
-	// 仅纯计算外移, 下游读取同名 const (字节等价)。
+	// Companion layout state derivation (companionNarrow / companionVisible / toolJsxCentered / centeredModal)
+	// moved out to utils/companionLayoutState.ts. All useState/useRef bindings stay here;
+	// only the pure computation moved out, downstream reads same-named consts (byte-equivalent).
 	const { companionNarrow, companionVisible, toolJsxCentered, centeredModal } =
 		deriveCompanionLayoutState({
 			transcriptCols,

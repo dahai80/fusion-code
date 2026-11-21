@@ -74,7 +74,7 @@ export async function* handleAstCommand(input: string): AsyncGenerator<string> {
 		}
 
 		if (args.kind) {
-			// SymbolKind 字面量联合与 CLI 字符串参数同域, 定向 cast 替代 as any
+			// SymbolKind literal union shares the domain with the CLI string arg; targeted cast instead of as any
 			const symbols = idx.queryByKind(
 				args.kind as Parameters<typeof idx.queryByKind>[0],
 			);

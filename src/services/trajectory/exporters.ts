@@ -1,8 +1,9 @@
-// D1 轨迹飞轮 — 三格式导出 (issue #51)
+// D1 trajectory flywheel — three-format export (issue #51)
 //
-// 消费汇聚后的轨迹, 输出训练可用的标准格式 (fusion-trainer 消费):
-//   SFT  — ShareGPT messages-JSONL, 仅 is_error=false 成功轨迹
-//   DPO  — 偏好对 {prompt, chosen, rejected}, 失败作 rejected / 成功作 chosen
+// Consumes collected trajectories and emits training-ready standard formats
+// (consumed by fusion-trainer):
+//   SFT  — ShareGPT messages-JSONL, only is_error=false successful trajectories
+//   DPO  — preference pairs {prompt, chosen, rejected}, failure as rejected / success as chosen
 //   GRPO — {prompt, completion, reward}, reward = is_error ? 0 : 1
 
 import { promises as fs } from "node:fs";
@@ -19,12 +20,13 @@ import type {
 
 const log = (...args: unknown[]) => console.error("[trajectory]", ...args);
 
-// 闭合标签拆分构造, 避免源码中出现裸闭合标签序列
+// Closing tags built by splitting, avoiding bare closing-tag sequences in
+// the source
 const CLOSE_THINKING = "<" + "/thinking>";
 const CLOSE_TOOL_CALL = "<" + "/tool_call>";
 const CLOSE_TOOL_RESULT = "<" + "/tool_result>";
 
-// 把单步轨迹渲染为对话文本
+// Render a single trajectory step as conversation text
 function stepToText(step: TrajectoryStep): string {
 	const parts: string[] = [];
 	if (step.thinking) parts.push(`<thinking>${step.thinking}${CLOSE_THINKING}`);
@@ -54,7 +56,8 @@ function stepToText(step: TrajectoryStep): string {
 	return parts.join("\n");
 }
 
-// 提取首轮 user prompt (跳过纯 tool_result 的 user 步骤)
+// Extract the first user prompt (skipping user steps that are pure
+// tool_result)
 function extractPrompt(traj: CollectedTrajectory): string {
 	for (const s of traj.steps) {
 		if (s.role === "user" && s.text && !s.toolResults?.length) {
@@ -65,7 +68,8 @@ function extractPrompt(traj: CollectedTrajectory): string {
 	return firstUser?.text ?? "";
 }
 
-// 提取 assistant 最终回答文本 (最后一条含 text 的 assistant 步骤)
+// Extract the assistant's final answer text (the last assistant step
+// containing text)
 function extractFinalAnswer(traj: CollectedTrajectory): string {
 	for (let i = traj.steps.length - 1; i >= 0; i--) {
 		const s = traj.steps[i];
@@ -74,7 +78,7 @@ function extractFinalAnswer(traj: CollectedTrajectory): string {
 	return "";
 }
 
-// 渲染整条 assistant 轨迹 (含 thought/tool_call/tool_response/final)
+// Render the full assistant trajectory (thought/tool_call/tool_response/final)
 function renderAssistantTurn(traj: CollectedTrajectory): string {
 	const parts: string[] = [];
 	for (const s of traj.steps) {
@@ -85,7 +89,7 @@ function renderAssistantTurn(traj: CollectedTrajectory): string {
 	return parts.join("\n");
 }
 
-// SFT: 仅 positive 轨迹, 输出 ShareGPT messages
+// SFT: only positive trajectories, output ShareGPT messages
 export function toSFTSample(traj: CollectedTrajectory): SFTSample | null {
 	if (traj.label !== "positive") return null;
 	const prompt = extractPrompt(traj);
@@ -101,7 +105,7 @@ export function toSFTSample(traj: CollectedTrajectory): SFTSample | null {
 	};
 }
 
-// GRPO: 每条轨迹一个样本, reward = is_error ? 0 : 1
+// GRPO: one sample per trajectory, reward = is_error ? 0 : 1
 export function toGRPOSample(traj: CollectedTrajectory): GRPOSample | null {
 	const prompt = extractPrompt(traj);
 	const completion = renderAssistantTurn(traj);
@@ -114,7 +118,8 @@ export function toGRPOSample(traj: CollectedTrajectory): GRPOSample | null {
 	};
 }
 
-// DPO: 自纠正候选成对 (失败渲染作 rejected / 最终成功 answer 作 chosen)
+// DPO: pair up self-correction candidates (failure rendered as rejected /
+// the final successful answer as chosen)
 export function buildDPOPairs(trajectories: CollectedTrajectory[]): DPOPair[] {
 	const pairs: DPOPair[] = [];
 	for (const traj of trajectories) {
@@ -133,7 +138,8 @@ export function buildDPOPairs(trajectories: CollectedTrajectory[]): DPOPair[] {
 	return pairs;
 }
 
-// 在候选目录中找到第一个含 manifest.json 的, 返回 {storeDir, manifest}; 都没有则 null
+// Find the first candidate directory containing manifest.json, return
+// {storeDir, manifest}; null if none does
 async function resolveStore(candidates: string[]): Promise<{
 	storeDir: string;
 	manifest: NonNullable<Awaited<ReturnType<typeof readManifest>>>;
@@ -146,8 +152,8 @@ async function resolveStore(candidates: string[]): Promise<{
 	return null;
 }
 
-// 加载所有汇聚轨迹 (或按 sessionId 过滤)
-// storeDir = 汇聚库目录 (manifest.json + raw/ 所在)
+// Load all collected trajectories (or filter by sessionId)
+// storeDir = collection store directory (where manifest.json + raw/ live)
 export async function loadAll(
 	storeDir: string,
 	sessionId?: string,
@@ -181,8 +187,9 @@ async function writeJsonl(filePath: string, records: unknown[]): Promise<void> {
 	await fs.writeFile(filePath, lines + (lines ? "\n" : ""), "utf8");
 }
 
-// 主入口
-// 汇聚库定位优先级: storeDir > sourceDir > destDir (取首个含 manifest 者)
+// Main entry
+// Store-resolution priority: storeDir > sourceDir > destDir (first one
+// containing a manifest wins)
 export async function exportTrajectories(
 	options: ExportOptions,
 ): Promise<{ count: number; format: string; destFile: string }> {

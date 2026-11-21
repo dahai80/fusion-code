@@ -1,7 +1,7 @@
 // Hard Compact: deterministic tool output truncation for MLX models
 // Importers: compact.ts (compactConversation MLX branch), autoCompact.ts
-// User instruction: "深度研读 suggest1.md和suggest2.md 制定方案和计划，修复问题，提升fusion-code竞争力"
-// suggest1.md core insight: "让 LLM 去生成摘要在本地架构下是逻辑悖论" — LLM summarization during compact makes memory worse
+// User instruction: "deeply study suggest1.md and suggest2.md, draft the plan, fix the issues, improve fusion-code competitiveness"
+// suggest1.md core insight: "having the LLM generate summaries is a logical paradox under the local architecture" — LLM summarization during compact makes memory worse
 // API: hardCompactMessages() returns HardCompactResult, shouldUseHardCompact() checks MLX provider
 // Data schema: HardCompactResult { messages, truncatedToolResults, truncatedAssistantTexts, roundsKeptIntact, roundsProcessed, preCompactTokens, postCompactTokens }
 
@@ -38,7 +38,7 @@ export interface HardCompactResult {
 	roundsProcessed: number;
 	preCompactTokens: number;
 	postCompactTokens: number;
-	// insight-0902 E3: 影子价候选评分表 (仅 shadow-price 路径填充), 供 /diff-compaction 审计。
+	// insight-0902 E3: shadow-price candidate score table (populated only on the shadow-price path), for /diff-compaction audit.
 	candidates?: PruneCandidate[];
 	priceThreshold?: number;
 }
@@ -127,8 +127,8 @@ export function hardCompactMessages(
 		messages as Parameters<typeof roughTokenCountEstimationForMessages>[0],
 	); // log: cast Message[] for param type
 
-	// P1.2 (audit): 影子价压缩 — 选择性裁剪高价工具结果, 保可复用前缀。
-	// default-off (FUSION_CODE_SHADOW_PRICE_COMPACT=1)。off 走下方原 head/tail 路径, byte-identical。
+	// P1.2 (audit): shadow-price compaction — selectively prune high-price tool results, keep the reusable prefix.
+	// default-off (FUSION_CODE_SHADOW_PRICE_COMPACT=1). When off, the original head/tail path below runs, byte-identical.
 	if (isShadowPriceCompactEnabled()) {
 		const sp = shadowPriceCompactMessages(messages, keepRecentRounds);
 		return {

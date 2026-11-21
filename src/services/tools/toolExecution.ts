@@ -783,7 +783,8 @@ async function checkPermissionsAndCallTool(
 	}
 
 	// FUSION.rules denied tools check
-	// P2-12: 查主名 + 别名 (isToolDeniedByNameOrAlias), 防 denied_tools 列别名静默失效。
+	// P2-12: check primary name + aliases (isToolDeniedByNameOrAlias), prevents
+	// denied_tools listing an alias from silently failing.
 	const { isToolDeniedByNameOrAlias } = await import(
 		"../../utils/fusionRules.js"
 	);
@@ -925,14 +926,16 @@ async function checkPermissionsAndCallTool(
 	for (const p of collectedDeep) {
 		if (!sensitivePaths.includes(p)) sensitivePaths.push(p);
 	}
-	// P2-1: 字符串 pattern 检查 (快速路径, 阻直接命中)。
+	// P2-1: string pattern check (fast path, blocks direct hits).
 	let blockedPath = sensitivePaths.find((p) => isSensitiveFilePath(p));
-	// P2-1: 符号链接穿透守卫。`ln -s ~/.env ./link` → 规范化串不含 `.env`,
-	// 字符串检查放过, 但 AI 经 ./link 读到敏感内容。对未命中字符串检查的候选
-	// 路径逐个 realpath 解析: 符号链接解析到敏感目标则拒 (fail-closed)。
+	// P2-1: symlink traversal guard. `ln -s ~/.env ./link` -> the normalized
+	// string doesn't contain `.env`, so the string check passes, but the AI
+	// reads sensitive content through ./link. For candidates that didn't hit
+	// the string check, resolve each path via realpath: if a symlink resolves
+	// to a sensitive target, deny (fail-closed).
 	if (!blockedPath) {
 		for (const p of sensitivePaths) {
-			if (isSensitiveFilePath(p)) continue; // 已被字符串检查命中
+			if (isSensitiveFilePath(p)) continue; // already hit by the string check
 			if (await isSymlinkBypassingSensitiveGate(p)) {
 				blockedPath = p;
 				break;

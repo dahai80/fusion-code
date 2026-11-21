@@ -1,22 +1,23 @@
-// LLM 接缝 — StreamChunk -> SDK part 翻译器
+// LLM seam — StreamChunk -> SDK part translator
 //
-// Phase 4 接入策略: flag 开时用 adapter.stream() 产出中立 StreamChunk, 再经本翻译器
-// 转回 SDK part 形状 (BetaRawMessageStreamEvent 的结构), 喂给 claude.ts 现有 switch
-// (零改 switch)。flag 关时走 SDK, 回滚=关 flag。
+// Phase 4 integration strategy: when the flag is on, adapter.stream() produces neutral
+// StreamChunks, which this translator converts back into SDK part shape (the structure of
+// BetaRawMessageStreamEvent) and feeds to claude.ts's existing switch
+// (zero switch changes). With the flag off, the SDK is used; rollback = turn the flag off.
 //
-// 翻译是 sseToChunk 的逆映射, 但 usage 用 Anthropic snake_case (updateUsage 需要)。
-// 只构造 switch 实际读取的字段, 不复刻完整 SDK 类型 (结构兼容即可)。
+// The translation is the inverse mapping of sseToChunk, but usage uses Anthropic snake_case (required by updateUsage).
+// Only constructs fields the switch actually reads; does not replicate the full SDK types (structural compatibility is enough).
 
 import type { RawContentBlock, StreamChunk, TokenUsage } from "./types.js";
 
-// SDK part 形状 (结构子集, claude.ts switch 实际读取的字段)。
-// 用宽化字段避免引入 SDK 类型依赖; switch 只做 part.type 判别 + 字段读取。
+// SDK part shape (structural subset: the fields claude.ts's switch actually reads).
+// Uses widened fields to avoid SDK type dependencies; the switch only discriminates on part.type and reads fields.
 export type SdkPart = {
 	type: string;
 	[k: string]: unknown;
 };
 
-// camelCase TokenUsage -> Anthropic snake_case usage (供 updateUsage)。
+// camelCase TokenUsage -> Anthropic snake_case usage (for updateUsage).
 function toAnthropicUsage(u: TokenUsage): Record<string, number> {
 	const out: Record<string, number> = {
 		input_tokens: u.inputTokens ?? 0,
@@ -29,7 +30,7 @@ function toAnthropicUsage(u: TokenUsage): Record<string, number> {
 	return out;
 }
 
-// content_block_start 的中立 RawContentBlock -> Anthropic content_block。
+// content_block_start's neutral RawContentBlock -> Anthropic content_block.
 function toAnthropicBlock(b: RawContentBlock): Record<string, unknown> {
 	const out: Record<string, unknown> = { type: b.type };
 	if (typeof b.text === "string") out.text = b.text;
@@ -41,7 +42,7 @@ function toAnthropicBlock(b: RawContentBlock): Record<string, unknown> {
 	return out;
 }
 
-// 单个 StreamChunk -> SDK part。返回 null 表示该 chunk 无对应 part (理论上不发生)。
+// Single StreamChunk -> SDK part. Returning null means the chunk has no corresponding part (should not happen in theory).
 export function chunkToSdkPart(
 	chunk: StreamChunk,
 	state: { lastUsage?: Record<string, number>; stopReason?: string },
@@ -80,8 +81,8 @@ export function chunkToSdkPart(
 			};
 		}
 		case "thinking-delta": {
-			// signature_delta 与 thinking_delta 在中立层合并为 thinking-delta;
-			// 若带 signature, 还原成单独的 signature_delta part (switch 期望如此)。
+			// signature_delta and thinking_delta are merged into thinking-delta at the neutral layer;
+			// if a signature is present, restore it as a separate signature_delta part (the switch expects this).
 			if (chunk.signature !== undefined && chunk.signature !== "") {
 				return {
 					type: "content_block_delta",
@@ -116,9 +117,9 @@ export function chunkToSdkPart(
 			const usage = toAnthropicUsage(chunk.usage);
 			state.lastUsage = usage;
 			if (chunk.stopReason) state.stopReason = chunk.stopReason;
-			// log: stop_reason 仅透传实际收到的值; 不兜底 "end_turn"。
-			// 流异常截断 (无 message_delta stop_reason) 时保留 null, 让 claude.ts
-			// 的 !stopReason 空响应检测 (claude.ts:2368) 正常触发, 而非伪装成正常结束。
+			// log: stop_reason passes through only the actually received value; no "end_turn" fallback.
+			// On abnormal stream truncation (no message_delta stop_reason) keep null so claude.ts's
+			// !stopReason empty-response detection (claude.ts:2368) fires normally instead of masking it as a normal end.
 			const stopReason = chunk.stopReason ?? state.stopReason ?? null;
 			return {
 				type: "message_delta",
@@ -134,7 +135,7 @@ export function chunkToSdkPart(
 	}
 }
 
-// 把 adapter 的 StreamChunk 异步流整体转成 SDK part 异步流 (claude.ts for-await 消费)。
+// Convert the adapter's StreamChunk async stream wholesale into an SDK part async stream (consumed by claude.ts's for-await).
 export async function* chunkStreamToSdkParts(
 	chunks: AsyncIterable<StreamChunk>,
 ): AsyncIterable<SdkPart> {

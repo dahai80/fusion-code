@@ -1,9 +1,9 @@
 /**
- * Self-Hosted Runner — 自托管运行器
+ * Self-Hosted Runner — self-hosted runner
  *
- * 无头自托管运行器，用于注册到 SelfHostedRunnerWorkerService API。
- * 通过 register + poll 模式工作：注册自身，然后轮询获取任务。
- * 轮询同时也是心跳信号。
+ * Headless self-hosted runner that registers with the SelfHostedRunnerWorkerService API.
+ * Works in a register + poll pattern: register itself, then poll for tasks.
+ * Polling doubles as the heartbeat signal.
  *
  * gated by feature('SELF_HOSTED_RUNNER')
  */
@@ -109,10 +109,11 @@ async function pollLoop(
 		poll();
 		setInterval(poll, config.pollIntervalMs);
 
-		// audit 2.1.4/3.1.3: SIGTERM/SIGINT 走 gracefulShutdown 而非 process.exit(0)
-		// 旁路会丢在飞会话持久化/analytics flush/已注册 cleanup。非交互无头进程:
-		// cleanupTerminalModes/printResumeHint 均 TTY+interactive gate → no-op, 仅跑
-		// runCleanupFunctions (analytics flush 等) + failsafe 兜底强制退出。
+		// audit 2.1.4/3.1.3: SIGTERM/SIGINT go through gracefulShutdown instead of process.exit(0),
+		// which bypasses in-flight session persistence / analytics flush / registered cleanups.
+		// Non-interactive headless process: cleanupTerminalModes/printResumeHint are both
+		// TTY+interactive gated → no-op; only runCleanupFunctions (analytics flush etc.) runs,
+		// plus a failsafe forced exit.
 		process.on("SIGTERM", () => {
 			logForDebugging("[SelfHostedRunner] Received SIGTERM, shutting down");
 			gracefulShutdownSync(0);

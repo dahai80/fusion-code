@@ -480,7 +480,7 @@ function containsDangerousOperations(expression: string): boolean {
 	// Reject non-ASCII characters (Unicode homoglyphs, combining chars, etc.)
 	// Examples: ｗ (fullwidth), ᴡ (small capital), w̃ (combining tilde)
 	// Check for characters outside ASCII range (0x01-0x7F, excluding null byte)
-	// biome-ignore lint/suspicious/noControlCharactersInRegex: 有意匹配 ASCII 范围外的全角/同形/组合字符以拦截 sed 混淆攻击
+	// biome-ignore lint/suspicious/noControlCharactersInRegex: intentionally matches fullwidth/homoglyph/combining characters outside the ASCII range to block sed obfuscation attacks
 	if (/[^\x01-\x7F]/.test(cmd)) {
 		return true;
 	}

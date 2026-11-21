@@ -1,12 +1,12 @@
 /**
- * Turn-level memory commit — 在 query loop 结束 (stopHooks) 时
- * 把刚完成的 user/assistant turn 写入 fusion-memory 长期记忆。
+ * Turn-level memory commit — when the query loop ends (stopHooks),
+ * writes the just-completed user/assistant turn into fusion-memory long-term memory.
  *
- * 仿 extractMemories 模式: fire-and-forget, 仅主 agent (非 subagent),
- * 失败 logForDebugging 不抛, 不阻断主流程。
+ * Follows the extractMemories pattern: fire-and-forget, main agent only (not subagents);
+ * on failure logs via logForDebugging and never throws, never blocks the main flow.
  *
- * session_id 取自 getSessionId() (bootstrap/state), 跨 session 稳定。
- * interaction.id 用 randomUUID 保证幂等性 (fm-server 按 id 去重)。
+ * session_id comes from getSessionId() (bootstrap/state), stable across sessions.
+ * interaction.id uses randomUUID for idempotency (fm-server dedupes by id).
  */
 
 import { randomUUID } from "node:crypto";
@@ -25,7 +25,7 @@ import {
 	type Turn,
 } from "./fusionMemoryClient.js";
 
-// 跳过 meta / virtual / compact-summary 消息, 只记真实对话
+// Skip meta / virtual / compact-summary messages; record only real conversation
 function isRealUserMessage(m: Message): m is UserMessage {
 	return (
 		m.type === "user" &&
@@ -40,7 +40,7 @@ function isRealAssistantMessage(m: Message): m is AssistantMessage {
 	return m.type === "assistant" && !m.isMeta && !m.isApiErrorMessage;
 }
 
-// 从 assistant content 提取 tool_use 块 → ToolCall[]
+// Extract tool_use blocks from assistant content → ToolCall[]
 function extractToolCalls(msg: AssistantMessage): ToolCall[] {
 	const calls: ToolCall[] = [];
 	for (const block of msg.message.content) {
@@ -56,8 +56,8 @@ function extractToolCalls(msg: AssistantMessage): ToolCall[] {
 }
 
 /**
- * 从完整消息历史提取最后完成的 turn (最后一个 user + 紧随的 assistant)。
- * 返回 null 表示没有可提交的 turn (历史为空 / 只有 user 没有 assistant)。
+ * Extract the last completed turn (the final user + its immediately following assistant) from the full message history.
+ * Returns null when there is no submittable turn (empty history / a user with no assistant reply).
  */
 function extractLastTurn(messages: Message[]): Turn | null {
 	let lastUserIdx = -1;
@@ -68,7 +68,7 @@ function extractLastTurn(messages: Message[]): Turn | null {
 		}
 	}
 	if (lastUserIdx < 0) return null;
-	// 找该 user 之后第一个 assistant
+	// Find the first assistant after that user
 	for (let i = lastUserIdx + 1; i < messages.length; i++) {
 		if (isRealAssistantMessage(messages[i])) {
 			const userMsg = messages[lastUserIdx] as UserMessage;
@@ -90,18 +90,18 @@ export interface CommitTurnContext {
 }
 
 /**
- * 提交最后一个 turn 到长期记忆。fire-and-forget, 不抛。
+ * Commit the last turn to long-term memory. fire-and-forget, never throws.
  *
- * @returns 提交的 memory_id 列表 (成功) / null (跳过或失败)
+ * @returns list of committed memory_ids (success) / null (skipped or failed)
  */
 export async function commitLastTurn(
 	ctx: CommitTurnContext,
 ): Promise<string[] | null> {
-	// 仅主 agent, 与 extractMemories 守卫一致
+	// Main agent only, consistent with the extractMemories guard
 	if (ctx.agentId) return null;
 	const turn = extractLastTurn(ctx.messages);
 	if (!turn) return null;
-	// 空对话不提交
+	// Empty conversation is not committed
 	if (!turn.user_message && !turn.assistant_message) return null;
 
 	const interaction: Interaction = {

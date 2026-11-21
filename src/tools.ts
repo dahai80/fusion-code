@@ -204,10 +204,10 @@ export function getAllBaseTools(): Tools {
 		CtxInspectTool,
 		ReportFindingsTool,
 		WorkflowTool,
-		// P5.4 session skills: 会话级一次性技能 (in-memory, 不持久, 仅元数据审计)。
-		// 双门禁: feature("SESSION_SKILLS") 编译期 (CreateSessionSkillTool.isEnabled 内) +
-		// FUSION_CODE_SESSION_SKILLS_ENABLED 运行期 (此处 preset 门控 + isEnabled 二次校验)。
-		// 关闭时两层都 false → 工具不入 preset 列表, byte-identical。
+		// P5.4 session skills: session-scoped one-shot skills (in-memory, non-persistent, metadata-only audit).
+		// Double gate: feature("SESSION_SKILLS") at compile time (inside CreateSessionSkillTool.isEnabled) +
+		// FUSION_CODE_SESSION_SKILLS_ENABLED at runtime (preset gating here + a second isEnabled check).
+		// When off, both layers are false → the tool stays out of the preset list, byte-identical.
 		...(isSessionSkillsEnabled() ? [CreateSessionSkillTool] : []),
 		...(isWorktreeModeEnabled() ? [EnterWorktreeTool, ExitWorktreeTool] : []),
 		SleepTool,
@@ -247,8 +247,8 @@ export function filterToolsByDenyRules<
 	return tools.filter((tool) => !getDenyRuleForTool(permissionContext, tool));
 }
 
-// #222: 分档常量 + 数值规模解析抽到 utils/mlxToolTiers (纯函数可单测,
-// 也避免测试直接 import tools.ts 触发重模块图)。
+// #222: tier constants + numeric scale parsing extracted to utils/mlxToolTiers (pure functions, unit-testable,
+// and tests avoid importing tools.ts which pulls in the heavy module graph).
 function getMlxToolFilter(): Set<string> | null {
 	if (!isFusionMlxProvider()) return null;
 	try {
@@ -311,8 +311,8 @@ export const getTools = (permissionContext: ToolPermissionContext): Tools => {
 
 	const isEnabled = allowedTools.map((_) => _.isEnabled());
 	const enabledTools = allowedTools.filter((_, i) => isEnabled[i]);
-	// ar-plan PR #9 (S3): profile 层在 MLX 分层之后叠加 (两正交)。
-	// getSessionProfile() = null (无 --profile) → 原样返回 byte-identical。
+	// ar-plan PR #9 (S3): the profile layer is applied after MLX tiering (the two are orthogonal).
+	// getSessionProfile() = null (no --profile) → returns tools unchanged, byte-identical.
 	return filterToolsByProfile(enabledTools, getSessionProfile());
 };
 
