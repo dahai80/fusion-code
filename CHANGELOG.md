@@ -7,7 +7,7 @@ doc_type: changelog
 title: { zh: "变更日志", en: "Changelog" }
 audience: engineer
 status: draft
-version: 0.8.12
+version: 0.8.13
 updated: 2026-11-20
 owner: "@dahai"
 source_of_truth:
@@ -19,6 +19,10 @@ source_of_truth:
 All notable changes to fusion-code are documented here.
 
 ## Unreleased
+
+## 0.8.13 - 2026-11-21
+
+- **i18n (#302)**: last non-test `src/` Chinese comment/string debt translated (4 files: `src/ink/screen.ts`, `src/tools/ConfigTool/supportedSettings.ts`, `src/utils/computerUse/appNames.ts`, `src/utils/modelCost.ts` — `Local (免费)` → `Local (free)`); closes #299. Kept deliberately: Chinese examples inside the session-title LLM prompt (functional), multilingual UI examples in `LanguagePicker`/`useVoice`. Non-test `src/` comment/log Chinese residue is now 0.
 
 ## 0.8.12 - 2026-11-20
 
