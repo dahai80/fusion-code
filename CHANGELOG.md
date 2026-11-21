@@ -7,7 +7,7 @@ doc_type: changelog
 title: { zh: "变更日志", en: "Changelog" }
 audience: engineer
 status: draft
-version: 0.8.13
+version: 0.8.14
 updated: 2026-11-20
 owner: "@dahai"
 source_of_truth:
@@ -19,6 +19,12 @@ source_of_truth:
 All notable changes to fusion-code are documented here.
 
 ## Unreleased
+
+## 0.8.14 - 2026-11-21
+
+- **Tool-call-as-text recovery (#304)**: small local models (Qwen3-8B class on fusion-mlx) intermittently emit a tool call as plain text — the turn then looks finished and the session dies unsolved. When the final assistant text matches a tool-call shape (`Name({...})` with a real tool name, `call_<id>{...}`, `<tools>{...}`), the loop now feeds the turn back with a format-correction meta message (mirrors the max-output-tokens recovery pattern; capped at 2 attempts, second one escalates edits to whole-file Write). Gated to local MLX. Bench runner gains a per-task `textEmissions` metric plus verifier/driver fixes (60s verifier bounds, goose headless flags, permissions skip in `-p`).
+- **Compact prompt tier for ≤9B local models (#306)**: `getPromptTier` now returns `compact` for models ≤9B params (was `standard`). Same checkpoint, same engine: harness-gain resolve 3/20 → 10/20, mean wall 130s → 74s — prompt size was the dominant gap (ties goose's small-prompt harness measured the same day). `FUSION_CODE_MLX_PROMPT_TIER` env override forces any tier for A/B comparison; invalid values fall back to the automatic mapping.
+- **Research (#305)**: small-model tool-calling survey (`docs/research/small-model-tool-calling-2026-11.md` — root-cause experiments, constrained-decoding/ACI/training-flywheel landscape, ranked options) and bench report #2 (`docs/research/bench-reports/2026-11-20-r2.md`) with the cross-harness baseline: fusion-code 3/20, opencode 2/20 (11× 600s deaths), goose 10/20 — 5x resolve-rate gap by harness on identical checkpoint.
 
 ## 0.8.13 - 2026-11-21
 
