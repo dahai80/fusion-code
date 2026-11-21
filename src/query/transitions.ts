@@ -27,4 +27,5 @@ export type Continue =
 	| { reason: "max_output_tokens_escalate" }
 	| { reason: "max_output_tokens_recovery"; attempt: number }
 	| { reason: "stop_hook_blocking" }
+	| { reason: "tool_call_text_recovery"; attempt: number }
 	| { reason: "token_budget_continuation" };

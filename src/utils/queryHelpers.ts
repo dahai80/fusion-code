@@ -580,3 +580,24 @@ function extractCliName(command: string | undefined): string | undefined {
 	}
 	return undefined;
 }
+
+// Marker embedded in the synthetic recovery message so repeated attempts
+// can be counted from message history without widening the query-loop State.
+export const TOOL_CALL_TEXT_RECOVERY_MARKER = "[tool-call-format-recovery]";
+
+// Tool-call-shaped plain text observed from small local models comes in
+// three forms: `Name({"file_path": "..."})` python-call style (only counted
+// when Name is a real tool, to avoid flagging ordinary prose),
+// `call_<id>{...}` engine-prefixed JSON, and the `<tools>{...}</tools>`
+// wrapper format.
+export function detectToolCallShapedText(
+	text: string,
+	knownToolNames: readonly string[],
+): boolean {
+	if (/\bcall_[0-9a-f]{6,}\s*\{|<tools>\s*\{/.test(text)) return true;
+	const callShaped = text.match(/\b([A-Z][A-Za-z_]*)\(\s*\{/g);
+	if (!callShaped) return false;
+	return callShaped.some((m) =>
+		knownToolNames.includes(m.replace(/\(\s*\{$/, "")),
+	);
+}

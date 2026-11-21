@@ -105,7 +105,8 @@ const FIXTURES: Record<string, () => Fixture> = {
 			// real line-ending fix it becomes `test -f src/main.py` -> exit 0.
 			// (A plain `exit 0\r` line still exits 0 under CRLF, and `set -e\r`
 			// errors out without enabling errexit - both would false-positive.)
-			"build.sh": "#!/bin/bash\r\necho 'building...'\r\ntest -f src/main.py\r\n",
+			"build.sh":
+				"#!/bin/bash\r\necho 'building...'\r\ntest -f src/main.py\r\n",
 		},
 	}),
 	T11: () => ({
@@ -210,6 +211,19 @@ interface HarnessRun {
 	exitCode: number;
 	timedOut: boolean;
 	seconds: number;
+	// count of tool-call-shaped plain-text emissions in stdout (the model
+	// printing a tool call instead of producing a tool_calls block)
+	textEmissions: number;
+}
+
+// matches `Name({file_path: ...})` python-call style, `call_<id>{json}`,
+// and the `<tools>{...}</tools>` wrapper format
+const TOOL_TEXT_RE =
+	/(^|\n)\s*[A-Z][A-Za-z_]*\(\{[^{]*\}\)|call_[0-9a-f]{6,}\{|<tools>\{/g;
+
+function countToolShapedText(stdout: string): number {
+	const hits = stdout.match(TOOL_TEXT_RE);
+	return hits ? hits.length : 0;
 }
 
 function loadEngineKey(): string {
@@ -235,6 +249,7 @@ async function runHarness(
 	logPath: string,
 ): Promise<HarnessRun> {
 	const started = Date.now();
+	let outText = "";
 	let cmd: string[];
 	let env: Record<string, string> = { ...process.env } as Record<
 		string,
@@ -242,7 +257,17 @@ async function runHarness(
 	>;
 	if (harness === "fusion-code") {
 		const bin = resolve(import.meta.dir, "..", "..", "fusion-code");
-		cmd = [bin, "-p", prompt, "--max-turns", "12"];
+		// -p runs cannot grant write permissions interactively; the suite works in
+		// throwaway temp git repos with no network, so blanket-skip permission checks
+		// to let the agent actually attempt the task.
+		cmd = [
+			bin,
+			"-p",
+			prompt,
+			"--max-turns",
+			"12",
+			"--dangerously-skip-permissions",
+		];
 		const engineKey = loadEngineKey();
 		env = {
 			...env,
@@ -255,8 +280,21 @@ async function runHarness(
 	} else if (harness === "opencode") {
 		cmd = ["opencode", "run", prompt];
 	} else if (harness === "goose") {
-		cmd = ["goose", "run", "--text", "-t", prompt];
-		env = { ...env, GOOSE_MODE: "approve" };
+		// goose quirk: --text and -t are the same flag — passing both eats the
+		// prompt. Host must NOT carry a /v1 suffix (goose appends the path).
+		const engineKey = loadEngineKey();
+		cmd = ["goose", "run", "--text", prompt];
+		env = {
+			...env,
+			// approve/smart-approve require an interactive terminal; auto is
+			// the only valid headless mode
+			GOOSE_MODE: "auto",
+			GOOSE_PROVIDER: "openai",
+			GOOSE_MODEL: process.env.BENCH_MODEL ?? "",
+			OPENAI_API_KEY: engineKey,
+			OPENAI_HOST:
+				process.env.FUSION_MLX_BASE_URL ?? "http://127.0.0.1:11434",
+		};
 	} else {
 		throw new Error(`unknown harness: ${harness}`);
 	}
@@ -271,6 +309,7 @@ async function runHarness(
 			try {
 				const out = await new Response(child.stdout).text();
 				const err = await new Response(child.stderr).text();
+				outText = out;
 				writeFileSync(
 					logPath,
 					`CMD: ${cmd.join(" ")}\n\n--- STDOUT ---\n${out}\n\n--- STDERR ---\n${err}\n`,
@@ -279,7 +318,12 @@ async function runHarness(
 			resolveTimeout(false);
 		});
 	});
-	return { exitCode: 0, timedOut, seconds: (Date.now() - started) / 1000 };
+	return {
+		exitCode: 0,
+		timedOut,
+		seconds: (Date.now() - started) / 1000,
+		textEmissions: countToolShapedText(outText),
+	};
 }
 
 // ── verification ──────────────────────────────────────────────
@@ -337,7 +381,11 @@ function verify(
 			}
 		}
 		case "command-exit": {
-			const proc = Bun.spawnSync(verifySpec.command.split(" "), { cwd: dir });
+			const proc = Bun.spawnSync(verifySpec.command.split(" "), {
+				cwd: dir,
+				timeout: 60_000,
+				killSignal: 9,
+			});
 			if (verifySpec.exitCode !== undefined) {
 				return {
 					resolved: proc.exitCode === verifySpec.exitCode,
@@ -351,17 +399,43 @@ function verify(
 			};
 		}
 		case "command-stdout": {
-			const proc = Bun.spawnSync(verifySpec.command.split(" "), { cwd: dir });
+			const proc = Bun.spawnSync(verifySpec.command.split(" "), {
+				cwd: dir,
+				timeout: 60_000,
+				killSignal: 9,
+			});
 			return {
 				resolved: proc.stdout.toString().trim() === verifySpec.stdout,
 				detail: `stdout=${proc.stdout.toString().trim()}`,
 			};
 		}
+		case "count-max": {
+			// Refactor tasks: behavior tests pass on untouched code, so the
+			// verifier must instead bound how many times a duplicated marker
+			// still appears in the file (untouched fixture fails high counts).
+			const path = join(dir, verifySpec.path);
+			if (!existsSync(path))
+				return { resolved: false, detail: `missing ${verifySpec.path}` };
+			const content = readFileSync(path, "utf8");
+			const n = (
+				content.match(new RegExp(verifySpec.pattern, "g")) ?? []
+			).length;
+			return {
+				resolved: n <= verifySpec.max,
+				detail: `count=${n} max=${verifySpec.max} ${verifySpec.path}`,
+			};
+		}
 		case "pytest": {
+			// Verify must never hang: an untouched fixture can contain code
+			// that loops forever when the tested behavior is missing (T13).
+			// Timeout is treated as unresolved, same as a failing test.
 			const proc = Bun.spawnSync(
 				["python3", "-m", "pytest", ...verifySpec.test.split(" "), "-q"],
-				{ cwd: dir },
+				{ cwd: dir, timeout: 60_000, killSignal: 9 },
 			);
+			if (proc.signalCode === "SIGKILL") {
+				return { resolved: false, detail: "pytest verify timeout" };
+			}
 			return {
 				resolved: proc.exitCode === 0,
 				detail: `pytest exit=${proc.exitCode}`,
@@ -435,9 +509,12 @@ async function main(): Promise<void> {
 				verifyDetail: v.detail,
 				timedOut: run.timedOut,
 				wallSeconds: Math.round(run.seconds * 10) / 10,
+				textEmissions: run.textEmissions,
 			};
 			rows.push(row);
-			logger.info(`${task.id} resolved=${v.resolved} wall=${row.wallSeconds}s`);
+			logger.info(
+				`${task.id} resolved=${v.resolved} wall=${row.wallSeconds}s textEmit=${row.textEmissions}`,
+			);
 		} catch (e) {
 			logger.error(`${task.id} failed: ${e}`);
 			rows.push({ id: task.id, resolved: false, error: String(e) });
@@ -446,6 +523,7 @@ async function main(): Promise<void> {
 		}
 	}
 	const resolvedCount = rows.filter((r) => r.resolved).length;
+	const emissionTotal = rows.reduce((s, r) => s + (r.textEmissions ?? 0), 0);
 	const summary = {
 		harness,
 		model: process.env.BENCH_MODEL ?? "unset",
@@ -456,6 +534,7 @@ async function main(): Promise<void> {
 		resolveRate: rows.length
 			? Math.round((resolvedCount / rows.length) * 1000) / 1000
 			: 0,
+		textEmissions: emissionTotal,
 		rows,
 	};
 	writeFileSync(

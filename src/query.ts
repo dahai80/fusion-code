@@ -110,6 +110,10 @@ import { applyToolResultBudget } from "./utils/toolResultStorage.js";
 import { injectArtifactsIntoMessages } from "./utils/artifactInjection.js";
 import { recordContentReplacement } from "./utils/sessionStorage.js";
 import { handleStopHooks } from "./query/stopHooks.js";
+import {
+	detectToolCallShapedText,
+	TOOL_CALL_TEXT_RECOVERY_MARKER,
+} from "./utils/queryHelpers.js";
 import { buildQueryConfig } from "./query/config.js";
 import { productionDeps, type QueryDeps } from "./query/deps.js";
 import type { Terminal, Continue } from "./query/transitions.js";
@@ -1477,6 +1481,84 @@ async function* queryLoop(
 			if (lastMessage?.isApiErrorMessage) {
 				void executeStopFailureHooks(lastMessage, toolUseContext);
 				return { reason: "completed" };
+			}
+
+			// Tool-call-as-text recovery (small local models): Qwen-class models
+			// on fusion-mlx intermittently print a tool call as plain text
+			// (`Read({...})`, `call_<id>{...}`) instead of a tool_use block. The
+			// turn then looks like a finished text answer and the session ends
+			// after one such turn. Detect the shape in the final text block and
+			// feed the turn back with an explicit format correction, mirroring
+			// the max-output-tokens recovery pattern above. Attempt count is
+			// derived from marker messages in history — no State field added.
+			// Cap: 2 corrections, then let the turn finish as-is.
+			const lastAssistantMessage = assistantMessages.at(-1);
+			const lastTextBlock = lastAssistantMessage?.message.content
+				.filter((block) => block.type === "text")
+				.at(-1);
+			const lastText =
+				lastTextBlock && "text" in lastTextBlock
+					? lastTextBlock.text
+					: undefined;
+			const isLocalMlx =
+				isEnvTruthy(process.env.FUSION_MLX_ENABLED) ||
+				isEnvTruthy(process.env.FUSION_MLX_AUTO);
+			const toolNames = toolUseContext.options.tools.map((tool) => tool.name);
+			const recoveryAttempts = messagesForQuery.filter(
+				(m) =>
+					m.type === "user" &&
+					m.isMeta &&
+					typeof m.message.content === "string" &&
+					m.message.content.includes(TOOL_CALL_TEXT_RECOVERY_MARKER),
+			).length;
+			if (isEnvTruthy(process.env.FUSION_CODE_DEBUG_RECOVERY)) {
+				console.error(
+					`[recovery-debug] isLocalMlx=${isLocalMlx} aborted=${toolUseContext.abortController.signal.aborted} hasText=${Boolean(lastText)} attempts=${recoveryAttempts} toolNames=${toolNames.length} lastText=${JSON.stringify(lastText?.slice(0, 120))}`,
+				);
+			}
+			if (
+				isLocalMlx &&
+				!toolUseContext.abortController.signal.aborted &&
+				lastText &&
+				recoveryAttempts < 2 &&
+				detectToolCallShapedText(lastText, toolNames)
+			) {
+				logEvent("fusion_tool_call_text_recovery", {
+					attempt: recoveryAttempts + 1,
+					turnCount,
+				});
+				const recoveryMessage = createUserMessage({
+					content:
+						`${TOOL_CALL_TEXT_RECOVERY_MARKER} Your previous message contained a tool call written as plain text, which cannot be executed. ` +
+						`Re-issue that same action as a real tool call block (the assistant message tool_calls field), not as text. Do not repeat any prose.` +
+						(recoveryAttempts >= 1
+							? ` If the action is a file edit, prefer the Write tool to rewrite the whole file instead of a partial edit — partial edit arguments are hard to get right.`
+							: ""),
+					isMeta: true,
+				});
+				const next: State = {
+					messages: [
+						...messagesForQuery,
+						...assistantMessages,
+						recoveryMessage,
+					],
+					toolUseContext,
+					autoCompactTracking: tracking,
+					maxOutputTokensRecoveryCount: 0,
+					hasAttemptedReactiveCompact,
+					maxOutputTokensOverride: undefined,
+					pendingToolUseSummary: undefined,
+					stopHookActive: undefined,
+					turnCount,
+					mlxModelOomCount,
+					mlxForcedCompactDone,
+					transition: {
+						reason: "tool_call_text_recovery",
+						attempt: recoveryAttempts + 1,
+					},
+				};
+				state = next;
+				continue;
 			}
 
 			const stopHookResult = yield* handleStopHooks(
