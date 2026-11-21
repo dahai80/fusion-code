@@ -2,7 +2,7 @@
 doc_id: fusion-code/small-model-tool-calling
 product: fusion-code
 class: app
-doc_type: research
+doc_type: guide
 title: { zh: "小模型 tool-calling 可靠性：业界实践与论文综述", en: "Small-model tool-calling reliability: industry practice and paper survey" }
 audience: engineer
 entry: developer
@@ -10,6 +10,8 @@ status: draft
 version: 0.1.0
 updated: 2026-11-21
 owner: "@dahai"
+source_of_truth:
+  - docs/research/small-model-tool-calling-2026-11.md
 ---
 
 # Small-model tool-calling reliability (2026-11-21)
@@ -135,7 +137,7 @@ in-context).
    recovery attempts to avoid loops.
 3. **Defensive text-parse of `call_<id>{json}` / `Name({json})` shapes**
    (previously the lead ask, downgraded): still worth a narrow parser, but
-   v0.10.68 reduced incidence; recovery loop (option 2) is the robust fix.
+   v0.10.68 reduced incidence; recovery loop (option 2) is the durable fix.
 4. **Engine ask (handoff-fusion-mlx)**: apply grammar-constrained decoding
    to tool-bearing requests regardless of `tool_choice`; unify streaming
    behavior when tool grammar engages (currently returns non-stream JSON).
