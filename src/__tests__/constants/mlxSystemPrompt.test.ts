@@ -200,9 +200,9 @@ describe("getPromptTier", () => {
 		expect(getPromptTier(3)).toBe("mini");
 	});
 
-	it("paramCount 4..9 -> standard", () => {
-		expect(getPromptTier(4)).toBe("standard");
-		expect(getPromptTier(9)).toBe("standard");
+	it("paramCount 4..9 -> compact (bench report #2 A/B default flip)", () => {
+		expect(getPromptTier(4)).toBe("compact");
+		expect(getPromptTier(9)).toBe("compact");
 	});
 
 	it("paramCount 10..14 -> extended", () => {
@@ -361,14 +361,29 @@ describe("buildMlxSystemPrompt tier-gating", () => {
 		expect(parts.some((s) => s.includes(FULL_MARKER))).toBe(false);
 	});
 
-	it("standard: ALL + compact + standard present, extended/full absent", async () => {
-		// 7b -> param 7 -> standard
+	it("7b defaults to compact (bench report #2 A/B: 3/20 standard vs 10/20 compact)", async () => {
+		// 7b -> param 7 -> compact (<=9B default since the 2026-11-21 A/B)
 		const parts = await buildForTier("qwen-7b-mxfp4");
 		expect(parts.every((s) => s.length > 0)).toBe(true);
 		expect(parts.some((s) => s.includes(COMPACT_MARKER))).toBe(true);
-		expect(parts.some((s) => s.includes(STANDARD_MARKER))).toBe(true);
+		expect(parts.some((s) => s.includes(STANDARD_MARKER))).toBe(false);
 		expect(parts.some((s) => s.includes(EXTENDED_MARKER))).toBe(false);
 		expect(parts.some((s) => s.includes(FULL_MARKER))).toBe(false);
+	});
+
+	it("standard: reachable via FUSION_CODE_MLX_PROMPT_TIER override", async () => {
+		// 'standard' is no longer an automatic tier for any param count;
+		// it stays available through the override for A/B comparison.
+		process.env.FUSION_CODE_MLX_PROMPT_TIER = "standard";
+		try {
+			const parts = await buildForTier("qwen-7b-mxfp4");
+			expect(parts.some((s) => s.includes(COMPACT_MARKER))).toBe(true);
+			expect(parts.some((s) => s.includes(STANDARD_MARKER))).toBe(true);
+			expect(parts.some((s) => s.includes(EXTENDED_MARKER))).toBe(false);
+			expect(parts.some((s) => s.includes(FULL_MARKER))).toBe(false);
+		} finally {
+			delete process.env.FUSION_CODE_MLX_PROMPT_TIER;
+		}
 	});
 
 	it("extended: +extended present, full absent", async () => {
@@ -419,12 +434,12 @@ describe("buildMlxSystemPrompt tier-gating", () => {
 		const hasBug = (p: string[]) => p.some((s) => s.includes(BUG_HEADING));
 		const mini = await buildForTier("qwen-0.5b-4bit");
 		const compact = await buildForTier("qwen-27b-4bit", 32768);
-		const standard = await buildForTier("qwen-7b-mxfp4");
+		const sevenB = await buildForTier("qwen-7b-mxfp4");
 		const extended = await buildForTier("qwen-14b-q4");
 		const full = await buildForTier("qwen-72b");
 		expect(hasBug(mini)).toBe(false);
 		expect(hasBug(compact)).toBe(false);
-		expect(hasBug(standard)).toBe(false);
+		expect(hasBug(sevenB)).toBe(false);
 		expect(hasBug(extended)).toBe(true);
 		expect(hasBug(full)).toBe(true);
 	});
@@ -433,28 +448,34 @@ describe("buildMlxSystemPrompt tier-gating", () => {
 		// getToolExamplesSection (:196, standard+) gates per-tool: an enabled
 		// tool gets a "## <Tool> tool examples" block, an absent one does not.
 		// (getToolUsageSection mentions every tool name in its general rules,
-		// so it cannot gate — use the examples section.)
-		const allParts = await buildForTier("qwen-7b-mxfp4");
-		const allExamples =
-			allParts.find((s) => s.startsWith("# Tool call examples")) ?? "";
-		expect(allExamples.length).toBeGreaterThan(0);
-		expect(allExamples.includes("## Bash tool examples")).toBe(true);
-		expect(allExamples.includes("## Grep tool examples")).toBe(true);
+		// so it cannot gate — use the examples section.) 'standard' is driven
+		// via the tier override — no param count lands there automatically.
+		process.env.FUSION_CODE_MLX_PROMPT_TIER = "standard";
+		try {
+			const allParts = await buildForTier("qwen-7b-mxfp4");
+			const allExamples =
+				allParts.find((s) => s.startsWith("# Tool call examples")) ?? "";
+			expect(allExamples.length).toBeGreaterThan(0);
+			expect(allExamples.includes("## Bash tool examples")).toBe(true);
+			expect(allExamples.includes("## Grep tool examples")).toBe(true);
 
-		// minimal: only Read+Write enabled at standard tier
-		const minParts = await buildMlxSystemPrompt(
-			fakeTools(["Read", "Write"]) as never,
-			"qwen-7b-mxfp4",
-			[],
-		);
-		const minExamples =
-			minParts.find((s) => s.startsWith("# Tool call examples")) ?? "";
-		expect(minExamples.length).toBeGreaterThan(0);
-		expect(minExamples.includes("## Read tool examples")).toBe(true);
-		expect(minExamples.includes("## Write tool examples")).toBe(true);
-		// absent tools -> no example block
-		expect(minExamples.includes("## Bash tool examples")).toBe(false);
-		expect(minExamples.includes("## Grep tool examples")).toBe(false);
+			// minimal: only Read+Write enabled at standard tier
+			const minParts = await buildMlxSystemPrompt(
+				fakeTools(["Read", "Write"]) as never,
+				"qwen-7b-mxfp4",
+				[],
+			);
+			const minExamples =
+				minParts.find((s) => s.startsWith("# Tool call examples")) ?? "";
+			expect(minExamples.length).toBeGreaterThan(0);
+			expect(minExamples.includes("## Read tool examples")).toBe(true);
+			expect(minExamples.includes("## Write tool examples")).toBe(true);
+			// absent tools -> no example block
+			expect(minExamples.includes("## Bash tool examples")).toBe(false);
+			expect(minExamples.includes("## Grep tool examples")).toBe(false);
+		} finally {
+			delete process.env.FUSION_CODE_MLX_PROMPT_TIER;
+		}
 	});
 });
 
@@ -547,8 +568,10 @@ describe("buildMlxSystemPrompt tier override", () => {
 		process.env.FUSION_CODE_MLX_PROMPT_TIER = "turbo";
 		try {
 			const parts = await buildForTier("qwen-8b", 40960);
+			// automatic tier for 8B is now compact (bench report #2 A/B)
+			expect(parts.some((s) => s.includes(COMPACT_MARKER))).toBe(true);
 			expect(parts.some((s) => s.includes(STANDARD_MARKER_LOCAL))).toBe(
-				true,
+				false,
 			);
 			expect(parts.some((s) => s.includes(FULL_MARKER))).toBe(false);
 		} finally {

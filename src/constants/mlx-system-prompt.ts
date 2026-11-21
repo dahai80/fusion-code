@@ -9,6 +9,7 @@ import { FILE_WRITE_TOOL_NAME } from "../tools/FileWriteTool/prompt.js";
 import { GLOB_TOOL_NAME } from "../tools/GlobTool/prompt.js";
 import { GREP_TOOL_NAME } from "../tools/GrepTool/prompt.js";
 import { getCwd } from "../utils/cwd.js";
+import { logForDebugging } from "../utils/debug.js";
 import { env } from "../utils/env.js";
 import { getIsGit } from "../utils/git.js";
 import {
@@ -107,7 +108,6 @@ import {
 	getMigrationGuideSection,
 	getRefactoringWorkflowSection,
 } from "./workflow-prompts.js";
-import { logForDebugging } from "../utils/debug.js";
 
 export type PromptTier = "mini" | "compact" | "standard" | "extended" | "full";
 
@@ -116,7 +116,14 @@ export function getPromptTier(
 	contextWindow?: number,
 ): PromptTier {
 	if (paramCount <= 3) return "mini";
-	if (paramCount <= 9) return "standard";
+	// ≤9B models get 'compact' by default (bench report #2 A/B, 2026-11-21):
+	// the same Qwen3-8B checkpoint resolved 3/20 suite tasks on the
+	// standard tier (~8.1K-token system prompt) vs 10/20 on compact
+	// (~1.9K tokens), matching goose's small-prompt harness (10/20).
+	// Long/verbose context degrades small models non-linearly (Context
+	// Rot, Lost in the Middle, NoLiMa). FUSION_CODE_MLX_PROMPT_TIER can
+	// force the old tier for comparison.
+	if (paramCount <= 9) return "compact";
 	if (paramCount <= 14) return "extended";
 	// 32B+ models on tight context windows (≤32K) use 'compact' tier.
 	// 'compact' keeps only the 5 essential sections (~3K tokens) so
