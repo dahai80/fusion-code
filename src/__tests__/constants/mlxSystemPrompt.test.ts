@@ -512,3 +512,47 @@ describe("buildMlxSystemPrompt memory truncation", () => {
 		}
 	});
 });
+
+describe("buildMlxSystemPrompt tier override", () => {
+	// FUSION_CODE_MLX_PROMPT_TIER forces a tier regardless of the automatic
+	// param-count/context mapping. Escape hatch for A/B measurement (bench
+	// report #2: same 8B checkpoint, 10/20 under a ~2K-char prompt vs 3/20
+	// under the standard tier).
+	const STANDARD_MARKER_LOCAL = "# Tool call decision protocol";
+
+	it("override=compact forces compact sections on an 8B model", async () => {
+		process.env.FUSION_CODE_MLX_PROMPT_TIER = "compact";
+		try {
+			const parts = await buildForTier("qwen-8b", 40960);
+			expect(parts.some((s) => s.includes(COMPACT_MARKER))).toBe(true);
+			expect(parts.some((s) => s.includes(STANDARD_MARKER_LOCAL))).toBe(
+				false,
+			);
+		} finally {
+			delete process.env.FUSION_CODE_MLX_PROMPT_TIER;
+		}
+	});
+
+	it("override=full forces full sections on a 0.5B model", async () => {
+		process.env.FUSION_CODE_MLX_PROMPT_TIER = "full";
+		try {
+			const parts = await buildForTier("qwen-0.5b-4bit");
+			expect(parts.some((s) => s.includes(FULL_MARKER))).toBe(true);
+		} finally {
+			delete process.env.FUSION_CODE_MLX_PROMPT_TIER;
+		}
+	});
+
+	it("invalid override value falls back to the automatic tier", async () => {
+		process.env.FUSION_CODE_MLX_PROMPT_TIER = "turbo";
+		try {
+			const parts = await buildForTier("qwen-8b", 40960);
+			expect(parts.some((s) => s.includes(STANDARD_MARKER_LOCAL))).toBe(
+				true,
+			);
+			expect(parts.some((s) => s.includes(FULL_MARKER))).toBe(false);
+		} finally {
+			delete process.env.FUSION_CODE_MLX_PROMPT_TIER;
+		}
+	});
+});

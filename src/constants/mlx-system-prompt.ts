@@ -107,6 +107,7 @@ import {
 	getMigrationGuideSection,
 	getRefactoringWorkflowSection,
 } from "./workflow-prompts.js";
+import { logForDebugging } from "../utils/debug.js";
 
 export type PromptTier = "mini" | "compact" | "standard" | "extended" | "full";
 
@@ -632,7 +633,23 @@ export async function buildMlxSystemPrompt(
 	contextWindow?: number,
 ): Promise<string[]> {
 	const paramCount = estimateModelParamCount(model);
-	const tier = getPromptTier(paramCount, contextWindow);
+	// FUSION_CODE_MLX_PROMPT_TIER overrides the automatic tier mapping
+	// (mini|compact|standard|extended|full). Escape hatch for A/B
+	// measurement: the cross-harness baseline (bench report #2) showed
+	// the same 8B checkpoint resolving 10/20 tasks under goose's ~2K-char
+	// prompt vs 3/20 under this builder's standard tier.
+	const tierOverride = process.env.FUSION_CODE_MLX_PROMPT_TIER;
+	const tier =
+		tierOverride === "mini" ||
+		tierOverride === "compact" ||
+		tierOverride === "standard" ||
+		tierOverride === "extended" ||
+		tierOverride === "full"
+			? tierOverride
+			: getPromptTier(paramCount, contextWindow);
+	logForDebugging(
+		`[MlxSystemPrompt] tier=${tier} model=${model} override=${tierOverride ?? "none"}`,
+	);
 	const cwd = getCwd();
 	const [isGit, unameSR] = await Promise.all([getIsGit(), getUnameSR()]);
 	// audit-0903 P1 PERF-1: the non-MLX path wraps these in
