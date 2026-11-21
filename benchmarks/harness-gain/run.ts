@@ -280,8 +280,19 @@ async function runHarness(
 	} else if (harness === "opencode") {
 		cmd = ["opencode", "run", prompt];
 	} else if (harness === "goose") {
-		cmd = ["goose", "run", "--text", "-t", prompt];
-		env = { ...env, GOOSE_MODE: "approve" };
+		// goose quirk: --text and -t are the same flag — passing both eats the
+		// prompt. Host must NOT carry a /v1 suffix (goose appends the path).
+		const engineKey = loadEngineKey();
+		cmd = ["goose", "run", "--text", prompt];
+		env = {
+			...env,
+			GOOSE_MODE: "approve",
+			GOOSE_PROVIDER: "openai",
+			GOOSE_MODEL: process.env.BENCH_MODEL ?? "",
+			OPENAI_API_KEY: engineKey,
+			OPENAI_HOST:
+				process.env.FUSION_MLX_BASE_URL ?? "http://127.0.0.1:11434",
+		};
 	} else {
 		throw new Error(`unknown harness: ${harness}`);
 	}
