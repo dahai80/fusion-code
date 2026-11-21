@@ -190,7 +190,7 @@ in-context).
 - APISen: https://arxiv.org/abs/2506.03207
 - TinyAgent: https://arxiv.org/abs/2409.06903
 - Prompt-size degradation (motivates the tier override + prompt diet):
-  Chroma "Context Rot" https://research.trychroma.com/context ;
+  Chroma "Context Rot" https://research.trychroma.com/context-rot ;
   Lost in the Middle https://arxiv.org/abs/2307.03172 ;
   NoLiMa https://arxiv.org/abs/2502.05171 ;
   RULER https://arxiv.org/abs/2404.06654
