@@ -189,6 +189,11 @@ in-context).
 - Tool Decathlon (xLAM/ToolGen): https://arxiv.org/abs/2412.10341
 - APISen: https://arxiv.org/abs/2506.03207
 - TinyAgent: https://arxiv.org/abs/2409.06903
+- Prompt-size degradation (motivates the tier override + prompt diet):
+  Chroma "Context Rot" https://research.trychroma.com/context ;
+  Lost in the Middle https://arxiv.org/abs/2307.03172 ;
+  NoLiMa https://arxiv.org/abs/2502.05171 ;
+  RULER https://arxiv.org/abs/2404.06654
 - Aider edit formats: https://aider.chat/docs/usage/edit-formats.html ;
   leaderboards (whole vs diff for weak models):
   https://aider.chat/docs/leaderboards/
