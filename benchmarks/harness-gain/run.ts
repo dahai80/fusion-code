@@ -218,7 +218,8 @@ interface HarnessRun {
 
 // matches `Name({file_path: ...})` python-call style, `call_<id>{json}`,
 // and the `<tools>{...}</tools>` wrapper format
-const TOOL_TEXT_RE = /(^|\n)\s*[A-Z][A-Za-z_]*\(\{[^{]*\}\)|call_[0-9a-f]{6,}\{|<tools>\{/g;
+const TOOL_TEXT_RE =
+	/(^|\n)\s*[A-Z][A-Za-z_]*\(\{[^{]*\}\)|call_[0-9a-f]{6,}\{|<tools>\{/g;
 
 function countToolShapedText(stdout: string): number {
 	const hits = stdout.match(TOOL_TEXT_RE);
@@ -256,7 +257,17 @@ async function runHarness(
 	>;
 	if (harness === "fusion-code") {
 		const bin = resolve(import.meta.dir, "..", "..", "fusion-code");
-		cmd = [bin, "-p", prompt, "--max-turns", "12"];
+		// -p runs cannot grant write permissions interactively; the suite works in
+		// throwaway temp git repos with no network, so blanket-skip permission checks
+		// to let the agent actually attempt the task.
+		cmd = [
+			bin,
+			"-p",
+			prompt,
+			"--max-turns",
+			"12",
+			"--dangerously-skip-permissions",
+		];
 		const engineKey = loadEngineKey();
 		env = {
 			...env,

@@ -1511,6 +1511,11 @@ async function* queryLoop(
 					typeof m.message.content === "string" &&
 					m.message.content.includes(TOOL_CALL_TEXT_RECOVERY_MARKER),
 			).length;
+			if (isEnvTruthy(process.env.FUSION_CODE_DEBUG_RECOVERY)) {
+				console.error(
+					`[recovery-debug] isLocalMlx=${isLocalMlx} aborted=${toolUseContext.abortController.signal.aborted} hasText=${Boolean(lastText)} attempts=${recoveryAttempts} toolNames=${toolNames.length} lastText=${JSON.stringify(lastText?.slice(0, 120))}`,
+				);
+			}
 			if (
 				isLocalMlx &&
 				!toolUseContext.abortController.signal.aborted &&
