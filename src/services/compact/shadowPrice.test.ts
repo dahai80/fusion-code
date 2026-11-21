@@ -1,7 +1,8 @@
-// P1.2 (audit): 影子价压缩纯函数单测。
-// fixture 约定: 每轮 = [assistant(id 唯一), user(tool_result)] 配对, 起 assistant。
-// groupMessagesByApiRound 在新 assistant.id 处切边界, 故起 user tool_result 会被
-// 切成独立轮 → 测试轮数错位。起 assistant 则轮 = [asst, tool_result] 一一对应。
+// P1.2 (audit): unit tests for the shadow-price compaction pure functions.
+// Fixture convention: each round = [assistant(id unique), user(tool_result)] pair, starting with an assistant.
+// groupMessagesByApiRound cuts a boundary at each new assistant.id, so starting with a user
+// tool_result would split it into its own round → test round counts misalign. Starting with an
+// assistant makes round = [asst, tool_result] map one-to-one.
 import { describe, expect, it } from "bun:test";
 import type {
 	AssistantMessage,
@@ -60,7 +61,7 @@ function makeAssistant(uuid: string, text: string): AssistantMessage {
 }
 
 describe("computeShadowPrice", () => {
-	it("大结果 + 无引用 + 最旧轮 → 最高价", () => {
+	it("big result + no refs + oldest round → highest price", () => {
 		const price = computeShadowPrice({
 			sizeTokens: 8000,
 			refCount: 0,
@@ -70,7 +71,7 @@ describe("computeShadowPrice", () => {
 		expect(price).toBeGreaterThan(0);
 	});
 
-	it("小结果 + 高引用 + 最新旧轮 → 低价", () => {
+	it("small result + high refs + most recent old round → low price", () => {
 		const priceOld = computeShadowPrice({
 			sizeTokens: 8000,
 			refCount: 0,
@@ -86,7 +87,7 @@ describe("computeShadowPrice", () => {
 		expect(priceCheap).toBeLessThan(priceOld);
 	});
 
-	it("引用越多越保 (价降)", () => {
+	it("more refs = more likely kept (price drops)", () => {
 		const p0 = computeShadowPrice({
 			sizeTokens: 4000,
 			refCount: 0,
@@ -102,7 +103,7 @@ describe("computeShadowPrice", () => {
 		expect(p5).toBeLessThan(p0);
 	});
 
-	it("单轮 totalRounds=1 → recency 满分不除零", () => {
+	it("single round totalRounds=1 → recency full score, no division by zero", () => {
 		const price = computeShadowPrice({
 			sizeTokens: 1000,
 			refCount: 0,
@@ -112,7 +113,7 @@ describe("computeShadowPrice", () => {
 		expect(Number.isFinite(price)).toBe(true);
 	});
 
-	it("size 主导: 同轮同引用, 大结果价高", () => {
+	it("size dominates: same round, same refs, bigger result prices higher", () => {
 		const small = computeShadowPrice({
 			sizeTokens: 100,
 			refCount: 0,
@@ -130,12 +131,12 @@ describe("computeShadowPrice", () => {
 });
 
 describe("collectShadowPriceCandidates", () => {
-	it("空消息 → 无候选", () => {
+	it("empty messages → no candidates", () => {
 		expect(collectShadowPriceCandidates([], 3)).toEqual([]);
 	});
 
-	it("近期轮内不产生候选 (keepRecent)", () => {
-		// 2 轮, keep 2 → 无旧轮 → 无候选。
+	it("no candidates within recent rounds (keepRecent)", () => {
+		// 2 rounds, keep 2 → no old rounds → no candidates.
 		const msgs: Message[] = [
 			makeAssistant(`${UUID_BASE}2`, "a"),
 			makeToolResultUser(`${UUID_BASE}1`, "tu_1", "x".repeat(100)),
@@ -145,8 +146,8 @@ describe("collectShadowPriceCandidates", () => {
 		expect(collectShadowPriceCandidates(msgs, 2)).toEqual([]);
 	});
 
-	it("旧轮大结果 → 候选 (按价降序)", () => {
-		// round0 大结果, round1 小结果, keep 1 → 仅 round0 候选。
+	it("old-round big result → candidate (sorted by price descending)", () => {
+		// round0 big result, round1 small result, keep 1 → only round0 is a candidate.
 		const big = "B".repeat(20000);
 		const msgs: Message[] = [
 			makeAssistant(`${UUID_BASE}2`, "a"),
@@ -160,8 +161,8 @@ describe("collectShadowPriceCandidates", () => {
 		expect(cands[0].roundIndex).toBe(0);
 	});
 
-	it("被后续 assistant 引用的结果 → 价更低 (同轮同大小, 仅引用差)", () => {
-		// round0 含两条同大小结果 (tu_ref / tu_noref); round1 assistant 文本提及 tu_ref。
+	it("result referenced by a later assistant → lower price (same round, same size, refs differ)", () => {
+		// round0 holds two same-size results (tu_ref / tu_noref); round1's assistant text mentions tu_ref.
 		const same = "R".repeat(5000);
 		const msgs: Message[] = [
 			makeAssistant(`${UUID_BASE}1`, "first"),
@@ -179,7 +180,7 @@ describe("collectShadowPriceCandidates", () => {
 });
 
 describe("shadowPriceCompactMessages", () => {
-	it("近期全保留 → 原样返回 (引用相等), 无裁剪", () => {
+	it("all recent rounds kept → returned as-is (reference equality), no pruning", () => {
 		const msgs: Message[] = [
 			makeAssistant(`${UUID_BASE}2`, "a"),
 			makeToolResultUser(`${UUID_BASE}1`, "tu_1", "x".repeat(100)),
@@ -190,7 +191,7 @@ describe("shadowPriceCompactMessages", () => {
 		expect(res.prunedCandidateCount).toBe(0);
 	});
 
-	it("高价旧结果 → 截断, 低价旧结果 → 保留原样", () => {
+	it("high-price old result → truncated, low-price old result → kept as-is", () => {
 		const big = "B".repeat(20000);
 		const small = "S".repeat(50);
 		// round0=big, round1=small, round2=kept(asst only).
@@ -207,33 +208,33 @@ describe("shadowPriceCompactMessages", () => {
 		expect(res.postCompactTokens).toBeLessThan(res.preCompactTokens);
 	});
 
-	it("阈值高 → 无结果达裁剪线 → 全保留, 引用相等", () => {
+	it("threshold too high → no result reaches the prune line → all kept, reference equality", () => {
 		const big = "B".repeat(20000);
 		const msgs: Message[] = [
 			makeAssistant(`${UUID_BASE}1`, "a"),
 			makeToolResultUser(`${UUID_BASE}2`, "tu_big", big),
 			makeAssistant(`${UUID_BASE}3`, "b"),
 		];
-		// 阈值 100 → 无候选达线 → 不裁, 返回原引用。
+		// Threshold 100 → no candidate reaches the line → no pruning, original reference returned.
 		const res = shadowPriceCompactMessages(msgs, 1, 100);
 		expect(res.truncatedToolResults).toBe(0);
 		expect(res.prunedCandidateCount).toBe(0);
 		expect(res.messages).toBe(msgs);
 	});
 
-	it("无 mutation 时返回原引用 (引用相等)", () => {
+	it("no mutation → returns the original reference (reference equality)", () => {
 		const msgs: Message[] = [
 			makeAssistant(`${UUID_BASE}2`, "a"),
 			makeToolResultUser(`${UUID_BASE}1`, "tu_1", "x".repeat(100)),
 			makeAssistant(`${UUID_BASE}4`, "b"),
 			makeToolResultUser(`${UUID_BASE}3`, "tu_2", "y".repeat(100)),
 		];
-		// keep 2 → 无旧轮 → 无 mutation → 返回原引用。
+		// keep 2 → no old rounds → no mutation → original reference returned.
 		const res = shadowPriceCompactMessages(msgs, 2, 0.1);
 		expect(res.messages).toBe(msgs);
 	});
 
-	it("低价结果内容原样保留 (字面相等)", () => {
+	it("low-price result content preserved as-is (literal equality)", () => {
 		const small = "S".repeat(50);
 		const big = "B".repeat(20000);
 		const msgs: Message[] = [
@@ -244,7 +245,7 @@ describe("shadowPriceCompactMessages", () => {
 			makeAssistant(`${UUID_BASE}5`, "c"),
 		];
 		const res = shadowPriceCompactMessages(msgs, 1, 2.0);
-		// 找回 tu_small 的 tool_result block, 内容应与原 small 完全相等。
+		// Find back tu_small's tool_result block; its content must equal the original small exactly.
 		const smallUser = res.messages.find(
 			(m) =>
 				m.type === "user" &&
@@ -260,7 +261,7 @@ describe("shadowPriceCompactMessages", () => {
 });
 
 describe("isShadowPriceCompactEnabled", () => {
-	it("env 未设 → false (default off)", () => {
+	it("env unset → false (default off)", () => {
 		const saved = process.env.FUSION_CODE_SHADOW_PRICE_COMPACT;
 		delete process.env.FUSION_CODE_SHADOW_PRICE_COMPACT;
 		expect(isShadowPriceCompactEnabled()).toBe(false);

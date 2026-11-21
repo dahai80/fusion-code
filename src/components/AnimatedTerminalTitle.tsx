@@ -1,6 +1,6 @@
-// audit 1.1.1: 从 REPL.tsx 抽出的叶组件 (god module 拆分起步)。
-// 960ms 动画 tick 只重渲染本叶 (返回 null, 纯副作用), 不拖整棵 REPL 树。
-// React-Compiler 编译产物原样保留 ($ = _c() memo cache)。
+// audit 1.1.1: leaf component extracted from REPL.tsx (start of the god-module split).
+// The 960ms animation tick re-renders only this leaf (returns null, pure side effect), never the whole REPL tree.
+// React-Compiler compiled output kept as-is ($ = _c() memo cache).
 
 import * as React from "react";
 import { c as _c } from "react/compiler-runtime";

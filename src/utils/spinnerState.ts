@@ -1,5 +1,5 @@
-// audit 1.1.1: 从 REPL.tsx 抽出的纯 spinner 状态推导。无 React, 无副作用。
-// 两段 derive 都只读入参, 输出 string|null / boolean。REPL 的 useMemo 仅作缓存壳。
+// audit 1.1.1: pure spinner state derivation extracted from REPL.tsx. No React, no side effects.
+// Both derives only read their inputs and output string|null / boolean. REPL's useMemo is just a caching shell.
 
 import type { HookProgress } from "../types/hooks.js";
 import type { Message, ProgressMessage } from "../types/message.js";
@@ -9,7 +9,7 @@ import { truncateToWidth } from "./format.js";
 
 const SLEEP_TOOL_NAME = "Sleep";
 
-// showSpinner 入参里 toolJSX 只读 showSpinner 字段, 用最小 shape 避免拉入 React 类型。
+// In the showSpinner input, toolJSX only needs the showSpinner field; use a minimal shape to avoid pulling in React types.
 type ToolJsxSpinnerLike = {
 	showSpinner?: boolean;
 } | null;
@@ -28,23 +28,24 @@ export type ShowSpinnerInput = {
 	isBriefOnly: boolean;
 };
 
-// Derive 主 spinner 可见性。原 REPL.tsx:2034-2053 内联块字节等价外移。
-// getCommandQueueLength 无副作用 (只读 .length), REPL 侧预先求值传入即可。
+// Derive main spinner visibility. Byte-equivalent extraction of the original inline block at REPL.tsx:2034-2053.
+// getCommandQueueLength has no side effects (only reads .length); REPL can pre-evaluate and pass it in.
 export function deriveShowSpinner(input: ShowSpinnerInput): boolean {
 	return (
 		(!input.toolJSX || input.toolJSX.showSpinner === true) &&
 		input.toolUseConfirmQueueLength === 0 &&
 		input.promptQueueLength === 0 &&
-		// 输入处理中 / API 调用中 / teammate 运行中 / 任务通知排队时, 保持 spinner 可见
-		// (避免连续通知之间 isLoading 瞬时为 false 导致 spinner 闪烁)
+		// While input is processing / an API call is in flight / a teammate is running / task
+		// notifications are queued, keep the spinner visible
+		// (avoids spinner flicker from isLoading momentarily being false between consecutive notifications)
 		(input.isLoading ||
 			input.userInputOnProcessing ||
 			input.hasRunningTeammates ||
 			input.commandQueueLength > 0) &&
-		// 等待 leader 审批权限请求时隐藏 spinner
+		// Hide the spinner while waiting for the leader to approve a permission request
 		!input.pendingWorkerRequest &&
 		!input.onlySleepToolActive &&
-		// 流式文本可见时隐藏 (文本本身即反馈), 但 isBriefOnly 抑制流式显示时保留
+		// Hide when streaming text is visible (the text is itself feedback), but keep it when isBriefOnly suppresses streaming display
 		(!input.visibleStreamingText || input.isBriefOnly)
 	);
 }

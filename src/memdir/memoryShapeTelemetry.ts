@@ -1,8 +1,8 @@
 /**
- * Memory Shape Telemetry — 记忆形状遥测
+ * Memory Shape Telemetry — memory shape telemetry
  *
- * 记录记忆召回和写入的形状数据，用于分析和优化
- * 记忆系统的性能。包括召回的选择率、写入的文件类型等。
+ * Records shape data for memory recall and writes, used to analyze and optimize
+ * memory system performance. Includes recall selection rates, written file types, and more.
  *
  * gated by feature('MEMORY_SHAPE_TELEMETRY')
  */

@@ -1,10 +1,10 @@
-// insight-0902 E3: /diff-compaction 实现 — 渲染最近一次压缩快照的影子价候选评分表。
-// 纯展示, 无副作用。读 lastCompactionSnapshot 内存旁路。
+// insight-0902 E3: /diff-compaction implementation — renders the shadow-price candidate score table of the last compaction snapshot.
+// Pure display, no side effects. Reads the lastCompactionSnapshot in-memory side channel.
 
 import { getLastCompactionSnapshot } from "../../services/compact/index.js";
 import type { LocalCommandCall } from "../../types/command.js";
 
-// 候选表行: toolUseId / roundIndex / sizeTokens / shadowPrice / 是否被裁。
+// Candidate table row: toolUseId / roundIndex / sizeTokens / shadowPrice / truncated or not.
 function renderCandidateRow(
 	row: ReturnType<typeof rowProps>,
 	truncated: boolean,

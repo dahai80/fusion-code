@@ -26,7 +26,7 @@ export function assignTeammateColor(teammateId: string): AgentColorName {
 	}
 
 	const palette = AGENT_COLORS;
-	// AGENT_COLORS 为非空静态常量; 防御性兜底到首色
+	// AGENT_COLORS is a non-empty static constant; defensively fall back to the first color
 	const color =
 		palette.length > 0
 			? (palette[colorIndex % palette.length] ?? palette[0])

@@ -1,8 +1,8 @@
 /**
- * Local Skill Search — 本地技能搜索
+ * Local Skill Search — local skill search
  *
- * 提供本地技能索引和搜索功能。
- * 支持从本地文件系统搜索和发现可用技能。
+ * Provides local skill indexing and search.
+ * Supports searching and discovering available skills from the local file system.
  *
  * gated by feature('EXPERIMENTAL_SKILL_SEARCH')
  */

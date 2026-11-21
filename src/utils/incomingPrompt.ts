@@ -1,12 +1,12 @@
-// audit 1.1.1: 从 REPL.tsx handleIncomingPrompt 抽出的纯路由 helper。
-// 行为等价 REPL.tsx:4764-4797。无 React hooks, 无 JSX, 无 await。
-// 3 步: (1) queryGuard.isActive 拦截 (query 在跑则拒);
-//   (2) getCommandQueue() 检查是否有排队 prompt/bash (用户输入优先级高于系统消息),
-//       读 module-level store 避免过期闭包 (callback deps 不含 queue);
-//   (3) createAbortController + setAbortController + createUserMessage + void onQuery 启动查询。
-// 返回 boolean: true=已提交, false=被拦截。
-// ctx 携带 REPL 闭包依赖 (queryGuard + setAbortController + onQuery + mainLoopModel),
-//   helper 不持有 React state。getCommandQueue/createAbortController/createUserMessage 为独立 module import。
+// audit 1.1.1: pure routing helper extracted from REPL.tsx handleIncomingPrompt.
+// Behavior-equivalent to REPL.tsx:4764-4797. No React hooks, no JSX, no await.
+// 3 steps: (1) queryGuard.isActive intercepts (reject if a query is running);
+//   (2) getCommandQueue() checks for queued prompt/bash (user input has priority over system messages),
+//       reads the module-level store to avoid stale closures (callback deps do not include queue);
+//   (3) createAbortController + setAbortController + createUserMessage + void onQuery to start the query.
+// Returns boolean: true=submitted, false=intercepted.
+// ctx carries REPL closure dependencies (queryGuard + setAbortController + onQuery + mainLoopModel),
+//   the helper holds no React state. getCommandQueue/createAbortController/createUserMessage are standalone module imports.
 import type { Dispatch, SetStateAction } from "react";
 import type { Message as MessageType } from "../types/message.js";
 import type { EffortValue } from "../utils/effort.js";
@@ -36,7 +36,7 @@ type IncomingPromptCtx = {
 	mainLoopModel: string;
 };
 
-// REPL 保留薄包装 useCallback:
+// REPL keeps a thin useCallback wrapper:
 //   const handleIncomingPrompt = useCallback(
 //     (content, options?) => submitIncomingPrompt(content, options, { queryGuard, setAbortController, onQuery, mainLoopModel }),
 //     [onQuery, mainLoopModel, store],

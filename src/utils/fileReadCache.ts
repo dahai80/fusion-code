@@ -14,7 +14,7 @@ type CachedFileData = {
 class FileReadCache {
 	private cache = new Map<string, CachedFileData>();
 	private readonly maxCacheSize = 1000;
-	// 对齐 CC 2.1.208 (issue #75): 字节上限, 防 1000 大文件无界占内存 (如 1000×10MB≈10GB)
+	// Aligned with CC 2.1.208 (issue #75): byte cap, prevents 1000 large files from unboundedly occupying memory (e.g. 1000×10MB≈10GB)
 	private readonly maxCacheBytes = 16 * 1024 * 1024;
 	private currentBytes = 0;
 
@@ -52,7 +52,7 @@ class FileReadCache {
 			.readFileSync(filePath, { encoding })
 			.replaceAll("\r\n", "\n");
 
-		// 覆盖旧条目时先扣旧字节 (避免重复计)
+		// When overwriting an old entry, subtract its bytes first (avoid double counting)
 		const oldEntry = this.cache.get(cacheKey);
 		if (oldEntry) {
 			this.currentBytes -= Buffer.byteLength(oldEntry.content);
@@ -68,7 +68,7 @@ class FileReadCache {
 		this.currentBytes += entryBytes;
 
 		// Evict 10% of oldest entries when cache exceeds max size OR max bytes
-		// (对齐 CC 2.1.208: entry-count + byte 双 cap, issue #75)
+		// (aligned with CC 2.1.208: dual entry-count + byte cap, issue #75)
 		// This amortizes eviction cost instead of evicting one entry per insert
 		if (
 			this.cache.size > this.maxCacheSize ||

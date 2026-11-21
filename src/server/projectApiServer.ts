@@ -829,9 +829,9 @@ async function handleChatStream(
 		cwd,
 	});
 
-	// stderr 必须持续消费: --verbose 会向 stderr 写大量诊断输出, OS 管道缓冲
-	// (macOS ~64KB) 写满后子进程阻塞在 write 上, stdout 随之停摆, chat 挂死。
-	// 逐行排空并进调试日志 (e2e 验收定位的潜在挂死点)。
+	// stderr must be drained continuously: --verbose writes a large volume of diagnostics to stderr; once the OS
+	// pipe buffer (macOS ~64KB) fills, the child blocks on write, stdout stalls with it, and chat hangs.
+	// Drain line by line into debug logging (potential hang point identified during e2e acceptance).
 	const stderrReader = proc.stderr.getReader();
 	const stderrDecoder = new TextDecoder();
 	(async () => {
@@ -991,11 +991,11 @@ export function resolveEffectiveAuthToken(config: ServerConfig): {
 	const configDir =
 		process.env.FUSION_CODE_CONFIG_DIR ?? join(homedir(), ".fusion-code");
 	const tokenFile = join(configDir, "server.token");
-	// P1-15: 同步阻塞写 — 此前 fire-and-forget async 写让 Bun.serve 先接连接,
-	// 本地客户端 (Fusion Studio) 立即轮询 server.token 竞态错过写 → 静默 auth 锁定。
-	// 此函数在 startProjectApiServer 启动时调一次 (非热路径), 同步写保证文件在
-	// serve 前存在。写失败 = fail-closed (throw, 启动失败 surfacing), 不留 in-memory
-	// token 无客户端可获的静默锁定。
+	// P1-15: synchronous blocking write — the previous fire-and-forget async write let Bun.serve accept
+	// connections first, and local clients (Fusion Studio) polling server.token immediately raced past
+	// the write → silent auth lockout. This function is called once at startProjectApiServer startup
+	// (not a hot path); the synchronous write guarantees the file exists before serving. A write failure =
+	// fail-closed (throw, surfacing the startup failure), leaving no in-memory token no client can obtain.
 	try {
 		mkdirSync(configDir, { recursive: true });
 		writeFileSync(tokenFile, generated, { mode: 0o600 });

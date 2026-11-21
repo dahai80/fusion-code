@@ -64,7 +64,8 @@ export function createLSPServerManager(): LSPServerManager {
 	const extensionMap: Map<string, string[]> = new Map();
 	// Track which files have been opened on which servers (URI -> server name)
 	const openedFiles: Map<string, string> = new Map();
-	// 对齐 CC 2.1.208: LSP open-docs 上限, 防长会话无界增长 (issue #75)
+	// Aligned with CC 2.1.208: LSP open-docs cap, prevents unbounded growth in
+	// long sessions (issue #75)
 	const MAX_OPEN_LSP_DOCS = 50;
 
 	/**
@@ -299,8 +300,10 @@ export function createLSPServerManager(): LSPServerManager {
 				},
 			});
 			// Track that this file is now open on this server
-			// 对齐 CC 2.1.208 (issue #75): 超 MAX_OPEN_LSP_DOCS 时淘汰最旧 open-doc
-			// (Map 插入序首项, FIFO 近似 LRU), 经 closeFile 发 didClose 释放服务器资源
+			// Aligned with CC 2.1.208 (issue #75): when MAX_OPEN_LSP_DOCS is
+			// exceeded, evict the oldest open-doc (first item in Map insertion
+			// order, FIFO approximating LRU), releasing server resources via
+			// closeFile's didClose
 			if (openedFiles.size >= MAX_OPEN_LSP_DOCS && !openedFiles.has(fileUri)) {
 				const oldestUri = openedFiles.keys().next().value;
 				if (oldestUri) {
@@ -308,7 +311,8 @@ export function createLSPServerManager(): LSPServerManager {
 						await closeFile(fileURLToPath(oldestUri));
 					} catch (error) {
 						logError(error);
-						// 淘汰失败不阻塞当前 open, 仅清理 tracking
+						// Eviction failure must not block the current open; just clean
+						// up tracking
 						openedFiles.delete(oldestUri);
 					}
 				}

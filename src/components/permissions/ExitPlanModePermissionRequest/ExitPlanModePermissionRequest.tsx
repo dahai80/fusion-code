@@ -268,7 +268,7 @@ export function ExitPlanModePermissionRequest({
 			isBypassPermissionsModeAvailable,
 		],
 	);
-	// useCallback 稳定标识，供 useLayoutEffect 依赖使用（内部只读 ref + setState）
+	// useCallback stable identity: for useLayoutEffect dependency use (internally reads ref + setState)
 	const onImagePaste = useCallback(
 		(
 			base64Image: string,
@@ -520,7 +520,7 @@ export function ExitPlanModePermissionRequest({
 			// Add verification instruction if the feature is enabled
 			// Dead code elimination: FUSION_CODE_VERIFY_PLAN='false' in external builds, so === 'true' check allows Bun to eliminate the string
 			const verificationInstruction =
-				// biome-ignore lint/correctness/noConstantCondition: DCE 手法——env 宏构建期折叠为 undefined，恒假分支使 verify 指令字符串被打包器消除
+				// biome-ignore lint/correctness/noConstantCondition: DCE technique — env macro folds to undefined at build time, the always-false branch lets the bundler eliminate the verify instruction string
 				undefined === "true"
 					? `\n\nIMPORTANT: When you have finished implementing the plan, you MUST call the "VerifyPlanExecution" tool directly (NOT the ${AGENT_TOOL_NAME} tool or an agent) to trigger background verification.`
 					: "";

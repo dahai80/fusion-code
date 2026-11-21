@@ -150,10 +150,10 @@ const isBackgroundTasksDisabled =
 // Auto-background agent tasks after this many ms (0 = disabled)
 // Enabled by env var OR GrowthBook gate (checked lazily since GB may not be ready at module load)
 function getAutoBackgroundMs(): number {
-	// item 12: FUSION_SUBAGENT_AUTO_BACKGROUND_MS 显式阈值 (并行 item 4
-	// FUSION_MCP_AUTO_BACKGROUND_MS)。default 0=off, byte-identical 旧行为。
-	// 设正值 → subagent 运行该毫秒后转后台, 复用 registerAgentForeground
-	// 定时器→backgroundSignal→mid-run 后台化解阻塞 turn。
+	// item 12: FUSION_SUBAGENT_AUTO_BACKGROUND_MS explicit threshold (parallel item 4
+	// FUSION_MCP_AUTO_BACKGROUND_MS). default 0=off, byte-identical old behavior.
+	// Positive value → subagent moves to background after that many ms, reusing the registerAgentForeground
+	// timer→backgroundSignal→mid-run backgrounding to unblock the turn.
 	const fusionMs = getSubagentAutoBackgroundMs();
 	if (fusionMs > 0) {
 		return fusionMs;
@@ -831,9 +831,9 @@ export const AgentTool = buildTool({
 				isCoordinator ||
 				forceAsync ||
 				assistantForceAsync ||
-				// 维度5: env 开关让默认子代理 spawn 即后台 (非队友) 解阻塞主 turn。
-				// !isInProcessTeammate() guard 同 line 455 既有 throw (in-process
-				// 队友生命周期绑 leader 进程不可后台)。default off byte-identical。
+				// Dimension 5: env switch makes default subagents background at spawn (non-teammates) to unblock the main turn.
+				// !isInProcessTeammate() guard matches the existing throw at line 455 (in-process
+				// teammate lifecycle is bound to the leader process and cannot be backgrounded). default off byte-identical.
 				(!isInProcessTeammate() && isSubagentDefaultBackground()) ||
 				(proactiveModule?.isProactiveActive() ?? false)) &&
 			!isBackgroundTasksDisabled;

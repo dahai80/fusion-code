@@ -40,14 +40,14 @@ export function useVimInput(props: UseVimInputProps): VimInputState {
 		createInitialPersistentState(),
 	);
 
-	// item 20: INSERT-mode 双键序列状态 (vimInsertModeRemaps)。独立 ref —
-	// VimState 每输入被覆写, 无法承载跨键 prefix。
+	// item 20: INSERT-mode two-key sequence state (vimInsertModeRemaps). Separate ref —
+	// VimState is overwritten on every input, so it cannot carry a cross-keystroke prefix.
 	const remapSeqRef = React.useRef<{
 		prefix: string;
 		timer: ReturnType<typeof setTimeout> | null;
 	}>({ prefix: "", timer: null });
 
-	// 卸载时清超时定时器, 防 leak。
+	// Clear the timeout timer on unmount to prevent a leak.
 	useEffect(() => {
 		return () => {
 			const seq = remapSeqRef.current;
@@ -233,8 +233,8 @@ export function useVimInput(props: UseVimInputProps): VimInputState {
 		if (state.mode === "INSERT") {
 			// Track inserted text for dot-repeat
 			if (key.backspace || key.delete) {
-				// Backspace 中断正在暂存的 remap 序列: 清 prefix + 定时器。
-				// 已插字符由下方 insertedText 回退正常处理。
+				// Backspace interrupts a staged remap sequence: clear prefix + timer.
+				// Already-inserted characters are handled normally by the insertedText rewind below.
 				const seq0 = remapSeqRef.current;
 				if (seq0.timer) {
 					clearTimeout(seq0.timer);
@@ -254,20 +254,20 @@ export function useVimInput(props: UseVimInputProps): VimInputState {
 				return;
 			}
 
-			// item 20: vimInsertModeRemaps 双键序列检测 (仅打印字符)。
-			// default off (空 remaps → 透传, byte-identical 旧行为)。
+			// item 20: vimInsertModeRemaps two-key sequence detection (printable characters only).
+			// Default off (empty remaps → passthrough, byte-identical to old behavior).
 			const remaps = getGlobalConfig().vimInsertModeRemaps ?? [];
 			const seq = remapSeqRef.current;
 			if (remaps.length > 0) {
 				const verdict = matchInsertRemap(remaps, seq.prefix, input);
 				if (verdict.action === "match") {
-					// 完整匹配: 回溯删已暂存 prefix 字符 (已插为真实文本) + 切 NORMAL。
-					// 不插当前键 (exit 序列尾字符不进文本)。
+					// Full match: rewind-delete the staged prefix characters (already inserted as real text) + switch to NORMAL.
+					// Do not insert the current key (the exit sequence's trailing character stays out of the text).
 					if (seq.timer) {
 						clearTimeout(seq.timer);
 						seq.timer = null;
 					}
-					// 置空前先记待删数 (prefix 已作为真实字符插入, 需回溯删)。
+					// Record the delete count before clearing (the prefix was inserted as real characters and must be rewound).
 					const toDelete = seq.prefix.length;
 					seq.prefix = "";
 					let cursor = Cursor.fromText(
@@ -280,7 +280,7 @@ export function useVimInput(props: UseVimInputProps): VimInputState {
 					}
 					props.onChange(cursor.text);
 					textInput.setOffset(cursor.offset);
-					// insertedText 镜像减 toDelete, 防 dot-repeat 重放已删字符。
+					// Mirror the deletion into insertedText (subtract toDelete) so dot-repeat does not replay deleted characters.
 					vimStateRef.current = {
 						mode: "INSERT",
 						insertedText: state.insertedText.slice(
@@ -292,7 +292,7 @@ export function useVimInput(props: UseVimInputProps): VimInputState {
 					return;
 				}
 				if (verdict.action === "prefix") {
-					// 暂存前缀 + 仍插入字符 (匹配时回溯删) + 起/重置超时窗。
+					// Stage the prefix + still insert the character (rewound on match) + start/reset the timeout window.
 					seq.prefix = verdict.newPrefix;
 					if (seq.timer) clearTimeout(seq.timer);
 					const timeoutMs = getInsertRemapTimeoutMs();
@@ -309,7 +309,7 @@ export function useVimInput(props: UseVimInputProps): VimInputState {
 					textInput.onInput(input, key);
 					return;
 				}
-				// passthrough: 放弃序列, 清 prefix + 定时器, 正常插入。
+				// passthrough: abandon the sequence, clear prefix + timer, insert normally.
 				if (seq.timer) {
 					clearTimeout(seq.timer);
 					seq.timer = null;
@@ -412,12 +412,12 @@ export function useVimInput(props: UseVimInputProps): VimInputState {
 	};
 }
 
-// --- item 20: vimInsertModeRemaps 双键 INSERT exit 序列映射 (CC 2.1.208) ---
-// 纯函数: 判定 INSERT 字符是否构成 remap 序列。无副作用, 便于单测。
-// remaps: 已配的 exit 序列 (如 ["jj","jk"]); prefix: 已暂存前缀; input: 当前键。
-// 返回 action: 'match' (完整匹配, 需回溯删 prefix + 切 NORMAL)
-//            | 'prefix' (仍是某序列前缀, 暂存 + 继续超时窗)
-//            | 'passthrough' (非匹配非前缀, 放弃序列, 正常插入)
+// --- item 20: vimInsertModeRemaps two-key INSERT exit sequence mapping (CC 2.1.208) ---
+// Pure function: decide whether an INSERT character completes a remap sequence. No side effects, unit-test friendly.
+// remaps: configured exit sequences (e.g. ["jj","jk"]); prefix: staged prefix; input: current key.
+// Returns action: 'match' (full match, rewind-delete prefix + switch to NORMAL)
+//            | 'prefix' (still a prefix of some sequence, stage + continue the timeout window)
+//            | 'passthrough' (neither match nor prefix, abandon the sequence, insert normally)
 export type InsertRemapResult = {
 	action: "match" | "prefix" | "passthrough";
 	newPrefix: string;
@@ -441,8 +441,8 @@ export function matchInsertRemap(
 	return { action: "passthrough", newPrefix: "" };
 }
 
-// 超时窗: env FUSION_VIM_INSERT_REMAP_TIMEOUT_MS, default 750, fail-open。
-// 0 = 禁超时 (立即放弃序列, 单字符无法成序列, 合法 edge)。
+// Timeout window: env FUSION_VIM_INSERT_REMAP_TIMEOUT_MS, default 750, fail-open.
+// 0 = disable timeout (abandon the sequence immediately; a single character can never form a sequence — a legal edge case).
 export function getInsertRemapTimeoutMs(): number {
 	const raw = process.env.FUSION_VIM_INSERT_REMAP_TIMEOUT_MS;
 	if (raw === undefined) return 750;

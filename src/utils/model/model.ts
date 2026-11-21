@@ -36,7 +36,7 @@ export type ModelName = string;
 export type ModelSetting = ModelName | ModelAlias | null;
 
 export function getSmallFastModel(): ModelName {
-	// Fusion-MLX 本地模式：使用本地模型的快速模型
+	// Fusion-MLX local mode: use the local model's fast model
 	if (isFusionMlxProvider()) {
 		return process.env.FUSION_MLX_MODEL || "claude-4.6-sonnet";
 	}
@@ -72,7 +72,7 @@ export function getUserSpecifiedModelSetting(): ModelSetting | undefined {
 		specifiedModel = modelOverride;
 	} else {
 		const settings = getInitialSettings() || {};
-		// Fusion-MLX 模式：优先使用 FUSION_MLX_MODEL 环境变量
+		// Fusion-MLX mode: prefer the FUSION_MLX_MODEL env var
 		if (isFusionMlxProvider()) {
 			specifiedModel =
 				process.env.FUSION_MLX_MODEL ||

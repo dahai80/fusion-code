@@ -1,11 +1,11 @@
 import { homedir } from "node:os";
 import { join } from "node:path";
 
-// 默认配置目录 ~/.fusion-code，可在启动时通过 FUSION_CODE_CONFIG_DIR 环境变量覆盖
-// audit-0903 P1 OPS-1: 之前此函数硬编码 DEFAULT_CONFIG_DIR，完全忽略
-// FUSION_CODE_CONFIG_DIR — cli.tsx 在启动时设置了该 env，但本函数从未读取，
-// 导致 history/keybindings/fileHistory/memory 等所有消费方都落在 ~/.fusion-code，
-// env 覆盖对主运行时失效。现在按 env > 默认 解析，与 projectApiServer 一致。
+// Default config dir ~/.fusion-code, overridable at startup via the FUSION_CODE_CONFIG_DIR env var
+// audit-0903 P1 OPS-1: previously this function hardcoded DEFAULT_CONFIG_DIR, completely ignoring
+// FUSION_CODE_CONFIG_DIR — cli.tsx set that env at startup, but this function never read it,
+// so all consumers like history/keybindings/fileHistory/memory landed in ~/.fusion-code,
+// and the env override had no effect on the main runtime. Now resolves env > default, consistent with projectApiServer.
 export function getClaudeConfigHomeDir(): string {
 	const override = process.env.FUSION_CODE_CONFIG_DIR;
 	const dir =

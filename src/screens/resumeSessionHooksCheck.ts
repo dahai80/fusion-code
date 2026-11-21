@@ -1,14 +1,14 @@
-// audit 1.1.1 slice #68: resume SessionEnd+SessionStart hooks sub-block 外移 (PURE-ROUTING-SUB-BLOCK, resume-chunked-extraction #8)。
-// resume() useCallback body 子块 (REPL L1891-1914, 24-LOC): 先为当前会话 fire SessionEnd hooks (mirror /clear flow in conversation.ts),
-// 再 processSessionStartHooks(source, {sessionId, agentType, model}) 取 hookMessages, push 进 conversation。
-// Fork 会话报告 source "fork" (CC 2.1.214, issue #79), 让 hook 区分 fork 与普通 resume。
-// slice #61-#67 兄弟模式: resume useCallback 子块切出, resume-local 变量 (entrypoint, sessionId, messages) +
-// REPL state (store, setAppState, mainThreadAgentDefinition, mainLoopModel) 经 ctx 传入, 行为字节等价。
-// return-value-threading (#63 模式): hookMessages → messages.push(...hookMessages) — messages 数组经 ctx 传入, helper 直接 push (非 return)。
-// executeSessionEndHooks/processSessionStartHooks/getSessionEndHookTimeoutMs (hooks.ts + sessionStart.ts import 块) 直接 import
-// (非 REPL state, per imported-helpers-directly rule; REPL 多用 executeSessionEndHooks/processSessionStartHooks, 保留 REPL import)。
-// 辅助返 Promise<void> (两 await + push, 异步)。无 JSX → .ts。
-// 注: 此为 resume 切块提取的第 8 块 (sessionEnd + sessionStart hooks, 含 return-value-threading)。
+// audit 1.1.1 slice #68: resume SessionEnd+SessionStart hooks sub-block extracted (PURE-ROUTING-SUB-BLOCK, resume-chunked-extraction #8).
+// resume() useCallback body sub-block (REPL L1891-1914, 24 LOC): first fires SessionEnd hooks for the current session (mirror /clear flow in conversation.ts),
+// then processSessionStartHooks(source, {sessionId, agentType, model}) yields hookMessages, pushed into the conversation.
+// Fork sessions report source "fork" (CC 2.1.214, issue #79), letting the hook distinguish fork from plain resume.
+// slice #61-#67 sibling pattern: a resume useCallback sub-block cut out; resume-local variables (entrypoint, sessionId, messages) +
+// REPL state (store, setAppState, mainThreadAgentDefinition, mainLoopModel) passed via ctx, byte-equivalent behavior.
+// return-value-threading (#63 pattern): hookMessages → messages.push(...hookMessages) — the messages array is passed via ctx, the helper pushes directly (not via return).
+// executeSessionEndHooks/processSessionStartHooks/getSessionEndHookTimeoutMs (hooks.ts + sessionStart.ts import block) imported directly
+// (not REPL state, per imported-helpers-directly rule; executeSessionEndHooks/processSessionStartHooks used multiple times in REPL, REPL import kept).
+// Helper returns Promise<void> (two awaits + push, async). No JSX → .ts.
+// Note: this is chunk #8 of the resume chunked extraction (sessionEnd + sessionStart hooks, includes return-value-threading).
 
 import type { UUID } from "node:crypto";
 import type { ResumeEntrypoint } from "../commands.js";

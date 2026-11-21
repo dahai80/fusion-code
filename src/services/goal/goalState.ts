@@ -81,11 +81,12 @@ function loadGoals(sessionId: string): Goal[] {
 }
 
 function saveGoals(sessionId: string, goals: Goal[]): boolean {
-	// P2-5: 原 catch 仅 logForDebugging (dev 才见) → 写失败静默, budget+revision
-	// 丢, 破坏 P5.3 CAS。改 console.error fail-visible (stderr 始终见) + 返回
-	// boolean 让调用方感知。不 throw (会杀 turn, 各调用点无 try)。返回 false 时
-	// 调用方拿到的 goal 对象反映内存值, revision 已自增但未落盘 — 下次 load 从盘
-	// 读回旧 revision, CAS 冲突暴露此 gap (fail-visible 的下游效应)。
+	// P2-5: the original catch only did logForDebugging (dev-only) → silent write failure, budget+revision
+	// lost, breaking the P5.3 CAS. Switched to console.error fail-visible (always visible on stderr) +
+	// a returned boolean so callers can detect it. No throw (it would kill the turn; call sites have no try).
+	// On false, the goal object the caller sees reflects in-memory values: revision already incremented but
+	// not persisted — the next load reads the old revision back from disk, and a CAS conflict exposes this
+	// gap (a downstream effect of fail-visible).
 	try {
 		const dir = getGoalsDir();
 		if (!existsSync(dir)) mkdirSync(dir, { recursive: true });
@@ -93,7 +94,7 @@ function saveGoals(sessionId: string, goals: Goal[]): boolean {
 		writeFileSync(path, JSON.stringify(goals, null, 2), "utf-8");
 		return true;
 	} catch (e) {
-		// P2-5: fail-visible — console.error 始终到 stderr, 非 dev-only。
+		// P2-5: fail-visible — console.error always reaches stderr, not dev-only.
 		console.error(
 			`[GoalState] Failed to save goals (budget/revision NOT persisted): ${(e as Error).message}`,
 		);
@@ -185,9 +186,10 @@ export function completeGoal(
 	const goals = loadGoals(sessionId);
 	const idx = goals.findIndex((g) => g.id === goalId);
 	if (idx === -1 || goals[idx].status === "complete") return null;
-	// P1-8: CAS 在单次 load/save 周期内执行 (此前 getGoalById 读 revision +
-	// completeGoal 独立 reload save = 两周期 TOCTOU, 并发写覆盖, CAS 装饰性)。
-	// expectedRevision 省略 → 不检查 (byte-identical)。
+	// P1-8: CAS runs within a single load/save cycle (previously getGoalById read the revision +
+	// completeGoal did an independent reload/save = a two-cycle TOCTOU where concurrent writes
+	// overwrote each other, making CAS decorative).
+	// expectedRevision omitted → no check (byte-identical).
 	if (expectedRevision != null && goals[idx].revision !== expectedRevision) {
 		logForDebugging(
 			`[GoalState] completeGoal CAS rejected: expected ${expectedRevision} got ${goals[idx].revision}`,
@@ -220,7 +222,7 @@ export function blockGoal(
 	const goals = loadGoals(sessionId);
 	const idx = goals.findIndex((g) => g.id === goalId);
 	if (idx === -1 || goals[idx].status !== "active") return null;
-	// P1-8: CAS 在单次 load/save 周期内执行 (同 completeGoal)。
+	// P1-8: CAS runs within a single load/save cycle (same as completeGoal).
 	if (expectedRevision != null && goals[idx].revision !== expectedRevision) {
 		logForDebugging(
 			`[GoalState] blockGoal CAS rejected: expected ${expectedRevision} got ${goals[idx].revision}`,

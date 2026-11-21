@@ -276,14 +276,15 @@ export const ERROR_MESSAGE_NOT_ENOUGH_MESSAGES =
 const MAX_PTL_RETRIES = 3;
 const PTL_RETRY_MARKER =
 	"[earlier conversation truncated for compaction retry]";
-// item 16 (CC 2.1.228): compact stall 提示。LLM-summary compact 单次流可 30s+ 无 token
-// (MLX 大上下文摘要慢), 用户无法区分 "正常慢" vs "卡住重试中"。周期 emit
-// compact_stall {elapsedMs} 让前端显耗时提示。粒度 10s (粗粒度提示非精确进度)。
+// item 16 (CC 2.1.228): compact stall notice. An LLM-summary compact stream can go 30s+ with no tokens
+// (MLX summarization of large contexts is slow), and the user cannot distinguish "normally slow" from
+// "stuck and retrying". Periodically emit compact_stall {elapsedMs} so the frontend can show an
+// elapsed-time hint. Granularity 10s (coarse hint, not a precise progress bar).
 const COMPACT_STALL_INTERVAL_MS = 10_000;
 
-// 启动 compact stall 计时器: 每 COMPACT_STALL_INTERVAL_MS emit compact_stall。
-// 返回 clear fn, 调用方在 compact_end/throw 路径 finally 里 clear (防泄漏)。
-// 不复用 REPL loadingStartTimeRef (指 query 起点非 compact 起点, elapsed 不准)。
+// Start the compact stall timer: emit compact_stall every COMPACT_STALL_INTERVAL_MS.
+// Returns a clear fn; the caller clears it in the finally of the compact_end/throw path (leak prevention).
+// Does not reuse REPL's loadingStartTimeRef (it points at the query start, not the compact start, so elapsed is inaccurate).
 export function startCompactStallTimer(
 	context: ToolUseContext,
 	startTime: number,
@@ -298,41 +299,41 @@ export function startCompactStallTimer(
 	}, intervalMs);
 	return () => clearInterval(interval);
 }
-// 本地模型 compact 安全系数:只用上下文窗口的 70%作为 compact 输入上限,
-// 留 30%给 KV cache 开销(32B 模型长上下文 KV cache 可占 30%+内存)
+// Local-model compact safety factor: use only 70% of the context window as the compact input cap,
+// leaving 30% for KV cache overhead (a 32B model's long-context KV cache can take 30%+ of memory)
 const MLX_COMPACT_TOKEN_SAFETY_FACTOR = 0.7;
 
-// 云/网关模型 compact 输出 token 安全余量。从 contextWindow - input 中
-// 预留这部分给 system prompt + tool defs + 摘要请求自身的开销,
-// 避免 input + maxOutputTokens 精确卡死导致 400。
+// Cloud/gateway-model compact output-token safety margin. Reserved from contextWindow - input
+// for the system prompt + tool defs + the summarization request's own overhead,
+// avoiding a 400 caused by input + maxOutputTokens exactly filling the window.
 const COMPACT_OUTPUT_SAFETY_MARGIN = 4_096;
-// compact 输出 token 下限:即使 input 接近窗口上限, 也留这点输出让模型
-// 生成有意义摘要, 不至于 max_tokens=0 或个位数无法成文。
+// Compact output-token floor: even when input is near the window cap, keep this much output so the
+// model can generate a meaningful summary rather than max_tokens=0 or a single digit that cannot form text.
 const COMPACT_OUTPUT_TOKEN_FLOOR = 2_048;
 
 /**
- * 计算当前 compact 请求的 maxOutputTokens 上限。
- * MLX 已有 preflightMlxTokenTruncate 截断输入, 这里只补 cloud/gateway:
- * 当 input + 默认输出预算 > contextWindow 时, 把输出预算压到
- * contextWindow - input - 安全余量, 至少留 COMPACT_OUTPUT_TOKEN_FLOOR。
- * 返回 undefined 表示无需改写 (用现有固定值/模型默认值), 保持 byte-identical。
+ * Compute the maxOutputTokens cap for the current compact request.
+ * MLX already truncates input via preflightMlxTokenTruncate; this only covers cloud/gateway:
+ * when input + the default output budget > contextWindow, squeeze the output budget down to
+ * contextWindow - input - the safety margin, keeping at least COMPACT_OUTPUT_TOKEN_FLOOR.
+ * Returns undefined when no rewrite is needed (use the existing fixed value/model default), staying byte-identical.
  *
- * @param model - mainLoopModel (用于查 context window + 默认输出预算)
- * @param estimatedInputTokens - 待摘要消息的估算 token 数
+ * @param model - mainLoopModel (used to look up the context window + default output budget)
+ * @param estimatedInputTokens - estimated token count of the messages to be summarized
  */
 export function getCompactOutputTokenCap(
 	model: string,
 	estimatedInputTokens: number,
 ): number | undefined {
-	// MLX 走 preflightMlxTokenTruncate, 不在此处理
+	// MLX goes through preflightMlxTokenTruncate; not handled here
 	if (isFusionMlxProvider()) return undefined;
 	const contextWindow = getContextWindowForModel(model);
 	if (!contextWindow || contextWindow <= 0) return undefined;
 	const modelDefaultOutput = getMaxOutputTokensForModel(model);
-	// 候选输出预算: COMPACT_MAX_OUTPUT_TOKENS 与模型默认中的较小值
+	// Candidate output budget: the smaller of COMPACT_MAX_OUTPUT_TOKENS and the model default
 	const candidate = Math.min(COMPACT_MAX_OUTPUT_TOKENS, modelDefaultOutput);
-	// 只有当 input + candidate 会触及/超窗口时才压缩, 否则保持现状 (byte-identical)
-	// 用 < (非 <=): 精确相等也算满, 压输出留安全余量, 避免 input+output 恰好卡死。
+	// Only compress when input + candidate would touch/exceed the window; otherwise keep the status quo (byte-identical)
+	// Uses < (not <=): exact equality also counts as full; squeeze the output to keep a safety margin, avoiding input+output exactly filling the window.
 	if (estimatedInputTokens + candidate < contextWindow) return undefined;
 	const capped =
 		contextWindow - estimatedInputTokens - COMPACT_OUTPUT_SAFETY_MARGIN;
@@ -345,11 +346,11 @@ export function getCompactOutputTokenCap(
 }
 
 /**
- * 检测 litellm/gateway 的上下文窗口超限错误 (ContextWindowExceededError)。
- * 云网关 (如 litellm + glm5.2) 在 input + max_tokens 超过模型上下文窗口时
- * 返回 400, 错误体含 "ContextWindowExceeded" / "maximum context length of" /
- * "input tokens" + "output tokens" + "> <max>"。这类错误语义等同 prompt-too-long:
- * 应截断输入重试, 而非直接抛错卡住用户。
+ * Detect litellm/gateway context-window-exceeded errors (ContextWindowExceededError).
+ * Cloud gateways (e.g. litellm + glm5.2) return 400 when input + max_tokens exceeds the model's
+ * context window; the error body contains "ContextWindowExceeded" / "maximum context length of" /
+ * "input tokens" + "output tokens" + "> <max>". Such errors are semantically equivalent to
+ * prompt-too-long: truncate the input and retry rather than throwing and stalling the user.
  */
 export function isContextWindowExceededError(summary: string | null): boolean {
 	if (!summary) return false;
@@ -447,11 +448,11 @@ type CompactSummaryRetryOptions = {
 	// Caller-owned failure event (the two paths log different event names/fields)
 	logFailed: (
 		ptlAttempts: number,
-		// 审计 v3-0913 P2-2: 失败事件也带实际发送轮次 (含 PTL 截断)
+		// audit v3-0913 P2-2: the failure event also carries the actual sent round count (incl. PTL truncation)
 		finalMessageCount: number,
-		// 审计 v3 P3: 真实失败原因 (prompt_too_long/mlx_memory/mlx_server_error/
-		// context_window_exceeded) — 此前 caller 硬编码 prompt_too_long, 与
-		// throw 文案的分支判定不一致
+		// audit v3 P3: the real failure reason (prompt_too_long/mlx_memory/mlx_server_error/
+		// context_window_exceeded) — the caller previously hardcoded prompt_too_long,
+		// inconsistent with the throw-message branch decision
 		failReason:
 			| "prompt_too_long"
 			| "mlx_memory"
@@ -460,7 +461,7 @@ type CompactSummaryRetryOptions = {
 	) => void;
 	// Extra fields appended to fusion_compact_ptl_retry (e.g. path: "partial")
 	retryLogExtra?: TruncateRetryLogExtra;
-	// 测试缝 (DI): 默认生产实现; 断言用例注入受控 stub 模拟 PTL 重试轮次。
+	// Test seam (DI): the production implementation by default; assertion cases inject a controlled stub to simulate PTL retry rounds.
 	streamFn?: typeof streamCompactSummary;
 };
 
@@ -484,9 +485,9 @@ export async function runCompactSummaryWithTruncateRetry(
 ): Promise<{
 	summaryResponse: AssistantMessage;
 	summary: string | null;
-	// 审计 v3-0913 P1 修复: 截断重试后实际发送的轮次数 (未截断时 = opts.messages.length)。
-	// caller 的局部变量不再被循环回写 (回写封闭在本函数内), 元数据统计
-	// (summarizeMetadata.messagesSummarized) 必须用此值才能反映真实口径。
+	// audit v3-0913 P1 fix: the actual number of rounds sent after truncate-retries (= opts.messages.length when untruncated).
+	// The caller's local variable is no longer written back by the loop (the write-back is enclosed in this function);
+	// metadata stats (summarizeMetadata.messagesSummarized) must use this value to reflect the true figure.
 	finalMessageCount: number;
 }> {
 	const streamSummary = opts.streamFn ?? streamCompactSummary;
@@ -514,22 +515,25 @@ export async function runCompactSummaryWithTruncateRetry(
 			cacheSafeParams: currentParams,
 		});
 		const summary = getAssistantMessageText(summaryResponse);
-		// fusion-mlx 内存撞顶时返回 200 + 空内容流(prefill 阶段 abort,无 error 事件),
-		// summary 为空且无错误文本 -> 上层抛 "no valid text content"。MLX 空响应几乎必为
-		// 内存撞顶,复用 prompt-too-long 截断重试:逐轮丢弃最旧 API 轮次直到 prefill 落入
-		// 内存上限,让 /compact 在超大对话上也能成功;无法再截断则抛明确内存上限错误。
+		// On fusion-mlx memory exhaustion the engine returns a 200 + empty content stream (prefill-stage
+		// abort, no error event); the summary is empty with no error text -> the upper layer throws
+		// "no valid text content". An MLX empty response is almost always memory exhaustion; reuse the
+		// prompt-too-long truncate-retry: drop the oldest API rounds one by one until prefill fits the
+		// memory cap, letting /compact succeed even on very large conversations; throw an explicit
+		// memory-cap error once nothing more can be truncated.
 		const isEmptyMlxOom = !summary && isFusionMlxProvider();
-		// fusion-mlx 引擎路由 bug(AttributeError)或 OOM(RuntimeError)会返回 500 错误,
-		// MLX adapter 将其转为 "Fusion-MLX API error: 500 ..." 或 mid-stream error,
-		// compact 流式路径将其作为 API Error summary 返回。检测此类错误也触发截断重试。
-		// (不匹配通用 Python 异常名,避免合法 Python 调试摘要触发误判)
+		// A fusion-mlx engine routing bug (AttributeError) or OOM (RuntimeError) returns a 500 error;
+		// the MLX adapter turns it into "Fusion-MLX API error: 500 ..." or a mid-stream error,
+		// and the compact streaming path returns it as the API Error summary. Detecting such errors
+		// also triggers the truncate-retry.
+		// (Does not match generic Python exception names, to avoid false positives on legitimate Python debugging summaries)
 		const isMlxServerError =
 			isFusionMlxProvider() &&
 			summary &&
 			(summary.includes("process memory limit exceeded") ||
 				summary.includes("Fusion-MLX API error: 5"));
-		// 云/网关 (litellm/gateway) 上下文窗口超限: input + max_tokens 超窗口 →
-		// 400 ContextWindowExceededError。语义同 prompt-too-long, 截断输入重试。
+		// Cloud/gateway (litellm/gateway) context-window overflow: input + max_tokens over the window →
+		// 400 ContextWindowExceededError. Semantically the same as prompt-too-long; truncate the input and retry.
 		const isContextWindowOverflow = isContextWindowExceededError(summary);
 		const needsTruncateRetry =
 			summary?.startsWith(PROMPT_TOO_LONG_ERROR_MESSAGE) ||
@@ -538,19 +542,19 @@ export async function runCompactSummaryWithTruncateRetry(
 			isContextWindowOverflow;
 		if (isEmptyMlxOom) {
 			logForDebugging(
-				`${logPrefix} 空响应(疑似 fusion-mlx 内存撞顶),触发截断重试`,
+				`${logPrefix} empty response (suspected fusion-mlx memory exhaustion), triggering truncate-retry`,
 				{ level: "warn" },
 			);
 		}
 		if (isMlxServerError) {
 			logForDebugging(
-				`${logPrefix} MLX 服务端错误,触发截断重试: ${summary?.slice(0, 200)}`,
+				`${logPrefix} MLX server-side error, triggering truncate-retry: ${summary?.slice(0, 200)}`,
 				{ level: "warn" },
 			);
 		}
 		if (isContextWindowOverflow) {
 			logForDebugging(
-				`${logPrefix} 云网关上下文窗口超限,触发截断重试: ${summary?.slice(0, 200)}`,
+				`${logPrefix} cloud-gateway context window exceeded, triggering truncate-retry: ${summary?.slice(0, 200)}`,
 				{ level: "warn" },
 			);
 		}
@@ -565,8 +569,8 @@ export async function runCompactSummaryWithTruncateRetry(
 		// CC-1180: compact request itself hit prompt-too-long. Truncate the
 		// oldest API-round groups and retry rather than leaving the user stuck.
 		ptlAttempts++;
-		// item 16 (CC 2.1.228): emit 用户可见重试进度 (复用已算的判定, 不重判)
-		// 审计 v3 P3: 提取为局部变量, logFailed 复用同一判定 (此前 caller 硬编码)
+		// item 16 (CC 2.1.228): emit user-visible retry progress (reuses the already-computed decision, no re-evaluation)
+		// audit v3 P3: extracted into a local variable; logFailed reuses the same decision (the caller previously hardcoded it)
 		const retryReason:
 			| "prompt_too_long"
 			| "mlx_memory"
@@ -651,7 +655,7 @@ export function preflightMlxTokenTruncate(
 		return null;
 	}
 
-	// 输出 token 也占用 context window, 必须从输入预算中扣除
+	// Output tokens also occupy the context window; they must be deducted from the input budget
 	const safeBudget = Math.floor(
 		(contextWindow - COMPACT_MAX_OUTPUT_TOKENS) *
 			MLX_COMPACT_TOKEN_SAFETY_FACTOR,
@@ -702,7 +706,7 @@ export function preflightMlxTokenTruncate(
 		{ level: "warn" },
 	);
 
-	// 按API轮次从旧到新丢弃,直到落入安全预算
+	// Drop API rounds from oldest to newest until the input fits the safe budget
 	const groups = groupMessagesByApiRound(messages);
 	if (groups.length < 2) {
 		logForDebugging(
@@ -726,7 +730,7 @@ export function preflightMlxTokenTruncate(
 		if (remaining <= messageBudget) break;
 	}
 
-	// 至少保留1个组
+	// Keep at least 1 group
 	dropCount = Math.min(dropCount, groups.length - 1);
 	if (dropCount < 1) return null;
 
@@ -849,8 +853,8 @@ export async function compactConversation(
 	isAutoCompact: boolean = false,
 	recompactionInfo?: RecompactionInfo,
 ): Promise<CompactionResult> {
-	// item 16: compact stall 计时器。try 前声明 (block-scope: try 内 let 不可见于 finally),
-	// compact_start 启, finally clear。hook-blocked 早 return 路径也由 finally 覆盖。
+	// item 16: compact stall timer. Declared before try (block-scope: a let inside try is invisible to finally),
+	// started at compact_start, cleared in finally. The hook-blocked early-return path is also covered by finally.
 	let clearStallTimer: () => void = () => {};
 	try {
 		if (messages.length === 0) {
@@ -899,7 +903,7 @@ export async function compactConversation(
 		context.setStreamMode?.("requesting");
 		context.setResponseLength?.(() => 0);
 		context.onCompactProgress?.({ type: "compact_start" });
-		// item 16: compact_start 后启 stall 计时器, finally 清
+		// item 16: start the stall timer after compact_start, cleared in finally
 		clearStallTimer = startCompactStallTimer(context, Date.now());
 
 		// 3P default: true — forked-agent path reuses main conversation's prompt cache.
@@ -911,12 +915,12 @@ export async function compactConversation(
 			true,
 		);
 
-		// Hard compact: MLX 优先走确定性截断路径,不调用 LLM
-		// suggest1.md 核心洞察: "让 LLM 去生成摘要在本地架构下是逻辑悖论"
-		// compact 触发时已接近上下文上限,再发全量消息做摘要只会 OOM
+		// Hard compact: on MLX prefer the deterministic truncation path, no LLM call
+		// suggest1.md core insight: "having an LLM generate the summary is a logical paradox under the local architecture"
+		// by the time compact fires we are already near the context cap; sending the full message set for summarization would only OOM
 		if (shouldUseHardCompact()) {
 			const hardResult = hardCompactMessages(messages);
-			// insight-0902 E3: 旁路记录压缩快照, 供 /diff-compaction 审计 (fail-open)。
+			// insight-0902 E3: record the compaction snapshot on the side for /diff-compaction audit (fail-open).
 			recordCompactionSnapshot({
 				timestamp: Date.now(),
 				provider:
@@ -997,7 +1001,7 @@ export async function compactConversation(
 		});
 
 		let messagesToSummarize = messages;
-		// Pre-flight: 本地模型 compact 前先检查 token 预算,避免发送超大请求导致 OOM 崩溃
+		// Pre-flight: check the token budget before compacting on a local model, avoiding an oversized request that would OOM-crash
 		const preflightTruncated = preflightMlxTokenTruncate(
 			messages,
 			cacheSafeParams.systemPrompt,
@@ -1011,8 +1015,8 @@ export async function compactConversation(
 			});
 			messagesToSummarize = preflightTruncated;
 		}
-		// 如果 preflight 截断了消息, forkContextMessages 必须同步更新,
-		// 否则 fork-agent 路径发送未截断原始消息到 MLX 导致 OOM
+		// If preflight truncated the messages, forkContextMessages must be updated in sync,
+		// otherwise the fork-agent path sends the untruncated original messages to MLX and OOMs
 		const retryCacheSafeParams = preflightTruncated
 			? { ...cacheSafeParams, forkContextMessages: preflightTruncated }
 			: cacheSafeParams;
@@ -1341,7 +1345,7 @@ export async function compactConversation(
 		context.setStreamMode?.("requesting");
 		context.setResponseLength?.(() => 0);
 		context.onCompactProgress?.({ type: "compact_end" });
-		clearStallTimer(); // item 16: 防 stall 计时器泄漏 (覆盖 throw + 早 return)
+		clearStallTimer(); // item 16: prevent stall-timer leaks (covers throw + early return)
 		context.setSDKStatus?.(null);
 	}
 }
@@ -1361,7 +1365,7 @@ export async function partialCompactConversation(
 	userFeedback?: string,
 	direction: PartialCompactDirection = "from",
 ): Promise<CompactionResult> {
-	// item 16: compact stall 计时器 (同 compactConversation)
+	// item 16: compact stall timer (same as compactConversation)
 	let clearStallTimer: () => void = () => {};
 	try {
 		const messagesToSummarize =
@@ -1435,7 +1439,7 @@ export async function partialCompactConversation(
 		context.setStreamMode?.("requesting");
 		context.setResponseLength?.(() => 0);
 		context.onCompactProgress?.({ type: "compact_start" });
-		// item 16: compact_start 后启 stall 计时器, finally 清
+		// item 16: start the stall timer after compact_start, cleared in finally
 		clearStallTimer = startCompactStallTimer(context, Date.now());
 
 		const compactPrompt = getPartialCompactPrompt(
@@ -1450,14 +1454,14 @@ export async function partialCompactConversation(
 			preCompactTokenCount,
 			direction:
 				direction as AnalyticsMetadata_I_VERIFIED_THIS_IS_NOT_CODE_OR_FILEPATHS,
-			// 审计 v3-0913 P2-2: messagesSummarized 不在此处定值 — 实际发送轮次
-			// 受 preflight 截断与 PTL 重试影响, 由各消费点用 finalMessageCount 补充
+			// audit v3-0913 P2-2: messagesSummarized is not finalized here — the actual sent round count
+			// is affected by preflight truncation and PTL retries; each consumer supplements it with finalMessageCount
 		};
 
 		// 'up_to' prefix hits cache directly; 'from' sends all (tail wouldn't cache).
 		// PTL retry breaks the cache prefix but unblocks the user (CC-1180).
 		let apiMessages = direction === "up_to" ? messagesToSummarize : allMessages;
-		// Pre-flight: 本地 MLX 模型 partial compact 也需要 token 预算检查
+		// Pre-flight: partial compact on a local MLX model also needs the token budget check
 		const partialPreflight = preflightMlxTokenTruncate(
 			apiMessages,
 			cacheSafeParams.systemPrompt,
@@ -1615,8 +1619,8 @@ export async function partialCompactConversation(
 			preCompactTokenCount,
 			postCompactTokenCount,
 			messagesKept: messagesToKeep.length,
-			// 截断重试后的实际轮次 (审计 v3-0913 P1): caller 局部变量不再被
-			// 循环回写, 原始长度会虚报统计口径
+			// Actual rounds after truncate-retries (audit v3-0913 P1): the caller's local variable is no
+			// longer written back by the loop; the original length would overstate the stats
 			messagesSummarized: finalMessageCount,
 			direction:
 				direction as AnalyticsMetadata_I_VERIFIED_THIS_IS_NOT_CODE_OR_FILEPATHS,
@@ -1728,7 +1732,7 @@ export async function partialCompactConversation(
 		context.setStreamMode?.("requesting");
 		context.setResponseLength?.(() => 0);
 		context.onCompactProgress?.({ type: "compact_end" });
-		clearStallTimer(); // item 16: 防 stall 计时器泄漏 (覆盖 throw + 早 return)
+		clearStallTimer(); // item 16: prevent stall-timer leaks (covers throw + early return)
 		context.setSDKStatus?.(null);
 	}
 }
@@ -1803,10 +1807,10 @@ async function streamCompactSummary({
 			)
 		: undefined;
 
-	// 云/网关模型: 当 input + 默认输出预算超 contextWindow 时, 压缩输出 token
-	// 避免 400 ContextWindowExceededError。undefined = 不超窗口, 保持原值。
-	// 在函数入口算一次: fork 路径据此决定是否跳过 (避免 400 后才回落 streaming),
-	// streaming 路径复用同一值作为 maxOutputTokensOverride。
+	// Cloud/gateway models: when input + the default output budget exceed the contextWindow, squeeze the output tokens
+	// to avoid 400 ContextWindowExceededError. undefined = within the window, keep the original value.
+	// Computed once at function entry: the fork path uses it to decide whether to skip (avoiding falling back to
+	// streaming only after a 400); the streaming path reuses the same value as maxOutputTokensOverride.
 	const compactOutputCap = getCompactOutputTokenCap(
 		context.options.mainLoopModel,
 		tokenCountWithEstimation(messages),
@@ -1817,13 +1821,13 @@ async function streamCompactSummary({
 	);
 
 	try {
-		// 当输入接近窗口上限 (compactOutputCap 已触发压缩) 时, fork 路径继承
-		// 模型默认 maxOutputTokens (~32K), input+default 同样超窗口 → 必 400。
-		// 此场景无有效 cache prefix 可复用 (输入已满), 跳过 fork 直接走 streaming,
-		// streaming 已按 compactOutputCap 压缩输出, 避免一次必失败的 fork 调用。
-		// 含图片/文档时同样跳过 fork: fork 原样发送消息以保持 cache 前缀一致
-		// (不能剥离媒体块, 否则 cache miss), 而 streaming 路径会剥离媒体块 —
-		// 与其让 fork 吃图片体积后靠失败回落 streaming, 不如直接走 streaming。
+		// When the input is near the window cap (compactOutputCap already triggered compression), the fork path inherits
+		// the model's default maxOutputTokens (~32K); input+default also exceeds the window → guaranteed 400.
+		// In this scenario there is no valid cache prefix to reuse (input is full), so skip fork and go straight to streaming;
+		// streaming already compresses output per compactOutputCap, avoiding a fork call guaranteed to fail.
+		// Skip fork for image/document content too: fork sends messages as-is to keep the cache prefix consistent
+		// (media blocks cannot be stripped, otherwise cache miss), while the streaming path strips media blocks —
+		// rather than letting fork absorb the image bytes and fall back to streaming on failure, just go straight to streaming.
 		if (
 			promptCacheSharingEnabled &&
 			compactOutputCap === undefined &&
@@ -1960,8 +1964,8 @@ async function streamCompactSummary({
 			let response: AssistantMessage | undefined;
 			context.setResponseLength?.(() => 0);
 
-			// 复用函数入口算的 compactOutputCap: 压缩输出避免 400
-			// (undefined = 不超窗口, 用原固定值, byte-identical)。
+			// Reuse the compactOutputCap computed at function entry: compress output to avoid 400
+			// (undefined = within the window, use the original fixed value, byte-identical).
 			const streamingMaxOutputTokens =
 				compactOutputCap ?? defaultCompactMaxOutputTokens;
 
@@ -2044,7 +2048,7 @@ async function streamCompactSummary({
 				});
 				await sleep(getRetryDelay(attempt), context.abortController.signal, {
 					abortError: () => {
-						// log: 不依赖 SDK 的 AbortError 工厂 — sleep 仅要求 () => Error
+						// log: no dependency on the SDK's AbortError factory — sleep only requires () => Error
 						const err = new Error("Request was aborted.");
 						err.name = "AbortError";
 						return err;

@@ -1,18 +1,18 @@
-// item 23: 插件 `archive` 源 — HTTPS zip 下载 + 可选 SHA-256 锁定 (CC 2.1.224, §138/§215)
+// item 23: plugin `archive` source — HTTPS zip download + optional SHA-256 pinning (CC 2.1.224, §138/§215)
 //
-// 与 url 源 (git-clone) 区别: archive 下 raw .zip 文件 (非 git 仓库), 可选
-// SHA-256 内容锁定 (下载字节校验, mismatch refuse 不 fallback)。
+// Difference from the url source (git-clone): archive downloads a raw .zip file (not a git repo), with
+// optional SHA-256 content pinning (byte verification on download, mismatch refuses without fallback).
 //
-// 安全 (供应链防篡改):
-//   - 仅 HTTPS (拒 http://, 同 mcpbHandler.ts:714 / validateGitUrl precedent)
-//   - sha256 提供时: createHash('sha256').update(zipBuf).digest('hex') 常量时间比较,
-//     mismatch throw 不解压 (fail-visible, Rule 12)
-//   - sha256 省略: 跳过校验 + warn 日志 (匹配 "可选锁定" 原意, fail-open 告知不阻断)
-//   - 解压复用 dxt/zip.ts unzipFile (zip-bomb 防护: 100k files / 512MB / 1024MB /
-//     50:1 比率) + parseZipModes (exec-bit 保留) + isPathSafe (路径遍历防护)
+// Security (supply-chain tamper resistance):
+//   - HTTPS only (reject http://, same as mcpbHandler.ts:714 / validateGitUrl precedent)
+//   - When sha256 is provided: constant-time comparison via createHash('sha256').update(zipBuf).digest('hex'),
+//     mismatch throws without extraction (fail-visible, Rule 12)
+//   - When sha256 is omitted: skip verification + warn log (matches the "optional pinning" intent, fail-open with notice, non-blocking)
+//   - Extraction reuses dxt/zip.ts unzipFile (zip-bomb guards: 100k files / 512MB / 1024MB /
+//     50:1 ratio) + parseZipModes (exec-bit preservation) + isPathSafe (path traversal protection)
 //
-// 物化执行不接 addMarketplaceSource stub (cloud-only 桩, 同其他所有源)。
-// 本模块导出独立可测的 installFromArchive 真逻辑, cachePlugin switch 调之。
+// Materialization does not wire the addMarketplaceSource stub (cloud-only stub, same as all other sources).
+// This module exports independently testable installFromArchive real logic, called from the cachePlugin switch.
 
 import { Buffer } from "node:buffer";
 import { createHash, timingSafeEqual } from "node:crypto";
@@ -33,7 +33,7 @@ import { isPathSafe, parseZipModes, unzipFile } from "../dxt/zip.js";
 import { isEnvTruthy } from "../envUtils.js";
 import type { PluginSource } from "./schemas.js";
 
-// archive 源子集 (PluginSource 的 source:'archive' 变体)
+// archive source subset (PluginSource's source:'archive' variant)
 export interface ArchivePluginSource {
 	source: "archive";
 	url: string;
@@ -41,16 +41,17 @@ export interface ArchivePluginSource {
 	rootDir?: string;
 }
 
-// 下载超时 (zip 通常 MB 级, 2min 足够; 大包如超时多半网络问题)
+// Download timeout (zips are usually MB-scale, 2min is enough; timeouts on large archives are mostly network issues)
 const ARCHIVE_DOWNLOAD_TIMEOUT_MS = 120_000;
 
-// P1-29: 下载累计字节硬上限 — 流式写盘边下边累计, 超限即 abort。与解压层
-// (dxt/zip.ts 100k files / 512MB / 1024MB / 50:1) 形成纵深: 下载阶段先拒超大
-// 压缩体, 防缓冲 OOM 前就断流。50MB 与 maxContentLength 对齐。
+// P1-29: hard cap on cumulative download bytes — count while streaming to disk, abort on exceed. Forms
+// defense-in-depth with the extraction layer (dxt/zip.ts 100k files / 512MB / 1024MB / 50:1): the
+// download phase rejects an oversized compressed body first, cutting the stream before a buffered OOM.
+// 50MB aligned with maxContentLength.
 const ARCHIVE_MAX_DOWNLOAD_BYTES = 50_000_000;
 
 /**
- * 判定 PluginSource 是否为 archive 源 (type guard)。
+ * Determine whether a PluginSource is an archive source (type guard).
  */
 export function isArchivePluginSource(
 	source: PluginSource,
@@ -59,8 +60,8 @@ export function isArchivePluginSource(
 }
 
 /**
- * 常量时间 SHA-256 比较 (防 timing attack, 非 ===)。
- * 长度不同先拒 (timingSafeEqual 要等长 Buffer)。
+ * Constant-time SHA-256 comparison (guards against timing attacks, not ===).
+ * Reject differing lengths first (timingSafeEqual requires equal-length Buffers).
  */
 function verifySha256(zipBuf: Buffer, expectedHex: string): boolean {
 	const actual = createHash("sha256").update(zipBuf).digest("hex");
@@ -73,7 +74,7 @@ function verifySha256(zipBuf: Buffer, expectedHex: string): boolean {
 }
 
 /**
- * 仅 HTTPS URL (拒 http://)。同 validateGitUrl / mcpbHandler precedent。
+ * HTTPS-only URL (reject http://). Same as validateGitUrl / mcpbHandler precedent.
  */
 function validateHttpsUrl(url: string): string {
 	let parsed: URL;
@@ -92,11 +93,12 @@ function validateHttpsUrl(url: string): string {
 }
 
 /**
- * P1-29: 重定向目标 HTTPS 校验。初始 URL 经 validateHttpsUrl 已锁 https,
- * 但 maxRedirects:5 跟随重定向时服务器可 302 到 http:// (降级/中间人)。
- * axios beforeRedirect 回调在每次重定向前触发, options 即新请求配置 —
- * 校验 options.protocol === 'https:' 否则抛错中断 (fail-visible, Rule 12)。
- * 仅放过 https: 重定向, 防下载链路被无声降级到明文。
+ * P1-29: HTTPS validation of redirect targets. The initial URL is already pinned to https by
+ * validateHttpsUrl, but when following redirects with maxRedirects:5 the server can 302 to http://
+ * (downgrade/MITM). The axios beforeRedirect callback fires before each redirect; options is the new
+ * request config —
+ * verify options.protocol === 'https:' or throw to abort (fail-visible, Rule 12).
+ * Only https: redirects are allowed, preventing silent downgrade of the download chain to plaintext.
  */
 function assertRedirectHttps(options: {
 	protocol?: string;
@@ -112,13 +114,13 @@ function assertRedirectHttps(options: {
 }
 
 /**
- * 下载 zip → (可选) SHA-256 校验 → 解压到 targetPath。
+ * Download zip → (optional) SHA-256 verification → extract to targetPath.
  *
- * fail-visible (Rule 12): 网络/校验失败/解压失败全 throw, 不静默降级。
- * cachePlugin catch 块负责清理 tempPath。
+ * fail-visible (Rule 12): network / verification failure / extraction failure all throw, no silent degradation.
+ * The cachePlugin catch block cleans up tempPath.
  *
- * @param source archive 源 (url + 可选 sha256 + 可选 rootDir)
- * @param targetPath 解压目标目录 (cachePlugin 提供的 tempPath)
+ * @param source archive source (url + optional sha256 + optional rootDir)
+ * @param targetPath extraction target directory (tempPath provided by cachePlugin)
  */
 export async function installFromArchive(
 	source: ArchivePluginSource,
@@ -127,13 +129,14 @@ export async function installFromArchive(
 	const safeUrl = validateHttpsUrl(source.url);
 	logForDebugging(`archive source: downloading ${safeUrl}`);
 
-	// P1-29: 流到临时文件带累计字节上限 (非全量 arraybuffer 缓冲)。
-	// 全量 arraybuffer 在解压层 zip-bomb 检查之前就把整包载入 RAM, 攻陷/恶意
-	// archive 返多 GB → 进程 OOM。改为 responseType:"stream" 逐块写盘 + 累计
-	// bytes, 超 ARCHIVE_MAX_DOWNLOAD_BYTES 即 abort + 删 temp。从盘读回 Buffer
-	// 再交 unzipFile (解压层仍守 100k files / 512MB / 50:1)。
-	// P1-29b: beforeRedirect 锁每跳重定向亦 https (assertRedirectHttps), 防链路
-	// 被 302 无声降级到 http:// 明文。
+	// P1-29: stream to a temp file with a cumulative byte cap (not full arraybuffer buffering).
+	// A full arraybuffer loads the entire package into RAM before the extraction layer's zip-bomb
+	// check — a compromised/malicious archive returning multi-GB → process OOM. Instead use
+	// responseType:"stream", write to disk chunk by chunk + accumulate
+	// bytes; abort + delete temp on exceeding ARCHIVE_MAX_DOWNLOAD_BYTES. Read the Buffer back
+	// from disk and hand it to unzipFile (the extraction layer still enforces 100k files / 512MB / 50:1).
+	// P1-29b: beforeRedirect pins every redirect hop to https (assertRedirectHttps), preventing the
+	// chain from being silently downgraded to http:// plaintext via 302.
 	const tmpPath = join(
 		tmpdir(),
 		`fusion-archive-${process.pid}-${Date.now()}.zip`,
@@ -180,13 +183,14 @@ export async function installFromArchive(
 				`archive source aborted: response exceeded ${ARCHIVE_MAX_DOWNLOAD_BYTES} bytes (size cap) from ${safeUrl}`,
 			);
 		}
-		// 落盘耐久性: fdatasync 后再读回, 防 crash 留半写文件被当完整 zip 解。
+		// On-disk durability: fdatasync before reading back, preventing a crash from leaving a
+		// half-written file that gets treated as a complete zip.
 		let fdSync: number | undefined;
 		try {
 			fdSync = openSync(tmpPath, "r");
 			fdatasyncSync(fdSync);
 		} catch {
-			// 非正确性问题, 仅丢失断电耐久性。
+			// Not a correctness issue, only loses power-failure durability.
 		} finally {
 			if (fdSync !== undefined) closeSync(fdSync);
 		}
@@ -198,15 +202,15 @@ export async function installFromArchive(
 		await unlink(tmpPath).catch(() => {});
 	}
 
-	// SHA-256 锁定 — 提供则校验, mismatch refuse 不解压
+	// SHA-256 pinning — verify when provided, mismatch refuses without extraction
 	if (source.sha256) {
 		verifyArchiveIntegrity(zipBuf, source.sha256, safeUrl);
 		logForDebugging(`archive source: SHA-256 verified for ${safeUrl}`);
 	} else {
-		// P0-3 (audit R2): 默认 strict — 缺 sha256 即拒绝 (fail-closed), 强制供应链锁定。
-		// 企业级基线: 插件 archive 源必须带 sha256 pin, 否则 HTTPS 传输被篡改无校验拦截。
-		// LENIENT 模式 (FUSION_CODE_PLUGIN_SHA256_LENIENT=1) 保留 fail-open 兼容期
-		// (信任 HTTPS 传输, 不校验) — 仅用于受信 registry 渐进迁移。
+		// P0-3 (audit R2): strict by default — reject when sha256 is missing (fail-closed), forcing supply-chain pinning.
+		// Enterprise baseline: plugin archive sources must carry a sha256 pin, otherwise tampering in HTTPS transit goes undetected.
+		// LENIENT mode (FUSION_CODE_PLUGIN_SHA256_LENIENT=1) keeps a fail-open compat window
+		// (trusts HTTPS transport, no verification) — only for gradual migration off trusted registries.
 		if (!isEnvTruthy(process.env.FUSION_CODE_PLUGIN_SHA256_LENIENT)) {
 			throw new Error(
 				`archive source missing sha256 pin for ${safeUrl}: ` +
@@ -226,8 +230,8 @@ export async function installFromArchive(
 }
 
 /**
- * SHA-256 完整性校验 (供 installFromArchive + 单测直接调, 无需 axios mock)。
- * mismatch → throw (fail-visible, Rule 12), 不静默降级。
+ * SHA-256 integrity verification (called directly by installFromArchive + unit tests, no axios mock needed).
+ * mismatch → throw (fail-visible, Rule 12), no silent degradation.
  */
 export function verifyArchiveIntegrity(
 	zipBuf: Buffer,
@@ -242,9 +246,9 @@ export function verifyArchiveIntegrity(
 }
 
 /**
- * 解压 zip 字节到 targetPath (供 installFromArchive + 单测直接调)。
- * 复用 dxt/zip.ts (zip-bomb + 路径遍历防护) + rootDir 剥离 + exec-bit 保留。
- * 0 文件 → throw (空归档/无 rootDir 匹配)。
+ * Extract zip bytes to targetPath (called directly by installFromArchive + unit tests).
+ * Reuses dxt/zip.ts (zip-bomb + path traversal protection) + rootDir stripping + exec-bit preservation.
+ * 0 files → throw (empty archive / no rootDir match).
  */
 export async function extractArchiveBuffer(
 	zipBuf: Buffer,
@@ -257,7 +261,7 @@ export async function extractArchiveBuffer(
 		`archive source: unzipped ${Object.keys(files).length} entries`,
 	);
 
-	// rootDir: 归档内插件根子目录 (如 "my-plugin-main")。无则整体解压。
+	// rootDir: plugin root subdirectory inside the archive (e.g. "my-plugin-main"). If absent, extract everything.
 	const stripPrefix = rootDir ? `${rootDir.replace(/\/$/, "")}/` : "";
 	if (stripPrefix) {
 		logForDebugging(`archive source: stripping rootDir "${rootDir}"`);
@@ -267,7 +271,7 @@ export async function extractArchiveBuffer(
 
 	let extractedFiles = 0;
 	for (const [relPath, data] of Object.entries(files)) {
-		// 跳过目录条目 (尾部斜杠)
+		// Skip directory entries (trailing slash)
 		if (relPath.endsWith("/")) {
 			if (!stripPrefix || relPath.startsWith(stripPrefix)) {
 				const targetDir = stripPrefix
@@ -280,16 +284,16 @@ export async function extractArchiveBuffer(
 			continue;
 		}
 
-		// rootDir 剥离: 仅提取 prefix 内文件, 丢弃归档外层其他文件
+		// rootDir stripping: only extract files under the prefix, discard other files in the archive's outer layer
 		let outPath = relPath;
 		if (stripPrefix) {
 			if (!relPath.startsWith(stripPrefix)) {
-				continue; // rootDir 外文件跳过
+				continue; // skip files outside rootDir
 			}
 			outPath = relPath.slice(stripPrefix.length);
 		}
 
-		// isPathSafe 防路径遍历/绝对路径 (dxt/zip.ts:44-58)
+		// isPathSafe guards path traversal / absolute paths (dxt/zip.ts:44-58)
 		if (!isPathSafe(outPath)) {
 			throw new Error(`archive entry unsafe path: ${relPath}`);
 		}
@@ -297,7 +301,7 @@ export async function extractArchiveBuffer(
 		const fullPath = join(targetPath, outPath);
 		await mkdir(dirname(fullPath), { recursive: true });
 		await writeFile(fullPath, data);
-		// exec-bit 保留 (hooks/scripts 需 +x, 同 zipCache.ts:353-357)
+		// exec-bit preservation (hooks/scripts need +x, same as zipCache.ts:353-357)
 		const mode = modes[relPath];
 		if (mode && mode & 0o111) {
 			await chmod(fullPath, mode & 0o777).catch(() => {});

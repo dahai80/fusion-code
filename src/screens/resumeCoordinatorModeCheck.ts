@@ -1,17 +1,17 @@
-// audit 1.1.1 slice #63: resume COORDINATOR_MODE match+agent-defs refresh sub-block 外移 (PURE-ROUTING-SUB-BLOCK, resume-chunked-extraction #3)。
-// resume() useCallback body 子块 (REPL L1879-1908, 30-LOC): feature("COORDINATOR_MODE") 守卫内 —
-// require("../coordinator/coordinatorMode.js").matchSessionMode(log.mode) 返 warning →
-// 若 warning: require("../tools/AgentTool/loadAgentsDir.js").getAgentDefinitionsWithOverrides.cache.clear?.() +
-// await getAgentDefinitionsWithOverrides(getOriginalCwd()) 重派生 agent defs →
+// audit 1.1.1 slice #63: resume COORDINATOR_MODE match+agent-defs refresh sub-block extracted (PURE-ROUTING-SUB-BLOCK, resume-chunked-extraction #3).
+// resume() useCallback body sub-block (REPL L1879-1908, 30 LOC): inside the feature("COORDINATOR_MODE") guard —
+// require("../coordinator/coordinatorMode.js").matchSessionMode(log.mode) returns warning →
+// if warning: require("../tools/AgentTool/loadAgentsDir.js").getAgentDefinitionsWithOverrides.cache.clear?.() +
+// await getAgentDefinitionsWithOverrides(getOriginalCwd()) re-derives agent defs →
 // setAppState(prev => ({...prev, agentDefinitions: {...freshAgentDefs, allAgents, activeAgents: getActiveAgentsFromList}})) +
-// messages.push(createSystemMessage(warning, "warn")) 追加警告消息。
-// slice #61/#62 兄弟模式: 大 useCallback 子块切出, resume-local 变量 (log.mode, messages) 经 ctx 传入,
-// feature-gate + require() 动态导入 + await 全部移入 helper, REPL 薄壳只剩一次调用。行为字节等价。
-// feature (bun:bundle) + getOriginalCwd (bootstrap/state) + createSystemMessage (utils/messages) 直接 import
-// (非 REPL state, per imported-helpers-directly rule; REPL 多用, 保留 REPL import)。
-// require() 动态导入 (coordinatorModule/loadAgentsDir) 保留在 helper 内 (原 require 写法, feature-gated 死代码消除)。
-// 辅助返 Promise<void> (内含 await, REPL 薄壳 await 调用)。无 JSX → .ts。
-// 注: 此为 resume 多会话切块提取的第 3 块 (含 async/require/feature-flag, 依赖最多)。后续 #64 提取 1980-2002 cost+session-switch。
+// messages.push(createSystemMessage(warning, "warn")) appends the warning message.
+// slice #61/#62 sibling pattern: a large useCallback sub-block cut out; resume-local variables (log.mode, messages) passed via ctx,
+// feature-gate + require() dynamic imports + await all moved into the helper; the REPL thin shell is a single call. Byte-equivalent behavior.
+// feature (bun:bundle) + getOriginalCwd (bootstrap/state) + createSystemMessage (utils/messages) imported directly
+// (not REPL state, per imported-helpers-directly rule; used multiple times in REPL, REPL import kept).
+// require() dynamic imports (coordinatorModule/loadAgentsDir) stay inside the helper (original require style, feature-gated dead-code elimination).
+// Helper returns Promise<void> (contains await, the REPL thin shell awaits the call). No JSX → .ts.
+// Note: this is chunk #3 of the resume multi-session chunked extraction (contains async/require/feature-flag, most dependencies). #64 later extracts 1980-2002 cost+session-switch.
 
 import { feature } from "bun:bundle";
 import { getOriginalCwd } from "../bootstrap/state.js";
@@ -25,7 +25,7 @@ type ResumeCoordinatorModeCtx = {
 	setAppState: SetAppState;
 };
 
-// REPL resume() 保留薄壳:
+// REPL keeps the resume() thin shell:
 //   await matchResumeCoordinatorMode({
 //     mode: log.mode,
 //     messages,

@@ -99,7 +99,7 @@ function familyHasSpecificEntries(
  * 3. Full model IDs ("claude-opus-4-5-20251101") — exact match only
  */
 export function isModelAllowed(model: string): boolean {
-	// Fusion-MLX 本地模式：允许所有模型（模型由本地引擎动态提供）
+	// Fusion-MLX local mode: allow all models (models are provided dynamically by the local engine)
 	if (isFusionMlxProvider()) {
 		return true;
 	}

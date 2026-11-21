@@ -95,9 +95,9 @@ export function getSkillsPath(
 
 /**
  * Estimates token count for a skill based on frontmatter only
- * (name, description, whenToUse). Body 正文不在估算内 — directory/plugin skill
- * 正文在 getPromptForCommand 时按需 lazy read (issue #77, CC 2.1.234), bundled/MCP
- * 同样惰性, 故 frontmatter-only 估算对全部 skill 来源成立。
+ * (name, description, whenToUse). The body is not included in the estimate — directory/plugin
+ * skill bodies are lazily read on demand at getPromptForCommand (issue #77, CC 2.1.234), and
+ * bundled/MCP skills are equally lazy, so the frontmatter-only estimate holds for all skill sources.
  */
 export function estimateSkillFrontmatterTokens(skill: Command): number {
 	const frontmatterText = [skill.name, skill.description, skill.whenToUse]
@@ -303,9 +303,9 @@ export function createSkillCommand({
 	displayName: string | undefined;
 	description: string;
 	hasUserSpecifiedDescription: boolean;
-	// Body-defer (CC 2.1.234, issue #77): directory/plugin skill 正文不常驻闭包。
-	// file-backed skill 传 skillFilePath, 首次 getPromptForCommand 时 lazy read + memo。
-	// MCP/inline (无文件) 传 markdownContent, 保持 eager。
+	// Body-defer (CC 2.1.234, issue #77): directory/plugin skill bodies are not kept resident in the closure.
+	// File-backed skills pass skillFilePath for lazy read + memo at first getPromptForCommand.
+	// MCP/inline (no file) pass markdownContent, staying eager.
 	markdownContent?: string;
 	skillFilePath?: string;
 	allowedTools: string[];
@@ -327,7 +327,7 @@ export function createSkillCommand({
 	effort: EffortValue | undefined;
 	shell: FrontmatterShell | undefined;
 }): Command {
-	// Body-defer memo (issue #77): per-Command Promise cache, 首次 read 后命中。
+	// Body-defer memo (issue #77): per-Command Promise cache, hits after the first read.
 	let bodyPromise: Promise<string> | undefined;
 	return {
 		type: "prompt",
@@ -358,9 +358,9 @@ export function createSkillCommand({
 		hooks,
 		skillRoot: baseDir,
 		async getPromptForCommand(args, toolUseContext) {
-			// Body-defer (issue #77): file-backed skill 首次调用 lazy read 全文 + memo
-			// (镜像 bundledSkills.ts ??= Promise-memo, 并发 invoke 共享 in-flight read)。
-			// MCP/inline 走 markdownContent (eager, 无文件可延迟)。
+			// Body-defer (issue #77): file-backed skills lazy-read the full body + memo on first call
+			// (mirrors bundledSkills.ts ??= Promise-memo; concurrent invokes share the in-flight read).
+			// MCP/inline go through markdownContent (eager, no file to defer).
 			let markdownBody: string;
 			if (skillFilePath) {
 				bodyPromise ??= getFsImplementation().readFile(skillFilePath, {
@@ -1021,10 +1021,11 @@ export function getDynamicSkills(): Command[] {
 	return Array.from(dynamicSkills.values());
 }
 
-// P5.4 (DSH #5 自修改评估): 会话级一次性技能注入。把已构造的 Command 写入 in-memory
-// dynamicSkills Map (不落盘), 供 getCommands(cwd) 经 getDynamicSkills() 暴露给模型。
-// 仅会话级: clearDynamicSkills() (/clear) 或进程退出即销毁, 非持久。
-// 返回是否覆盖了同名已存技能 (调试/审计用)。
+// P5.4 (DSH #5 self-modification eval): session-scoped one-shot skill injection. Writes the
+// constructed Command into the in-memory dynamicSkills Map (not persisted), exposed to the model
+// via getDynamicSkills() from getCommands(cwd).
+// Session-scoped only: destroyed by clearDynamicSkills() (/clear) or process exit, non-persistent.
+// Returns whether it overwrote an existing skill of the same name (for debugging/auditing).
 export function registerDynamicSkill(skill: Command): boolean {
 	const replaced = dynamicSkills.has(skill.name);
 	dynamicSkills.set(skill.name, skill);

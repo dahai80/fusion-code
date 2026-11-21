@@ -57,8 +57,8 @@ const SENSITIVE_PATTERNS: RegExp[] = [
 	/\.token$/i, // generic .token — catch-all for API token files
 	/\.passwd$/i, // Dovecot .passwd / shadow-adjacent credential files
 	// P0-1 (audit R1): API server auth token — ~/.fusion-code/server.token (mode 0600).
-	// AI 读该 token 即获本地 API server 控制权 (/api/code/generate + WS chat spawn 子进程 = RCE)。
-	// 不纳入保护则 token 经 FileRead/Bash cat 泄露。锚定结尾 `server.token` 覆盖任意目录下的同名文件。
+	// Reading this token gives AI full control of the local API server (/api/code/generate + WS chat spawning subprocesses = RCE).
+	// Without protection the token leaks via FileRead/Bash cat. Anchoring the trailing `server.token` covers same-named files in any directory.
 	/server\.token$/i,
 ];
 
@@ -86,29 +86,30 @@ export function isSensitiveFilePath(filePath: string): boolean {
 	return false;
 }
 
-// P2-1: 符号链接穿透守卫。isSensitiveFilePath 仅操作路径字符串 — `ln -s ~/.env ./link`
-// 后 `./link` 规范化串不含 `.env`, 守卫见无害路径但 AI 见敏感内容。
-// 此 async helper 解析 symlink: lstat 探测 → 若符号链接则 realpath 解析真实目标 →
-// 真实目标匹配敏感 pattern 则拒绝; realpath 失败 (断链) 则拒绝 (无法判定, fail-closed)。
-// 路径不存在 (ENOENT) 不算穿透 → 返回 false (非符号链接, 正常缺失文件)。
-// 调用点在 isSensitiveFilePath 字符串检查之外补充此检查 (字符串检查仍快路径短路)。
+// P2-1: symlink traversal guard. isSensitiveFilePath only operates on the path string — after
+// `ln -s ~/.env ./link`, the normalized `./link` string contains no `.env`, so the gate sees a
+// harmless path while the AI sees sensitive content.
+// This async helper resolves symlinks: lstat probe → if a symlink, realpath resolves the real target →
+// reject if the real target matches a sensitive pattern; reject on realpath failure (broken link, cannot determine = fail-closed).
+// A nonexistent path (ENOENT) is not traversal → return false (not a symlink, just a normally missing file).
+// Call sites add this check on top of the isSensitiveFilePath string check (the string check remains the fast-path short circuit).
 export async function isSymlinkBypassingSensitiveGate(
 	filePath: string,
 ): Promise<boolean> {
 	try {
 		const stats = await lstat(filePath);
-		if (!stats.isSymbolicLink()) return false; // 非符号链接 → 字符串检查已足够
-		// 符号链接: realpath 解析最终目标, 再测敏感 pattern
+		if (!stats.isSymbolicLink()) return false; // not a symlink → string check suffices
+		// Symlink: realpath resolves the final target, then test sensitive patterns
 		const resolved = await realpath(filePath);
 		return isSensitiveFilePath(resolved);
 	} catch (err) {
 		const code = (err as NodeJS.ErrnoException).code;
-		if (code === "ENOENT") return false; // 目标不存在, 非穿透
-		// 断链 (ELOOP/其他) → 无法判定真实目标, fail-closed 拒绝
+		if (code === "ENOENT") return false; // target does not exist, not traversal
+		// Broken link (ELOOP/other) → real target undeterminable, reject fail-closed
 		if (code === "ELOOP" || code === "EINVAL" || code === "ENOTDIR") {
 			return true;
 		}
-		// 其他错误 (权限等) 保守拒绝, 避免静默放过
+		// Other errors (permissions etc.) rejected conservatively to avoid silently letting them through
 		return true;
 	}
 }
@@ -138,7 +139,7 @@ const SENSITIVE_BASENAMES = [
 	".netrc",
 	".git-credentials",
 	".github-token",
-	// P0-1 (audit R1): Bash `cat ~/.fusion-code/server.token` 提取守卫
+	// P0-1 (audit R1): guards Bash extraction of `cat ~/.fusion-code/server.token`
 	"server.token",
 ];
 

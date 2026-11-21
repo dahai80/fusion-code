@@ -1,8 +1,8 @@
-// ar-plan PR #8 (S2.2): 事件溯源 — deriveMessages 投影 + assertDualWrite dev 断言。
+// ar-plan PR #8 (S2.2): event sourcing — deriveMessages projection + assertDualWrite dev assertion.
 //
-// 旁路写之上加投影: deriveMessages(log) 重建 Message[]。dev 断言 derived === mutableMessages,
-// 验证事件流完备。**仍不切读** (prod 不读 log, 投影仅供 dev 断言 + 单测)。
-// prod byte-identical: assertDualWrite 非 dev 或 env 未设 → 早 return。
+// Adds a projection on top of the shadow writes: deriveMessages(log) rebuilds Message[]. The dev assertion derived === mutableMessages
+// verifies the event stream is complete. **Reads are still not switched** (prod does not read the log; the projection serves dev assertion + unit tests only).
+// prod byte-identical: assertDualWrite returns early when not dev or env unset.
 
 import { deepStrictEqual } from "node:assert";
 import type { Message } from "../../types/message.js";
@@ -11,11 +11,11 @@ import { logForDebugging } from "../../utils/debug.js";
 import { isEnvTruthy } from "../../utils/envUtils.js";
 import type { SessionEventLog } from "./SessionEvent.js";
 
-// 投影 — 从事件流重建 Message[]。纯函数, 可单测。
-// 消息类事件 (user_message/assistant_message/tool_result) → data 即 Message。
-// compact 事件 = 边界 (替换前缀, 见 arch-ecosystem §2.2): 按序遇 compact 则
-// 截断其后重建 (compact 后的 events 即 compact 后的 mutableMessages 真源)。
-// turn_start/turn_end/error → 非消息, 跳过。seq 乱序输入 → 按 seq 排序输出。
+// Projection — rebuilds Message[] from the event stream. Pure function, unit-testable.
+// Message events (user_message/assistant_message/tool_result) → data is the Message itself.
+// compact events = boundaries (prefix replacement, see arch-ecosystem §2.2): encountering compact in order
+// truncates and rebuilds everything after it (the events after compact are the truth source of post-compact mutableMessages).
+// turn_start/turn_end/error → not messages, skipped. Out-of-order seq input → sorted by seq on output.
 export function deriveMessages(log: SessionEventLog): Message[] {
 	const sorted = [...log].sort((a, b) => a.seq - b.seq);
 	const out: Message[] = [];
@@ -24,8 +24,8 @@ export function deriveMessages(log: SessionEventLog): Message[] {
 			case "user_message":
 			case "assistant_message":
 			case "tool_result": {
-				// data = pushed Message (single) 或 Message[] (user_message spread)。
-				// 单测保证 data 形态; 投影摊平数组。
+				// data = pushed Message (single) or Message[] (user_message spread).
+				// Unit tests guarantee the data shape; the projection flattens arrays.
 				if (Array.isArray(ev.data)) {
 					for (const m of ev.data as Message[]) out.push(m);
 				} else {
@@ -34,11 +34,11 @@ export function deriveMessages(log: SessionEventLog): Message[] {
 				break;
 			}
 			case "compact": {
-				// compact 边界: 截断此前累积, compact 后的事件重建 = 新真源。
-				// P1-3: compact data 携带替换状态, 否则 assertDualWrite 每次压缩假阳性
-				// (mutableMessages=[boundary] 但 derived=[] → dev 永远抓不到真漂移)。
-				// 两形态: snipResult {executed, messages} → re-seed out = messages;
-				//   compact_boundary Message → out = [该 boundary] (mutable 仅 push boundary)。
+				// compact boundary: truncate everything accumulated before; events after compact rebuild = new truth source.
+				// P1-3: compact data carries the replacement state, otherwise assertDualWrite gives a false positive on every compaction
+				// (mutableMessages=[boundary] but derived=[] → dev never catches real drift).
+				// Two shapes: snipResult {executed, messages} → re-seed out = messages;
+				//   compact_boundary Message → out = [that boundary] (mutable pushes only the boundary).
 				out.length = 0;
 				const compactData = ev.data as {
 					executed?: boolean;
@@ -55,9 +55,9 @@ export function deriveMessages(log: SessionEventLog): Message[] {
 					"role" in ev.data &&
 					"content" in ev.data
 				) {
-					// compact_boundary Message: mutableMessages 仅 push 此 boundary。
-					// 双重断言: 窄化后类型与 Message 不充分重叠 (缺 type/subtype 等字段),
-					// 先 unknown 再 Message, 运行时 shape 由 recordTranscript 保证。
+					// compact_boundary Message: mutableMessages pushes only this boundary.
+					// Double assertion: the narrowed type does not sufficiently overlap Message (missing type/subtype and other fields),
+					// so cast to unknown first then Message; runtime shape is guaranteed by recordTranscript.
 					out.push(ev.data as unknown as Message);
 				}
 				break;
@@ -65,29 +65,29 @@ export function deriveMessages(log: SessionEventLog): Message[] {
 			case "turn_start":
 			case "turn_end":
 			case "error":
-				// 非消息类, 不入 Message[]
+				// Not a message type, not included in Message[]
 				break;
 		}
 	}
 	return out;
 }
 
-// dev 断言 — derived === mutableMessages。prod 早 return (byte-identical)。
-// dev + env 开: drift 则 logForDebugging + throw (fail-visible)。每 turn 末调一次。
-// P3-1: 查 recorder 是否 noop 实例, 非查 env — env 运行时翻转后 off 会话持
-// NOOP_RECORDER (log 空), 若仅查 env (on) 则 derived([]) !== mutableMessages
-// 假漂移抛。短路 noop recorder 才正确 (off 会话无论 env 当前值都不断言)。
+// Dev assertion — derived === mutableMessages. Early return in prod (byte-identical).
+// dev + env on: on drift, logForDebugging + throw (fail-visible). Called once at the end of each turn.
+// P3-1: checks whether the recorder is the noop instance, not the env — after a runtime env flip, an off session holds
+// NOOP_RECORDER (empty log); if only env were checked (on), derived([]) !== mutableMessages would
+// throw a false drift. Short-circuiting the noop recorder is the correct behavior (an off session never asserts regardless of the env's current value).
 export function assertDualWrite(
 	log: SessionEventLog,
 	mutableMessages: Message[],
 	turnId: string,
 	isNoopRecorder = false,
 ): void {
-	// prod byte-identical: 非 dev 或 env 未设 → 零行为早 return。
+	// prod byte-identical: not dev or env unset → zero-behavior early return.
 	if (!isDevEnv() || !isEnvTruthy(process.env.FUSION_CODE_EVENT_SOURCING)) {
 		return;
 	}
-	// P3-1: noop recorder (off 会话) 短路 — 其 log 恒空, 断言必假漂移。
+	// P3-1: noop recorder (off session) short-circuit — its log is always empty, so the assertion would always false-drift.
 	if (isNoopRecorder) {
 		return;
 	}
@@ -95,7 +95,7 @@ export function assertDualWrite(
 	try {
 		deepStrictEqual(derived, mutableMessages);
 	} catch {
-		// drift: fail-visible in dev。log + throw (prod 不达, 早 return 已挡)。
+		// drift: fail-visible in dev. log + throw (unreachable in prod; early return already guards).
 		logForDebugging(
 			`[event-sourcing] dual-write drift at turn ${turnId}: ` +
 				`derived ${derived.length} vs mutable ${mutableMessages.length}`,

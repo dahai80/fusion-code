@@ -61,9 +61,9 @@ export function generateExtensionId(
 			.replace(/-+/g, "-")
 			.replace(/^-+|-+$/g, "");
 
-	// biome-ignore lint/suspicious/noExplicitAny: manifest 来自 zip 内 JSON, 结构宽松, 仅读取 author/name 两字段
+	// biome-ignore lint/suspicious/noExplicitAny: manifest comes from JSON inside the zip, loose structure, only author/name fields are read
 	const authorName = (manifest as any).author.name;
-	// biome-ignore lint/suspicious/noExplicitAny: manifest 来自 zip 内 JSON, 结构宽松, 仅读取 author/name 两字段
+	// biome-ignore lint/suspicious/noExplicitAny: manifest comes from JSON inside the zip, loose structure, only author/name fields are read
 	const extensionName = (manifest as any).name;
 
 	const sanitizedAuthor = sanitize(authorName);

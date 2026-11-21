@@ -347,8 +347,8 @@ export function useManageMCPConnections(
 					client.client.onclose = () => {
 						const configType = client.config.type ?? "stdio";
 
-						// P2-15: 按 name 前缀清 cache, 非精确捕获注册时旧 config。
-						// 避免用户编辑 .mcp.json 后新 key 连接不被旧 config 的 onclose 清除 → 泄漏。
+						// P2-15: clear the cache by name prefix, not precisely capturing the config at registration time.
+						// Avoids a leak where, after the user edits .mcp.json, new-key connections are not cleared by the old config's onclose.
 						clearServerCacheByName(client.name).catch(() => {
 							logForDebugging(
 								`Failed to invalidate the server cache: ${client.name}`,
@@ -703,7 +703,7 @@ export function useManageMCPConnections(
 									]);
 									updateServer({
 										...client,
-										// biome-ignore lint/suspicious/noExplicitAny: (Command|MCPSkill)[] 与 Command[] 结构兼容但类型名不同, 定向透传给下层命令注册
+										// biome-ignore lint/suspicious/noExplicitAny: (Command|MCPSkill)[] is structurally compatible with Command[] but differently named; targeted passthrough to the lower command registration
 										commands: [...mcpPrompts, ...(mcpSkills as any[])],
 									});
 									// MCP skills changed — invalidate skill-search index so
@@ -748,7 +748,7 @@ export function useManageMCPConnections(
 										updateServer({
 											...client,
 											resources: newResources,
-											// biome-ignore lint/suspicious/noExplicitAny: (Command|MCPSkill)[] 结构兼容但类型名不同, 定向透传给下层命令注册
+											// biome-ignore lint/suspicious/noExplicitAny: (Command|MCPSkill)[] is structurally compatible but differently named; targeted passthrough to the lower command registration
 											commands: [...mcpPrompts, ...(mcpSkills as any[])],
 										});
 										// MCP skills changed — invalidate skill-search index so

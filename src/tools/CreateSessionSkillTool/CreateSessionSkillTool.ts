@@ -82,9 +82,9 @@ export const CreateSessionSkillTool = buildTool({
 	async prompt() {
 		return DESCRIPTION;
 	},
-	// 运行期门禁 (preset 可见性): FUSION_CODE_SESSION_SKILLS_ENABLED=1 才进 preset 列表。
-	// 编译期门禁 feature("SESSION_SKILLS") 不能放此 (Bun feature() 宏只能直接用于
-	// if/ternary, 不能包 Boolean() 或函数内), 故放 execute() 内 if 语句。
+	// Runtime gate (preset visibility): FUSION_CODE_SESSION_SKILLS_ENABLED=1 required to enter the preset list.
+	// The compile-time gate feature("SESSION_SKILLS") cannot go here (Bun's feature() macro can only be used
+	// directly in if/ternary, cannot be wrapped in Boolean() or inside a function), so it lives in the if statement inside execute().
 	isEnabled() {
 		return isSessionSkillsEnabled();
 	},
@@ -104,10 +104,10 @@ export const CreateSessionSkillTool = buildTool({
 		_parentMessage?,
 		_onProgress?,
 	) {
-		// 双门禁: feature("SESSION_SKILLS") (编译期, build:dev:full) AND
-		// FUSION_CODE_SESSION_SKILLS_ENABLED=1 (运行期)。两层都满足才注入;
-		// 否则 byte-identical 验证桩 (feature off → dead-code 消除整个 if 体)。
-		// feature() 宏必须直接用于 if 条件 (Bun 限制), 不能包 Boolean()/提入函数。
+		// Double gate: feature("SESSION_SKILLS") (compile time, build:dev:full) AND
+		// FUSION_CODE_SESSION_SKILLS_ENABLED=1 (runtime). Injection only when both are satisfied;
+		// otherwise byte-identical validation stub (feature off → dead-code eliminates the whole if body).
+		// The feature() macro must be used directly in the if condition (Bun limitation), cannot be wrapped in Boolean()/lifted into a function.
 		if (feature("SESSION_SKILLS") && isSessionSkillsEnabled()) {
 			if (!isValidSessionSkillName(name)) {
 				return {
@@ -137,13 +137,13 @@ export const CreateSessionSkillTool = buildTool({
 				};
 			}
 
-			// P3-13: allowedTools 注入 alwaysAllowRules.command = 该 skill 执行时免权限提示
-			// 自动允许。模型自建 skill 可声明任意字符串扩免提示范围 (静默提权)。校验:
-			// 1. 提取 base 名 (剥 `Name(glob)` 的括号部分 + 去空白);
-			// 2. base 名须命中已知内置工具, 或为 MCP 工具前缀 mcp__ (外部动态工具);
-			// 3. base 名不能在 FUSION.rules denied_tools (denied_tools 执行期再拦, 但
-			//    此处免提示授权已与 deny 冲突 — 创建期即拒, fail-visible 不静默绕过)。
-			// 动态 import tools.ts 避编译期循环 (tools.ts 反向 import 本工具注入 preset)。
+			// P3-13: allowedTools injects alwaysAllowRules.command = executing this skill skips permission prompts
+			// (auto-allow). A model-created skill could declare arbitrary strings to widen the auto-allow scope (silent privilege escalation). Validation:
+			// 1. Extract the base name (strip the parenthesized part of `Name(glob)` + trim whitespace);
+			// 2. The base name must match a known builtin tool, or be an MCP tool prefix mcp__ (external dynamic tools);
+			// 3. The base name must not be in FUSION.rules denied_tools (denied_tools is enforced again at execution time, but
+			//    the prompt-free authorization here would already conflict with deny — reject at creation time, fail-visible instead of silently bypassing).
+			// Dynamic import of tools.ts avoids a compile-time cycle (tools.ts imports this tool in reverse to inject presets).
 			if (allowedTools && allowedTools.length > 0) {
 				const { getAllBaseTools } = await import("../../tools.js");
 				const knownNames = new Set(
@@ -153,7 +153,7 @@ export const CreateSessionSkillTool = buildTool({
 				for (const raw of allowedTools) {
 					const entry = raw.trim();
 					if (!entry) continue;
-					// `Name(glob)` → 取 `(` 前的 base 名; 无括号则整串为名。
+					// `Name(glob)` → take the base name before `(`; without parens the whole string is the name.
 					const baseName = entry.includes("(")
 						? entry.slice(0, entry.indexOf("(")).trim()
 						: entry;
@@ -162,7 +162,7 @@ export const CreateSessionSkillTool = buildTool({
 						continue;
 					}
 					if (baseName.startsWith("mcp__")) {
-						// MCP 工具动态注册, 不在 knownNames — 仅查 denied_tools。
+						// MCP tools are dynamically registered and not in knownNames — only check denied_tools.
 						if (isToolDenied(baseName)) {
 							invalid.push(entry);
 						}
@@ -188,7 +188,7 @@ export const CreateSessionSkillTool = buildTool({
 				}
 			}
 
-			// 构造 in-memory Command (markdownContent inline, 无 skillFilePath → eager 正文)。
+			// Build the in-memory Command (markdownContent inline, no skillFilePath → eager body).
 			const skill = createSkillCommand({
 				skillName: name,
 				displayName: name,
@@ -204,7 +204,7 @@ export const CreateSessionSkillTool = buildTool({
 				model: undefined,
 				disableModelInvocation: false,
 				userInvocable: true,
-				// source "bundled" = in-memory 非文件来源 (语义最近; 非真实 bundled 注册表)。
+				// source "bundled" = in-memory non-file origin (closest semantics; not the real bundled registry).
 				source: "bundled",
 				baseDir: undefined,
 				loadedFrom: "skills",
@@ -217,11 +217,11 @@ export const CreateSessionSkillTool = buildTool({
 			});
 
 			const replaced = registerDynamicSkill(skill);
-			// getDynamicSkills() 每次 getCommands 调用都返回新数组 (非 memoize), 新技能
-			// 在下一次 getCommands 调用立即可见, 无需 emit/清缓存。
+			// getDynamicSkills() returns a fresh array on every getCommands call (not memoized), so new skills
+			// are visible on the next getCommands call with no emit/cache-clear needed.
 			logSessionSkillRegister(name, body.length, replaced);
 
-			// 仅元数据审计 (不记 markdown 正文 — 敏感/体积); target 技能名。
+			// Metadata-only audit (markdown body not recorded — sensitive/voluminous); target is the skill name.
 			try {
 				const { appendAuditLog, createAuditEntry } = await import(
 					"../../services/audit/index.js"
@@ -239,7 +239,7 @@ export const CreateSessionSkillTool = buildTool({
 					),
 				);
 			} catch (auditErr) {
-				// 审计失败不阻塞注册 (fail-open 记账, 技能已生效)。
+				// Audit failure does not block registration (fail-open bookkeeping; the skill is already active).
 				logForDebugging(
 					`[SessionSkill] audit log failed for "${name}": ${(auditErr as Error).message}`,
 				);
@@ -253,7 +253,7 @@ export const CreateSessionSkillTool = buildTool({
 				},
 			};
 		}
-		// 双门禁未满足桩: feature off 或 env off → 不注册, 返回未启用。
+		// Double-gate-not-met stub: feature off or env off → no registration, return not-enabled.
 		return {
 			data: {
 				name,

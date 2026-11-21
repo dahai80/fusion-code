@@ -928,7 +928,7 @@ export const BashTool = buildTool({
 				generatorResult = await commandGenerator.next();
 				if (!generatorResult.done && onProgress) {
 					const progress = generatorResult.value;
-					// ExecResult 与 progress 事件联合, 用 output 字段判别窄化 (progress 必有, ExecResult 无)
+					// ExecResult vs progress event union; discriminates via the output field (progress always has it, ExecResult does not)
 					if (!("output" in progress)) continue;
 					onProgress({
 						toolUseID: `bash-progress-${progressCounter++}`,
@@ -971,7 +971,7 @@ export const BashTool = buildTool({
 					fallbackResult = await fallbackGenerator.next();
 					if (!fallbackResult.done && onProgress) {
 						const progress = fallbackResult.value;
-						// ExecResult 与 progress 事件联合, 用 output 字段判别窄化 (progress 必有, ExecResult 无)
+						// ExecResult vs progress event union; discriminates via the output field (progress always has it, ExecResult does not)
 						if (!("output" in progress)) continue;
 						onProgress({
 							toolUseID: `bash-progress-${progressCounter++}`,
@@ -1227,7 +1227,7 @@ async function* runShellCommand({
 	// and when background tasks are not disabled
 	const shouldAutoBackground =
 		!isBackgroundTasksDisabled && isAutobackgroundingAllowed(command);
-	// 死循环拦截：检查同一命令是否重复执行且输出相同
+	// Infinite-loop interception: check whether the same command repeats with identical output
 	const { shouldBlock, reason } = checkCommandLoop(command, fullOutput);
 	if (shouldBlock) {
 		throw new Error(reason);

@@ -144,7 +144,7 @@ export function useDiffInIDE({
 		return () => {
 			isUnmounted.current = true;
 		};
-		// biome-ignore lint/correctness/useExhaustiveDependencies: showDiff 每次渲染重建（组件内普通函数），effect 有意仅在挂载时执行一次
+		// biome-ignore lint/correctness/useExhaustiveDependencies: showDiff is rebuilt every render (plain in-component function); the effect intentionally runs only on mount
 	}, [showDiff]);
 
 	return {

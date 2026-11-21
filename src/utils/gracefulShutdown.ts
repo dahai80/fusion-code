@@ -300,8 +300,8 @@ export const setupGracefulShutdown = memoize(() => {
 
 	// Log uncaught exceptions for container observability and analytics
 	// Error names (e.g., "TypeError") are not sensitive - safe to log
-	// P3-19: uncaughtException 后进程处于未定义状态, Node 语义继续执行 = 潜在腐败。
-	// 记日志后退出 (exit 1)。测试环境 (isTestEnv) 不退 — 保留 test runner 存活。
+	// P3-19: after uncaughtException the process is in an undefined state; continuing per Node semantics = potential corruption.
+	// Log, then exit (exit 1). Test environment (isTestEnv) does not exit — keeps the test runner alive.
 	process.on("uncaughtException", (error) => {
 		logForDiagnosticsNoPII("error", "uncaught_exception", {
 			error_name: error.name,
@@ -317,7 +317,7 @@ export const setupGracefulShutdown = memoize(() => {
 	});
 
 	// Log unhandled promise rejections for container observability and analytics
-	// P3-19: 同 uncaughtException — 记日志后退出, 测试环境不退。
+	// P3-19: same as uncaughtException — log, then exit; test environment does not exit.
 	process.on("unhandledRejection", (reason) => {
 		const errorName =
 			reason instanceof Error
@@ -509,12 +509,12 @@ export async function gracefulShutdown(
 		});
 	}
 
-	// Auto-collect trajectory on session end — 训练飞轮自动闭环 (insight-0902 E1)。
-	// 门控 FUSION_CODE_TRAJECTORY_AUTOCOLLECT=1 (默认关 = 不执行); fail-open 不阻塞退出。
+	// Auto-collect trajectory on session end — auto-closes the training-data flywheel loop (insight-0902 E1).
+	// Gated by FUSION_CODE_TRAJECTORY_AUTOCOLLECT=1 (default off = not executed); fail-open, does not block exit.
 	try {
 		await autoCollectTrajectoryOnSessionEnd();
 	} catch {
-		// fail-open: 自动收集失败不影响会话退出
+		// fail-open: auto-collect failure does not affect session exit
 	}
 
 	// Flush analytics — capped at 500ms. Previously unbounded: the 1P exporter

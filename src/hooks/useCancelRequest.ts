@@ -90,12 +90,12 @@ export function CancelRequestHandler(props: CancelRequestHandlerProps): null {
 	// notifications, emit SDK events, enqueue a single aggregate model-facing
 	// notification. Returns true if anything was killed.
 	//
-	// audit 1.4.4 (HIGH): 之前只杀 local_agent, workflow 孤立。现在也杀
-	// local_workflow (WorkflowTool 注册进 AppState.tasks 的那些)。显式 kill-all
-	// 手势 (ctrl+x ctrl+k, teammate-view Ctrl+C) 总是杀全部后台类型。
+	// audit 1.4.4 (HIGH): previously only local_agent was killed, orphaning workflows. Now also kills
+	// local_workflow (the ones WorkflowTool registered into AppState.tasks). Explicit kill-all
+	// gestures (ctrl+x ctrl+k, teammate-view Ctrl+C) always kill every background type.
 	//
-	// 声明在 handleCancel 之前 — handleCancel (ESC-kills-background 分支) 引用
-	// 本函数, const arrow 不提升 (TS2448)。
+	// Declared before handleCancel — handleCancel (the ESC-kills-background branch) references
+	// this function, and const arrows are not hoisted (TS2448).
 	const killAllAgentsAndNotify = useCallback((): boolean => {
 		const tasks = store.getState().tasks;
 		const runningAgents = Object.entries(tasks).filter(
@@ -147,9 +147,9 @@ export function CancelRequestHandler(props: CancelRequestHandlerProps): null {
 			logEvent("fusion_cancel", cancelProps);
 			setToolUseConfirmQueue(() => []);
 			onCancel();
-			// audit 1.4.4 (HIGH): default-off — ESC 默认只杀前台 (保持旧行为
-			// byte-identical)。显式设 FUSION_CODE_ESC_KILLS_BACKGROUND=1 才让 ESC
-			// 同时杀后台 agent + workflow, 否则后台孤立烧资源。
+			// audit 1.4.4 (HIGH): default-off — ESC by default kills foreground only (keeping old behavior
+			// byte-identical). Only with FUSION_CODE_ESC_KILLS_BACKGROUND=1 set does ESC also kill
+			// background agents + workflows; otherwise they sit orphaned burning resources.
 			if (isEnvTruthy(process.env.FUSION_CODE_ESC_KILLS_BACKGROUND)) {
 				killAllAgentsAndNotify();
 			}

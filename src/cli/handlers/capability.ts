@@ -1,12 +1,12 @@
-// P5.5 能力清单 (Typert 类型图) — CLI 处理器 (enhance-0819.md §D.7 P5.5)。
+// P5.5 Capability Manifest (Typert type graph) — CLI handler (enhance-0819.md §D.7 P5.5).
 //
-// 子命令:
+// Subcommands:
 //   fusion-code capability export [--no-schemas] [--no-skills] [--no-plugins] [--indent N]
 //   fusion-code capability [--help]
 //
-// 从 fusion-code 工具/技能/插件定义生成类型图 (JSON 清单)。
-// 默认 off: feature("CAPABILITY_MANIFEST") 编译期 + FUSION_CODE_CAPABILITY_MANIFEST_ENABLED=1 运行期。
-// 评估而非照搬: RPC 网关远程控制面 defer (安全面)。
+// Generates a type graph (JSON manifest) from fusion-code tool/skill/plugin definitions.
+// Default off: feature("CAPABILITY_MANIFEST") at compile time + FUSION_CODE_CAPABILITY_MANIFEST_ENABLED=1 at runtime.
+// Evaluated rather than copied: RPC gateway remote control plane deferred (security surface).
 
 import { getOriginalCwd } from "../../bootstrap/state.js";
 import {

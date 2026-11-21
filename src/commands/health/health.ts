@@ -9,8 +9,8 @@ import type {
 	LocalCommandResult,
 } from "../../types/command.js";
 
-// TaskState 七成员联合无 taskId/command/startedAt 公共字段 (历史 (t: any) 的成因),
-// 用结构化子集类型收窄: 仅声明 health 检查实际消费的字段
+// The 7-member TaskState union has no common taskId/command/startedAt fields (the cause of the historical (t: any)),
+// narrowed with a structured subset type: only declares the fields the health check actually consumes
 type TaskLike = {
 	id?: string;
 	taskId?: string;
@@ -27,7 +27,7 @@ export async function execute(
 	context: CommandContext,
 	args?: string,
 ): Promise<LocalCommandResult> {
-	void args; // 预留子命令位 (/health status|recover), 当前仅 status
+	void args; // reserved subcommand slot (/health status|recover), currently status only
 	const action = args?.trim().toLowerCase();
 
 	if (action === "recover") {

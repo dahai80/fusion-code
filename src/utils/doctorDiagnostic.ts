@@ -141,7 +141,7 @@ export function getInvokedBinary(): string {
 
 // FUSION_* -> ANTHROPIC_* env mapping pairs (cli.tsx:30-49). Each pair uses
 // `if (FUSION_X && !ANTHROPIC_X) ANTHROPIC_X = FUSION_X` — so when BOTH are
-// set the FUSION_* value is silently ignored. That's the P4.2 spec "残留陷阱":
+// set the FUSION_* value is silently ignored. That's the P4.2 spec "residue trap":
 // a user sets FUSION_BASE_URL expecting it to take effect, but a leftover
 // ANTHROPIC_BASE_URL shadows it with no warning. Surfaced in /doctor so the
 // shadowing is visible rather than silent.

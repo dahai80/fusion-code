@@ -1,8 +1,8 @@
 /**
- * Coordinator Worker Agent — 协调器工作 Agent
+ * Coordinator Worker Agent — coordinator worker agent
  *
- * 在协调器模式下，系统使用多个工作 Agent 来并行处理任务。
- * 协调器负责分配任务、收集结果、汇总输出。
+ * In coordinator mode, the system uses multiple worker agents to process tasks in parallel.
+ * The coordinator assigns tasks, collects results, and aggregates output.
  *
  * gated by feature('COORDINATOR_MODE')
  */

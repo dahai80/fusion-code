@@ -213,11 +213,11 @@ import {
 	pinCacheEdits,
 } from "../compact/microCompact.js";
 import { isApiErrorLike } from "../llm/errors.js";
-// LLM 接缝 (Phase 4): flag 开时用 streamViaSeam 替代 SDK 流式; 关时 DCE 消除
+// LLM seam (Phase 4): when the flag is on, streamViaSeam replaces SDK streaming; when off, DCE removes it
 import { streamViaSeam } from "../llm/seam.js";
-// stream-resume (gw#123 client half): 本地 MLX 流掉线时带 Last-Event-ID 重连续流。
-// default-off (FUSION_CODE_STREAM_RESUME_ENABLED), off = byte-identical。
-// audit 2.2.2: resolveResumeRefs + shouldDeferIdleAbortToResume = idle-abort 门控 + refs survivor (catch 落 resume 的 tested contract)。
+// stream-resume (gw#123 client half): reconnects a dropped local MLX stream with Last-Event-ID.
+// default-off (FUSION_CODE_STREAM_RESUME_ENABLED), off = byte-identical.
+// audit 2.2.2: resolveResumeRefs + shouldDeferIdleAbortToResume = idle-abort gating + refs survivor (tested contract for catch falling into resume).
 import {
 	attachResumeRefs,
 	getResumeRefs,
@@ -526,7 +526,7 @@ export async function verifyApiKey(
 	apiKey: string,
 	isNonInteractiveSession: boolean,
 ): Promise<boolean> {
-	// Fusion-MLX 本地模式：无需 API Key 验证
+	// Fusion-MLX local mode: no API key verification needed
 	if (isFusionMlxProvider()) {
 		return true;
 	}
@@ -538,8 +538,8 @@ export async function verifyApiKey(
 
 	try {
 		// WARNING: if you change this to use a non-Haiku model, this request will fail in 1P unless it uses getCLISyspromptPrefix.
-		// NOTE: 第三方代理（FUSION_BASE_URL 指向非 Anthropic 域名）不支持 Haiku 模型，
-		// key 验证应使用用户配置的模型，否则 404 → "model not exist"
+		// NOTE: third-party proxies (FUSION_BASE_URL pointing to a non-Anthropic domain) do not support the Haiku model,
+		// so key verification should use the user-configured model, otherwise 404 → "model not exist"
 		const baseUrl =
 			process.env.FUSION_BASE_URL || process.env.ANTHROPIC_BASE_URL || "";
 		const isThirdPartyProxy = baseUrl && !baseUrl.includes("api.anthropic.com");
@@ -753,7 +753,7 @@ export async function queryModelWithoutStreaming({
 		// If the signal was aborted, throw AbortError instead of a generic error
 		// This allows callers to handle abort scenarios gracefully
 		if (signal.aborted) {
-			// log: 不依赖 SDK 的 APIUserAbortError — 构造具名 AbortError, isAbortError 可识别
+			// log: does not depend on the SDK's APIUserAbortError — constructs a named AbortError that isAbortError recognizes
 			const abortErr = new Error("Request was aborted.");
 			abortErr.name = "AbortError";
 			throw abortErr;
@@ -1816,10 +1816,10 @@ async function* queryModel(
 				// BetaMessageStream calls partialParse() on every input_json_delta, which we don't need
 				// since we handle tool input accumulation ourselves
 				//
-				// LLM 接缝 (div-anthropic): SDK 已移除, 主流式统一走 streamViaSeam
-				// (直接 HTTP+SSE -> StreamChunk -> SDK part, 结构兼容 BetaRawMessageStreamEvent)。
-				// requestId/response 填充 streamRequestId/streamResponse, 保留与旧 SDK
-				// .withResponse() 一致的 request_id 追踪与 body 取消能力。
+				// LLM seam (div-anthropic): SDK removed, main streaming unified through streamViaSeam
+				// (direct HTTP+SSE -> StreamChunk -> SDK part, structurally compatible with BetaRawMessageStreamEvent).
+				// requestId/response fill streamRequestId/streamResponse, preserving the same request_id tracking and body
+				// cancellation capability as the old SDK .withResponse().
 				const seamStream = await streamViaSeam(
 					params,
 					signal,
@@ -1876,9 +1876,9 @@ async function* queryModel(
 			parseInt(process.env.FUSION_STREAM_IDLE_TIMEOUT_MS || "", 10) || 300_000;
 		const STREAM_IDLE_WARNING_MS = STREAM_IDLE_TIMEOUT_MS / 2;
 		let streamIdleAborted = false;
-		// audit 2.2.2: resume-refs survivor — watchdog 触发时在 releaseStreamResources
-		// null streamResponse 前捕获 (WeakMap 项键 Response, 强引用断即 GC → catch 取不到)。
-		// catch 经 resolveResumeRefs 回退 survivor, idle drop 才能真起 resume。resume-off 不捕获 (byte-identical)。
+		// audit 2.2.2: resume-refs survivor — captured when the watchdog fires, before releaseStreamResources
+		// nulls streamResponse (WeakMap keyed by Response; once the strong ref breaks it is GC'd → catch cannot retrieve it).
+		// catch falls back to the survivor via resolveResumeRefs so an idle drop can actually start a resume. resume-off does not capture (byte-identical).
 		let idleAbortResumeRefs: ResumeRefs | undefined;
 		// performance.now() snapshot when watchdog fires, for measuring abort propagation delay
 		let streamWatchdogFiredAt: number | null = null;
@@ -1926,8 +1926,8 @@ async function* queryModel(
 					timeout_ms: STREAM_IDLE_TIMEOUT_MS,
 				});
 				// audit 2.2.2: capture resume refs into survivor BEFORE releaseStreamResources
-				// nulls streamResponse (WeakMap 项键 Response, 强引用断即 GC → catch 取不到 refs →
-				// resume 跳过)。门控 resume flag: resume-off 不捕获 (survivor 保持 undefined, byte-identical)。
+				// nulls streamResponse (WeakMap keyed by Response; once the strong ref breaks it is GC'd → catch cannot retrieve refs →
+				// resume skipped). Gated by the resume flag: resume-off does not capture (survivor stays undefined, byte-identical).
 				if (isStreamResumeEnabled() && streamResponse) {
 					idleAbortResumeRefs = getResumeRefs(
 						streamResponse as unknown as Response,
@@ -1947,13 +1947,13 @@ async function* queryModel(
 			let totalStallTime = 0;
 			let stallCount = 0;
 
-			// stream-resume: while 循环包裹 for-await, 掉线时 catch 内 resume 成功 →
-			//   reassign stream = 合并流, resetStreamIdleTimer, continue streamLoop 续流;
-			//   正常结束 → break streamLoop 跑 tail (一次性, 不随 resume 重跑);
-			//   resume 失败/fallback/throw → 出循环, finally 清 timer 一次。
-			//   累加器 (contentBlocks/partialMessage/usage/stopReason) 在外层 fn scope,
-			//   跨循环迭代存活 (非 per-iteration 重置); isFirstChunk 不重置 → resume 续流
-			//   不重复 TTFT/checkpoint (首次已过)。
+			// stream-resume: a while loop wraps the for-await; on disconnect, a successful resume inside catch →
+			//   reassign stream = merged stream, resetStreamIdleTimer, continue streamLoop to keep streaming;
+			//   normal end → break streamLoop to run the tail (one-shot, not re-run on resume);
+			//   resume failure/fallback/throw → exit the loop, finally clears the timer once.
+			//   Accumulators (contentBlocks/partialMessage/usage/stopReason) live in the outer fn scope,
+			//   surviving across loop iterations (not per-iteration resets); isFirstChunk is not reset → the resumed stream
+			//   does not duplicate TTFT/checkpoint (first chunk already passed).
 			let resumeAttempts = 0;
 			while (true) {
 				try {
@@ -2081,10 +2081,10 @@ async function* queryModel(
 									| typeof part.delta
 									| ConnectorTextDelta;
 								if (!contentBlock) {
-									// P2-9: delta 缺 contentBlock 不硬抛 — gateway replay 旧 index
-									// 或 resume seedState 不匹配时硬抛 RangeError 会杀死整个流。
-									// 改为日志警告 + continue (优雅恢复), 仅 content_block_start 与
-									// 已存在不同块不匹配时才属真正错误 (那里仍可见)。
+									// P2-9: a delta missing its contentBlock does not hard-throw — a gateway replay with a stale index
+									// or a mismatched resume seedState would otherwise throw RangeError and kill the whole stream.
+									// Instead log a warning + continue (graceful recovery); only content_block_start mismatching an
+									// existing different block is a genuine error (still visible there).
 									logEvent("fusion_streaming_error", {
 										error_type:
 											"content_block_not_found_delta" as AnalyticsMetadata_I_VERIFIED_THIS_IS_NOT_CODE_OR_FILEPATHS,
@@ -2355,9 +2355,9 @@ async function* queryModel(
 						};
 					}
 
-					// ── tail: for-await 正常结束后的完成检测 (在 try 体内, throw 回本 catch → fallback) ──
-					// 位置等同原 for-await 后的 tail: idle/no-events 检测抛错 → 既有 fallback;
-					// stall 摘要 + cache-break + quota 仅正常完成跑一次 (fallback 路径在其前 break, 不到此)。
+					// ── tail: completion detection after the for-await ends normally (inside the try body; a throw lands back in this catch → fallback) ──
+					// Position matches the original tail after the for-await: idle/no-events detection throws → existing fallback;
+					// stall summary + cache-break + quota run only once on normal completion (the fallback path breaks before them, never reaching here).
 					// Clear the idle timeout watchdog now that the stream loop has exited
 					clearStreamIdleTimers();
 
@@ -2458,7 +2458,7 @@ async function* queryModel(
 						responseHeaders = resp.headers;
 					}
 
-					// for-await 正常结束且 tail 通过 → 出 while (一次性, 不随 resume 重跑)。
+					// for-await ended normally and the tail passed → exit the while (one-shot, not re-run on resume).
 					break;
 				} catch (streamingError) {
 					// Clear the idle timeout watchdog on error path too
@@ -2509,11 +2509,11 @@ async function* queryModel(
 							}
 							throw streamingError;
 						} else {
-							// audit 2.2.2: abort 形错误无 user signal 是二义 — SDK 内部 timeout (旧假设)
-							// OR idle-watchdog body-cancel (streamIdleAborted, body.cancel() 非 signal.abort())。
-							// resume 开 AND idle 触发 → 落 resume 检查 (:2532, isResumeEligibleError(_,true)=true),
-							// 不 throw synthetic timeout (短路 resume 且旁路 fallback_cause watchdog 遥测)。
-							// resume-off: 旧 throw verbatim (byte-identical)。
+							// audit 2.2.2: an abort-shaped error without a user signal is ambiguous — SDK internal timeout (old assumption)
+							// OR idle-watchdog body-cancel (streamIdleAborted, body.cancel() not signal.abort()).
+							// resume on AND idle triggered → fall into the resume check (:2532, isResumeEligibleError(_,true)=true),
+							// do not throw a synthetic timeout (it would short-circuit resume and bypass the fallback_cause watchdog telemetry).
+							// resume-off: old throw verbatim (byte-identical).
 							if (
 								shouldDeferIdleAbortToResume(
 									streamIdleAborted,
@@ -2531,7 +2531,7 @@ async function* queryModel(
 									`Streaming timeout (SDK abort): ${streamingError.message}`,
 									{ level: "error" },
 								);
-								// log: 不依赖 SDK 的 APIConnectionTimeoutError — 构造具名 timeout 错误
+								// log: does not depend on the SDK's APIConnectionTimeoutError — constructs a named timeout error
 								const timeoutErr = new Error("Request timed out");
 								timeoutErr.name = "APIConnectionTimeoutError";
 								throw timeoutErr;
@@ -2539,10 +2539,10 @@ async function* queryModel(
 						}
 					}
 
-					// ── stream-resume: timeout 类掉线 (管道已排空, lag=0) 且 MLX 可 resume → ──
-					// 带 Last-Event-ID 重连 gateway resume 端点, STATE-CONTINUATION 合并续流;
-					// 成功 → continue streamLoop 续 for-await (累加器跨迭代存活); 失败/404/超限
-					// → 落到下方既有 disableFallback/fallback (byte-identical 原路径)。default-off。
+					// ── stream-resume: timeout-class disconnect (pipeline already drained, lag=0) and MLX resumable → ──
+					// reconnect the gateway resume endpoint with Last-Event-ID, merge the tail via STATE-CONTINUATION;
+					// success → continue streamLoop resuming the for-await (accumulators survive across iterations); failure/404/over-budget
+					// → falls through to the existing disableFallback/fallback below (byte-identical original path). default-off.
 					if (
 						isStreamResumeEnabled() &&
 						isResumeEligibleError(
@@ -2562,8 +2562,8 @@ async function* queryModel(
 						) {
 							try {
 								resumeAttempts++;
-								// 深克隆 pre-drop StreamState 作种子 (隔离双流腐败: resumed transform
-								// 原地改 state, 克隆隔离 → 不污染 pre-drop 的 contentBlocks 快照)。
+								// Deep-clone the pre-drop StreamState as the seed (isolates the two streams from corruption: the resumed transform
+								// mutates state in place, the clone isolates it → does not pollute the pre-drop contentBlocks snapshot).
 								const seedState = refs.stateRef.current
 									? structuredClone(refs.stateRef.current)
 									: undefined;
@@ -2577,9 +2577,9 @@ async function* queryModel(
 									refs.authHeaders,
 									signal,
 								);
-								// 合并: 种子续传 transform + 丢弃首 message_start; seedState 续
-								// contentIndex/textBuffer/open-block → 正确索引/只发新文本/抑制 dup。
-								// seedState undefined → transform 走 createInitialState (byte-identical 冷启)。
+								// Merge: transform continues from the seed + drop the first message_start; seedState carries on
+								// contentIndex/textBuffer/open-block → correct indexing/only new text emitted/duplicates suppressed.
+								// seedState undefined → transform uses createInitialState (byte-identical cold start).
 								const merged = mergeResumedStream(
 									resumedResp,
 									options.model,
@@ -2606,17 +2606,17 @@ async function* queryModel(
 									});
 									streamResponse = resumedResp as unknown as Response;
 								}
-								// 重接 for-await: 重赋 stream, 重置 idle 标志 + timer, 续流。
+								// Reattach the for-await: reassign stream, reset the idle flag + timer, keep streaming.
 								stream = merged as unknown as Stream<BetaRawMessageStreamEvent>;
 								streamIdleAborted = false;
 								streamWatchdogFiredAt = null;
-								// audit 2.2.2: survivor 已消费; 清掉防后续非-idle drop 误用 stale survivor
+								// audit 2.2.2: survivor consumed; clear it to prevent a later non-idle drop from reusing a stale survivor
 								idleAbortResumeRefs = undefined;
 								resetStreamIdleTimer();
 								continue;
 							} catch (resumeErr) {
-								// resume 失败 (404 disabled/evicted/TTL, 再次传输错误, 预算耗尽)
-								// → 落到既有 fallback/throw, 不静默吞 (Rule 12 fail-visible)。
+								// resume failure (404 disabled/evicted/TTL, another transport error, budget exhausted)
+								// → falls through to the existing fallback/throw, never silently swallowed (Rule 12 fail-visible).
 								if (!(resumeErr instanceof Error)) {
 									logForDebugging(
 										`[Stream-Resume] failed (non-Error): ${String(resumeErr)}`,
@@ -2628,7 +2628,7 @@ async function* queryModel(
 										{ level: "warn" },
 									);
 								}
-								// 落到下方 disableFallback / fallback。
+								// Falls through to disableFallback / fallback below.
 							}
 						}
 					}
@@ -2766,7 +2766,7 @@ async function* queryModel(
 					newMessages.push(m);
 					fallbackMessage = m;
 					yield m;
-					// fallback 已发完整消息 → 出 while (一次性, 不再 resume/重跑)。
+					// fallback already emitted a complete message → exit the while (one-shot, no more resume/re-run).
 					break;
 				} // close while catch (streamingError)
 			} // close streamLoop while

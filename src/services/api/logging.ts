@@ -47,7 +47,7 @@ export type GlobalCacheStrategy = "tool_based" | "system_prompt" | "none";
 
 function getErrorMessage(error: unknown): string {
 	if (isApiErrorLike(error)) {
-		// log: SDK 错误体嵌在 .error 字段; 接缝错误无此字段, 走通用 message
+		// log: SDK error body is nested in the .error field; seam errors lack this field, fall through to the generic message
 		const body = (error as { error?: { error?: { message?: string } } }).error;
 		if (body?.error?.message) return body.error.message;
 	}

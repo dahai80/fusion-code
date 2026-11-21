@@ -395,9 +395,9 @@ export function looksLikeCommand(commandName: string): boolean {
 	return !/[^a-zA-Z0-9:\-_]/.test(commandName);
 }
 
-// 堆叠 slash-skill 分发: 前导 N-1 条 prompt-type skill 注入 context (串联 content),
-// 终末命令 (最后一条 /cmd) 以 freeText 作 args 生实际 turn。
-// 返回 null 表示无法堆叠 (命令缺失/前导非 prompt-type), 调用方回退单命令路径。
+// Stacked slash-skill dispatch: the leading N-1 prompt-type skills inject context (chained content),
+// the terminal command (the last /cmd) uses freeText as args to produce the actual turn.
+// Returning null means stacking is impossible (missing command / leading non-prompt-type); the caller falls back to the single-command path.
 async function processStackedSlashCommands(
 	stacked: StackedSlashParse,
 	precedingInputBlocks: ContentBlockParam[],
@@ -409,7 +409,7 @@ async function processStackedSlashCommands(
 	canUseTool?: CanUseToolFn,
 ): Promise<ProcessUserInputBaseResult | null> {
 	const commands = stacked.commands;
-	// 全部命令须存在; 前导 (除终末外) 须 prompt-type (local-jsx 无法静默注入 context)
+	// All commands must exist; the leading ones (all but the terminal) must be prompt-type (local-jsx cannot silently inject context)
 	const resolved: (CommandBase & PromptCommand)[] = [];
 	for (let i = 0; i < commands.length - 1; i++) {
 		const cmd = getCommand(commands[i]?.commandName, context.options.commands);
@@ -420,12 +420,12 @@ async function processStackedSlashCommands(
 	}
 	const terminalName = commands[commands.length - 1]?.commandName;
 	const terminalCmd = getCommand(terminalName, context.options.commands);
-	// 终末须存在且 prompt-type (local-jsx 终末不在堆叠范围)
+	// The terminal must exist and be prompt-type (local-jsx terminal is not in stacking scope)
 	if (terminalCmd?.type !== "prompt") {
 		return null;
 	}
 
-	// 累积前导技能 content (每条 getPromptForCommand 取空 args, 仅注入 context)
+	// Accumulate leading skill content (each getPromptForCommand gets empty args, context injection only)
 	const sessionId = getSessionId();
 	const stackedContextParts: string[] = [];
 	for (const cmd of resolved) {
@@ -441,7 +441,7 @@ async function processStackedSlashCommands(
 			if (text) {
 				stackedContextParts.push(text);
 			}
-			// 注册 skill hooks (与 getMessagesForPromptSlashCommand 一致)
+			// Register skill hooks (consistent with getMessagesForPromptSlashCommand)
 			const hooksAllowed =
 				!isRestrictedToPluginOnly("hooks") || isSourceAdminTrusted(cmd.source);
 			if (cmd.hooks && hooksAllowed) {
@@ -453,7 +453,7 @@ async function processStackedSlashCommands(
 					cmd.type === "prompt" ? cmd.skillRoot : undefined,
 				);
 			}
-			// 记录技能调用 (compaction 保留)
+			// Record the skill invocation (preserved across compaction)
 			const skillPath = cmd.source ? `${cmd.source}:${cmd.name}` : cmd.name;
 			addInvokedSkill(
 				cmd.name,
@@ -467,7 +467,7 @@ async function processStackedSlashCommands(
 		}
 	}
 
-	// 终末命令以 freeText 作 args 走标准分发
+	// The terminal command goes through standard dispatch with freeText as args
 	const terminalResult = await getMessagesForSlashCommand(
 		terminalName,
 		stacked.freeText,
@@ -480,14 +480,14 @@ async function processStackedSlashCommands(
 		uuid,
 	);
 
-	// 合并: 若有累积 context, 作为 isMeta 前缀插入终末 main content 之前
+	// Merge: if accumulated context exists, insert it as an isMeta prefix before the terminal main content
 	if (stackedContextParts.length > 0 && terminalResult.messages.length > 0) {
 		const stackedContextMessage = createUserMessage({
 			content: `<stacked-skill-context>\n${stackedContextParts.join("\n\n")}\n</stacked-skill-context>`,
 			isMeta: true,
 		});
-		// 终末 prompt 路径: messages = [metadata, isMeta:mainContent, ...attachments, command_permissions]
-		// 在 mainContent (index 1) 前插入 context
+		// Terminal prompt path: messages = [metadata, isMeta:mainContent, ...attachments, command_permissions]
+		// Insert the context before mainContent (index 1)
 		const insertAt = Math.min(1, terminalResult.messages.length);
 		terminalResult.messages.splice(insertAt, 0, stackedContextMessage);
 	}
@@ -536,9 +536,9 @@ export async function processSlashCommand(
 	}
 	const { commandName, args: parsedArgs, isMcp } = parsed;
 
-	// 堆叠 slash-skill 调用 (对齐 CC 2.1.199 "最多 5 前导技能"):
-	// /skill-a /skill-b do XYZ -> 前导技能注入 context, 终末命令 (或 free-text) 生实际 turn。
-	// 仅当 >=2 前导 slash 命令, 且前 N-1 条均为 prompt-type skill 时触发。
+	// Stacked slash-skill invocation (aligns with CC 2.1.199 "up to 5 leading skills"):
+	// /skill-a /skill-b do XYZ -> leading skills inject context, the terminal command (or free-text) produces the actual turn.
+	// Triggers only when there are >=2 leading slash commands and the first N-1 are all prompt-type skills.
 	const stacked = parseStackedSlashCommands(inputString);
 	if (stacked && stacked.commands.length >= 2) {
 		const stackedResult = await processStackedSlashCommands(
@@ -554,8 +554,8 @@ export async function processSlashCommand(
 		if (stackedResult) {
 			return stackedResult;
 		}
-		// stackedResult null = 终末命令非 prompt/local-jsx 或前导有非法技能,
-		// 回退单命令路径 (下方用 parsed 继续处理首个命令)。
+		// stackedResult null = the terminal command is not prompt/local-jsx or the leading chain has an invalid skill;
+		// fall back to the single-command path (below, continue processing the first command with parsed).
 	}
 	const sanitizedCommandName = isMcp
 		? "mcp"

@@ -121,7 +121,7 @@ export function permissionRuleSourceDisplayString(
 	source: PermissionRuleSource,
 ): string {
 	return getSettingSourceDisplayNameLowercase(
-		// biome-ignore lint/suspicious/noExplicitAny: PermissionRuleSource 是 SettingSource 的扩展 (含 cliArg/command/session), 运行时合法
+		// biome-ignore lint/suspicious/noExplicitAny: PermissionRuleSource extends SettingSource (adds cliArg/command/session), valid at runtime
 		source as any,
 	);
 }

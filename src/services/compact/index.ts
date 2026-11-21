@@ -9,7 +9,7 @@ export * from "./autoCompact.js";
 export * from "./cachedMCConfig.js";
 export * from "./compact.js";
 export * from "./compactWarningState.js";
-// insight-0902 E3: lastCompactionSnapshot 公开 (供 /diff-compaction 命令跨层消费)。
+// insight-0902 E3: lastCompactionSnapshot exposed publicly (for the /diff-compaction command to consume across layers).
 export * from "./lastCompactionSnapshot.js";
 export * from "./microCompact.js";
 export * from "./postCompactCleanup.js";

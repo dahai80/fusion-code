@@ -1,9 +1,9 @@
-// ar-plan PR #9 (S3): profile 分层 + --dump-config。
+// ar-plan PR #9 (S3): profile tiering + --dump-config.
 //
-// DSH 风格插件树过滤: --profile <name> 裁工具集到 profile 白/黑名单。
-// default-off: profile 未指定 = null = 全集 byte-identical (filterToolsByProfile 早 return)。
-// profile 层在 MLX 分层**之后**叠加 (MLX 按 model size 裁, profile 按场景再裁, 两正交)。
-// 复用 Tool.isEnabled 缝 + filterToolsByDenyRules 模式, 不重写工具。
+// DSH-style plugin-tree filtering: --profile <name> trims the tool set to the profile's allow/deny lists.
+// default-off: no profile specified = null = full set byte-identical (filterToolsByProfile early-returns).
+// The profile layer stacks **after** MLX tiering (MLX trims by model size, profile trims further by scenario; the two are orthogonal).
+// Reuses the Tool.isEnabled seam + the filterToolsByDenyRules pattern; does not rewrite tools.
 
 import { existsSync, readFileSync } from "node:fs";
 import { homedir } from "node:os";
@@ -15,13 +15,13 @@ import { BUILTIN_PROFILES, getBuiltinProfile } from "./builtinProfiles.js";
 
 export interface Profile {
 	name: string;
-	enabledTools?: string[]; // 白名单 (未列 = 禁)
-	disabledTools?: string[]; // 黑名单
-	requiresFlags?: string[]; // build flag 要求 (profile 需 ULTRAPLAN 等)
+	enabledTools?: string[]; // allowlist (unlisted = denied)
+	disabledTools?: string[]; // denylist
+	requiresFlags?: string[]; // build-flag requirements (profile needs ULTRAPLAN etc.)
 	description?: string;
 }
 
-// FUSION_CODE_PROFILE_DIR 覆盖 (测试隔离); 默认 ~/.fusion-code/profiles/
+// FUSION_CODE_PROFILE_DIR override (test isolation); default ~/.fusion-code/profiles/
 function profileDir(): string {
 	return (
 		process.env.FUSION_CODE_PROFILE_DIR ??
@@ -29,8 +29,8 @@ function profileDir(): string {
 	);
 }
 
-// 加载 profile: 先内置再用户目录。null = 全集 (无 --profile)。
-// 内置名命中 → 返回内置; 否则查用户 json; 都无 → null (fail-open, 全集 byte-identical)。
+// Load a profile: built-ins first, then the user directory. null = full set (no --profile).
+// Builtin name hit → return the builtin; otherwise look up the user json; neither → null (fail-open, full set byte-identical).
 export function loadProfile(name?: string): Profile | null {
 	if (!name) return null;
 	const builtin = getBuiltinProfile(name);
@@ -51,9 +51,10 @@ export function loadProfile(name?: string): Profile | null {
 			);
 			return null;
 		}
-		// P2-11: schema 校验 enabledTools/disabledTools/requiresFlags 须为 string[]。
-		// 裸 JSON.parse as Profile 不查 cast — 非字符串条目进 new Set + set.has 行为
-		// 异常。恶意/手编 profile 注入非字符串 → 拒 (fail-open 全集 byte-identical)。
+		// P2-11: schema-validate that enabledTools/disabledTools/requiresFlags are string[].
+		// A bare JSON.parse as Profile does no cast checking — non-string entries make new Set +
+		// set.has behave unexpectedly. A malicious/hand-edited profile injecting non-strings → rejected
+		// (fail-open full set byte-identical).
 		const strArrayFields: (keyof Profile)[] = [
 			"enabledTools",
 			"disabledTools",
@@ -78,11 +79,11 @@ export function loadProfile(name?: string): Profile | null {
 	}
 }
 
-// profile 校验: requiresFlags 未满足 → 抛 (fail-visible)。调用方决定何时校验。
-// build flag 在编译期由 feature() 决定 — 运行期无法用 feature(动态名) 查
-// (bun 编译器要求 feature() 参数为字符串字面量, 否则 DCE 失败 + build 报错)。
-// 故运行期校验靠 FUSION_CODE_ENABLED_FLAGS (逗号分隔) 或 fail-open (未设=全满足)。
-// 无 requiresFlags → pass。
+// Profile validation: unmet requiresFlags → throws (fail-visible). The caller decides when to validate.
+// Build flags are decided at compile time by feature() — at runtime you cannot query feature(dynamicName)
+// (the bun compiler requires feature() arguments to be string literals, otherwise DCE fails + the build errors).
+// So runtime validation relies on FUSION_CODE_ENABLED_FLAGS (comma-separated) or fail-open (unset = all satisfied).
+// No requiresFlags → pass.
 export function validateProfileRequiresFlags(
 	profile: Profile | null,
 	featureChecker: (flag: string) => boolean,
@@ -96,8 +97,8 @@ export function validateProfileRequiresFlags(
 	}
 }
 
-// 运行期 featureChecker: 查 FUSION_CODE_ENABLED_FLAGS (逗号分隔)。
-// 未设 → fail-open (全满足), 避免 feature() 编译期限制阻塞运行期。
+// Runtime featureChecker: consults FUSION_CODE_ENABLED_FLAGS (comma-separated).
+// Unset → fail-open (all satisfied), avoiding the feature() compile-time limitation blocking runtime.
 export function enabledFlagsChecker(): (flag: string) => boolean {
 	const raw = process.env.FUSION_CODE_ENABLED_FLAGS;
 	if (!raw) return () => true;
@@ -110,9 +111,9 @@ export function enabledFlagsChecker(): (flag: string) => boolean {
 	return (flag: string) => set.has(flag);
 }
 
-// 过滤工具集 by profile。profile=null → 原样返回 (byte-identical)。
-// enabledTools 白名单 (tool 名不在 → 滤) 优先于 disabledTools 黑名单。
-// 复用 Tool.name 缝, 不改 Tool.isEnabled (那是 feature-gate 层)。
+// Filter the tool set by profile. profile=null → returned as-is (byte-identical).
+// The enabledTools allowlist (tool name not listed → filtered out) takes precedence over the disabledTools denylist.
+// Reuses the Tool.name seam; does not touch Tool.isEnabled (that is the feature-gate layer).
 export function filterToolsByProfile(
 	tools: Tools,
 	profile: Profile | null,
@@ -131,13 +132,13 @@ export function filterToolsByProfile(
 	});
 }
 
-// profile 是否启用 (env 门控, default-off byte-identical)。
+// Whether profiles are enabled (env-gated, default-off byte-identical).
 export function isProfileEnabled(): boolean {
 	return isEnvTruthy(process.env.FUSION_CODE_PROFILE_ENABLED);
 }
 
-// Session 级 profile holder: cli.tsx --profile 解析后 setSessionProfile,
-// getTools 读取 (MLX 分层之后叠加)。globalThis 未设 = null = byte-identical。
+// Session-level profile holder: cli.tsx calls setSessionProfile after parsing --profile,
+// getTools reads it (stacked after MLX tiering). globalThis unset = null = byte-identical.
 declare global {
 	// eslint-disable-next-line no-var
 	var __fusionSessionProfile: Profile | null | undefined;

@@ -1,11 +1,11 @@
-// audit 1.1.1: 从 REPL.tsx 抽出的 setToolJSX 包装纯路由。无 React hooks, 无 JSX, 无异步。
-// 唯一副作用 = mutate localJSXCommandRef.current + 调用 setToolJSXInternal (与原 useCallback 体一致)。
-//   语义: local JSX 命令 (/btw 等 immediate) 持久化, 工具更新不可覆盖, 除非显式 clearLocalJSX。
-// 原 useCallback deps = [] (只读 ref + 稳定 setter); REPL 保留薄包装, 下游读取同名 const (字节等价)。
+// audit 1.1.1: pure routing wrapper for setToolJSX extracted from REPL.tsx. No React hooks, no JSX, no async.
+// The only side effects = mutating localJSXCommandRef.current + calling setToolJSXInternal (same as the original useCallback body).
+//   Semantics: local JSX commands (/btw etc. immediate) persist; tool updates cannot overwrite them unless explicitly cleared via clearLocalJSX.
+// Original useCallback deps = [] (read-only ref + stable setter); REPL keeps a thin wrapper, downstream reads the same-named const (byte-equivalent).
 
 import type { ReactNode } from "react";
 
-// setToolJSX 入参。clearLocalJSX 仅 onDone 回调用以显式清 overlay。
+// setToolJSX input. clearLocalJSX is only used by the onDone callback to explicitly clear the overlay.
 export type SetToolJSXArgs = {
 	jsx: ReactNode | null;
 	shouldHidePromptInput: boolean;
@@ -15,7 +15,7 @@ export type SetToolJSXArgs = {
 	clearLocalJSX?: boolean;
 } | null;
 
-// localJSXCommandRef 持久化的 local JSX 命令 (isLocalJSXCommand 恒为 true)。
+// localJSXCommandRef holds the persisted local JSX command (isLocalJSXCommand always true).
 export type LocalJSXCommand = {
 	jsx: ReactNode | null;
 	shouldHidePromptInput: boolean;
@@ -24,7 +24,7 @@ export type LocalJSXCommand = {
 	isLocalJSXCommand: true;
 } | null;
 
-// setToolJSXInternal (useState setter) 接受的内部 state 形状 (多 isImmediate?)。
+// Internal state shape accepted by setToolJSXInternal (useState setter) (plus isImmediate?).
 export type ToolJSXInternalState = {
 	jsx: ReactNode | null;
 	shouldHidePromptInput: boolean;
@@ -34,8 +34,8 @@ export type ToolJSXInternalState = {
 	isImmediate?: boolean;
 } | null;
 
-// REPL 实例绑定的 ref + setter。localJSXCommandRef = useRef<LocalJSXCommand>,
-// setToolJSXInternal = useState 的 setter (恒稳定)。此处直接 mutate ref / 调用 setter。
+// Ref + setter bound to a REPL instance. localJSXCommandRef = useRef<LocalJSXCommand>,
+// setToolJSXInternal = the useState setter (always stable). This function mutates the ref / calls the setter directly.
 export type SetToolJSXSetters = {
 	localJSXCommandRef: { current: LocalJSXCommand };
 	setToolJSXInternal: (value: ToolJSXInternalState) => void;
@@ -43,7 +43,7 @@ export type SetToolJSXSetters = {
 
 // Route a setToolJSX call: local JSX command stored separately so tools can't
 // overwrite it unless they explicitly clear it (clearLocalJSX from onDone).
-// 行为等价 REPL.tsx:1284-1326 useCallback 体。REPL 保留 useCallback 薄包装 (deps [] 不变)。
+// Behavior-equivalent to the REPL.tsx:1284-1326 useCallback body. REPL keeps a thin useCallback wrapper (deps [] unchanged).
 export function applyToolJSXUpdate(
 	args: SetToolJSXArgs,
 	setters: SetToolJSXSetters,

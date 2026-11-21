@@ -25,7 +25,7 @@ let registered = false;
 export function registerEscHotkey(onEscape: () => void): boolean {
 	if (registered) return true;
 	const cu = requireComputerUseSwift();
-	// biome-ignore lint/suspicious/noExplicitAny: 原生模块运行时注入的方法, 类型不可表达
+	// biome-ignore lint/suspicious/noExplicitAny: method injected onto the native module at runtime, not expressible in types
 	if (!(cu.hotkey as any).registerEscape(onEscape)) {
 		// log: cast native module
 		// CGEvent.tapCreate failed — typically missing Accessibility permission.
@@ -54,6 +54,6 @@ export function unregisterEscHotkey(): void {
 
 export function notifyExpectedEscape(): void {
 	if (!registered) return;
-	// biome-ignore lint/suspicious/noExplicitAny: 原生模块运行时注入的方法, 类型不可表达
+	// biome-ignore lint/suspicious/noExplicitAny: method injected onto the native module at runtime, not expressible in types
 	(requireComputerUseSwift().hotkey as any).notifyExpectedEscape();
 }

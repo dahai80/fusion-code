@@ -10,7 +10,7 @@ import { registerBuiltinPlugin } from "../builtinPlugins.js";
 // ECC is 78MB marketplace with 278 skills — too large to embed in binary.
 // Register as builtin plugin that auto-detects existing install at
 // ~/.fusion-code/plugins/marketplaces/ecc/. If not present, available for install.
-// User instruction: "测试一下git，ecc, UI-UX Pro Max三个skill能否默认打包在fusion-code中"
+// User instruction: "test whether the git, ecc, and UI-UX Pro Max skills can be bundled by default in fusion-code"
 // Install path callers: plugin install flow reads ECC_REPO_URL for git clone
 
 const ECC_REPO_URL = "https://github.com/affaan-m/ECC.git";

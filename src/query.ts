@@ -1523,7 +1523,7 @@ async function* queryLoop(
 			}
 
 			if (feature("TOKEN_BUDGET")) {
-				// budgetTracker 缺省时跳过 token budget 检查, 直接放行
+				// When budgetTracker is absent, skip the token budget check and pass through
 				if (budgetTracker === undefined) {
 					return { reason: "completed" };
 				}
@@ -1746,9 +1746,10 @@ async function* queryLoop(
 					}
 					return null;
 				})
-				// audit 2.2.5: 显式分类 + 日志, 不再静默吞。summary 失败 → 模型丢这轮工具
-				// 调用上下文 (业务关键), 旧 .catch(() => null) 让故障不可见。仍 fail-open
-				// (返回 null 让主流程继续), 但留下可定位日志。
+				// audit 2.2.5: explicit classification + logging, no longer swallowed silently. A summary failure
+				// loses this round of tool-call context for the model (business-critical); the old
+				// .catch(() => null) made the failure invisible. Still fail-open (returns null so the main
+				// flow continues), but leaves a traceable log.
 				.catch((err: unknown) => {
 					logForDebugging(
 						`[query] generateToolUseSummary failed (fail-open null): ${(err as Error)?.message ?? err}`,
@@ -1897,7 +1898,7 @@ async function* queryLoop(
 			const skillAttachments =
 				await skillPrefetch.collectSkillDiscoveryPrefetch(pendingSkillPrefetch);
 			for (const att of skillAttachments) {
-				// biome-ignore lint/suspicious/noExplicitAny: collectSkillDiscoveryPrefetch 存根返回宽松集合, 运行时为 Attachment[]
+				// biome-ignore lint/suspicious/noExplicitAny: the collectSkillDiscoveryPrefetch stub returns a loose collection, runtime type is Attachment[]
 				const msg = createAttachmentMessage(att as any);
 				yield msg;
 				toolResults.push(msg);

@@ -1,11 +1,11 @@
-// SessionEnd 自动轨迹收集 — 训练飞轮自动闭环 (insight-0902 E1)
+// SessionEnd automatic trajectory collection — closes the training flywheel loop automatically (insight-0902 E1)
 //
-// 会话退出时自动把 ~/.fusion-code/projects 下的 session jsonl 收集进
-// ~/.fusion/trajectories，无需用户手动跑 `fusion-code trajectory collect`。
+// On session exit, automatically collects the session jsonl files under ~/.fusion-code/projects into
+// ~/.fusion/trajectories, without requiring the user to manually run `fusion-code trajectory collect`.
 //
-// 门控: FUSION_CODE_TRAJECTORY_AUTOCOLLECT=1 (默认关 = byte-identical-off)。
-// fail-open: 收集失败只记日志, 不阻塞会话退出。
-// 测试环境跳过 (isTestEnv), 避免单测污染汇聚库。
+// Gating: FUSION_CODE_TRAJECTORY_AUTOCOLLECT=1 (default off = byte-identical-off).
+// fail-open: collection failure is only logged, never blocks session exit.
+// Skipped in test environments (isTestEnv), avoiding test pollution of the aggregation store.
 
 import { isTestEnv } from "../../utils/buildConstants.js";
 import { logForDebugging } from "../../utils/debug.js";
@@ -19,14 +19,14 @@ import {
 const AUTOCOLLECT_ENV = "FUSION_CODE_TRAJECTORY_AUTOCOLLECT";
 const DEFAULT_PRODUCT = "fusion-code";
 
-// 是否启用自动收集 (编译期不门控: 此模块始终在 bundle, 但默认不执行)。
+// Whether auto-collection is enabled (not compile-time gated: this module is always in the bundle, but does not execute by default).
 export function isTrajectoryAutoCollectEnabled(): boolean {
 	return isEnvTruthy(process.env[AUTOCOLLECT_ENV]);
 }
 
-// SessionEnd 钩子: 自动收集当前会话轨迹。fail-open。
-// sourceDir 用 DEFAULT_SOURCE_DIR (含所有 cwd-slug 子目录, collector 递归扫),
-// destDir 用 DEFAULT_DEST_DIR (~/.fusion/trajectories)。
+// SessionEnd hook: automatically collect the current session trajectory. fail-open.
+// sourceDir uses DEFAULT_SOURCE_DIR (includes all cwd-slug subdirectories, collector scans recursively),
+// destDir uses DEFAULT_DEST_DIR (~/.fusion/trajectories).
 export async function autoCollectTrajectoryOnSessionEnd(): Promise<void> {
 	if (!isTrajectoryAutoCollectEnabled()) {
 		return;
@@ -48,7 +48,7 @@ export async function autoCollectTrajectoryOnSessionEnd(): Promise<void> {
 			`[trajectory] autoCollect done sessions=${manifest.totals.sessions} steps=${manifest.totals.steps} positive=${manifest.totals.positive} selfCorrection=${manifest.totals.selfCorrection}`,
 		);
 	} catch (e) {
-		// fail-open: 收集失败不影响退出
+		// fail-open: collection failure does not affect exit
 		logForDebugging(
 			`[trajectory] autoCollect failed (fail-open): ${(e as Error).message}`,
 		);

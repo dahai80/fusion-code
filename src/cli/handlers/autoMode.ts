@@ -110,7 +110,7 @@ export async function autoModeCritiqueHandler(options: {
 
 	process.stdout.write("Analyzing your auto mode rules…\n\n");
 
-	// biome-ignore lint/suspicious/noImplicitAnyLet: 类型由下方 try/catch 两分支赋值推导
+	// biome-ignore lint/suspicious/noImplicitAnyLet: type is inferred from assignments in both try/catch branches below
 	let response;
 	try {
 		response = await sideQuery({

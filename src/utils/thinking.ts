@@ -84,7 +84,7 @@ export function getRainbowColor(
 	shimmer: boolean = false,
 ): keyof Theme {
 	const colors = shimmer ? RAINBOW_SHIMMER_COLORS : RAINBOW_COLORS;
-	// colors 为非空静态常量; 兜底链保证 keyof Theme 返回
+	// colors is a non-empty static constant; the fallback chain guarantees a keyof Theme return
 	const fallback = colors[0] ?? RAINBOW_COLORS[0];
 	if (fallback === undefined) {
 		throw new Error("RAINBOW_COLORS must not be empty");

@@ -1,32 +1,33 @@
-// audit 1.1.1: 从 REPL.tsx 抽出的 setToolPermissionContext 包装纯路由。
-// 无 React hooks, 无 JSX, 无 await。唯一副作用 = 调用 setAppState (store setter)
-//   + setImmediate 触发 setToolUseConfirmQueue (与原 useCallback 体一致)。
-// 语义: 更新 toolPermissionContext (mode 仅在非 preserveMode 时跟随新 context);
-//   context 变更后立即 recheck 所有排队权限项 (避免 stale closure 用回调读最新队列)。
-// 原 useCallback deps = [setAppState, setToolUseConfirmQueue] (2 个稳定 setter);
-//   REPL 保留薄包装, 下游读取同名 const (字节等价)。
+// audit 1.1.1: pure routing wrapper for setToolPermissionContext extracted from REPL.tsx.
+// No React hooks, no JSX, no await. The only side effects = calling setAppState (store setter)
+//   + setImmediate triggering setToolUseConfirmQueue (same as the original useCallback body).
+// Semantics: update toolPermissionContext (mode follows the new context only when not preserveMode);
+//   after the context changes, immediately recheck all queued permission items (avoids a stale closure
+//   reading the latest queue via callback).
+// Original useCallback deps = [setAppState, setToolUseConfirmQueue] (2 stable setters);
+//   REPL keeps a thin wrapper, downstream reads the same-named const (byte-equivalent).
 
 import type { ToolUseConfirm } from "../components/permissions/PermissionRequest.js";
 import type { AppState } from "../state/AppStateStore.js";
 import type { ToolPermissionContext } from "../Tool.js";
 
-// setToolPermissionContext 入参选项。preserveMode = 保留协调者既有 mode
-// (worker getAppState() 回传 'acceptEdits' 不可泄漏到协调者真实 state)。
+// setToolPermissionContext input options. preserveMode = keep the coordinator's existing mode
+// (a worker getAppState() returning 'acceptEdits' must not leak into the coordinator's real state).
 export type SetToolPermissionContextOptions =
 	| {
 			preserveMode?: boolean;
 	  }
 	| undefined;
 
-// setAppState = zustand store.setState, updater 接收 prev → 完整 AppState (REPL 展开写法)。
+// setAppState = zustand store.setState; the updater receives prev → full AppState (REPL expanded form).
 export type SetAppStateFn = (updater: (prev: AppState) => AppState) => void;
 
-// setToolUseConfirmQueue = useState setter, 回调形式读最新队列再原样返回 (不重组)。
+// setToolUseConfirmQueue = useState setter; callback form reads the latest queue and returns it as-is (no reshuffle).
 export type SetToolUseConfirmQueueFn = (
 	updater: (queue: ToolUseConfirm[]) => ToolUseConfirm[],
 ) => void;
 
-// REPL 实例绑定的 2 个稳定 setter。
+// The 2 stable setters bound to a REPL instance.
 export type SetToolPermissionContextSetters = {
 	setAppState: SetAppStateFn;
 	setToolUseConfirmQueue: SetToolUseConfirmQueueFn;
@@ -35,8 +36,8 @@ export type SetToolPermissionContextSetters = {
 // Apply a tool-permission-context update: merge context into appState
 // (mode preserved when preserveMode set), then setImmediate-recheck every
 // queued permission item so "don't ask again" approvals auto-clear matches.
-// 行为等价 REPL.tsx:2738-2776 useCallback 体。REPL 保留 useCallback 薄包装
-// (deps [setAppState, setToolUseConfirmQueue] 不变)。
+// Behavior-equivalent to the REPL.tsx:2738-2776 useCallback body. REPL keeps a thin useCallback
+// wrapper (deps [setAppState, setToolUseConfirmQueue] unchanged).
 export function applyToolPermissionContext(
 	context: ToolPermissionContext,
 	options: SetToolPermissionContextOptions,

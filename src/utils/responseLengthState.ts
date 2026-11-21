@@ -1,16 +1,17 @@
-// audit 1.1.1: 从 REPL.tsx 抽出的 setResponseLength 包装纯路由。无 React hooks, 无 JSX,
-// 无 await。唯一副作用 = mutate 2 个 ref.current (与原 useCallback 体一致)。
-// 语义: 模型流式输出累积 response length 时三件事:
-//   (1) responseLengthRef.current = f(prev) (记录当前 turn 累积长度, 供 pushApiMetricsEntry
-//       读 baseline + setResponseLength 自身增量判断);
-//   (2) 仅当新值 > prev (长度增长) 时才更新 metrics 末条 — 平坦期 (无新 token) 不刷时间戳;
-//   (3) 末条 lastTokenTime = now + endResponseLength = 当前累积值 (ttft baseline 在
-//       pushApiMetricsEntry 建条时定, 这里只推进 lastTokenTime + 终值, 供 TTFT→末token
-//       时长 + 总响应长统计)。
-// 原 useCallback deps = [] (refs 不在 deps; 空数组 = 永不重建)。REPL 保留薄包装, deps 不变;
-//   下游读取同名 const (字节等价)。
+// audit 1.1.1: setResponseLength wrapping pure routing extracted from REPL.tsx. No React hooks, no JSX,
+// no await. The only side effects = mutate 2 ref.currents (identical to the original useCallback body).
+// Semantics: when the model's streamed output accumulates response length, three things happen:
+//   (1) responseLengthRef.current = f(prev) (records the current turn's accumulated length, for pushApiMetricsEntry
+//       to read the baseline + setResponseLength's own delta judgment);
+//   (2) only when the new value > prev (length grew) does the last metrics entry update — flat periods (no new tokens)
+//       do not refresh the timestamp;
+//   (3) last entry lastTokenTime = now + endResponseLength = the current accumulated value (the ttft baseline is
+//       set when pushApiMetricsEntry creates the entry; this only advances lastTokenTime + the final value, for the
+//       TTFT->last-token duration + total response length stats).
+// Original useCallback deps = [] (refs are not in deps; an empty array = never rebuilt). REPL keeps the thin wrapper, deps unchanged;
+//   downstream reads the same-name const (byte-equivalent).
 
-// ApiMetricsEntry 最小形状 (helper 只写这两个字段, 读 baseline 不在此)。
+// Minimal ApiMetricsEntry shape (the helper only writes these two fields; reading the baseline is not done here).
 type ApiMetricsEntryLike = {
 	lastTokenTime: number;
 	endResponseLength: number;
@@ -21,8 +22,8 @@ export type ResponseLengthStateSetters = {
 	apiMetricsRef: { current: ApiMetricsEntryLike[] };
 };
 
-// 行为等价 REPL.tsx:1681-1696 useCallback 体。REPL 保留 useCallback 薄包装
-// (deps [] 不变)。
+// Behavior-equivalent to the REPL.tsx:1681-1696 useCallback body. REPL keeps a thin useCallback
+// wrapper (deps [] unchanged).
 export function applySetResponseLength(
 	f: (prev: number) => number,
 	setters: ResponseLengthStateSetters,

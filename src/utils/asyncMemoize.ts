@@ -5,7 +5,7 @@ import memoize from "lodash-es/memoize.js";
  * rejects. Plain memoize would cache the rejected promise permanently,
  * making every subsequent call with the same key also reject.
  */
-// biome-ignore lint/suspicious/noExplicitAny: 泛型约束需接受任意签名函数 (参数/返回类型由调用方 T 精确约束)
+// biome-ignore lint/suspicious/noExplicitAny: generic constraint must accept arbitrary function signatures (param/return types are exactly constrained by the caller's T)
 export function asyncMemoize<T extends (...args: any[]) => Promise<any>>(
 	fn: T,
 	resolver?: (...args: Parameters<T>) => unknown,

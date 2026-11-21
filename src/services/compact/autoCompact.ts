@@ -79,8 +79,8 @@ export const MLX_MANUAL_COMPACT_BUFFER_TOKENS = 500;
 // in a single session, wasting ~250K API calls/day globally.
 const MAX_CONSECUTIVE_AUTOCOMPACT_FAILURES = 3;
 
-// fusion-mlx memory_guard 撞顶是确定性 OOM(同上下文重试必再炸)。
-// 用于 autoCompact catch 立即熔断,避免 SDK/circuit breaker 空转重试耗满 30+ 分钟。
+// fusion-mlx memory_guard hitting the ceiling is a deterministic OOM (retrying with the same context will blow up again).
+// Used by autoCompact catch to trip the breaker immediately, avoiding SDK/circuit breaker spinning on futile retries for 30+ minutes.
 function isMlxMemoryLimitError(error: unknown): boolean {
 	const msg = error instanceof Error ? error.message : String(error ?? "");
 	return (
@@ -468,8 +468,8 @@ export async function autoCompactIfNeeded(
 		// The caller threads this through autoCompactTracking so the
 		// next query loop iteration can skip futile retry attempts.
 		const prevFailures = tracking?.consecutiveFailures ?? 0;
-		// fusion-mlx memory_guard 撞顶是确定性失败:同上下文重试必再次 OOM。
-		// 直接拉满失败计数立即熔断,而不是等 3 次空转(每次 prefill ~4min -> 33min 挂起)。
+		// fusion-mlx memory_guard hitting the ceiling is a deterministic failure: retrying with the same context will OOM again.
+		// Max out the failure count to trip the breaker immediately, instead of waiting for 3 futile spins (each prefill ~4min -> 33min hang).
 		const isMemoryLimit = isMlxMemoryLimitError(error);
 		const nextFailures = isMemoryLimit
 			? MAX_CONSECUTIVE_AUTOCOMPACT_FAILURES

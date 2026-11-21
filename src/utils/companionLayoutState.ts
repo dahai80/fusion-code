@@ -1,14 +1,14 @@
-// audit 1.1.1: 从 REPL.tsx 抽出的 companion 布局状态推导。纯函数, 无 React, 无副作用。
-// 4 个 derive: companionNarrow → companionVisible, toolJsxCentered → centeredModal。
-// REPL 保留所有 useState/useRef 绑定, 仅把纯计算外移, 下游读取同名 const (字节等价)。
-// isFullscreenEnvEnabled() 是 runtime env 检查 (utils/fullscreen.ts), 无 React 依赖, 可在纯函数内调用。
+// audit 1.1.1: companion layout state derivation extracted from REPL.tsx. Pure functions, no React, no side effects.
+// 4 derives: companionNarrow -> companionVisible, toolJsxCentered -> centeredModal.
+// REPL keeps all useState/useRef bindings; only the pure computation is moved out, downstream reads the same-name const (byte-equivalent).
+// isFullscreenEnvEnabled() is a runtime env check (utils/fullscreen.ts), no React dependency, safe to call inside a pure function.
 
 import type { ReactNode } from "react";
 import { MIN_COLS_FOR_FULL_SPRITE } from "../buddy/CompanionSprite.js";
 import { isFullscreenEnvEnabled } from "./fullscreen.js";
 
-// toolJSX 的布局相关字段 (REPL useState 形状的子集, 仅取这里用到的 3 个)。
-// 避免拉入完整 toolJSX 类型 (含 shouldContinueAnimation/showSpinner/isImmediate 等无关字段)。
+// Layout-related fields of toolJSX (a subset of the REPL useState shape, only the 3 used here).
+// Avoids pulling in the full toolJSX type (with unrelated fields like shouldContinueAnimation/showSpinner/isImmediate).
 export type ToolJsxLayoutLike = {
 	jsx: ReactNode | null;
 	shouldHidePromptInput?: boolean;
@@ -29,16 +29,16 @@ export type CompanionLayoutState = {
 	centeredModal: ReactNode | null;
 };
 
-// companionNarrow: 窄终端 (< MIN_COLS_FOR_FULL_SPRITE) 时 companion 塌缩为单行,
-// REPL 自行堆叠 (fullscreen 在输入上方, scrollback 在下方), 不再左右分栏。
+// companionNarrow: on a narrow terminal (< MIN_COLS_FOR_FULL_SPRITE) the companion collapses to a single line,
+// REPL stacks itself (fullscreen above the input, scrollback below), no longer side-by-side columns.
 export function deriveCompanionNarrow(transcriptCols: number): boolean {
 	return transcriptCols < MIN_COLS_FOR_FULL_SPRITE;
 }
 
-// companionVisible: PromptInput 提前返回 BackgroundTasksDialog 时隐藏 sprite。
-// sprite 与 PromptInput 同行, 对话框 Pane 分隔线按 useTerminalSize 宽度绘制但只占
-// terminalWidth - spriteWidth, 分隔线提前停止且文本换行。不检查 footerSelection:
-// pill FOCUS (下箭头到 tasks pill) 必须保留 sprite 可见, 以便右箭头导航到它。
+// companionVisible: hide the sprite when PromptInput early-returns BackgroundTasksDialog.
+// The sprite shares a line with PromptInput; the dialog Pane divider is drawn at the useTerminalSize width but only spans
+// terminalWidth - spriteWidth, so the divider stops early and text wraps. footerSelection is not checked:
+// pill FOCUS (down arrow to the tasks pill) must keep the sprite visible so right-arrow can navigate to it.
 export function deriveCompanionVisible(
 	toolJSX: ToolJsxLayoutLike,
 	focusedInputDialog: string | undefined,
@@ -49,25 +49,25 @@ export function deriveCompanionVisible(
 	);
 }
 
-// toolJsxCentered: fullscreen 下所有 local-jsx slash 命令浮动到 modal 槽位 —
-// FullscreenLayout 用绝对定位底锚 Pane 包裹 (▔ 分隔线, ModalContext)。
-// Pane/Dialog 检测到 context 跳过自身顶层框架。非 fullscreen 走下方内联渲染。
+// toolJsxCentered: in fullscreen all local-jsx slash commands float to the modal slot —
+// FullscreenLayout wraps them in an absolutely-positioned bottom-anchored Pane (▔ divider, ModalContext).
+// Pane/Dialog detect the context and skip their own top-level frame. Non-fullscreen uses the inline render below.
 export function deriveToolJsxCentered(toolJSX: ToolJsxLayoutLike): boolean {
 	return isFullscreenEnvEnabled() && toolJSX?.isLocalJSXCommand === true;
 }
 
-// centeredModal: toolJsxCentered 时取 toolJSX.jsx 作为 modal 内容, 否则 null。
+// centeredModal: when toolJsxCentered, use toolJSX.jsx as the modal content, otherwise null.
 export function deriveCenteredModal(
 	toolJsxCentered: boolean,
 	toolJSX: ToolJsxLayoutLike,
 ): ReactNode | null {
-	// toolJsxCentered 为 true 时 toolJSX 必非空 (centered = fullscreen +
-	// isLocalJSXCommand===true, 后者要求 toolJSX 非空), 故 ?. 等价原 `!` 断言。
+	// When toolJsxCentered is true, toolJSX must be non-null (centered = fullscreen +
+	// isLocalJSXCommand===true, and the latter requires toolJSX non-null), so ?. is equivalent to the original `!` assertion.
 	return toolJsxCentered ? (toolJSX?.jsx ?? null) : null;
 }
 
-// 一次性聚合: 输入原始布局状态, 输出全部 4 个 derive。
-// REPL 调用一次, 绑定到同名 const, 下游读取不变 (字节等价)。
+// One-shot aggregation: takes the raw layout state, outputs all 4 derives.
+// REPL calls it once, binds to the same-name const, downstream reads unchanged (byte-equivalent).
 export function deriveCompanionLayoutState(
 	input: CompanionLayoutInput,
 ): CompanionLayoutState {

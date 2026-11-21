@@ -41,10 +41,10 @@ export function createStreamMessageDispatch(
 	const { setMessages, setConversationId, proactiveModule } = ctx;
 	return (newMessage: MessageType): void => {
 		if (isCompactBoundaryMessage(newMessage)) {
-			// item 17: 全屏跨多次压缩保留完整 pre-compact 历史。:598 useMemo
-			// 已解耦 syntheticStreamingToolUseMessages (仅 normalizedMessages
-			// 变=turn 边界跑, 非每 delta), O(n) 跨多日罕见可接受。虚拟滚动绑
-			// 内存 (mounted-item count, 非总数)。query.ts 仍 boundary 裁 API。
+			// item 17: keep the full pre-compact history across multiple compactions on disk. The :598 useMemo
+			// is decoupled from syntheticStreamingToolUseMessages (runs only when normalizedMessages
+			// changes = turn boundaries, not every delta), so O(n) across multi-day sessions is acceptable.
+			// Virtual scrolling bounds memory (mounted-item count, not total). query.ts still trims the API at the boundary.
 			if (isFullscreenEnvEnabled()) {
 				setMessages((old) => [...old, newMessage]);
 			} else {

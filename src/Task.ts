@@ -99,7 +99,7 @@ export function generateTaskId(type: TaskType): string {
 	const prefix = getTaskIdPrefix(type);
 	const bytes = randomBytes(8);
 	let id = prefix;
-	// for-of 而非索引访问: 免除 bytes[i]! 非空断言 (lint/style/noNonNullAssertion)
+	// for-of instead of index access: removes the bytes[i]! non-null assertion (lint/style/noNonNullAssertion)
 	for (const byte of bytes) {
 		id += TASK_ID_ALPHABET[byte % TASK_ID_ALPHABET.length];
 	}

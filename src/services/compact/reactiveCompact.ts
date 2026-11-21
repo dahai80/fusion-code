@@ -1,9 +1,9 @@
 /**
- * Reactive Compact — 响应式上下文压缩
+ * Reactive Compact — reactive context compaction
  *
- * 在上下文窗口接近上限时自动触发压缩，
- * 无需用户手动执行 /compact 命令。
- * 通过监控 token 使用量，在达到阈值时自动执行压缩。
+ * Automatically triggers compaction when the context window approaches its limit,
+ * without requiring the user to manually run the /compact command.
+ * Monitors token usage and executes compaction automatically once a threshold is reached.
  *
  * Also handles prompt-too-long (413) and media-size errors reactively:
  * when the API rejects a request, this module strips the oldest context

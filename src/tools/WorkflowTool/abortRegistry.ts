@@ -1,14 +1,14 @@
-// audit 1.4.2 (CRITICAL): workflow kill 是 no-op 的根因之一 —— abortController
-// 在 WorkflowTool.execute 创建后无处存放, kill 路径拿不到它, 永不 .abort()。
-// 此注册表把 runId → controller 存进模块级 Map, 供 LocalWorkflowTask.kill / ESC kill
-// / reaper 通过 runId 反查并触发 .abort()。runtime.ts 已在 328/390 行检查
-// signal.aborted 并抛 "Workflow aborted", 故只需触发 abort, 无需重建机制。
+// audit 1.4.2 (CRITICAL): one of the root causes of workflow kill being a no-op — the abortController
+// created in WorkflowTool.execute had nowhere to be stored, so the kill path could not reach it and never called .abort().
+// This registry stores runId → controller in a module-level Map so LocalWorkflowTask.kill / ESC kill
+// / the reaper can look up by runId and trigger .abort(). runtime.ts already checks
+// signal.aborted at lines 328/390 and throws "Workflow aborted", so triggering abort is all that is needed — no rebuild mechanism required.
 //
-// 独立模块避免循环依赖: 不导入 tasks.ts / Task.ts (它们反过来被 WorkflowTool 用)。
+// Standalone module to avoid circular dependencies: does not import tasks.ts / Task.ts (which use WorkflowTool in reverse).
 
 import { logForDebugging } from "../../utils/debug.js";
 
-// runId → AbortController。workflow 启动时 register, kill/完成时 clear。
+// runId → AbortController. Register on workflow start, clear on kill/completion.
 const controllers = new Map<string, AbortController>();
 
 export function registerWorkflowAbort(
@@ -24,8 +24,8 @@ export function getWorkflowAbortController(
 	return controllers.get(runId);
 }
 
-// 触发 abort 并移除。返回是否真的中止了一个未中止的 controller。
-// 幂等: 已中止/未注册 → false, 不抛。
+// Triggers abort and removes. Returns whether an un-aborted controller was actually aborted.
+// Idempotent: already aborted / not registered → false, no throw.
 export function abortWorkflowRun(runId: string): boolean {
 	const controller = controllers.get(runId);
 	if (!controller) {
@@ -44,7 +44,7 @@ export function clearWorkflowAbort(runId: string): void {
 	controllers.delete(runId);
 }
 
-// 统计当前在飞 (已注册未中止) 的 workflow 数。供准入 cap (1.4.1/2.1.3) 判定。
+// Counts currently in-flight (registered and not aborted) workflows. Used for the admission cap decision (1.4.1/2.1.3).
 export function countActiveWorkflowRuns(): number {
 	let n = 0;
 	for (const controller of controllers.values()) {

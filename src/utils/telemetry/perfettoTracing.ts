@@ -105,9 +105,9 @@ const events: TraceEvent[] = [];
 // oldest half when hit, amortized O(1).
 const MAX_EVENTS = 100_000;
 
-// P2-4 (audit R20): 磁盘 trace 文件上限 — 防无界增长。
-// 内存 cap (MAX_EVENTS) 已有; 此为磁盘侧。复用 auditLog.ts prune 模式 (P1-8 验)。
-// count cap 保留 N 最新; size cap 超 N MB 删最旧直至达标。均为 best-effort, fail-open。
+// P2-4 (audit R20): on-disk trace file cap — prevents unbounded growth.
+// The in-memory cap (MAX_EVENTS) already exists; this is the disk side. Reuses the auditLog.ts prune pattern (validated in P1-8).
+// count cap keeps the N newest; size cap deletes oldest until under N MB. Both are best-effort, fail-open.
 const MAX_TRACE_FILES = 20;
 const MAX_TRACES_DIR_BYTES = 50 * 1024 * 1024; // 50MB
 const pendingSpans = new Map<string, PendingSpan>();
@@ -254,10 +254,10 @@ function evictOldestEvents(): void {
 
 /**
  * P2-4 (audit R20): prune traces dir on enable.
- * 启用时扫 traces 目录, 按 mtime 最旧优先删, 两个上限:
- *   1. count cap — 超 MAX_TRACE_FILES 删最旧
- *   2. size cap  — 超 MAX_TRACES_DIR_BYTES 删最旧直至达标
- * 仅删 trace-*.json pattern, 不动其他文件。best-effort fail-open (单测可直调)。
+ * When enabled, scans the traces directory and deletes oldest-first by mtime, with two caps:
+ *   1. count cap — over MAX_TRACE_FILES, delete the oldest
+ *   2. size cap  — over MAX_TRACES_DIR_BYTES, delete the oldest until under the limit
+ * Only touches the trace-*.json pattern, leaves other files alone. Best-effort fail-open (unit tests can call it directly).
  */
 export async function pruneTracesDir(
 	dir: string,
@@ -270,7 +270,7 @@ export async function pruneTracesDir(
 			(e) => e.startsWith("trace-") && e.endsWith(".json"),
 		);
 		if (traceFiles.length === 0) return;
-		// mtime desc (新在前, 旧在后)
+		// mtime desc (newest first, oldest last)
 		const statted = await Promise.all(
 			traceFiles.map(async (name) => {
 				const p = join(dir, name);
@@ -290,7 +290,7 @@ export async function pruneTracesDir(
 			.sort((a, b) => b.mtime - a.mtime);
 		// 1. count cap
 		const toDelete = valid.slice(maxFiles);
-		// 2. size cap — 保留区间内累计超 maxBytes 也删最旧
+		// 2. size cap — cumulative over maxBytes within the kept window also deletes the oldest
 		if (toDelete.length === 0) {
 			const kept = valid.slice(0, maxFiles);
 			let total = 0;
@@ -307,7 +307,7 @@ export async function pruneTracesDir(
 			`[Perfetto] pruneTracesDir: removed ${toDelete.length} old trace files (cap ${maxFiles} files / ${maxBytes} bytes)`,
 		);
 	} catch (err) {
-		// Non-critical (fail-open): prune 失败不阻断 tracing
+		// Non-critical (fail-open): prune failure does not block tracing
 		logForDebugging(
 			`[Perfetto] pruneTracesDir failed (non-critical): ${err instanceof Error ? err.message : String(err)}`,
 		);
@@ -340,7 +340,7 @@ export function initializePerfettoTracing(): void {
 		if (isEnvTruthy(envValue)) {
 			const tracesDir = join(getClaudeConfigHomeDir(), "traces");
 			tracePath = join(tracesDir, `trace-${getSessionId()}.json`);
-			// P2-4: 启用时清旧 trace (count + size cap), 防无界增长。fire-and-forget。
+			// P2-4: when enabled, prune old traces (count + size cap) to prevent unbounded growth. Fire-and-forget.
 			void pruneTracesDir(tracesDir);
 		} else {
 			// Use the provided path

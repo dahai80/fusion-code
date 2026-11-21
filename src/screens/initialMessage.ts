@@ -1,7 +1,7 @@
-// audit 1.1.1 slice #31: processInitialMessage useEffect body 外移 (PURE-ASYNC-HELPER).
-// REPL() initial-message effect 的 3 阶段异步流程: clearContext → applyPermissions → routeMessage.
-// 闭包依赖经 ctx 传入 (refs/setters/funcs), 导入型 helper 直接 import, 行为字节等价。
-// 无 JSX/无 hook/无复杂返回 (void, 单次调用, replay 风险低 — 区别于 #18 getToolUseContext 39-field 返回)。
+// audit 1.1.1 slice #31: processInitialMessage useEffect body extracted (PURE-ASYNC-HELPER).
+// REPL() initial-message effect 3-stage async flow: clearContext → applyPermissions → routeMessage.
+// Closure deps passed via ctx (refs/setters/funcs), imported helpers imported directly, byte-equivalent behavior.
+// No JSX / no hook / no complex return (void, single call, low replay risk — unlike the #18 getToolUseContext 39-field return).
 
 import type { UUID } from "node:crypto";
 import type { Dispatch, MutableRefObject, SetStateAction } from "react";

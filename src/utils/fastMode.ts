@@ -110,7 +110,7 @@ export function getFastModeUnavailableReason(): string | null {
 	}
 
 	// Only available for 1P (not Bedrock/Vertex/Foundry)
-	// Fusion-MLX 本地模式也不支持 Fast Mode
+	// Fusion-MLX local mode does not support Fast Mode either
 	if (getAPIProvider() !== "firstParty" && !isFusionMlxProvider()) {
 		const reason = "Fast mode is not available for this provider";
 		logForDebugging(`Fast mode unavailable: ${reason}`);

@@ -1,6 +1,6 @@
-// audit 1.1.1: 从 REPL.tsx 抽出的叶组件 (god module 拆分起步)。
-// less 风格 / 搜索栏。1 行, 与 TranscriptModeFooter 同 border-top 样式。
-// useSearchInput 处理 readline 编辑; 本组件上报 query 变化 + 渲染计数器。
+// audit 1.1.1: leaf component extracted from REPL.tsx (start of the god-module split).
+// less-style / search bar. 1 line, same border-top styling as TranscriptModeFooter.
+// useSearchInput handles readline editing; this component reports query changes + renders the counter.
 
 import type { RefObject } from "react";
 import * as React from "react";

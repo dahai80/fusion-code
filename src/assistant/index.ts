@@ -1,14 +1,14 @@
 /**
- * KAIROS Assistant — 多会话助理系统
+ * KAIROS Assistant — multi-session assistant system
  *
- * 提供助理模式（Assistant Mode），允许多个会话并行运行，
- * 支持团队成员协作、任务分配和会话管理。
+ * Provides Assistant Mode, allowing multiple sessions to run in parallel,
+ * with team member collaboration, task assignment, and session management.
  *
- * 主要功能：
- * - 助理模式激活/停用
- * - 助理团队初始化
- * - 系统提示词扩展
- * - 会话历史管理
+ * Main features:
+ * - Assistant mode activation/deactivation
+ * - Assistant team initialization
+ * - System prompt extension
+ * - Session history management
  *
  * gated by feature('KAIROS')
  */

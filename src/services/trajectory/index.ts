@@ -1,7 +1,7 @@
-// D1 轨迹飞轮 — 模块统一出口 (issue #50/#51)
+// D1 trajectory flywheel — unified module export (issue #50/#51)
 
-// insight-0902 E1: SessionEnd 自动轨迹收集 — 训练飞轮自动闭环。
-// 通过 barrel 暴露 (audit 1.1.3 Phase B 层级规则)。
+// insight-0902 E1: SessionEnd automatic trajectory collection — closes the training flywheel loop automatically.
+// Exposed via barrel (audit 1.1.3 Phase B layering rules).
 export {
 	autoCollectTrajectoryOnSessionEnd,
 	isTrajectoryAutoCollectEnabled,

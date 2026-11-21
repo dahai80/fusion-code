@@ -1,7 +1,7 @@
-// audit 1.1.1 slice #32: executeImmediateCommand inline-async 外移 (INLINE-ASYNC-IIFE).
-// onSubmit 内 immediate-command 分支: onDone 回调 + context 构建 + mod.call + setToolJSX 路由。
-// 闭包依赖经 ctx 传入 (setters/refs/funcs/command), 导入型 helper 直接 import, 行为字节等价。
-// 无 JSX 生成 (jsx 返回值仅路由到 setToolJSX), 无 hook, void 返回 (onSubmit 内 void 调用)。
+// audit 1.1.1 slice #32: executeImmediateCommand inline-async extracted (INLINE-ASYNC-IIFE).
+// immediate-command branch inside onSubmit: onDone callback + context build + mod.call + setToolJSX routing.
+// Closure deps passed via ctx (setters/refs/funcs/command), imported helpers imported directly, byte-equivalent behavior.
+// No JSX generated (the jsx return value is only routed into setToolJSX), no hook, returns void (void call inside onSubmit).
 
 import type { MutableRefObject, SetStateAction } from "react";
 import { type CommandResultDisplay, getCommandName } from "../commands.js";

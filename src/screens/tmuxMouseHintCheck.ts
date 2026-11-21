@@ -1,10 +1,10 @@
-// audit 1.1.1 slice #51: tmux mouse-off one-time hint useEffect body 外移 (PURE-ROUTING-SUB-BLOCK, like #27/#28/#35/#41-#50)。
-// REPL() mount-once: isFullscreenEnvEnabled() → maybeGetTmuxMouseHint() async → 若有 hint 则 addNotification({key:"tmux-mouse-hint", text:hint, priority:"low"})。
-// 不再 mutate tmux session-scoped mouse option (poison sibling panes); tmux 用户已知此 tradeoff。
-// 原 useEffect body。addNotification (deps 触发器) 经 ctx 传入 (闭包捕获), 行为字节等价。
-// useEffect() hook 留 REPL 薄壳 (hook 规则, 不能移 plain helper), 仅 effect body 移出; deps [] 不变 (mount-once, eslint-disable-next-line react-hooks/exhaustive-deps 保留)。
-// isFullscreenEnvEnabled + maybeGetTmuxMouseHint (utils/fullscreen) 直接 import (非 REPL state, per imported-helpers-directly rule; isFullscreenEnvEnabled REPL 多用保留 REPL import, maybeGetTmuxMouseHint REPL 单用提取后 REPL import 移除)。
-// 无 JSX → .ts。返 Promise<void> (REPL 薄壳 useEffect 透传, 无 cleanup)。
+// audit 1.1.1 slice #51: tmux mouse-off one-time hint useEffect body extracted (PURE-ROUTING-SUB-BLOCK, like #27/#28/#35/#41-#50).
+// REPL() mount-once: isFullscreenEnvEnabled() → maybeGetTmuxMouseHint() async → if a hint exists, addNotification({key:"tmux-mouse-hint", text:hint, priority:"low"}).
+// No longer mutates the tmux session-scoped mouse option (poisons sibling panes); tmux users already know this tradeoff.
+// Original useEffect body. addNotification (deps trigger) passed via ctx (closure capture), byte-equivalent behavior.
+// The useEffect() hook stays as a REPL thin shell (hook rules, cannot move to a plain helper); only the effect body moves out; deps [] unchanged (mount-once, eslint-disable-next-line react-hooks/exhaustive-deps kept).
+// isFullscreenEnvEnabled + maybeGetTmuxMouseHint (utils/fullscreen) imported directly (not REPL state, per imported-helpers-directly rule; isFullscreenEnvEnabled used multiple times in REPL, REPL import kept; maybeGetTmuxMouseHint single use in REPL, REPL import removed after extraction).
+// No JSX → .ts. Returns Promise<void> (REPL thin-shell useEffect pass-through, no cleanup).
 
 import type { Notification } from "../context/notifications.js";
 import {
@@ -16,7 +16,7 @@ type TmuxMouseHintCheckCtx = {
 	addNotification: (content: Notification) => void;
 };
 
-// REPL 保留 useEffect 薄壳:
+// REPL keeps the useEffect thin shell:
 //   useEffect(() => { void maybeShowTmuxMouseHint({ addNotification }); // eslint-disable-next-line react-hooks/exhaustive-deps }, []);
 export async function maybeShowTmuxMouseHint(
 	ctx: TmuxMouseHintCheckCtx,

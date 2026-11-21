@@ -1,13 +1,13 @@
-// audit 1.1.1: 从 REPL.tsx 抽出的消息显示状态推导。纯函数, 无 React, 无副作用。
-// 3 个 derive 链式相依: usesSyncMessages → displayedMessages → placeholderText。
-// REPL 保留 useDeferredValue(messages) 与 ref 声明, 仅把纯计算外移。
-// deps 全部经入参传入, 输出与原内联块字节等价。
+// audit 1.1.1: message display state derivation extracted from REPL.tsx. Pure functions, no React, no side effects.
+// The 3 derives are chained: usesSyncMessages → displayedMessages → placeholderText.
+// REPL keeps useDeferredValue(messages) and the ref declarations; only the pure computation moves out.
+// All deps arrive via parameters; output is byte-equivalent to the original inline block.
 
 import type { InProcessTeammateTaskState } from "../tasks/InProcessTeammateTask/types.js";
 import type { LocalAgentTaskState } from "../tasks/LocalAgentTask/LocalAgentTask.js";
 import type { Message } from "../types/message.js";
 
-// viewedAgentTask 联合 (PR #172 selector 输出) — 两态都有可选 messages。
+// viewedAgentTask union (PR #172 selector output) — both states carry optional messages.
 export type ViewedAgentTaskLike =
 	| InProcessTeammateTaskState
 	| LocalAgentTaskState
@@ -29,8 +29,8 @@ export type MessageDisplayState = {
 	placeholderText: string | undefined;
 };
 
-// usesSyncMessages: 流式文本可见或非 loading 时绕过 useDeferredValue,
-// 让 Messages 同帧渲染最终消息 (消除 spinner 消失与答案出现之间的抖动)。
+// usesSyncMessages: when streaming text is visible or not loading, bypass useDeferredValue
+// so Messages renders the final messages in the same frame (removes the flicker between spinner disappearance and answer appearance).
 export function deriveUsesSyncMessages(
 	showStreamingText: boolean,
 	isLoading: boolean,
@@ -38,9 +38,9 @@ export function deriveUsesSyncMessages(
 	return showStreamingText || !isLoading;
 }
 
-// displayedMessages: 查看 agent 时用 task 自有消息 (空直到 bootstrap 填充);
-// 否则按 usesSyncMessages 在同步 messages 与 deferredMessages 间切换。
-// 返回原数组引用 (不拷贝), 保持下游 ref-identity (Messages memo / length 检查)。
+// displayedMessages: when viewing an agent, use the task's own messages (empty until bootstrap fills them);
+// otherwise switch between synchronous messages and deferredMessages per usesSyncMessages.
+// Returns the original array reference (no copy) to preserve downstream ref-identity (Messages memo / length checks).
 export function deriveDisplayedMessages(
 	viewedAgentTask: ViewedAgentTaskLike,
 	usesSyncMessages: boolean,
@@ -54,10 +54,10 @@ export function deriveDisplayedMessages(
 			: deferredMessages;
 }
 
-// placeholderText: 用户提交后真实消息出现前显示输入文本占位。
-// userInputOnProcessing 整 turn 保持 (resetLoadingState 清除); 长度判断在
-// displayedMessages 超过提交时基线后隐藏占位。查看 agent 时抑制 (不同数组,
-// onAgentSubmit 不用占位)。
+// placeholderText: shows the typed text as a placeholder after submission until the real message appears.
+// userInputOnProcessing persists for the whole turn (cleared by resetLoadingState); the length check hides
+// the placeholder once displayedMessages exceeds the baseline captured at submission. Suppressed while
+// viewing an agent (different array; onAgentSubmit does not use the placeholder).
 export function derivePlaceholderText(
 	userInputOnProcessing: string | undefined,
 	viewedAgentTask: ViewedAgentTaskLike,
@@ -71,8 +71,8 @@ export function derivePlaceholderText(
 		: undefined;
 }
 
-// 一次性聚合: 输入原始显示状态, 输出全部 3 个 derive。
-// REPL 调用一次, 绑定到同名 const, 下游读取不变 (字节等价)。
+// One-shot aggregation: takes the raw display state as input, outputs all 3 derives.
+// REPL calls it once and binds to same-named consts; downstream reads are unchanged (byte-equivalent).
 export function deriveMessageDisplayState(
 	input: MessageDisplayInput,
 ): MessageDisplayState {

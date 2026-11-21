@@ -1,11 +1,12 @@
-// audit 1.4.3 / 2.1.2 (HIGH): 无 reaper, 无 TTL。卡死/失控的后台 agent +
-// workflow 永占 MLX 内存只增不减直至 OOM。此模块周期扫描 AppState.tasks,
-// reap 超过 TTL 仍 running 的任务 (调 stopTask 走真实 kill 路径)。
+// audit 1.4.3 / 2.1.2 (HIGH): no reaper, no TTL. Stuck/runaway background agents +
+// workflows hold MLX memory forever with no release until OOM. This module periodically
+// scans AppState.tasks and reaps tasks still running past the TTL (calling stopTask to take
+// the real kill path).
 //
-// 默认 OFF: FUSION_CODE_TASK_REAPER_ENABLED 未设 → startTaskReaper no-op,
-// byte-identical 旧行为。FUSION_CODE_TASK_TTL_MS 默认 30min。
+// default OFF: FUSION_CODE_TASK_REAPER_ENABLED unset → startTaskReaper is a no-op,
+// byte-identical to the old behavior. FUSION_CODE_TASK_TTL_MS defaults to 30min.
 //
-// 模式同 sessionActivity.ts: 模块级 singleton timer + start/stop + registerCleanup。
+// Same pattern as sessionActivity.ts: module-level singleton timer + start/stop + registerCleanup.
 
 import type { AppState } from "../../state/AppState.js";
 import { killAllActive, stopTask } from "../../tasks/stopTask.js";
@@ -13,7 +14,7 @@ import { registerCleanup } from "../../utils/cleanupRegistry.js";
 import { logForDebugging } from "../../utils/debug.js";
 import { isEnvTruthy } from "../../utils/envUtils.js";
 
-// stopTask 的 context 形状 (StopTaskContext 未导出, 此处内联)。
+// The context shape stopTask expects (StopTaskContext is not exported, inlined here).
 type ReapTaskContext = {
 	getAppState: () => AppState;
 	setAppState: (f: (prev: AppState) => AppState) => void;
@@ -26,7 +27,7 @@ let reaperTimer: ReturnType<typeof setInterval> | null = null;
 let cleanupRegistered = false;
 let killCleanupRegistered = false;
 
-// 注入的 store 访问器 (REPL mount 时注入)。stopTask 需要 StopTaskContext。
+// Injected store accessors (injected at REPL mount). stopTask needs a StopTaskContext.
 let injectedGetAppState: (() => AppState) | null = null;
 let injectedSetAppState: ((f: (prev: AppState) => AppState) => void) | null =
 	null;
@@ -54,8 +55,8 @@ function reaperIntervalMs(): number {
 	return Math.floor(parsed);
 }
 
-// 周期扫描: 找出 running 且 startTime 距今 > TTL 的任务, stopTask reap。
-// terminalStatuses 与 stopTask.killAllActive 一致 (stopTask 内部再校验 running)。
+// Periodic scan: find tasks still running whose startTime is older than the TTL, reap via stopTask.
+// terminalStatuses matches stopTask.killAllActive (stopTask re-validates running internally).
 const TERMINAL_STATUSES = new Set([
 	"completed",
 	"failed",
@@ -96,25 +97,26 @@ async function reapOnce(): Promise<void> {
 	}
 }
 
-// 启动 reaper。REPL mount 时调一次, 注入 store 访问器。env off → no-op。
+// Start the reaper. Called once at REPL mount, injecting the store accessors. env off → no-op.
 export function startTaskReaper(accessors: {
 	getAppState: () => AppState;
 	setAppState: (f: (prev: AppState) => AppState) => void;
 }): () => void {
 	injectedGetAppState = accessors.getAppState;
 	injectedSetAppState = accessors.setAppState;
-	// audit 0905 P0-A (zombie leak): 进程退出时 kill 所有 running 后台 task。
-	// 旧实现: gracefulShutdown 只跑 runCleanupFunctions, 各 task 自己的 registerCleanup
-	// 仅从 state 删条目 (setAppState delete), 不调 taskImpl.kill → 子进程被 init 收养
-	// 成 zombie, 永占 MLX 内存/FD/worktree 锁。此 cleanup 走 killAllActive 真实 kill 路径。
-	// 不受 FUSION_CODE_TASK_REAPER_ENABLED 门控 (reaper 周期扫描是可选优化; 退出 kill 是
-	// 必需清理)。byte-safe: 无注入 accessor (headless/-p, 无 task) 或无 running task → no-op。
-	// FUSION_CODE_TASK_KILL_ON_SHUTDOWN=0 可显式禁用 (兼容旧无 kill 行为)。
+	// audit 0905 P0-A (zombie leak): kill all running background tasks on process exit.
+	// Old implementation: gracefulShutdown only ran runCleanupFunctions; each task's own registerCleanup
+	// only removed its state entry (setAppState delete) without calling taskImpl.kill → the child process
+	// was adopted by init as a zombie, holding MLX memory/FDs/worktree locks forever. This cleanup takes
+	// killAllActive's real kill path.
+	// Not gated by FUSION_CODE_TASK_REAPER_ENABLED (periodic reaping is an optional optimization; exit-time
+	// kills are required cleanup). byte-safe: no injected accessors (headless/-p, no tasks) or no running tasks → no-op.
+	// FUSION_CODE_TASK_KILL_ON_SHUTDOWN=0 explicitly disables this (compat with the old no-kill behavior).
 	if (!killCleanupRegistered) {
 		killCleanupRegistered = true;
 		registerCleanup(async () => {
 			// default-on: killAllActive only acts when accessors + running tasks exist.
-			// FUSION_CODE_TASK_KILL_ON_SHUTDOWN=0 显式禁用 (兼容旧无 kill 行为)。
+			// FUSION_CODE_TASK_KILL_ON_SHUTDOWN=0 explicitly disables this (compat with the old no-kill behavior).
 			if (
 				process.env.FUSION_CODE_TASK_KILL_ON_SHUTDOWN === "0" ||
 				!injectedGetAppState ||

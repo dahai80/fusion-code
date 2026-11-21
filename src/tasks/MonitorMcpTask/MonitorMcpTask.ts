@@ -1,5 +1,5 @@
-// MCP 工具自动后台化 (item 4): 慢 MCP 调用超过 FUSION_MCP_AUTO_BACKGROUND_MS
-// 转后台 task, REPL 不阻塞。spawn/kill/notify 由 client.ts call() 触发。
+// MCP tool auto-backgrounding (item 4): slow MCP calls exceeding FUSION_MCP_AUTO_BACKGROUND_MS
+// move to a background task so the REPL does not block. spawn/kill/notify are triggered by client.ts call().
 import {
 	OUTPUT_FILE_TAG,
 	STATUS_TAG,
@@ -33,8 +33,8 @@ export type MonitorMcpTaskState = TaskStateBase & {
 	isBackgrounded?: boolean;
 };
 
-// 生成后台 MCP task 并注册到 AppState。返回 taskId + abortController,
-// 调用方在背景调用上挂 controller.signal, turn-abort 时可 kill。
+// Spawn a background MCP task and register it in AppState. Returns taskId + abortController;
+// the caller attaches controller.signal to the background call so it can be killed on turn-abort.
 export function spawnMonitorMcpTask(
 	serverName: string,
 	toolName: string,
@@ -61,8 +61,8 @@ export function spawnMonitorMcpTask(
 	return { taskId, abortController };
 }
 
-// 后台 MCP 调用完成时通知模型 (复用 LocalShellTask task-notification 模式)。
-// 原子 notified 防重复, 写输出文件, 入队通知, 标 completed, evict。
+// Notify the model when a background MCP call completes (reuses the LocalShellTask task-notification pattern).
+// Atomic notified flag prevents duplicates; writes the output file, enqueues the notification, marks completed, evicts.
 export function notifyMonitorMcpTaskDone(
 	taskId: string,
 	serverName: string,

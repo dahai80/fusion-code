@@ -1,8 +1,8 @@
 /**
- * KAIROS Gate — 助理模式门控
+ * KAIROS Gate — assistant mode gating
  *
- * 控制助理模式的启用/禁用状态。
- * 通过 GrowthBook 特性标志和环境变量进行门控。
+ * Controls the enabled/disabled state of assistant mode.
+ * Gated via GrowthBook feature flags and environment variables.
  *
  * gated by feature('KAIROS')
  */

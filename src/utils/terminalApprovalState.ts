@@ -1,13 +1,13 @@
-// audit 1.1.1: 从 REPL.tsx 抽出的 terminal/approval 状态推导。纯函数, 无 React, 无副作用。
-// 5 个 derive 链式相依: isWaitingForApproval → isShowingLocalJSXCommand →
-// titleIsAnimating → sessionStatus → waitingFor。REPL 保留 hook (useState/useEffect)
-// 与 setHaikuTitle/haikuTitleAttemptedRef, 仅把纯计算外移。
-// deps 全部经入参传入, 输出与原内联块字节等价。
+// audit 1.1.1: terminal/approval state derivation extracted from REPL.tsx. Pure functions, no React, no side effects.
+// 5 derives chained dependently: isWaitingForApproval -> isShowingLocalJSXCommand ->
+// titleIsAnimating -> sessionStatus -> waitingFor. REPL keeps the hooks (useState/useEffect)
+// and setHaikuTitle/haikuTitleAttemptedRef; only the pure computation is moved out.
+// All deps passed in via parameters; output is byte-equivalent to the original inline block.
 
 import type { ToolUseConfirm } from "../components/permissions/PermissionRequest.js";
 import type { TabStatusKind } from "../ink/hooks/use-tab-status.js";
 
-// toolJSX 的本地 JSX 命令判别用 shape — 只读 isLocalJSXCommand + jsx。
+// Shape for the local JSX command discrimination of toolJSX — only reads isLocalJSXCommand + jsx.
 type ToolJsxLike = {
 	isLocalJSXCommand?: boolean;
 	jsx: React.ReactNode | null;
@@ -30,7 +30,7 @@ export type TerminalApprovalState = {
 	waitingFor: string | undefined;
 };
 
-// isWaitingForApproval: 任一队列非空或 pending 请求存在。
+// isWaitingForApproval: any queue non-empty or a pending request exists.
 export function deriveIsWaitingForApproval(
 	input: TerminalApprovalInput,
 ): boolean {
@@ -42,15 +42,15 @@ export function deriveIsWaitingForApproval(
 	);
 }
 
-// isShowingLocalJSXCommand: 本地 JSX 命令弹窗在等待输入。要求 jsx != null —— 若
-// flag 卡在 true 但 jsx 为 null, 视为未显示, 避免 TextInput focus 与队列处理器
-// 被幻影 overlay 死锁。
+// isShowingLocalJSXCommand: the local JSX command dialog is waiting for input. Requires jsx != null — if the
+// flag is stuck at true but jsx is null, treat it as not shown, preventing TextInput focus and the queue handler
+// from being deadlocked by a phantom overlay.
 export function deriveIsShowingLocalJSXCommand(toolJSX: ToolJsxLike): boolean {
 	return toolJSX?.isLocalJSXCommand === true && toolJSX?.jsx != null;
 }
 
-// 一次性聚合: 输入原始队列/请求/toolJSX/isLoading, 输出全部 5 个 derive。
-// REPL 调用一次, 绑定到同名的 const, 下游读取不变 (字节等价)。
+// One-shot aggregation: takes the raw queues/requests/toolJSX/isLoading, outputs all 5 derives.
+// REPL calls it once, binds to the same-name const, downstream reads unchanged (byte-equivalent).
 export function deriveTerminalApprovalState(
 	input: TerminalApprovalInput,
 ): TerminalApprovalState {

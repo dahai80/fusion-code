@@ -1,10 +1,17 @@
-// P1.2 (audit): 影子价压缩 — 工具结果代价模型 + 选择性裁剪。
-// 影子价 = token 大小 (越大越值得裁) + 引用频次 (越少越值得裁) + 时近性 (越旧越值得裁)。
-// 朴素 head/tail 截断改选择性裁: 高价结果截断, 低价结果保留原样 → 可复用前缀边界更长。
-// 配 #2 直接服务 MLX KV-cache 复用 (压缩后缀, 保前缀)。
+// P1.2 (audit): shadow-price compaction — cost model for tool results +
+// selective pruning.
+// Shadow price = token size (bigger = more worth pruning) + reference
+// frequency (fewer references = more worth pruning) + recency (older = more
+// worth pruning).
+// Naive head/tail truncation becomes selective pruning: high-price results
+// get truncated, low-price results stay intact -> longer reusable prefix
+// boundary.
+// Together with #2 this directly serves MLX KV-cache reuse (compress the
+// suffix, keep the prefix).
 //
-// default-off (FUSION_CODE_SHADOW_PRICE_COMPACT=1)。off = hardCompact 走原 head/tail 路径, byte-identical。
-// 纯函数 (无副作用, 无 IO), 可单测。
+// default-off (FUSION_CODE_SHADOW_PRICE_COMPACT=1). Off = hardCompact takes
+// the original head/tail path, byte-identical.
+// Pure function (no side effects, no IO), unit-testable.
 
 import type {
 	AssistantMessage,
@@ -26,19 +33,23 @@ import {
 	truncateToolResultContent,
 } from "./hardCompact.js";
 
-// 开关。off = 调用方走原 head/tail 路径 (byte-identical)。
+// Switch. Off = caller takes the original head/tail path (byte-identical).
 export function isShadowPriceCompactEnabled(): boolean {
 	return isEnvTruthy(process.env.FUSION_CODE_SHADOW_PRICE_COMPACT);
 }
 
-// 影子价权重 — 大小主导 (省 token 是首要目标), 频次/时近性次之。
+// Shadow-price weights — size dominates (saving tokens is the primary
+// goal), frequency/recency secondary.
 const WEIGHT_SIZE = 0.6;
 const WEIGHT_FREQ = 0.2;
 const WEIGHT_RECENCY = 0.2;
 
-// 影子价分。越高越值得裁 (省空间多, 被引用少, 越旧)。
-// sizeTokens: 该结果 token 估算; refCount: 被后续 assistant 消息引用次数;
-// roundIndex: 所在 round 索引; totalRounds: round 总数; recentBoost: 近期轮权重。
+// Shadow-price score. Higher = more worth pruning (saves more space, fewer
+// references, older).
+// sizeTokens: token estimate for this result; refCount: number of references
+// from later assistant messages;
+// roundIndex: index of the containing round; totalRounds: total rounds;
+// recentBoost: recent-round weight.
 export interface ShadowPriceInputs {
 	sizeTokens: number;
 	refCount: number;
@@ -48,11 +59,14 @@ export interface ShadowPriceInputs {
 
 export function computeShadowPrice(inputs: ShadowPriceInputs): number {
 	const { sizeTokens, refCount, roundIndex, totalRounds } = inputs;
-	// size 分量: 归一化 (假设单结果上限 ~32K token, /1000 做 0..~32 区间)。
+	// size component: normalized (assumes a per-result cap of ~32K tokens,
+	// /1000 maps to a 0..~32 range).
 	const sizeScore = Math.min(sizeTokens / 1000, 32);
-	// freq 分量: 引用越多越保 (代价降)。无引用 = 1.0 满代价; 10+ 引用 ≈ 0。
+	// freq component: more references = more preserved (cost drops). Zero
+	// references = 1.0 full cost; 10+ references ≈ 0.
 	const freqScore = 1 / (1 + refCount);
-	// recency 分量: round 索引越小越旧 → 越值得裁。归一化 [0,1]。
+	// recency component: smaller round index = older -> more worth pruning.
+	// Normalized to [0,1].
 	const recencyScore =
 		totalRounds <= 1 ? 1 : 1 - roundIndex / (totalRounds - 1);
 	const price =
@@ -62,7 +76,7 @@ export function computeShadowPrice(inputs: ShadowPriceInputs): number {
 	return price;
 }
 
-// 工具结果 token 估算 (字符 / 4)。
+// Tool-result token estimate (chars / 4).
 function estimateToolResultTokens(
 	content: string | Array<Record<string, unknown>> | undefined,
 ): number {
@@ -81,7 +95,7 @@ function estimateToolResultTokens(
 	return Math.ceil(chars / CHARS_PER_TOKEN_ESTIMATE);
 }
 
-// 候选: 一条可裁工具结果 + 其影子价。
+// Candidate: one prunable tool result + its shadow price.
 export interface PruneCandidate {
 	roundIndex: number;
 	messageIndex: number;
@@ -90,8 +104,10 @@ export interface PruneCandidate {
 	sizeTokens: number;
 }
 
-// 扫描 messages, 对每条旧 round 的工具结果算影子价, 返回候选列表 (降序)。
-// 近期 keepRecentRounds 轮不裁 (与原 hardCompact 一致)。
+// Scan messages, compute the shadow price for every tool result in old
+// rounds, return the candidate list (descending).
+// The most recent keepRecentRounds rounds are never pruned (consistent with
+// the original hardCompact).
 export function collectShadowPriceCandidates(
 	messages: Message[],
 	keepRecentRounds: number,
@@ -102,7 +118,8 @@ export function collectShadowPriceCandidates(
 	const roundsToProcess = totalRounds - roundsKeptIntact;
 	if (roundsToProcess <= 0) return [];
 
-	// 先 seed 引用表 (所有 tool_use_id 初始 0), 再扫 assistant 文本累计。
+	// First seed the reference table (all tool_use_id start at 0), then scan
+	// assistant text to accumulate counts.
 	const refMap = new Map<string, number>();
 	for (const msg of messages) {
 		if (msg.type !== "user") continue;
@@ -159,12 +176,12 @@ export function collectShadowPriceCandidates(
 			}
 		}
 	}
-	// 降序: 高价优先裁。
+	// Descending: high price pruned first.
 	candidates.sort((a, b) => b.shadowPrice - a.shadowPrice);
 	return candidates;
 }
 
-// 影子价裁剪结果。
+// Shadow-price pruning result.
 export interface ShadowPriceCompactResult {
 	messages: Message[];
 	truncatedToolResults: number;
@@ -174,14 +191,17 @@ export interface ShadowPriceCompactResult {
 	preCompactTokens: number;
 	postCompactTokens: number;
 	prunedCandidateCount: number;
-	// insight-0902 E3: 候选评分表 (降序), 供 /diff-compaction 审计展示。
+	// insight-0902 E3: candidate score table (descending), for /diff-compaction audit display.
 	candidates: PruneCandidate[];
 	priceThreshold: number;
 }
 
-// 选择性影子价裁剪。仅裁高价工具结果 (高于阈值), 低价保留原样 → 可复用前缀更长。
-// assistant 文本沿用原 hardCompact 策略 (超阈值截断)。
-// keepRecentRounds: 近期保留轮数; priceThreshold: 高于此价才裁 (默认 2.0)。
+// Selective shadow-price pruning. Only high-price tool results (above the
+// threshold) get pruned; low-price ones stay intact -> longer reusable prefix.
+// Assistant text follows the original hardCompact strategy (truncate above
+// threshold).
+// keepRecentRounds: number of recent rounds to keep; priceThreshold: prune
+// only above this price (default 2.0).
 export function shadowPriceCompactMessages(
 	messages: Message[],
 	keepRecentRounds: number = 3,
@@ -214,7 +234,7 @@ export function shadowPriceCompactMessages(
 	}
 
 	const candidates = collectShadowPriceCandidates(messages, keepRecentRounds);
-	// 高价集合 (要裁): toolUseId → price。
+	// High-price set (to prune): toolUseId -> price.
 	const pruneSet = new Map<string, number>();
 	let prunedCandidateCount = 0;
 	for (const c of candidates) {
@@ -245,7 +265,7 @@ export function shadowPriceCompactMessages(
 						if (!block || typeof block !== "object") return block;
 						if (block.type !== "tool_result") return block;
 						const toolUseId = (block as { tool_use_id?: string }).tool_use_id;
-						// 仅高价候选裁; 低价原样保留。
+						// Only high-price candidates get pruned; low-price ones stay intact.
 						if (!toolUseId || !pruneSet.has(toolUseId)) return block;
 						const originalContent = (block as { content?: unknown }).content as
 							| string
@@ -315,11 +335,15 @@ export function shadowPriceCompactMessages(
 		}
 	}
 
-	// 无 mutation → 返回原数组引用 (no-op 契约: 调用方可安全 === 判等)。
-	// 有 mutation → 返回新数组。选择性裁剪保留未被触及的前缀 → 可复用前缀更长。
-	// P2-2 (audit 0901): 移除 prefixBoundaryIndex 字段 — 下游无 cache_control
-	// breakpoint 消费方 (hardCompact/QueryEngine 不按索引打 cache_control), 算了就丢。
-	// 删字段 (YAGNI, Rule 2) 避免误导。可复用前缀由选择性裁剪本身保证, 非显式标记。
+	// No mutation -> return the original array reference (no-op contract:
+	// callers can safely compare with ===).
+	// With mutation -> return a new array. Selective pruning preserves the
+	// untouched prefix -> longer reusable prefix.
+	// P2-2 (audit 0901): drop the prefixBoundaryIndex field — no downstream
+	// cache_control breakpoint consumer exists (hardCompact/QueryEngine don't
+	// set cache_control by index), so it was dropped.
+	// Deleting the field (YAGNI, Rule 2) avoids confusion. The reusable prefix
+	// is guaranteed by selective pruning itself, not by an explicit marker.
 	const finalMessages = firstMutatedIndex === -1 ? messages : result;
 	const postCompactTokens = roughTokenCountEstimationForMessages(
 		finalMessages as Parameters<typeof roughTokenCountEstimationForMessages>[0],
@@ -345,5 +369,6 @@ export function shadowPriceCompactMessages(
 	};
 }
 
-// 复用 hardCompact 常量入口 (避免重复定义; 改 hardCompact 时改一处)。
+// Re-export hardCompact constant entry point (avoids duplicate definitions;
+// change one place when hardCompact changes).
 export { TOOL_RESULT_HEAD_CHARS, TOOL_RESULT_TAIL_CHARS, truncateString };

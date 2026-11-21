@@ -1484,14 +1484,14 @@ export function parseMcpConfigFromFilePath(params: {
 	});
 }
 
-// audit 1.3.2: 企业 MCP 配置永久 memoize 无失效 — 管理员滚动更新后已运行进程永不
-// 感知, 安全策略/工具白名单静默漂移。改 mtime-aware 缓存: 比对文件 mtime, 变更则
-// 重算。lodash memoize 永久缓存无 .cache.clear 调用点 (自验 grep 0 命中), 故替换。
-// 注: stat 失败 (文件删除/不存在) 视为 mtime=0, 不阻塞 — 仅触发重算 (config=null 路径)。
+// audit 1.3.2: enterprise MCP config permanently memoized with no invalidation — after an admin rolling update, running
+// processes never notice, and security policy/tool allowlists drift silently. Switched to an mtime-aware cache: compare the
+// file mtime, recompute on change. lodash memoize permanent cache has no .cache.clear call sites (self-verified via grep, 0 hits), hence replaced.
+// Note: stat failure (file deleted/absent) is treated as mtime=0, non-blocking — only triggers a recompute (config=null path).
 let _enterpriseMcpCachedMtimeMs = -1;
 let _enterpriseMcpCachedResult: boolean | null = null;
 
-// 纯函数: 判定是否需要重算 (mtime 变化或首查)。抽出便于单测, 不耦合磁盘/环境。
+// Pure function: decides whether a recompute is needed (mtime changed or first lookup). Extracted for unit testing, decoupled from disk/env.
 export function shouldRefreshEnterpriseMcpCache(
 	mtimeMs: number,
 	cachedMtimeMs: number,
@@ -1505,7 +1505,7 @@ export function doesEnterpriseMcpConfigExist(): boolean {
 	const filePath = getEnterpriseMcpFilePath();
 	let mtimeMs = 0;
 	try {
-		// stat 同步包装: 该函数在多处同步调用点使用 (config.ts:653/1089/1283), 保持同步签名。
+		// Sync stat wrapper: this function is used at several sync call sites (config.ts:653/1089/1283), keep the sync signature.
 		// eslint-disable-next-line @typescript-eslint/no-require-imports
 		const { statSync } = require("node:fs") as typeof import("node:fs");
 		mtimeMs = statSync(filePath).mtimeMs;
@@ -1537,7 +1537,7 @@ export function doesEnterpriseMcpConfigExist(): boolean {
 	return result;
 }
 
-// 测试用: 重置模块级缓存 (避免用例间污染)。仅 __tests__ 引用。
+// Test-only: reset the module-level cache (avoids cross-test pollution). Referenced only by __tests__.
 export function _resetEnterpriseMcpCacheForTest(): void {
 	_enterpriseMcpCachedMtimeMs = -1;
 	_enterpriseMcpCachedResult = null;

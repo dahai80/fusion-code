@@ -1,20 +1,20 @@
-// audit 1.1.1: 从 REPL.tsx 抽出的 composedOnScroll 包装纯路由。无 React hooks,
-// 无 JSX, 无 await。唯一副作用 = mutate lastUserScrollTsRef.current + 调用 3 个
-// 回调 + setAppState (与原 useCallback 体一致)。
-// 语义: 用户滚动时打时间戳; sticky→onRepin (重新钉底); 非sticky→onScrollAway +
-//   (KAIROS) maybeLoadOlder 懒加载历史 + (BUDDY) 滚动时清除 companionReaction 气泡
-//   (absolute 定位覆盖 transcript, 滚动=用户想读下方内容)。
-// feature("KAIROS")/feature("BUDDY") = bun:bundle 编译期 DCE 宏 (字面量参数, 任何
-//   文件均可, 既有 utils 多处使用)。非 KAIROS/BUDDY 构建分支被 DCE 消除。
-// 原 useCallback deps = [onRepin, onScrollAway, maybeLoadOlder, setAppState]
-//   (feature() 是编译宏不在 deps); REPL 保留薄包装, 下游读取同名 const (字节等价)。
+// audit 1.1.1: composedOnScroll wrapper extracted from REPL.tsx, pure routing. No React hooks,
+// no JSX, no await. Only side effects = mutate lastUserScrollTsRef.current + call the 3
+// callbacks + setAppState (identical to the original useCallback body).
+// Semantics: timestamp on user scroll; sticky→onRepin (re-pin to bottom); non-sticky→onScrollAway +
+//   (KAIROS) maybeLoadOlder lazy-loads history + (BUDDY) clears the companionReaction bubble on scroll
+//   (absolute positioning covers the transcript; scrolling = the user wants to read content below).
+// feature("KAIROS")/feature("BUDDY") = bun:bundle compile-time DCE macros (literal arguments, usable
+//   in any file, already used in several utils). Non-KAIROS/BUDDY build branches are DCE'd away.
+// Original useCallback deps = [onRepin, onScrollAway, maybeLoadOlder, setAppState]
+//   (feature() is a compile macro and not in deps); REPL keeps the thin wrapper, downstream reads the same const (byte-equivalent).
 
 import { feature } from "bun:bundle";
 import type { ScrollBoxHandle } from "../ink/components/ScrollBox.js";
 import type { AppState } from "../state/AppStateStore.js";
 
-// setAppState = zustand store.setState, updater 接收 prev → 完整 AppState (REPL 展开写法)。
-// 仅清除 companionReaction 字段 (BUDDY 分支); undefined 时原样返回 prev (无变更)。
+// setAppState = zustand store.setState, updater receives prev → full AppState (REPL expanded form).
+// Only clears the companionReaction field (BUDDY branch); returns prev unchanged when undefined (no change).
 export type ComposedOnScrollSetters = {
 	lastUserScrollTsRef: { current: number };
 	onRepin: () => void;
@@ -24,8 +24,8 @@ export type ComposedOnScrollSetters = {
 };
 
 // Compose useUnseenDivider's callbacks with the lazy-load trigger + companion
-// bubble dismissal. 行为等价 REPL.tsx:1532-1556 useCallback 体。REPL 保留
-// useCallback 薄包装 (deps [onRepin, onScrollAway, maybeLoadOlder, setAppState] 不变)。
+// bubble dismissal. Behavior equivalent to the REPL.tsx:1532-1556 useCallback body. REPL keeps
+// the useCallback thin wrapper (deps [onRepin, onScrollAway, maybeLoadOlder, setAppState] unchanged).
 export function applyComposedOnScroll(
 	sticky: boolean,
 	handle: ScrollBoxHandle,

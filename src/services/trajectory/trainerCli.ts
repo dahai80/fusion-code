@@ -1,8 +1,8 @@
-// D1 轨迹飞轮 — fusion-trainer 子进程封装 (issue #61)
+// D1 trajectory flywheel — fusion-trainer subprocess wrapper (issue #61)
 //
-// 把 export 产出的 SFT/DPO/GRPO .jsonl 喂给 fusion-trainer CLI。
-// 二进制位置: opts.venvBin > FUSION_TRAINER_BIN > PATH 查找。
-// format → method 映射:
+// Feeds the SFT/DPO/GRPO .jsonl produced by export to the fusion-trainer CLI.
+// Binary resolution: opts.venvBin > FUSION_TRAINER_BIN > PATH lookup.
+// format → method mapping:
 //   sft  → fusion-trainer sft  --dataset <file>
 //   dpo  → fusion-trainer rlsl --method dpo  --dataset <file>
 //   grpo → fusion-trainer rlsl --method grpo --dataset <file>
@@ -26,10 +26,10 @@ export interface TrainerCliResult {
 	args: string[];
 }
 
-// 二进制解析优先级 (v4 审计 P1: 不再把个人机器的绝对路径写进默认值):
-// 1. opts.venvBin 显式参数
+// Binary resolution priority (v4 audit P1: no longer bakes a personal machine's absolute path into the default):
+// 1. explicit opts.venvBin argument
 // 2. FUSION_TRAINER_BIN env
-// 3. PATH 查找 "fusion-trainer"
+// 3. PATH lookup for "fusion-trainer"
 const DEFAULT_VENV_BIN = process.env.FUSION_TRAINER_BIN ?? "fusion-trainer";
 
 function log(msg: string): void {

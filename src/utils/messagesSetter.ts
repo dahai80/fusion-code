@@ -1,22 +1,22 @@
-// audit 1.1.1: 从 REPL.tsx 抽出的 setMessages 包装纯路由。无 React hooks, 无 JSX,
-// 无 await。唯一副作用 = mutate 3 个 ref.current + 调用 rawSetMessages (与原
-// useCallback 体一致)。
-// 语义: 维护 messagesRef (最新消息数组镜像, 闭包安全) + userInputBaselineRef/
-//   userMessagePendingRef (用户消息占位符基准)。回调体做三件事:
-//   (1) 计算 next (函数式 action 或直赋值), 同步 messagesRef.current;
-//   (2) 若 next 缩短 (compact/rewind/clear) → clamp baseline 为 0 (防占位符 stale);
-//   (3) 若 next 增长且 userMessagePending → 检查新增项是否含 human turn:
-//       含 → pending=false (用户消息已落地, 停止追踪); 不含 → bump baseline=next.length
-//       (异步 bridge/hook/scheduled 任务在用户消息前落地 → 占位符保持可见)。
-//   最后 rawSetMessages(next) 触发 React 重渲染。
-// 原 useCallback deps = [] (全部走 ref + rawSetMessages, 无闭包捕获)。REPL 保留薄包装,
-//   deps [] 不变 (helper 无 React); 下游读取同名 const (字节等价)。
+// audit 1.1.1: setMessages wrapping pure routing extracted from REPL.tsx. No React hooks, no JSX,
+// no await. The only side effects = mutate 3 ref.currents + call rawSetMessages (identical to the
+// original useCallback body).
+// Semantics: maintain messagesRef (mirror of the latest message array, closure-safe) + userInputBaselineRef/
+//   userMessagePendingRef (baseline for the user-message placeholder). The callback body does three things:
+//   (1) compute next (functional action or direct assignment), sync messagesRef.current;
+//   (2) if next shrank (compact/rewind/clear) -> clamp baseline to 0 (prevents a stale placeholder);
+//   (3) if next grew and userMessagePending -> check whether the added items contain a human turn:
+//       yes -> pending=false (user message landed, stop tracking); no -> bump baseline=next.length
+//       (async bridge/hook/scheduled tasks landing before the user message -> placeholder stays visible).
+//   Finally rawSetMessages(next) triggers the React re-render.
+// Original useCallback deps = [] (everything goes through refs + rawSetMessages, no closure captures). REPL keeps the thin wrapper,
+//   deps [] unchanged (helper has no React); downstream reads the same-name const (byte-equivalent).
 import type { Message as MessageType } from "../types/message.js";
 import { isHumanTurn } from "./messagePredicates.js";
 
-// 三个 ref 镜像 React state, 回调体内读写 (避免 stale closure)。
-// messagesRef: 最新 messages 数组; userInputBaselineRef: 占位符基准长度;
-//   userMessagePendingRef: 用户消息是否尚未落地。
+// Three refs mirror React state, read/written inside the callback body (avoids stale closure).
+// messagesRef: latest messages array; userInputBaselineRef: placeholder baseline length;
+//   userMessagePendingRef: whether the user message has not yet landed.
 export type MessagesSetterRefs = {
 	messagesRef: { current: MessageType[] };
 	userInputBaselineRef: { current: number };
@@ -27,8 +27,8 @@ export type MessagesSetterSetters = MessagesSetterRefs & {
 	rawSetMessages: (next: MessageType[]) => void;
 };
 
-// 行为等价 REPL.tsx:1431-1462 useCallback 体。REPL 保留 useCallback 薄包装
-// (deps [] 不变 — helper 无 React 依赖, 全部走 setters/ref)。
+// Behavior-equivalent to the REPL.tsx:1431-1462 useCallback body. REPL keeps a thin useCallback wrapper
+// (deps [] unchanged — the helper has no React dependency, everything goes through setters/refs).
 export function applySetMessages(
 	action: React.SetStateAction<MessageType[]>,
 	setters: MessagesSetterSetters,

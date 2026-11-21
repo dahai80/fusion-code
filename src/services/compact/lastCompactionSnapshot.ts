@@ -1,8 +1,8 @@
-// insight-0902 E3: 最近一次压缩快照 (session-scope 内存 side-channel)。
+// insight-0902 E3: snapshot of the most recent compaction (session-scope in-memory side-channel).
 //
-// 供 /diff-compaction 审计命令展示影子价裁剪候选评分表。
-// 仅内存, 进程内单例, 不持久化, 不参与压缩逻辑本身 (纯旁路记录)。
-// fail-open: 记录失败只记日志, 不影响压缩。
+// Consumed by the /diff-compaction audit command to display the shadow-price prune-candidate scoring table.
+// In-memory only, process-wide singleton, not persisted, does not participate in compaction logic itself (pure bypass recording).
+// fail-open: a recording failure is only logged and never affects compaction.
 
 import { logForDebugging } from "../../utils/debug.js";
 import type { PruneCandidate } from "./shadowPrice.js";
@@ -23,7 +23,7 @@ export interface CompactionSnapshot {
 
 let lastSnapshot: CompactionSnapshot | undefined;
 
-// 记录最近一次压缩快照。fail-open。
+// Record the most recent compaction snapshot. fail-open.
 export function recordCompactionSnapshot(snapshot: CompactionSnapshot): void {
 	try {
 		lastSnapshot = snapshot;

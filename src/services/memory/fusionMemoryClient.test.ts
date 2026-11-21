@@ -15,7 +15,7 @@ import {
 	retrieveContext,
 } from "./fusionMemoryClient.js";
 
-// env 全局 — 测试必须 snapshot/restore, 否则串扰
+// env is global — tests must snapshot/restore, otherwise cross-test leakage
 const ENV_KEYS = [
 	"FUSION_MEMORY_BASE_URL",
 	"FUSION_MEMORY_API_KEY",
@@ -42,7 +42,7 @@ function mockResponse(body: unknown, status = 200): Response {
 	});
 }
 
-// 捕获 fetch 调用参数 (url, headers, body) 供断言
+// Capture fetch call arguments (url, headers, body) for assertions
 interface FetchCall {
 	url: string;
 	method: string;
@@ -238,7 +238,7 @@ describe("fusionMemoryClient", () => {
 				total_tokens: 50,
 			});
 			expect(out).toContain("<fusion_memory_context>");
-			expect(out).toContain("[记忆 1]");
+			expect(out).toContain("[Memory 1]");
 			expect(out).toContain("80%");
 			expect(out).toContain("Semantic");
 			expect(out).toContain("fact A");
@@ -264,7 +264,7 @@ describe("fusionMemoryClient", () => {
 		});
 	});
 
-	// #219: fail-visible — 默认端口修复 + 探活状态机
+	// #219: fail-visible — default port fix + liveness state machine
 	describe("#219 memory pipeline fail-visible", () => {
 		let configDirSnap: string | undefined;
 		let tempConfigDir: string;
@@ -272,7 +272,8 @@ describe("fusionMemoryClient", () => {
 		beforeEach(() => {
 			resetMemoryPipelineStatusForTest();
 			configDirSnap = process.env.FUSION_CODE_CONFIG_DIR;
-			// audit 写入隔离到临时 config dir, 不污染真实 ~/.fusion-code
+			// isolate audit writes into a temp config dir, keeping the real
+			// ~/.fusion-code unpolluted
 			tempConfigDir = mkdtempSync(join(tmpdir(), "fm-client-test-"));
 			process.env.FUSION_CODE_CONFIG_DIR = tempConfigDir;
 		});

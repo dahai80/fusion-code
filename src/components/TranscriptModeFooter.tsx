@@ -1,6 +1,6 @@
-// audit 1.1.1: 从 REPL.tsx 抽出的叶组件 (god module 拆分起步)。
-// transcript 模式底栏, 动态键绑定提示。必须在 KeybindingSetup 内渲染。
-// React-Compiler 编译产物原样保留 ($ = _c() memo cache)。
+// audit 1.1.1: leaf component extracted from REPL.tsx (start of the god-module split).
+// Transcript mode footer, dynamic keybinding hints. Must render inside KeybindingSetup.
+// React-Compiler compiled output kept as-is ($ = _c() memo cache).
 
 import figures from "figures";
 import { c as _c } from "react/compiler-runtime";

@@ -1,7 +1,7 @@
 // log: fix TS2724 - McpbManifestAny not resolvable from @anthropic-ai/mcpb due to zod inference
-// biome-ignore lint/suspicious/noExplicitAny: vendored 清单 schema 经 zod 推断后类型不可解析, 用宽松记录占位
+// biome-ignore lint/suspicious/noExplicitAny: vendored manifest schema's zod-inferred type is unresolvable, use a loose record placeholder
 type McpbManifestAny = Record<string, any>;
-// biome-ignore lint/suspicious/noExplicitAny: vendored 清单 schema 经 zod 推断后类型不可解析, 用宽松记录占位
+// biome-ignore lint/suspicious/noExplicitAny: vendored manifest schema's zod-inferred type is unresolvable, use a loose record placeholder
 type McpbUserConfigurationOption = Record<string, any>;
 
 import { createHash } from "node:crypto";
@@ -431,7 +431,7 @@ async function generateMcpConfig(
 		"../../vendor/mcpb/shared/config.js"
 	);
 	const mcpConfig = await getMcpConfigForManifest({
-		// biome-ignore lint/suspicious/noExplicitAny: vendored McpbManifestAny 类型不可解析, 用宽松记录透传
+		// biome-ignore lint/suspicious/noExplicitAny: vendored McpbManifestAny type is unresolvable, pass through as a loose record
 		manifest: manifest as any,
 		extensionPath: extractedPath,
 		systemDirs: getSystemDirectories(),

@@ -1,9 +1,9 @@
-// audit 1.1.1 slice #40: suspend/resume event-sub useEffect body 外移 (full-useEffect-body-with-cleanup variant — 像 slice #21 inline-callback 但带 cleanup return)。
-// REPL() 监听 stdin internal_eventEmitter 的 suspend/resume: suspend→打印挂起提示到 stdout, resume→setRemountKey(prev+1) 强制全组件树 remount (替代 terminal clear)。
-// 原 useEffect body。internal_eventEmitter + setRemountKey 经 ctx 传入 (闭包捕获), 行为字节等价。
-// useStdin()/useState() hook 留 REPL 薄壳 (hook 规则, 不能移 plain helper), 仅 effect body 移出。
-// process.stdout 是全局, 无 import。无 JSX → .ts。返 () => void (REPL 薄壳 useEffect 透传 cleanup)。
-// internal_eventEmitter 类型 = Ink useStdin() 返回的 Node EventEmitter (StdinContext.d.ts)。
+// audit 1.1.1 slice #40: suspend/resume event-sub useEffect body extracted (full-useEffect-body-with-cleanup variant — like slice #21 inline-callback but with a cleanup return).
+// REPL() listens on stdin internal_eventEmitter for suspend/resume: suspend → print the suspension hint to stdout, resume → setRemountKey(prev+1) forces a full component-tree remount (replaces terminal clear).
+// Original useEffect body. internal_eventEmitter + setRemountKey passed via ctx (closure capture), byte-equivalent behavior.
+// The useStdin()/useState() hooks stay as a REPL thin shell (hook rules, cannot move to a plain helper); only the effect body moves out.
+// process.stdout is global, no import. No JSX → .ts. Returns () => void (REPL thin-shell useEffect pass-through cleanup).
+// internal_eventEmitter type = the Node EventEmitter returned by Ink useStdin() (StdinContext.d.ts).
 
 import type { EventEmitter } from "node:events";
 
@@ -12,11 +12,11 @@ type SuspendResumeListenerCtx = {
 	setRemountKey: (updater: (prev: number) => number) => void;
 };
 
-// REPL 保留 useEffect 薄壳:
+// REPL keeps the useEffect thin shell:
 //   const { internal_eventEmitter } = useStdin();
 //   const [remountKey, setRemountKey] = useState(0);
 //   useEffect(() => applySuspendResumeListener({ internal_eventEmitter, setRemountKey }), [internal_eventEmitter]);
-// deps [internal_eventEmitter] 不变 (setRemountKey 是 useState setter, 稳定引用, 省略合法, 与原一致)。
+// deps [internal_eventEmitter] unchanged (setRemountKey is a useState setter, stable ref, safe to omit, matching the original).
 export function applySuspendResumeListener(
 	ctx: SuspendResumeListenerCtx,
 ): () => void {

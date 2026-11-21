@@ -1,26 +1,26 @@
-// D1 轨迹飞轮 — 共享类型 (issue #50/#51)
+// D1 trajectory flywheel — shared types (issue #50/#51)
 //
-// 数据源: ~/.fusion-code/projects/<cwd-slug>/<session-id>.jsonl
-// 每行一条事件, type ∈ {user, assistant, queue-operation, attachment, ...}
+// Data source: ~/.fusion-code/projects/<cwd-slug>/<session-id>.jsonl
+// One event per line, type ∈ {user, assistant, queue-operation, attachment, ...}
 // assistant.message.content = block[]: text | tool_use | thinking
-// user.message.content      = block[]: tool_result (is_error 天然存在) | str
-// 配对: assistant.tool_use.id ↔ user.tool_result.tool_use_id
+// user.message.content      = block[]: tool_result (is_error available natively) | str
+// Pairing: assistant.tool_use.id ↔ user.tool_result.tool_use_id
 
-// 单条 tool_use (来自 assistant)
+// A single tool_use (from assistant)
 export interface ToolCall {
 	id: string;
 	name: string;
 	input: unknown;
 }
 
-// 单条 tool_result (来自 user, 与 ToolCall 按 id 配对)
+// A single tool_result (from user, paired with ToolCall by id)
 export interface ToolResult {
 	toolUseId: string;
 	isError: boolean;
 	content: string;
 }
 
-// 清洗后的单步轨迹: 一轮 user→assistant→(tool 循环)→final
+// A cleaned single-step trajectory: one round user→assistant→(tool loop)→final
 export interface TrajectoryStep {
 	role: "user" | "assistant";
 	text: string;
@@ -29,10 +29,10 @@ export interface TrajectoryStep {
 	toolResults?: ToolResult[];
 }
 
-// 标注类别: 成功正例 / 自纠正候选
+// Label category: successful positive / self-correction candidate
 export type TrajectoryLabel = "positive" | "self_correction";
 
-// 汇聚后的单 session 轨迹
+// A collected single-session trajectory
 export interface CollectedTrajectory {
 	source: string;
 	sessionId: string;
@@ -45,7 +45,7 @@ export interface CollectedTrajectory {
 	hasSubagents: boolean;
 }
 
-// manifest 单条记录
+// Single manifest record
 export interface ManifestEntry {
 	source: string;
 	sessionId: string;
@@ -57,7 +57,7 @@ export interface ManifestEntry {
 	hasSubagents: boolean;
 }
 
-// manifest 文件结构
+// Manifest file structure
 export interface TrajectoryManifest {
 	version: number;
 	generatedAt: string;
@@ -73,16 +73,16 @@ export interface TrajectoryManifest {
 	};
 }
 
-// 导出格式
+// Export format
 export type ExportFormat = "sft" | "dpo" | "grpo";
 
-// SFT 样本 (ShareGPT messages-JSONL)
+// SFT sample (ShareGPT messages-JSONL)
 export interface SFTSample {
 	messages: { role: "system" | "user" | "assistant"; content: string }[];
 	source: string;
 }
 
-// DPO 偏好对
+// DPO preference pair
 export interface DPOPair {
 	prompt: string;
 	chosen: string;
@@ -90,7 +90,7 @@ export interface DPOPair {
 	source: string;
 }
 
-// GRPO prompt + reward 信号
+// GRPO prompt + reward signal
 export interface GRPOSample {
 	prompt: string;
 	completion: string;
@@ -98,17 +98,18 @@ export interface GRPOSample {
 	source: string;
 }
 
-// 收集选项
+// Collect options
 export interface CollectOptions {
 	sourceDir: string;
 	destDir: string;
 	product?: string;
 }
 
-// 导出选项
-// storeDir  = 汇聚库目录 (manifest.json + raw/ 所在), 优先使用
-// sourceDir = 兼容旧调用: 若 storeDir 未传, 作为汇聚库回退
-// destDir   = 输出目录 (sft/dpo/grpo.jsonl 写入处)
+// Export options
+// storeDir  = collection store directory (where manifest.json + raw/ live), preferred
+// sourceDir = legacy-caller compat: used as the store fallback if storeDir is
+// not passed
+// destDir   = output directory (where sft/dpo/grpo.jsonl are written)
 export interface ExportOptions {
 	sourceDir: string;
 	destDir: string;

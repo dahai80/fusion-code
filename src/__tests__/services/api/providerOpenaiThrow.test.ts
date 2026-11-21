@@ -55,19 +55,19 @@ describe("P0-4 openai provider 显式 throw (audit R6)", () => {
 		expect(getAPIProvider("gpt-5.3-codex")).toBe("openai");
 	});
 
-	it("getAnthropicClient: FUSION_CODE_USE_OPENAI=1 → reject 含 'OpenAI 直连' (不静默落 firstParty)", async () => {
+	it("getAnthropicClient: FUSION_CODE_USE_OPENAI=1 rejects with 'OpenAI direct connect' (no silent firstParty fall-through)", async () => {
 		process.env.FUSION_CODE_USE_OPENAI = "1";
-		// MLX 不可用 (无 gateway/mlx env) → 跳过 MLX 路径, 命中 openai 分支
-		// 经 api barrel 导入 (lint:layers:reverse 禁止 deep import src/services/**)
+		// MLX unavailable (no gateway/mlx env) → skip MLX path, hit the openai branch
+		// Import via api barrel (lint:layers:reverse forbids deep src/services/** imports)
 		const { getAnthropicClient } = await import(
 			"../../../services/api/index.js"
 		);
 		await expect(
 			getAnthropicClient({ maxRetries: 1, model: "gpt-5.3-codex" }),
-		).rejects.toThrow(/OpenAI 直连/);
+		).rejects.toThrow(/OpenAI direct connect/);
 	});
 
-	it("getAnthropicClient: 抛错文案引导 FUSION_BASE_URL 直连配置", async () => {
+	it("getAnthropicClient: error message points to FUSION_BASE_URL direct-connect config", async () => {
 		process.env.FUSION_CODE_USE_OPENAI = "1";
 		const { getAnthropicClient } = await import(
 			"../../../services/api/index.js"

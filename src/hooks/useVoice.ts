@@ -272,7 +272,7 @@ export function useVoice({
 	onTranscriptRef.current = onTranscript;
 	onErrorRef.current = onError;
 
-	// useCallback 稳定标识，供下游 effect/hook 作为依赖使用（内部只读 refs）
+	// useCallback stable identity: for downstream effect/hook dependency use (internally reads refs only)
 	const updateState = useCallback(
 		(newState: VoiceState): void => {
 			stateRef.current = newState;
@@ -323,7 +323,7 @@ export function useVoice({
 		});
 	}, [setVoiceState]);
 
-	// useCallback 稳定标识：内部只读 refs 并调用已稳定的 updateState/cleanup，可直接作为 hook 依赖
+	// useCallback stable identity: internally reads refs and calls the already-stable updateState/cleanup; safe as a hook dependency
 	const finishRecording = useCallback((): void => {
 		logForDebugging(
 			"[voice] finishRecording: stopping recording, transitioning to processing",
@@ -544,7 +544,7 @@ export function useVoice({
 	// Arms (or resets) a timer that tears down the focus-mode session
 	// after FOCUS_SILENCE_TIMEOUT_MS of no speech. Called when a session
 	// starts and after each flushed transcript.
-	// useCallback 稳定标识：内部只读 refs 并调用已稳定的 finishRecording，可直接作为 hook 依赖
+	// useCallback stable identity: internally reads refs and calls the already-stable finishRecording; safe as a hook dependency
 	const armFocusSilenceTimer = useCallback((): void => {
 		if (focusSilenceTimerRef.current) {
 			clearTimeout(focusSilenceTimerRef.current);
@@ -576,7 +576,7 @@ export function useVoice({
 	}, [finishRecording]);
 
 	// ── Start a new recording session (voice_stream connect + audio) ──
-	// useCallback 稳定标识：内部只读 refs 并调用已稳定的 cleanup/updateState，可直接作为 hook 依赖
+	// useCallback stable identity: internally reads refs and calls the already-stable cleanup/updateState; safe as a hook dependency
 	const startRecordingSession = useCallback(async (): Promise<void> => {
 		if (!voiceModule) {
 			onErrorRef.current?.(

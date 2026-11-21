@@ -1,8 +1,8 @@
-// audit 1.1.1 slice #33: handleExit useCallback body 外移 (INLINE-ASYNC-HELPER).
-// REPL() exit 流程 3 分支: bg-session detach / worktree ExitFlow / exit.tsx modal。
-// 闭包依赖经 ctx 传入 (2 setter + 2 state), 导入型 helper/组件直接 import, 行为字节等价。
-// 生成 ExitFlow JSX → .tsx + React + ExitFlow import。void 返回 (useCallback 内 void 调用)。
-// deps [] (原 useCallback deps 为空) → ctx 仅传稳定 setter/state, 无 stale 闭包风险。
+// audit 1.1.1 slice #33: handleExit useCallback body extracted (INLINE-ASYNC-HELPER).
+// REPL() exit flow, 3 branches: bg-session detach / worktree ExitFlow / exit.tsx modal.
+// Closure deps passed via ctx (2 setters + 2 state), imported helpers/components imported directly, byte-equivalent behavior.
+// Generates ExitFlow JSX → .tsx + React + ExitFlow import. Returns void (void call inside useCallback).
+// deps [] (original useCallback deps empty) → ctx only passes stable setters/state, no stale closure risk.
 
 import { feature } from "bun:bundle";
 import { spawnSync } from "node:child_process";
@@ -16,9 +16,9 @@ export type ExitFlowCtx = {
 	setIsExiting: (v: boolean) => void;
 };
 
-// ExitFlow 取消/完成回调内联 (原始 handleExit 直接触及 setter, 保持字节等价)。
-// exit 命令 lazy-load: exit.load() → mod.call(() => {}) → setExitFlow(result)。
-// call() 返回 null = bg session detach 未杀进程 → 复位 isExiting。
+// ExitFlow cancel/done callbacks inlined (the original handleExit touches setters directly, keeping byte equivalence).
+// exit command lazy-load: exit.load() → mod.call(() => {}) → setExitFlow(result).
+// call() returning null = bg session detach did not kill the process → reset isExiting.
 export async function runExitFlow(ctx: ExitFlowCtx): Promise<void> {
 	ctx.setIsExiting(true);
 	// In bg sessions, always detach instead of kill — even when a worktree is

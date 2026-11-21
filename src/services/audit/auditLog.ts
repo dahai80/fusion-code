@@ -62,10 +62,10 @@ function getAuditFilePath(): string {
 async function ensureAuditDir(): Promise<void> {
 	const dir = getAuditDir();
 	try {
-		// P2-17: 目录 0700 非 0755。审计文件 0600 但 0755 目录下任何同用户进程
-		// 可 readdir/unlink 条目 → 轮转/防篡改失效。0700 仅属主可遍历+移除。
+		// P2-17: directory 0700, not 0755. Audit files are 0600, but under a 0755 directory
+		// any same-user process can readdir/unlink entries → rotation/tamper protection breaks. 0700: only the owner can traverse+remove.
 		await mkdir(dir, { recursive: true, mode: 0o700 });
-		// mode 受 umask 影响 (mkdir mode 是 creation mask), 显式 chmod 锁定。
+		// mode is subject to umask (mkdir mode is a creation mask), explicit chmod locks it in.
 		await chmod(dir, 0o700).catch(() => {});
 	} catch (e) {
 		const code = (e as NodeJS.ErrnoException).code;
@@ -117,11 +117,11 @@ async function rotateIfNeeded(): Promise<void> {
 	}
 }
 
-// P1-13: 审计写失败的不可恢复 errno — fail-closed (重抛让调用方决定阻断)。
-// 攻击者填满磁盘 (ENOSPC) / 只读挂载 (EROFS) / 权限收回 (EACCES) → 审计轨迹静默
-// 丢失, "审计失败" 与 "无工具调用" 读时不可区分, 破坏不可否认性。这些 errno = 审计
-// 无法保证, 重抛。瞬时/可恢复错误 (EMFILE/EAGAIN/ENOTEMPTY 轮转竞态) 仍 fail-open
-// (记 debug 日志), 避免偶发噪声拖垮主路径。
+// P1-13: unrecoverable errnos on audit write failure — fail-closed (rethrow so the caller decides to block).
+// Attacker fills the disk (ENOSPC) / read-only mount (EROFS) / permissions revoked (EACCES) → audit trail silently
+// lost, "audit failed" becomes indistinguishable from "no tool calls" at read time, breaking non-repudiation. These errno = audit
+// integrity cannot be guaranteed, rethrow. Transient/recoverable errors (EMFILE/EAGAIN/ENOTEMPTY rotation races) stay fail-open
+// (log at debug), avoiding occasional noise dragging down the main path.
 const AUDIT_FAIL_CLOSED_CODES = new Set([
 	"EACCES",
 	"ENOSPC",
@@ -163,7 +163,7 @@ export async function appendAuditLog(entry: AuditLogEntry): Promise<void> {
 	} catch (e) {
 		const code = (e as NodeJS.ErrnoException).code;
 		const msg = (e as Error).message;
-		// P1-13: 不可恢复 fs 错 → fail-closed (审计无法保证, 重抛 surfacing)。
+		// P1-13: unrecoverable fs error → fail-closed (audit integrity cannot be guaranteed, rethrow to surface).
 		if (code && AUDIT_FAIL_CLOSED_CODES.has(code)) {
 			logForDebugging(
 				`auditLog: fail-closed append (${code}): ${msg} — rethrowing, audit integrity cannot be guaranteed`,
@@ -172,7 +172,7 @@ export async function appendAuditLog(entry: AuditLogEntry): Promise<void> {
 				`audit log write failed (${code}): audit integrity cannot be guaranteed — refusing to proceed silently`,
 			);
 		}
-		// 瞬时/可恢复错误 → fail-open (记日志, 不阻断主路径)。
+		// Transient/recoverable error → fail-open (log it, do not block the main path).
 		logForDebugging(`auditLog: failed to append: ${msg}`);
 	}
 }

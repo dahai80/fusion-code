@@ -1,10 +1,10 @@
-// audit 1.1.1 slice #45: deferred swarm-turn-duration useEffect body 外移 (PURE-ROUTING-SUB-BLOCK, like #27/#28/#35/#41-#44)。
-// REPL() 在所有 swarm teammates 结束后补发一次 turn-duration 消息: totalMs = Date.now() - swarmStartTimeRef.current。
-// 原 useEffect body。hasRunningTeammates (derived dep) + swarmStartTimeRef/swarmBudgetInfoRef (ref) + setMessages 经 ctx 传入 (闭包捕获), 行为字节等价。
-// useEffect() hook 留 REPL 薄壳 (hook 规则, 不能移 plain helper), 仅 effect body 移出。
-// createTurnDurationMessage + isLoggableMessage (utils/messages.js) + count (utils/array.js) 直接 import (非 REPL state, per imported-helpers-directly rule; 全部 REPL 多用, 不移除 REPL import)。
-// 无 JSX → .ts。返 void (REPL 薄壳 useEffect 透传, 无 cleanup)。
-// deps [hasRunningTeammates, setMessages] 不变 (两个 ref 稳定引用, 省略合法, 与原一致)。
+// audit 1.1.1 slice #45: deferred swarm-turn-duration useEffect body extracted (PURE-ROUTING-SUB-BLOCK, like #27/#28/#35/#41-#44).
+// REPL() posts the turn-duration message once after all swarm teammates finish: totalMs = Date.now() - swarmStartTimeRef.current.
+// Original useEffect body. hasRunningTeammates (derived dep) + swarmStartTimeRef/swarmBudgetInfoRef (refs) + setMessages passed via ctx (closure capture), byte-equivalent behavior.
+// The useEffect() hook stays as a REPL thin shell (hook rules, cannot move to a plain helper); only the effect body moves out.
+// createTurnDurationMessage + isLoggableMessage (utils/messages.js) + count (utils/array.js) imported directly (not REPL state, per imported-helpers-directly rule; all used multiple times in REPL, REPL imports not removed).
+// No JSX → .ts. Returns void (REPL thin-shell useEffect pass-through, no cleanup).
+// deps [hasRunningTeammates, setMessages] unchanged (both refs are stable, safe to omit, matching the original).
 
 import type { MutableRefObject, SetStateAction } from "react";
 import type { Message as MessageType } from "../types/message.js";
@@ -25,7 +25,7 @@ type SwarmTurnDurationCheckCtx = {
 	setMessages: (action: SetStateAction<MessageType[]>) => void;
 };
 
-// REPL 保留 useEffect 薄壳:
+// REPL keeps the useEffect thin shell:
 //   useEffect(() => maybeShowSwarmTurnDuration({ hasRunningTeammates, swarmStartTimeRef, swarmBudgetInfoRef, setMessages }), [hasRunningTeammates, setMessages]);
 export function maybeShowSwarmTurnDuration(
 	ctx: SwarmTurnDurationCheckCtx,

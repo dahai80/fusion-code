@@ -1,15 +1,15 @@
-// 通用 SSE 解析 (text/event-stream -> 事件流)
+// Generic SSE parsing (text/event-stream -> event stream)
 //
-// 替代 Anthropic SDK 的 Stream: 把 fetch Response.body 按字节流读入, 按 SSE 帧边界
-// (空行分隔事件, data:/event:/: 注释行) 切成结构化事件。
+// Replacement for the Anthropic SDK's Stream: reads the fetch Response.body as a byte stream and splits it into
+// structured events at SSE frame boundaries (events separated by blank lines, data:/event:/: comment lines).
 //
-// 规范依据: MDN Server-sent events
-// - 多行 data: 用 "\n" 连接为单个 data 字段
-// - event: 行指定事件类型 (缺省 "message")
-// - 以 ":" 开头为注释/心跳, 忽略
-// - 一个空行触发一个事件派发
+// Spec reference: MDN Server-sent events
+// - Multi-line data: joined with "\n" into a single data field
+// - event: line specifies the event type (defaults to "message")
+// - Lines starting with ":" are comments/heartbeats, ignored
+// - One blank line triggers one event dispatch
 //
-// 容错: 部分块跨 chunk 边界时, 未完成的行留在 buffer 直到下次读取 (参考 fusion-mlx-stream.ts 现有实现)。
+// Fault tolerance: when a partial block straddles a chunk boundary, the incomplete line stays in the buffer until the next read (mirrors the existing implementation in fusion-mlx-stream.ts).
 
 export interface SseEvent {
 	event: string;
@@ -31,7 +31,7 @@ export interface ParseSseOptions {
 // StallTimeoutError: name contains "Timeout" so classifyByMessage -> TIMEOUT
 // (retryable via withRetry), and isTimeoutErrorLike duck-types true.
 export class StallTimeoutError extends Error {
-	// P1-26: phase 扩 "hard-timeout" — watchdog 禁用时硬安全网超时用此 phase。
+	// P1-26: phase extended with "hard-timeout" — hard safety-net timeouts use this phase when the watchdog is disabled.
 	public readonly phase: "first-token" | "idle" | "hard-timeout";
 	constructor(
 		phase: "first-token" | "idle" | "hard-timeout",
@@ -57,10 +57,10 @@ const DEFAULT_FIRST_TOKEN_MS = parseInt(
 	10,
 );
 
-// P1-26: 双预算 0 (watchdog 禁用) 时的硬安全网。裸 reader.read() 挂死上游 = 永挂
-// 直到 ESC。即便用户显式禁用 stall 检测, 仍强制 10min 硬超时兜底 — 上游真挂会
-// 抛 StallTimeoutError 而非静默永挂。10min 远超正常长生成的 chunk 间隔 (60s 默认 stall
-// 的 10×), 正常流不会误触; 仅兜底"无任何字节"的死连接。
+// P1-26: hard safety net for when both budgets are 0 (watchdog disabled). A bare reader.read() hanging on the upstream = hang
+// forever until ESC. Even when the user explicitly disables stall detection, a 10min hard timeout is still forced as a backstop —
+// a genuinely hung upstream throws StallTimeoutError instead of hanging silently. 10min far exceeds the chunk interval of normal
+// long generations (10× the 60s default stall), so normal streams never trip it; it only catches dead connections with "zero bytes".
 const HARD_READ_TIMEOUT_MS = 10 * 60 * 1000;
 
 function resolveBudgets(options?: ParseSseOptions): {
@@ -90,8 +90,8 @@ async function readWithStallGuard(
 	if (disabled) {
 		if (signal?.aborted)
 			throw new DOMException("SSE stream aborted", "AbortError");
-		// P1-26: watchdog 禁用时强制硬超时安全网 — 防裸 reader.read() 永挂。
-		// Race read 对 HARD_READ_TIMEOUT_MS timer, 超时 cancel reader + 抛 StallTimeoutError。
+		// P1-26: forced hard-timeout safety net when the watchdog is disabled — prevents a bare reader.read() from hanging forever.
+		// Race the read against a HARD_READ_TIMEOUT_MS timer; on timeout cancel the reader + throw StallTimeoutError.
 		return new Promise((resolve, reject) => {
 			const timer = setTimeout(() => {
 				const err = new StallTimeoutError(
@@ -195,7 +195,7 @@ async function readWithStallGuard(
 	);
 }
 
-// 把一个 ReadableStream<Uint8Array> (fetch Response.body) 解析成 SseEvent 异步迭代器。
+// Parses a ReadableStream<Uint8Array> (fetch Response.body) into an async iterator of SseEvent.
 export async function* parseSseStream(
 	body: ReadableStream<Uint8Array>,
 	signal?: AbortSignal,
@@ -224,12 +224,12 @@ export async function* parseSseStream(
 			if (done) break;
 			buffer += decoder.decode(value, { stream: true });
 
-			// 按换行切行; 末尾未完成行留在 buffer
+			// Split into lines on newlines; an unfinished trailing line stays in the buffer
 			const lines = buffer.split(/\r\n|\r|\n/);
 			buffer = lines.pop() ?? "";
 
 			for (const line of lines) {
-				// 空行: 派发当前事件并重置
+				// Blank line: dispatch the current event and reset
 				if (line === "") {
 					if (dataLines.length > 0) {
 						yield {
@@ -242,7 +242,7 @@ export async function* parseSseStream(
 					dataLines = [];
 					continue;
 				}
-				// 注释/心跳
+				// Comment/heartbeat
 				if (line.startsWith(":")) continue;
 				const colonIdx = line.indexOf(":");
 				if (colonIdx === -1) {
@@ -269,7 +269,7 @@ export async function* parseSseStream(
 			}
 		}
 
-		// 处理尾部残留 buffer (流未以空行结尾的边界)
+		// Handle the trailing leftover buffer (edge case where the stream does not end with a blank line)
 		buffer += decoder.decode();
 		if (buffer !== "") {
 			const trailing = buffer.split(/\r\n|\r|\n/);

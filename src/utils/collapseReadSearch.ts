@@ -664,7 +664,7 @@ function createCollapsedGroup(
 	group: GroupAccumulator,
 ): CollapsedReadSearchGroup {
 	const firstMsg = group.messages[0];
-	// 内部不变量: 累加器仅在收到消息时创建, group.messages 恒非空
+	// Internal invariant: the accumulator is only created when a message arrives, group.messages is never empty
 	if (firstMsg === undefined) {
 		throw new Error("createCollapsedGroup: empty group");
 	}

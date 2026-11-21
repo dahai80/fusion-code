@@ -16,7 +16,7 @@
 
 // Importers: src/bootstrap/startup calls initBuiltinPlugins()
 // API: initBuiltinPlugins() registers 3 builtin plugins
-// User instruction: "测试一下git，ecc, UI-UX Pro Max三个skill能否默认打包在fusion-code中"
+// User instruction: "test whether the git, ecc, and UI-UX Pro Max skills can be bundled by default in fusion-code"
 import { registerEccPlugin } from "./ecc.js";
 import { registerFusionPluginsPlugin } from "./fusionPlugins.js";
 import { registerGithubPlugin } from "./github.js";

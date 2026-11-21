@@ -50,11 +50,11 @@ export function getAPIProvider(_model?: string): APIProvider {
 	if (isEnvTruthy(process.env.FUSION_CODE_USE_OPENAI)) {
 		return "openai";
 	}
-	// #221 拓扑语义: key 选择凭证, 不选择拓扑。显式本地 opt-in
+	// #221 topology semantics: the key selects credentials, not topology. An explicit local opt-in
 	// (FUSION_MLX_ENABLED / FUSION_GATEWAY_ENABLED / FUSION_MLX_BASE_URL /
-	// FUSION_GATEWAY_URL) 是明确的部署事实, 不得被 FUSION_CLIENT_KEY 的
-	// 存在压过 — 按 doc 配了规范 key 的本地用户会被静默拽回云端
-	// firstParty (live 401 repro 的另一半根因)。
+	// FUSION_GATEWAY_URL) is a clear deployment fact and must not be overridden by the mere
+	// presence of FUSION_CLIENT_KEY — local users who configured the canonical key per the docs
+	// would otherwise be silently pulled back to cloud firstParty (the other half of the live 401 repro root cause).
 	if (
 		isEnvTruthy(process.env.FUSION_GATEWAY_ENABLED) ||
 		isEnvTruthy(process.env.FUSION_MLX_ENABLED) ||
@@ -64,11 +64,12 @@ export function getAPIProvider(_model?: string): APIProvider {
 		return "fusionMlx";
 	}
 	// Canonical config: FUSION_BASE_URL + FUSION_CLIENT_KEY (+ FUSION_MODEL) →
-	// firstParty direct connect. API key 优先于一切推断 — 客户端不猜测用户的
-	// LLM 跑在哪里 (协议兼容即直连); 但显式 opt-in 是明示意图, 排在 key 之前。
-	// 修复 (401 根因): 此前 isMlxModelName() 模型名嗅探排在 key 检查之前,
-	// FUSION_MODEL 为 MLX 风格名字时劫持已配 key 的会话走本地 adapter,
-	// 用错误的凭证体系 (FUSION_GATEWAY_API_KEY) 鉴权 → 401。
+	// firstParty direct connect. The API key takes precedence over all inference — the client does not guess
+	// where the user's LLM runs (protocol-compatible = direct connect); but an explicit opt-in is stated
+	// intent and ranks before the key check.
+	// Fix (401 root cause): isMlxModelName() model-name sniffing previously ranked before the key check;
+	// when FUSION_MODEL was an MLX-style name it hijacked key-configured sessions onto the local adapter,
+	// authenticating with the wrong credential system (FUSION_GATEWAY_API_KEY) → 401.
 	const fusionKey = process.env.FUSION_CLIENT_KEY;
 	const anthropicKey = process.env.ANTHROPIC_API_KEY;
 	if (fusionKey) return "firstParty";
@@ -76,7 +77,7 @@ export function getAPIProvider(_model?: string): APIProvider {
 	if (isAnthropicApiKey(anthropicKey)) {
 		return "firstParty";
 	}
-	// FUSION_BASE_URL 指向非 Anthropic host → 第三方 proxy 直连 (推断, 优先级最低)
+	// FUSION_BASE_URL pointing at a non-Anthropic host → third-party proxy direct connect (inference, lowest priority)
 	if (hasThirdPartyProxyConfigured()) {
 		return "firstParty";
 	}
@@ -89,15 +90,16 @@ export function isFusionMlxProvider(model?: string): boolean {
 
 export function shouldAutoUseFusionMlx(): boolean {
 	if (isEnvTruthy(process.env.FUSION_MLX_DISABLED)) return false;
-	// #221: 显式本地 opt-in 先于 key 检查 — key 选凭证不选拓扑。
+	// #221: explicit local opt-in ranks before the key check — the key selects credentials, not topology.
 	if (
 		isEnvTruthy(process.env.FUSION_GATEWAY_ENABLED) ||
 		isEnvTruthy(process.env.FUSION_MLX_ENABLED)
 	)
 		return true;
-	// API key 优先：用户已配置 FUSION_CLIENT_KEY（+ FUSION_BASE_URL）即直连云端，
-	// 即使 baseUrl 指向 localhost（第三方网关常见）也不自动切到本地 MLX。
-	// 修复：此前 localhost 检查在 key 检查之前，劫持了已配 key 的会话。
+	// API key takes precedence: once the user has configured FUSION_CLIENT_KEY (+ FUSION_BASE_URL), connect
+	// directly to the cloud; even if baseUrl points at localhost (common for third-party gateways), do not
+	// auto-switch to local MLX.
+	// Fix: the localhost check previously ranked before the key check, hijacking key-configured sessions.
 	if (process.env.FUSION_CLIENT_KEY || process.env.ANTHROPIC_API_KEY) {
 		return false;
 	}

@@ -1,7 +1,7 @@
 import type { Command } from "../../commands.js";
 
-// insight-0902 E3: /diff-compaction — 展示最近一次影子价压缩的候选评分表。
-// fusion-code 独有: shadow-price selective truncation 的可审计性。
+// insight-0902 E3: /diff-compaction — displays the candidate score table of the last shadow-price compaction.
+// fusion-code specific: auditability of shadow-price selective truncation.
 export default {
 	type: "local",
 	name: "diff-compaction",

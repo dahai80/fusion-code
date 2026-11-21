@@ -256,13 +256,13 @@ export async function validatePluginManifest(
 
 		// ar-plan PR #6 (E2): nudge authors to pin a manifest schemaVersion.
 		// Missing/0 = pre-E2 manifest, accepted during the compat window.
-		// 附录 B: odd = experimental, even = stable.
+		// Appendix B: odd = experimental, even = stable.
 		if (manifest.schemaVersion === undefined || manifest.schemaVersion === 0) {
 			warnings.push({
 				path: "schemaVersion",
 				message:
 					"No schemaVersion pinned (pre-E2, default 0). Pin a stable even " +
-					"schemaVersion for forward compatibility (附录 B: odd = experimental, " +
+					"schemaVersion for forward compatibility (Appendix B: odd = experimental, " +
 					"even = stable).",
 			});
 		}

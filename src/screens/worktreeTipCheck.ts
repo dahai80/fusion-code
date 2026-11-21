@@ -1,10 +1,10 @@
-// audit 1.1.1 slice #42: worktree sparsePaths tip useEffect body 外移 (PURE-ROUTING-SUB-BLOCK, like #27/#28/#41)。
-// REPL() 检测 worktree 创建慢 (>15s) 且未用 sparsePaths → 一次性提示用户配置 worktree.sparsePaths。
-// 原 useEffect body。worktreeTipShownRef (ref) + setMessages 经 ctx 传入 (闭包捕获), 行为字节等价。
-// useRefs()/useEffect() hook 留 REPL 薄壳 (hook 规则, 不能移 plain helper), 仅 effect body 移出。
-// getCurrentWorktreeSession (utils/worktree.js) + createSystemMessage 直接 import (非 REPL state, per imported-helpers-directly rule)。
-// 无 JSX → .ts。返 void (REPL 薄壳 useEffect 透传, 无 cleanup)。
-// deps [setMessages] 不变 (worktreeTipShownRef 是 ref, 稳定引用, 省略合法, 与原一致)。
+// audit 1.1.1 slice #42: worktree sparsePaths tip useEffect body extracted (PURE-ROUTING-SUB-BLOCK, like #27/#28/#41).
+// REPL() detects slow worktree creation (>15s) with sparsePaths unused → one-time hint telling the user to configure worktree.sparsePaths.
+// Original useEffect body. worktreeTipShownRef (ref) + setMessages passed via ctx (closure capture), byte-equivalent behavior.
+// The useRef()/useEffect() hooks stay as a REPL thin shell (hook rules, cannot move to a plain helper); only the effect body moves out.
+// getCurrentWorktreeSession (utils/worktree.js) + createSystemMessage imported directly (not REPL state, per imported-helpers-directly rule).
+// No JSX → .ts. Returns void (REPL thin-shell useEffect pass-through, no cleanup).
+// deps [setMessages] unchanged (worktreeTipShownRef is a ref, stable, safe to omit, matching the original).
 
 import type { MutableRefObject, SetStateAction } from "react";
 import type { Message as MessageType } from "../types/message.js";
@@ -16,7 +16,7 @@ type WorktreeTipCheckCtx = {
 	setMessages: (action: SetStateAction<MessageType[]>) => void;
 };
 
-// REPL 保留 useEffect 薄壳:
+// REPL keeps the useEffect thin shell:
 //   const worktreeTipShownRef = useRef(false);
 //   useEffect(() => maybeShowWorktreeTip({ worktreeTipShownRef, setMessages }), [setMessages]);
 export function maybeShowWorktreeTip(ctx: WorktreeTipCheckCtx): void {

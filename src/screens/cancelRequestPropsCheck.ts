@@ -1,13 +1,13 @@
-// audit 1.1.1 slice #58: cancelRequestProps prop-bundle 外移 (PURE-ROUTING-SUB-BLOCK, like #30)。
-// REPL() 构建 CancelRequestHandler props bundle: 15 字段纯路由 (state/derived 透传, 无计算分支, 无 gtuc, 无 JSX)。
-// bundle 消费 2 处: <CancelRequestHandler {...cancelRequestProps} /> (REPL L4316 + L4530), 字段对应 CancelRequestHandlerProps (src/hooks/useCancelRequest.ts)。
-// onAgentsKilled inline thunk () => setMessages((prev) => [...prev, createAgentsKilledMessage()]) 经 ctx 传入 setMessages + createAgentsKilledMessage
-// (REPL-local, 非 import); isMessageSelectorVisible || !!showBashesDialog 为 derived, helper 内计算透传;
-// abortSignal: abortController?.signal 为 derived, helper 内计算透传; isLocalJSXCommand: toolJSX?.isLocalJSXCommand 为 derived, helper 内计算透传。
-// onCancel (REPL-local plain fn L2243, fn-ref 透传非调用) + setToolUseConfirmQueue + screen + vimMode +
-// isSearchingHistory + isHelpOpen + inputMode + inputValue + streamMode + popCommandFromQueue (handleQueuedCommandOnCancel) 经 ctx 传入。
-// 类型复用 CancelRequestHandlerProps (避免重复定义, 单一真相源); helper 返该对象, REPL plain const 赋值透传 (非 memo, 非 hook, 纯 helper)。
-// 无 JSX → .ts。无 deps (plain const, 非 hook)。
+// audit 1.1.1 slice #58: cancelRequestProps prop-bundle extracted (PURE-ROUTING-SUB-BLOCK, like #30).
+// REPL() builds the CancelRequestHandler props bundle: 15 fields of pure routing (state/derived pass-through, no computed branches, no gtuc, no JSX).
+// bundle consumed in 2 places: <CancelRequestHandler {...cancelRequestProps} /> (REPL L4316 + L4530), fields match CancelRequestHandlerProps (src/hooks/useCancelRequest.ts).
+// onAgentsKilled inline thunk () => setMessages((prev) => [...prev, createAgentsKilledMessage()]) — setMessages + createAgentsKilledMessage passed via ctx
+// (REPL-local, not imported); isMessageSelectorVisible || !!showBashesDialog is derived, computed inside the helper and passed through;
+// abortSignal: abortController?.signal is derived, computed inside the helper and passed through; isLocalJSXCommand: toolJSX?.isLocalJSXCommand is derived, computed inside the helper and passed through.
+// onCancel (REPL-local plain fn L2243, fn-ref passed through, not called) + setToolUseConfirmQueue + screen + vimMode +
+// isSearchingHistory + isHelpOpen + inputMode + inputValue + streamMode + popCommandFromQueue (handleQueuedCommandOnCancel) passed via ctx.
+// Type reuses CancelRequestHandlerProps (avoids duplicate definitions, single source of truth); helper returns that object, REPL assigns it to a plain const (not memo, not hook, pure helper).
+// No JSX → .ts. No deps (plain const, not a hook).
 
 import type { ToolUseConfirm } from "../components/permissions/PermissionRequest.js";
 import type { SpinnerMode } from "../components/Spinner/types.js";
@@ -43,7 +43,7 @@ export type CancelRequestPropsCtx = {
 	streamMode?: SpinnerMode;
 };
 
-// REPL 保留 plain const 薄壳:
+// REPL keeps the plain const thin shell:
 //   const cancelRequestProps = buildCancelRequestProps({
 //     setToolUseConfirmQueue, onCancel, setMessages, createAgentsKilledMessage,
 //     isMessageSelectorVisible, showBashesDialog, screen, abortController,

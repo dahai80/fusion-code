@@ -1,12 +1,12 @@
 /**
- * MCP Skills — MCP 技能注册表
+ * MCP Skills — MCP skill registry
  *
- * 提供 MCP 技能发现和注册功能。
- * MCP 技能是通过 MCP 协议暴露的 AI 可调用能力，
- * 包括 MCP 服务器的 prompt、tool 和 resource。
+ * Provides MCP skill discovery and registration.
+ * MCP skills are AI-invocable capabilities exposed via the MCP protocol,
+ * including MCP server prompts, tools, and resources.
  *
- * 此模块依赖于 mcpSkillBuilders.ts 注册的构建器函数，
- * 避免与 loadSkillsDir.ts 形成循环依赖。
+ * This module depends on the builder functions registered in mcpSkillBuilders.ts,
+ * avoiding a circular dependency with loadSkillsDir.ts.
  *
  * gated by feature('MCP_SKILLS')
  */

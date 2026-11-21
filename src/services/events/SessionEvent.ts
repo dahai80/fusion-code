@@ -1,13 +1,20 @@
-// ar-plan PR #7 (S2.1): 事件溯源 — SessionEvent 类型 + 序列化 helper。
+// ar-plan PR #7 (S2.1): event sourcing — SessionEvent types + serialization
+// helper.
 //
-// P3 渐进迁移第一步: 引事件类型 + 旁路写 (shadow write)。mutableMessages 仍真源,
-// 事件流 = 影子 (只写不读)。default-off (FUSION_CODE_EVENT_SOURCING=1)。
-// 不落盘 (S2.1 仅内存, 落盘 = S2.3 远期)。纯类型 + helper, 无运行时副作用。
+// First step of the P3 progressive migration: introduce event types +
+// shadow write. mutableMessages remains the truth source, the event log is
+// the shadow (write-only, never read). default-off
+// (FUSION_CODE_EVENT_SOURCING=1).
+// No persistence (S2.1 is in-memory only; persistence = S2.3 later).
+// Pure types + helper, no runtime side effects.
 //
-// 接 architecture/fusion-code-enhance-arch-ecosystem-0827.md §2.2 双写迁移设计。
+// Follows architecture/fusion-code-enhance-arch-ecosystem-0827.md §2.2
+// dual-write migration design.
 
-// 事件类型 — 8 种, 覆盖 turn 生命周期 + 消息流 + compact + error。
-// discriminated union 后续 PR (S2.2) 细化 per-type data; 此 PR data: unknown。
+// Event types — 8 kinds, covering turn lifecycle + message flow + compact +
+// error.
+// discriminated union: a later PR (S2.2) refines per-type data; this PR uses
+// data: unknown.
 export type SessionEventType =
 	| "user_message"
 	| "assistant_message"
@@ -18,9 +25,12 @@ export type SessionEventType =
 	| "turn_start"
 	| "turn_end";
 
-// 单条事件。seq = 单调递增内存计数器 (非 Date.now — 脚本禁用时间源)。
-// sourceEventSeqs = causation 链 (compact 事件指向被压事件 seq)。
-// surfaceOp 字段已移除 (audit P2-2/R18): 写-only 死字段, 0 生产读取方。
+// Single event. seq = monotonically increasing in-memory counter (not
+// Date.now — scripts forbid time sources).
+// sourceEventSeqs = causation chain (compact events point at the seqs of the
+// compacted events).
+// surfaceOp field removed (audit P2-2/R18): write-only dead field, 0
+// production readers.
 export interface SessionEvent {
 	seq: number;
 	type: SessionEventType;
@@ -28,11 +38,12 @@ export interface SessionEvent {
 	sourceEventSeqs?: number[];
 }
 
-// 事件日志 = 有序事件数组 (内存, per-session)。
+// Event log = ordered event array (in-memory, per-session).
 export type SessionEventLog = SessionEvent[];
 
-// 序列化 helper — 纯函数, JSON 可序列化 (无循环引用, data 须可序列化)。
-// 落盘 (S2.3) 时直接 JSON.stringify(serializeLog(log))。
+// Serialization helper — pure function, JSON-serializable (no circular
+// references, data must be serializable).
+// When persisting (S2.3), just JSON.stringify(serializeLog(log)).
 export function serializeLog(log: SessionEventLog): string {
 	return JSON.stringify(log);
 }

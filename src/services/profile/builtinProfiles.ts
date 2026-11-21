@@ -1,12 +1,12 @@
-// ar-plan PR #9 (S3): 4 内置 profile。
+// ar-plan PR #9 (S3): 4 builtin profiles.
 //
-// local — MLX 本地场景: 核心 + executor 相关, 禁云端大 quota (WebSearch)。
-// cloud — 云端场景: 全套 + WebSearch, 禁 executor 专属 (Layer B 云端不需)。
-// safe — 只读 + 无 Shell + 无网络 (≈ --safe-mode, 但 profile 化可组合)。
-// minimal — 5 core tools (复用现 CORE_TOOLS 分层: Read/Write/Edit/Glob/Grep/Bash/MultiEdit)。
+// local — MLX local scenario: core + executor-related, blocks cloud-heavy quota (WebSearch).
+// cloud — cloud scenario: full set + WebSearch, blocks executor-specific (Layer B not needed on cloud).
+// safe — read-only + no Shell + no network (≈ --safe-mode, but composable as a profile).
+// minimal — 5 core tools (reuses existing CORE_TOOLS tiering: Read/Write/Edit/Glob/Grep/Bash/MultiEdit).
 import type { Profile } from "./profile.js";
 
-// minimal: 复用 tools.ts CORE_TOOLS (7: Bash/Read/Write/Edit/MultiEdit/Glob/Grep)。
+// minimal: reuses tools.ts CORE_TOOLS (7: Bash/Read/Write/Edit/MultiEdit/Glob/Grep).
 const MINIMAL_TOOLS = [
 	"Bash",
 	"Read",
@@ -17,7 +17,7 @@ const MINIMAL_TOOLS = [
 	"Grep",
 ];
 
-// local: MLX 本地 — 核心 + Agent/Skill/Todo, 禁 WebSearch (大 quota 云端专属)。
+// local: MLX local — core + Agent/Skill/Todo, blocks WebSearch (heavy quota, cloud-only).
 const LOCAL_TOOLS = [
 	"Bash",
 	"Read",
@@ -39,10 +39,10 @@ const LOCAL_TOOLS = [
 	"ExitPlanMode",
 ];
 
-// cloud: 云端全套 — 加 WebSearch, 禁 executor 专属工具 (CtxInspect = Layer B 调试)。
+// cloud: full cloud set — adds WebSearch, blocks executor-specific tools (CtxInspect = Layer B debugging).
 const CLOUD_DISABLED = ["CtxInspect"];
 
-// safe: 只读, 无 Shell 无网络。enabledTools 白名单 = 只读核心。
+// safe: read-only, no Shell no network. enabledTools allowlist = read-only core.
 const SAFE_TOOLS = ["Read", "Glob", "Grep", "WebFetch"];
 
 export const BUILTIN_PROFILES: Record<string, Profile> = {
@@ -50,24 +50,25 @@ export const BUILTIN_PROFILES: Record<string, Profile> = {
 		name: "local",
 		enabledTools: LOCAL_TOOLS,
 		description:
-			"MLX 本地场景: 核心工具 + Agent/Skill/Todo, 禁 WebSearch (大 quota)",
+			"MLX local scenario: core tools + Agent/Skill/Todo, WebSearch blocked (heavy quota)",
 	},
 	cloud: {
 		name: "cloud",
 		disabledTools: CLOUD_DISABLED,
 		description:
-			"云端场景: 全套 + WebSearch, 禁 executor 专属 (Layer B 云端不需)",
+			"Cloud scenario: full set + WebSearch, executor-specific blocked (not needed on cloud Layer B)",
 	},
 	safe: {
 		name: "safe",
 		enabledTools: SAFE_TOOLS,
-		description: "只读 + 无 Shell + 无网络 (≈ --safe-mode, profile 化可组合)",
+		description:
+			"Read-only + no Shell + no network (≈ --safe-mode, composable as a profile)",
 	},
 	minimal: {
 		name: "minimal",
 		enabledTools: MINIMAL_TOOLS,
 		description:
-			"核心工具集 (复用 MLX compact 分层: Bash/Read/Write/Edit/MultiEdit/Glob/Grep)",
+			"Core tool set (reuses MLX compact tiering: Bash/Read/Write/Edit/MultiEdit/Glob/Grep)",
 	},
 };
 

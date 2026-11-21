@@ -1,17 +1,17 @@
-// Visual-Feedback Protocol CLI 处理器 (issue #216/#217)
+// Visual-Feedback Protocol CLI handler (issue #216/#217)
 //
-// 子命令:
+// Subcommands:
 //   fusion-code visual-feedback ingest <file|-> [--auto-fix] [--auto-fix-loop]
 //   fusion-code visual-feedback fix-plan <file|-> [--cwd <dir>]
 //   fusion-code visual-feedback reverify [--task <id>]
 //   fusion-code visual-feedback schema
 //
-// ingest: 读取 osagent 生成的 VisualFeedbackReport JSON, 校验 schema,
-//         可选 --auto-fix 落盘 agent prompt 段供编排器启动修复;
-//         --auto-fix-loop 额外输出 buildFixPlan JSON 供编排器执行 re-fix 子循环。
-// fix-plan: 仅校验 + 输出 VisualFeedbackFixPlan JSON (不落盘), 供 CI 编排。
-// reverify: 占位指令 — 打印编排器应调用的 re-verify 流程提示 (实际由 osagent 驱动)。
-// schema: 输出 1.1 JSON schema 文本 (供 osagent 侧对齐协议)。
+// ingest: reads the VisualFeedbackReport JSON produced by osagent, validates the schema,
+//         optionally with --auto-fix writes the agent prompt section to disk for the orchestrator to start fixing;
+//         --auto-fix-loop additionally outputs buildFixPlan JSON for the orchestrator to run the re-fix sub-loop.
+// fix-plan: validate only + output the VisualFeedbackFixPlan JSON (not written to disk), for CI orchestration.
+// reverify: placeholder command — prints the re-verify flow hint the orchestrator should invoke (actually driven by osagent).
+// schema: outputs the 1.1 JSON schema text (for protocol alignment on the osagent side).
 
 import {
 	buildFixPlan,

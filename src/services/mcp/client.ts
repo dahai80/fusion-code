@@ -227,11 +227,14 @@ const MCP_TOOL_TIMEOUT_WARN_MS = 600000;
  */
 const MAX_MCP_DESCRIPTION_LENGTH = 2048;
 
-// P1-19: MCP tools/list 硬上限。恶意/有缺陷 server 返 100k tools → 无界内存增长
-// + 单 turn 送 100k 工具定义给模型 = OOM + 上下文窗口耗尽。超限截断 + fail-visible
-// 警告日志。LRU 仍按 server 数限界 (MCP_FETCH_CACHE_SIZE), 此为单 server tool 数门控。
+// P1-19: hard cap on MCP tools/list. A malicious/buggy server returning 100k
+// tools -> unbounded memory growth, and sending 100k tool definitions to the
+// model in a single turn = OOM + context window exhaustion. Truncate over the
+// cap + fail-visible warning log. LRU still bounds by server count
+// (MCP_FETCH_CACHE_SIZE); this gates tool count per single server.
 const MAX_MCP_TOOLS_PER_SERVER = 1000;
-// P1-19: nextCursor 跟进硬页限 — 防止 server 用分页诱导客户端无限跟进 (cursor loop)。
+// P1-19: hard page limit on nextCursor follow-ups — prevents a server from
+// inducing infinite client follow-ups via pagination (cursor loop).
 const MAX_MCP_TOOLS_PAGES = 50;
 
 /**
@@ -252,8 +255,9 @@ function getMcpToolTimeoutMs(): number {
 	return timeout;
 }
 
-// item 4: MCP 工具自动后台化阈值。FUSION_MCP_AUTO_BACKGROUND_MS 控制慢
-// MCP 调用多久后转后台 task (default 0=off)。对齐 CC 默认 120s 可配。
+// item 4: MCP tool auto-background threshold. FUSION_MCP_AUTO_BACKGROUND_MS
+// controls how long a slow MCP call runs before moving to a background task
+// (default 0=off). Aligned with CC's default 120s, configurable.
 function getMcpAutoBackgroundMs(): number {
 	const ms = parseInt(process.env.FUSION_MCP_AUTO_BACKGROUND_MS || "", 10) || 0;
 	if (ms < 0) {
@@ -262,7 +266,8 @@ function getMcpAutoBackgroundMs(): number {
 	return ms;
 }
 
-// 标记: MCP 调用超阈值转后台 (非错误, 仅 race 信号)
+// Marker: MCP call auto-backgrounded past the threshold (not an error, just
+// a race signal)
 class McpAutoBackgroundTimeoutError extends Error {
 	constructor() {
 		super("MCP tool auto-backgrounded");
@@ -270,9 +275,10 @@ class McpAutoBackgroundTimeoutError extends Error {
 	}
 }
 
-// item 4: MCP 调用超阈值转后台。spawn task 注册到 AppState, 回 interim
-// tool_result 解锁 REPL, 后台续跑 callPromise, 完成时 notify 模型 (复用
-// LocalShellTask task-notification 模式)。
+// item 4: auto-background MCP calls past the threshold. spawn task registers
+// in AppState, an interim tool_result is returned to unlock the REPL, the
+// callPromise keeps running in the background, and the model is notified on
+// completion (reusing the LocalShellTask task-notification pattern).
 async function backgroundMcpCall({
 	callPromise,
 	serverName,
@@ -304,7 +310,8 @@ async function backgroundMcpCall({
 		serverName,
 		`Tool '${toolName}' auto-backgrounded as task ${taskId} after ${Date.now() - startTime}ms`,
 	);
-	// 后台续跑真调用 (callPromise 已 detach turn-abort, 存活到完成)
+	// Keep running the real call in the background (callPromise already
+	// detached from turn-abort, survives to completion)
 	void callPromise
 		.then((mcpResult) => {
 			const contentStr =
@@ -350,7 +357,8 @@ async function backgroundMcpCall({
 				`Backgrounded tool '${toolName}' (task ${taskId}) failed: ${contentStr}`,
 			);
 		});
-	// interim result: 告知模型该工具已转后台, 完成时通过 task-notification 通知
+	// interim result: tells the model the tool was backgrounded; a
+	// task-notification arrives on completion
 	return {
 		data: [
 			{
@@ -1044,16 +1052,20 @@ export const connectToServer = memoize(
 			// Store handler reference for cleanup to prevent memory leaks
 			let stderrHandler: ((data: Buffer) => void) | undefined;
 			let stderrOutput = "";
-			// P3-8: stderr 累积上限 4MB (原 64MB/server, 多 stdio server N×64MB)。
-			// 上限后停 toString (字符串化前查长度, 避免每块仍分配立即 GC 搅动);
-			// 上限命中日志一次 (原静默丢, 调试产 >64MB stderr 后失败的 server 不可能)。
+			// P3-8: stderr accumulation cap 4MB (was 64MB/server; N stdio servers
+			// = N×64MB).
+			// Stop toString-ing past the cap (check length before stringifying,
+			// avoiding per-chunk allocations churned by immediate GC);
+			// log once when the cap is hit (previously dropped silently — a
+			// server that failed after emitting >64MB of stderr was undebuggable).
 			const MAX_STDERR_BYTES = 4 * 1024 * 1024;
 			let stderrCappedLogged = false;
 			if (serverRef.type === "stdio" || !serverRef.type) {
 				const stdioTransport = transport as StdioClientTransport;
 				if (stdioTransport.stderr) {
 					stderrHandler = (data: Buffer) => {
-						// 字符串化前查长度 — 上限后不再 data.toString() 分配。
+						// Check length before stringifying — no more data.toString()
+						// allocations past the cap.
 						if (stderrOutput.length >= MAX_STDERR_BYTES) {
 							if (!stderrCappedLogged) {
 								stderrCappedLogged = true;
@@ -1801,15 +1813,21 @@ export async function clearServerCache(
 	}
 }
 
-// P2-15: 按 name 前缀清 connectToServer.cache, 非精确捕获 config hash。
-// onclose 注册时捕获旧 client.config; getServerCacheKey 含 jsonStringify(serverRef),
-// 用户编辑 .mcp.json 时新连接已在新 key 建立 → onclose 调 clearServerCache(name,OLD_config)
-// 只删旧 key, 新 key 条目不清 + 子进程不清 → 泄漏。此 helper 迭代所有 `${name}-`
-// 开头 key 全删, 对齐当前盘上 config 形状, 不依赖注册时快照。
+// P2-15: clear connectToServer.cache entries by name prefix rather than
+// exactly capturing the config hash.
+// onclose captured the old client.config at registration time;
+// getServerCacheKey includes jsonStringify(serverRef). When the user edits
+// .mcp.json, the new connection is created under a new key -> onclose's
+// clearServerCache(name, OLD_config) deletes only the old key, leaving the
+// new key entry + subprocess uncleaned -> leak. This helper iterates and
+// deletes all `${name}-` prefixed keys, matching the current on-disk config
+// shape without depending on the registration-time snapshot.
 export async function clearServerCacheByName(name: string): Promise<void> {
 	const prefix = `${name}-`;
-	// MapCache 类型未暴露 keys() (仅 delete/get/has/set), 运行时底层 Map 有 keys。
-	// cast 取键迭代再 delete, 按前缀清所有 name-* 条目 (含旧/新 config 的 key)。
+	// The MapCache type doesn't expose keys() (only delete/get/has/set), but
+	// the underlying runtime Map does.
+	// Cast to iterate keys then delete, clearing all name-* entries by prefix
+	// (covering keys of both old and new configs).
 	const cache = connectToServer.cache as unknown as {
 		keys: () => Iterable<string>;
 		delete: (key: string) => boolean;
@@ -1904,8 +1922,10 @@ export const fetchToolsForClient = memoizeWithLRU(
 				return [];
 			}
 
-			// P1-19: 跟进 nextCursor 分页 (硬页限 MAX_MCP_TOOLS_PAGES 防 cursor loop),
-			// 累积全部 tools 后统一 cap。单次 request 不跟进 = server 分页时只拿首页。
+			// P1-19: follow nextCursor pagination (hard page cap
+			// MAX_MCP_TOOLS_PAGES guards the cursor loop), accumulating all tools
+			// then applying the cap uniformly. A single request with no follow-up
+			// = only the first page when the server paginates.
 			const allRawTools: ListToolsResult["tools"] = [];
 			let cursor: string | undefined;
 			let pages = 0;
@@ -1928,7 +1948,8 @@ export const fetchToolsForClient = memoizeWithLRU(
 				);
 			}
 
-			// P1-19: 硬上限 — 超 MAX_MCP_TOOLS_PER_SERVER 截断 + fail-visible 警告。
+			// P1-19: hard cap — truncate past MAX_MCP_TOOLS_PER_SERVER +
+			// fail-visible warning.
 			let toolsToCap = allRawTools;
 			if (allRawTools.length > MAX_MCP_TOOLS_PER_SERVER) {
 				logForDebugging(
@@ -2041,20 +2062,24 @@ export const fetchToolsForClient = memoizeWithLRU(
 							const startTime = Date.now();
 							const MAX_SESSION_RETRIES = 1;
 
-							// item 4: MCP 工具自动后台化。慢 MCP 调用超过
-							// FUSION_MCP_AUTO_BACKGROUND_MS (default 0=off) 转后台 task,
-							// REPL 不阻塞。composite bgController: 跟随 turn-abort 直
-							// 到超时, 超时后 detach — 背景调用存活到 turn 结束后, listener
-							// 移除无泄漏。MCP 工具可能 mutating, 不重调, 必须保活当前调用。
+							// item 4: MCP tool auto-backgrounding. A slow MCP call past
+							// FUSION_MCP_AUTO_BACKGROUND_MS (default 0=off) moves to a
+							// background task, keeping the REPL unblocked. Composite
+							// bgController: follows turn-abort until the timeout, then
+							// detaches — the background call survives past turn end, and
+							// the listener removal leaks nothing. MCP tools may be
+							// mutating, so no re-call — the current call must stay alive.
 							const autoBackgroundMs = getMcpAutoBackgroundMs();
 							let bgController: AbortController | undefined;
 							let bgTimer: NodeJS.Timeout | undefined;
-							// detach 标志: 超时后置 true, turn-abort 不再传到 bgController
+							// detach flag: set true after timeout, turn-abort no longer
+							// propagates to bgController
 							let bgDetached = false;
 							if (autoBackgroundMs > 0) {
 								bgController = new AbortController();
 								const turnSignal = context.abortController.signal;
-								// 跟随 turn-abort: turn 取消则背景调用也取消 (未超时阶段)
+								// Follow turn-abort: turn cancellation cancels the
+								// background call too (pre-timeout phase)
 								const onTurnAbort = () => {
 									if (!bgDetached) {
 										bgController?.abort();
@@ -2068,7 +2093,8 @@ export const fetchToolsForClient = memoizeWithLRU(
 									});
 								}
 								bgTimer = setTimeout(() => {
-									// 超时: detach turn-abort, 背景调用继续存活
+									// Timeout: detach turn-abort, the background call keeps
+									// running
 									turnSignal.removeEventListener("abort", onTurnAbort);
 									bgDetached = true;
 								}, autoBackgroundMs);
@@ -2100,9 +2126,11 @@ export const fetchToolsForClient = memoizeWithLRU(
 										handleElicitation: context.handleElicitation,
 									});
 
-									// item 4: 若启用自动后台, race vs bgTimer。
-									// 超时 (bgController detached) → 转 task, 回 interim
-									// result, 背景续跑真调用并在完成时 notify 模型。
+									// item 4: when auto-background is enabled, race against
+									// bgTimer.
+									// Timeout (bgController detached) -> move to a task, return
+									// an interim result, keep running the real call in the
+									// background and notify the model on completion.
 									if (bgTimer && bgController) {
 										const bgTimeout = new Promise<never>((_, reject) => {
 											bgController?.signal.addEventListener(
@@ -2149,7 +2177,8 @@ export const fetchToolsForClient = memoizeWithLRU(
 											};
 										} catch (error) {
 											if (error instanceof McpAutoBackgroundTimeoutError) {
-												// 转 task: spawn, 回 interim, 背景续跑
+												// Move to a task: spawn, return interim, keep running in
+												// the background
 												return await backgroundMcpCall({
 													callPromise,
 													serverName: client.name,

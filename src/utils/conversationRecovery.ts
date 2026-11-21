@@ -575,8 +575,8 @@ export async function loadConversationForResume(
 			messages = deserialized.messages;
 		}
 
-		// Process session start hooks for resume. --fork-session 报告 source
-		// "fork" (CC 2.1.214, issue #79), 让 hook 区分 fork 与普通 resume。
+		// Process session start hooks for resume. --fork-session reports source
+		// "fork" (CC 2.1.214, issue #79), letting hooks distinguish fork from a plain resume.
 		const sessionStartSource = forkSession ? "fork" : "resume";
 		const hookMessages = await processSessionStartHooks(sessionStartSource, {
 			sessionId,

@@ -715,7 +715,7 @@ export function extractOutputRedirections(cmd: string): {
 			parenStack.push({ index: i, isStart: !!isStart });
 		} else if (isOperator(part, ")") && parenStack.length > 0) {
 			const opening = parenStack.pop();
-			// forEach 回调内不能用 break (TS1107), 用 return 跳过当前迭代
+			// cannot use break inside a forEach callback (TS1107), use return to skip the current iteration
 			if (opening === undefined) return;
 			const next = parsed[i + 1];
 			if (

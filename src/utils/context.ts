@@ -10,7 +10,7 @@ import { resolveAntModel } from "./model/antModels.js";
 // Model context window size (200k tokens for all models right now)
 export const MODEL_CONTEXT_WINDOW_DEFAULT = 200_000;
 
-// Fusion-MLX 本地模型上下文窗口
+// Fusion-MLX local model context window
 export const MLX_CONTEXT_WINDOW = 32_768;
 export const MLX_MAX_OUTPUT_TOKENS = 8_192;
 
@@ -94,7 +94,7 @@ export function getContextWindowForModel(
 	model: string,
 	betas?: string[],
 ): number {
-	// Fusion-MLX 本地模型：优先用缓存的真实上下文长度
+	// Fusion-MLX local models: prefer the cached real context length
 	if (
 		isFusionMlxProvider() ||
 		model.startsWith("fusion-mlx") ||
@@ -202,7 +202,7 @@ export function getModelMaxOutputTokens(model: string): {
 	default: number;
 	upperLimit: number;
 } {
-	// Fusion-MLX 本地模型
+	// Fusion-MLX local model
 	if (
 		isFusionMlxProvider() ||
 		model.startsWith("fusion-mlx") ||

@@ -471,12 +471,13 @@ function isAutoAllowBashIfSandboxedEnabled(): boolean {
 	return settings?.sandbox?.autoAllowBashIfSandboxed ?? true;
 }
 
-// P2-1 (audit 0901): 企业 managed-settings (policySettings) 部署默认 fail-closed。
-// secure-by-default: 企业 IT 通过 managed-settings.json 推策略, 意图是受控环境;
-// 此时若沙箱不可用, 默认放行裸执行 (fail-open) 与企业意图相悖。检测 policySettings
-// 非空 (有 managed 配置) → 翻转 allowUnsandboxedCommands/failIfUnavailable 默认为
-// fail-closed。仅翻转默认值; 显式配置仍可覆盖 (IT 可显式设 true 开放, 但须明示)。
-// 默认 (无 managed) 行为不变 = byte-identical for non-enterprise。
+// P2-1 (audit 0901): enterprise managed-settings (policySettings) deployments default to fail-closed.
+// secure-by-default: enterprise IT pushing policy via managed-settings.json implies a controlled environment;
+// if the sandbox is unavailable there, defaulting to bare execution (fail-open) contradicts the enterprise
+// intent. Detecting a non-empty policySettings (managed config present) → flip the allowUnsandboxedCommands/
+// failIfUnavailable defaults to fail-closed. Only defaults flip; explicit config still overrides (IT may
+// explicitly set true to open up, but it must be stated).
+// Default (no managed) behavior unchanged = byte-identical for non-enterprise.
 const isEnterpriseManagedDeployment = memoize((): boolean => {
 	try {
 		const policy = getSettingsForSource("policySettings");
@@ -491,8 +492,8 @@ const isEnterpriseManagedDeployment = memoize((): boolean => {
 
 function areUnsandboxedCommandsAllowed(): boolean {
 	const settings = getInitialSettings();
-	// 企业 managed 部署: 默认 false (沙箱不可用则拒绝执行, 非 fallback 裸跑)。
-	// 默认部署: 仍 true (不破坏现有行为)。
+	// Enterprise managed deployment: default false (reject execution if the sandbox is unavailable, no bare-execution fallback).
+	// Default deployment: still true (no behavior break).
 	return (
 		settings?.sandbox?.allowUnsandboxedCommands ??
 		!isEnterpriseManagedDeployment()
@@ -503,8 +504,8 @@ function isSandboxRequired(): boolean {
 	const settings = getInitialSettings();
 	return (
 		getSandboxEnabledSetting() &&
-		// 企业 managed 部署: 默认 true (沙箱不可用则 fail, 非 fail-open)。
-		// 默认部署: 仍 false (不破坏现有行为)。
+		// Enterprise managed deployment: default true (fail if the sandbox is unavailable, not fail-open).
+		// Default deployment: still false (no behavior break).
 		(settings?.sandbox?.failIfUnavailable ?? isEnterpriseManagedDeployment())
 	);
 }

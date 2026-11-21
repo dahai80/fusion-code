@@ -1,11 +1,11 @@
-// audit 1.1.1 slice #60: SandboxManager 初始化 if-block 外移 (PURE-ROUTING-SUB-BLOCK render-body variant, like #43)。
-// REPL() 渲染期: SandboxManager.isSandboxingEnabled() 为真 → SandboxManager.initialize(sandboxAskCallback) 异步初始化,
-// 失败则 stderr 写错误 + gracefulShutdownSync(1, "other") 拒绝启动。为 slice #43 (sandboxUnavailableCheck) 的兄弟块,
-// 共用 SandboxManager + gracefulShutdownSync + stderr 模式。原 top-level render body (非 useEffect, 每 render 执行, 与原一致)。
-// SandboxManager (src/utils/sandbox/sandbox-adapter) + errorMessage (utils/errors) + gracefulShutdownSync (utils/gracefulShutdown) 直接 import
-// (非 REPL state, per imported-helpers-directly rule; REPL 多用, 保留 REPL import)。
-// sandboxAskCallback (REPL-local useCallback L2310, 闭包捕获 store/setAppState/setSandboxPermissionRequestQueue/sandboxBridgeCleanupRef) 经 ctx 传入。
-// 辅助返 void (REPL 渲染期薄壳透传, 非 hook, 无 cleanup)。无 JSX → .ts。无 deps (render body, 非 hook)。
+// audit 1.1.1 slice #60: SandboxManager init if-block extracted (PURE-ROUTING-SUB-BLOCK render-body variant, like #43).
+// REPL() during render: SandboxManager.isSandboxingEnabled() true → SandboxManager.initialize(sandboxAskCallback) async init,
+// on failure writes the error to stderr + gracefulShutdownSync(1, "other") refuses startup. This is the sibling block of slice #43 (sandboxUnavailableCheck),
+// sharing the SandboxManager + gracefulShutdownSync + stderr pattern. Original top-level render body (not a useEffect, runs each render, matching the original).
+// SandboxManager (src/utils/sandbox/sandbox-adapter) + errorMessage (utils/errors) + gracefulShutdownSync (utils/gracefulShutdown) imported directly
+// (not REPL state, per imported-helpers-directly rule; used multiple times in REPL, REPL import kept).
+// sandboxAskCallback (REPL-local useCallback L2310, closure-captures store/setAppState/setSandboxPermissionRequestQueue/sandboxBridgeCleanupRef) passed via ctx.
+// Helper returns void (REPL render-time thin-shell pass-through, not a hook, no cleanup). No JSX → .ts. No deps (render body, not a hook).
 
 import { SandboxManager } from "src/utils/sandbox/sandbox-adapter.js";
 import { errorMessage } from "../utils/errors.js";
@@ -16,10 +16,10 @@ type SandboxInitCtx = {
 	sandboxAskCallback: SandboxAskCallback;
 };
 
-// REPL 保留 plain 薄壳 (渲染期每 render 调用, 与原 top-level if-block 语义等价):
+// REPL keeps the plain thin shell (called each render, equivalent to the original top-level if-block semantics):
 //   if (SandboxManager.isSandboxingEnabled()) { maybeInitSandbox({ sandboxAskCallback }); }
-// 注: 原 if 守卫在 REPL 保留还是 helper 内保留 — 选 helper 内保留 (守卫属初始化逻辑一部分, 移出更内聚)。
-// 但为最小改动 + 字节等价, REPL 薄壳仍保留 if (SandboxManager.isSandboxingEnabled()) 守卫, helper 只做 init+catch。
+// Note: whether the original if guard stays in REPL or moves into the helper — chose to keep it inside the helper (the guard is part of the init logic, moving it out is more cohesive).
+// But for minimal diff + byte equivalence, the REPL thin shell still keeps the if (SandboxManager.isSandboxingEnabled()) guard; the helper only does init+catch.
 export function maybeInitSandbox(ctx: SandboxInitCtx): void {
 	SandboxManager.initialize(ctx.sandboxAskCallback).catch((err: unknown) => {
 		// Initialization/validation failed - display error and exit

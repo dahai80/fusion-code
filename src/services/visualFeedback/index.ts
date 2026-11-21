@@ -1,18 +1,19 @@
 // Visual-Feedback Protocol (issue #216/#217) — ingest + validate + normalize +
-// re-fix plan 生成。
+// re-fix plan generation.
 //
-// fusion-osagent 的 code-debug loop (F5.2) 生成 VisualFeedbackReport JSON,
-// 本模块提供:
-//   1. validateReport — schema 校验 + 归一化 (1.1 osagent-native / 1.0 legacy)
-//      纯函数, 无副作用, 返回 NormalizedVisualFeedback
-//   2. ingestVisualFeedback — 从文件/stdin 读取 + 校验 + 可选触发 auto-fix
-//   3. formatDefectsForAgent — 缺陷清单格式化为 auto-fix agent prompt 段
-//   4. buildFixPlan — 生成无状态 re-fix 工作流计划 (build/rerun/reverify)
+// fusion-osagent's code-debug loop (F5.2) produces the VisualFeedbackReport JSON;
+// this module provides:
+//   1. validateReport — schema validation + normalization (1.1 osagent-native / 1.0 legacy)
+//      pure function, no side effects, returns NormalizedVisualFeedback
+//   2. ingestVisualFeedback — read from file/stdin + validate + optionally trigger auto-fix
+//   3. formatDefectsForAgent — format the defect list into an auto-fix agent prompt section
+//   4. buildFixPlan — generate a stateless re-fix workflow plan (build/rerun/reverify)
 //
-// auto-fix 触发策略: 默认仅校验 + 输出结构化摘要 (non-blocking); 当 autoFix=true
-// 时落盘报告到 ~/.fusion-code/visual-feedback/ 并输出 CLI 指令供上层编排器
-// (fusion-osagent / CI) 启动修复 agent。不在本进程内直接拉起 REPL agent —
-// 保持 CLI handler 无状态, 让编排器决定修复流程 (与 trajectory train 同构)。
+// auto-fix trigger policy: by default validate only + output a structured summary (non-blocking);
+// when autoFix=true, persist the report to ~/.fusion-code/visual-feedback/ and emit CLI instructions
+// for the upstream orchestrator (fusion-osagent / CI) to launch a fix agent. Does not spawn a REPL
+// agent in this process — keeps the CLI handler stateless and lets the orchestrator decide the fix
+// flow (isomorphic with trajectory train).
 
 import { existsSync } from "node:fs";
 import { readFile } from "node:fs/promises";
@@ -36,14 +37,14 @@ export type {
 	VisualFeedbackReportV11,
 } from "./types.js";
 
-/** 报告落盘目录: ~/.fusion-code/visual-feedback/ */
+/** Report persistence dir: ~/.fusion-code/visual-feedback/ */
 export function getVisualFeedbackDir(): string {
 	return join(getClaudeConfigHomeDir(), "visual-feedback");
 }
 
-/** 当前规范协议版本 (osagent-native shape)。 */
+/** Current canonical protocol version (osagent-native shape). */
 export const SCHEMA_VERSION = "1.1";
-/** 仍可接受的 legacy 协议版本 (#216)。 */
+/** Legacy protocol version still accepted (#216). */
 const LEGACY_SCHEMA_VERSION = "1.0";
 const ACCEPTED_VERSIONS = new Set([SCHEMA_VERSION, LEGACY_SCHEMA_VERSION]);
 
@@ -58,8 +59,8 @@ const VALID_KINDS = new Set([
 	"unknown",
 ]);
 
-/** 校验 + 归一化报告 (issue #216/#217 协议)。纯函数。
- *  接受 1.1 (osagent-native) 与 1.0 (legacy #216), 统一归一为 1.1 语义。 */
+/** Validate + normalize a report (issue #216/#217 protocol). Pure function.
+ *  Accepts 1.1 (osagent-native) and 1.0 (legacy #216), unifying both into 1.1 semantics. */
 export function validateReport(raw: unknown): {
 	valid: boolean;
 	error?: string;
@@ -92,7 +93,7 @@ export function validateReport(raw: unknown): {
 	return validateV11(r);
 }
 
-/** 校验 1.1 osagent-native 形状并归一。 */
+/** Validate the 1.1 osagent-native shape and normalize it. */
 function validateV11(r: Record<string, unknown>): {
 	valid: boolean;
 	error?: string;
@@ -159,7 +160,7 @@ function validateV11(r: Record<string, unknown>): {
 	return { valid: true, report };
 }
 
-/** 校验 1.0 legacy 形状 (#216) 并归一为 1.1 语义。 */
+/** Validate the 1.0 legacy shape (#216) and normalize it into 1.1 semantics. */
 function validateLegacy(r: Record<string, unknown>): {
 	valid: boolean;
 	error?: string;
@@ -233,7 +234,7 @@ function validateLegacy(r: Record<string, unknown>): {
 	return { valid: true, report };
 }
 
-/** 将归一化缺陷清单格式化为 auto-fix agent 可读的 prompt 段。 */
+/** Format the normalized defect list into a prompt section readable by the auto-fix agent. */
 export function formatDefectsForAgent(
 	report: NormalizedVisualFeedback,
 ): string {
@@ -268,7 +269,7 @@ export function formatDefectsForAgent(
 	return lines.join("\n");
 }
 
-/** 探测项目构建命令 (按常见工程类型)。纯函数, 无 fs 读取 (调用方已知 cwd)。 */
+/** Detect the project build command (by common project types). Pure function, no fs reads (caller already knows cwd). */
 export function detectBuildCmd(cwd: string): string {
 	if (existsSync(join(cwd, "package.json"))) {
 		if (
@@ -287,7 +288,7 @@ export function detectBuildCmd(cwd: string): string {
 	return "echo 'no known build system; skip rebuild'";
 }
 
-/** 生成无状态 re-fix 工作流计划。fusion-code 只产出 plan, 编排器执行。 */
+/** Generate a stateless re-fix workflow plan. fusion-code only produces the plan; the orchestrator executes. */
 export function buildFixPlan(
 	report: NormalizedVisualFeedback,
 	opts?: { cwd?: string; reportPath?: string },
@@ -313,10 +314,10 @@ export function buildFixPlan(
 }
 
 /**
- * Ingest 一份视觉反馈报告。
- * - filePath: 文件路径 ("-" = stdin)
- * - autoFix: true 时格式化 agent prompt 段并标记 triggered (落盘 + 输出)
- * - autoFixLoop: true 时额外生成 buildFixPlan 写入 ingest result
+ * Ingest a visual-feedback report.
+ * - filePath: file path ("-" = stdin)
+ * - autoFix: when true, format the agent prompt section and mark triggered (persist + output)
+ * - autoFixLoop: when true, additionally generate buildFixPlan into the ingest result
  */
 export async function ingestVisualFeedback(opts: {
 	filePath: string;

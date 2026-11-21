@@ -421,7 +421,7 @@ export const createAndSaveSnapshot = async (
 
 	logForDebugging(`Creating shell snapshot for ${shellType} (${binShell})`);
 
-	// biome-ignore lint/suspicious/noAsyncPromiseExecutor: 执行器内部需 await 异步文件操作后按路径 resolve，改为外层 async 会引入额外的 try/catch 包装且行为不变
+	// biome-ignore lint/suspicious/noAsyncPromiseExecutor: the executor must await async file operations before resolving by path; moving it to an outer async wrapper would add extra try/catch wrapping with identical behavior
 	return new Promise(async (resolve) => {
 		try {
 			const configFile = getConfigFile(binShell);

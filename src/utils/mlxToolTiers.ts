@@ -1,9 +1,10 @@
 /**
- * MLX 本地模式工具集分档 (#222)
+ * MLX local-mode toolset tiers (#222)
  *
- * 按模型参数规模分三档: CORE (≤2B) / MEDIUM (≤9B) / FULL。
- * 规模解析必须走数值, 不能子串匹配 — "14b" 含 "1b" 子串, 旧实现把
- * 14B 模型误降档进 ≤2B 核心工具集, 大模型能力被白砍。
+ * Three tiers by model parameter size: CORE (≤2B) / MEDIUM (≤9B) / FULL.
+ * Size resolution must be numeric, never substring matching — "14b" contains
+ * the substring "1b", and the old implementation downgraded 14B models into
+ * the ≤2B core toolset, needlessly crippling large-model capability.
  */
 
 import { logForDebugging } from "./debug.js";
@@ -52,8 +53,8 @@ export const FULL_TOOLS = new Set([
 	"SendDMail",
 ]);
 
-// #222: 数值正则 — 提取 "<n>b" 后缀中的 n (支持小数如 0.6b)。
-// \b 保证 "4bit" 里的 4 不被当成规模 ("4b" 后跟 "it" 无词边界)。
+// #222: numeric regex — extract n from the "<n>b" suffix (supports decimals like 0.6b).
+// \b ensures the 4 in "4bit" is not taken as a size ("4b" followed by "it" has no word boundary).
 const MODEL_SIZE_B_RE = /(\d+(?:\.\d+)?)b\b/i;
 
 export function parseModelSizeB(modelId: string): number | null {
@@ -67,7 +68,7 @@ export function getMlxToolFilterForModel(modelId: string): Set<string> {
 	const id = modelId.toLowerCase();
 	const sizeB = parseModelSizeB(id);
 	if (sizeB === null) {
-		// 规模解析不出 (云模型名/无后缀): 保持旧行为给全量工具集
+		// Size unresolvable (cloud model name / no suffix): keep old behavior, full toolset
 		logForDebugging(
 			`mlx tool filter: model id "${id}" has no parseable size, full toolset`,
 		);

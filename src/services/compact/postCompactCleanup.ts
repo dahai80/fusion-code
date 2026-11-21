@@ -86,9 +86,11 @@ export function runPostCompactCleanup(
 	if (activeFilePaths && activeFilePaths.size > 0) {
 		void getLspServerManager()?.closeFilesNotIn(activeFilePaths);
 	}
-	// item 6: compact 收尾触发磁盘裁剪 (CC 2.1.208)。default off —
-	// FUSION_TRANSCRIPT_TRIM_THRESHOLD 未设则 no-op。仅主线程 compact 裁 (子代理
-	// 不动主 transcript)。fire-and-forget — 走 trackWrite 串行等 pending 写排空后裁。
+	// item 6: compact finish triggers disk trim (CC 2.1.208). default off —
+	// no-op when FUSION_TRANSCRIPT_TRIM_THRESHOLD is unset. Only main-thread
+	// compacts trim (subagents never touch the main transcript).
+	// fire-and-forget — goes through trackWrite's serial queue and trims after
+	// pending writes drain.
 	if (isMainThreadCompact) {
 		void trimCurrentSessionTranscript();
 	}

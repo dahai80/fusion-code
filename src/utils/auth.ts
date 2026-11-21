@@ -92,7 +92,7 @@ export function isAnthropicAuthEnabled(): boolean {
 	// --bare: API-key-only, never OAuth.
 	if (isBareMode()) return false;
 
-	// Fusion-MLX 本地模式：无需 Anthropic 认证
+	// Fusion-MLX local mode: no Anthropic auth needed
 	if (isFusionMlxProvider()) return false;
 
 	// `claude ssh` remote: FUSION_UNIX_SOCKET tunnels API calls through a
@@ -119,10 +119,12 @@ export function isAnthropicAuthEnabled(): boolean {
 		process.env.FUSION_CODE_API_KEY_FILE_DESCRIPTOR;
 
 	// Check if API key is from an external source (not managed by /login)
-	// NOTE: 直接检查 env var，不依赖 getAnthropicApiKeyWithSource() 的 approved 列表
-	// 原因：第三方 API 代理（如 litellm）通过 env var 配置，无需交互式批准，
-	// 但 getAnthropicApiKeyWithSource() 对未批准的 key 返回 source='none'，
-	// 导致 hasExternalApiKey=false → auth 不被禁用 → UI 显示 "Not logged in"
+	// NOTE: check the env var directly instead of relying on the
+	// getAnthropicApiKeyWithSource() approved list
+	// Reason: third-party API proxies (e.g. litellm) are configured via env var
+	// and need no interactive approval, but getAnthropicApiKeyWithSource()
+	// returns source='none' for unapproved keys, causing
+	// hasExternalApiKey=false → auth not disabled → UI shows "Not logged in"
 	const { source: _apiKeySource } = getAnthropicApiKeyWithSource({
 		skipRetrievingKeyFromApiKeyHelper: true,
 	});
@@ -225,7 +227,7 @@ export function getAnthropicApiKeyWithSource(
 	key: null | string;
 	source: ApiKeySource;
 } {
-	// Fusion-MLX 本地模式：无需 API Key
+	// Fusion-MLX local mode: no API key needed
 	if (isFusionMlxProvider()) {
 		return { key: null, source: "none" };
 	}
@@ -300,17 +302,22 @@ export function getAnthropicApiKeyWithSource(
 		};
 	}
 	// Check for FUSION_CLIENT_KEY before checking the apiKeyHelper or /login-managed key
-	// NOTE: 当 FUSION_BASE_URL 指向非 Anthropic 域名时（第三方代理如 litellm），
-	// 直接接受 FUSION_CLIENT_KEY，无需交互式批准。
-	// 原因：第三方代理的 key 不是 Anthropic API key，无法通过 approved 列表验证，
-	// 且不批准会导致 SDK 拿不到 key → 401 → "Not logged in"
+	// NOTE: when FUSION_BASE_URL points to a non-Anthropic domain (third-party
+	// proxy such as litellm), accept FUSION_CLIENT_KEY directly, without
+	// interactive approval.
+	// Reason: a third-party proxy's key is not an Anthropic API key and cannot
+	// be validated against the approved list, and not approving it would leave
+	// the SDK without a key → 401 → "Not logged in"
 	const baseUrl =
 		process.env.FUSION_BASE_URL || process.env.ANTHROPIC_BASE_URL || "";
 	const isThirdPartyProxy = baseUrl && !baseUrl.includes("api.anthropic.com");
-	// 第三方代理回退: 旧 SDK 构造函数在 apiKey 为空时会直接读取 ANTHROPIC_API_KEY
-	// 环境变量。接缝层 (seam) 不经 SDK, 丢失了这一回退。此处为第三方代理场景补回
-	// ANTHROPIC_API_KEY 读取 (FUSION_CLIENT_KEY 仍优先), 保持前后行为一致。
-	// 仅限第三方代理 (非 Anthropic 域名): firstParty 直连 Anthropic 仍走 approved 列表。
+	// Third-party proxy fallback: the old SDK constructor read the
+	// ANTHROPIC_API_KEY env var directly when apiKey was empty. The seam layer
+	// bypasses the SDK and lost that fallback. Restore the ANTHROPIC_API_KEY
+	// read here for the third-party proxy scenario (FUSION_CLIENT_KEY still
+	// takes priority) to keep behavior consistent before and after.
+	// Third-party proxies only (non-Anthropic domain): firstParty direct
+	// connections to Anthropic still go through the approved list.
 	const fallbackKeyEnv = isThirdPartyProxy
 		? process.env.ANTHROPIC_API_KEY
 		: undefined;
