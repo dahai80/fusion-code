@@ -1530,7 +1530,10 @@ async function* queryLoop(
 				const recoveryMessage = createUserMessage({
 					content:
 						`${TOOL_CALL_TEXT_RECOVERY_MARKER} Your previous message contained a tool call written as plain text, which cannot be executed. ` +
-						`Re-issue that same action as a real tool call block (the assistant message tool_calls field), not as text. Do not repeat any prose.`,
+						`Re-issue that same action as a real tool call block (the assistant message tool_calls field), not as text. Do not repeat any prose.` +
+						(recoveryAttempts >= 1
+							? ` If the action is a file edit, prefer the Write tool to rewrite the whole file instead of a partial edit — partial edit arguments are hard to get right.`
+							: ""),
 					isMeta: true,
 				});
 				const next: State = {
