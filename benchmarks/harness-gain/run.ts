@@ -105,7 +105,8 @@ const FIXTURES: Record<string, () => Fixture> = {
 			// real line-ending fix it becomes `test -f src/main.py` -> exit 0.
 			// (A plain `exit 0\r` line still exits 0 under CRLF, and `set -e\r`
 			// errors out without enabling errexit - both would false-positive.)
-			"build.sh": "#!/bin/bash\r\necho 'building...'\r\ntest -f src/main.py\r\n",
+			"build.sh":
+				"#!/bin/bash\r\necho 'building...'\r\ntest -f src/main.py\r\n",
 		},
 	}),
 	T11: () => ({
