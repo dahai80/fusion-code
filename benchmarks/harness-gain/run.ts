@@ -368,7 +368,11 @@ function verify(
 			}
 		}
 		case "command-exit": {
-			const proc = Bun.spawnSync(verifySpec.command.split(" "), { cwd: dir });
+			const proc = Bun.spawnSync(verifySpec.command.split(" "), {
+				cwd: dir,
+				timeout: 60_000,
+				killSignal: 9,
+			});
 			if (verifySpec.exitCode !== undefined) {
 				return {
 					resolved: proc.exitCode === verifySpec.exitCode,
@@ -382,17 +386,27 @@ function verify(
 			};
 		}
 		case "command-stdout": {
-			const proc = Bun.spawnSync(verifySpec.command.split(" "), { cwd: dir });
+			const proc = Bun.spawnSync(verifySpec.command.split(" "), {
+				cwd: dir,
+				timeout: 60_000,
+				killSignal: 9,
+			});
 			return {
 				resolved: proc.stdout.toString().trim() === verifySpec.stdout,
 				detail: `stdout=${proc.stdout.toString().trim()}`,
 			};
 		}
 		case "pytest": {
+			// Verify must never hang: an untouched fixture can contain code
+			// that loops forever when the tested behavior is missing (T13).
+			// Timeout is treated as unresolved, same as a failing test.
 			const proc = Bun.spawnSync(
 				["python3", "-m", "pytest", ...verifySpec.test.split(" "), "-q"],
-				{ cwd: dir },
+				{ cwd: dir, timeout: 60_000, killSignal: 9 },
 			);
+			if (proc.signalCode === "SIGKILL") {
+				return { resolved: false, detail: "pytest verify timeout" };
+			}
 			return {
 				resolved: proc.exitCode === 0,
 				detail: `pytest exit=${proc.exitCode}`,
