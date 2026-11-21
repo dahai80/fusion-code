@@ -546,9 +546,7 @@ describe("buildMlxSystemPrompt tier override", () => {
 		try {
 			const parts = await buildForTier("qwen-8b", 40960);
 			expect(parts.some((s) => s.includes(COMPACT_MARKER))).toBe(true);
-			expect(parts.some((s) => s.includes(STANDARD_MARKER_LOCAL))).toBe(
-				false,
-			);
+			expect(parts.some((s) => s.includes(STANDARD_MARKER_LOCAL))).toBe(false);
 		} finally {
 			delete process.env.FUSION_CODE_MLX_PROMPT_TIER;
 		}
@@ -570,9 +568,7 @@ describe("buildMlxSystemPrompt tier override", () => {
 			const parts = await buildForTier("qwen-8b", 40960);
 			// automatic tier for 8B is now compact (bench report #2 A/B)
 			expect(parts.some((s) => s.includes(COMPACT_MARKER))).toBe(true);
-			expect(parts.some((s) => s.includes(STANDARD_MARKER_LOCAL))).toBe(
-				false,
-			);
+			expect(parts.some((s) => s.includes(STANDARD_MARKER_LOCAL))).toBe(false);
 			expect(parts.some((s) => s.includes(FULL_MARKER))).toBe(false);
 		} finally {
 			delete process.env.FUSION_CODE_MLX_PROMPT_TIER;
