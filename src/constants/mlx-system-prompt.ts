@@ -9,6 +9,7 @@ import { FILE_WRITE_TOOL_NAME } from "../tools/FileWriteTool/prompt.js";
 import { GLOB_TOOL_NAME } from "../tools/GlobTool/prompt.js";
 import { GREP_TOOL_NAME } from "../tools/GrepTool/prompt.js";
 import { getCwd } from "../utils/cwd.js";
+import { logForDebugging } from "../utils/debug.js";
 import { env } from "../utils/env.js";
 import { getIsGit } from "../utils/git.js";
 import {
@@ -115,7 +116,14 @@ export function getPromptTier(
 	contextWindow?: number,
 ): PromptTier {
 	if (paramCount <= 3) return "mini";
-	if (paramCount <= 9) return "standard";
+	// ≤9B models get 'compact' by default (bench report #2 A/B, 2026-11-21):
+	// the same Qwen3-8B checkpoint resolved 3/20 suite tasks on the
+	// standard tier (~8.1K-token system prompt) vs 10/20 on compact
+	// (~1.9K tokens), matching goose's small-prompt harness (10/20).
+	// Long/verbose context degrades small models non-linearly (Context
+	// Rot, Lost in the Middle, NoLiMa). FUSION_CODE_MLX_PROMPT_TIER can
+	// force the old tier for comparison.
+	if (paramCount <= 9) return "compact";
 	if (paramCount <= 14) return "extended";
 	// 32B+ models on tight context windows (≤32K) use 'compact' tier.
 	// 'compact' keeps only the 5 essential sections (~3K tokens) so
@@ -632,7 +640,23 @@ export async function buildMlxSystemPrompt(
 	contextWindow?: number,
 ): Promise<string[]> {
 	const paramCount = estimateModelParamCount(model);
-	const tier = getPromptTier(paramCount, contextWindow);
+	// FUSION_CODE_MLX_PROMPT_TIER overrides the automatic tier mapping
+	// (mini|compact|standard|extended|full). Escape hatch for A/B
+	// measurement: the cross-harness baseline (bench report #2) showed
+	// the same 8B checkpoint resolving 10/20 tasks under goose's ~2K-char
+	// prompt vs 3/20 under this builder's standard tier.
+	const tierOverride = process.env.FUSION_CODE_MLX_PROMPT_TIER;
+	const tier =
+		tierOverride === "mini" ||
+		tierOverride === "compact" ||
+		tierOverride === "standard" ||
+		tierOverride === "extended" ||
+		tierOverride === "full"
+			? tierOverride
+			: getPromptTier(paramCount, contextWindow);
+	logForDebugging(
+		`[MlxSystemPrompt] tier=${tier} model=${model} override=${tierOverride ?? "none"}`,
+	);
 	const cwd = getCwd();
 	const [isGit, unameSR] = await Promise.all([getIsGit(), getUnameSR()]);
 	// audit-0903 P1 PERF-1: the non-MLX path wraps these in

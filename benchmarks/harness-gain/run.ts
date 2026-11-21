@@ -292,8 +292,7 @@ async function runHarness(
 			GOOSE_PROVIDER: "openai",
 			GOOSE_MODEL: process.env.BENCH_MODEL ?? "",
 			OPENAI_API_KEY: engineKey,
-			OPENAI_HOST:
-				process.env.FUSION_MLX_BASE_URL ?? "http://127.0.0.1:11434",
+			OPENAI_HOST: process.env.FUSION_MLX_BASE_URL ?? "http://127.0.0.1:11434",
 		};
 	} else {
 		throw new Error(`unknown harness: ${harness}`);
@@ -417,9 +416,8 @@ function verify(
 			if (!existsSync(path))
 				return { resolved: false, detail: `missing ${verifySpec.path}` };
 			const content = readFileSync(path, "utf8");
-			const n = (
-				content.match(new RegExp(verifySpec.pattern, "g")) ?? []
-			).length;
+			const n = (content.match(new RegExp(verifySpec.pattern, "g")) ?? [])
+				.length;
 			return {
 				resolved: n <= verifySpec.max,
 				detail: `count=${n} max=${verifySpec.max} ${verifySpec.path}`,
