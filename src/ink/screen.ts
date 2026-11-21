@@ -778,8 +778,9 @@ export function setCellAt(
 			// clear ITS SpacerTail at x+2 too. Otherwise the orphan SpacerTail
 			// makes diffEach report it as `added` and log-update's skip-spacer
 			// rule prevents clearing whatever prev content was at that column.
-			// Scenario: [a, 💻, spacer] → [本, spacer, ORPHAN spacer] when
-			// yoga squishes a💻 to height 0 and 本 renders at the same y.
+			// Scenario: [a, emoji, spacer] → [CJK glyph, spacer, ORPHAN spacer]
+			// when yoga squishes the emoji to height 0 and a wide CJK glyph
+			// renders at the same y.
 			if ((cells[spacerCI + 1]! & WIDTH_MASK) === CellWidth.Wide) {
 				const orphanCI = spacerCI + 2;
 				if (

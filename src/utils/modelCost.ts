@@ -232,7 +232,7 @@ function formatPrice(price: number): string {
  */
 export function formatModelPricing(costs: ModelCosts): string {
 	if (costs.inputTokens === 0 && costs.outputTokens === 0) {
-		return "Local (免费)";
+		return "Local (free)";
 	}
 	return `${formatPrice(costs.inputTokens)}/${formatPrice(costs.outputTokens)} per Mtok`;
 }

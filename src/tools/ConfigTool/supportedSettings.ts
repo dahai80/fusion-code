@@ -47,7 +47,7 @@ export const SUPPORTED_SETTINGS: Record<string, SettingConfig> = {
 		source: "global",
 		type: "array",
 		description:
-			"INSERT-mode 双键 exit 序列（仅 vim 模式生效，如 jj 退出 INSERT）",
+			"Two-key INSERT-mode exit sequence (vim mode only, e.g. jj to exit INSERT)",
 	},
 	verbose: {
 		source: "global",
