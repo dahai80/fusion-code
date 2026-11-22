@@ -179,8 +179,40 @@ in-context).
    iteration caps, tool-call n-gram hashing, state-similarity checks;
    not from a single pinned paper.)
 
-## 7. Sources
+## 7. Edit-tool ACI shape (phase 2 lever, researched 2026-11-22)
 
+Prompt diet (compact tier) closed the goose gap on resolve rate; the
+remaining ACI delta is the edit tool itself — fusion-code's strict Edit
+schema (exact `old_string`/`new_string`) vs goose's lenient
+`path/before/after` plain strings. Literature for phase 2:
+
+- **Aider leaderboards**: search/replace (diff) beats whole-file overall,
+  gap largest for *strong* models; some *weak* models invert —
+  exact-match anchor generation is their failure mode, so whole-file
+  rewrites do better. udiff degrades sharply below frontier quality.
+- **Anthropic "Writing effective tools for agents"**: search/replace
+  anchors reduce hallucinated edits and enable verification; padding the
+  string-match anchor with ~3 lines of surrounding context improves edit
+  success rates.
+- **OpenAI `apply_patch`**: GPT-4.1-family was post-trained on this
+  format and deviating degrades performance — format familiarity with
+  the served model can matter more than format elegance. For fusion:
+  check what edit format Qwen coder checkpoints were post-trained on
+  before choosing.
+
+Design rules for a fusion-code lenient-Edit experiment: (1) fuzzier
+anchor matching (whitespace-normalized, context-padded) instead of
+byte-exact; (2) auto-escalate to whole-file Write when anchor match
+fails twice (recovery loop already suggests this on the 2nd correction —
+make it tool-level); (3) if Qwen was post-trained on a specific patch
+format, prefer that shape. Measurable with the same harness-gain suite.
+
+## 8. Sources
+
+- Edit-tool ACI shape: Anthropic "Writing effective tools for agents"
+  https://www.anthropic.com/engineering/writing-tools-for-agents ;
+  OpenAI GPT-4.1 prompting guide (`apply_patch` format familiarity)
+  https://cookbook.openai.com/examples/gpt4-1_prompting_guide
 - XGrammar: https://arxiv.org/abs/2411.15100
 - xgrammar-mlx: https://github.com/arghack/xgrammar-mlx
 - SWE-agent: https://arxiv.org/abs/2405.15793 (code: princeton-nlp/SWE-agent)
