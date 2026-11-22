@@ -2,6 +2,7 @@ import { type StructuredPatchHunk, structuredPatch } from "diff";
 import { logError } from "src/utils/log.js";
 import { expandPath } from "src/utils/path.js";
 import { countCharInString } from "src/utils/stringUtils.js";
+import { logForDebugging } from "../../utils/debug.js";
 import {
 	DIFF_TIMEOUT_MS,
 	getPatchForDisplay,
@@ -92,7 +93,146 @@ export function findActualString(
 		);
 	}
 
-	return null;
+	// Fuzzy whitespace match: weak local models frequently emit wrong
+	// indentation or trailing whitespace in old_string. Match with flexible
+	// leading/trailing whitespace per line; require a unique match.
+	const fuzzy = findFuzzyWhitespaceMatch(fileContent, searchString);
+	if (fuzzy !== null) {
+		logForDebugging(
+			"[FileEditTool] fuzzy whitespace anchor matched (exact and quote-normalized missed)",
+		);
+	}
+	return fuzzy;
+}
+
+function escapeRegExp(s: string): string {
+	return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+/**
+ * Whitespace-flexible fallback for old_string matching. Each line of the
+ * search string matches with arbitrary leading/trailing horizontal
+ * whitespace; internal whitespace runs match any run of spaces/tabs. Line
+ * boundaries must line up exactly (no crossing lines). Only a unique match
+ * is accepted — ambiguous fuzzy matches return null.
+ */
+export function findFuzzyWhitespaceMatch(
+	fileContent: string,
+	searchString: string,
+): string | null {
+	if (searchString.trim() === "") {
+		return null;
+	}
+	const rawLines = searchString.replace(/\r$/, "").split("\n");
+	if (rawLines.length === 0) {
+		return null;
+	}
+	const parts = rawLines.map((line) => {
+		const trimmed = line.trim();
+		if (trimmed === "") {
+			return "[^\\S\\r\\n]*";
+		}
+		const body = escapeRegExp(trimmed).replace(/[ \t]+/g, "[^\\S\\r\\n]+");
+		return `[^\\S\\r\\n]*${body}[^\\S\\r\\n]*`;
+	});
+	let pattern: string;
+	if (rawLines.length === 1) {
+		// Single line: match the trimmed body with word boundaries on both
+		// sides — never consume surrounding spacing (a replacement would drop
+		// it) and never match part of a longer identifier.
+		const trimmed = rawLines[0].trim();
+		const body = escapeRegExp(trimmed).replace(/[ \t]+/g, "[^\\S\\r\\n]+");
+		pattern = `(?<![A-Za-z0-9_$])${body}(?=$|[^A-Za-z0-9_$])`;
+	} else {
+		pattern = parts.join("\\r?\\n");
+	}
+	let regex: RegExp;
+	try {
+		regex = new RegExp(pattern, "g");
+	} catch {
+		return null;
+	}
+	let first: RegExpExecArray | null = null;
+	let count = 0;
+	for (
+		let m = regex.exec(fileContent);
+		m !== null;
+		m = regex.exec(fileContent)
+	) {
+		count++;
+		if (count > 1) {
+			return null;
+		}
+		first = m;
+	}
+	if (count !== 1 || !first) {
+		return null;
+	}
+	return first[0];
+}
+
+/**
+ * When old_string matched only after whitespace normalization, the file's
+ * indentation is likely different from what the model emitted. Shift every
+ * non-empty line of new_string by the same indent delta so the replacement
+ * keeps the file's indentation instead of the model's guess.
+ *
+ * Only applies to multi-line blocks — single-line replacements are inline
+ * and must keep new_string verbatim.
+ */
+export function rebalanceIndent(
+	oldString: string,
+	actualOldString: string,
+	newString: string,
+): string {
+	if (oldString === actualOldString) {
+		return newString;
+	}
+	const oldLines = oldString.replace(/\r$/, "").split("\n");
+	const actualLines = actualOldString.replace(/\r$/, "").split("\n");
+	if (oldLines.length < 2 || actualLines.length !== oldLines.length) {
+		return newString;
+	}
+	const indentOf = (line: string): string => /^[ \t]*/.exec(line)?.[0] ?? "";
+	const modelIndent = indentOf(oldLines[0]);
+	const fileIndent = indentOf(actualLines[0]);
+	if (modelIndent === fileIndent) {
+		return newString;
+	}
+	// Verify the delta is consistent across all non-empty lines before
+	// applying it — otherwise the whitespace diff is not a pure indent shift.
+	for (let i = 1; i < oldLines.length; i++) {
+		if (oldLines[i].trim() === "") {
+			continue;
+		}
+		const mi = indentOf(oldLines[i]);
+		const fi = indentOf(actualLines[i]);
+		const delta = fileIndent.length - modelIndent.length;
+		if (delta >= 0) {
+			if (fi !== fileIndent.slice(0, Math.min(delta, fi.length)) + mi) {
+				return newString;
+			}
+		} else {
+			if (mi.slice(0, Math.max(0, mi.length + delta)) !== fi) {
+				return newString;
+			}
+		}
+	}
+	const delta = fileIndent.length - modelIndent.length;
+	return newString
+		.replace(/\r$/, "")
+		.split("\n")
+		.map((line) => {
+			if (line.trim() === "") {
+				return line;
+			}
+			if (delta > 0) {
+				return fileIndent.slice(0, delta) + line;
+			}
+			const cut = Math.min(-delta, indentOf(line).length);
+			return line.slice(cut);
+		})
+		.join("\n");
 }
 
 /**

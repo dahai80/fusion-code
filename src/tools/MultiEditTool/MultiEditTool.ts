@@ -42,6 +42,7 @@ import {
 	findActualString,
 	getPatchForEdits,
 	preserveQuoteStyle,
+	rebalanceIndent,
 } from "../FileEditTool/utils.js";
 import { NOTEBOOK_EDIT_TOOL_NAME } from "../NotebookEditTool/constants.js";
 import {
@@ -314,10 +315,14 @@ export const MultiEditTool = buildTool({
 					const actualOldString =
 						findActualString(originalFileContents, edit.old_string) ||
 						edit.old_string;
-					const actualNewString = preserveQuoteStyle(
+					const actualNewString = rebalanceIndent(
 						edit.old_string,
 						actualOldString,
-						edit.new_string,
+						preserveQuoteStyle(
+							edit.old_string,
+							actualOldString,
+							edit.new_string,
+						),
 					);
 					return {
 						old_string: actualOldString,

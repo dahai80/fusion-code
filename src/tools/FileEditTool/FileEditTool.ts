@@ -75,6 +75,7 @@ import {
 	findActualString,
 	getPatchForEdit,
 	preserveQuoteStyle,
+	rebalanceIndent,
 } from "./utils.js";
 
 // V8/Bun string length limit is ~2^30 characters (~1 billion). For typical
@@ -466,11 +467,13 @@ export const FileEditTool = buildTool({
 		const actualOldString =
 			findActualString(originalFileContents, old_string) || old_string;
 
-		// Preserve curly quotes in new_string when the file uses them
-		const actualNewString = preserveQuoteStyle(
+		// Preserve curly quotes in new_string when the file uses them, then
+		// shift indentation if old_string matched only via whitespace-fuzzy
+		// matching (weak local models emit wrong indent levels)
+		const actualNewString = rebalanceIndent(
 			old_string,
 			actualOldString,
-			new_string,
+			preserveQuoteStyle(old_string, actualOldString, new_string),
 		);
 
 		// 4. Generate patch
