@@ -2,6 +2,7 @@ import { type StructuredPatchHunk, structuredPatch } from "diff";
 import { logError } from "src/utils/log.js";
 import { expandPath } from "src/utils/path.js";
 import { countCharInString } from "src/utils/stringUtils.js";
+import { logForDebugging } from "../../utils/debug.js";
 import {
 	DIFF_TIMEOUT_MS,
 	getPatchForDisplay,
@@ -95,7 +96,13 @@ export function findActualString(
 	// Fuzzy whitespace match: weak local models frequently emit wrong
 	// indentation or trailing whitespace in old_string. Match with flexible
 	// leading/trailing whitespace per line; require a unique match.
-	return findFuzzyWhitespaceMatch(fileContent, searchString);
+	const fuzzy = findFuzzyWhitespaceMatch(fileContent, searchString);
+	if (fuzzy !== null) {
+		logForDebugging(
+			"[FileEditTool] fuzzy whitespace anchor matched (exact and quote-normalized missed)",
+		);
+	}
+	return fuzzy;
 }
 
 function escapeRegExp(s: string): string {

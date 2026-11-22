@@ -267,6 +267,7 @@ async function runHarness(
 			"--max-turns",
 			"12",
 			"--dangerously-skip-permissions",
+			...(process.env.BENCH_DEBUG ? ["-D"] : []),
 		];
 		const engineKey = loadEngineKey();
 		env = {
