@@ -207,14 +207,20 @@ fails twice (recovery loop already suggests this on the 2nd correction —
 make it tool-level); (3) if Qwen was post-trained on a specific patch
 format, prefer that shape. Measurable with the same harness-gain suite.
 
-Post-trained format check (2026-11-22, needs verification from the
-model's tokenizer_config.json): Qwen2.5/Qwen3 chat templates emit tool
-calls as Hermes-style `tool_call` XML tags wrapping JSON arguments, not
-OpenAI-style JSON blocks — so "format familiarity" for Qwen means the
-engine's parser template should match the native tag format. The
+Post-trained format check (2026-11-22, verified from local model files
+`~/.fusion-mlx/models/*/tokenizer_config.json` + `chat_template.jinja`):
+the two served Qwen checkpoints use **different native tool-call
+formats** — Qwen3-8B's chat template emits Hermes-style JSON
+(`tool_call` tags wrapping a JSON object), while Qwen3.8-27B's
+`chat_template.jinja` emits XML-parameter style
+(`<function=name>` + `<parameter=key>` blocks nested in `tool_call`
+tags, with format instructions baked into its system prompt). The
 observed text-emission shape `call_<id>{json}` (report #2 §3) matches
-neither; a defensive parser for it stays worthwhile but is a third
-format, not the native one.
+neither. Implications: (a) engine tool grammar must switch per chat
+template, not per model family; (b) defensive parsers need both shapes;
+(c) trajectory fine-tune (option 5) must preserve the template's native
+emission format or it retrains the model away from what the engine
+parses.
 
 ## 8. Sources
 
