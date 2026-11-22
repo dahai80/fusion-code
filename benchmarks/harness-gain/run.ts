@@ -327,7 +327,7 @@ async function runHarness(
 
 // ── verification ──────────────────────────────────────────────
 
-function verify(
+export function verify(
 	verifySpec: any,
 	dir: string,
 ): { resolved: boolean; detail: string } {
@@ -416,12 +416,38 @@ function verify(
 			if (!existsSync(path))
 				return { resolved: false, detail: `missing ${verifySpec.path}` };
 			const content = readFileSync(path, "utf8");
-			const n = (content.match(new RegExp(verifySpec.pattern, "g")) ?? [])
+			const n = (content.match(new RegExp(verifySpec.pattern, "gm")) ?? [])
 				.length;
 			return {
 				resolved: n <= verifySpec.max,
 				detail: `count=${n} max=${verifySpec.max} ${verifySpec.path}`,
 			};
+		}
+		case "count-min": {
+			// Split/refactor tasks: behavior tests pass on the untouched
+			// monolith, so require the restructure to have happened (enough
+			// top-level definitions) alongside the behavior gate.
+			const path = join(dir, verifySpec.path);
+			if (!existsSync(path))
+				return { resolved: false, detail: `missing ${verifySpec.path}` };
+			const content = readFileSync(path, "utf8");
+			const n = (content.match(new RegExp(verifySpec.pattern, "gm")) ?? [])
+				.length;
+			return {
+				resolved: n >= verifySpec.min,
+				detail: `count=${n} min=${verifySpec.min} ${verifySpec.path}`,
+			};
+		}
+		case "all": {
+			// Composite: every sub-verifier must resolve (e.g. behavior gate
+			// AND structural marker). Fails fast.
+			for (const sub of verifySpec.specs as any[]) {
+				const r = verify(sub, dir);
+				if (!r.resolved) {
+					return { resolved: false, detail: `all: ${r.detail}` };
+				}
+			}
+			return { resolved: true, detail: "all: every sub-verifier passed" };
 		}
 		case "pytest": {
 			// Verify must never hang: an untouched fixture can contain code
@@ -544,4 +570,6 @@ async function main(): Promise<void> {
 	);
 }
 
-main();
+if (import.meta.main) {
+	main();
+}
