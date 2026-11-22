@@ -7,7 +7,7 @@ doc_type: changelog
 title: { zh: "变更日志", en: "Changelog" }
 audience: engineer
 status: draft
-version: 0.8.15
+version: 0.8.16
 updated: 2026-11-20
 owner: "@dahai"
 source_of_truth:
@@ -19,6 +19,10 @@ source_of_truth:
 All notable changes to fusion-code are documented here.
 
 ## Unreleased
+
+## 0.8.16 - 2026-11-22
+
+- **Test env-leak fix (#313)**: `tests/commands/model-command.test.ts` set `FUSION_MLX_ENABLED=1` in a file-level `beforeEach` with no restore — every later test file in the same bun worker inherited MLX provider routing, which broke `computeContextWindowWarning` (the long-standing full-suite flake that failed on clean main and passed in isolation). Env snapshot + restore in `afterEach`. Full suite: 1826 tests, 0 fail, twice consecutively.
 
 ## 0.8.15 - 2026-11-22
 
