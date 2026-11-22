@@ -1,13 +1,14 @@
 /**
  * Bash command infinite-loop protection
  *
- * Intercepts cases where the same command is executed repeatedly within three
- * conversation rounds with completely identical output, raising a manual
- * intervention prompt to prevent small local models from getting stuck in a
- * command execution loop.
+ * Records each completed command's real output and exit code, and blocks when
+ * the same command has produced completely identical output for N consecutive
+ * completed runs. When the repeats exited 0 (the command already succeeded,
+ * e.g. a passing test suite), the block message tells the model to use the
+ * earlier result instead of re-running — plain loop otherwise.
  */
 
-/** History of recent commands (command → last output) */
+/** History of recently completed commands (command → last output) */
 const recentCommands: Array<{
 	command: string;
 	output: string;
@@ -16,12 +17,18 @@ const recentCommands: Array<{
 const MAX_HISTORY = 3;
 const DUPLICATE_THRESHOLD = 3;
 
-/** Records a command and checks whether it is stuck in a loop */
+/**
+ * Records a completed command result and checks whether it is stuck in a loop.
+ * Must be called AFTER execution with the real output — the previous
+ * pre-exec wiring compared empty outputs and degraded into a plain
+ * same-command repeat counter.
+ */
 export function checkCommandLoop(
 	command: string,
 	output: string,
+	exitCode: number,
 ): { shouldBlock: boolean; reason?: string } {
-	// Evict records older than 10 rounds
+	// Evict records older than 60s
 	const now = Date.now();
 	while (
 		recentCommands.length > 0 &&
@@ -30,7 +37,7 @@ export function checkCommandLoop(
 		recentCommands.shift();
 	}
 
-	// Count occurrences of same command + same output
+	// Count prior occurrences of same command + same output
 	const sameCommandSameOutput = recentCommands.filter(
 		(entry) => entry.command === command && entry.output === output,
 	);
@@ -38,7 +45,10 @@ export function checkCommandLoop(
 	if (sameCommandSameOutput.length >= DUPLICATE_THRESHOLD) {
 		return {
 			shouldBlock: true,
-			reason: `The local model appears to be stuck in a command execution loop: command "${command}" has produced identical output for ${sameCommandSameOutput.length} consecutive rounds. Manual intervention required.`,
+			reason:
+				exitCode === 0
+					? `Command "${command}" has already exited 0 with identical output ${sameCommandSameOutput.length} rounds in a row. It has already succeeded — do not run it again. Use the earlier result and report the outcome.`
+					: `The local model appears to be stuck in a command execution loop: command "${command}" has produced identical output for ${sameCommandSameOutput.length} consecutive rounds. Manual intervention required.`,
 		};
 	}
 

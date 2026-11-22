@@ -991,6 +991,16 @@ export const BashTool = buildTool({
 				result = fallbackResult.value;
 			}
 			trackGitOperations(input.command, result.code, result.stdout);
+			// Infinite-loop interception: record the real output/exit code now that
+			// execution completed, and block when identical repeats pile up.
+			const loopGuard = checkCommandLoop(
+				input.command,
+				result.stdout || "",
+				result.code,
+			);
+			if (loopGuard.shouldBlock) {
+				throw new Error(loopGuard.reason);
+			}
 			const isInterrupt =
 				result.interrupted && abortController.signal.reason === "interrupt";
 
@@ -1227,11 +1237,6 @@ async function* runShellCommand({
 	// and when background tasks are not disabled
 	const shouldAutoBackground =
 		!isBackgroundTasksDisabled && isAutobackgroundingAllowed(command);
-	// Infinite-loop interception: check whether the same command repeats with identical output
-	const { shouldBlock, reason } = checkCommandLoop(command, fullOutput);
-	if (shouldBlock) {
-		throw new Error(reason);
-	}
 	const shellCommand = await exec(command, abortController.signal, "bash", {
 		timeout: timeoutMs,
 		onProgress(lastLines, allLines, totalLines, totalBytes, isIncomplete) {
