@@ -112,7 +112,9 @@ import { recordContentReplacement } from "./utils/sessionStorage.js";
 import { handleStopHooks } from "./query/stopHooks.js";
 import {
 	detectToolCallShapedText,
+	editsAfterLastTest,
 	TOOL_CALL_TEXT_RECOVERY_MARKER,
+	VERIFY_BEFORE_REPORT_MARKER,
 } from "./utils/queryHelpers.js";
 import { buildQueryConfig } from "./query/config.js";
 import { productionDeps, type QueryDeps } from "./query/deps.js";
@@ -1555,6 +1557,58 @@ async function* queryLoop(
 					transition: {
 						reason: "tool_call_text_recovery",
 						attempt: recoveryAttempts + 1,
+					},
+				};
+				state = next;
+				continue;
+			}
+
+			// Verify-before-report (small local models): Qwen-class models
+			// often declare the task complete without ever running the
+			// tests/build that would falsify the claim (bench T12-class
+			// failures: "successfully added" while the file is unchanged).
+			// If the final turn reports completion while file edits happened
+			// after the most recent test/build command, feed the turn back
+			// with a verification nudge. Cap: 1 nudge, local-mlx only, and
+			// only when a Bash tool exists to run anything.
+			const verifyAttempts = messagesForQuery.filter(
+				(m) =>
+					m.type === "user" &&
+					m.isMeta &&
+					typeof m.message.content === "string" &&
+					m.message.content.includes(VERIFY_BEFORE_REPORT_MARKER),
+			).length;
+			if (
+				isLocalMlx &&
+				!toolUseContext.abortController.signal.aborted &&
+				lastText &&
+				verifyAttempts < 1 &&
+				toolNames.includes("Bash") &&
+				editsAfterLastTest([...messagesForQuery, ...assistantMessages])
+			) {
+				logEvent("fusion_verify_before_report", { turnCount });
+				const verifyMessage = createUserMessage({
+					content:
+						`${VERIFY_BEFORE_REPORT_MARKER} You reported completing the task, but files were edited after the most recent test/build command, so the change may be unverified. ` +
+						`Run the project's tests (or a build/typecheck) that cover your change with the Bash tool now, and fix any failures before finishing. ` +
+						`If no test suite covers this change, run a quick command that exercises it and briefly state the result.`,
+					isMeta: true,
+				});
+				const next: State = {
+					messages: [...messagesForQuery, ...assistantMessages, verifyMessage],
+					toolUseContext,
+					autoCompactTracking: tracking,
+					maxOutputTokensRecoveryCount: 0,
+					hasAttemptedReactiveCompact,
+					maxOutputTokensOverride: undefined,
+					pendingToolUseSummary: undefined,
+					stopHookActive: undefined,
+					turnCount,
+					mlxModelOomCount,
+					mlxForcedCompactDone,
+					transition: {
+						reason: "verify_before_report",
+						attempt: verifyAttempts + 1,
 					},
 				};
 				state = next;

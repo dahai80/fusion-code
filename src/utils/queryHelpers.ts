@@ -601,3 +601,49 @@ export function detectToolCallShapedText(
 		knownToolNames.includes(m.replace(/\(\s*\{$/, "")),
 	);
 }
+
+// Marker embedded in the synthetic verify-before-report nudge so the single
+// allowed attempt can be counted from message history, same pattern as the
+// tool-call-format recovery marker above.
+export const VERIFY_BEFORE_REPORT_MARKER = "[verify-before-report]";
+
+const FILE_EDIT_TOOL_NAMES = new Set([
+	"Edit",
+	"Write",
+	"MultiEdit",
+	"NotebookEdit",
+]);
+
+// Commands that plausibly verify a change: test runners, builds, typechecks.
+// Matched against the Bash tool command string in tool_use history.
+const TEST_COMMAND_PATTERN =
+	/(pytest|python3?\s+-m\s+(unittest|pytest)|\bbun\s+(test|run\s+(test|check|build))\b|\bnpm\s+(run\s+)?(test|run\s+build)\b|\bnpx\s+(vitest|jest|tsc)\b|\bcargo\s+(test|build|check)\b|\bgo\s+(test|build|vet)\b|\btsc\b|\bmake\s+(test|check)\b|\bgradle\b|\bmvn\b|\bflutter\s+test\b|\bswift\s+(test|build)\b)/;
+
+/**
+ * True when at least one file-editing tool_use happened after the most
+ * recent test/build Bash command in the session — i.e. the change the model
+ * is about to report as complete was never verified by a command.
+ */
+export function editsAfterLastTest(messages: readonly unknown[]): boolean {
+	let lastEdit = -1;
+	let lastTest = -1;
+	let seq = 0;
+	for (const m of messages) {
+		const content = (m as any)?.message?.content;
+		if (!Array.isArray(content)) continue;
+		for (const block of content) {
+			if (!block || block.type !== "tool_use") continue;
+			seq++;
+			if (FILE_EDIT_TOOL_NAMES.has(block.name)) {
+				lastEdit = seq;
+			} else if (block.name === "Bash") {
+				const cmd =
+					typeof block.input?.command === "string" ? block.input.command : "";
+				if (TEST_COMMAND_PATTERN.test(cmd)) {
+					lastTest = seq;
+				}
+			}
+		}
+	}
+	return lastEdit > lastTest;
+}
