@@ -1578,13 +1578,22 @@ async function* queryLoop(
 					typeof m.message.content === "string" &&
 					m.message.content.includes(VERIFY_BEFORE_REPORT_MARKER),
 			).length;
+			const editsPendingVerification = editsAfterLastTest([
+				...messagesForQuery,
+				...assistantMessages,
+			]);
+			if (isEnvTruthy(process.env.FUSION_CODE_DEBUG_RECOVERY)) {
+				console.error(
+					`[verify-debug] isLocalMlx=${isLocalMlx} aborted=${toolUseContext.abortController.signal.aborted} hasText=${Boolean(lastText)} attempts=${verifyAttempts} hasBash=${toolNames.includes("Bash")} editsPending=${editsPendingVerification} lastText=${JSON.stringify(lastText?.slice(0, 80))}`,
+				);
+			}
 			if (
 				isLocalMlx &&
 				!toolUseContext.abortController.signal.aborted &&
 				lastText &&
 				verifyAttempts < 1 &&
 				toolNames.includes("Bash") &&
-				editsAfterLastTest([...messagesForQuery, ...assistantMessages])
+				editsPendingVerification
 			) {
 				logEvent("fusion_verify_before_report", { turnCount });
 				const verifyMessage = createUserMessage({
