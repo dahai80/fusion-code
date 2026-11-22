@@ -207,6 +207,15 @@ fails twice (recovery loop already suggests this on the 2nd correction —
 make it tool-level); (3) if Qwen was post-trained on a specific patch
 format, prefer that shape. Measurable with the same harness-gain suite.
 
+Post-trained format check (2026-11-22, needs verification from the
+model's tokenizer_config.json): Qwen2.5/Qwen3 chat templates emit tool
+calls as Hermes-style `tool_call` XML tags wrapping JSON arguments, not
+OpenAI-style JSON blocks — so "format familiarity" for Qwen means the
+engine's parser template should match the native tag format. The
+observed text-emission shape `call_<id>{json}` (report #2 §3) matches
+neither; a defensive parser for it stays worthwhile but is a third
+format, not the native one.
+
 ## 8. Sources
 
 - Edit-tool ACI shape: Anthropic "Writing effective tools for agents"
