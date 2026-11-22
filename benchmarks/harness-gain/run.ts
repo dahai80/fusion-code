@@ -277,6 +277,10 @@ async function runHarness(
 				process.env.FUSION_MLX_BASE_URL ?? "http://127.0.0.1:11434",
 			FUSION_CLIENT_KEY: engineKey,
 			FUSION_MODEL: process.env.BENCH_MODEL ?? "",
+			// Isolate from the host user config (~/.fusion-code/settings.json hooks,
+			// e.g. RTK command auto-rewrite) so a run measures harness+model, not
+			// the host's hook setup. Fresh empty dir per run.
+			FUSION_CODE_CONFIG_DIR: mkdtempSync(join(tmpdir(), "fc-bench-cfg-")),
 		};
 	} else if (harness === "opencode") {
 		cmd = ["opencode", "run", prompt];
