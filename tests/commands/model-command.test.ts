@@ -5,15 +5,30 @@
  * - 所有函数必须能处理 null/undefined 输入，不抛出 TypeError
  * - 所有函数必须返回有效的字符串，不返回 undefined
  */
-import { describe, it, expect, beforeEach } from 'bun:test'
+import { describe, it, expect, beforeEach, afterEach } from 'bun:test'
 
 // ─── 环境准备 ──────────────────────────────────────────────
+
+// process.env is process-global and shared across all files running in the
+// same bun test worker. Setting FUSION_MLX_ENABLED here without restoring it
+// leaked into every later file in the worker (e.g. contextWindowWarning's
+// MLX context-window branch -> usagePercent 326% flake). Snapshot + restore.
+const ENV_KEYS = ['FUSION_MLX_ENABLED', 'FORCE_COLOR', 'FUSION_MLX_MODEL', 'ANTHROPIC_API_KEY'] as const
+const savedEnv: Record<string, string | undefined> = {}
+for (const k of ENV_KEYS) savedEnv[k] = process.env[k]
 
 beforeEach(() => {
   process.env.FUSION_MLX_ENABLED = '1'
   process.env.FORCE_COLOR = '1'
   delete process.env.FUSION_MLX_MODEL
   delete process.env.ANTHROPIC_API_KEY
+})
+
+afterEach(() => {
+  for (const k of ENV_KEYS) {
+    if (savedEnv[k] === undefined) delete process.env[k]
+    else process.env[k] = savedEnv[k]
+  }
 })
 
 // ─── getSmallFastModel ─────────────────────────────────────
