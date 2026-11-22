@@ -7,7 +7,7 @@ doc_type: changelog
 title: { zh: "变更日志", en: "Changelog" }
 audience: engineer
 status: draft
-version: 0.8.14
+version: 0.8.15
 updated: 2026-11-20
 owner: "@dahai"
 source_of_truth:
@@ -19,6 +19,13 @@ source_of_truth:
 All notable changes to fusion-code are documented here.
 
 ## Unreleased
+
+## 0.8.15 - 2026-11-22
+
+- **Edit fuzzy anchor (#308)**: weak local models emit `old_string` with wrong indentation/whitespace drift; byte-exact matching burns recovery turns. New third matching tier in `FileEditTool`/`MultiEditTool` — whitespace-flexible regex fallback (unique match required, word-boundary guarded for single-line searches) plus `rebalanceIndent` that shifts the replacement by the file's indent delta when the fuzzy tier fired. Only fires after exact and quote-normalized matching miss — no change on any input that previously succeeded. Harness-gain Qwen3.8-27B: compact ACI 16/20 (was 12/20).
+- **Verify-before-report nudge (#309)**: small local models declare done without running the falsifying test. On the final text turn, if edits happened after the last test/build command, one local-MLX-gated meta nudge asks the model to verify before finishing (1 per session, `verify_before_report` transition).
+- **Command loop guard fix (#310)**: `checkCommandLoop` ran pre-exec with always-empty output — a plain repeat counter, not an output loop detector. Now runs post-completion on real stdout; exit-0 repeats get a "already succeeded, report the earlier result" message instead of a dead-end error that small models answered by retrying endlessly.
+- **Bench config isolation (#311)**: harness-gain runs now point `FUSION_CODE_CONFIG_DIR` at a fresh temp dir so host `~/.fusion-code` hooks (e.g. RTK command rewrite) no longer leak into measured runs.
 
 ## 0.8.14 - 2026-11-21
 
