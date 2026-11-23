@@ -247,15 +247,15 @@ function loadEngineKey(): string {
 // Copy the newest session jsonl written by the harness run into the results
 // dir (next to the task log) so failures can be root-caused from the full
 // turn-by-turn transcript instead of a stdout tail. Best-effort: a missing
-// transcript must never fail the run.
+// transcript must never fail the run. Returns the copied path, if any.
 function copySessionTranscript(
 	configDir: string | undefined,
 	logPath: string,
-): void {
-	if (!configDir) return;
+): string | undefined {
+	if (!configDir) return undefined;
 	try {
 		const projectsDir = join(configDir, "projects");
-		if (!existsSync(projectsDir)) return;
+		if (!existsSync(projectsDir)) return undefined;
 		let newest: { path: string; mtime: number } | undefined;
 		for (const proj of readdirSync(projectsDir)) {
 			const projDir = join(projectsDir, proj);
@@ -266,10 +266,38 @@ function copySessionTranscript(
 				if (!newest || mtime > newest.mtime) newest = { path: p, mtime };
 			}
 		}
-		if (newest)
-			copyFileSync(newest.path, logPath.replace(/\.log$/, ".transcript.jsonl"));
+		if (!newest) return undefined;
+		const dest = logPath.replace(/\.log$/, ".transcript.jsonl");
+		copyFileSync(newest.path, dest);
+		return dest;
 	} catch (e) {
 		console.log(`[WARN] transcript copy failed: ${e}`);
+		return undefined;
+	}
+}
+
+// Count tool-call-shaped plain-text emissions from the full session
+// transcript. Preferred over counting process stdout: stdout is lost when a
+// timed-out task is killed mid-emission (observed on T17: the transcript ends
+// with a plain-text `call_<id>{...}` emission but stdout never carried it, so
+// textEmit underreported 1 -> 0).
+function countToolShapedTextFromTranscript(path: string): number {
+	try {
+		let hits = 0;
+		for (const line of readFileSync(path, "utf8").split("\n")) {
+			if (!line) continue;
+			const entry = JSON.parse(line) as {
+				type?: string;
+				message?: { content?: { type?: string; text?: string }[] };
+			};
+			if (entry.type !== "assistant") continue;
+			for (const c of entry.message?.content ?? []) {
+				if (c.type === "text" && c.text) hits += countToolShapedText(c.text);
+			}
+		}
+		return hits;
+	} catch {
+		return 0;
 	}
 }
 
@@ -282,6 +310,7 @@ async function runHarness(
 ): Promise<HarnessRun> {
 	const started = Date.now();
 	let outText = "";
+	let transcriptPath: string | undefined;
 	let cmd: string[];
 	// fusion-code only: per-task isolated config dir; its session jsonl
 	// transcripts land here and are copied next to the task log on exit
@@ -354,7 +383,7 @@ async function runHarness(
 					logPath,
 					`CMD: ${cmd.join(" ")}\n\n--- STDOUT ---\n${out}\n\n--- STDERR ---\n${err}\n`,
 				);
-				copySessionTranscript(configDir, logPath);
+				transcriptPath = copySessionTranscript(configDir, logPath);
 			} catch {}
 			resolveTimeout(false);
 		});
@@ -363,7 +392,9 @@ async function runHarness(
 		exitCode: 0,
 		timedOut,
 		seconds: (Date.now() - started) / 1000,
-		textEmissions: countToolShapedText(outText),
+		textEmissions: transcriptPath
+			? countToolShapedTextFromTranscript(transcriptPath)
+			: countToolShapedText(outText),
 	};
 }
 
