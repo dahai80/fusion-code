@@ -7,7 +7,7 @@ doc_type: changelog
 title: { zh: "变更日志", en: "Changelog" }
 audience: engineer
 status: draft
-version: 0.8.17
+version: 0.8.18
 updated: 2026-11-23
 owner: "@dahai"
 source_of_truth:
@@ -19,6 +19,10 @@ source_of_truth:
 All notable changes to fusion-code are documented here.
 
 ## Unreleased
+
+## 0.8.18 - 2026-11-23
+
+- **Bench (#317)**: harness-gain `textEmissions` now counted from the per-task session transcript instead of process stdout — a 600s-capped kill loses buffered stdout, so the exact degradation the metric exists for (T17 ended with a plain-text `call_<id>{...}` emission) reported 0. Transcript path returned by `copySessionTranscript`; stdout fallback unchanged for goose/opencode. Verified against the real degraded T17 transcript: transcript method = 1, stdout = 0. Bench tooling only.
 
 ## 0.8.17 - 2026-11-23
 
