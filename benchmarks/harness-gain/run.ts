@@ -13,11 +13,14 @@
 
 import { execFile } from "node:child_process";
 import {
+	copyFileSync,
 	existsSync,
 	mkdirSync,
 	mkdtempSync,
+	readdirSync,
 	readFileSync,
 	rmSync,
+	statSync,
 	writeFileSync,
 } from "node:fs";
 import { tmpdir } from "node:os";
@@ -241,6 +244,35 @@ function loadEngineKey(): string {
 	}
 }
 
+// Copy the newest session jsonl written by the harness run into the results
+// dir (next to the task log) so failures can be root-caused from the full
+// turn-by-turn transcript instead of a stdout tail. Best-effort: a missing
+// transcript must never fail the run.
+function copySessionTranscript(
+	configDir: string | undefined,
+	logPath: string,
+): void {
+	if (!configDir) return;
+	try {
+		const projectsDir = join(configDir, "projects");
+		if (!existsSync(projectsDir)) return;
+		let newest: { path: string; mtime: number } | undefined;
+		for (const proj of readdirSync(projectsDir)) {
+			const projDir = join(projectsDir, proj);
+			for (const f of readdirSync(projDir)) {
+				if (!f.endsWith(".jsonl")) continue;
+				const p = join(projDir, f);
+				const mtime = statSync(p).mtimeMs;
+				if (!newest || mtime > newest.mtime) newest = { path: p, mtime };
+			}
+		}
+		if (newest)
+			copyFileSync(newest.path, logPath.replace(/\.log$/, ".transcript.jsonl"));
+	} catch (e) {
+		console.log(`[WARN] transcript copy failed: ${e}`);
+	}
+}
+
 async function runHarness(
 	harness: string,
 	prompt: string,
@@ -251,6 +283,9 @@ async function runHarness(
 	const started = Date.now();
 	let outText = "";
 	let cmd: string[];
+	// fusion-code only: per-task isolated config dir; its session jsonl
+	// transcripts land here and are copied next to the task log on exit
+	let configDir: string | undefined;
 	let env: Record<string, string> = { ...process.env } as Record<
 		string,
 		string
@@ -270,6 +305,10 @@ async function runHarness(
 			...(process.env.BENCH_DEBUG ? ["-D"] : []),
 		];
 		const engineKey = loadEngineKey();
+		// Isolate from the host user config (~/.fusion-code/settings.json hooks,
+		// e.g. RTK command auto-rewrite) so a run measures harness+model, not
+		// the host's hook setup. Fresh empty dir per run.
+		configDir = mkdtempSync(join(tmpdir(), "fc-bench-cfg-"));
 		env = {
 			...env,
 			FUSION_MLX_ENABLED: "1",
@@ -277,10 +316,7 @@ async function runHarness(
 				process.env.FUSION_MLX_BASE_URL ?? "http://127.0.0.1:11434",
 			FUSION_CLIENT_KEY: engineKey,
 			FUSION_MODEL: process.env.BENCH_MODEL ?? "",
-			// Isolate from the host user config (~/.fusion-code/settings.json hooks,
-			// e.g. RTK command auto-rewrite) so a run measures harness+model, not
-			// the host's hook setup. Fresh empty dir per run.
-			FUSION_CODE_CONFIG_DIR: mkdtempSync(join(tmpdir(), "fc-bench-cfg-")),
+			FUSION_CODE_CONFIG_DIR: configDir,
 		};
 	} else if (harness === "opencode") {
 		cmd = ["opencode", "run", prompt];
@@ -318,6 +354,7 @@ async function runHarness(
 					logPath,
 					`CMD: ${cmd.join(" ")}\n\n--- STDOUT ---\n${out}\n\n--- STDERR ---\n${err}\n`,
 				);
+				copySessionTranscript(configDir, logPath);
 			} catch {}
 			resolveTimeout(false);
 		});
