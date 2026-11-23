@@ -7,7 +7,7 @@ doc_type: changelog
 title: { zh: "变更日志", en: "Changelog" }
 audience: engineer
 status: draft
-version: 0.8.18
+version: 0.8.19
 updated: 2026-11-23
 owner: "@dahai"
 source_of_truth:
@@ -19,6 +19,10 @@ source_of_truth:
 All notable changes to fusion-code are documented here.
 
 ## Unreleased
+
+## 0.8.19 - 2026-11-23
+
+- **Bench docs (#319)**: 27B full-suite baseline report (17/20 across pre-fix/post-fix engine runs) with failure anatomy — T05 pure latency; T13/T17/T14 plain-text tool-call slips tied to fusion-mlx #1694, each simultaneous with a concurrent Kimi parse failure (same-second / 5 ms), pointing at live concurrent decoding rows; engine-side verification history for 0.10.69 (`3ea0f01b`, `b6edee57` epoch invalidation) incl. the loaded/unloaded rerun matrix. Restored the stranded 32B compact-tier report. Both new reports carry the docs-contract frontmatter (CI `validate` initially failed on missing frontmatter — fixed in `3fcc13a`).
 
 ## 0.8.18 - 2026-11-23
 
