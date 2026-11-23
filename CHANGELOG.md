@@ -7,8 +7,8 @@ doc_type: changelog
 title: { zh: "变更日志", en: "Changelog" }
 audience: engineer
 status: draft
-version: 0.8.16
-updated: 2026-11-20
+version: 0.8.17
+updated: 2026-11-23
 owner: "@dahai"
 source_of_truth:
   - CHANGELOG.md
@@ -19,6 +19,10 @@ source_of_truth:
 All notable changes to fusion-code are documented here.
 
 ## Unreleased
+
+## 0.8.17 - 2026-11-23
+
+- **Bench (#315)**: harness-gain runner now captures the per-task session transcript (newest `projects/**/*.jsonl` under the task's isolated config dir) next to the task log as `*.transcript.jsonl` — failures root-cause from the full turn-by-turn record instead of a stdout tail. Best-effort copy; never fails the run. Bench tooling only — no binary behavior change.
 
 ## 0.8.16 - 2026-11-22
 
