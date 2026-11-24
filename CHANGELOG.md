@@ -7,7 +7,7 @@ doc_type: changelog
 title: { zh: "变更日志", en: "Changelog" }
 audience: engineer
 status: draft
-version: 0.8.20
+version: 0.8.21
 updated: 2026-11-24
 owner: "@dahai"
 source_of_truth:
@@ -19,6 +19,11 @@ source_of_truth:
 All notable changes to fusion-code are documented here.
 
 ## Unreleased
+
+## 0.8.21 - 2026-11-24
+
+- **Tests (#323)**: streaming-path coverage for the degraded-emission recovery (#321) — `transformMLXStreamToAnthropic` runs the same `extractToolCallsFromText` pass after the SSE loop, so a `call_<hex>{...}` slip split across two content chunks must recover identically. SSE-simulation test asserts the emitted `tool_use` block and `input_json_delta` payload. Tests only — no source change.
+- **Bench docs (#324)**: research progress report #3 (2026-11-20 → 11-24) — 27B baseline 17/20 reproduced across two independent runs; #1694 slip anatomy (name-less `call_<hex>{args-only}`, timing simultaneous with concurrent Kimi parse failures); T05 latency root cause (episodic 3x throughput decay, thermal-throttle signature, isolated via engine logs); next: 8B transcript re-run, #1694 server-side capture.
 
 ## 0.8.20 - 2026-11-24
 
