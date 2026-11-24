@@ -7,7 +7,7 @@ doc_type: changelog
 title: { zh: "变更日志", en: "Changelog" }
 audience: engineer
 status: draft
-version: 0.8.21
+version: 0.8.22
 updated: 2026-11-24
 owner: "@dahai"
 source_of_truth:
@@ -19,6 +19,10 @@ source_of_truth:
 All notable changes to fusion-code are documented here.
 
 ## Unreleased
+
+## 0.8.22 - 2026-11-24
+
+- **Bench docs (#326)**: 8B cross-tier comparison appended to the 27B baseline report — 8B on v0.8.20 with #321 recovery scores 7/20 (was 3/20 pre-#315); zero timeouts, zero text emissions, all 13 failures genuine verify failures ending mid-work on max-turn exhaustion (transcript evidence per task); cross-tier set T07/T12/T15/T20 fails on 8B, passes on 27B — gap is generation quality, not format handling. Also records a second external SIGTERM engine restart (fusion-mlx #1256 watchdog, launchd context) killing bench tasks.
 
 ## 0.8.21 - 2026-11-24
 
