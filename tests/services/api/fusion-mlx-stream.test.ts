@@ -204,6 +204,77 @@ describe('transformMLXResponseToAnthropic', () => {
       expect(result.stop_reason).toBe(expected)
     }
   })
+
+  it('recovers a degraded call_<hex>{...} emission by argument signature (Read)', () => {
+    const result = transformMLXResponseToAnthropic({
+      id: 'chatcmpl-slip1',
+      model: 'test',
+      choices: [
+        {
+          message: {
+            role: 'assistant',
+            content:
+              'call_8a3b4f2e{"file_path": "/tmp/hg-T17/difftool.py"}',
+          },
+          finish_reason: 'stop',
+        },
+      ],
+      usage: { prompt_tokens: 10, completion_tokens: 5, total_tokens: 15 },
+    })
+
+    const toolUse = result.content.find((c) => c.type === 'tool_use')
+    expect(toolUse).toBeDefined()
+    expect((toolUse as Record<string, unknown>).name).toBe('Read')
+    expect((toolUse as Record<string, unknown>).input).toEqual({
+      file_path: '/tmp/hg-T17/difftool.py',
+    })
+  })
+
+  it('recovers a degraded Bash emission whose args contain braces in strings', () => {
+    const command = "if [ -f a.py ]; then echo '{ }'; fi"
+    const result = transformMLXResponseToAnthropic({
+      id: 'chatcmpl-slip2',
+      model: 'test',
+      choices: [
+        {
+          message: {
+            role: 'assistant',
+            content: `call_52ed92f8{"command": ${JSON.stringify(command)}}`,
+          },
+          finish_reason: 'stop',
+        },
+      ],
+      usage: { prompt_tokens: 10, completion_tokens: 5, total_tokens: 15 },
+    })
+
+    const toolUse = result.content.find((c) => c.type === 'tool_use')
+    expect(toolUse).toBeDefined()
+    expect((toolUse as Record<string, unknown>).name).toBe('Bash')
+    expect((toolUse as Record<string, unknown>).input).toEqual({ command })
+  })
+
+  it('leaves a degraded emission with unknown signature as plain text', () => {
+    const result = transformMLXResponseToAnthropic({
+      id: 'chatcmpl-slip3',
+      model: 'test',
+      choices: [
+        {
+          message: {
+            role: 'assistant',
+            content: 'call_deadbeef{"nonsense_key": 1}',
+          },
+          finish_reason: 'stop',
+        },
+      ],
+      usage: { prompt_tokens: 10, completion_tokens: 5, total_tokens: 15 },
+    })
+
+    expect(result.content).toHaveLength(1)
+    expect(result.content[0]).toEqual({
+      type: 'text',
+      text: 'call_deadbeef{"nonsense_key": 1}',
+    })
+  })
 })
 
 // ─── transformMLXStreamToAnthropic (via SSE simulation) ───────
