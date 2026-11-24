@@ -1,6 +1,6 @@
 {
   "name": "@fusion-mlx/fusion-code",
-  "version": "0.8.19",
+  "version": "0.8.20",
   "private": true,
   "description": "Fusion-Code - AI coding assistant in the terminal.",
   "type": "module",
