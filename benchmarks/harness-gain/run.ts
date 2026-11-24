@@ -301,6 +301,28 @@ function countToolShapedTextFromTranscript(path: string): number {
 	}
 }
 
+// Poll the local engine health endpoint until it reports ready or the wait
+// budget expires. Used to ride out supervisor auto-recovery restarts
+// (fusion-supervisor#153) instead of zeroing the rest of the run.
+async function waitForEngineHealthy(url: string, maxWaitS: number): Promise<boolean> {
+	const deadline = Date.now() + maxWaitS * 1000;
+	while (Date.now() < deadline) {
+		try {
+			const res = await fetch(`${url}/health`, {
+				signal: AbortSignal.timeout(5000),
+			});
+			if (res.ok) {
+				const body = (await res.json()) as { ready?: boolean };
+				if (body.ready !== false) return true;
+			}
+		} catch {
+			// not up yet — keep polling
+		}
+		await new Promise((r) => setTimeout(r, 3000));
+	}
+	return false;
+}
+
 async function runHarness(
 	harness: string,
 	prompt: string,
@@ -590,13 +612,40 @@ async function main(): Promise<void> {
 				"fixture",
 			]);
 			logger.info(`${task.id} start (${task.difficulty}/${task.kind})`);
-			const run = await runHarness(
+			const logPath = join(outDir, `${task.id}.log`);
+			let run = await runHarness(
 				harness,
 				task.prompt,
 				workdir,
 				timeoutS,
-				join(outDir, `${task.id}.log`),
+				logPath,
 			);
+			// Engine-restart resilience (fusion-supervisor#153): supervisor
+			// auto-recovery occasionally SIGTERMs the engine mid-run; sessions
+			// launched during the downtime window die instantly with
+			// "Local inference service unavailable". Wait for the engine and
+			// retry once so an infra blip does not zero the whole run.
+			const localLogText = existsSync(logPath)
+				? readFileSync(logPath, "utf8")
+				: "";
+			if (localLogText.includes("Local inference service unavailable")) {
+				const engineUrl =
+					process.env.FUSION_MLX_BASE_URL ?? "http://127.0.0.1:11434";
+				logger.warn(
+					`${task.id} engine unavailable, waiting for recovery (max 180s) then retrying once`,
+				);
+				if (await waitForEngineHealthy(engineUrl, 180)) {
+					run = await runHarness(
+						harness,
+						task.prompt,
+						workdir,
+						timeoutS,
+						logPath,
+					);
+				} else {
+					logger.error(`${task.id} engine did not recover, keeping failed result`);
+				}
+			}
 			const v = verify(task.verify, workdir);
 			const row = {
 				id: task.id,
