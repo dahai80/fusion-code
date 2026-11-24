@@ -51,6 +51,7 @@ import { logAntError, logForDebugging } from "./utils/debug.js";
 import {
 	createUserMessage,
 	createUserInterruptionMessage,
+	createFinalTurnNudgeMessage,
 	normalizeMessagesForAPI,
 	createSystemMessage,
 	createAssistantAPIErrorMessage,
@@ -2134,9 +2135,22 @@ async function* queryLoop(
 			return { reason: "max_turns", turnCount: nextTurnCount };
 		}
 
+		// Final-turn budget nudge: when exactly one turn remains, append a
+		// meta message telling the model to verify and report instead of
+		// starting new work. Fires once (nextTurnCount === maxTurns exactly).
+		const isFinalTurn = Boolean(maxTurns && nextTurnCount === maxTurns);
+		if (isFinalTurn) {
+			logEvent("fusion_final_turn_nudge", { turnCount: nextTurnCount });
+		}
+
 		queryCheckpoint("query_recursive_call");
 		const next: State = {
-			messages: [...messagesForQuery, ...assistantMessages, ...toolResults],
+			messages: [
+				...messagesForQuery,
+				...assistantMessages,
+				...toolResults,
+				...(isFinalTurn ? [createFinalTurnNudgeMessage()] : []),
+			],
 			toolUseContext: toolUseContextWithQueryTracking,
 			autoCompactTracking: tracking,
 			turnCount: nextTurnCount,
