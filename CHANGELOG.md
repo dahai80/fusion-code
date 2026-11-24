@@ -7,8 +7,8 @@ doc_type: changelog
 title: { zh: "变更日志", en: "Changelog" }
 audience: engineer
 status: draft
-version: 0.8.19
-updated: 2026-11-23
+version: 0.8.20
+updated: 2026-11-24
 owner: "@dahai"
 source_of_truth:
   - CHANGELOG.md
@@ -19,6 +19,10 @@ source_of_truth:
 All notable changes to fusion-code are documented here.
 
 ## Unreleased
+
+## 0.8.20 - 2026-11-24
+
+- **Fix (#321)**: recover degraded `call_<hex>{"arg": ...}` tool-call emissions (fusion-mlx #1694). Under concurrent decoding load the engine occasionally leaks a tool call as plain text with no tool-name key — existing text-recovery patterns all require a name, so the call never executed and the bench task timed out (T14 + T17 slips in 2 of 4 full 27B runs). New last-priority extraction pattern in `extractToolCallsFromText`: balanced-JSON extraction after `call_<hex>{`, tool name inferred from the argument signature (Edit → Write → Bash → WebSearch/WebFetch/Grep → Read, specific signatures first), unknown-signature slips stay as visible text, fresh `toolu_` id avoids collision with a real executed call sharing the slip id. Shared by streaming and non-streaming paths. 3 new tests using the verbatim T14/T17 transcript slips; full suite 1824 pass.
 
 ## 0.8.19 - 2026-11-23
 
