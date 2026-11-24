@@ -647,3 +647,43 @@ export function editsAfterLastTest(messages: readonly unknown[]): boolean {
 	}
 	return lastEdit > lastTest;
 }
+
+/**
+ * True when the most recent test/build Bash command in the session failed
+ * (its tool_result reports a nonzero exit code) — i.e. the model saw the
+ * verification fail but may still report the task as complete. The Bash
+ * tool prefixes failing results with "Exit code N"; success is either
+ * "Exit code 0" or unprefixed.
+ */
+export function lastTestCommandFailed(messages: readonly unknown[]): boolean {
+	const results = new Map<string, string>();
+	let lastTestId: string | null = null;
+	for (const m of messages) {
+		const content = (m as any)?.message?.content;
+		if (!Array.isArray(content)) continue;
+		for (const block of content) {
+			if (!block) continue;
+			if (block.type === "tool_use" && block.name === "Bash") {
+				const cmd =
+					typeof block.input?.command === "string" ? block.input.command : "";
+				if (TEST_COMMAND_PATTERN.test(cmd)) lastTestId = block.id;
+			} else if (block.type === "tool_result") {
+				const raw = block.content;
+				const text =
+					typeof raw === "string"
+						? raw
+						: Array.isArray(raw)
+							? raw
+									.map((p: any) => (p?.type === "text" ? p.text : ""))
+									.join("\n")
+							: "";
+				results.set(block.tool_use_id, text);
+			}
+		}
+	}
+	if (!lastTestId) return false;
+	const out = results.get(lastTestId);
+	if (out === undefined) return false;
+	const exit = out.match(/Exit code (\d+)/);
+	return exit !== null && exit[1] !== "0";
+}

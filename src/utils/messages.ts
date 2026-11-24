@@ -563,6 +563,25 @@ export function createUserInterruptionMessage({
 }
 
 /**
+ * Final-turn budget nudge injected into the last remaining turn when a
+ * maxTurns limit is configured. Small local models tend to spend the whole
+ * budget writing/editing and reach the cap without ever running the
+ * verifier (8B bench: every failing task ends on a tool call with no test
+ * run). The nudge tells the model to stop starting new work and verify now.
+ */
+export function createFinalTurnNudgeMessage(): UserMessage {
+	return createUserMessage({
+		content: [
+			{
+				type: "text",
+				text: "This is the final turn of the turn budget. Do not start new work. Run the verification (tests, build, or a command that exercises the change) now and report the result.",
+			},
+		],
+		isMeta: true,
+	});
+}
+
+/**
  * Creates a new synthetic user caveat message for local commands (eg. bash, slash).
  * We need to create a new message each time because messages must have unique uuids.
  */

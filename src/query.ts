@@ -51,6 +51,7 @@ import { logAntError, logForDebugging } from "./utils/debug.js";
 import {
 	createUserMessage,
 	createUserInterruptionMessage,
+	createFinalTurnNudgeMessage,
 	normalizeMessagesForAPI,
 	createSystemMessage,
 	createAssistantAPIErrorMessage,
@@ -113,6 +114,7 @@ import { handleStopHooks } from "./query/stopHooks.js";
 import {
 	detectToolCallShapedText,
 	editsAfterLastTest,
+	lastTestCommandFailed,
 	TOOL_CALL_TEXT_RECOVERY_MARKER,
 	VERIFY_BEFORE_REPORT_MARKER,
 } from "./utils/queryHelpers.js";
@@ -1582,6 +1584,10 @@ async function* queryLoop(
 				...messagesForQuery,
 				...assistantMessages,
 			]);
+			const lastTestFailed = lastTestCommandFailed([
+				...messagesForQuery,
+				...assistantMessages,
+			]);
 			if (isEnvTruthy(process.env.FUSION_CODE_DEBUG_RECOVERY)) {
 				console.error(
 					`[verify-debug] isLocalMlx=${isLocalMlx} aborted=${toolUseContext.abortController.signal.aborted} hasText=${Boolean(lastText)} attempts=${verifyAttempts} hasBash=${toolNames.includes("Bash")} editsPending=${editsPendingVerification} lastText=${JSON.stringify(lastText?.slice(0, 80))}`,
@@ -1593,12 +1599,19 @@ async function* queryLoop(
 				lastText &&
 				verifyAttempts < 1 &&
 				toolNames.includes("Bash") &&
-				editsPendingVerification
+				(editsPendingVerification || lastTestFailed)
 			) {
-				logEvent("fusion_verify_before_report", { turnCount });
+				logEvent("fusion_verify_before_report", {
+					turnCount,
+					editsPendingVerification,
+					lastTestFailed,
+				});
+				const reason = lastTestFailed
+					? "the most recent test/build command exited nonzero, but you reported completing the task anyway"
+					: "files were edited after the most recent test/build command, so the change may be unverified";
 				const verifyMessage = createUserMessage({
 					content:
-						`${VERIFY_BEFORE_REPORT_MARKER} You reported completing the task, but files were edited after the most recent test/build command, so the change may be unverified. ` +
+						`${VERIFY_BEFORE_REPORT_MARKER} You reported completing the task, but ${reason}. ` +
 						`Run the project's tests (or a build/typecheck) that cover your change with the Bash tool now, and fix any failures before finishing. ` +
 						`If no test suite covers this change, run a quick command that exercises it and briefly state the result.`,
 					isMeta: true,
@@ -2134,9 +2147,22 @@ async function* queryLoop(
 			return { reason: "max_turns", turnCount: nextTurnCount };
 		}
 
+		// Final-turn budget nudge: when exactly one turn remains, append a
+		// meta message telling the model to verify and report instead of
+		// starting new work. Fires once (nextTurnCount === maxTurns exactly).
+		const isFinalTurn = Boolean(maxTurns && nextTurnCount === maxTurns);
+		if (isFinalTurn) {
+			logEvent("fusion_final_turn_nudge", { turnCount: nextTurnCount });
+		}
+
 		queryCheckpoint("query_recursive_call");
 		const next: State = {
-			messages: [...messagesForQuery, ...assistantMessages, ...toolResults],
+			messages: [
+				...messagesForQuery,
+				...assistantMessages,
+				...toolResults,
+				...(isFinalTurn ? [createFinalTurnNudgeMessage()] : []),
+			],
 			toolUseContext: toolUseContextWithQueryTracking,
 			autoCompactTracking: tracking,
 			turnCount: nextTurnCount,
