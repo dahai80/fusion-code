@@ -988,6 +988,26 @@ function normalizeToolName(raw: string): string | null {
 	return null;
 }
 
+// Argument-signature hints used to infer the tool name for degraded emissions
+// (see pattern 7 below). Ordered: more specific signatures must win — Edit and
+// Write also carry file_path, so they are checked before Read.
+const ARG_SIGNATURE_HINTS: Array<[string, RegExp]> = [
+	["Edit", /"(?:old_string|new_string)"\s*:/],
+	["Write", /"content"\s*:/],
+	["Bash", /"command"\s*:/],
+	["WebSearch", /"query"\s*:/],
+	["WebFetch", /"url"\s*:/],
+	["Grep", /"pattern"\s*:/],
+	["Read", /"file_path"\s*:/],
+];
+
+function inferToolNameFromArgs(argsJson: string): string | null {
+	for (const [name, hint] of ARG_SIGNATURE_HINTS) {
+		if (hint.test(argsJson)) return name;
+	}
+	return null;
+}
+
 /**
  * Extract tool calls embedded in text output by local models.
  *
@@ -997,6 +1017,9 @@ function normalizeToolName(raw: string): string | null {
  *   JSON code blocks with name + arguments
  *   Bare JSON object with "name" and "arguments" keys
  *   OpenAI format: {"function": {"name": "Read", "arguments": "..."}}
+ *   <function=Name><parameter=key>value</parameter>...</function>
+ *   Degraded emission: call_<hex>{"arg": ...} with no name key (name is
+ *   inferred from the argument signature)
  *   Case-insensitive tool names: read({file_path: ...}), EDIT({...})
  *
  * Internal return type — no API change.
@@ -1151,6 +1174,33 @@ function extractToolCallsFromText(text: string): Array<{
 				_rawMatch: match[0],
 			});
 		}
+	}
+
+	if (results.length > 0) return results;
+
+	// Pattern 7: Degraded emission — bare call id + arguments-only JSON with no
+	// tool name (fusion-mlx #1694: a batch-row realignment during concurrent
+	// decoding leaks the tool-call token as plain text, e.g.
+	// `call_8a3b4f2e{"file_path": "..."}`). Runs last so well-formed formats
+	// win. The name is inferred from the argument signature; slips that match
+	// no known signature stay as visible text rather than being guessed at.
+	const slipPattern = /\bcall_[0-9a-f]{6,}\s*\{/g;
+	while (true) {
+		match = slipPattern.exec(text);
+		if (match === null) break;
+		const jsonStart = match.index + match[0].length - 1;
+		const jsonStr = extractBalancedJson(text, jsonStart);
+		if (!jsonStr) continue;
+		const parsed = tryParseArgsJson(jsonStr);
+		if (!parsed || Object.keys(parsed).length === 0) continue;
+		const toolName = inferToolNameFromArgs(jsonStr);
+		if (!toolName) continue;
+		results.push({
+			id: `toolu_${Date.now()}_${results.length}`,
+			name: toolName,
+			input: parsed,
+			_rawMatch: text.slice(match.index, jsonStart + jsonStr.length),
+		});
 	}
 
 	return results;
