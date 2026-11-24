@@ -350,6 +350,31 @@ describe('transformMLXStreamToAnthropic', () => {
     expect(events.some(e => e.type === 'message_delta')).toBe(true)
   })
 
+  it('recovers a degraded call_<hex>{...} emission in the streaming path', async () => {
+    const response = createStreamResponse([
+      'data: {"id":"x","object":"chat.completion.chunk","created":1,"model":"test","choices":[{"index":0,"delta":{"content":"call_8a3b4f2e"},"finish_reason":null}]}',
+      'data: {"id":"x","object":"chat.completion.chunk","created":1,"model":"test","choices":[{"index":0,"delta":{"content":"{\\"file_path\\": \\"/tmp/hg-T17/difftool.py\\"}"},"finish_reason":null}]}',
+      'data: {"id":"x","object":"chat.completion.chunk","created":1,"model":"test","choices":[{"index":0,"delta":{},"finish_reason":"stop"}]}',
+      'data: [DONE]',
+    ])
+    const events = await collectEvents(response)
+
+    const toolUseStart = events.find(
+      (e) => e.type === 'content_block_start' &&
+        (e as { content_block: { type: string } }).content_block.type === 'tool_use',
+    )
+    expect(toolUseStart).toBeDefined()
+    expect(
+      (toolUseStart as { content_block: { name: string } }).content_block.name,
+    ).toBe('Read')
+    const jsonDelta = events.find(
+      (e) => e.type === 'content_block_delta' &&
+        (e as { delta: { type: string } }).delta.type === 'input_json_delta',
+    )
+    expect(JSON.parse((jsonDelta as { delta: { partial_json: string } }).delta.partial_json))
+      .toEqual({ file_path: '/tmp/hg-T17/difftool.py' })
+  })
+
   it('should handle tool call streaming', async () => {
     const response = createStreamResponse([
       'data: {"id":"x","object":"chat.completion.chunk","created":1,"model":"test","choices":[{"index":0,"delta":{"tool_calls":[{"index":0,"id":"call_1","type":"function","function":{"name":"bash","arguments":""}}]},"finish_reason":null}]}',
