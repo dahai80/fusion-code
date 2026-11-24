@@ -7,7 +7,7 @@ doc_type: changelog
 title: { zh: "变更日志", en: "Changelog" }
 audience: engineer
 status: draft
-version: 0.8.22
+version: 0.8.23
 updated: 2026-11-24
 owner: "@dahai"
 source_of_truth:
@@ -19,6 +19,10 @@ source_of_truth:
 All notable changes to fusion-code are documented here.
 
 ## Unreleased
+
+## 0.8.23 - 2026-11-24
+
+- **Bench (#330)**: harness-gain engine-restart resilience — fusion-supervisor auto-recovery SIGTERMs fusion-mlx under sustained 27B decode load (fusion-supervisor#153); sessions launched in the downtime window die instantly with `Local inference service unavailable` and zero out the rest of the run (2 of 3 runs destroyed today, one 6/20 vs 17/20 baseline). When a task log carries the engine-unavailable error, the runner now polls `/health` up to 180 s and re-runs that task once; real failures untouched. Bench tooling only.
 
 ## 0.8.22 - 2026-11-24
 
