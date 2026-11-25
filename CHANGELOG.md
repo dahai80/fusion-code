@@ -7,8 +7,8 @@ doc_type: changelog
 title: { zh: "变更日志", en: "Changelog" }
 audience: engineer
 status: draft
-version: 0.8.23
-updated: 2026-11-24
+version: 0.8.24
+updated: 2026-11-25
 owner: "@dahai"
 source_of_truth:
   - CHANGELOG.md
@@ -19,6 +19,10 @@ source_of_truth:
 All notable changes to fusion-code are documented here.
 
 ## Unreleased
+
+## 0.8.24 - 2026-11-25
+
+- **Bench docs (#332)**: 27B regression run on v0.8.23 (#321 + #328 + #330) scores **18/20** — new best vs the 17/20 baseline; zero text emissions, zero engine restarts, runner retry never needed. Failures T05/T14 timeouts (known thermal-latency class); chronic degradation-slip tasks T13/T17 passed cleanly. No regression from the nudge/retry changes; delta within single-run noise.
 
 ## 0.8.23 - 2026-11-24
 
