@@ -7,7 +7,7 @@ doc_type: changelog
 title: { zh: "变更日志", en: "Changelog" }
 audience: engineer
 status: draft
-version: 0.8.25
+version: 0.8.26
 updated: 2026-11-25
 owner: "@dahai"
 source_of_truth:
@@ -19,6 +19,10 @@ source_of_truth:
 All notable changes to fusion-code are documented here.
 
 ## Unreleased
+
+## 0.8.26 - 2026-11-25
+
+- **Research docs (#336)**: progress report #4 — the competitor scan owed from report #3 (Claude Code v2.1.326-331, opencode v2.4.x, goose v1.60.x, window 2026-11-17 → 11-25), the 27B 18/20 new best, the #334 silent-stream retry PR that came out of a scan takeaway, PR ledger #321-#334 (all merged + accepted), and next work items (field-verify #334 in the next 27B regression; #1694 server-side capture follow-up carried over).
 
 ## 0.8.25 - 2026-11-25
 
