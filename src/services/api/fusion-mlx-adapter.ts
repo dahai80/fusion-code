@@ -21,6 +21,7 @@ import {
 	type AnthropicStreamEvent,
 	transformMLXResponseToAnthropic,
 	transformMLXStreamToAnthropic,
+	withSilentStreamRetry,
 } from "./fusion-mlx-stream.js";
 import { cleanToolList } from "./fusion-mlx-tool-validator.js";
 import type {
@@ -1401,26 +1402,30 @@ export async function* streamFusionMlx(
 	);
 
 	try {
-		const response = await mlxFetchWithRetry(
-			getMlxApiUrl("/v1/chat/completions"),
-			{
-				method: "POST",
-				headers: {
-					"Content-Type": "application/json",
+		const makeAttempt = async function* () {
+			const response = await mlxFetchWithRetry(
+				getMlxApiUrl("/v1/chat/completions"),
+				{
+					method: "POST",
+					headers: {
+						"Content-Type": "application/json",
+					},
+					body: JSON.stringify(requestBody),
+					signal: AbortSignal.timeout(getMlxTimeout(true)),
 				},
-				body: JSON.stringify(requestBody),
-				signal: AbortSignal.timeout(getMlxTimeout(true)),
-			},
-		);
-
-		if (!response.ok) {
-			const errorText = await response.text();
-			throw new Error(
-				`Fusion-MLX API error: ${response.status} ${response.statusText} - ${errorText}`,
 			);
-		}
 
-		yield* transformMLXStreamToAnthropic(response, options.model);
+			if (!response.ok) {
+				const errorText = await response.text();
+				throw new Error(
+					`Fusion-MLX API error: ${response.status} ${response.statusText} - ${errorText}`,
+				);
+			}
+
+			yield* transformMLXStreamToAnthropic(response, options.model);
+		};
+
+		yield* withSilentStreamRetry(makeAttempt);
 	} catch (error) {
 		logForDebugging(`[Fusion-MLX] Stream failed: ${(error as Error).message}`);
 		throw error;
@@ -1925,13 +1930,46 @@ export function createFusionMlxFetch(model: string): typeof globalThis.fetch {
 					});
 				}
 
-				const anthropicStream = transformMLXStreamToAnthropic(
-					transformResponse,
-					model,
-					inputTokensEst,
-					undefined,
-					stateRef,
-				);
+				let anthropicStream: AsyncGenerator<AnthropicStreamEvent>;
+				if (resumeOn && sid) {
+					// Silent-stream retry skipped on the resume path: a re-issued
+					// request gets a new stream id and would invalidate the
+					// cursor/state side-channels wired to this response.
+					anthropicStream = transformMLXStreamToAnthropic(
+						transformResponse,
+						model,
+						inputTokensEst,
+						undefined,
+						stateRef,
+					);
+				} else {
+					let reusedFirstResponse = true;
+					const makeStreamAttempt = async function* () {
+						let resp = mlxResponse;
+						if (!reusedFirstResponse) {
+							resp = await mlxFetchWithRetry(
+								`${baseUrl}/v1/chat/completions`,
+								{
+									method: "POST",
+									headers: { "Content-Type": "application/json" },
+									body: JSON.stringify(mlxBody),
+									signal:
+										init?.signal ||
+										AbortSignal.timeout(getMlxTimeout(mlxBody.stream)),
+								},
+							);
+							if (!resp.ok) {
+								const errorText = await resp.text();
+								throw new Error(
+									`Fusion-MLX error: ${resp.status} - ${errorText}`,
+								);
+							}
+						}
+						reusedFirstResponse = false;
+						yield* transformMLXStreamToAnthropic(resp, model, inputTokensEst);
+					};
+					anthropicStream = withSilentStreamRetry(makeStreamAttempt);
+				}
 				const { encodeStreamToAnthropicSSE } = await import(
 					"./fusion-mlx-stream.js"
 				);

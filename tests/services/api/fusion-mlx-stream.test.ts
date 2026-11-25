@@ -16,6 +16,7 @@ import {
   type AnthropicNonStreamingResponse,
   type AnthropicStreamEvent,
   encodeStreamToAnthropicSSE,
+  withSilentStreamRetry,
 } from '../../../src/services/api/fusion-mlx-stream.js'
 
 // ─── transformMLXResponseToAnthropic ──────────────────────────
@@ -572,5 +573,110 @@ describe('type exports', () => {
     }
     expect(res.usage.cache_creation_input_tokens).toBe(100)
     expect(res.usage.cache_read_input_tokens).toBe(50)
+  })
+})
+// ─── withSilentStreamRetry ────────────────────────────────────
+
+describe('withSilentStreamRetry', () => {
+  const msgStart = (): AnthropicStreamEvent => ({
+    type: 'message_start',
+    message: {
+      id: 'msg_1',
+      type: 'message',
+      role: 'assistant',
+      content: [],
+      model: 'qwen-test',
+      stop_reason: null,
+      stop_sequence: null,
+      usage: { input_tokens: 1, output_tokens: 0 },
+    },
+  })
+  const textStart = (): AnthropicStreamEvent => ({
+    type: 'content_block_start',
+    index: 0,
+    content_block: { type: 'text', text: '' },
+  })
+  const textDelta = (t: string): AnthropicStreamEvent => ({
+    type: 'content_block_delta',
+    index: 0,
+    delta: { type: 'text_delta', text: t },
+  })
+  const thinkStart = (): AnthropicStreamEvent => ({
+    type: 'content_block_start',
+    index: 0,
+    content_block: { type: 'thinking', thinking: '' },
+  })
+  const thinkDelta = (): AnthropicStreamEvent => ({
+    type: 'content_block_delta',
+    index: 0,
+    delta: { type: 'thinking_delta', thinking: 'hmm' },
+  })
+  const msgStop = (): AnthropicStreamEvent => ({ type: 'message_stop' })
+
+  function trackedFactory(attempts: AnthropicStreamEvent[][]) {
+    let call = 0
+    const factory = async function* () {
+      const idx = Math.min(call, attempts.length - 1)
+      call++
+      for (const e of attempts[idx]) yield e
+    }
+    return { factory, getCall: () => call }
+  }
+
+  async function collect(
+    gen: AsyncGenerator<AnthropicStreamEvent>,
+  ): Promise<AnthropicStreamEvent[]> {
+    const out: AnthropicStreamEvent[] = []
+    for await (const e of gen) out.push(e)
+    return out
+  }
+
+  it('passes a content stream through with a single attempt', async () => {
+    const { factory, getCall } = trackedFactory([
+      [msgStart(), textStart(), textDelta('hi'), msgStop()],
+    ])
+    const events = await collect(withSilentStreamRetry(factory))
+    expect(getCall()).toBe(1)
+    expect(events.map((e) => e.type)).toEqual([
+      'message_start',
+      'content_block_start',
+      'content_block_delta',
+      'message_stop',
+    ])
+  })
+
+  it('retries once when the first attempt is silent', async () => {
+    const { factory, getCall } = trackedFactory([
+      [msgStart(), msgStop()],
+      [msgStart(), textStart(), textDelta('recovered'), msgStop()],
+    ])
+    const events = await collect(withSilentStreamRetry(factory))
+    expect(getCall()).toBe(2)
+    expect(events.some((e) => e.type === 'content_block_delta')).toBe(true)
+    expect(events.filter((e) => e.type === 'message_start')).toHaveLength(1)
+  })
+
+  it('treats a thinking-only stream as silent and retries', async () => {
+    const { factory, getCall } = trackedFactory([
+      [msgStart(), thinkStart(), thinkDelta(), msgStop()],
+      [msgStart(), textStart(), textDelta('ok'), msgStop()],
+    ])
+    const events = await collect(withSilentStreamRetry(factory))
+    expect(getCall()).toBe(2)
+    expect(
+      events.some(
+        (e) => e.type === 'content_block_delta' && e.delta.type === 'text_delta',
+      ),
+    ).toBe(true)
+  })
+
+  it('gives up after the second silent attempt and yields the buffered prefix', async () => {
+    const { factory, getCall } = trackedFactory([
+      [msgStart(), msgStop()],
+      [msgStart(), msgStop()],
+    ])
+    const events = await collect(withSilentStreamRetry(factory))
+    expect(getCall()).toBe(2)
+    expect(events.map((e) => e.type)).toEqual(['message_start'])
   })
 })

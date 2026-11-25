@@ -561,6 +561,75 @@ export async function* transformMLXStreamToAnthropic(
 	yield { type: "message_stop" };
 }
 
+function isSilentStreamContentEvent(event: AnthropicStreamEvent): boolean {
+	if (event.type === "content_block_start") {
+		return (
+			event.content_block.type === "text" ||
+			event.content_block.type === "tool_use"
+		);
+	}
+	if (event.type === "content_block_delta") {
+		return (
+			event.delta.type === "text_delta" ||
+			event.delta.type === "input_json_delta"
+		);
+	}
+	return false;
+}
+
+// A stream that completes with no text and no tool_use (empty or
+// thinking-only) is a degraded-engine slip, not a valid assistant turn.
+// Buffer leading non-content events (message_start, thinking deltas) so the
+// consumer sees nothing until real content arrives; if the stream ends
+// silently, discard the buffer and re-issue the request once. Mirrors the
+// silent-reply retry Claude Code added in v2.1.331; adapted for the local
+// engine where no non-streaming fallback endpoint exists.
+export async function* withSilentStreamRetry(
+	makeAttempt: () => AsyncGenerator<AnthropicStreamEvent>,
+): AsyncGenerator<AnthropicStreamEvent> {
+	const MAX_ATTEMPTS = 2;
+	for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+		const buffered: AnthropicStreamEvent[] = [];
+		let sawContent = false;
+		let silentEnd = false;
+		let flushed = false;
+		try {
+			for await (const event of makeAttempt()) {
+				if (!sawContent && isSilentStreamContentEvent(event)) {
+					sawContent = true;
+					flushed = true;
+					for (const b of buffered) yield b;
+				}
+				if (sawContent) {
+					yield event;
+					continue;
+				}
+				if (event.type === "message_stop") {
+					silentEnd = true;
+					break;
+				}
+				buffered.push(event);
+			}
+		} finally {
+			if (!sawContent && !silentEnd && !flushed) {
+				// Error/abort mid-stream: propagate buffered prefix so the
+				// consumer still receives message_start before the throw.
+				flushed = true;
+				for (const b of buffered) yield b;
+			}
+		}
+		if (sawContent || !silentEnd || attempt === MAX_ATTEMPTS) {
+			if (!sawContent && !flushed) {
+				for (const b of buffered) yield b;
+			}
+			return;
+		}
+		logForDebugging(
+			`[Fusion-MLX] Silent stream (no text/tool_use), retrying (attempt ${attempt}/${MAX_ATTEMPTS})`,
+		);
+	}
+}
+
 function processChunk(
 	chunk: MLXStreamChunk,
 	state: StreamState,
