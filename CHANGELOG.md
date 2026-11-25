@@ -7,7 +7,7 @@ doc_type: changelog
 title: { zh: "变更日志", en: "Changelog" }
 audience: engineer
 status: draft
-version: 0.8.24
+version: 0.8.25
 updated: 2026-11-25
 owner: "@dahai"
 source_of_truth:
@@ -19,6 +19,10 @@ source_of_truth:
 All notable changes to fusion-code are documented here.
 
 ## Unreleased
+
+## 0.8.25 - 2026-11-25
+
+- **Fix (#334)**: retry once on silent fusion-mlx streams. A local-engine stream completing with no text and no tool_use (empty or thinking-only) is a degraded-engine slip, not a valid turn — the agent loop previously burned a turn of the budget on nothing. New `withSilentStreamRetry` buffers leading non-content events (flushed on first real content, zero added latency), and on a silent end discards the buffer and re-issues the request once (max 2 attempts; mirrors Claude Code v2.1.331's silent-reply retry, adapted for the local engine). Wired at both fusion-mlx entry points; skipped on the stream-resume path (a re-issued request gets a new stream id and would invalidate the cursor/state side-channels); the final silent attempt still yields its buffered prefix rather than swallowing the turn. 4 new tests; full suite 1841 pass.
 
 ## 0.8.24 - 2026-11-25
 
