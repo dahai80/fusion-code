@@ -217,6 +217,9 @@ interface HarnessRun {
 	// count of tool-call-shaped plain-text emissions in stdout (the model
 	// printing a tool call instead of producing a tool_calls block)
 	textEmissions: number;
+	// count of silent-stream retries logged by the adapter debug sink
+	// (stream completed with no text/tool_use and was re-issued once)
+	silentRetries: number;
 }
 
 // matches `Name({file_path: ...})` python-call style, `call_<id>{json}`,
@@ -353,7 +356,9 @@ async function runHarness(
 			"--max-turns",
 			"12",
 			"--dangerously-skip-permissions",
-			...(process.env.BENCH_DEBUG ? ["-D"] : []),
+			// always-on: the session debug file is the only place the adapter
+			// logs silent-stream retries; the runner counts them per task
+			"-D",
 		];
 		const engineKey = loadEngineKey();
 		// Isolate from the host user config (~/.fusion-code/settings.json hooks,
@@ -417,7 +422,30 @@ async function runHarness(
 		textEmissions: transcriptPath
 			? countToolShapedTextFromTranscript(transcriptPath)
 			: countToolShapedText(outText),
+		silentRetries: countSilentStreamRetries(configDir),
 	};
+}
+
+// Count silent-stream retry log lines in the task's session debug file
+// (configDir/debug/<sessionId>.txt, enabled by the always-on -D flag).
+// Best-effort: a missing or unreadable file counts as zero — this metric
+// must never fail a run.
+function countSilentStreamRetries(configDir: string | undefined): number {
+	if (!configDir) return 0;
+	try {
+		const debugDir = join(configDir, "debug");
+		if (!existsSync(debugDir)) return 0;
+		let count = 0;
+		for (const f of readdirSync(debugDir)) {
+			if (!f.endsWith(".txt")) continue;
+			const text = readFileSync(join(debugDir, f), "utf8");
+			const matches = text.match(/Silent stream \(no text\/tool_use\)/g);
+			if (matches) count += matches.length;
+		}
+		return count;
+	} catch {
+		return 0;
+	}
 }
 
 // ── verification ──────────────────────────────────────────────
@@ -656,10 +684,11 @@ async function main(): Promise<void> {
 				timedOut: run.timedOut,
 				wallSeconds: Math.round(run.seconds * 10) / 10,
 				textEmissions: run.textEmissions,
+				silentRetries: run.silentRetries,
 			};
 			rows.push(row);
 			logger.info(
-				`${task.id} resolved=${v.resolved} wall=${row.wallSeconds}s textEmit=${row.textEmissions}`,
+				`${task.id} resolved=${v.resolved} wall=${row.wallSeconds}s textEmit=${row.textEmissions} silentRetry=${row.silentRetries}`,
 			);
 		} catch (e) {
 			logger.error(`${task.id} failed: ${e}`);
@@ -670,6 +699,7 @@ async function main(): Promise<void> {
 	}
 	const resolvedCount = rows.filter((r) => r.resolved).length;
 	const emissionTotal = rows.reduce((s, r) => s + (r.textEmissions ?? 0), 0);
+	const silentRetryTotal = rows.reduce((s, r) => s + (r.silentRetries ?? 0), 0);
 	const summary = {
 		harness,
 		model: process.env.BENCH_MODEL ?? "unset",
@@ -681,6 +711,7 @@ async function main(): Promise<void> {
 			? Math.round((resolvedCount / rows.length) * 1000) / 1000
 			: 0,
 		textEmissions: emissionTotal,
+		silentRetries: silentRetryTotal,
 		rows,
 	};
 	writeFileSync(
