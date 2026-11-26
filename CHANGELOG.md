@@ -7,7 +7,7 @@ doc_type: changelog
 title: { zh: "变更日志", en: "Changelog" }
 audience: engineer
 status: draft
-version: 0.8.30
+version: 0.8.31
 updated: 2026-11-26
 owner: "@dahai"
 source_of_truth:
@@ -19,6 +19,10 @@ source_of_truth:
 All notable changes to fusion-code are documented here.
 
 ## Unreleased
+
+## 0.8.31 - 2026-11-26
+
+- **Bench (#347)**: DRA replay — `benchmarks/harness-gain/dra.ts <resultsDir>` attributes each transcript Edit/Write unit as needed/unneeded via Delta Residue Attribution (arXiv 2611.34875): revert units cumulatively newest-first against the task's final-tree snapshot (`BENCH_DRA=1`) and rerun the task verify at each prefix; a prefix whose verify still passes is jointly unneeded. Task verifiers extracted to `verify.ts` so scoring and replay share the exact predicates; snapshotting moved into `runHarness` (all tasks, replay-side resolved filtering). Bash-heredoc writes stay out of scope, reported as coverage.
 
 ## 0.8.30 - 2026-11-26
 
