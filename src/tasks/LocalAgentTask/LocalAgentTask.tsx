@@ -316,6 +316,13 @@ export function enqueueAgentNotification({
 	const resultSection = finalMessage
 		? `\n<result>${finalMessage}</result>`
 		: "";
+	// Failed runs must be reconciled, never silently absorbed: if a retry or a
+	// fallback run produced the deliverable, the final summary must say so
+	// explicitly; otherwise the overall task must be reported as failed.
+	const reconciliationSection =
+		status === "failed"
+			? `\n<instruction>This background task FAILED. Your final summary must explicitly reconcile this failure: state what failed and why, and if a retry or fallback produced the deliverable anyway, say so — never present the overall task as simply completed while a failure notification is outstanding.</instruction>`
+			: "";
 	const usageSection = usage
 		? `\n<usage><total_tokens>${usage.totalTokens}</total_tokens><tool_uses>${usage.toolUses}</tool_uses><duration_ms>${usage.durationMs}</duration_ms></usage>`
 		: "";
@@ -326,7 +333,7 @@ export function enqueueAgentNotification({
 <${TASK_ID_TAG}>${taskId}</${TASK_ID_TAG}>${toolUseIdLine}
 <${OUTPUT_FILE_TAG}>${outputPath}</${OUTPUT_FILE_TAG}>
 <${STATUS_TAG}>${status}</${STATUS_TAG}>
-<${SUMMARY_TAG}>${summary}</${SUMMARY_TAG}>${resultSection}${usageSection}${worktreeSection}
+<${SUMMARY_TAG}>${summary}</${SUMMARY_TAG}>${resultSection}${reconciliationSection}${usageSection}${worktreeSection}
 </${TASK_NOTIFICATION_TAG}>`;
 	enqueuePendingNotification({
 		value: message,
