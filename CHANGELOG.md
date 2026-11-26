@@ -7,7 +7,7 @@ doc_type: changelog
 title: { zh: "变更日志", en: "Changelog" }
 audience: engineer
 status: draft
-version: 0.8.28
+version: 0.8.29
 updated: 2026-11-26
 owner: "@dahai"
 source_of_truth:
@@ -19,6 +19,10 @@ source_of_truth:
 All notable changes to fusion-code are documented here.
 
 ## Unreleased
+
+## 0.8.29 - 2026-11-26
+
+- **Bench (#343)**: per-task silent-stream retry counter in the harness-gain runner. The runner now always passes `-D` (the session debug file is the only place the adapter logs silent-stream retries) and counts `Silent stream (no text/tool_use)` lines per task — surfaces the #334 retry firing rate that the 27B regression report flagged as unverifiable. Best-effort: missing/unreadable debug files count as zero, never fail a run. Row + summary carry `silentRetries`.
 
 ## 0.8.28 - 2026-11-26
 
