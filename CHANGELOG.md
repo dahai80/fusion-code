@@ -7,7 +7,7 @@ doc_type: changelog
 title: { zh: "变更日志", en: "Changelog" }
 audience: engineer
 status: draft
-version: 0.8.31
+version: 0.8.32
 updated: 2026-11-26
 owner: "@dahai"
 source_of_truth:
@@ -19,6 +19,10 @@ source_of_truth:
 All notable changes to fusion-code are documented here.
 
 ## Unreleased
+
+## 0.8.32 - 2026-11-26
+
+- **Fix (#349/#350)**: env-tunable 529 retry budget — `MAX_529_RETRIES` was hardcoded at 3 while other retryable errors got `DEFAULT_MAX_RETRIES=10`, so headless `-p` workers died on short 529 capacity cascades that claude code rode out (~10 retries). New `FUSION_CODE_MAX_529_RETRIES` env raises the budget for unattended dispatches; default 3 unchanged for interactive use, invalid/negative values fall back with a debug log. 5 new tests.
 
 ## 0.8.31 - 2026-11-26
 
