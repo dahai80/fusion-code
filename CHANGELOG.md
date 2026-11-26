@@ -7,8 +7,8 @@ doc_type: changelog
 title: { zh: "变更日志", en: "Changelog" }
 audience: engineer
 status: draft
-version: 0.8.26
-updated: 2026-11-25
+version: 0.8.27
+updated: 2026-11-26
 owner: "@dahai"
 source_of_truth:
   - CHANGELOG.md
@@ -19,6 +19,10 @@ source_of_truth:
 All notable changes to fusion-code are documented here.
 
 ## Unreleased
+
+## 0.8.27 - 2026-11-26
+
+- **Fix (#338)**: strip unterminated analysis/summary blocks in compact summaries. `formatCompactSummary` only stripped the `<analysis>` drafting scratchpad when the closing tag was present, so degenerate model output ending the block without `</analysis>` leaked the whole scratchpad into the compacted summary (the same failure class goose fixed in v1.60.1); an unterminated `<summary>` additionally leaked the raw tag. Unterminated `<analysis>` now strips to the `<summary>` section or to the end; unterminated `<summary>` formats as `Summary:` + content without the raw tag. Closed-tag behavior unchanged. 5 new tests; full suite 1846 pass.
 
 ## 0.8.26 - 2026-11-25
 
