@@ -317,6 +317,17 @@ export function formatCompactSummary(summary: string): string {
 		/<analysis>[\s\S]*?<\/analysis>/,
 		"",
 	);
+	// Degenerate model output: unterminated <analysis> block (no closing tag).
+	// Strip from the opening tag to the <summary> section, or to the end, so
+	// the scratchpad cannot leak into the compacted summary.
+	if (formattedSummary.includes("<analysis>")) {
+		const open = formattedSummary.indexOf("<analysis>");
+		const summaryStart = formattedSummary.indexOf("<summary>");
+		formattedSummary =
+			summaryStart !== -1 && summaryStart > open
+				? formattedSummary.slice(0, open) + formattedSummary.slice(summaryStart)
+				: formattedSummary.slice(0, open);
+	}
 
 	// Extract and format summary section
 	const summaryMatch = formattedSummary.match(/<summary>([\s\S]*?)<\/summary>/);
@@ -326,6 +337,12 @@ export function formatCompactSummary(summary: string): string {
 			/<summary>[\s\S]*?<\/summary>/,
 			`Summary:\n${content.trim()}`,
 		);
+	} else if (formattedSummary.includes("<summary>")) {
+		// Unterminated <summary> block: keep the content, drop the raw tag.
+		const open = formattedSummary.indexOf("<summary>");
+		const content = formattedSummary.slice(open + "<summary>".length);
+		formattedSummary =
+			formattedSummary.slice(0, open) + `Summary:\n${content.trim()}`;
 	}
 
 	// Clean up extra whitespace between sections
