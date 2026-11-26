@@ -199,9 +199,9 @@ export function formatToken(
 				return token.text;
 			}
 			if (parent?.type === "list_item") {
-				return `${orderedListNumber === null ? "-" : `${getListNumber(listDepth, orderedListNumber)}.`} ${token.tokens ? token.tokens.map((_) => formatToken(_, theme, listDepth, orderedListNumber, token, highlight)).join("") : linkifyIssueReferences(token.text)}${EOL}`;
+				return `${orderedListNumber === null ? "-" : `${getListNumber(listDepth, orderedListNumber)}.`} ${token.tokens ? token.tokens.map((_) => formatToken(_, theme, listDepth, orderedListNumber, token, highlight)).join("") : linkifyFilePaths(linkifyIssueReferences(token.text))}${EOL}`;
 			}
-			return linkifyIssueReferences(token.text);
+			return linkifyFilePaths(linkifyIssueReferences(token.text));
 		case "table": {
 			const tableToken = token as Tokens.Table;
 
@@ -286,6 +286,38 @@ export function formatToken(
 // YARR JIT in JSC.
 const ISSUE_REF_PATTERN =
 	/(^|[^\w./-])([A-Za-z0-9][\w-]*\/[A-Za-z0-9][\w.-]*)#(\d+)\b/g;
+
+// Absolute or home-relative file paths ending in a short extension. Requires
+// the dot+extension so prose like "the /tmp directory" doesn't match; a `/` or
+// `:` immediately before the match rules out URLs (https://host/path/file.md —
+// the path segment is always preceded by `/` or `:` inside a URL). Avoids
+// lookbehind — it defeats YARR JIT in JSC (same rationale as above).
+const FILE_PATH_PATTERN =
+	/(^|[^\w:./~\-])((?:\/|~\/)[\w.@+-]+(?:\/[\w.@+-]+)*\.[A-Za-z0-9]{1,8})(?![\w.@+-])/g;
+
+/**
+ * Makes absolute file paths in plain text clickable via file:// OSC 8
+ * hyperlinks, so deliverables an agent reports can be opened directly from
+ * the terminal. Plain text only — markdown links are handled by the link
+ * token case; `code` spans keep their literal styling.
+ */
+function linkifyFilePaths(text: string): string {
+	if (!supportsHyperlinks()) {
+		return text;
+	}
+	return text.replace(
+		FILE_PATH_PATTERN,
+		(match, prefix: string, path: string) => {
+			// Skip paths that are part of an existing OSC 8 payload.
+			const idx = text.indexOf(match);
+			const before = text.slice(Math.max(0, idx - 8), idx);
+			if (before.includes("\x1b]8;")) {
+				return match;
+			}
+			return prefix + createHyperlink(`file://${path}`, path);
+		},
+	);
+}
 
 /**
  * Replaces owner/repo#123 references with clickable hyperlinks to GitHub.
