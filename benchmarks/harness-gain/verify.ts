@@ -4,6 +4,16 @@
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 
+// Transcripts record absolute file_path under the runner's temp workdir
+// (…/hg-<taskId>-<rand>/…). Snapshots (BENCH_DRA=1) are tarred with the
+// workdir as root, so strip everything through the hg-* segment to get
+// the snapshot-relative path; keep the raw path when already relative.
+export function toSnapshotPath(file: string, dir: string): string {
+    const m = file.match(/\/hg-[^/]+\//);
+    if (m && m.index !== undefined) file = file.slice(m.index + m[0].length);
+    return join(dir, file);
+}
+
 export function verify(
 	verifySpec: any,
 	dir: string,

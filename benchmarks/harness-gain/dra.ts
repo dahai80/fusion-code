@@ -9,11 +9,11 @@
 //   <resultsDir> must contain T*.final.tar (from BENCH_DRA=1) and
 //   T*.transcript.jsonl; tasks.json is read from the suite dir.
 import { mkdirSync, readFileSync, readdirSync, rmSync, existsSync } from "node:fs";
-import { join, dirname } from "node:path";
+import { join } from "node:path";
 import { tmpdir } from "node:os";
-import { verify } from "./verify.js";
+import { verify, toSnapshotPath } from "./verify.js";
 
-const suiteDir = dirname(import.meta.dir);
+const suiteDir = import.meta.dir;
 const resultsDir = process.argv[2];
 if (!resultsDir) {
     console.error("usage: bun dra.ts <resultsDir> [--tasks <tasks.json>]");
@@ -95,7 +95,7 @@ function extractUnits(transcriptPath: string): {
 }
 
 function inverseApply(u: Unit, dir: string): "applied" | "ambiguous" {
-    const path = join(dir, u.file);
+    const path = toSnapshotPath(u.file, dir);
     if (u.kind === "Edit") {
         if (!existsSync(path)) return "ambiguous";
         const text = readFileSync(path, "utf8");
@@ -105,7 +105,8 @@ function inverseApply(u: Unit, dir: string): "applied" | "ambiguous" {
     }
     // Write inverse: delete the file if it did not exist before the write.
     if (u.existedBefore) return "ambiguous";
-    if (existsSync(path)) rmSync(path);
+    if (!existsSync(path)) return "ambiguous";
+    rmSync(path);
     return "applied";
 }
 
