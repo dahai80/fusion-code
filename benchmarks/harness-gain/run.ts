@@ -24,7 +24,7 @@ import {
 	writeFileSync,
 } from "node:fs";
 import { tmpdir } from "node:os";
-import { join, resolve } from "node:path";
+import { dirname, join, resolve } from "node:path";
 import { promisify } from "node:util";
 import { verify } from "./verify.js";
 
@@ -422,6 +422,24 @@ async function runHarness(
 			resolveTimeout(false);
 		});
 	});
+	// DRA mode: snapshot the final tree so the over-edit replay (dra.ts)
+	// can attribute each edit unit. Runs for every task — resolved filtering
+	// happens in the replay. Best-effort: a failed snapshot never fails the run.
+	if (process.env.BENCH_DRA === "1") {
+		try {
+			const taskId = logPath.replace(/\.log$/, "").split("/").pop()!;
+			Bun.spawnSync([
+				"tar",
+				"-cf",
+				join(dirname(logPath), `${taskId}.final.tar`),
+				"-C",
+				cwd,
+				".",
+			]);
+		} catch (e) {
+			console.log(`[WARN] DRA snapshot failed: ${e}`);
+		}
+	}
 	return {
 		exitCode: 0,
 		timedOut,
@@ -558,27 +576,6 @@ async function main(): Promise<void> {
 			logger.error(`${task.id} failed: ${e}`);
 			rows.push({ id: task.id, resolved: false, error: String(e) });
 		} finally {
-			// DRA mode: keep the final tree of resolved tasks so the over-edit
-			// replay (dra.ts) can attribute each edit unit. Best-effort — a
-			// failed snapshot never fails the run.
-			if (
-				process.env.BENCH_DRA === "1" &&
-				rows[rows.length - 1]?.resolved &&
-				configDir
-			) {
-				try {
-					Bun.spawnSync([
-						"tar",
-						"-cf",
-						join(outDir, `${task.id}.final.tar`),
-						"-C",
-						workdir,
-						".",
-					]);
-				} catch (e) {
-					logger.warn(`${task.id} DRA snapshot failed: ${e}`);
-				}
-			}
 			rmSync(workdir, { recursive: true, force: true });
 		}
 	}
