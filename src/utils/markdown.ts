@@ -293,7 +293,7 @@ const ISSUE_REF_PATTERN =
 // the path segment is always preceded by `/` or `:` inside a URL). Avoids
 // lookbehind — it defeats YARR JIT in JSC (same rationale as above).
 const FILE_PATH_PATTERN =
-	/(^|[^\w:./~\-])((?:\/|~\/)[\w.@+-]+(?:\/[\w.@+-]+)*\.[A-Za-z0-9]{1,8})(?![\w.@+-])/g;
+	/(^|[^\w:./~-])((?:\/|~\/)[\w.@+-]+(?:\/[\w.@+-]+)*\.[A-Za-z0-9]{1,8})(?![\w.@+-])/g;
 
 /**
  * Makes absolute file paths in plain text clickable via file:// OSC 8
