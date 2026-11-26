@@ -7,7 +7,7 @@ doc_type: changelog
 title: { zh: "变更日志", en: "Changelog" }
 audience: engineer
 status: draft
-version: 0.8.33
+version: 0.8.34
 updated: 2026-11-26
 owner: "@dahai"
 source_of_truth:
@@ -19,6 +19,10 @@ source_of_truth:
 All notable changes to fusion-code are documented here.
 
 ## Unreleased
+
+## 0.8.34 - 2026-11-26
+
+- **UX (#354)**: failed background tasks must be reconciled + deliverable paths clickable. A background agent that died (e.g. 529 cascade) enqueued an `agent_failed` notification, but the final summary then claimed plain completion — failed task notifications now carry an explicit instruction requiring the summary to state what failed and disclose any retry/fallback that produced the deliverable. `applyMarkdown` also linkifies absolute and `~/`-relative file paths (extension required; URLs and bare directories excluded) as `file://` OSC 8 hyperlinks, so reported outputs open directly from the terminal. 5 new tests.
 
 ## 0.8.33 - 2026-11-26
 
