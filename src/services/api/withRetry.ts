@@ -71,22 +71,18 @@ const FLOOR_OUTPUT_TOKENS = 3000;
 const MAX_529_RETRIES = 3;
 export const BASE_DELAY_MS = 500;
 
-// FUSION_CODE_MAX_529_RETRIES (#349): headless workers ride out capacity
-// cascades that a 3-strike budget converts into hard task failures. Default
-// unchanged (3) for interactive use; raise for unattended dispatches.
+// Headless deployments (console worker fleets, CI dispatch) hit the same
+// transient 529 cascades interactive sessions do, but a hard fail after 3
+// strikes converts a capacity blip into a failed task — claude code rides
+// the same blip out with ~10 attempts. FUSION_CODE_MAX_529_RETRIES lets an
+// operator raise the budget for foreground/headless sources (capped at
+// DEFAULT_MAX_RETRIES so a stuck gateway still terminates the turn);
+// default stays 3 for interactive REPL use. Background sources keep bailing
+// immediately — the anti-amplification rationale is unchanged.
 export function getMax529Retries(): number {
-	const raw = process.env.FUSION_CODE_MAX_529_RETRIES
-		? parseInt(process.env.FUSION_CODE_MAX_529_RETRIES, 10)
-		: NaN;
-	if (Number.isFinite(raw) && raw >= 0) {
-		return raw;
-	}
-	if (process.env.FUSION_CODE_MAX_529_RETRIES) {
-		logForDebugging(
-			`withRetry: ignoring invalid FUSION_CODE_MAX_529_RETRIES="${process.env.FUSION_CODE_MAX_529_RETRIES}", using default ${MAX_529_RETRIES}`,
-		);
-	}
-	return MAX_529_RETRIES;
+	const raw = parseInt(process.env.FUSION_CODE_MAX_529_RETRIES ?? "", 10);
+	if (!Number.isFinite(raw) || raw < 1) return MAX_529_RETRIES;
+	return Math.min(raw, DEFAULT_MAX_RETRIES);
 }
 
 // Foreground query sources where the user IS blocking on the result — these

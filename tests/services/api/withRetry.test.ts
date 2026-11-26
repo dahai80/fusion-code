@@ -18,9 +18,9 @@ describe("getMax529Retries", () => {
         expect(getMax529Retries()).toBe(10);
     });
 
-    it("accepts 0 (disable 529-budget abort)", () => {
+    it("falls back to default on 0 (budget below 1 rejected)", () => {
         process.env[KEY] = "0";
-        expect(getMax529Retries()).toBe(0);
+        expect(getMax529Retries()).toBe(3);
     });
 
     it("falls back to default on non-numeric value", () => {
