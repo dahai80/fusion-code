@@ -7,7 +7,7 @@ doc_type: changelog
 title: { zh: "变更日志", en: "Changelog" }
 audience: engineer
 status: draft
-version: 0.8.27
+version: 0.8.28
 updated: 2026-11-26
 owner: "@dahai"
 source_of_truth:
@@ -19,6 +19,10 @@ source_of_truth:
 All notable changes to fusion-code are documented here.
 
 ## Unreleased
+
+## 0.8.28 - 2026-11-26
+
+- **Research docs (#341)**: 27B regression record for the #334 build — 15/20 (run T03-46-57-105Z). Four failures (T05/T10/T14/T17) are the known engine-side thermal 600 s-timeout class; T20 failed environmentally (unauthenticated localhost `POST /api/v1/down` stopped fusion-mlx mid-task, second incident in two days, caller attribution filed as fusion-supervisor#173). Clean signals: textEmissions = 0 across all 20 tasks, #321 recovery never fired. Verdict: score not comparable to 18/20 due to the T20 kill.
 
 ## 0.8.27 - 2026-11-26
 
