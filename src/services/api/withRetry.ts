@@ -71,6 +71,24 @@ const FLOOR_OUTPUT_TOKENS = 3000;
 const MAX_529_RETRIES = 3;
 export const BASE_DELAY_MS = 500;
 
+// FUSION_CODE_MAX_529_RETRIES (#349): headless workers ride out capacity
+// cascades that a 3-strike budget converts into hard task failures. Default
+// unchanged (3) for interactive use; raise for unattended dispatches.
+export function getMax529Retries(): number {
+	const raw = process.env.FUSION_CODE_MAX_529_RETRIES
+		? parseInt(process.env.FUSION_CODE_MAX_529_RETRIES, 10)
+		: NaN;
+	if (Number.isFinite(raw) && raw >= 0) {
+		return raw;
+	}
+	if (process.env.FUSION_CODE_MAX_529_RETRIES) {
+		logForDebugging(
+			`withRetry: ignoring invalid FUSION_CODE_MAX_529_RETRIES="${process.env.FUSION_CODE_MAX_529_RETRIES}", using default ${MAX_529_RETRIES}`,
+		);
+	}
+	return MAX_529_RETRIES;
+}
+
 // Foreground query sources where the user IS blocking on the result — these
 // retry on 529. Everything else (summaries, titles, suggestions, classifiers)
 // bails immediately: during a capacity cascade each retry is 3-10× gateway
@@ -361,7 +379,7 @@ export async function* withRetry<T>(
 				is529Error(error) || (isApiErrorLike(error) && error.status === 429);
 			if (isOverloadOrRateLimit) {
 				consecutive529Errors++;
-				if (consecutive529Errors >= MAX_529_RETRIES) {
+				if (consecutive529Errors >= getMax529Retries()) {
 					// Check if fallback model is specified
 					if (options.fallbackModel) {
 						logEvent("fusion_api_fallback_triggered", {
