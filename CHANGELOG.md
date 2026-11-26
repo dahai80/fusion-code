@@ -7,7 +7,7 @@ doc_type: changelog
 title: { zh: "变更日志", en: "Changelog" }
 audience: engineer
 status: draft
-version: 0.8.32
+version: 0.8.33
 updated: 2026-11-26
 owner: "@dahai"
 source_of_truth:
@@ -19,6 +19,10 @@ source_of_truth:
 All notable changes to fusion-code are documented here.
 
 ## Unreleased
+
+## 0.8.33 - 2026-11-26
+
+- **Fix (#349/#352)**: harden the 529 retry budget from the first iteration — `FUSION_CODE_MAX_529_RETRIES` is now capped at `DEFAULT_MAX_RETRIES` (10) so a stuck gateway still terminates the turn, and values below 1 fall back to the default 3 instead of disabling the budget abort. Plus full `withRetry` loop tests: default 3-strike hard-fail (external user), raised budget riding out a 10-strike cascade, and fallback trigger.
 
 ## 0.8.32 - 2026-11-26
 
