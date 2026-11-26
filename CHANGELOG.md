@@ -7,7 +7,7 @@ doc_type: changelog
 title: { zh: "变更日志", en: "Changelog" }
 audience: engineer
 status: draft
-version: 0.8.29
+version: 0.8.30
 updated: 2026-11-26
 owner: "@dahai"
 source_of_truth:
@@ -19,6 +19,10 @@ source_of_truth:
 All notable changes to fusion-code are documented here.
 
 ## Unreleased
+
+## 0.8.30 - 2026-11-26
+
+- **Bench (#345)**: DRA snapshot mode — when `BENCH_DRA=1`, the harness-gain runner tars the final tree of each resolved task (`<taskId>.final.tar` in the output dir) so the over-edit replay can attribute each edit unit. Best-effort: a failed snapshot logs a warning, never fails the run; off by default.
 
 ## 0.8.29 - 2026-11-26
 
