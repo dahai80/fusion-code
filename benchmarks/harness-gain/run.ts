@@ -224,6 +224,11 @@ interface HarnessRun {
 	// count of silent-stream retries logged by the adapter debug sink
 	// (stream completed with no text/tool_use and was re-issued once)
 	silentRetries: number;
+	// total tokens billed by the engine for the task, summed from the
+	// session transcript's assistant message usage blocks (cost-per-task
+	// anchoring: quality must be reported with cost, SWE-Lancer style)
+	tokensIn: number;
+	tokensOut: number;
 }
 
 // matches `Name({file_path: ...})` python-call style, `call_<id>{json}`,
@@ -306,6 +311,33 @@ function countToolShapedTextFromTranscript(path: string): number {
 	} catch {
 		return 0;
 	}
+}
+
+// Sum input/output tokens from the session transcript's assistant usage
+// blocks. Best-effort: unreadable or missing usage fields count as zero.
+function sumTokensFromTranscript(path: string): {
+    tokensIn: number;
+    tokensOut: number;
+} {
+    try {
+        let tokensIn = 0;
+        let tokensOut = 0;
+        for (const line of readFileSync(path, "utf8").split("\n")) {
+            if (!line) continue;
+            const entry = JSON.parse(line) as {
+                type?: string;
+                message?: { usage?: { input_tokens?: number; output_tokens?: number } };
+            };
+            if (entry.type !== "assistant") continue;
+            const u = entry.message?.usage;
+            if (!u) continue;
+            tokensIn += u.input_tokens ?? 0;
+            tokensOut += u.output_tokens ?? 0;
+        }
+        return { tokensIn, tokensOut };
+    } catch {
+        return { tokensIn: 0, tokensOut: 0 };
+    }
 }
 
 // Poll the local engine health endpoint until it reports ready or the wait
@@ -440,6 +472,9 @@ async function runHarness(
 			console.log(`[WARN] DRA snapshot failed: ${e}`);
 		}
 	}
+	const tokens = transcriptPath
+		? sumTokensFromTranscript(transcriptPath)
+		: { tokensIn: 0, tokensOut: 0 };
 	return {
 		exitCode: 0,
 		timedOut,
@@ -448,6 +483,8 @@ async function runHarness(
 			? countToolShapedTextFromTranscript(transcriptPath)
 			: countToolShapedText(outText),
 		silentRetries: countSilentStreamRetries(configDir),
+		tokensIn: tokens.tokensIn,
+		tokensOut: tokens.tokensOut,
 	};
 }
 
@@ -567,10 +604,12 @@ async function main(): Promise<void> {
 				wallSeconds: Math.round(run.seconds * 10) / 10,
 				textEmissions: run.textEmissions,
 				silentRetries: run.silentRetries,
+				tokensIn: run.tokensIn,
+				tokensOut: run.tokensOut,
 			};
 			rows.push(row);
 			logger.info(
-				`${task.id} resolved=${v.resolved} wall=${row.wallSeconds}s textEmit=${row.textEmissions} silentRetry=${row.silentRetries}`,
+				`${task.id} resolved=${v.resolved} wall=${row.wallSeconds}s textEmit=${row.textEmissions} silentRetry=${row.silentRetries} tokens=${row.tokensIn}/${row.tokensOut}`,
 			);
 		} catch (e) {
 			logger.error(`${task.id} failed: ${e}`);
@@ -582,6 +621,8 @@ async function main(): Promise<void> {
 	const resolvedCount = rows.filter((r) => r.resolved).length;
 	const emissionTotal = rows.reduce((s, r) => s + (r.textEmissions ?? 0), 0);
 	const silentRetryTotal = rows.reduce((s, r) => s + (r.silentRetries ?? 0), 0);
+	const tokensInTotal = rows.reduce((s, r) => s + (r.tokensIn ?? 0), 0);
+	const tokensOutTotal = rows.reduce((s, r) => s + (r.tokensOut ?? 0), 0);
 	const summary = {
 		harness,
 		model: process.env.BENCH_MODEL ?? "unset",
@@ -594,6 +635,8 @@ async function main(): Promise<void> {
 			: 0,
 		textEmissions: emissionTotal,
 		silentRetries: silentRetryTotal,
+		tokensIn: tokensInTotal,
+		tokensOut: tokensOutTotal,
 		rows,
 	};
 	writeFileSync(
