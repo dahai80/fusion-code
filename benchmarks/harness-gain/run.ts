@@ -307,7 +307,10 @@ function countToolShapedTextFromTranscript(path: string): number {
 // Poll the local engine health endpoint until it reports ready or the wait
 // budget expires. Used to ride out supervisor auto-recovery restarts
 // (fusion-supervisor#153) instead of zeroing the rest of the run.
-async function waitForEngineHealthy(url: string, maxWaitS: number): Promise<boolean> {
+async function waitForEngineHealthy(
+	url: string,
+	maxWaitS: number,
+): Promise<boolean> {
 	const deadline = Date.now() + maxWaitS * 1000;
 	while (Date.now() < deadline) {
 		try {
@@ -671,7 +674,9 @@ async function main(): Promise<void> {
 						logPath,
 					);
 				} else {
-					logger.error(`${task.id} engine did not recover, keeping failed result`);
+					logger.error(
+						`${task.id} engine did not recover, keeping failed result`,
+					);
 				}
 			}
 			const v = verify(task.verify, workdir);
@@ -694,6 +699,27 @@ async function main(): Promise<void> {
 			logger.error(`${task.id} failed: ${e}`);
 			rows.push({ id: task.id, resolved: false, error: String(e) });
 		} finally {
+			// DRA mode: keep the final tree of resolved tasks so the over-edit
+			// replay (dra.ts) can attribute each edit unit. Best-effort — a
+			// failed snapshot never fails the run.
+			if (
+				process.env.BENCH_DRA === "1" &&
+				rows[rows.length - 1]?.resolved &&
+				configDir
+			) {
+				try {
+					Bun.spawnSync([
+						"tar",
+						"-cf",
+						join(outDir, `${task.id}.final.tar`),
+						"-C",
+						workdir,
+						".",
+					]);
+				} catch (e) {
+					logger.warn(`${task.id} DRA snapshot failed: ${e}`);
+				}
+			}
 			rmSync(workdir, { recursive: true, force: true });
 		}
 	}
