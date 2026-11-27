@@ -7,7 +7,7 @@ doc_type: changelog
 title: { zh: "变更日志", en: "Changelog" }
 audience: engineer
 status: draft
-version: 0.8.38
+version: 0.8.39
 updated: 2026-11-28
 owner: "@dahai"
 source_of_truth:
@@ -19,6 +19,10 @@ source_of_truth:
 All notable changes to fusion-code are documented here.
 
 ## Unreleased
+
+## 0.8.39 - 2026-11-28
+
+- **Bench (#371)**: `BENCH_RESUME_TIMEOUT_S` cap override for resumed tasks — resumed tasks may need a different cap than fresh ones; validation found the cap (not lost state) was the binding constraint on resume. Overrides the per-task timeout for resumed tasks only, in seconds; unset = same cap. Default behavior unchanged.
 
 ## 0.8.38 - 2026-11-28
 
