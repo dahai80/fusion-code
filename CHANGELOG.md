@@ -7,7 +7,7 @@ doc_type: changelog
 title: { zh: "变更日志", en: "Changelog" }
 audience: engineer
 status: draft
-version: 0.8.41
+version: 0.8.42
 updated: 2026-11-28
 owner: "@dahai"
 source_of_truth:
@@ -19,6 +19,10 @@ source_of_truth:
 All notable changes to fusion-code are documented here.
 
 ## Unreleased
+
+## 0.8.42 - 2026-11-28
+
+- **Docs (#377)**: bench r6 addendum T17 correction after transcript forensics — original draft called T17 a correctness fail; the transcript shows the agent fought an unsatisfiable fixture (already fixed in #375). Also documents degraded-engine conditions during all three resumed runs (streaming idle warnings, first-token timeouts, five resident models), making T14's 898s pass conservative. Remaining genuine cap-bound fail: T05 alone.
 
 ## 0.8.41 - 2026-11-28
 
