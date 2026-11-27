@@ -265,7 +265,7 @@
             "verify": {
                 "type": "command-stdout",
                 "command": "bash greet.sh",
-                "expect": "hello"
+                "stdout": "hello"
             }
         },
         {
@@ -276,7 +276,7 @@
             "prompt": "sum_to.py has a bug: sum_to(5) should be 15 but returns 10. Fix the function so the tests pass. Do not change the tests.",
             "verify": {
                 "type": "pytest",
-                "path": "tests/test_sum.py"
+                "test": "tests/test_sum.py"
             }
         },
         {
@@ -287,15 +287,14 @@
             "prompt": "The helper function fetch_data is defined in utils/http.py but several modules import it from utils.net (a leftover from a rename). Update every import site to import fetch_data from utils.http, and leave the definition in utils/http.py untouched.",
             "verify": {
                 "type": "all",
-                "all": [
+                "specs": [
                     {
                         "type": "grep-absent",
-                        "path": ".",
                         "pattern": "from utils.net import"
                     },
                     {
                         "type": "pytest",
-                        "path": "tests/test_http.py"
+                        "test": "tests/test_http.py"
                     }
                 ]
             }
@@ -308,7 +307,7 @@
             "prompt": "parser.py swallows a ValueError inside parse_price and returns 0.0 for bad input, which hides real bugs; tests expect parse_price to raise ValueError for non-numeric input while still stripping a currency symbol and thousands separators for valid strings. Fix parse_price so all tests pass. Do not change the tests.",
             "verify": {
                 "type": "pytest",
-                "path": "tests/test_parser.py"
+                "test": "tests/test_parser.py"
             }
         },
         {
@@ -319,7 +318,7 @@
             "prompt": "Implement an LRUCache class in lru.py with methods get(key) and put(key, value), capacity fixed at construction, O(1) amortized operations, eviction of the least-recently-used entry on overflow, and get(key) returning -1 when the key is missing. Make all tests in tests/test_lru.py pass. Do not change the tests.",
             "verify": {
                 "type": "pytest",
-                "path": "tests/test_lru.py"
+                "test": "tests/test_lru.py"
             }
         }
     ],
