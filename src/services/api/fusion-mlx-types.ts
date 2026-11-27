@@ -189,6 +189,12 @@ export interface MLXModelInfo {
 	owned_by: string;
 	max_input_tokens?: number;
 	max_output_tokens?: number;
+	// Engine /v1/models reports the native context window as
+	// `context_length` (observed 262144 for Qwen3.8-27B-4bit-mtp). Prior to
+	// 2026-11-27 only max_input_tokens was read, so every model fell back to
+	// the 32768 heuristic and ran with 1/8 of its real window — triggering
+	// constant compaction and core-tier tool reduction on agentic workloads.
+	context_length?: number;
 }
 
 // ─── Health Check ─────────────────────────────────────────────

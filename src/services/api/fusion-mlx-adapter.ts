@@ -1020,9 +1020,12 @@ export async function getMlxModelCapabilities(
 	];
 	const supportsVision = visionKeywords.some((k) => id.includes(k));
 
-	// Context length from API or heuristics
+	// Context length from API or heuristics. The engine reports the native
+	// window as context_length; max_input_tokens is the older field name.
 	const maxContextTokens =
-		modelInfo?.max_input_tokens || (isSmallModel ? 16384 : 32768);
+		modelInfo?.max_input_tokens ||
+		modelInfo?.context_length ||
+		(isSmallModel ? 16384 : 32768);
 	const maxOutputTokens =
 		modelInfo?.max_output_tokens || (isSmallModel ? 2048 : 4096);
 
