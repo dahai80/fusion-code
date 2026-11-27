@@ -7,7 +7,7 @@ doc_type: changelog
 title: { zh: "变更日志", en: "Changelog" }
 audience: engineer
 status: draft
-version: 0.8.43
+version: 0.8.44
 updated: 2026-11-28
 owner: "@dahai"
 source_of_truth:
@@ -19,6 +19,10 @@ source_of_truth:
 All notable changes to fusion-code are documented here.
 
 ## Unreleased
+
+## 0.8.44 - 2026-11-28
+
+- **Fix (#381)**: MLX context window read 1/8 of the real size — engine `/v1/models` reports the native window as `context_length` (e.g. 262144 for Qwen3.8-27B-4bit-mtp), but only `max_input_tokens` was read, so every model fell back to the 32768 heuristic and ran with 1/8 of its window (constant compaction + core-tier tool reduction). Also adds `Write` to the MLX core tool tier — an Edit-without-Write core set can modify but never create files, dead-ending tasks that need a new module. 2 new tests.
 
 ## 0.8.43 - 2026-11-28
 
