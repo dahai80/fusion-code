@@ -586,6 +586,11 @@ async function main(): Promise<void> {
 	const timeoutS = Number(
 		argValue("--timeout") ?? suite.protocol.timeoutSeconds,
 	);
+	// Resume cap experiment (issue #360 follow-up): resumed tasks may get a
+	// different cap than fresh tasks. Validation found the cap (not lost
+	// state) is the binding constraint, so BENCH_RESUME_TIMEOUT_S overrides
+	// the per-task cap for resumed tasks only, in seconds. Unset = same cap.
+	const resumeTimeoutS = Number(process.env.BENCH_RESUME_TIMEOUT_S) || timeoutS;
 	const outDir =
 		argValue("--out") ??
 		join(
@@ -596,7 +601,7 @@ async function main(): Promise<void> {
 	mkdirSync(outDir, { recursive: true });
 
 	logger.info(
-		`harness=${harness} tasks=${tasks.length} timeout=${timeoutS}s out=${outDir}`,
+		`harness=${harness} tasks=${tasks.length} timeout=${timeoutS}s resumeTimeout=${resumeTimeoutS}s out=${outDir}`,
 	);
 	const rows: any[] = [];
 	for (const task of tasks) {
@@ -636,11 +641,12 @@ async function main(): Promise<void> {
 				`${task.id} start (${task.difficulty}/${task.kind})${resuming ? " [resumed]" : ""}`,
 			);
 			const logPath = join(outDir, `${task.id}.log`);
+			const taskTimeoutS = resuming ? resumeTimeoutS : timeoutS;
 			let run = await runHarness(
 				harness,
 				prompt,
 				workdir,
-				timeoutS,
+				taskTimeoutS,
 				logPath,
 			);
 			// Engine-restart resilience (fusion-supervisor#153): supervisor
@@ -662,7 +668,7 @@ async function main(): Promise<void> {
 						harness,
 						prompt,
 						workdir,
-						timeoutS,
+						taskTimeoutS,
 						logPath,
 					);
 				} else {
