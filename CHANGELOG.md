@@ -7,7 +7,7 @@ doc_type: changelog
 title: { zh: "变更日志", en: "Changelog" }
 audience: engineer
 status: draft
-version: 0.8.39
+version: 0.8.40
 updated: 2026-11-28
 owner: "@dahai"
 source_of_truth:
@@ -19,6 +19,10 @@ source_of_truth:
 All notable changes to fusion-code are documented here.
 
 ## Unreleased
+
+## 0.8.40 - 2026-11-28
+
+- **Docs (#373)**: bench r6 addendum — resume cap experiment results. Of three 600s kills, 2 are genuinely cap-bound (T14 resolved at 898s under a raised 900s cap; T05 still hit it) and 1 (T17) fails on correctness, not time. 1.5x resumed cap converts exactly the boundary task. Resumed runs are input-heavy (128k-220k input tokens); engine throughput remains the highest-leverage lever.
 
 ## 0.8.39 - 2026-11-28
 
