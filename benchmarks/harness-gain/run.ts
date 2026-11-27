@@ -454,23 +454,22 @@ async function runHarness(
 			resolveTimeout(false);
 		});
 	});
-	// DRA mode: snapshot the final tree so the over-edit replay (dra.ts)
+	// Tar the given directory to outPath. Best-effort (issue #360): a failed
+// snapshot logs a warning and never fails the run.
+function snapshotWorkdir(cwd: string, outPath: string): void {
+	try {
+		Bun.spawnSync(["tar", "-cf", outPath, "-C", cwd, "."]);
+	} catch (e) {
+		console.log(`[WARN] workdir snapshot failed: ${e}`);
+	}
+}
+
+// DRA mode: snapshot the final tree so the over-edit replay (dra.ts)
 	// can attribute each edit unit. Runs for every task — resolved filtering
 	// happens in the replay. Best-effort: a failed snapshot never fails the run.
 	if (process.env.BENCH_DRA === "1") {
-		try {
-			const taskId = logPath.replace(/\.log$/, "").split("/").pop()!;
-			Bun.spawnSync([
-				"tar",
-				"-cf",
-				join(dirname(logPath), `${taskId}.final.tar`),
-				"-C",
-				cwd,
-				".",
-			]);
-		} catch (e) {
-			console.log(`[WARN] DRA snapshot failed: ${e}`);
-		}
+		const taskId = logPath.replace(/\.log$/, "").split("/").pop()!;
+		snapshotWorkdir(cwd, join(dirname(logPath), `${taskId}.final.tar`));
 	}
 	const tokens = transcriptPath
 		? sumTokensFromTranscript(transcriptPath)
@@ -544,23 +543,43 @@ async function main(): Promise<void> {
 	for (const task of tasks) {
 		const workdir = mkdtempSync(join(tmpdir(), `hg-${task.id}-`));
 		try {
-			await git(workdir, ["init", "-q"]);
-			buildFixtureRepo(task.id, workdir);
-			await git(workdir, ["add", "-A"]);
-			await git(workdir, [
-				"-c",
-				"user.email=bench@local",
-				"-c",
-				"user.name=bench",
-				"commit",
-				"-qm",
-				"fixture",
-			]);
-			logger.info(`${task.id} start (${task.difficulty}/${task.kind})`);
+			// Resume mode (issue #360): BENCH_RESUME_DIR points at a prior
+			// results dir; tasks with a timeout snapshot restart from that
+			// tree instead of the fresh fixture. Deterministic preamble, no
+			// LLM summarization.
+			const resumeTar = process.env.BENCH_RESUME_DIR
+				? join(process.env.BENCH_RESUME_DIR, `${task.id}.timeout.tar`)
+				: undefined;
+			const resuming = Boolean(resumeTar && existsSync(resumeTar));
+			if (resuming && resumeTar) {
+				Bun.spawnSync(["tar", "-xf", resumeTar, "-C", workdir]);
+				logger.info(
+					`${task.id} resuming from timeout snapshot ${resumeTar}`,
+				);
+			} else {
+				await git(workdir, ["init", "-q"]);
+				buildFixtureRepo(task.id, workdir);
+				await git(workdir, ["add", "-A"]);
+				await git(workdir, [
+					"-c",
+					"user.email=bench@local",
+					"-c",
+					"user.name=bench",
+					"commit",
+					"-qm",
+					"fixture",
+				]);
+			}
+			const prompt = resuming
+				? `${task.prompt}\n\nThis is a resumed run: a previous attempt timed out with its work already present in the working tree. Continue from the current state, verify what is done, and finish the task.`
+				: task.prompt;
+			logger.info(
+				`${task.id} start (${task.difficulty}/${task.kind})${resuming ? " [resumed]" : ""}`,
+			);
 			const logPath = join(outDir, `${task.id}.log`);
 			let run = await runHarness(
 				harness,
-				task.prompt,
+				prompt,
 				workdir,
 				timeoutS,
 				logPath,
@@ -582,7 +601,7 @@ async function main(): Promise<void> {
 				if (await waitForEngineHealthy(engineUrl, 180)) {
 					run = await runHarness(
 						harness,
-						task.prompt,
+						prompt,
 						workdir,
 						timeoutS,
 						logPath,
@@ -594,6 +613,12 @@ async function main(): Promise<void> {
 				}
 			}
 			const v = verify(task.verify, workdir);
+			// Timeout snapshot (issue #360): keep the tree at kill time so a
+			// later BENCH_RESUME_DIR run can restart from it instead of a
+			// fresh fixture. Skipped for resumed tasks (same snapshot again).
+			if (run.timedOut && !resuming) {
+				snapshotWorkdir(workdir, join(outDir, `${task.id}.timeout.tar`));
+			}
 			const row = {
 				id: task.id,
 				difficulty: task.difficulty,
@@ -601,6 +626,7 @@ async function main(): Promise<void> {
 				resolved: v.resolved,
 				verifyDetail: v.detail,
 				timedOut: run.timedOut,
+				resumed: resuming,
 				wallSeconds: Math.round(run.seconds * 10) / 10,
 				textEmissions: run.textEmissions,
 				silentRetries: run.silentRetries,
