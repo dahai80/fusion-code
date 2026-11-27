@@ -87,3 +87,22 @@ describe("#224 mlxPreflight budget clamp", () => {
 		expect(result.reducedTools).toBeDefined();
 	});
 });
+
+describe("reduced-tier toolset contents", () => {
+    it("core tier includes Write (edit-only cores dead-end file creation)", async () => {
+        const { MLX_CORE_TOOL_NAMES } = await import(
+            "../../src/utils/model/mlxPreflight.js"
+        );
+        expect(MLX_CORE_TOOL_NAMES.has("Write")).toBe(true);
+        expect(MLX_CORE_TOOL_NAMES.has("Edit")).toBe(true);
+    });
+
+    it("tier mapping unchanged: 32k=core, 64k=standard, 256k=extended", async () => {
+        const { getMlxToolTier } = await import(
+            "../../src/utils/model/mlxPreflight.js"
+        );
+        expect(getMlxToolTier(32768)).toBe("core");
+        expect(getMlxToolTier(65536)).toBe("standard");
+        expect(getMlxToolTier(262144)).toBe("extended");
+    });
+});

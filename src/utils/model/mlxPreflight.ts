@@ -13,7 +13,21 @@ import { isFusionMlxProvider } from "./providers.js";
 
 const MLX_QUERY_TOKEN_SAFETY_FACTOR = 0.7;
 
-const MLX_CORE_TOOL_NAMES = new Set(["Read", "Edit", "Bash", "Glob", "Grep"]);
+// Write belongs in the core tier: a reduced set with Edit but no Write can
+// modify existing files but never create them, which dead-ends tasks that
+// need a new module (observed 2026-11-27: bench task failed pytest
+// collection because the reduced set rejected the Write of a small
+// exceptions.py while its Edit import already referenced it). Write's
+// schema is small; the token cost is negligible against the capability lost.
+// Exported for regression tests: Write must stay in the core tier.
+export const MLX_CORE_TOOL_NAMES = new Set([
+	"Read",
+	"Write",
+	"Edit",
+	"Bash",
+	"Glob",
+	"Grep",
+]);
 
 const MLX_STANDARD_TOOL_NAMES = new Set([
 	...MLX_CORE_TOOL_NAMES,
