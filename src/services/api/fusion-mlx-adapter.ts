@@ -1041,6 +1041,13 @@ export async function getMlxModelCapabilities(
 	};
 
 	cachedCapabilities.set(modelId, caps);
+	// Populate the sync context-window cache (utils/context.ts). Without
+	// this, getContextWindowForModel always returned the 32768 fallback
+	// because nothing ever filled the cache — the engine-reported window
+	// (e.g. 262144) never reached the preflight/autocompact layers.
+	void import("../../utils/context.js").then(({ setMlxModelContextCache }) =>
+		setMlxModelContextCache(modelId, caps.maxContextTokens),
+	);
 	logForDebugging(
 		`[Fusion-MLX] Capabilities for ${modelId}: ${JSON.stringify(caps)}`,
 	);

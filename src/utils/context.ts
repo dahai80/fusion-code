@@ -18,6 +18,20 @@ export const MLX_MAX_OUTPUT_TOKENS = 8_192;
 const mlxModelContextCache: Map<string, number> = new Map();
 
 /**
+ * Populate the MLX context cache from the capabilities layer.
+ *
+ * The sync getContextWindowForModel reads this cache and has no way to
+ * await the engine; without a setter the cache stayed empty forever and
+ * every MLX model ran at the MLX_CONTEXT_WINDOW fallback (32768) even
+ * when the engine reported a 262144 native window. getMlxModelCapabilities
+ * calls this right after computing the real value, which happens before
+ * the first query in both REPL and headless (-p) sessions.
+ */
+export function setMlxModelContextCache(modelId: string, ctx: number): void {
+	mlxModelContextCache.set(modelId, ctx);
+}
+
+/**
  * Get the context window for a specific MLX model.
  * Uses API-reported max_input_tokens when available, falls back to MLX_CONTEXT_WINDOW.
  */
