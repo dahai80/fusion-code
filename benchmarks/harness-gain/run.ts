@@ -357,6 +357,17 @@ function countToolShapedTextFromTranscript(path: string): number {
 	}
 }
 
+// Tar the given directory to outPath. Best-effort (issue #360): a failed
+// snapshot logs a warning and never fails the run. Module-level: called
+// from both runHarness (DRA) and the main loop (timeout snapshots).
+function snapshotWorkdir(cwd: string, outPath: string): void {
+    try {
+        Bun.spawnSync(["tar", "-cf", outPath, "-C", cwd, "."]);
+    } catch (e) {
+        console.log(`[WARN] workdir snapshot failed: ${e}`);
+    }
+}
+
 // Sum input/output tokens from the session transcript's assistant usage
 // blocks. Best-effort: unreadable or missing usage fields count as zero.
 function sumTokensFromTranscript(path: string): {
@@ -498,17 +509,7 @@ async function runHarness(
 			resolveTimeout(false);
 		});
 	});
-	// Tar the given directory to outPath. Best-effort (issue #360): a failed
-// snapshot logs a warning and never fails the run.
-function snapshotWorkdir(cwd: string, outPath: string): void {
-	try {
-		Bun.spawnSync(["tar", "-cf", outPath, "-C", cwd, "."]);
-	} catch (e) {
-		console.log(`[WARN] workdir snapshot failed: ${e}`);
-	}
-}
-
-// DRA mode: snapshot the final tree so the over-edit replay (dra.ts)
+	// DRA mode: snapshot the final tree so the over-edit replay (dra.ts)
 	// can attribute each edit unit. Runs for every task — resolved filtering
 	// happens in the replay. Best-effort: a failed snapshot never fails the run.
 	if (process.env.BENCH_DRA === "1") {
