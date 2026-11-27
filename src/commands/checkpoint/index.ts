@@ -6,7 +6,7 @@ const checkpoint = {
 	description: "Create, verify, or list workflow checkpoints",
 	aliases: ["cp"],
 	supportsNonInteractive: true,
-	argumentHint: "[create|verify|list] [name]",
+	argumentHint: "[create|verify|list|restore] [name]",
 	load: () => import("./checkpoint.js"),
 } satisfies Command;
 
