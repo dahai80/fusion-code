@@ -1,8 +1,8 @@
 {
     "suite": "harness-gain-v1",
-    "version": "1.0.0",
+    "version": "1.1.0",
     "created": "2026-11-20",
-    "description": "Fixed 20-task coding suite for the local-model harness-gain metric. Same MLX checkpoint, three harnesses (fusion-code, opencode, goose). Every task is file-based and verified deterministically by an expected predicate, no LLM judging.",
+    "description": "Fixed 20-task coding suite for the local-model harness-gain metric. Same MLX checkpoint, three harnesses (fusion-code, opencode, goose). Every task is file-based and verified deterministically by an expected predicate, no LLM judging. Version 1.1.0 adds five held-out tasks (H01-H05, heldout=true) excluded from runs unless BENCH_HELDOUT=1 - they anchor honest milestone scoring and must never drive iteration decisions.",
     "model": {
         "provider": "fusion-mlx",
         "default": "mlx-community--Qwen3-8B-4bit",
@@ -12,30 +12,316 @@
         "isolation": "fresh temp git repo per task per harness",
         "timeoutSeconds": 600,
         "prompt": "single-turn user prompt from task.prompt; no extra hints",
-        "metrics": ["resolved (0/1)", "wallSeconds", "inputTokens", "outputTokens", "toolCalls", "turns"],
+        "metrics": [
+            "resolved (0/1)",
+            "wallSeconds",
+            "inputTokens",
+            "outputTokens",
+            "toolCalls",
+            "turns"
+        ],
         "tokenSource": "harness-reported usage; fusion-code also cross-checked from session jsonl"
     },
     "tasks": [
-        { "id": "T01", "difficulty": "easy", "kind": "edit", "prompt": "In config.ini the value of retries is 3. Change it to 5.", "verify": { "type": "file-contains", "path": "config.ini", "text": "retries=5" } },
-        { "id": "T02", "difficulty": "easy", "kind": "create", "prompt": "Create a file named hello.py containing a main function that prints the string 'hello harness'.", "verify": { "type": "file-contains", "path": "hello.py", "text": "hello harness" } },
-        { "id": "T03", "difficulty": "easy", "kind": "fix", "prompt": "app.py raises NameError when run. Fix it so running `python3 app.py` prints 42.", "setup": "app.py uses undefined variable ANSWER", "verify": { "type": "command-exit", "command": "python3 app.py", "stdout": "42" } },
-        { "id": "T04", "difficulty": "easy", "kind": "edit", "prompt": "Rename the function `calc` to `calculate` in utils.py and update the caller in main.py.", "verify": { "type": "regex-absent", "path": "utils.py", "pattern": "\\bcalc\\(" } },
-        { "id": "T05", "difficulty": "medium", "kind": "implement", "prompt": "Add a function `moving_average(xs, k)` to stats.py that returns the list of k-window moving averages, and export it in __init__.py.", "verify": { "type": "pytest", "test": "tests/test_stats.py::test_moving_average" } },
-        { "id": "T06", "difficulty": "medium", "kind": "debug", "prompt": "tests/test_cart.py::test_total fails. Fix cart.py so the test passes without modifying the test.", "verify": { "type": "pytest", "test": "tests/test_cart.py::test_total" } },
-        { "id": "T07", "difficulty": "medium", "kind": "implement", "prompt": "Implement a ` LRUCache` class in lru.py with get/put in O(1).", "verify": { "type": "pytest", "test": "tests/test_lru.py" } },
-        { "id": "T08", "difficulty": "medium", "kind": "refactor", "prompt": "Extract the duplicated validation logic in api.py (three near-identical if-blocks) into one helper function. Behavior must not change; tests must pass.", "verify": { "type": "count-max", "path": "api.py", "pattern": "return 'bad email'", "max": 1 } },
-        { "id": "T09", "difficulty": "medium", "kind": "edit", "prompt": "The JSON file data/settings.json has a syntax error. Fix it and set the value of \"verbose\" to true.", "verify": { "type": "json-field", "path": "data/settings.json", "field": "verbose", "value": true } },
-        { "id": "T10", "difficulty": "medium", "kind": "fix", "prompt": "build.sh fails with 'bad interpreter' because of CRLF line endings. Fix the file so `bash build.sh` runs.", "verify": { "type": "command-exit", "command": "bash build.sh", "exitCode": 0 } },
-        { "id": "T11", "difficulty": "medium", "kind": "search-edit", "prompt": "Somewhere in src/ the string TODO_FIX_ME appears. Replace it with the word DONE wherever it occurs.", "verify": { "type": "grep-absent", "pattern": "TODO_FIX_ME" } },
-        { "id": "T12", "difficulty": "medium", "kind": "implement", "prompt": "Add CLI flag --dry-run to tool.py: when set, commands are printed instead of executed.", "verify": { "type": "command-stdout", "command": "python3 tool.py --dry-run echo hi", "stdout": "echo hi" } },
-        { "id": "T13", "difficulty": "hard", "kind": "debug", "prompt": "The retry loop in client.py retries forever on timeouts. Make it stop after 3 attempts and raise RetryError.", "verify": { "type": "pytest", "test": "tests/test_client.py::test_retry_gives_up" } },
-        { "id": "T14", "difficulty": "hard", "kind": "implement", "prompt": "Implement merge sort in sort.py without using the built-in sort; include a doctest-runnable main.", "verify": { "type": "pytest", "test": "tests/test_sort.py" } },
-        { "id": "T15", "difficulty": "hard", "kind": "multifile", "prompt": "Add a new module src/plugins/greeter.py following the exact pattern of src/plugins/welcomer.py, and register it in src/plugins/__init__.py.", "verify": { "type": "pytest", "test": "tests/test_plugins.py::test_greeter_registered" } },
-        { "id": "T16", "difficulty": "hard", "kind": "debug", "prompt": "parser.py mis-handles quoted CSV fields containing commas. Fix it; tests/test_parser.py must pass.", "verify": { "type": "pytest", "test": "tests/test_parser.py" } },
-        { "id": "T17", "difficulty": "hard", "kind": "implement", "prompt": "Write a function `diff_lines(a, b)` in difftool.py returning unified-diff-style output for two lists of strings.", "verify": { "type": "pytest", "test": "tests/test_difftool.py" } },
-        { "id": "T18", "difficulty": "hard", "kind": "refactor", "prompt": "models.py has a 120-line monolithic function `load_all`. Split it into at least three cohesive functions with the same external behavior; all tests must pass.", "verify": { "type": "all", "specs": [ { "type": "pytest", "test": "tests/test_models.py" }, { "type": "count-min", "path": "models.py", "pattern": "^def ", "min": 3 } ] } },
-        { "id": "T19", "difficulty": "hard", "kind": "fix", "prompt": "server.py has a race: two concurrent POSTs to /counter can lose an increment. Fix it with a lock so tests/test_server.py::test_concurrent_increments passes.", "verify": { "type": "all", "specs": [ { "type": "pytest", "test": "tests/test_server.py::test_concurrent_increments" }, { "type": "count-min", "path": "server.py", "pattern": "Lock[(][)]", "min": 1 } ] } },
-        { "id": "T20", "difficulty": "hard", "kind": "multifile", "prompt": "Upgrade the repo from config format A to B: convert legacy_config.yaml to app_config.toml (same values), make loader.py read the toml, and delete the yaml. Tests must pass.", "verify": { "type": "pytest", "test": "tests/test_loader.py" } }
+        {
+            "id": "T01",
+            "difficulty": "easy",
+            "kind": "edit",
+            "prompt": "In config.ini the value of retries is 3. Change it to 5.",
+            "verify": {
+                "type": "file-contains",
+                "path": "config.ini",
+                "text": "retries=5"
+            }
+        },
+        {
+            "id": "T02",
+            "difficulty": "easy",
+            "kind": "create",
+            "prompt": "Create a file named hello.py containing a main function that prints the string 'hello harness'.",
+            "verify": {
+                "type": "file-contains",
+                "path": "hello.py",
+                "text": "hello harness"
+            }
+        },
+        {
+            "id": "T03",
+            "difficulty": "easy",
+            "kind": "fix",
+            "prompt": "app.py raises NameError when run. Fix it so running `python3 app.py` prints 42.",
+            "setup": "app.py uses undefined variable ANSWER",
+            "verify": {
+                "type": "command-exit",
+                "command": "python3 app.py",
+                "stdout": "42"
+            }
+        },
+        {
+            "id": "T04",
+            "difficulty": "easy",
+            "kind": "edit",
+            "prompt": "Rename the function `calc` to `calculate` in utils.py and update the caller in main.py.",
+            "verify": {
+                "type": "regex-absent",
+                "path": "utils.py",
+                "pattern": "\\bcalc\\("
+            }
+        },
+        {
+            "id": "T05",
+            "difficulty": "medium",
+            "kind": "implement",
+            "prompt": "Add a function `moving_average(xs, k)` to stats.py that returns the list of k-window moving averages, and export it in __init__.py.",
+            "verify": {
+                "type": "pytest",
+                "test": "tests/test_stats.py::test_moving_average"
+            }
+        },
+        {
+            "id": "T06",
+            "difficulty": "medium",
+            "kind": "debug",
+            "prompt": "tests/test_cart.py::test_total fails. Fix cart.py so the test passes without modifying the test.",
+            "verify": {
+                "type": "pytest",
+                "test": "tests/test_cart.py::test_total"
+            }
+        },
+        {
+            "id": "T07",
+            "difficulty": "medium",
+            "kind": "implement",
+            "prompt": "Implement a ` LRUCache` class in lru.py with get/put in O(1).",
+            "verify": {
+                "type": "pytest",
+                "test": "tests/test_lru.py"
+            }
+        },
+        {
+            "id": "T08",
+            "difficulty": "medium",
+            "kind": "refactor",
+            "prompt": "Extract the duplicated validation logic in api.py (three near-identical if-blocks) into one helper function. Behavior must not change; tests must pass.",
+            "verify": {
+                "type": "count-max",
+                "path": "api.py",
+                "pattern": "return 'bad email'",
+                "max": 1
+            }
+        },
+        {
+            "id": "T09",
+            "difficulty": "medium",
+            "kind": "edit",
+            "prompt": "The JSON file data/settings.json has a syntax error. Fix it and set the value of \"verbose\" to true.",
+            "verify": {
+                "type": "json-field",
+                "path": "data/settings.json",
+                "field": "verbose",
+                "value": true
+            }
+        },
+        {
+            "id": "T10",
+            "difficulty": "medium",
+            "kind": "fix",
+            "prompt": "build.sh fails with 'bad interpreter' because of CRLF line endings. Fix the file so `bash build.sh` runs.",
+            "verify": {
+                "type": "command-exit",
+                "command": "bash build.sh",
+                "exitCode": 0
+            }
+        },
+        {
+            "id": "T11",
+            "difficulty": "medium",
+            "kind": "search-edit",
+            "prompt": "Somewhere in src/ the string TODO_FIX_ME appears. Replace it with the word DONE wherever it occurs.",
+            "verify": {
+                "type": "grep-absent",
+                "pattern": "TODO_FIX_ME"
+            }
+        },
+        {
+            "id": "T12",
+            "difficulty": "medium",
+            "kind": "implement",
+            "prompt": "Add CLI flag --dry-run to tool.py: when set, commands are printed instead of executed.",
+            "verify": {
+                "type": "command-stdout",
+                "command": "python3 tool.py --dry-run echo hi",
+                "stdout": "echo hi"
+            }
+        },
+        {
+            "id": "T13",
+            "difficulty": "hard",
+            "kind": "debug",
+            "prompt": "The retry loop in client.py retries forever on timeouts. Make it stop after 3 attempts and raise RetryError.",
+            "verify": {
+                "type": "pytest",
+                "test": "tests/test_client.py::test_retry_gives_up"
+            }
+        },
+        {
+            "id": "T14",
+            "difficulty": "hard",
+            "kind": "implement",
+            "prompt": "Implement merge sort in sort.py without using the built-in sort; include a doctest-runnable main.",
+            "verify": {
+                "type": "pytest",
+                "test": "tests/test_sort.py"
+            }
+        },
+        {
+            "id": "T15",
+            "difficulty": "hard",
+            "kind": "multifile",
+            "prompt": "Add a new module src/plugins/greeter.py following the exact pattern of src/plugins/welcomer.py, and register it in src/plugins/__init__.py.",
+            "verify": {
+                "type": "pytest",
+                "test": "tests/test_plugins.py::test_greeter_registered"
+            }
+        },
+        {
+            "id": "T16",
+            "difficulty": "hard",
+            "kind": "debug",
+            "prompt": "parser.py mis-handles quoted CSV fields containing commas. Fix it; tests/test_parser.py must pass.",
+            "verify": {
+                "type": "pytest",
+                "test": "tests/test_parser.py"
+            }
+        },
+        {
+            "id": "T17",
+            "difficulty": "hard",
+            "kind": "implement",
+            "prompt": "Write a function `diff_lines(a, b)` in difftool.py returning unified-diff-style output for two lists of strings.",
+            "verify": {
+                "type": "pytest",
+                "test": "tests/test_difftool.py"
+            }
+        },
+        {
+            "id": "T18",
+            "difficulty": "hard",
+            "kind": "refactor",
+            "prompt": "models.py has a 120-line monolithic function `load_all`. Split it into at least three cohesive functions with the same external behavior; all tests must pass.",
+            "verify": {
+                "type": "all",
+                "specs": [
+                    {
+                        "type": "pytest",
+                        "test": "tests/test_models.py"
+                    },
+                    {
+                        "type": "count-min",
+                        "path": "models.py",
+                        "pattern": "^def ",
+                        "min": 3
+                    }
+                ]
+            }
+        },
+        {
+            "id": "T19",
+            "difficulty": "hard",
+            "kind": "fix",
+            "prompt": "server.py has a race: two concurrent POSTs to /counter can lose an increment. Fix it with a lock so tests/test_server.py::test_concurrent_increments passes.",
+            "verify": {
+                "type": "all",
+                "specs": [
+                    {
+                        "type": "pytest",
+                        "test": "tests/test_server.py::test_concurrent_increments"
+                    },
+                    {
+                        "type": "count-min",
+                        "path": "server.py",
+                        "pattern": "Lock[(][)]",
+                        "min": 1
+                    }
+                ]
+            }
+        },
+        {
+            "id": "T20",
+            "difficulty": "hard",
+            "kind": "multifile",
+            "prompt": "Upgrade the repo from config format A to B: convert legacy_config.yaml to app_config.toml (same values), make loader.py read the toml, and delete the yaml. Tests must pass.",
+            "verify": {
+                "type": "pytest",
+                "test": "tests/test_loader.py"
+            }
+        },
+        {
+            "id": "H01",
+            "difficulty": "easy",
+            "kind": "create",
+            "heldout": true,
+            "prompt": "Create a shell script named greet.sh in the repo root that prints exactly the word hello (nothing else) when run. Make it executable.",
+            "verify": {
+                "type": "command-stdout",
+                "command": "bash greet.sh",
+                "expect": "hello"
+            }
+        },
+        {
+            "id": "H02",
+            "difficulty": "medium",
+            "kind": "fix",
+            "heldout": true,
+            "prompt": "sum_to.py has a bug: sum_to(5) should be 15 but returns 10. Fix the function so the tests pass. Do not change the tests.",
+            "verify": {
+                "type": "pytest",
+                "path": "tests/test_sum.py"
+            }
+        },
+        {
+            "id": "H03",
+            "difficulty": "medium",
+            "kind": "search-edit",
+            "heldout": true,
+            "prompt": "The helper function fetch_data is defined in utils/http.py but several modules import it from utils.net (a leftover from a rename). Update every import site to import fetch_data from utils.http, and leave the definition in utils/http.py untouched.",
+            "verify": {
+                "type": "all",
+                "all": [
+                    {
+                        "type": "grep-absent",
+                        "path": ".",
+                        "pattern": "from utils.net import"
+                    },
+                    {
+                        "type": "pytest",
+                        "path": "tests/test_http.py"
+                    }
+                ]
+            }
+        },
+        {
+            "id": "H04",
+            "difficulty": "hard",
+            "kind": "debug",
+            "heldout": true,
+            "prompt": "parser.py swallows a ValueError inside parse_price and returns 0.0 for bad input, which hides real bugs; tests expect parse_price to raise ValueError for non-numeric input while still stripping a currency symbol and thousands separators for valid strings. Fix parse_price so all tests pass. Do not change the tests.",
+            "verify": {
+                "type": "pytest",
+                "path": "tests/test_parser.py"
+            }
+        },
+        {
+            "id": "H05",
+            "difficulty": "hard",
+            "kind": "implement",
+            "heldout": true,
+            "prompt": "Implement an LRUCache class in lru.py with methods get(key) and put(key, value), capacity fixed at construction, O(1) amortized operations, eviction of the least-recently-used entry on overflow, and get(key) returning -1 when the key is missing. Make all tests in tests/test_lru.py pass. Do not change the tests.",
+            "verify": {
+                "type": "pytest",
+                "path": "tests/test_lru.py"
+            }
+        }
     ],
     "fixtureRepo": {
         "description": "One fixture git repo per task kind is generated by the runner (setup files + tests); fixture contents are versioned next to this file so every harness sees identical inputs.",

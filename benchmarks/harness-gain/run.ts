@@ -195,6 +195,50 @@ const FIXTURES: Record<string, () => Fixture> = {
 				"from loader import load_config\n\ndef test_values():\n    cfg = load_config('app_config.toml')\n    assert cfg['app']['name'] == 'demo'\n    assert cfg['app']['debug'] is False\n    assert cfg['server']['port'] == 8080\n    assert cfg['server']['host'] == 'localhost'\n",
 		},
 	}),
+	// ── held-out tier (H01-H05, tasks.json heldout=true) ─────────
+	// Never iterated against; only run with BENCH_HELDOUT=1. Keep these
+	// fixtures frozen — editing one invalidates its held-out status.
+	H01: () => ({
+		files: {
+			"README.md": "# greet demo\n",
+		},
+	}),
+	H02: () => ({
+		files: {
+			"sum_to.py":
+				"def sum_to(n):\n    total = 0\n    for i in range(1, n):\n        total += i\n    return total\n",
+			"tests/test_sum.py":
+				"from sum_to import sum_to\n\ndef test_five():\n    assert sum_to(5) == 15\n\ndef test_one():\n    assert sum_to(1) == 1\n\ndef test_ten():\n    assert sum_to(10) == 55\n",
+		},
+	}),
+	H03: () => ({
+		files: {
+			"utils/__init__.py": "",
+			"utils/http.py":
+				"def fetch_data(url):\n    return {'url': url, 'ok': True}\n",
+			"utils/net.py":
+				"# legacy module kept for backwards compatibility\nfrom utils.http import fetch_data\n",
+			"client.py": "from utils.net import fetch_data\n\ndef run():\n    return fetch_data('http://example.com')\n",
+			"worker.py": "from utils.net import fetch_data\n\ndef work():\n    return fetch_data('http://worker.local')\n",
+			"tests/test_http.py":
+				"from utils.http import fetch_data\nfrom client import run\nfrom worker import work\n\ndef test_fetch():\n    assert fetch_data('u')['ok'] is True\n\ndef test_client():\n    assert run()['url'] == 'http://example.com'\n\ndef test_worker():\n    assert work()['url'] == 'http://worker.local'\n",
+		},
+	}),
+	H04: () => ({
+		files: {
+			"parser.py":
+				"def parse_price(text):\n    try:\n        cleaned = text.replace('$', '').replace(',', '').strip()\n        return float(cleaned)\n    except ValueError:\n        return 0.0\n",
+			"tests/test_parser.py":
+				"import pytest\nfrom parser import parse_price\n\ndef test_valid():\n    assert parse_price('$1,299.50') == 1299.50\n\ndef test_plain():\n    assert parse_price('42') == 42.0\n\ndef test_invalid_raises():\n    with pytest.raises(ValueError):\n        parse_price('not-a-price')\n\ndef test_empty_raises():\n    with pytest.raises(ValueError):\n        parse_price('')\n",
+		},
+	}),
+	H05: () => ({
+		files: {
+			"lru.py": "",
+			"tests/test_lru.py":
+				"from lru import LRUCache\n\ndef test_put_get():\n    c = LRUCache(2)\n    c.put('a', 1)\n    assert c.get('a') == 1\n\ndef test_eviction():\n    c = LRUCache(2)\n    c.put('a', 1)\n    c.put('b', 2)\n    c.put('c', 3)\n    assert c.get('a') == -1\n    assert c.get('b') == 2\n\ndef test_recency_update():\n    c = LRUCache(2)\n    c.put('a', 1)\n    c.put('b', 2)\n    c.get('a')\n    c.put('c', 3)\n    assert c.get('b') == -1\n    assert c.get('a') == 1\n\ndef test_overwrite():\n    c = LRUCache(1)\n    c.put('a', 1)\n    c.put('a', 9)\n    assert c.get('a') == 9\n",
+		},
+	}),
 };
 
 function buildFixtureRepo(taskId: string, dir: string): void {
@@ -524,7 +568,14 @@ async function main(): Promise<void> {
 	const suiteDir = import.meta.dir;
 	const suite = JSON.parse(readFileSync(join(suiteDir, "tasks.json"), "utf8"));
 	const only = argValue("--only")?.split(",") ?? null;
-	const tasks = suite.tasks.filter((t: any) => !only || only.includes(t.id));
+	// Held-out tasks (heldout=true) are excluded unless BENCH_HELDOUT=1 so
+	// regular iteration runs never tune against them; --only overrides.
+	const heldoutMode = process.env.BENCH_HELDOUT === "1";
+	const tasks = suite.tasks.filter(
+		(t: any) =>
+			(!only || only.includes(t.id)) &&
+			(!t.heldout || heldoutMode || only?.includes(t.id)),
+	);
 	const timeoutS = Number(
 		argValue("--timeout") ?? suite.protocol.timeoutSeconds,
 	);
@@ -606,6 +657,7 @@ async function main(): Promise<void> {
 				silentRetries: run.silentRetries,
 				tokensIn: run.tokensIn,
 				tokensOut: run.tokensOut,
+				heldout: Boolean(task.heldout),
 			};
 			rows.push(row);
 			logger.info(
@@ -619,6 +671,10 @@ async function main(): Promise<void> {
 		}
 	}
 	const resolvedCount = rows.filter((r) => r.resolved).length;
+	// Held-out breakdown (SWE-Bench Pro practice): reported separately so
+	// milestone claims can cite a score that never drove iteration.
+	const heldoutRows = rows.filter((r) => r.heldout);
+	const heldoutResolved = heldoutRows.filter((r) => r.resolved).length;
 	const emissionTotal = rows.reduce((s, r) => s + (r.textEmissions ?? 0), 0);
 	const silentRetryTotal = rows.reduce((s, r) => s + (r.silentRetries ?? 0), 0);
 	const tokensInTotal = rows.reduce((s, r) => s + (r.tokensIn ?? 0), 0);
@@ -633,6 +689,11 @@ async function main(): Promise<void> {
 		resolveRate: rows.length
 			? Math.round((resolvedCount / rows.length) * 1000) / 1000
 			: 0,
+		heldoutTotal: heldoutRows.length,
+		heldoutResolved,
+		heldoutRate: heldoutRows.length
+			? Math.round((heldoutResolved / heldoutRows.length) * 1000) / 1000
+			: null,
 		textEmissions: emissionTotal,
 		silentRetries: silentRetryTotal,
 		tokensIn: tokensInTotal,
