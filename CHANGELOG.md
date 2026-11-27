@@ -7,7 +7,7 @@ doc_type: changelog
 title: { zh: "变更日志", en: "Changelog" }
 audience: engineer
 status: draft
-version: 0.8.36
+version: 0.8.37
 updated: 2026-11-28
 owner: "@dahai"
 source_of_truth:
@@ -19,6 +19,10 @@ source_of_truth:
 All notable changes to fusion-code are documented here.
 
 ## Unreleased
+
+## 0.8.37 - 2026-11-28
+
+- **Fix (#364)**: hoist `snapshotWorkdir` to module scope — #361 accidentally nested it inside `runHarness` while the timeout-snapshot call site lives in the main loop, which would ReferenceError on the first timed-out task. Hoisted next to `sumTokensFromTranscript` with an updated comment; behavior unchanged.
 
 ## 0.8.36 - 2026-11-28
 
