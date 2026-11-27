@@ -7,7 +7,7 @@ doc_type: changelog
 title: { zh: "变更日志", en: "Changelog" }
 audience: engineer
 status: draft
-version: 0.8.37
+version: 0.8.38
 updated: 2026-11-28
 owner: "@dahai"
 source_of_truth:
@@ -19,6 +19,13 @@ source_of_truth:
 All notable changes to fusion-code are documented here.
 
 ## Unreleased
+
+## 0.8.38 - 2026-11-28
+
+- **Feat (#366)**: `/checkpoint` file-level snapshot + restore — `create` tars the worktree (minus `.git`/`node_modules`/checkpoint store) to `.claude/checkpoints/<name>.tar` so snapshots work outside git repos; `restore` overlays files from the snapshot, keeps post-checkpoint files on disk, and writes a `pre-restore` backup first so the rollback is itself undoable. Works on non-git worktrees (issue #360 follow-up). Recipe docs for hooks gates added (`docs/hooks-recipes.md`). 5 new tests.
+- **Fix (#369)**: bench runner recorded 0/0 tokens for timed-out tasks — the timeout timer resolved the promise before the `child.exited` handler finished transcript finalization; token accounting now awaits exit finalization (`await exitFinalized`).
+- **Fix (#367)**: held-out verify specs used wrong field names (`expect`/`path`/`all` instead of `stdout`/`test`/`specs`) and were never exercised — new test resolves each H01-H05 spec against a canned correct solution and asserts failure on the untouched fixture.
+- **Docs (#368)**: bench progress report #6 — cost anchoring (`tokensIn`/`tokensOut` per task) and honest scoring methodology.
 
 ## 0.8.37 - 2026-11-28
 
