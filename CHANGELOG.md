@@ -7,7 +7,7 @@ doc_type: changelog
 title: { zh: "变更日志", en: "Changelog" }
 audience: engineer
 status: draft
-version: 0.8.42
+version: 0.8.43
 updated: 2026-11-28
 owner: "@dahai"
 source_of_truth:
@@ -19,6 +19,10 @@ source_of_truth:
 All notable changes to fusion-code are documented here.
 
 ## Unreleased
+
+## 0.8.43 - 2026-11-28
+
+- **Fix (#379)**: status-less transport timeouts stay retryable — a stalled engine response surfaces as a plain `Error("The operation timed out.")` with no HTTP status, which fell through the `!error.status` gate and killed the session on the first stall (bench task died at retry attempt 1/11). `shouldRetry` now retries status-less errors shaped like timeouts; status-carrying errors keep existing rules (408/409/5xx). 4 regression tests.
 
 ## 0.8.42 - 2026-11-28
 
