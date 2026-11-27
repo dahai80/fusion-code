@@ -165,8 +165,15 @@ const FIXTURES: Record<string, () => Fixture> = {
 	T17: () => ({
 		files: {
 			"difftool.py": "",
+			// Assertions use the standard unified-diff prefix format
+			// ("-b", "+c" — sign directly attached, as emitted by
+			// difflib.unified_diff and diff -u). An earlier version
+			// asserted "- b" / "+ c" (sign + space), which no standard
+			// tool produces and contradicted the prompt's
+			// "unified-diff-style" wording; that fixture bug caused
+			// every T17 failure (2x 600s kill + 1x resume fail).
 			"tests/test_difftool.py":
-				"from difftool import diff_lines\n\ndef test_same():\n    assert diff_lines(['a'], ['a']) == []\n\ndef test_changed():\n    out = diff_lines(['a', 'b'], ['a', 'c'])\n    assert any('- b' in l for l in out)\n    assert any('+ c' in l for l in out)\n\ndef test_added():\n    out = diff_lines([], ['x'])\n    assert any('+ x' in l for l in out)\n",
+				"from difftool import diff_lines\n\ndef test_same():\n    assert diff_lines(['a'], ['a']) == []\n\ndef test_changed():\n    out = diff_lines(['a', 'b'], ['a', 'c'])\n    assert any('-b' in l for l in out)\n    assert any('+c' in l for l in out)\n\ndef test_added():\n    out = diff_lines([], ['x'])\n    assert any('+x' in l for l in out)\n",
 		},
 	}),
 	T18: () => ({
