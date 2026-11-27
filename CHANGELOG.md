@@ -7,7 +7,7 @@ doc_type: changelog
 title: { zh: "变更日志", en: "Changelog" }
 audience: engineer
 status: draft
-version: 0.8.35
+version: 0.8.36
 updated: 2026-11-28
 owner: "@dahai"
 source_of_truth:
@@ -19,6 +19,11 @@ source_of_truth:
 All notable changes to fusion-code are documented here.
 
 ## Unreleased
+
+## 0.8.36 - 2026-11-28
+
+- **Bench (#361, closes #360)**: timeout workdir snapshots + resume — when a task times out, the runner tars its tree to `<taskId>.timeout.tar` in the results dir; a later run with `BENCH_RESUME_DIR=<dir>` restarts timed-out tasks from that snapshot (fixture init skipped) with a deterministic resume preamble appended to the prompt ("continue from current state, verify what is done, finish"), no LLM summarization. Rows carry a `resumed` flag. Snapshot tar logic extracted to `snapshotWorkdir` (shared with DRA).
+- **Bench (#362)**: held-out task tier H01-H05 — five frozen fixtures/tasks marked `heldout: true` in `tasks.json`, excluded from regular runs and only executed with `BENCH_HELDOUT=1` (or via `--only`), so iteration never tunes against them.
 
 ## 0.8.35 - 2026-11-28
 
