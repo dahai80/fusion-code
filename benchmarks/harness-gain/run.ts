@@ -488,13 +488,19 @@ async function runHarness(
 	} else {
 		throw new Error(`unknown harness: ${harness}`);
 	}
+	// Transcript/log finalization runs in the child.exited handler; the
+	// timeout timer resolves the promise early (kill time), so the caller
+	// must await exitFinalized before reading transcriptPath/outText —
+	// else a timed-out task records 0/0 tokens (observed on T17 twice,
+	// 2026-11-27).
+	let exitFinalized: Promise<void> = Promise.resolve();
 	const timedOut = await new Promise<boolean>((resolveTimeout) => {
 		const child = Bun.spawn(cmd, { cwd, env, stdout: "pipe", stderr: "pipe" });
 		const timer = setTimeout(() => {
 			child.kill(9);
 			resolveTimeout(true);
 		}, timeoutS * 1000);
-		child.exited.then(async () => {
+		exitFinalized = child.exited.then(async () => {
 			clearTimeout(timer);
 			try {
 				const out = await new Response(child.stdout).text();
@@ -509,6 +515,7 @@ async function runHarness(
 			resolveTimeout(false);
 		});
 	});
+	await exitFinalized;
 	// DRA mode: snapshot the final tree so the over-edit replay (dra.ts)
 	// can attribute each edit unit. Runs for every task — resolved filtering
 	// happens in the replay. Best-effort: a failed snapshot never fails the run.
