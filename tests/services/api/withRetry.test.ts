@@ -33,3 +33,32 @@ describe("getMax529Retries", () => {
         expect(getMax529Retries()).toBe(3);
     });
 });
+
+describe("shouldRetry: status-less transport timeout", () => {
+    const { shouldRetry } = require("../../../src/services/api/withRetry");
+
+    it("retries a status-less timeout Error (observed session-killer)", () => {
+        const err = new Error("The operation timed out.");
+        expect(shouldRetry(err as any)).toBe(true);
+    });
+
+    it("retries a status-less LlmRequestError TIMEOUT via connection path", () => {
+        const { LlmRequestError } = require("../../../src/services/llm/errors");
+        const err = new LlmRequestError({
+            code: "TIMEOUT",
+            message: "The operation timed out.",
+            retryable: false,
+        });
+        expect(shouldRetry(err as any)).toBe(true);
+    });
+
+    it("does not retry a status-less non-timeout Error", () => {
+        expect(shouldRetry(new Error("something else") as any)).toBe(false);
+    });
+
+    it("keeps status-carrying 400 non-retryable even with timeout wording", () => {
+        const err = new Error("invalid timeout parameter");
+        (err as any).status = 400;
+        expect(shouldRetry(err as any)).toBe(false);
+    });
+});
