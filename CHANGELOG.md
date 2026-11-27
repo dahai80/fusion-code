@@ -7,8 +7,8 @@ doc_type: changelog
 title: { zh: "变更日志", en: "Changelog" }
 audience: engineer
 status: draft
-version: 0.8.34
-updated: 2026-11-26
+version: 0.8.35
+updated: 2026-11-28
 owner: "@dahai"
 source_of_truth:
   - CHANGELOG.md
@@ -19,6 +19,12 @@ source_of_truth:
 All notable changes to fusion-code are documented here.
 
 ## Unreleased
+
+## 0.8.35 - 2026-11-28
+
+- **Fix (#356)**: DRA replay resolved absolute transcript paths as ambiguous — transcripts record `file_path` under the runner's temp workdir (`hg-<taskId>-<rand>/…`) while snapshots are tarred with that workdir as root, so the `hg-*` segment is now stripped (`toSnapshotPath` in `verify.ts`) before joining; the replay previously went silently all-ambiguous. Deleting a missing file now reports `ambiguous` instead of pretending success. 3 new tests.
+- **Bench (#358)**: per-task token totals — the runner sums `input_tokens`/`output_tokens` from the session transcript's assistant usage blocks into each row (`tokensIn`/`tokensOut`) and the run summary, anchoring quality with cost (SWE-Lancer style). Best-effort: missing/unreadable usage counts as zero.
+- **Research docs (#357)**: progress report #5 — observability and attribution tooling: silent-stream retry counts, the 15/20 clean rerun, DRA's first needed/unneeded attribution closing the over-edit line, per-task token cost rows.
 
 ## 0.8.34 - 2026-11-26
 
