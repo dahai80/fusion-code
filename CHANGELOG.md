@@ -7,7 +7,7 @@ doc_type: changelog
 title: { zh: "变更日志", en: "Changelog" }
 audience: engineer
 status: draft
-version: 0.8.40
+version: 0.8.41
 updated: 2026-11-28
 owner: "@dahai"
 source_of_truth:
@@ -19,6 +19,10 @@ source_of_truth:
 All notable changes to fusion-code are documented here.
 
 ## Unreleased
+
+## 0.8.41 - 2026-11-28
+
+- **Fix (#375)**: T17 bench fixture asserted a unified-diff format no tool produces — test file checked `"- b"`/`"+ c"` (sign + space) while the prompt asked for unified-diff-style output, so a correct `difflib.unified_diff` solution failed verify (caused every T17 failure: 2× 600s kill + 1 resume fail). Fixture corrected to `"-b"`/`"+c"`; regression test resolves the canonical stdlib solution through `verify()` and asserts the empty fixture fails.
 
 ## 0.8.40 - 2026-11-28
 
