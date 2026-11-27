@@ -42,6 +42,7 @@ import {
 	isApiErrorLike,
 	isConnectionErrorLike,
 	isDeterministicError,
+	isTimeoutErrorLike,
 } from "../llm/errors.js";
 import { REPEATED_529_ERROR_MESSAGE } from "./errors.js";
 import { extractConnectionErrorDetails } from "./errorUtils.js";
@@ -717,7 +718,10 @@ function handleGcpCredentialError(_error: unknown): boolean {
 	return false;
 }
 
-function shouldRetry(error: ApiErrorLike): boolean {
+// Exported for regression tests: the status-less-timeout branch must
+// stay reachable (a plain "The operation timed out." Error with no HTTP
+// status has to remain retryable).
+export function shouldRetry(error: ApiErrorLike): boolean {
 	// Persistent mode: 429/529 always retryable, bypass subscriber gates and
 	// x-should-retry header.
 	if (isPersistentRetryEnabled() && isTransientCapacityError(error)) {
@@ -770,6 +774,18 @@ function shouldRetry(error: ApiErrorLike): boolean {
 	}
 
 	if (isConnectionErrorLike(error)) {
+		return true;
+	}
+
+	// Status-less transport timeouts (local fetch aborts surface as a plain
+	// Error "The operation timed out." with no HTTP status) must stay
+	// retryable: they are the most transient error class, and refusing them
+	// killed the agent session on the first stalled engine response
+	// (observed 2026-11-27: bench task died at retry attempt 1/11 because
+	// the status-less timeout fell through to the `!error.status` gate).
+	// Only fires when no HTTP status is present — status-carrying errors
+	// keep their existing rules below (408/409/5xx).
+	if (!error.status && isTimeoutErrorLike(error)) {
 		return true;
 	}
 
