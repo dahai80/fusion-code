@@ -7,7 +7,7 @@ doc_type: changelog
 title: { zh: "变更日志", en: "Changelog" }
 audience: engineer
 status: draft
-version: 0.8.44
+version: 0.8.45
 updated: 2026-11-28
 owner: "@dahai"
 source_of_truth:
@@ -19,6 +19,10 @@ source_of_truth:
 All notable changes to fusion-code are documented here.
 
 ## Unreleased
+
+## 0.8.45 - 2026-11-28
+
+- **Fix (#383)**: sync context cache never populated — #381 fixed the capabilities layer, but the sync `getContextWindowForModel` cache in `utils/context.ts` had no setter, so preflight/autocompact still saw the 32768 fallback. `getMlxModelCapabilities` now fills the cache right after computing the real window (before the first query in both REPL and headless).
 
 ## 0.8.44 - 2026-11-28
 
